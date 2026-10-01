@@ -234,6 +234,15 @@ internal static class DemoWords
         ("Spam", "Repeated unwanted messages or invites.", false),
     ];
 
+    /// <summary>Why a ban was lifted: the unban confirmation's own list (M4 §9).</summary>
+    public static readonly (string Label, string Description, bool NeedsWritten)[] UnbanReasons =
+    [
+        ("Mistake", "The ban should not have happened.", false),
+        ("Appeal upheld", "They asked to come back and the team agreed.", false),
+        ("Time served", "The ban was only ever meant to last this long.", false),
+        ("Other", "None of the above. Say why in the note.", true),
+    ];
+
     public static readonly string[] BanWriteUps =
     [
         "Followed two people between instances after both asked them to stop. Warned once in the yard, "

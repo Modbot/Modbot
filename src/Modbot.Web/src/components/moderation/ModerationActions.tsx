@@ -13,18 +13,22 @@ import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import {
   api,
   ApiError,
-  type BanReasonView,
+  type BanReasonList,
+  type CaseFileSummary,
   type CurrentUser,
   type EvidenceDelivery,
   type ModerationActionName,
   type ModerationActionResult,
 } from '@/lib/api'
+import { formatDay } from '@/lib/format'
 import {
   actionsFor,
   confirmTitle,
   discordText,
   noPermissionText,
+  noteRequired,
   reasonRequired,
+  reasonsFor,
   resultText,
   type PersonStanding,
 } from '@/lib/moderationActions'
@@ -178,7 +182,7 @@ function ConfirmAction({
   // therefore on the same action (M4 §4.3).
   const key = useMemo(() => crypto.randomUUID(), [])
 
-  const [reasons, setReasons] = useState<BanReasonView[] | null>(null)
+  const [list, setList] = useState<BanReasonList | null>(null)
   const [picked, setPicked] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
@@ -195,9 +199,12 @@ function ConfirmAction({
   useEffect(() => {
     api
       .banReasons()
-      .then((list) => setReasons(list.reasons.filter((r) => r.isActive)))
-      .catch(() => setReasons([]))
+      .then(setList)
+      .catch(() => setList({ reasons: [], canEdit: false, reasonAlwaysRequired: false }))
   }, [])
+
+  // Only the reasons marked for this action: an unban asks why the ban is lifted, not why it began.
+  const reasons = useMemo(() => (list ? reasonsFor(list.reasons, action) : null), [list, action])
 
   useEffect(() => {
     if (!writesCaseFile || !can(me, 'UploadEvidence')) return
@@ -210,11 +217,10 @@ function ConfirmAction({
   // A store that is not set up has nothing to offer; one that is refusing says why beside the button.
   const attachable = delivery?.configured ? delivery : null
 
-  // The server decides both of these too; the browser only knows whether a ban is in front of it.
-  // A group that requires a reason on kicks gets the server's 400 and the message with it.
-  const needsReason = reasonRequired(action, false)
-  const needsNote =
-    action === 'ban' && (reasons ?? []).some((r) => picked.includes(r.id) && r.needsWrittenReason)
+  // The server decides both of these too. The list says whether the group requires a reason
+  // beyond bans, so the button waits for one rather than sending and being refused.
+  const needsReason = reasonRequired(action, list?.reasonAlwaysRequired ?? false)
+  const needsNote = noteRequired(reasons ?? [], picked)
 
   const send = () => {
     setSending(true)
@@ -308,10 +314,29 @@ function ConfirmAction({
             */}
             <NotesBeforeActing userId={userId} />
 
+            {/* The write-up of the ban being lifted, so the reasons it was imposed for are in front
+                of whoever lifts it (M4 §9). Nothing is drawn when there is none. */}
+            {action === 'unban' && can(me, 'ViewProfile') && (
+              <CaseBeforeUnban
+                userId={userId}
+                onOpen={(caseId) => {
+                  onClose()
+                  openCase(caseId)
+                }}
+              />
+            )}
+
             {reasons === null ? (
               <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                 Loading the reasons…
               </p>
+            ) : action === 'unban' ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                  Why lift the ban?{needsReason ? ' (required)' : ''}
+                </span>
+                <ReasonButtons reasons={reasons} picked={picked} onChange={setPicked} />
+              </div>
             ) : (
               <ReasonButtons reasons={reasons} picked={picked} onChange={setPicked} />
             )}
@@ -359,8 +384,11 @@ function ConfirmAction({
               <p className={result.done ? '' : 'text-destructive'}>
                 {resultText(action, result)}
                 {writesCaseFile && result.done && result.caseId ? ' Case file written.' : ''}
+                {action === 'unban' && result.done && result.caseId ? ' Case file updated.' : ''}
               </p>
             )}
+
+            {result.caseFileError && <p className="text-destructive">{result.caseFileError}</p>}
 
             {discord && <p className={discord.failed ? 'text-destructive' : ''}>{discord.text}</p>}
 
@@ -369,6 +397,51 @@ function ConfirmAction({
         )}
       </div>
     </DialogContent>
+  )
+}
+
+/**
+ * The person's newest case file that stands, on the unban confirmation, while its ban has not been
+ * lifted already: the one this unban will mark as lifted. One row, opening the case file.
+ */
+function CaseBeforeUnban({ userId, onOpen }: { userId: string; onOpen: (caseId: string) => void }) {
+  const [file, setFile] = useState<CaseFileSummary | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .cases({ userId, limit: 1 })
+      .then((list) => {
+        const newest = list.cases[0]
+        if (!cancelled && newest && !newest.liftedAt) setFile(newest)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  if (!file) return null
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-sm border-(length:--hairline) px-2 py-1.5"
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      <span className="text-muted-foreground">Case file</span>
+      <button
+        type="button"
+        onClick={() => onOpen(file.id)}
+        className="rounded-sm text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {file.reasons.map((r) => r.label).join(', ') || 'No reason recorded'}
+      </button>
+      <span className="text-muted-foreground">
+        <span className="font-mono">{formatDay(file.bannedAt ?? file.createdAt)}</span> · {file.authorUsername}
+      </span>
+    </div>
   )
 }
 

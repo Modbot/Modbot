@@ -312,6 +312,54 @@ public class JoinRequestTests
         Assert.DoesNotContain(facts, e => e.Type == FactType.ActionJoinRequestApproved);
     }
 
+    /// <summary>
+    /// The group's "require a reason" switch reaches a rejection, never an approval: there is no
+    /// list of reasons to let somebody in, so requiring one would make approving impossible. And a
+    /// rejection takes only the reasons marked for it.
+    /// </summary>
+    [Fact]
+    public async Task WithReasonsRequired_ARejectionNeedsOne_AndAnApprovalStillNeedsNone()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Answering(Waiting(Asker), Waiting("usr_other"));
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            (await db.GetSettingsAsync(ct)).RequireModerationClassification = true;
+            await db.SaveChangesAsync(ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.AnswerJoinRequests, ct);
+        var list = await host.GetJsonAsync<Modbot.Api.Features.Cases.BanReasonListResponse>("/api/settings/ban-reasons", cookie, ct);
+        Assert.True(list.ReasonAlwaysRequired);
+
+        var spam = list.Reasons.Single(r => r.Label == "Spam");
+        var mistake = list.Reasons.Single(r => r.Label == "Mistake");
+
+        var approved = await ResultOf(
+            await host.PostJsonAsync("/api/requests/approve", Body("usr_other", "key-approve-required"), cookie, ct), ct);
+        Assert.True(approved.Done);
+
+        var bare = await host.PostJsonAsync("/api/requests/reject", Body(Asker, "key-reject-bare"), cookie, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, bare.StatusCode);
+
+        var wrongList = await host.PostJsonAsync(
+            "/api/requests/reject", new { userId = Asker, key = "key-reject-unban-reason", reasonIds = new[] { mistake.Id }, note = "" }, cookie, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, wrongList.StatusCode);
+
+        Assert.Single(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsRequestsAnswer);
+
+        var rejected = await ResultOf(
+            await host.PostJsonAsync(
+                "/api/requests/reject", new { userId = Asker, key = "key-reject-spam", reasonIds = new[] { spam.Id }, note = "" }, cookie, ct),
+            ct);
+        Assert.True(rejected.Done);
+    }
+
     [Fact]
     public async Task OneConfirmationAnswersOnce_HoweverManyTimesItIsPressed()
     {

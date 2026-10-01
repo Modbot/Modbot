@@ -49,6 +49,10 @@ The starting list is plain: Harassment, Hate speech, Crashing or malicious avata
 evasion, Spam, Other. **Only "Other" requires the written reason**, because a case file that says
 only "other" says nothing.
 
+> **Extended 2026-10-01 (M4 §9.1).** Each reason is ticked for the actions that offer it — ban,
+> kick, unban, reject — and the list gained four unban-only reasons (Mistake, Appeal upheld, Time
+> served, Other). A case file takes only reasons ticked for ban.
+
 ### 2.1 There is no delete
 
 A case file names its reasons by id. A reason that vanished would take that case file's
@@ -271,12 +275,14 @@ moderator's words. Rendering is where the safety belongs.
 
 ## 10. Open questions
 
-1. **Should a lifted ban's case file be marked somehow?** Today the unwritten list shows that a ban
-   was later lifted and still asks for the write-up, on the reasoning that a ban somebody reversed
-   is *more* worth an account, not less. Nobody has disagreed yet.
-2. **Should the reason list be per-action?** The same list serves bans today. Kicks and warns may
-   want a shorter one, or the same one with different defaults, and that is a decision for when
-   those actions exist.
+1. ~~**Should a lifted ban's case file be marked somehow?**~~ — **settled 2026-10-01** (M4 §9.1).
+   An unban made from Modbot marks the case file with when, by whom and why, beside what it says
+   about the ban, which is not changed. The unwritten list still asks for the write-up of a ban
+   that was later lifted, on the reasoning that a ban somebody reversed is *more* worth an account,
+   not less.
+2. ~~**Should the reason list be per-action?**~~ — **settled 2026-10-01** (M4 §9.1). One list,
+   each reason ticked for the actions that offer it (ban, kick, unban, reject). A case file takes
+   only reasons ticked for ban.
 3. **How long should the unwritten window be by default?** 30 days, matching the repeat-offender
    window. A group that bans rarely may want longer; the endpoint takes `days`, and nothing yet
    remembers a preference.

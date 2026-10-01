@@ -289,6 +289,82 @@ public sealed class CaseFileService
     }
 
     /// <summary>
+    /// The case file an unban of this person would lift: their newest one that stands, while its
+    /// ban has not been lifted already. Null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Only the newest. An older case file is about an older ban, and a ban that has come and gone
+    /// since was lifted by somebody, somewhere, already. For the same reason a case file whose ban
+    /// Modbot has seen lifted since it was imposed -- in VRChat, where the case file could not be
+    /// told -- is left alone: marking it now would put this unban's reasons on a lift that happened
+    /// before it.
+    /// </remarks>
+    public async Task<Guid?> CaseToLiftAsync(string userId, CancellationToken ct)
+    {
+        var newest = await _db.CaseFiles.AsNoTracking()
+            .Where(c => c.UserId == userId && c.WithdrawnAt == null)
+            .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+            .Select(c => new { c.Id, c.LiftedAt, c.BannedAt, c.CreatedAt })
+            .FirstOrDefaultAsync(ct);
+
+        if (newest is null || newest.LiftedAt is not null)
+            return null;
+
+        var since = newest.BannedAt ?? newest.CreatedAt;
+
+        var liftedSince = await _db.Events.AsNoTracking()
+            .AnyAsync(e => e.SubjectId == userId
+                && (e.Type == FactType.MemberUnbanned || e.Type == FactType.ActionUnban)
+                && e.OccurredAt > since, ct);
+
+        return liftedSince ? null : newest.Id;
+    }
+
+    /// <summary>
+    /// Marks a case file's ban as lifted by an unban made from Modbot. False when there was nothing
+    /// to mark: it was withdrawn, or lifted already, in the moment since it was looked up.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// No fact of its own. The unban's <c>modbot.action.unban</c> fact names this case file and
+    /// carries the reasons and the note, so it is the record of the lift and these columns can be
+    /// worked out again from it; a second entry in the audit log for one press of one button would
+    /// read as two things happening.
+    /// </para>
+    /// <para>
+    /// One statement, with no tracked entity left behind: the caller saves its own rows after this,
+    /// and a failed write here must not ride along into that save and fail it too.
+    /// </para>
+    /// </remarks>
+    public async Task<bool> LiftAsync(
+        Guid caseId,
+        long unbanFactId,
+        DateTimeOffset at,
+        IReadOnlyList<Guid> reasonIds,
+        string note,
+        Caller caller,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(reasonIds);
+        ArgumentNullException.ThrowIfNull(caller);
+
+        var reasons = Json(reasonIds);
+        var written = note.Length == 0 ? null : note;
+
+        var changed = await _db.CaseFiles
+            .Where(c => c.Id == caseId && c.LiftedAt == null && c.WithdrawnAt == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.LiftedAt, at)
+                .SetProperty(c => c.LiftedByUserId, caller.UserId)
+                .SetProperty(c => c.LiftedByUsername, caller.Username)
+                .SetProperty(c => c.UnbanFactId, unbanFactId)
+                .SetProperty(c => c.LiftReasonIds, reasons)
+                .SetProperty(c => c.LiftNote, written), ct);
+
+        return changed > 0;
+    }
+
+    /// <summary>
     /// The one permitted recapture: replaces the snapshot with the person's rows as they stand
     /// now, keeping the snapshot it replaces in the fact.
     /// </summary>
@@ -435,7 +511,8 @@ public sealed class CaseFileService
             canEdit && caller.Has(ModbotPermissions.UploadEvidence),
             canViewEvidence,
             now,
-            canViewEvidence && caller.Has(ModbotPermissions.DestroyEvidence));
+            canViewEvidence && caller.Has(ModbotPermissions.DestroyEvidence),
+            await LiftOfAsync(row, ct));
     }
 
     /// <summary>
@@ -617,7 +694,7 @@ public sealed class CaseFileService
     private static bool CanEdit(CaseFile row, Caller caller)
         => !row.IsWithdrawn && (caller.Has(ModbotPermissions.Ban) || row.AuthorUserId == caller.UserId);
 
-    /// <summary>The reasons must exist and be active; the written reason is required when any of them says so.</summary>
+    /// <summary>The reasons must exist, be active and be offered on a ban; the written reason is required when any of them says so.</summary>
     private async Task<(IReadOnlyList<BanReason> Reasons, string WrittenReason)> ValidateContentAsync(
         IReadOnlyList<Guid>? reasonIds, string? writtenReason, CancellationToken ct)
     {
@@ -633,6 +710,11 @@ public sealed class CaseFileService
 
         if (reasons.Any(r => !r!.IsActive))
             throw new CaseFileRefused(400, "One of those reasons has been switched off. Pick from the current list.");
+
+        // A case file is the write-up of a ban, so only reasons offered on a ban go on it. "Appeal
+        // upheld" says why a ban ended, not why it began.
+        if (reasons.FirstOrDefault(r => !r!.UsedFor.HasFlag(ReasonUse.Ban)) is { } other)
+            throw new CaseFileRefused(400, $"\"{other.Label}\" is not a reason for a ban.");
 
         var text = (writtenReason ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
@@ -781,7 +863,8 @@ public sealed class CaseFileService
             r.CreatedAt,
             r.UpdatedAt,
             r.IsWithdrawn,
-            counts.GetValueOrDefault(r.Id.ToString()))).ToList();
+            counts.GetValueOrDefault(r.Id.ToString()),
+            r.LiftedAt)).ToList();
     }
 
     /// <summary>The picked reasons for each case file, with their current labels; an id no longer on the list shows as its id.</summary>
@@ -789,13 +872,25 @@ public sealed class CaseFileService
     {
         var all = await _db.BanReasons.AsNoTracking().ToDictionaryAsync(r => r.Id, ct);
 
-        return rows.ToDictionary(
-            r => r.Id,
-            r => (IReadOnlyList<CaseFileReason>)ParseIds(r.ReasonIds)
-                .Select(id => all.TryGetValue(id, out var reason)
-                    ? new CaseFileReason(id, reason.Label, reason.IsActive)
-                    : new CaseFileReason(id, id.ToString(), false))
-                .ToList());
+        return rows.ToDictionary(r => r.Id, r => Named(all, r.ReasonIds));
+    }
+
+    private static IReadOnlyList<CaseFileReason> Named(IReadOnlyDictionary<Guid, BanReason> all, string json)
+        => ParseIds(json)
+            .Select(id => all.TryGetValue(id, out var reason)
+                ? new CaseFileReason(id, reason.Label, reason.IsActive)
+                : new CaseFileReason(id, id.ToString(), false))
+            .ToList();
+
+    /// <summary>The unban that lifted this case file's ban, with its reasons named; null while the ban stands.</summary>
+    private async Task<CaseLiftView?> LiftOfAsync(CaseFile row, CancellationToken ct)
+    {
+        if (row.LiftedAt is not { } at)
+            return null;
+
+        var all = await _db.BanReasons.AsNoTracking().ToDictionaryAsync(r => r.Id, ct);
+
+        return new CaseLiftView(at, row.LiftedByUsername, row.UnbanFactId, Named(all, row.LiftReasonIds), row.LiftNote);
     }
 
     /// <summary>

@@ -3,8 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
-/// One reason a moderator can pick when writing up a ban -- Harassment, Spam, Underage. The
-/// table is <c>ban_reason</c>.
+/// One reason a moderator can pick when writing up a ban -- Harassment, Spam, Underage -- or when
+/// kicking, unbanning or turning a join request down (<see cref="UsedFor"/>). The table is
+/// <c>ban_reason</c>; the name stayed when the list stopped being only about bans.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,9 +42,38 @@ public class BanReason
     /// </summary>
     public bool NeedsWrittenReason { get; set; }
 
+    /// <summary>
+    /// Which actions offer this reason. A ban reason and the reason a ban was lifted are different
+    /// questions: "Harassment" is no answer to "why lift the ban?", and "Appeal upheld" is no
+    /// reason to ban anybody (M4 §9, ban case files open question 2).
+    /// </summary>
+    public ReasonUse UsedFor { get; set; } = ReasonUse.Ban | ReasonUse.Kick | ReasonUse.Reject;
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// The actions a <see cref="BanReason"/> is offered on, as a bitfield. The column is
+/// <c>ban_reason.used_for</c>.
+/// </summary>
+/// <remarks>
+/// <strong>These values are stored. Never renumber one</strong>: a reason would quietly move to a
+/// different action, and nothing would say so.
+/// </remarks>
+[Flags]
+public enum ReasonUse
+{
+    None = 0,
+    Ban = 1 << 0,
+    Kick = 1 << 1,
+    Unban = 1 << 2,
+
+    /// <summary>Turning a join request down.</summary>
+    Reject = 1 << 3,
+
+    All = Ban | Kick | Unban | Reject,
 }
 
 /// <summary>
@@ -136,6 +166,34 @@ public class CaseFile
     public string? WithdrawnNote { get; set; }
 
     public bool IsWithdrawn => WithdrawnAt is not null;
+
+    // ── Lifted ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// When the ban this case file is about was lifted from Modbot. Null while it stands, and for a
+    /// ban lifted in VRChat itself, which Modbot cannot tie to a case file.
+    /// </summary>
+    /// <remarks>
+    /// The case file is not changed in any other way. A ban that was lifted still had its reasons,
+    /// and "this ban was overturned" belongs beside them, not in place of them (M4 §9).
+    /// </remarks>
+    public DateTimeOffset? LiftedAt { get; set; }
+
+    public Guid? LiftedByUserId { get; set; }
+
+    public string? LiftedByUsername { get; set; }
+
+    /// <summary>The <c>modbot.action.unban</c> fact that lifted it.</summary>
+    public long? UnbanFactId { get; set; }
+
+    /// <summary>The unban's <see cref="BanReason"/> ids, as a JSON array of strings: why it was lifted.</summary>
+    [Column(TypeName = "jsonb")]
+    public string LiftReasonIds { get; set; } = "[]";
+
+    /// <summary>The note the moderator wrote on the unban, if any.</summary>
+    public string? LiftNote { get; set; }
+
+    public bool IsLifted => LiftedAt is not null;
 
     // ── The person at the time ─────────────────────────────────────────────────────────────
 

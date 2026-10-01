@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { api, ApiError, type BanReasonView } from '@/lib/api'
+import { api, ApiError, type BanReasonView, type ReasonUseName } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Checkbox, Outcome } from './fields'
 import { SettingsCard } from './SettingsCard'
+
+const USES: { use: ReasonUseName; label: string }[] = [
+  { use: 'ban', label: 'Ban' },
+  { use: 'kick', label: 'Kick' },
+  { use: 'unban', label: 'Unban' },
+  { use: 'reject', label: 'Reject' },
+]
+
+/** What a new reason is ticked for until somebody changes it: what a ban reason always served. */
+const NEW_REASON_USES: ReasonUseName[] = ['ban', 'kick', 'reject']
 
 /**
  * Settings → Moderation → the reasons a moderator picks from when writing up a ban.
@@ -16,10 +26,16 @@ import { SettingsCard } from './SettingsCard'
  * vanished would take that case file's classification with it. Switching one off keeps it on the
  * case files that picked it and removes it from the buttons, which is the only safe version of
  * "get rid of this one".
+ *
+ * Each reason is ticked for the actions that offer it, because one list serves bans, kicks, unbans
+ * and rejected join requests, and the reasons a ban was lifted are not the reasons it was imposed
+ * (M4 §9). The switch above the list makes a reason required beyond bans; it existed on the server
+ * long before it had a control.
  */
 export function BanReasonsCard() {
   const [reasons, setReasons] = useState<BanReasonView[] | null>(null)
   const [canEdit, setCanEdit] = useState(false)
+  const [required, setRequired] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -27,6 +43,7 @@ export function BanReasonsCard() {
   const [label, setLabel] = useState('')
   const [description, setDescription] = useState('')
   const [needsWrittenReason, setNeedsWrittenReason] = useState(false)
+  const [usedFor, setUsedFor] = useState<ReasonUseName[]>(NEW_REASON_USES)
 
   const load = useCallback(
     () =>
@@ -35,6 +52,7 @@ export function BanReasonsCard() {
         .then((list) => {
           setReasons(list.reasons)
           setCanEdit(list.canEdit)
+          setRequired(list.reasonAlwaysRequired)
           setError(null)
         })
         .catch((e: unknown) =>
@@ -69,6 +87,17 @@ export function BanReasonsCard() {
     run(api.reorderBanReasons(next.map((r) => r.id)))
   }
 
+  const save = (reason: BanReasonView, change: Partial<Pick<BanReasonView, 'isActive' | 'usedFor'>>) =>
+    run(
+      api.updateBanReason(reason.id, {
+        label: reason.label,
+        description: reason.description,
+        needsWrittenReason: reason.needsWrittenReason,
+        isActive: change.isActive ?? reason.isActive,
+        usedFor: change.usedFor ?? reason.usedFor,
+      }),
+    )
+
   return (
     <SettingsCard
       span={12}
@@ -91,6 +120,16 @@ export function BanReasonsCard() {
         <EmptyRow>Loading…</EmptyRow>
       ) : (
         <>
+          <div className="border-b border-b-(length:--hairline) px-(--panel-pad) py-2">
+            <Checkbox
+              checked={required}
+              disabled={!canEdit || busy}
+              onChange={(on) => run(api.setReasonAlwaysRequired(on))}
+            >
+              Require a reason on kicks, unbans and rejected join requests
+            </Checkbox>
+          </div>
+
           <ul className="flex flex-col">
             {reasons.map((reason, index) => (
               <li
@@ -115,6 +154,14 @@ export function BanReasonsCard() {
                 >
                   {reason.description}
                 </span>
+
+                <UsedForBoxes
+                  name={reason.label}
+                  value={reason.usedFor}
+                  disabled={!canEdit || busy}
+                  onChange={(next) => save(reason, { usedFor: next })}
+                  className="max-sm:order-4 max-sm:basis-full"
+                />
 
                 {canEdit && (
                   <div className="flex items-center gap-1 max-sm:order-1 max-sm:ml-auto">
@@ -142,16 +189,7 @@ export function BanReasonsCard() {
                       size="xs"
                       variant="ghost"
                       disabled={busy}
-                      onClick={() =>
-                        run(
-                          api.updateBanReason(reason.id, {
-                            label: reason.label,
-                            description: reason.description,
-                            needsWrittenReason: reason.needsWrittenReason,
-                            isActive: !reason.isActive,
-                          }),
-                        )
-                      }
+                      onClick={() => save(reason, { isActive: !reason.isActive })}
                     >
                       {reason.isActive ? 'Switch off' : 'Switch on'}
                     </Button>
@@ -175,18 +213,20 @@ export function BanReasonsCard() {
               <Checkbox checked={needsWrittenReason} onChange={setNeedsWrittenReason}>
                 Needs a written reason
               </Checkbox>
+              <UsedForBoxes name="the new reason" value={usedFor} disabled={busy} onChange={setUsedFor} />
               <div>
                 <Button
                   size="sm"
-                  disabled={busy || label.trim().length === 0}
+                  disabled={busy || label.trim().length === 0 || usedFor.length === 0}
                   onClick={() => {
                     run(
                       api
-                        .createBanReason({ label: label.trim(), description: description.trim(), needsWrittenReason })
+                        .createBanReason({ label: label.trim(), description: description.trim(), needsWrittenReason, usedFor })
                         .then(() => {
                           setLabel('')
                           setDescription('')
                           setNeedsWrittenReason(false)
+                          setUsedFor(NEW_REASON_USES)
                           setAdding(false)
                         }),
                     )
@@ -200,5 +240,45 @@ export function BanReasonsCard() {
         </>
       )}
     </SettingsCard>
+  )
+}
+
+/**
+ * The four actions as tick boxes. The last ticked one cannot be unticked: a reason offered on
+ * nothing is a switched-off reason by another name, and switching off already exists.
+ */
+function UsedForBoxes({
+  name,
+  value,
+  disabled,
+  onChange,
+  className,
+}: {
+  name: string
+  value: ReasonUseName[]
+  disabled: boolean
+  onChange: (next: ReasonUseName[]) => void
+  className?: string
+}) {
+  return (
+    <div role="group" aria-label={`Actions that offer ${name}`} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1', className)}>
+      {USES.map(({ use, label }) => {
+        const on = value.includes(use)
+        const last = on && value.length === 1
+
+        return (
+          <Checkbox
+            key={use}
+            checked={on}
+            disabled={disabled || last}
+            onChange={(next) =>
+              onChange(next ? USES.map((u) => u.use).filter((u) => u === use || value.includes(u)) : value.filter((u) => u !== use))
+            }
+          >
+            {label}
+          </Checkbox>
+        )
+      })}
+    </div>
   )
 }

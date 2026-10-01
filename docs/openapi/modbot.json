@@ -13423,7 +13423,7 @@
           "Settings"
         ],
         "summary": "List ban reasons",
-        "description": "The reasons a moderator picks from when writing up a ban. In button order, switched-off ones included with isActive false. Seeded with a plain default set the first time anybody asks, so the first case file can be written without inventing a list first.",
+        "description": "The reasons a moderator picks from when banning, kicking, unbanning or turning a join request down; usedFor says which actions offer each one. In button order, switched-off ones included with isActive false. Seeded with a plain default set the first time anybody asks, so the first case file can be written without inventing a list first. reasonAlwaysRequired says whether the actions other than a ban need a reason too.",
         "operationId": "GetBanReasons",
         "responses": {
           "200": {
@@ -13483,6 +13483,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ban-reasons/required": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Require a reason on every action",
+        "description": "Whether a kick, an unban and turning a join request down each need a reason, as a ban always does (foundation 5.8.1: optional unless the group asks for it). Approving a join request never takes one.\n\nNeeds the `EditClassifications` permission.",
+        "operationId": "SetReasonAlwaysRequired",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReasonAlwaysRequiredRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReasonAlwaysRequiredRequest"
                 }
               }
             }
@@ -13566,7 +13612,7 @@
           "Settings"
         ],
         "summary": "Update ban reason",
-        "description": "Reword a reason, or switch it on or off. There is no delete: case files cite reasons by id, and one that pointed at a reason nobody can name any more would have lost its classification. Switch it off instead; it stays on the case files that picked it and leaves the buttons.\n\nNeeds the `EditClassifications` permission.",
+        "description": "Reword a reason, change which actions offer it, or switch it on or off. There is no delete: case files cite reasons by id, and one that pointed at a reason nobody can name any more would have lost its classification. Switch it off instead; it stays on the case files that picked it and leaves the buttons.\n\nNeeds the `EditClassifications` permission.",
         "operationId": "UpdateBanReason",
         "parameters": [
           {
@@ -20887,7 +20933,8 @@
       "BanReasonListResponse": {
         "required": [
           "reasons",
-          "canEdit"
+          "canEdit",
+          "reasonAlwaysRequired"
         ],
         "type": "object",
         "properties": {
@@ -20898,6 +20945,9 @@
             }
           },
           "canEdit": {
+            "type": "boolean"
+          },
+          "reasonAlwaysRequired": {
             "type": "boolean"
           }
         }
@@ -20941,6 +20991,15 @@
               "null",
               "boolean"
             ]
+          },
+          "usedFor": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -20951,7 +21010,8 @@
           "description",
           "sortOrder",
           "isActive",
-          "needsWrittenReason"
+          "needsWrittenReason",
+          "usedFor"
         ],
         "type": "object",
         "properties": {
@@ -20978,6 +21038,12 @@
           },
           "needsWrittenReason": {
             "type": "boolean"
+          },
+          "usedFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -22207,6 +22273,13 @@
               "string"
             ],
             "format": "int32"
+          },
+          "liftedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -22375,6 +22448,59 @@
           "canDestroyEvidence": {
             "type": "boolean",
             "default": false
+          },
+          "lifted": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CaseLiftView"
+              }
+            ]
+          }
+        }
+      },
+      "CaseLiftView": {
+        "required": [
+          "at",
+          "byUsername",
+          "unbanFactId",
+          "reasons",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "byUsername": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unbanFactId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseFileReason"
+            }
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -32406,6 +32532,12 @@
               "null",
               "string"
             ]
+          },
+          "caseFileError": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -34294,6 +34426,17 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "ReasonAlwaysRequiredRequest": {
+        "required": [
+          "required"
+        ],
+        "type": "object",
+        "properties": {
+          "required": {
+            "type": "boolean"
           }
         }
       },

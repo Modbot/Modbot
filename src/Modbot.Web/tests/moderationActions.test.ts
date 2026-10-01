@@ -1,6 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { actionsFor, confirmTitle, discordText, reasonRequired, resultText } from '../src/lib/moderationActions.ts'
+import {
+  actionsFor,
+  confirmTitle,
+  discordText,
+  noteRequired,
+  reasonRequired,
+  reasonsFor,
+  resultText,
+} from '../src/lib/moderationActions.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 
 /** A signed-in person holding exactly these permissions. */
@@ -59,6 +67,35 @@ test('a ban always needs a reason; the others only when the group asks', () => {
   assert.equal(reasonRequired('unban', false), false)
   assert.equal(reasonRequired('kick', true), true)
   assert.equal(reasonRequired('unban', true), true)
+  assert.equal(reasonRequired('reject', false), false)
+  assert.equal(reasonRequired('reject', true), true)
+})
+
+const reason = (id: string, usedFor: ('ban' | 'kick' | 'unban' | 'reject')[], extra: { isActive?: boolean; needsWrittenReason?: boolean } = {}) => ({
+  id,
+  usedFor,
+  isActive: extra.isActive ?? true,
+  needsWrittenReason: extra.needsWrittenReason ?? false,
+})
+
+test('each action is offered only the reasons marked for it', () => {
+  const list = [
+    reason('harassment', ['ban', 'kick', 'reject']),
+    reason('mistake', ['unban']),
+    reason('old', ['ban', 'unban'], { isActive: false }),
+  ]
+
+  assert.deepEqual(reasonsFor(list, 'ban').map((r) => r.id), ['harassment'])
+  assert.deepEqual(reasonsFor(list, 'unban').map((r) => r.id), ['mistake'], 'an unban is not asked why somebody was banned')
+  assert.deepEqual(reasonsFor(list, 'reject').map((r) => r.id), ['harassment'])
+})
+
+test('a picked reason that needs a note makes the note required, whatever the action', () => {
+  const list = [reason('mistake', ['unban']), reason('other', ['unban'], { needsWrittenReason: true })]
+
+  assert.equal(noteRequired(list, []), false)
+  assert.equal(noteRequired(list, ['mistake']), false)
+  assert.equal(noteRequired(list, ['mistake', 'other']), true)
 })
 
 test('the confirmation names the person and the action', () => {

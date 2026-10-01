@@ -14,7 +14,7 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import {
   api,
   ApiError,
-  type BanReasonView,
+  type BanReasonList,
   type CurrentUser,
   type JoinRequestAnswer,
   type JoinRequestList,
@@ -23,6 +23,7 @@ import {
   type ModerationActionResult,
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
+import { noteRequired, reasonRequired, reasonsFor } from '@/lib/moderationActions'
 import {
   confirmTitle,
   historyNote,
@@ -324,7 +325,7 @@ export function ConfirmAnswer({
 }) {
   const key = useMemo(() => crypto.randomUUID(), [])
 
-  const [reasons, setReasons] = useState<BanReasonView[] | null>(null)
+  const [list, setList] = useState<BanReasonList | null>(null)
   const [picked, setPicked] = useState<string[]>([])
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
@@ -336,9 +337,15 @@ export function ConfirmAnswer({
 
     api
       .banReasons()
-      .then((list) => setReasons(list.reasons.filter((r) => r.isActive)))
-      .catch(() => setReasons([]))
+      .then(setList)
+      .catch(() => setList({ reasons: [], canEdit: false, reasonAlwaysRequired: false }))
   }, [answer])
+
+  // The reasons marked for turning a request down, and whether the group requires one. Approving
+  // asks for neither.
+  const reasons = useMemo(() => (list ? reasonsFor(list.reasons, 'reject') : null), [list])
+  const needsReason = answer === 'reject' && reasonRequired('reject', list?.reasonAlwaysRequired ?? false)
+  const needsNote = answer === 'reject' && noteRequired(reasons ?? [], picked)
 
   const send = () => {
     setSending(true)
@@ -383,7 +390,7 @@ export function ConfirmAnswer({
               size="sm"
               variant={answer === 'approve' ? 'default' : 'destructive'}
               onClick={send}
-              disabled={sending}
+              disabled={sending || (needsReason && picked.length === 0) || (needsNote && note.trim().length === 0)}
             >
               {sending ? 'Sending…' : answer === 'approve' ? 'Approve' : 'Reject'}
             </Button>
@@ -413,7 +420,7 @@ export function ConfirmAnswer({
                   )}
 
                   <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-                    <span className="text-muted-foreground">Note (optional)</span>
+                    <span className="text-muted-foreground">Note {needsNote ? '(required)' : '(optional)'}</span>
                     <Textarea
                       rows={3}
                       value={note}

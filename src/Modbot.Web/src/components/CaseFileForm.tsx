@@ -4,6 +4,7 @@ import { Chip } from '@/components/ui/chip'
 import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError, type BanReasonView } from '@/lib/api'
 import { formatDay } from '@/lib/format'
+import { reasonsFor } from '@/lib/moderationActions'
 
 /**
  * The pieces of writing up a ban, shared by the form that creates a case file and the edit mode
@@ -112,7 +113,7 @@ export function WriteCaseFile({
   useEffect(() => {
     api
       .banReasons()
-      .then((list) => setReasons(list.reasons.filter((r) => r.isActive)))
+      .then((list) => setReasons(reasonsFor(list.reasons, 'ban')))
       .catch(() => setProblem('Could not load the reason list.'))
   }, [])
 

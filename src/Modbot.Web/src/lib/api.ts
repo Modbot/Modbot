@@ -1187,6 +1187,8 @@ export type ModerationActionResult = {
   discordDone: boolean
   /** What Discord said when it refused. The VRChat action stands whatever this says. */
   discordError: string | null
+  /** An unban went through but its case file could not be marked as lifted. */
+  caseFileError?: string | null
 }
 
 /**
@@ -3025,7 +3027,13 @@ export type EvidenceBackendInput = {
 
 // ── Ban case files (spec 5.8.3, ban case files design) ─────────────────────────────────────
 
-/** One reason on the list moderators pick from. `needsWrittenReason`: "Other" cannot stand alone. */
+/** The actions a reason can be offered on. `reject` is turning a join request down. */
+export type ReasonUseName = 'ban' | 'kick' | 'unban' | 'reject'
+
+/**
+ * One reason on the list moderators pick from. `needsWrittenReason`: "Other" cannot stand alone.
+ * `usedFor`: the actions that offer it, at least one.
+ */
 export type BanReasonView = {
   id: string
   label: string
@@ -3033,9 +3041,11 @@ export type BanReasonView = {
   sortOrder: number
   isActive: boolean
   needsWrittenReason: boolean
+  usedFor: ReasonUseName[]
 }
 
-export type BanReasonList = { reasons: BanReasonView[]; canEdit: boolean }
+/** `reasonAlwaysRequired`: a kick, an unban and a rejection each need a reason too, as a ban always does. */
+export type BanReasonList = { reasons: BanReasonView[]; canEdit: boolean; reasonAlwaysRequired: boolean }
 
 /** A reason as picked on a case file, with its current label. `isActive` false: since switched off. */
 export type CaseFileReason = { id: string; label: string; isActive: boolean }
@@ -3052,6 +3062,8 @@ export type CaseFileSummary = {
   updatedAt: string
   withdrawn: boolean
   evidenceCount: number
+  /** When the ban was lifted from Modbot, or null. */
+  liftedAt: string | null
 }
 
 export type CaseFileList = { cases: CaseFileSummary[]; total: number; offset: number; now: string }
@@ -3205,6 +3217,17 @@ export type CaseFileView = {
   now: string
   /** Whether Destroy shows on this case file's evidence. */
   canDestroyEvidence: boolean
+  /** The unban that lifted the ban, when it was lifted from Modbot. */
+  lifted: CaseLift | null
+}
+
+/** Why and when a case file's ban was lifted. `unbanFactId` opens the unban's audit log row. */
+export type CaseLift = {
+  at: string
+  byUsername: string | null
+  unbanFactId: number | null
+  reasons: CaseFileReason[]
+  note: string | null
 }
 
 export type CaseFileCreated = {
@@ -4942,13 +4965,17 @@ export const api = {
   /** The reason buttons. Anyone signed in may read; `canEdit` says whether this person may change them. */
   banReasons: () => request<BanReasonList>('/api/settings/ban-reasons'),
 
-  createBanReason: (body: { label: string; description: string; needsWrittenReason: boolean }) =>
+  createBanReason: (body: { label: string; description: string; needsWrittenReason: boolean; usedFor: ReasonUseName[] }) =>
     post<BanReasonView>('/api/settings/ban-reasons', body),
 
   updateBanReason: (
     id: string,
-    body: { label: string; description: string; needsWrittenReason: boolean; isActive: boolean },
+    body: { label: string; description: string; needsWrittenReason: boolean; isActive: boolean; usedFor: ReasonUseName[] },
   ) => put<BanReasonView>(`/api/settings/ban-reasons/${encodeURIComponent(id)}`, body),
+
+  /** Whether a kick, an unban and a rejection need a reason too. Needs EditClassifications. */
+  setReasonAlwaysRequired: (required: boolean) =>
+    put<{ required: boolean }>('/api/settings/ban-reasons/required', { required }),
 
   reorderBanReasons: (ids: string[]) => put<BanReasonList>('/api/settings/ban-reasons/order', { ids }),
 

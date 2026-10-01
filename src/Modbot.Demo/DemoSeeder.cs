@@ -618,6 +618,26 @@ public sealed class DemoSeeder
             _db.BanReasons.Add(reason);
         }
 
+        // Offered on an unban only, after the ban list, so a demo unban asks why the ban is lifted
+        // with the same buttons a real deployment has.
+        for (var index = 0; index < DemoWords.UnbanReasons.Length; index++)
+        {
+            var (label, description, needsWritten) = DemoWords.UnbanReasons[index];
+
+            _db.BanReasons.Add(new BanReason
+            {
+                Id = new Guid(DemoPlan.Fixed(3100 + index)),
+                Label = label,
+                Description = description,
+                SortOrder = DemoWords.BanReasons.Length + index,
+                IsActive = true,
+                NeedsWrittenReason = needsWritten,
+                UsedFor = ReasonUse.Unban,
+                CreatedAt = plan.Now.AddDays(-DemoPlan.DaysOfHistory),
+                UpdatedAt = plan.Now.AddDays(-DemoPlan.DaysOfHistory),
+            });
+        }
+
         await _db.SaveChangesAsync(ct);
 
         var staffAccounts = await _db.Users.AsNoTracking()

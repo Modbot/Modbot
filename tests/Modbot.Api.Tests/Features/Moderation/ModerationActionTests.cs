@@ -676,6 +676,218 @@ public class ModerationActionTests
         Assert.NotNull(done.CaseId);
     }
 
+    // ── Each action its own reasons (M4 §9) ────────────────────────────────────────────────
+
+    private static async Task<Guid> ReasonAsync(ReadSurfaceTestHost host, string cookie, string label, string usedFor, CancellationToken ct)
+    {
+        var list = await host.GetJsonAsync<BanReasonListResponse>("/api/settings/ban-reasons", cookie, ct);
+        return list.Reasons.Single(r => r.Label == label && r.UsedFor.Contains(usedFor)).Id;
+    }
+
+    private static async Task RequireReasonsAsync(ReadSurfaceTestHost host, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        (await db.GetSettingsAsync(ct)).RequireModerationClassification = true;
+        await db.SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task AnUnban_TakesOnlyTheReasonsForLiftingABan_AndABanOnlyThoseForBanning()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Accepting();
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, banned: true);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban | ModbotPermissions.Unban, ct);
+        var harassment = await ReasonAsync(host, cookie, "Harassment", "ban", ct);
+        var mistake = await ReasonAsync(host, cookie, "Mistake", "unban", ct);
+
+        // "Harassment" is no answer to why a ban was lifted, and "Mistake" no reason to ban.
+        var unbanWrong = await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-wrong", harassment), cookie, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, unbanWrong.StatusCode);
+        Assert.Contains("Harassment", await unbanWrong.Content.ReadAsStringAsync(ct));
+
+        var banWrong = await host.PostJsonAsync("/api/moderation/ban", Body("usr_other", "key-ban-wrong", mistake), cookie, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, banWrong.StatusCode);
+
+        Assert.DoesNotContain(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsModerate);
+
+        var done = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-right", mistake), cookie, ct), ct);
+        Assert.True(done.Done);
+
+        var fact = Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionUnban);
+        Assert.Equal("Mistake", JsonDocument.Parse(fact.Data ?? "{}").RootElement.GetProperty("reasonLabels")[0].GetString());
+    }
+
+    [Fact]
+    public async Task WithReasonsRequired_AKickAndAnUnbanNeedOne_AndWithoutIt_TheyDoNot()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Accepting();
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, banned: true);
+        await RequireReasonsAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Kick | ModbotPermissions.Unban, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-bare"), cookie, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.PostJsonAsync("/api/moderation/kick", Body(Person, "key-kick-bare"), cookie, ct)).StatusCode);
+        Assert.DoesNotContain(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsModerate);
+
+        var timeServed = await ReasonAsync(host, cookie, "Time served", "unban", ct);
+        var unbanned = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-reason", timeServed), cookie, ct), ct);
+        Assert.True(unbanned.Done);
+
+        var spam = await ReasonAsync(host, cookie, "Spam", "kick", ct);
+        var kicked = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/kick", Body(Person, "key-kick-reason", spam), cookie, ct), ct);
+        Assert.True(kicked.Done);
+    }
+
+    [Fact]
+    public async Task AnUnbanReasonThatNeedsANote_IsRefusedWithoutOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Accepting();
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, banned: true);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+        var other = await ReasonAsync(host, cookie, "Other", "unban", ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-other", other), cookie, ct)).StatusCode);
+        Assert.DoesNotContain(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsModerate);
+
+        var done = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-other-noted", other, "Banned the wrong twin."), cookie, ct), ct);
+        Assert.True(done.Done);
+    }
+
+    // ── The case file learns its ban was lifted ────────────────────────────────────────────
+
+    [Fact]
+    public async Task AnUnban_MarksTheBansCaseFileLifted_WithWhyAndWho_AndTheFactNamesIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban | ModbotPermissions.Unban | ModbotPermissions.ViewProfile, ct);
+        var harassment = await ReasonAsync(host, cookie, "Harassment", "ban", ct);
+        var appeal = await ReasonAsync(host, cookie, "Appeal upheld", "unban", ct);
+
+        var banned = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-lift-ban", harassment, "Shouted slurs."), cookie, ct), ct);
+        var caseId = Assert.IsType<Guid>(banned.CaseId);
+
+        host.Clock.UtcNow = Day.AddDays(3);
+
+        var lifted = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-lift-unban", appeal, "Apologised to both of them."), cookie, ct), ct);
+
+        Assert.True(lifted.Done);
+        Assert.Equal(caseId, lifted.CaseId);
+        Assert.Null(lifted.CaseFileError);
+
+        var unban = Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionUnban);
+        Assert.Equal(caseId.ToString(), JsonDocument.Parse(unban.Data ?? "{}").RootElement.GetProperty("caseId").GetString());
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var row = await db.CaseFiles.AsNoTracking().SingleAsync(c => c.Id == caseId, ct);
+
+            Assert.Equal(Day.AddDays(3), row.LiftedAt);
+            Assert.Equal(unban.Id, row.UnbanFactId);
+            Assert.Equal("Apologised to both of them.", row.LiftNote);
+            Assert.Contains(appeal.ToString(), row.LiftReasonIds);
+
+            // What it said about the ban itself is untouched.
+            Assert.Equal("Shouted slurs.", row.WrittenReason);
+            Assert.Contains(harassment.ToString(), row.ReasonIds);
+        }
+
+        var view = await host.GetJsonAsync<CaseFileView>($"/api/cases/{caseId}", cookie, ct);
+        Assert.NotNull(view.Lifted);
+        Assert.Equal(["Appeal upheld"], view.Lifted!.Reasons.Select(r => r.Label));
+        Assert.Equal(unban.Id, view.Lifted.UnbanFactId);
+        Assert.Equal(["Harassment"], view.Reasons.Select(r => r.Label));
+
+        // A second unban later does not lift it again, or move the day it was lifted.
+        host.Clock.UtcNow = Day.AddDays(5);
+        await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-lift-unban-again"), cookie, ct);
+
+        var again = await host.GetJsonAsync<CaseFileView>($"/api/cases/{caseId}", cookie, ct);
+        Assert.Equal(Day.AddDays(3), again.Lifted!.At);
+    }
+
+    [Fact]
+    public async Task AnUnbanWithNoCaseFile_MarksNothing_AndStillSucceeds()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, banned: true);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-no-case"), cookie, ct), ct);
+
+        Assert.True(result.Done);
+        Assert.Null(result.CaseId);
+        Assert.Null(result.CaseFileError);
+
+        var fact = Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionUnban);
+        Assert.False(JsonDocument.Parse(fact.Data ?? "{}").RootElement.TryGetProperty("caseId", out _));
+    }
+
+    /// <summary>
+    /// A ban lifted in VRChat, where Modbot could not tie it to the case file, and then a fresh ban
+    /// with no write-up: an unban from Modbot now is about the new ban, and must not put its
+    /// reasons on the old case file's lift, which happened earlier and for reasons nobody gave.
+    /// </summary>
+    [Fact]
+    public async Task ACaseFileWhoseBanWasAlreadyLiftedInVRChat_IsLeftAlone()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban | ModbotPermissions.Unban, ct);
+        var harassment = await ReasonAsync(host, cookie, "Harassment", "ban", ct);
+
+        var banned = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-old-ban", harassment), cookie, ct), ct);
+        var caseId = Assert.IsType<Guid>(banned.CaseId);
+
+        await host.WriteFactAsync(
+            Modbot.Api.Tests.Features.Analytics.AnalyticsFacts.AuditFact(FactType.MemberUnbanned, Person, Day.AddDays(1)), ct);
+
+        host.Clock.UtcNow = Day.AddDays(4);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-new-unban"), cookie, ct), ct);
+
+        Assert.True(result.Done);
+        Assert.Null(result.CaseId);
+
+        using var check = host.Services.CreateScope();
+        var after = await check.ServiceProvider.GetRequiredService<ModbotContext>().CaseFiles.AsNoTracking().SingleAsync(c => c.Id == caseId, ct);
+        Assert.Null(after.LiftedAt);
+    }
+
     // ── One confirmation, one action ───────────────────────────────────────────────────────
 
     [Fact]

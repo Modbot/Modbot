@@ -68,10 +68,11 @@ public sealed record JoinRequestList(
 /// first does anything, the same guarantee a kick or a ban has (M4 §4.3).
 /// </param>
 /// <param name="ReasonIds">
-/// Reasons from the group's list. Optional, unless the group has switched on requiring one — a
-/// rejection is not a ban, and most of them have nothing to say.
+/// Reasons from the group's list that are offered on a rejection (<c>usedFor</c> holds
+/// <c>reject</c>). Optional, unless the group has switched on requiring one — a rejection is not a
+/// ban, and most of them have nothing to say. An approval takes none.
 /// </param>
-/// <param name="Note">The moderator's own words. Always optional.</param>
+/// <param name="Note">The moderator's own words. Optional, unless a picked reason needs one.</param>
 public sealed record JoinRequestAnswerRequest(
     string UserId,
     string Key,

@@ -1052,10 +1052,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.UpdatedByUsername).HasMaxLength(64);
             entity.Property(e => e.WithdrawnByUsername).HasMaxLength(64);
             entity.Property(e => e.WithdrawnNote).HasMaxLength(2000);
+            entity.Property(e => e.LiftedByUsername).HasMaxLength(64);
 
             // A moderator's own words, at whatever length they need. Bounded by the API, not by
             // a varchar that would one day cut a real write-up short.
             entity.Property(e => e.WrittenReason).HasColumnType("text");
+            entity.Property(e => e.LiftNote).HasColumnType("text");
 
             // The subject pane and the ban list both ask "this person's case files, newest first".
             entity.HasIndex(e => new { e.UserId, e.CreatedAt })

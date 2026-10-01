@@ -19,10 +19,12 @@ import {
   ApiError,
   type BanReasonView,
   type CaseFileView,
+  type CaseLift,
   type ProfileAtBan,
 } from '@/lib/api'
 import { textList } from '@/lib/caseSnapshot'
 import { formatDay } from '@/lib/format'
+import { reasonsFor } from '@/lib/moderationActions'
 import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
@@ -182,6 +184,8 @@ export function CaseFile({
           )}
         </Section>
 
+        {view.lifted && <Lifted lift={view.lifted} />}
+
         <Section title="Evidence" flush>
           {view.canViewEvidence && view.evidence ? (
             <EvidenceGallery
@@ -269,6 +273,54 @@ function Header({
   )
 }
 
+/**
+ * Why the ban was lifted, beside why it was imposed (M4 §9): the unban's reasons, its note, who
+ * pressed it and when. Both stand; the lift is added to the case file, never written over it.
+ */
+function Lifted({ lift }: { lift: CaseLift }) {
+  return (
+    <Section
+      title="Why the ban was lifted"
+      action={
+        lift.unbanFactId !== null && (
+          <a
+            href={`/audit?fact=${lift.unbanFactId}`}
+            onClick={followLink(`/audit?fact=${lift.unbanFactId}`)}
+            className="text-link underline-offset-2 hover:underline"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            Audit log entry
+          </a>
+        )
+      }
+    >
+      {lift.reasons.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {lift.reasons.map((reason) => (
+            <Badge key={reason.id} variant={reason.isActive ? 'default' : 'secondary'} title={reason.isActive ? undefined : 'Switched off'}>
+              {reason.label}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {lift.note ? (
+        <p className="whitespace-pre-wrap">{lift.note}</p>
+      ) : (
+        lift.reasons.length === 0 && (
+          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            No reason was given.
+          </p>
+        )
+      )}
+
+      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        Lifted by {lift.byUsername ?? 'somebody'} on <span className="font-mono">{formatDay(lift.at)}</span>.
+      </p>
+    </Section>
+  )
+}
+
 function Section({
   title,
   action,
@@ -323,7 +375,7 @@ function EditReport({
   useEffect(() => {
     api
       .banReasons()
-      .then((list) => setReasons(list.reasons.filter((r) => r.isActive)))
+      .then((list) => setReasons(reasonsFor(list.reasons, 'ban')))
       .catch(() => setProblem('Could not load the reason list.'))
   }, [])
 

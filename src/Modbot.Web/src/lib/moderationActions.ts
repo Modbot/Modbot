@@ -1,7 +1,7 @@
 // Relative, with the extension, rather than the '@/' alias the rest of the app uses: the Node test
 // runner resolves neither the alias nor an extensionless path, and this is the piece of the feature
 // worth testing. `permissions.ts` imports nothing at run time, so it loads as it is too.
-import type { CurrentUser, ModerationActionName } from './api.ts'
+import type { BanReasonView, CurrentUser, ModerationActionName, ReasonUseName } from './api.ts'
 import { can } from './permissions.ts'
 
 /** What Modbot knows about where this person stands, as little as a table row may know. */
@@ -62,9 +62,25 @@ export function actionsFor(me: CurrentUser | null, person: PersonStanding): Offe
   return offered
 }
 
-/** Whether a reason has to be picked before this action can be sent. */
-export function reasonRequired(action: ModerationActionName, groupRequiresOne: boolean): boolean {
+/**
+ * Whether a reason has to be picked before this action can be sent: always for a ban, and for the
+ * others when the group has switched that on (`reasonAlwaysRequired`). The server decides too.
+ */
+export function reasonRequired(action: ReasonUseName, groupRequiresOne: boolean): boolean {
   return action === 'ban' || groupRequiresOne
+}
+
+/**
+ * The reasons to offer on one action: switched on, and marked for it. One list serves every
+ * action, and "Harassment" on an unban is the answer to a question nobody asked (M4 §9).
+ */
+export function reasonsFor<R extends Pick<BanReasonView, 'isActive' | 'usedFor'>>(reasons: R[], action: ReasonUseName): R[] {
+  return reasons.filter((r) => r.isActive && r.usedFor.includes(action))
+}
+
+/** Whether what has been picked needs the note filled in: "Other" says nothing on its own. */
+export function noteRequired(reasons: Pick<BanReasonView, 'id' | 'needsWrittenReason'>[], picked: string[]): boolean {
+  return reasons.some((r) => picked.includes(r.id) && r.needsWrittenReason)
 }
 
 /**

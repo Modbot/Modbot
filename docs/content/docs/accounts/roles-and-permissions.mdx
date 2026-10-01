@@ -299,8 +299,8 @@ In the web app this is the **Destroy** button on a file in the case file's **Evi
 Name: `Kick`
 
 Remove a person from the VRChat group, from the person's page or the **Members** list. Modbot asks
-you to confirm, offers the group's [ban reasons](/moderation/case-files) and a note, and records the
-kick only once VRChat has accepted it.
+you to confirm, offers the group's [reasons](/moderation/case-files#the-reason-list) ticked for
+**Kick** and a note, and records the kick only once VRChat has accepted it.
 
 ### Warn
 
@@ -324,7 +324,9 @@ Name: `Ban`
 Name: `Unban`
 
 Lift a person's ban, from the **Bans** page or the person's page. Separate from **Ban**, because
-letting somebody back in is a different decision from keeping them out.
+letting somebody back in is a different decision from keeping them out. The confirmation asks
+**Why lift the ban?** with the reasons ticked for **Unban**, and the ban's
+[case file](/moderation/case-files) records that it was lifted and why.
 
 ### Act on many at once
 
@@ -347,8 +349,9 @@ people closing their reviews.
 
 Name: `EditClassifications`
 
-- Adds, changes, reorders and turns off the ban reasons moderators pick from when they write a case
-  file.
+- Adds, changes, reorders and turns off the reasons moderators pick from when they write a case
+  file, kick, unban or reject a join request, and chooses which of those actions offer each one.
+- Switches **Require a reason on kicks, unbans and rejected join requests** on and off.
 
 In the web app the reason list is under **Settings**, **Moderation**, and that tab needs
 **Change settings**. A person with only this permission can use it through the

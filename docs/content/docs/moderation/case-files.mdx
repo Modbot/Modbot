@@ -91,6 +91,12 @@ whom, and the VRChat audit entry id when there is one. **Back to bans** returns 
 The reasons picked, then the written reason, then **Written by** and the date, and who last edited
 it. A reason that has since been switched off in Settings is still shown, greyed out.
 
+### Why the ban was lifted
+
+Shown once the ban has been lifted from Modbot: the reasons picked on the unban, its note,
+**Lifted by** and the date, and **Audit log entry**, which opens the unban in the audit log. See
+[Kicking, banning and unbanning](/moderation/members-and-bans#kicking-banning-and-unbanning).
+
 ### Evidence
 
 Screenshots and video, which can be attached, taken off and destroyed here. See
@@ -154,25 +160,39 @@ The author and anyone with **Ban** can withdraw a case file.
 
 ## The reason list
 
-The reasons come from **Settings**, **Moderation**, **Ban reasons**. A new Modbot starts with:
+The reasons come from **Settings**, **Moderation**, **Ban reasons**. One list serves every action,
+and each reason is ticked for the actions that offer it: **Ban**, **Kick**, **Unban** and
+**Reject** (turning a [join request](/moderation/join-requests) down). A case file only takes
+reasons ticked for **Ban**. A new Modbot starts with:
 
-| Reason | Needs a written reason |
-|---|---|
-| Harassment | No |
-| Hate speech | No |
-| Crashing or malicious avatars | No |
-| Underage | No |
-| Ban evasion | No |
-| Spam | No |
-| Other | Yes |
+| Reason | Offered on | Needs a written reason |
+|---|---|---|
+| Harassment | Ban, Kick, Reject | No |
+| Hate speech | Ban, Kick, Reject | No |
+| Crashing or malicious avatars | Ban, Kick, Reject | No |
+| Underage | Ban, Kick, Reject | No |
+| Ban evasion | Ban, Kick, Reject | No |
+| Spam | Ban, Kick, Reject | No |
+| Other | Ban, Kick, Reject | Yes |
+| Mistake | Unban | No |
+| Appeal upheld | Unban | No |
+| Time served | Unban | No |
+| Other | Unban | Yes |
+
+A Modbot that had a reason list before unbans had their own reasons keeps it: its reasons are
+ticked for **Ban**, **Kick** and **Reject**, and the four unban reasons are added to the end.
 
 With the **Edit the reason list** permission you can:
 
-- **Add a reason**: a name (up to 64 characters), a short description (up to 256 characters) and
-  whether it **Needs a written reason**. Press **Add it to the end**.
+- **Add a reason**: a name (up to 64 characters), a short description (up to 256 characters),
+  whether it **Needs a written reason**, and the actions it is offered on (at first **Ban**,
+  **Kick** and **Reject**). Press **Add it to the end**.
+- **Tick or untick** the actions a reason is offered on. Every reason keeps at least one.
 - **Move** a reason up or down with the arrows. The buttons on the case file form follow this order.
 - **Switch off** a reason, and **Switch on** again. A switched-off reason disappears from the
   buttons, but stays on every case file that already picked it.
+- Switch on **Require a reason on kicks, unbans and rejected join requests**. A ban always needs a
+  reason; with this on, so do the other three. Approving a join request never asks for one.
 
 There is no delete, on purpose. Case files name the reason they were given, so deleting one would
 quietly change what old case files say. Every change to the list is recorded in the audit log

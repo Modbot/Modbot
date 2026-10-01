@@ -12,8 +12,9 @@ namespace Modbot.Api.Features.Moderation;
 /// same one, and only the first does anything (M4 §4.3).
 /// </param>
 /// <param name="ReasonIds">
-/// Reasons from the group's list. Required on a ban; on a kick or an unban, required only when the
-/// group has switched that on in Settings.
+/// Reasons from the group's list, each one offered on this action (its <c>usedFor</c>). Required
+/// on a ban; on a kick, an unban or turning a join request down, required only when the group has
+/// switched that on in Settings. Approving a join request takes none.
 /// </param>
 /// <param name="Note">The moderator's own words. Always optional, never the primary input.</param>
 public sealed record ModerationActionRequest(
@@ -32,7 +33,10 @@ public sealed record ModerationActionRequest(
 /// here — a moderator must never read a success that has not happened (M4 §4.1).
 /// </param>
 /// <param name="At">When VRChat answered, on Modbot's clock.</param>
-/// <param name="CaseId">The case file a ban wrote or updated, when one was written.</param>
+/// <param name="CaseId">
+/// The case file a ban wrote or updated, when one was written; for an unban, the case file it
+/// marked as lifted.
+/// </param>
 /// <param name="Error">What VRChat said when it refused. Null when it worked.</param>
 /// <param name="RateLimited">
 /// True when VRChat rate limited this, or Modbot was already waiting one out. Nothing was retried
@@ -62,6 +66,10 @@ public sealed record ModerationActionRequest(
 /// What Discord said when it refused, or that the bot is not connected. The VRChat action stands
 /// whatever this says. Null when Discord did it, or when there was nothing to do there.
 /// </param>
+/// <param name="CaseFileError">
+/// Set when an unban went through but its case file could not be marked as lifted. The unban
+/// stands whatever this says. Only on the answer to the press that hit it.
+/// </param>
 public sealed record ModerationActionResult(
     string Action,
     string UserId,
@@ -74,4 +82,5 @@ public sealed record ModerationActionResult(
     bool Gone = false,
     MissingGroupPermission? MissingGroupPermission = null,
     bool DiscordDone = false,
-    string? DiscordError = null);
+    string? DiscordError = null,
+    string? CaseFileError = null);

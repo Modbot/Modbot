@@ -8,23 +8,40 @@ namespace Modbot.Api.Features.Cases;
 
 /// <param name="NeedsWrittenReason">Whether picking this one means the written reason cannot be empty.</param>
 /// <param name="IsActive">Switched-off reasons stay on old case files and leave the buttons.</param>
+/// <param name="UsedFor">
+/// The actions that offer it: any of <c>ban</c>, <c>kick</c>, <c>unban</c> and <c>reject</c>
+/// (turning a join request down). Always at least one.
+/// </param>
 public sealed record BanReasonView(
     Guid Id,
     string Label,
     string Description,
     int SortOrder,
     bool IsActive,
-    bool NeedsWrittenReason);
+    bool NeedsWrittenReason,
+    IReadOnlyList<string> UsedFor);
 
 /// <param name="CanEdit">Whether the caller may change the list (<c>EditClassifications</c>).</param>
-public sealed record BanReasonListResponse(IReadOnlyList<BanReasonView> Reasons, bool CanEdit);
+/// <param name="ReasonAlwaysRequired">
+/// Whether a kick, an unban and turning a join request down each need a reason too. A ban always
+/// does.
+/// </param>
+public sealed record BanReasonListResponse(IReadOnlyList<BanReasonView> Reasons, bool CanEdit, bool ReasonAlwaysRequired);
 
 /// <param name="IsActive">Ignored on create; a new reason is always active.</param>
+/// <param name="UsedFor">
+/// Any of <c>ban</c>, <c>kick</c>, <c>unban</c> and <c>reject</c>; at least one when given. Left
+/// out: <c>ban</c>, <c>kick</c> and <c>reject</c> on create, and unchanged on an update.
+/// </param>
 public sealed record BanReasonRequest(
     string Label,
     string? Description = null,
     bool NeedsWrittenReason = false,
-    bool? IsActive = null);
+    bool? IsActive = null,
+    IReadOnlyList<string>? UsedFor = null);
+
+/// <param name="Required">True: a kick, an unban and turning a join request down each need a reason, as a ban does.</param>
+public sealed record ReasonAlwaysRequiredRequest(bool Required);
 
 /// <param name="Ids">Every reason id, in the order the buttons should appear.</param>
 public sealed record BanReasonOrderRequest(IReadOnlyList<Guid> Ids);
@@ -47,7 +64,8 @@ public sealed record CaseFileSummary(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     bool Withdrawn,
-    int EvidenceCount);
+    int EvidenceCount,
+    DateTimeOffset? LiftedAt = null);
 
 public sealed record CaseFileListResponse(
     IReadOnlyList<CaseFileSummary> Cases,
@@ -103,6 +121,7 @@ public sealed record EvidenceDeliveryView(
 /// <param name="CanEdit">The author, or anyone holding <c>Ban</c>, while the case file is not withdrawn.</param>
 /// <param name="CanAttach"><see cref="CanEdit"/> and <c>UploadEvidence</c>. It is also what lets a file be taken off.</param>
 /// <param name="CanDestroyEvidence"><c>ViewEvidence</c> and <c>DestroyEvidence</c>, on any case file, withdrawn ones too.</param>
+/// <param name="Lifted">Set once the ban was lifted from Modbot: when, by whom, and why.</param>
 public sealed record CaseFileView(
     Guid Id,
     string UserId,
@@ -130,7 +149,21 @@ public sealed record CaseFileView(
     bool CanAttach,
     bool CanViewEvidence,
     DateTimeOffset Now,
-    bool CanDestroyEvidence = false);
+    bool CanDestroyEvidence = false,
+    CaseLiftView? Lifted = null);
+
+/// <summary>The unban that lifted a case file's ban.</summary>
+/// <param name="At">When, on Modbot's clock.</param>
+/// <param name="ByUsername">The moderator who pressed Unban, as their username was then.</param>
+/// <param name="UnbanFactId">The <c>modbot.action.unban</c> fact, for the link to its audit log row.</param>
+/// <param name="Reasons">Why it was lifted: the unban's reasons, with their current labels.</param>
+/// <param name="Note">The note written on the unban, or null.</param>
+public sealed record CaseLiftView(
+    DateTimeOffset At,
+    string? ByUsername,
+    long? UnbanFactId,
+    IReadOnlyList<CaseFileReason> Reasons,
+    string? Note);
 
 /// <param name="RefreshOutcome">What asking VRChat for a fresher profile came back with: Queued, Promoted, AlreadyQueued, FreshEnough or NotAvailable.</param>
 public sealed record CaseFileCreatedResponse(

@@ -306,8 +306,13 @@ public class CaseFilesTests
 
         var cookie = await host.SignedInAsync(ModbotPermissions.Ban | ModbotPermissions.ViewProfile, ct);
         var reasons = await ReasonsAsync(host, cookie, ct);
-        var other = reasons.Single(r => r.Label == "Other");
+        var other = reasons.Single(r => r.Label == "Other" && r.UsedFor.Contains("ban"));
         var spam = reasons.Single(r => r.Label == "Spam");
+        var appeal = reasons.Single(r => r.Label == "Appeal upheld");
+
+        // A case file is the write-up of a ban: the reasons for lifting one do not go on it.
+        var unbanReason = await host.PostJsonAsync("/api/cases", new { userId = Banned, reasonIds = new[] { appeal.Id }, writtenReason = "x" }, cookie, ct);
+        Assert.Equal(HttpStatusCode.BadRequest, unbanReason.StatusCode);
 
         var noReason = await host.PostJsonAsync("/api/cases", new { userId = Banned, reasonIds = Array.Empty<Guid>(), writtenReason = "x" }, cookie, ct);
         Assert.Equal(HttpStatusCode.BadRequest, noReason.StatusCode);

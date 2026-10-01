@@ -143,9 +143,15 @@ The other two only make sense in one direction:
 - **Unban** is offered only against a ban that stands. VRChat answers an unban of somebody who is
   not banned with **They are not banned.**
 
-Every action opens a confirmation naming the person, with the group's
-[ban reasons](/moderation/case-files#the-reason-list) and an optional note. A reason is required on
-a ban and optional on a kick or an unban.
+Every action opens a confirmation naming the person, with the reasons from the group's
+[reason list](/moderation/case-files#the-reason-list) that are ticked for that action, and a note.
+A ban offers the ban reasons; an unban asks **Why lift the ban?** and offers its own reasons,
+such as **Mistake**, **Appeal upheld** and **Time served**.
+
+A reason is required on a ban. On a kick or an unban it is optional, unless your group has switched
+on **Require a reason on kicks, unbans and rejected join requests** in **Settings**,
+**Moderation**. A reason that needs a written reason, such as **Other**, needs the note filled in
+whichever action it is picked on.
 
 Modbot asks VRChat, waits, and then tells you what happened. If VRChat refuses, the screen says what
 VRChat said and **nothing is recorded as done** — there is no case where Modbot shows a ban that did
@@ -155,6 +161,16 @@ adds them to the ban list; the next sweep confirms it.
 A ban also writes its [case file](/moderation/case-files) from the reason and the note, so the ban
 is written up at the moment it is made rather than chased up afterwards. Once the ban is done, the
 confirmation offers **Open the case file**, to add screenshots or more detail straight away.
+
+An unban shows the person's case file above the reasons, when there is one for the ban being
+lifted, so you can read why they were banned before you lift it. Once the unban is done, the case
+file records that the ban was lifted, when, by whom and why: its page gets a **Why the ban was
+lifted** section beside **Why they were banned**, and nothing it said about the ban changes. If
+the case file could not be updated, the confirmation says so; the unban stands either way.
+
+Only the person's newest case file is marked, and only while its ban stands. A ban that was
+lifted in VRChat itself is not tied to its case file, because VRChat does not say which ban an
+unban was for.
 
 When Discord is set up and the person has [linked their accounts](/discord/account-linking), a ban
 or unban made here is made on their Discord account too, without any

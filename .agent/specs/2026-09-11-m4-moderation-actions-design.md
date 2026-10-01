@@ -2,7 +2,8 @@
 
 - **Date:** 2026-09-11
 - **Status:** Kick, ban and unban implemented 2026-09-16 (§12); **note** implemented 2026-09-18
-  (notes design). Everything else still a draft.
+  (notes design); reversal reasons for unbans, per-action reasons and the "require a reason"
+  switch implemented 2026-10-01 (§9.1). Everything else still a draft.
 - **Covers:** M4 — performing moderation through Modbot, classification capture, ban reports, accountability tickets
 - **Depends on:** M0 (`IVRChatGate`, fact log, `INotifier`), M1 (member/ban cache), M2 (audit log), M3 (avatar facts, overlay)
 - **Implements:** foundation §5.8 capture side
@@ -219,6 +220,41 @@ history that matters later.
 A reversal carries its own optional classification (mistake, appeal upheld, sentence served) and
 inherits the same accountability treatment.
 
+### 9.1 What was built on 2026-10-01: unbans
+
+Unban is the one reversal Modbot performs, and it now has the classification this section asked
+for. Revoking a warning and withdrawing a ticket wait for warns and tickets.
+
+- **One reason list, each reason ticked for the actions that offer it.** `ban_reason.used_for` is
+  a bitfield of ban, kick, unban and reject (a join request turned down). The list was the ban list
+  serving every action, so an unban could be classified "Harassment" and nothing could say why a
+  ban was lifted. One list rather than one per action, because a group that wants "Spam" on bans,
+  kicks and rejections should write it once; the ticks are what make it per action.
+- **Existing reasons kept what they meant** — ban, kick, reject — and stopped being offered on an
+  unban. The migration adds Mistake, Appeal upheld, Time served and Other (needs a note) as
+  unban-only reasons to every list that already existed; a new deployment is seeded with them. The
+  implementation prompt suggested "any" for existing reasons so nothing breaks; that would have
+  left Harassment on the unban buttons, which is the thing being fixed, and nothing breaks without
+  it because the unban reasons arrive in the same migration.
+- **The server refuses a reason not ticked for the action**, and a case file takes only reasons
+  ticked for Ban. "Needs a written reason" now applies on every action, not only a ban.
+- **The "require a reason" switch has a control** (Settings → Moderation, beside the list, needing
+  `EditClassifications`), and the GET of the list says whether it is on so the confirmations wait
+  for a reason instead of sending and being refused. It reaches kick, unban and reject. It no
+  longer reaches **approve**, which it did before and which would have made approving impossible:
+  there is no list of reasons to let somebody in.
+- **The case file learns its ban was lifted.** An unban marks the person's newest standing case
+  file — when its ban has not been seen lifted since — with when, who, the unban's reasons and
+  note, and the unban fact. The `modbot.action.unban` fact names the case file (`caseId`), and is
+  the record of the lift: no `modbot.report.*` fact of its own, which would put two entries in the
+  audit log for one press. The marking runs after the unban is recorded, outside its transaction;
+  if it fails the unban stands and the answer says so (`caseFileError`).
+- **The unban confirmation shows the case file** being lifted, above **Why lift the ban?**, and the
+  case file page shows **Why the ban was lifted** beside **Why they were banned**.
+
+Still open: an unban made **in VRChat** is not tied to a case file, because the audit log does not
+say which ban it lifts; the overturn rate on Stats → Moderation reads these facts and is not built.
+
 ---
 
 ## 10. Non-goals
@@ -300,12 +336,12 @@ do it, the tables go back to the truth without anybody intervening.
 - **Never an empty id.** A ban with no person would reach VRChat as a request against the group.
 - **A ban always needs a reason** (§6); a kick or an unban needs one only where
   `RequireModerationClassification` is on. That setting is read but has no control in the web app
-  yet, so today it is off everywhere.
+  yet, so today it is off everywhere. *(It got its control on 2026-10-01: §9.1.)*
 
 ### 12.6 Still open
 
-Bulk actions, role changes, instance kick, reversal classifications (§9), and watch (§2). The
-reason list is the ban list for now, which is open question 2 of the ban case files design.
+Bulk actions, role changes, instance kick, and watch (§2). Reversal classifications for unbans
+and the per-action reason list came off this list on 2026-10-01 (§9.1).
 
 Warn came off this list on 2026-09-18 by being settled as not possible rather than by being built
 (§2). §8.1's context at the moment of action came off it in part: the confirmation now shows the

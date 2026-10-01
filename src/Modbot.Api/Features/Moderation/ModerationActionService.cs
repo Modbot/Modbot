@@ -215,7 +215,12 @@ public sealed class ModerationActionService
             return Describe(row, repeat: false, missing);
         }
 
-        var factId = await RecordSuccessAsync(row, action, userId, groupId, caller, reasons, note, now, ct);
+        // The case file an unban lifts, found before the fact is written so the fact can name it.
+        var lifting = action == Unban ? await CaseToLiftAsync(userId, ct) : null;
+
+        var factId = await RecordSuccessAsync(row, action, userId, groupId, caller, reasons, note, now, lifting, ct);
+
+        string? caseFileError = null;
 
         if (action == Ban)
         {
@@ -226,6 +231,12 @@ public sealed class ModerationActionService
             // saved.
             row.CaseFileId = await WriteCaseFileAsync(userId, factId, now, reasons, note, caller, ct);
         }
+        else if (lifting is { } caseId)
+        {
+            // The same rule for the lift: the unban happened in VRChat, and a case file that could
+            // not be marked is said beside the answer, never instead of it.
+            (row.CaseFileId, caseFileError) = await LiftCaseFileAsync(caseId, factId, now, reasons, note, caller, ct);
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -234,7 +245,51 @@ public sealed class ModerationActionService
         if (action is Ban or Unban)
             await AlsoInDiscordAsync(row, action, userId, caller, reasons, factId, ct);
 
-        return Describe(row, repeat: false, missing: null);
+        return Describe(row, repeat: false, missing: null, caseFileError);
+    }
+
+    /// <summary>
+    /// The case file an unban lifts, or null when there is none to mark. Never throws: the unban is
+    /// already done in VRChat by the time this is asked.
+    /// </summary>
+    private async Task<Guid?> CaseToLiftAsync(string userId, CancellationToken ct)
+    {
+        if (_cases is null)
+            return null;
+
+        try
+        {
+            return await _cases.CaseToLiftAsync(userId, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Log.Logger.ForContext(LogArea.Name, LogArea.Moderation)
+                .Warning(e, "Could not look for the case file an unban lifts");
+            return null;
+        }
+    }
+
+    /// <summary>Marks the case file lifted. Returns its id when it was, or the sentence to show when it was not.</summary>
+    private async Task<(Guid? CaseId, string? Error)> LiftCaseFileAsync(
+        Guid caseId,
+        long unbanFactId,
+        DateTimeOffset at,
+        IReadOnlyList<BanReason> reasons,
+        string note,
+        Caller caller,
+        CancellationToken ct)
+    {
+        try
+        {
+            var lifted = await _cases!.LiftAsync(caseId, unbanFactId, at, reasons.Select(r => r.Id).ToList(), note, caller, ct);
+            return (lifted ? caseId : null, null);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Log.Logger.ForContext(LogArea.Name, LogArea.Moderation)
+                .Warning(e, "Unbanned in VRChat, but could not mark case file {CaseId} as lifted", caseId);
+            return (null, "Unbanned, but the case file could not be marked as lifted.");
+        }
     }
 
     /// <summary>
@@ -409,6 +464,7 @@ public sealed class ModerationActionService
         IReadOnlyList<BanReason> reasons,
         string note,
         DateTimeOffset now,
+        Guid? liftsCaseId,
         CancellationToken ct)
     {
         var type = action switch
@@ -420,6 +476,13 @@ public sealed class ModerationActionService
             Reject => FactType.ActionJoinRequestRejected,
             _ => throw new ModerationRefused(400, $"'{action}' is not something Modbot can do."),
         };
+
+        var data = Payload(row, action, caller, reasons, note, groupId);
+
+        // An unban names the case file whose ban it lifts. The reasons above are then the answer to
+        // "why was this ban lifted", and the overturn rate is read from exactly this (M4 §9).
+        if (liftsCaseId is { } caseId)
+            data["caseId"] = caseId.ToString();
 
         await _partitions.EnsureForAsync(now, ct);
 
@@ -435,7 +498,7 @@ public sealed class ModerationActionService
                 ActorPlatform = FactPlatform.Modbot,
                 ActorId = caller.UserId.ToString(),
                 Source = FactSource.Manual,
-                Data = Payload(row, action, caller, reasons, note, groupId),
+                Data = data,
             },
             ct);
 
@@ -684,16 +747,26 @@ public sealed class ModerationActionService
     /// The reasons picked, checked against the group's list.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Friction scales with reversibility (foundation §5.8.1): a ban always needs a reason, because
-    /// a ban with no classification is the case nobody can answer later. A kick or an unban needs
-    /// one only where the group has asked for it. Switched-off reasons are refused on a new action
-    /// — they stay on old case files, they do not come back onto new ones.
+    /// a ban with no classification is the case nobody can answer later. A kick, an unban or a
+    /// rejected join request needs one only where the group has asked for it. Approving somebody
+    /// never does, and takes none: there is no list of reasons to let a person in.
+    /// </para>
+    /// <para>
+    /// Each reason is offered only on the actions it says (<see cref="ReasonUse"/>), and one sent
+    /// for any other action is refused: "Harassment" is no answer to why a ban was lifted, and a
+    /// client that sent it anyway would put exactly that classification in the record (M4 §9).
+    /// Switched-off reasons are refused on a new action — they stay on old case files, they do not
+    /// come back onto new ones.
+    /// </para>
     /// </remarks>
     private async Task<IReadOnlyList<BanReason>> ReasonsAsync(
         string action, IReadOnlyList<Guid>? picked, string note, bool groupRequiresOne, CancellationToken ct)
     {
         var ids = (picked ?? []).Distinct().ToList();
-        var required = action == Ban || groupRequiresOne;
+        var use = ReasonUses.ForAction(action);
+        var required = action == Ban || (groupRequiresOne && use != ReasonUse.None);
 
         if (ids.Count == 0)
         {
@@ -702,6 +775,9 @@ public sealed class ModerationActionService
 
             return [];
         }
+
+        if (use == ReasonUse.None)
+            throw new ModerationRefused(400, "This action takes no reasons.");
 
         var all = await BanReasonList.AllAsync(_db, _clock, ct);
         var byId = all.ToDictionary(r => r.Id);
@@ -715,18 +791,31 @@ public sealed class ModerationActionService
             if (!reason.IsActive)
                 throw new ModerationRefused(400, $"\"{reason.Label}\" has been switched off.");
 
+            if (!reason.UsedFor.HasFlag(use))
+                throw new ModerationRefused(400, $"\"{reason.Label}\" is not a reason for {Noun(action)}.");
+
             chosen.Add(reason);
         }
 
         // "Other" and its like say nothing on their own, so the list marks them as needing the
-        // written reason. Checked here rather than left to the case file, which is written after
-        // the ban has already happened -- a ban that went through and then quietly failed to be
-        // written up is the outcome the whole feature exists to avoid.
-        if (action == Ban && note.Length == 0 && chosen.FirstOrDefault(r => r.NeedsWrittenReason) is { } needs)
+        // written reason, on every action that offers them. Checked here, before anything is sent,
+        // rather than left to the case file, which is written after the ban has already happened
+        // -- a ban that went through and then quietly failed to be written up is the outcome the
+        // whole feature exists to avoid.
+        if (note.Length == 0 && chosen.FirstOrDefault(r => r.NeedsWrittenReason) is { } needs)
             throw new ModerationRefused(400, $"\"{needs.Label}\" needs a note saying what happened.");
 
         return chosen;
     }
+
+    private static string Noun(string action) => action switch
+    {
+        Kick => "a kick",
+        Ban => "a ban",
+        Unban => "an unban",
+        Reject => "turning a join request down",
+        _ => action,
+    };
 
     // ── Shaping ────────────────────────────────────────────────────────────────────────────
 
@@ -766,7 +855,8 @@ public sealed class ModerationActionService
         return $"{verb} by {username} from Modbot{why}";
     }
 
-    private static ModerationActionResult Describe(ModerationAction row, bool repeat, MissingGroupPermission? missing)
+    private static ModerationActionResult Describe(
+        ModerationAction row, bool repeat, MissingGroupPermission? missing, string? caseFileError = null)
     {
         // Three states, not two. A key claimed a moment ago whose call has not come back yet is
         // neither done nor refused, and telling a moderator "VRChat refused it" when it is still
@@ -792,6 +882,9 @@ public sealed class ModerationActionService
             Gone: row.Succeeded == false && row.StatusCode == 404,
             MissingGroupPermission: missing,
             DiscordDone: row.DiscordDone,
-            DiscordError: row.DiscordError);
+            DiscordError: row.DiscordError,
+            // Said once, to the press that hit it: there is no column for it, and a second press
+            // of the same key finds no case id on the row and says nothing about a case file.
+            CaseFileError: caseFileError);
     }
 }

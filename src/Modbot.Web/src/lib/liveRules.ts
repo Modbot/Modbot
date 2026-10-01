@@ -30,8 +30,8 @@ export const BAN_TYPES = ['vrchat.group.member.ban', 'vrchat.group.member.unban'
 /** Bans and unbans in the Discord server, for the Bans page's Discord list. */
 export const DISCORD_BAN_TYPES = ['discord.member.ban', 'discord.member.unban'] as const
 
-/** Case files and the reports in them. */
-export const CASE_TYPES = ['modbot.report.', 'modbot.evidence.'] as const
+/** Case files and the reports in them, and the unban that marks one lifted. */
+export const CASE_TYPES = ['modbot.report.', 'modbot.evidence.', 'modbot.action.unban'] as const
 
 /**
  * Evidence facts that change nothing on a case file: somebody looked at a file, or downloaded it.
