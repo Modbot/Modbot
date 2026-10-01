@@ -106,8 +106,8 @@ function TestSet({
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >
       {!data ? (
-        <EmptyRow className="px-0" tone={problem ? 'danger' : 'neutral'}>
-          {problem ?? 'Loading…'}
+        <EmptyRow className="px-0" tone={problem ? 'danger' : 'loading'} onTryAgain={load}>
+          {problem}
         </EmptyRow>
       ) : (
         <>

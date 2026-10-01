@@ -136,6 +136,7 @@ function ModelPicker({
   // Fetched at most once per picker: a deployment that has just chosen OpenRouter has nothing
   // stored yet, and a fetch that fails is not tried again.
   const fetchedOnce = useRef(false)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let open = true
@@ -181,7 +182,7 @@ function ModelPicker({
     return () => {
       open = false
     }
-  }, [feature, provider, endpoint, apiKey])
+  }, [feature, provider, endpoint, apiKey, tries])
 
   const openRouter = chosen === 'openrouter'
 
@@ -255,8 +256,15 @@ function ModelPicker({
       )}
 
       {loading ? (
-        <EmptyRow className="px-4" tone={problem ? 'danger' : 'neutral'}>
-          {problem ?? 'Loading…'}
+        <EmptyRow
+          className="px-4"
+          tone={problem ? 'danger' : 'loading'}
+          onTryAgain={() => {
+            setProblem(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {problem}
         </EmptyRow>
       ) : openRouter ? (
         <>

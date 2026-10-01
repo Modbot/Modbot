@@ -47,6 +47,7 @@ export function MemberCountChart() {
   const [data, setData] = useState<GroupMemberCountSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lines, setLines] = useState<MemberCountLines>(recallLines)
+  const [tries, setTries] = useState(0)
 
   const show = (line: keyof MemberCountLines, on: boolean) => {
     const next = switchLine(lines, line, on)
@@ -77,7 +78,7 @@ export function MemberCountChart() {
     return () => {
       cancelled = true
     }
-  }, [range])
+  }, [range, tries])
 
   const stripeId = useStripeId()
   const chart = data ? memberCountRows(data) : { rows: [], bands: [], readings: 0 }
@@ -102,9 +103,18 @@ export function MemberCountChart() {
       }
     >
       {error ? (
-        <Nothing height={chartHeight.tall} tone="danger">{error}</Nothing>
+        <Nothing
+          height={chartHeight.tall}
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </Nothing>
       ) : !data ? (
-        <Nothing height={chartHeight.tall}>Loading…</Nothing>
+        <Nothing height={chartHeight.tall} tone="loading" />
       ) : (
         <div className="flex flex-col gap-2">
           {rows.length > 0 && (

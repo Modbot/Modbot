@@ -47,9 +47,9 @@ export function VRChatProxySection() {
   return (
     <SettingsSection id="proxy" title="VRChat proxy">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           <ProxyCard settings={data} onSaved={setData} />

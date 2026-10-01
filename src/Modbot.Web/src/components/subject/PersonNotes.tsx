@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { dateTime } from '@/components/charts'
+import { TryAgainButton } from '@/components/PanelGrid'
 import { Block, Empty, Note as Muted } from '@/components/subject/shared'
 import { api, ApiError, type Note, type NoteList } from '@/lib/api'
 import { MAX_NOTE_LENGTH, noteAuthor, noteProblem, notesBeforeActing } from '@/lib/notes'
@@ -48,7 +49,7 @@ export function PersonNotes({
     () => api.notes({ userId: subjectId, platform, limit: 100 }),
     [subjectId, platform],
   )
-  const { data, error } = useLoad<NoteList>(load, version)
+  const { data, error, reload } = useLoad<NoteList>(load, version)
 
   const again = () => {
     setVersion((n) => n + 1)
@@ -57,8 +58,8 @@ export function PersonNotes({
 
   return (
     <div className="flex min-h-0 flex-col">
-      {error && <Empty tone="danger">{error}</Empty>}
-      {!error && !data && <Empty>Loading…</Empty>}
+      {error && <Empty tone="danger" onTryAgain={reload}>{error}</Empty>}
+      {!error && !data && <Empty tone="loading" />}
 
       {data?.canWrite && <WriteNote subjectId={subjectId} platform={platform} onWritten={again} />}
 
@@ -199,12 +200,13 @@ export function NotesBeforeActing({ userId }: { userId: string }) {
       }),
     [userId],
   )
-  const { data, error } = useLoad<NoteList | null>(userId.length > 0 ? load : null)
+  const { data, error, reload } = useLoad<NoteList | null>(userId.length > 0 ? load : null)
 
   if (error) {
     return (
-      <p className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
+      <p className="flex flex-wrap items-center gap-2 text-warn" style={{ fontSize: 'var(--text-small)' }}>
         Could not read the notes
+        <TryAgainButton onClick={reload} />
       </p>
     )
   }

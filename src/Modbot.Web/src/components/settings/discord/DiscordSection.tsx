@@ -44,7 +44,7 @@ export function DiscordSection({
           <SyncCard />
         </>
       ) : (
-        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>
       )}
     </SettingsSection>
   )

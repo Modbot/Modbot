@@ -173,7 +173,7 @@ function GroupBans({
   const demo = useDemo()
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty>Loading…</Empty>
+  if (!list) return <Empty tone="loading" />
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showCases = can(me, 'ViewProfile')
@@ -408,7 +408,7 @@ function DiscordBans() {
   }, [search, status, page, live])
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty>Loading…</Empty>
+  if (!list) return <Empty tone="loading" />
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const { coverage } = list

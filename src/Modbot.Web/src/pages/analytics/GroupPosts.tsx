@@ -138,9 +138,9 @@ export function GroupPosts({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
           </CardHeader>
 
           {error ? (
-            <EmptyRow tone="danger">{error}</EmptyRow>
+            <EmptyRow tone="danger" onTryAgain={refresh}>{error}</EmptyRow>
           ) : !list ? (
-            <EmptyRow>Loading…</EmptyRow>
+            <EmptyRow tone="loading" />
           ) : list.posts.length === 0 ? (
             <EmptyRow>No posts</EmptyRow>
           ) : (

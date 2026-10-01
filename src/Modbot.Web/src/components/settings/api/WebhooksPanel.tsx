@@ -60,9 +60,9 @@ export function WebhooksPanel() {
   return (
     <SettingsSection id="api-webhooks" title="Webhooks">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           <SettingsCard
@@ -349,20 +349,32 @@ function DeliveryLog({ webhook }: { webhook: WebhookView }) {
   const [rows, setRows] = useState<WebhookDeliveryView[] | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
 
+  const load = useCallback(
+    () =>
+      api
+        .webhookDeliveries(webhook.id)
+        .then(setRows)
+        .catch((e: unknown) => setProblem(failure(e, 'Could not load the delivery log.'))),
+    [webhook.id],
+  )
+
   useEffect(() => {
-    api
-      .webhookDeliveries(webhook.id)
-      .then(setRows)
-      .catch((e: unknown) => setProblem(failure(e, 'Could not load the delivery log.')))
-  }, [webhook.id])
+    void load()
+  }, [load])
 
   if (problem)
     return (
-      <div className="p-(--panel-pad)">
-        <Outcome tone="problem">{problem}</Outcome>
-      </div>
+      <EmptyRow
+        tone="danger"
+        onTryAgain={() => {
+          setProblem(null)
+          return load()
+        }}
+      >
+        {problem}
+      </EmptyRow>
     )
-  if (!rows) return <EmptyRow>Loading…</EmptyRow>
+  if (!rows) return <EmptyRow tone="loading" />
   if (rows.length === 0) return <EmptyRow>No deliveries.</EmptyRow>
 
   return (

@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { ApiError, api, type VRChatLinkStatus } from '@/lib/api'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
+import { EmptyRow } from '@/components/PanelGrid'
 
 /**
  * Link your VRChat account (accounts and access design §4.3), in three moves: paste your user id
@@ -31,11 +32,21 @@ export function VRChatLinkPanel({
 
   const load = useCallback(() => api.vrchatLink().then(setStatus), [])
 
+  // The first read, and its "Try again". A failure here is the whole panel, so it is said as a
+  // failed read rather than as muted text with no way past it.
+  const read = useCallback(
+    () =>
+      load()
+        .then(() => setError(null))
+        .catch((e: unknown) =>
+          setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'),
+        ),
+    [load],
+  )
+
   useEffect(() => {
-    load().catch((e: unknown) =>
-      setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'),
-    )
-  }, [load])
+    void read()
+  }, [read])
 
   const start = (event: React.FormEvent) => {
     event.preventDefault()
@@ -84,9 +95,9 @@ export function VRChatLinkPanel({
 
   if (!status) {
     return (
-      <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {error ?? 'Loading…'}
-      </div>
+      <EmptyRow className="px-0" tone={error ? 'danger' : 'loading'} onTryAgain={read}>
+        {error}
+      </EmptyRow>
     )
   }
 

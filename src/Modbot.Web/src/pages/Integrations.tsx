@@ -51,7 +51,7 @@ export function Integrations({ me }: { me: CurrentUser }) {
   }, [])
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!status) return <Empty>Loading…</Empty>
+  if (!status) return <Empty tone="loading" />
 
   // The Discord bot's state comes from its own small read, which needs Change settings like the page
   // (the full bot report in the Health read needs See Modbot's log). Without it the read is not made

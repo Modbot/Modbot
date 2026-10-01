@@ -102,6 +102,8 @@ export function AuditLogList({
   const [pages, setPages] = useState<AuditPage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Bumped by a failed read's "Try again", which reads the first page again with the same filters.
+  const [tries, setTries] = useState(0)
 
   // New facts waiting above the top row while the list is scrolled (see below).
   const [pending, setPending] = useState(0)
@@ -156,7 +158,7 @@ export function AuditLogList({
     return () => {
       cancelled = true
     }
-  }, [query])
+  }, [query, tries])
 
   const more = useCallback(() => {
     const last = pages[pages.length - 1]
@@ -366,11 +368,19 @@ export function AuditLogList({
   )
 
   if (error) {
-    return place === 'page' ? <Empty tone="danger">{error}</Empty> : <EmptyRow tone="danger">{error}</EmptyRow>
+    const tryAgain = () => {
+      setError(null)
+      setTries((n) => n + 1)
+    }
+    return place === 'page' ? (
+      <Empty tone="danger" onTryAgain={tryAgain}>{error}</Empty>
+    ) : (
+      <EmptyRow tone="danger" onTryAgain={tryAgain}>{error}</EmptyRow>
+    )
   }
 
   // Nothing has been read yet. Later reads keep the list on screen until they land (see above).
-  if (pages.length === 0) return place === 'page' ? <Empty>Loading…</Empty> : <EmptyRow>Loading…</EmptyRow>
+  if (pages.length === 0) return place === 'page' ? <Empty tone="loading" /> : <EmptyRow tone="loading" />
 
   const bar = (
     <FilterBar properties={properties} chips={chips} starts={starts} onChange={onChange}>

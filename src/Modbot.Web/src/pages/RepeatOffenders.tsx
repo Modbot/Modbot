@@ -30,6 +30,8 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
 
   // Read again when the live stream says somebody was acted on: a ban, a kick, a removal.
   const live = useLiveVersion(changesOffenders)
+  // Bumped by a failed read's "Try again", which reads the same tab again.
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -54,12 +56,20 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
     return () => {
       cancelled = true
     }
-  }, [status, live])
+  }, [status, live, tries])
 
   if (error) {
     return (
       <Card>
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </EmptyRow>
       </Card>
     )
   }
@@ -67,7 +77,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
   if (!list) {
     return (
       <Card>
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       </Card>
     )
   }

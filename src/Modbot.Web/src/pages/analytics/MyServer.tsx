@@ -23,10 +23,10 @@ import { WeekStat, WeekStrip } from './WeekStrip'
  */
 export function MyServer({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const load = useCallback((q: string) => api.serverAnalytics(q), [])
-  const { data, error } = useAnalytics(load, 7)
+  const { data, error, reload } = useAnalytics(load, 7)
   const header = useServerHeader(me)
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  if (error) return <PageMessage tone="danger" onTryAgain={reload}>{error}</PageMessage>
 
   const server = header ?? data?.server
 
@@ -36,7 +36,7 @@ export function MyServer({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId)
 
       {seesVoice(me) && <ServerVoice />}
 
-      {!data && <PageMessage>Loading…</PageMessage>}
+      {!data && <PageMessage tone="loading" />}
 
       {data && (
         <WeekStrip href={mayOpen(me, 'stats-activity') ? pathOf('stats-activity') : undefined}>

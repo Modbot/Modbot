@@ -50,9 +50,9 @@ export function AiAlertsSettings() {
   return (
     <SettingsSection id="ai-alerts" title="Unusual activity">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <Form stored={data} onSaved={setData} />
       )}

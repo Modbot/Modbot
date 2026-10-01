@@ -37,7 +37,7 @@ export function VRChatSection({
           <ProxyCard status={status} refresh={refresh} />
         </>
       ) : (
-        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>
       )}
     </SettingsSection>
   )

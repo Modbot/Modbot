@@ -109,7 +109,7 @@ export function Health() {
   }, [loaded])
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!health) return <Empty>Loading…</Empty>
+  if (!health) return <Empty tone="loading" />
 
   const status = statusOf(health.gate.status)
 

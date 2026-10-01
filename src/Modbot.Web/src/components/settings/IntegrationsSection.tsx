@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type EmailSettings, type OnboardingStatus, type TestEmailResult } from '@/lib/api'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fields'
@@ -38,7 +39,7 @@ export function IntegrationsSection({
       {status ? (
         <IntegrationsForm status={status} refresh={refresh} />
       ) : (
-        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>
       )}
       <HealthAlertsCard />
     </SettingsSection>
@@ -64,17 +65,22 @@ function IntegrationsForm({
   const [testResult, setTestResult] = useState<TestEmailResult | null>(null)
 
   const [email, setEmail] = useState<EmailSettings | null>(null)
+  const [emailFailed, setEmailFailed] = useState(false)
   const [limit, setLimit] = useState('')
 
+  // A failed read is said beside the limit, with "Try again". It used to be swallowed, which left
+  // the limit box disabled and the counts missing with nothing to say why. A read that fails after
+  // one has worked keeps the counts that were read.
   const loadEmail = useCallback(
     () =>
       api
         .emailSettings()
         .then((next) => {
           setEmail(next)
+          setEmailFailed(false)
           setLimit(String(next.limitPer24Hours))
         })
-        .catch(() => setEmail(null)),
+        .catch(() => setEmailFailed(true)),
     [],
   )
 
@@ -217,6 +223,11 @@ function IntegrationsForm({
                 onChange={(e) => setLimit(e.target.value)}
               />
             </label>
+            {!email && emailFailed && (
+              <EmptyRow className="px-0 sm:col-span-3" tone="danger" onTryAgain={loadEmail}>
+                Could not load the email queue.
+              </EmptyRow>
+            )}
             {email && (
               <>
                 <Fact label={`Sent in the last ${lengthOfTime(24 * 60)}`} value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />

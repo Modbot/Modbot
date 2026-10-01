@@ -38,9 +38,9 @@ export function AiChatSettings() {
   return (
     <SettingsSection id="ai-chat" title="AI chat settings">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <ChatForm settings={data} onSaved={setData} />
       )}

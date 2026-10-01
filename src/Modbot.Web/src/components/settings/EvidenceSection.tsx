@@ -61,9 +61,9 @@ export function EvidenceSection() {
   return (
     <SettingsSection id="evidence" title="Evidence">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           <StoreHealth health={data.health} onProbed={load} />

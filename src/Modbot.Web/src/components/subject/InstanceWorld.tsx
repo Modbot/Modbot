@@ -39,7 +39,7 @@ export function InstanceWorld({ id, live }: { id: string; live: number }) {
   // another one starts from nought.
   const [again, setAgain] = useState({ id, times: 0 })
   const times = again.id === id ? again.times : 0
-  const { data, error } = useLoad(load, `${live}:${times}`)
+  const { data, error, reload } = useLoad(load, `${live}:${times}`)
 
   // The answer never waits on VRChat, so names asked for just now arrive on a later answer.
   useEffect(() => {
@@ -51,7 +51,7 @@ export function InstanceWorld({ id, live }: { id: string; live: number }) {
   if (error) {
     return (
       <Panel title="Other instances in this world" flush>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>
       </Panel>
     )
   }

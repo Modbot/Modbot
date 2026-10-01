@@ -47,6 +47,7 @@ export function InstanceActivityChart() {
   const [range, setRange] = useState<MemberCountRange>('week')
   const [data, setData] = useState<InstanceActivitySeries | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -71,7 +72,7 @@ export function InstanceActivityChart() {
     return () => {
       cancelled = true
     }
-  }, [range])
+  }, [range, tries])
 
   const stripeId = useStripeId()
   const chart = data ? activityChartRows(data) : { rows: [], bands: [] }
@@ -94,9 +95,18 @@ export function InstanceActivityChart() {
       }
     >
       {error ? (
-        <Nothing height={chartHeight.tall} tone="danger">{error}</Nothing>
+        <Nothing
+          height={chartHeight.tall}
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </Nothing>
       ) : !data ? (
-        <Nothing height={chartHeight.tall}>Loading…</Nothing>
+        <Nothing height={chartHeight.tall} tone="loading" />
       ) : (
         <ChartFrame
           height={chartHeight.tall}

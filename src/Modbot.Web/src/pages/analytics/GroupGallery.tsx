@@ -116,13 +116,13 @@ export function GroupGallery({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pag
           </CardHeader>
 
           {missing ? (
-            <EmptyRow tone="danger">
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>
               <VRChatPermissionMissing missing={missing} />
             </EmptyRow>
           ) : error ? (
-            <EmptyRow tone="danger">{error}</EmptyRow>
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>{error}</EmptyRow>
           ) : !view ? (
-            <EmptyRow>Loading…</EmptyRow>
+            <EmptyRow tone="loading" />
           ) : galleries.length === 0 && !view.galleryId ? (
             <EmptyRow>No galleries</EmptyRow>
           ) : view.images.length === 0 ? (

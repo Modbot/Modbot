@@ -1,5 +1,5 @@
 import { Card } from '@/components/ui/card'
-import { EmptyRow } from '@/components/PanelGrid'
+import { EmptyRow, type RowState } from '@/components/PanelGrid'
 
 /**
  * Pieces every list page draws the same way. They lived in the Members page until it became a
@@ -29,11 +29,15 @@ export function Marks({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** A page that has no list to show yet: loading, or `danger` when the list could not be read. */
-export function Empty({ tone, children }: { tone?: 'neutral' | 'danger'; children: React.ReactNode }) {
+/**
+ * A page that has no list to show yet: `loading`, or `danger` when the list could not be read,
+ * with its "Try again" (`EmptyRow`). The one page-level message: the analytics pages' `PageMessage`
+ * and the settings sections' `Placeholder` are this, so the three can never drift apart.
+ */
+export function Empty({ className, ...row }: RowState & { className?: string }) {
   return (
-    <Card>
-      <EmptyRow tone={tone}>{children}</EmptyRow>
+    <Card className={className}>
+      <EmptyRow lines={3} {...row} />
     </Card>
   )
 }

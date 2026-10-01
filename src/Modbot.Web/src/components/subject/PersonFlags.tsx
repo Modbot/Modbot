@@ -24,7 +24,7 @@ export function PersonFlags({ vrchatId, discordId }: { vrchatId: string | null; 
     () => moderationApi.personFlags(state, { vrchat: vrchatId, discord: discordId }),
     [state, vrchatId, discordId],
   )
-  const { data, error } = useLoad(load)
+  const { data, error, reload } = useLoad(load)
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -41,8 +41,8 @@ export function PersonFlags({ vrchatId, discordId }: { vrchatId: string | null; 
       </div>
 
       <Panel title="Flags" right={<More onClick={() => go('/flags')}>Flags page</More>} flush>
-        {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-        {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+        {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+        {!error && !data && <EmptyRow tone="loading" />}
         {data && data.flags.length === 0 && <EmptyRow>No flags.</EmptyRow>}
         {data && data.flags.length > 0 && (
           <ol className="flex flex-col">

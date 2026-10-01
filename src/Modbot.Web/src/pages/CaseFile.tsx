@@ -94,7 +94,7 @@ export function CaseFile({
   if (error) {
     return (
       <Card>
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow tone="danger" onTryAgain={load}>{error}</EmptyRow>
         {onBack && (
           <CardFooter>
             <Button variant="outline" size="xs" onClick={onBack}>
@@ -109,7 +109,7 @@ export function CaseFile({
   if (!view) {
     return (
       <Card>
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       </Card>
     )
   }
@@ -198,7 +198,7 @@ export function CaseFile({
               onImageReady={noteImage}
             />
           ) : (
-            <EmptyRow tone="danger">You do not have permission to view evidence.</EmptyRow>
+            <EmptyRow tone="danger" onTryAgain={null}>You do not have permission to view evidence.</EmptyRow>
           )}
         </Section>
 

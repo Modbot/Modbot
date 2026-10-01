@@ -18,6 +18,7 @@ import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History 
 export function SubjectHistory({ subjectId }: { subjectId: string }) {
   const [history, setHistory] = useState<History | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -39,13 +40,23 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
     return () => {
       cancelled = true
     }
-  }, [subjectId])
+  }, [subjectId, tries])
 
   return (
     <Panel title="Past actions" flush>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
+      {error && (
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </EmptyRow>
+      )}
 
-      {!error && !history && <EmptyRow>Loading…</EmptyRow>}
+      {!error && !history && <EmptyRow tone="loading" />}
 
       {history && !history.known && (
         <EmptyRow>{history.lastRunAt === null ? 'Not counted yet.' : 'No actions recorded.'}</EmptyRow>

@@ -144,7 +144,20 @@ export function Logs() {
       .finally(() => setLoading(false))
   }, [pages, query])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) {
+    return (
+      <Empty
+        tone="danger"
+        onTryAgain={() => {
+          setError(null)
+          setLoading(true)
+          setReloads((n) => n + 1)
+        }}
+      >
+        {error}
+      </Empty>
+    )
+  }
 
   const lines = pages.flatMap((p) => p.lines)
   const next = pages[pages.length - 1]?.next ?? null
@@ -199,7 +212,7 @@ export function Logs() {
 
       <Card>
         {lines.length === 0 ? (
-          <EmptyRow>{loading ? 'Loading…' : 'Nothing to show.'}</EmptyRow>
+          <EmptyRow tone={loading ? 'loading' : undefined}>Nothing to show.</EmptyRow>
         ) : (
           <ul>
             {lines.map((line) => (

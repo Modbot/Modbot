@@ -110,13 +110,13 @@ export function GroupRoles({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
           </CardHeader>
 
           {missing ? (
-            <EmptyRow tone="danger">
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>
               <VRChatPermissionMissing missing={missing} />
             </EmptyRow>
           ) : error ? (
-            <EmptyRow tone="danger">{error}</EmptyRow>
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>{error}</EmptyRow>
           ) : !roles ? (
-            <EmptyRow>Loading…</EmptyRow>
+            <EmptyRow tone="loading" />
           ) : roles.length === 0 ? (
             <EmptyRow>No roles</EmptyRow>
           ) : (

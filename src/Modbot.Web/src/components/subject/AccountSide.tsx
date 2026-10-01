@@ -60,12 +60,12 @@ const ACCOUNT_LIMIT = 100
  */
 export function AccountHistory({ accountId }: { accountId: string }) {
   const load = useCallback(() => api.audit({ account: accountId, limit: ACCOUNT_LIMIT }), [accountId])
-  const { data, error } = useLoad(load)
+  const { data, error, reload } = useLoad(load)
 
   return (
     <Panel title="Signed in, changed and did" flush>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
     </Panel>
   )

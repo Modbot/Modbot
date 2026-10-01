@@ -5,6 +5,7 @@ import { ShortcutSheet } from '@/components/ShortcutSheet'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { WaitingAlertsBanner } from '@/components/WaitingAlertsBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
+import { TryAgainArea } from '@/components/TryAgain'
 import { TitleOnTap } from '@/components/TitleOnTap'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
@@ -607,7 +608,8 @@ function Shell({
           // session to end, so the control is not there.
           onSignOut={signOut}
         />
-        <div className="p-4 lg:p-5">
+        {/* "Try again" on a failed read with no reload of its own draws the page afresh. */}
+        <TryAgainArea className="p-4 lg:p-5">
           {fromGroup && <GroupPageTop me={me} page={page} tab={fromGroup} pathOf={(id) => PATHS[id]} />}
           {fromServer && <ServerPageTop me={me} tab={fromServer} pathOf={(id) => PATHS[id]} />}
           {page === 'now' && !movingToMembers && (
@@ -678,7 +680,7 @@ function Shell({
             <Account me={me} onChanged={() => void refresh()} density={prefs.density} setDensity={prefs.setDensity} />
           )}
           {page === 'credits' && <Credits />}
-        </div>
+        </TryAgainArea>
         <Footer />
       </main>
 

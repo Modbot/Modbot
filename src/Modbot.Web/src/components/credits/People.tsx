@@ -36,7 +36,7 @@ export function People() {
   if (!showcase) {
     return (
       <Card>
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       </Card>
     )
   }

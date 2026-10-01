@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { TryAgainButton } from '@/components/PanelGrid'
 import { api, type CurrentUser, type MembershipView, type PersonView } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
 import { formatDay, pastActions } from '@/lib/format'
@@ -37,7 +38,7 @@ export function StandingBar({
   person: PersonView
   me: CurrentUser
   /** Read once by the popup and shared with the Membership card and the phone's action row. */
-  membership: { data: MembershipView | null; error: string | null } | null
+  membership: { data: MembershipView | null; error: string | null; reload: () => void } | null
   /** Changes after a kick, ban or unban, or a live fact about the person, and reads everything again. */
   version: number
   notesId: string | null
@@ -148,7 +149,14 @@ export function StandingBar({
       )}
 
       {failed.length > 0 && (
-        <span className="text-destructive">Could not load {failed.join(', ')}.</span>
+        <>
+          <span className="text-destructive">Could not load {failed.join(', ')}.</span>
+          <TryAgainButton
+            onClick={() => {
+              for (const read of [membership, history, notes, flags, cases]) if (read?.error) read.reload()
+            }}
+          />
+        </>
       )}
 
       {view && !view.banned && view.members.firstSweepComplete && (

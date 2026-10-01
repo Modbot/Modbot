@@ -81,7 +81,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsInstance(event, number.current), []))
 
   const load = useCallback(() => api.instance(id), [id])
-  const { data, error } = useLoad(allowed ? load : null, live)
+  const { data, error, reload } = useLoad(allowed ? load : null, live)
 
   useEffect(() => {
     number.current = data?.instance.vrChatInstanceId ?? null
@@ -121,9 +121,9 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={
         error ? (
-          <Empty tone="danger">{error}</Empty>
+          <Empty tone="danger" onTryAgain={reload}>{error}</Empty>
         ) : !data ? (
-          <Empty>Loading…</Empty>
+          <Empty tone="loading" />
         ) : phone ? null : (
           <Identity view={data} />
         )

@@ -68,9 +68,9 @@ export function AiLimitsSettings() {
   return (
     <SettingsSection id="ai-limits" title="AI limits">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           <SpendCard data={data} />

@@ -46,8 +46,8 @@ const HISTORY_TYPES = [
 export function DiscordIdentity({ read }: { read: DiscordMemberRead }) {
   const { data, error } = read
 
-  if (error) return <Empty tone="danger">{error}</Empty>
-  if (!data) return <Empty>Loading…</Empty>
+  if (error) return <Empty tone="danger" onTryAgain={read.reload}>{error}</Empty>
+  if (!data) return <Empty tone="loading" />
 
   const member = data.member
   if (!member) return <Note>Not seen in the server.</Note>
@@ -141,7 +141,7 @@ export function DiscordHistory({
     () => api.audit({ subject: id, subjectPlatform: 'Discord', type: HISTORY_TYPES, limit: 100 }),
     [id],
   )
-  const { data, error } = useLoad(load, live)
+  const { data, error, reload } = useLoad(load, live)
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -150,8 +150,8 @@ export function DiscordHistory({
       {children}
 
       <Panel title="In the server" flush>
-        {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-        {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+        {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+        {!error && !data && <EmptyRow tone="loading" />}
         {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
       </Panel>
     </div>
@@ -170,10 +170,10 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
     () => api.discordMemberMessages(id, paging.page, MESSAGE_PAGE, anchored ? at ?? undefined : undefined),
     [id, paging.page, at, anchored],
   )
-  const { data, error } = useLoad(load)
+  const { data, error, reload } = useLoad(load)
 
-  if (error) return <Panel title="Messages" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
-  if (!data) return <Panel title="Messages" flush><EmptyRow>Loading…</EmptyRow></Panel>
+  if (error) return <Panel title="Messages" flush><EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Messages" flush><EmptyRow tone="loading" /></Panel>
 
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize))
 
@@ -282,10 +282,10 @@ const sum = (points: { value: number }[]) => points.reduce((total, p) => total +
 export function DiscordMetrics({ id }: { id: string }) {
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
   const load = useCallback(() => api.discordMemberMetrics(id), [id])
-  const { data, error } = useLoad(load, live)
+  const { data, error, reload } = useLoad(load, live)
 
-  if (error) return <Panel title="Discord" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
-  if (!data) return <Panel title="Discord" flush><EmptyRow>Loading…</EmptyRow></Panel>
+  if (error) return <Panel title="Discord" flush><EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Discord" flush><EmptyRow tone="loading" /></Panel>
 
   const from = data.messagesPerDay[0]?.day ?? ''
   const to = data.messagesPerDay[data.messagesPerDay.length - 1]?.day ?? ''

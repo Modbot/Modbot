@@ -60,7 +60,7 @@ export function Users({ me }: { me: CurrentUser }) {
   const current = useMemo(() => users?.find((u) => u.id === selected) ?? null, [users, selected])
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!users) return <Empty>Loading…</Empty>
+  if (!users) return <Empty tone="loading" />
 
   return (
     <div className="flex flex-col gap-3">

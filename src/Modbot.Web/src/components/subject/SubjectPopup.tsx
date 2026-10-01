@@ -5,6 +5,7 @@ import { CaseFile } from '@/pages/CaseFile'
 import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
 import { WorldPopup } from '@/components/subject/WorldPopup'
+import { TryAgainArea } from '@/components/TryAgain'
 import type { CurrentUser } from '@/lib/api'
 import { useModal } from '@/lib/shortcuts'
 import { closeSubject, encodeSubject, isPerson, openPerson, useSubjects, type Subject } from '@/lib/subject'
@@ -63,10 +64,14 @@ function Open({ top, me, lead }: { top: Subject; me: CurrentUser; lead: React.Re
         if (!open) closeSubject()
       }}
     >
-      {isPerson(top) && <PersonPopup subject={top} me={me} lead={lead} />}
-      {top.kind === 'world' && <WorldPopup id={top.id} me={me} lead={lead} />}
-      {top.kind === 'instance' && <InstancePopup id={top.id} me={me} lead={lead} />}
-      {top.kind === 'case' && <CasePopup id={top.id} lead={lead} />}
+      {/* "Try again" on a failed read with no reload of its own draws the popup afresh, never the
+          page under it. */}
+      <TryAgainArea>
+        {isPerson(top) && <PersonPopup subject={top} me={me} lead={lead} />}
+        {top.kind === 'world' && <WorldPopup id={top.id} me={me} lead={lead} />}
+        {top.kind === 'instance' && <InstancePopup id={top.id} me={me} lead={lead} />}
+        {top.kind === 'case' && <CasePopup id={top.id} lead={lead} />}
+      </TryAgainArea>
     </Dialog>
   )
 }

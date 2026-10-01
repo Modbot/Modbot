@@ -78,18 +78,18 @@ const MOVED: Record<string, Tab> = { metrics: 'overview' }
 export function PersonPopup({ subject, me, lead }: { subject: Subject; me: CurrentUser; lead?: React.ReactNode }) {
   const { kind, id } = subject
   const load = useCallback(() => api.person(askOf(kind, id)), [kind, id])
-  const { data: person, error } = useLoad(load)
+  const { data: person, error, reload } = useLoad(load)
 
   if (error)
     return (
-      <PopupFrame title="Person" lead={lead} left={<Empty tone="danger">{error}</Empty>}>
+      <PopupFrame title="Person" lead={lead} left={<Empty tone="danger" onTryAgain={reload}>{error}</Empty>}>
         <div />
       </PopupFrame>
     )
 
   if (!person)
     return (
-      <PopupFrame title="Person" lead={lead} left={<Empty>Loading…</Empty>}>
+      <PopupFrame title="Person" lead={lead} left={<Empty tone="loading" />}>
         <div />
       </PopupFrame>
     )
@@ -221,9 +221,9 @@ function Resolved({
     <>
       {!vrchatId && discordId && seesMembers ? (
         member.error ? (
-          <Empty tone="danger">{member.error}</Empty>
+          <Empty tone="danger" onTryAgain={member.reload}>{member.error}</Empty>
         ) : !member.data ? (
-          <Empty>Loading…</Empty>
+          <Empty tone="loading" />
         ) : (
           <Block>
             <DiscordIdentity read={member} />
@@ -244,6 +244,7 @@ function Resolved({
           subjectId={vrchatId}
           view={membership.data}
           error={membership.error}
+          onTryAgain={membership.reload}
           me={me}
           onActed={() => setActed((n) => n + 1)}
         />
@@ -317,7 +318,7 @@ function Resolved({
               (stored.error ? (
                 <Empty tone="danger">{stored.error}</Empty>
               ) : !stored.profile ? (
-                <Empty>Loading…</Empty>
+                <Empty tone="loading" />
               ) : (
                 <Block>
                   <ProfileIdentity stored={stored} me={me} />
@@ -483,7 +484,7 @@ function Overview({
         stored.error ? (
           <Empty tone="danger">{stored.error}</Empty>
         ) : !stored.profile ? (
-          <Empty>Loading…</Empty>
+          <Empty tone="loading" />
         ) : (
           <Panel title="Profile">
             <ProfileIdentity stored={stored} me={me} compact />
@@ -509,8 +510,8 @@ function Overview({
       )}
 
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
-        {facts.error && <EmptyRow tone="danger">{facts.error}</EmptyRow>}
-        {!facts.error && !facts.data && <EmptyRow>Loading…</EmptyRow>}
+        {facts.error && <EmptyRow tone="danger" onTryAgain={facts.reload}>{facts.error}</EmptyRow>}
+        {!facts.error && !facts.data && <EmptyRow tone="loading" />}
         {facts.data && (
           <FactList
             entries={facts.data.entries}
@@ -525,12 +526,12 @@ function Overview({
 }
 
 function Logs({ person }: { person: PersonView }) {
-  const { data, error } = usePersonFacts(person, 50)
+  const { data, error, reload } = usePersonFacts(person, 50)
 
   return (
     <Panel title="Everything recorded about this person" flush>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
       {data && (
         <FactList
           entries={data.entries}
@@ -630,12 +631,14 @@ function MembershipCard({
   subjectId,
   view,
   error,
+  onTryAgain,
   me,
   onActed,
 }: {
   subjectId: string
   view: MembershipView | null
   error: string | null
+  onTryAgain: () => void
   me: CurrentUser
   onActed: () => void
 }) {
@@ -655,8 +658,8 @@ function MembershipCard({
       warn={unread}
       right={unread ? <Unread>Member list not read yet.</Unread> : undefined}
     >
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !view && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={onTryAgain}>{error}</EmptyRow>}
+      {!error && !view && <EmptyRow tone="loading" />}
 
       {view && (
         <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>

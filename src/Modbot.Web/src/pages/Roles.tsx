@@ -47,7 +47,7 @@ export function Roles({ me }: { me: CurrentUser }) {
   }, [refresh])
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!roles) return <Empty>Loading…</Empty>
+  if (!roles) return <Empty tone="loading" />
 
   // A role can go up or down only when it, and the role it changes places with, are below your
   // highest role: otherwise it would take your own place or go above it (design §3.5). Administrator

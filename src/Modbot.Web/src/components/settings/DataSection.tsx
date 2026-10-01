@@ -44,7 +44,7 @@ export function DataSection() {
     const budget = {
       capacityBytes: Number(capacity) ? Number(capacity) * GB : undefined,
     }
-    api
+    return api
       .dataSettings(budget)
       .then((next) => {
         setData(next)
@@ -55,15 +55,15 @@ export function DataSection() {
       )
   }, [capacity])
 
-  useEffect(() => load(), [load])
+  useEffect(() => void load(), [load])
 
   return (
     <div className="flex flex-col gap-4">
       <SettingsSection id="data" title="Server">
         {error ? (
-          <Placeholder tone="danger">{error}</Placeholder>
+          <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
         ) : !data ? (
-          <Placeholder>Loading…</Placeholder>
+          <Placeholder tone="loading" />
         ) : (
           <>
             <PublicAddressCard />

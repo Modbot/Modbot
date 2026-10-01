@@ -85,7 +85,9 @@ export function HealthAlertsCard() {
       }
     >
       {!view ? (
-        problem ? <EmptyRow tone="danger">{problem}</EmptyRow> : <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone={problem ? 'danger' : 'loading'} onTryAgain={load}>
+          {problem}
+        </EmptyRow>
       ) : (
         <div className="grid gap-6 @3xl:grid-cols-2">
           <div className="flex flex-col gap-2">

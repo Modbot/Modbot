@@ -170,9 +170,11 @@ export function JoinRequests({
           </CardHeader>
         )}
         {error ? (
-          <EmptyRow tone="danger">{missing ? <VRChatPermissionMissing missing={missing} /> : error}</EmptyRow>
+          <EmptyRow tone="danger" onTryAgain={() => setReload((n) => n + 1)}>
+            {missing ? <VRChatPermissionMissing missing={missing} /> : error}
+          </EmptyRow>
         ) : loading && !list ? (
-          <EmptyRow>Loading…</EmptyRow>
+          <EmptyRow tone="loading" />
         ) : rows.length === 0 ? (
           <EmptyRow>Nobody is waiting</EmptyRow>
         ) : (

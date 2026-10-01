@@ -51,7 +51,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
 
   const load = useCallback(() => api.world(id), [id])
-  const { data, error } = useLoad(allowed ? load : null, live)
+  const { data, error, reload } = useLoad(allowed ? load : null, live)
 
   // On a phone the picture is small, in the header, and the facts from the left column are at the
   // top of Overview instead: a column stacked above the tabs was mostly picture and put the tab
@@ -93,9 +93,9 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={
         error ? (
-          <Empty tone="danger">{error}</Empty>
+          <Empty tone="danger" onTryAgain={reload}>{error}</Empty>
         ) : !data ? (
-          <Empty>Loading…</Empty>
+          <Empty tone="loading" />
         ) : phone ? null : (
           <Identity world={data} />
         )
@@ -305,12 +305,12 @@ function OpenNow({ world }: { world: WorldView }) {
 function History({ id }: { id: string }) {
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
   const load = useCallback(() => api.audit({ world: id, limit: 50 }), [id])
-  const { data, error } = useLoad(load, live)
+  const { data, error, reload } = useLoad(load, live)
 
   return (
     <Panel title="What happened in this world" flush>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
     </Panel>
   )

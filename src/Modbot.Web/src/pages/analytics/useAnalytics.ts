@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api'
 
 /**
@@ -33,6 +33,7 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
   const readFor = useRef<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     const query = rangeQuery(range)
@@ -59,7 +60,14 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
     return () => {
       cancelled = true
     }
-  }, [load, range, enabled])
+  }, [load, range, enabled, tries])
 
-  return { data, error }
+  // The failed panel's "Try again": the same range read again, keeping the range the page is on.
+  const reload = useCallback(() => {
+    readFor.current = null
+    setError(null)
+    setTries((n) => n + 1)
+  }, [])
+
+  return { data, error, reload }
 }

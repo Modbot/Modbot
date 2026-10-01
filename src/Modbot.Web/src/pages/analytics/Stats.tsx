@@ -175,16 +175,16 @@ function Part<T>({
   children,
 }: {
   title: string
-  read: { data: T | null; error: string | null }
+  read: { data: T | null; error: string | null; reload?: () => void }
   coverage?: (data: T) => React.ReactNode
   children: (data: T) => React.ReactNode
 }) {
   return (
     <Section title={title}>
       {read.error ? (
-        <PageMessage tone="danger">{read.error}</PageMessage>
+        <PageMessage tone="danger" onTryAgain={read.reload}>{read.error}</PageMessage>
       ) : !read.data ? (
-        <PageMessage>Loading…</PageMessage>
+        <PageMessage tone="loading" />
       ) : (
         <>
           {coverage?.(read.data)}

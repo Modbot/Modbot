@@ -128,7 +128,7 @@ export function Live() {
     }
   }, [load, voiceChanged])
 
-  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'}>{error}</PageMessage>
 
   // The server's time now: when it answered, moved on by how long ago that was here. Arrival
   // times are the server's, so a browser whose clock is wrong still marks the right people New.

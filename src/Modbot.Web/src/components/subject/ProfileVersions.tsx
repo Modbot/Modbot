@@ -24,11 +24,11 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  */
 export function ProfileVersions({ id, openAt }: { id: string; openAt: number | null }) {
   const load = useCallback(() => api.userHistory(id), [id])
-  const { data, error } = useLoad(load)
+  const { data, error, reload } = useLoad(load)
   const [chosen, setChosen] = useState<number | null>(openAt)
 
-  if (error) return <Panel title="Profile changes" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
-  if (!data) return <Panel title="Profile changes" flush><EmptyRow>Loading…</EmptyRow></Panel>
+  if (error) return <Panel title="Profile changes" flush><EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Profile changes" flush><EmptyRow tone="loading" /></Panel>
 
   if (!data.known || data.versions.length === 0)
     return <Panel title="Profile changes" flush><EmptyRow>No profile recorded yet.</EmptyRow></Panel>

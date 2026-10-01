@@ -124,7 +124,11 @@ export function Now({
           reviews={seesReviews ? reviews : null}
           requests={
             seesRequests
-              ? { data: waitingRows && { rows: waitingRows, more: requests.data?.hasMore === true }, error: requests.error }
+              ? {
+                  data: waitingRows && { rows: waitingRows, more: requests.data?.hasMore === true },
+                  error: requests.error,
+                  reload: requests.reload,
+                }
               : null
           }
           canAnswer={mayAnswer(me)}
@@ -216,7 +220,7 @@ function HealthLine({ onOpen }: { onOpen: (section: StatusRowId | null) => void 
   )
 }
 
-type Loaded<T> = { data: T | null; error: string | null }
+type Loaded<T> = { data: T | null; error: string | null; reload: () => void }
 
 /** Open flags, reviews and join requests, a count each and the newest rows. */
 function Decisions({
@@ -281,7 +285,16 @@ function Decisions({
         </div>
       </CardHeader>
 
-      {failed.length > 0 && <EmptyRow tone="danger">Could not load the {failed.join(' or the ')}.</EmptyRow>}
+      {failed.length > 0 && (
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            for (const part of [flags, reviews, requests]) if (part?.error && !part.data) part.reload()
+          }}
+        >
+          Could not load the {failed.join(' or the ')}.
+        </EmptyRow>
+      )}
 
       {flagRows.length + reviewRows.length + requestRows.length > 0 ? (
         <ul className="divide-y-(length:--hairline) divide-border" style={{ fontSize: 'var(--text-small)' }}>
@@ -351,7 +364,7 @@ function Decisions({
           })}
         </ul>
       ) : (
-        failed.length === 0 && <EmptyRow>{loading ? 'Loading…' : 'Nothing waiting'}</EmptyRow>
+        failed.length === 0 && <EmptyRow tone={loading ? 'loading' : undefined}>Nothing waiting</EmptyRow>
       )}
 
       <Dialog open={answering !== null} onOpenChange={(next) => !next && setAnswering(null)}>
@@ -414,7 +427,9 @@ function Instances({
         <CardTitle>In the group's instances</CardTitle>
       </CardHeader>
       {!live.data ? (
-        <EmptyRow tone={live.error ? 'danger' : undefined}>{live.error ?? 'Loading…'}</EmptyRow>
+        <EmptyRow tone={live.error ? 'danger' : 'loading'} onTryAgain={live.reload}>
+          {live.error}
+        </EmptyRow>
       ) : instances.length === 0 ? (
         <EmptyRow>No open instances</EmptyRow>
       ) : (

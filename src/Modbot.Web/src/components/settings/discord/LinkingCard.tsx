@@ -40,7 +40,7 @@ export function LinkingCard() {
   if (error || !data) {
     return (
       <SettingsCard title="Account linking">
-        <EmptyRow className="px-0" tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</EmptyRow>
+        <EmptyRow className="px-0" tone={error ? 'danger' : 'loading'} onTryAgain={load}>{error}</EmptyRow>
       </SettingsCard>
     )
   }

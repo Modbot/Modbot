@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { EmptyRow } from '@/components/PanelGrid'
+import { Empty } from '@/components/ListParts'
+import type { RowState } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -199,21 +199,13 @@ export function Outcome({
 }
 
 /**
- * "Loading…" and load failures, filling the row a section's cards would have taken. A failure
- * passes `tone="danger"`.
+ * A section's loading state and load failures, filling the row a section's cards would have taken:
+ * the list pages' `Empty`, the width of the grid. A failure passes `tone="danger"` and the read to
+ * run again as `onTryAgain`, so pressing it never redraws the other sections and what is typed in
+ * them.
  */
-export function Placeholder({
-  tone,
-  children,
-}: {
-  tone?: 'neutral' | 'danger'
-  children: React.ReactNode
-}) {
-  return (
-    <Card className="col-span-12">
-      <EmptyRow tone={tone}>{children}</EmptyRow>
-    </Card>
-  )
+export function Placeholder(row: RowState) {
+  return <Empty className="col-span-12" {...row} />
 }
 
 /**

@@ -88,7 +88,7 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
   if (!status) {
     return (
       <Shell>
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       </Shell>
     )
   }

@@ -47,9 +47,9 @@ export function AiMcpSettings() {
   return (
     <SettingsSection id="ai-mcp" title="MCP server settings">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           <ServerCard settings={data} onSaved={setData} />
@@ -137,7 +137,15 @@ function ConnectionsCard() {
   return (
     <SettingsCard title="Connected apps" flush>
       {connections === null ? (
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow
+          tone={problem ? 'danger' : 'loading'}
+          onTryAgain={() => {
+            setProblem(null)
+            return load()
+          }}
+        >
+          {problem}
+        </EmptyRow>
       ) : connections.length === 0 ? (
         <EmptyRow>None.</EmptyRow>
       ) : (
@@ -165,7 +173,7 @@ function ConnectionsCard() {
           ))}
         </Table>
       )}
-      {problem && (
+      {problem && connections !== null && (
         <div className="p-(--panel-pad)">
           <Outcome tone="problem">{problem}</Outcome>
         </div>

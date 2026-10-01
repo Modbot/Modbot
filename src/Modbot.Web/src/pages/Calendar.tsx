@@ -328,7 +328,7 @@ export function Calendar() {
     ? (data?.view.events.find((e) => e.id === detail.id) ?? (linked?.id === detail.id ? linked : null))
     : null
 
-  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'}>{error}</PageMessage>
 
   const form = editing ?? (wantsNew && canManage ? { event: null } : null)
   const ready = data.key === rangeKey

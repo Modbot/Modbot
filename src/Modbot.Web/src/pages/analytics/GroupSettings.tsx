@@ -41,7 +41,7 @@ export function GroupSettings({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
   const { info, error, setInfo } = useGroupInfo()
 
   if (error) return <PageMessage tone="danger">{error}</PageMessage>
-  if (!info) return <PageMessage>Loading…</PageMessage>
+  if (!info) return <PageMessage tone="loading" />
 
   return (
     <div className="flex flex-col gap-3">

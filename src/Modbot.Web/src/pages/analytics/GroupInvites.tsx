@@ -101,13 +101,13 @@ export function GroupInvites({
           </CardHeader>
 
           {missing ? (
-            <EmptyRow tone="danger">
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>
               <VRChatPermissionMissing missing={missing} />
             </EmptyRow>
           ) : error ? (
-            <EmptyRow tone="danger">{error}</EmptyRow>
+            <EmptyRow tone="danger" onTryAgain={() => setAsked((n) => n + 1)}>{error}</EmptyRow>
           ) : !list ? (
-            <EmptyRow>Loading…</EmptyRow>
+            <EmptyRow tone="loading" />
           ) : list.invites.length === 0 ? (
             <EmptyRow>No invites</EmptyRow>
           ) : (

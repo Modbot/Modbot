@@ -44,7 +44,7 @@ export function Reviews({
   const looked = useRef<string | null>(null)
 
   const load = useCallback(() => {
-    api
+    return api
       .reviews(state)
       .then((next) => {
         setList(next)
@@ -76,7 +76,7 @@ export function Reviews({
   if (error) {
     return (
       <Card>
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow tone="danger" onTryAgain={load}>{error}</EmptyRow>
       </Card>
     )
   }
@@ -117,7 +117,7 @@ export function Reviews({
 
       {!list && (
         <Card>
-          <EmptyRow>Loading…</EmptyRow>
+          <EmptyRow tone="loading" />
         </Card>
       )}
 

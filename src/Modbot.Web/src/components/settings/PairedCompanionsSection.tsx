@@ -38,9 +38,9 @@ export function PairedCompanionsSection({ me }: { me: CurrentUser }) {
   return (
     <SettingsSection id="companions" title="Paired companions">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !companions ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <SettingsCard title="Paired companions" span={12} flush>
           <CompanionList companions={companions} me={me} onChanged={() => void load()} />

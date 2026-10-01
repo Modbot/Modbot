@@ -200,7 +200,7 @@ function Around({ entry }: { entry: AuditEntry }) {
   const wanted = Boolean(entry.actorId) || entry.subjectKind === 'Person'
 
   const load = useCallback(() => api.auditAround(entry.id), [entry.id])
-  const { data, error } = useLoad<AuditAround>(wanted ? load : null)
+  const { data, error, reload } = useLoad<AuditAround>(wanted ? load : null)
 
   if (!wanted) return null
 
@@ -209,8 +209,8 @@ function Around({ entry }: { entry: AuditEntry }) {
       <CardHeader>
         <CardTitle>Around this</CardTitle>
       </CardHeader>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
       {data && (
         <div className="grid grid-cols-1 divide-y-(length:--hairline) divide-border lg:grid-cols-2 lg:divide-x-(length:--hairline) lg:divide-y-0">
           {data.byActor && (
@@ -420,7 +420,7 @@ function Snapshot({ entry }: { entry: AuditEntry }) {
 
 function ProfileAt({ entry }: { entry: AuditEntry }) {
   const load = useCallback(() => api.userHistory(entry.subjectId), [entry.subjectId])
-  const { data, error } = useLoad(load)
+  const { data, error, reload } = useLoad(load)
 
   const version = data?.versions.find((v) => v.factId === entry.id)
 
@@ -434,8 +434,8 @@ function ProfileAt({ entry }: { entry: AuditEntry }) {
           </Button>
         </CardAction>
       </CardHeader>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
       {data && !version && <EmptyRow>This change is older than the versions still on record.</EmptyRow>}
       {version && (
         <CardContent>

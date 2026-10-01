@@ -41,9 +41,9 @@ export function ApiKeysPanel() {
   return (
     <SettingsSection id="api-keys" title="API keys">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <SettingsCard
           title="Keys"

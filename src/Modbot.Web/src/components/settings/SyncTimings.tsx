@@ -18,6 +18,7 @@ import { seconds } from './units'
 export function SyncTimings() {
   const [settings, setSettings] = useState<SyncSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     api
@@ -26,14 +27,22 @@ export function SyncTimings() {
       .catch((e: unknown) =>
         setError(e instanceof ApiError ? e.message : 'Could not load sync settings.'),
       )
-  }, [])
+  }, [tries])
 
   return (
     <PanelGrid className="grid-cols-12">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </Placeholder>
       ) : !settings ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <>
           {!settings.running && (

@@ -34,11 +34,17 @@ export function AutoInvitesSection() {
     setRules(next.rules)
   }
 
-  useEffect(() => {
+  // Its own failure, apart from a failed save, so the card can tell "could not read" from a form
+  // that has been read and could not be saved.
+  const [readFailed, setReadFailed] = useState(false)
+  const read = () =>
     api
       .autoInvites()
       .then(load)
-      .catch(() => setError('Could not load auto-invites.'))
+      .catch(() => setReadFailed(true))
+
+  useEffect(() => {
+    void read()
   }, [])
 
   const builder: GiveawayBuilder | null = loaded
@@ -88,8 +94,17 @@ export function AutoInvitesSection() {
           </>
         }
       >
-        {!loaded && !error ? (
-          <EmptyRow className="px-0">Loading…</EmptyRow>
+        {!loaded ? (
+          <EmptyRow
+            className="px-0"
+            tone={readFailed ? 'danger' : 'loading'}
+            onTryAgain={() => {
+              setReadFailed(false)
+              return read()
+            }}
+          >
+            Could not load auto-invites.
+          </EmptyRow>
         ) : (
           <>
             <Switch checked={enabled} onChange={setEnabled}>

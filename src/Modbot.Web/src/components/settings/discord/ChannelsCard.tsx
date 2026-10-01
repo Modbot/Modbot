@@ -99,11 +99,11 @@ export function ChannelsCard() {
       footer={error ? <Outcome tone="problem">{error}</Outcome> : undefined}
     >
       {loadError ? (
-        <div className="p-(--panel-pad)">
-          <Outcome tone="problem">{loadError}</Outcome>
-        </div>
+        <EmptyRow tone="danger" onTryAgain={load}>
+          {loadError}
+        </EmptyRow>
       ) : !data ? (
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       ) : data.routes.length === 0 ? (
         <EmptyRow>No channels</EmptyRow>
       ) : (

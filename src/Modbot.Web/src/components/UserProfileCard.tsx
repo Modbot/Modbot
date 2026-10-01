@@ -61,7 +61,7 @@ export function ProfileIdentity({
 
   if (error) return <Empty tone="danger">{error}</Empty>
 
-  if (!profile) return <Empty>Loading…</Empty>
+  if (!profile) return <Empty tone="loading" />
 
   const fetched = profile.known && profile.lastRefreshedAt
 

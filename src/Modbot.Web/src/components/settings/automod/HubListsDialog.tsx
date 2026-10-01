@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { EmptyRow } from '@/components/PanelGrid'
@@ -27,15 +27,21 @@ function HubLists({ onAdded }: { onAdded: () => void }) {
   const [problem, setProblem] = useState<string | null>(null)
   const [adding, setAdding] = useState<string | null>(null)
 
+  const load = useCallback(
+    () =>
+      moderationApi
+        .hub()
+        .then((r) => {
+          setLists(r.lists)
+          setProblem(r.error)
+        })
+        .catch((e: unknown) => setProblem(failure(e, 'Could not reach Modbot Hub.'))),
+    [],
+  )
+
   useEffect(() => {
-    moderationApi
-      .hub()
-      .then((r) => {
-        setLists(r.lists)
-        setProblem(r.error)
-      })
-      .catch((e: unknown) => setProblem(failure(e, 'Could not reach Modbot Hub.')))
-  }, [])
+    void load()
+  }, [load])
 
   const add = (id: string) => {
     setAdding(id)
@@ -60,8 +66,15 @@ function HubLists({ onAdded }: { onAdded: () => void }) {
       {lists ? (
         <Outcome tone="problem">{problem}</Outcome>
       ) : (
-        <EmptyRow className="px-0" tone={problem ? 'danger' : undefined}>
-          {problem ?? 'Loading…'}
+        <EmptyRow
+          className="px-0"
+          tone={problem ? 'danger' : 'loading'}
+          onTryAgain={() => {
+            setProblem(null)
+            return load()
+          }}
+        >
+          {problem}
         </EmptyRow>
       )}
       <ul className="flex flex-col">

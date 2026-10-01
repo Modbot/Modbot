@@ -110,6 +110,8 @@ function Palette({
   const [answered, setAnswered] = useState<{ query: string; results: SearchResults | null } | null>(null)
   const results = answered?.query === asked ? answered.results : null
   const searchFailed = asked.length >= 2 && answered?.query === asked && answered.results === null
+  // Bumped by a failed search's "Try again", which asks the same words again.
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     if (asked.length < 2) return
@@ -130,7 +132,7 @@ function Palette({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [asked])
+  }, [asked, tries])
 
   const goTo = useMemo(() => new Map(shortcuts.filter((s) => s.group === 'Go to').map((s) => [s.label, s.keys])), [shortcuts])
 
@@ -318,7 +320,14 @@ function Palette({
 
         <div ref={listRef} id="palette-list" role="listbox" className="min-h-0 flex-1 overflow-auto py-1">
           {searchFailed && (
-            <EmptyRow tone="danger" className="px-3">
+            <EmptyRow
+              tone="danger"
+              className="px-3"
+              onTryAgain={() => {
+                setAnswered(null)
+                setTries((n) => n + 1)
+              }}
+            >
               Could not search
             </EmptyRow>
           )}

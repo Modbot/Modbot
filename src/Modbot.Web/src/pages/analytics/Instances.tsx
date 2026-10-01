@@ -19,7 +19,7 @@ import { useAnalytics } from './useAnalytics'
  */
 export function Instances({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const load = useCallback((q: string) => api.instancesAnalytics(q), [])
-  const { data, error } = useAnalytics(load, 30)
+  const { data, error, reload } = useAnalytics(load, 30)
 
   const header = <GroupHeaderFor me={me} pathOf={pathOf} active="analytics-instances" />
 
@@ -27,9 +27,9 @@ export function Instances({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId
     <div className="flex flex-col gap-3">
       {header}
 
-      {error && <PageMessage tone="danger">{error}</PageMessage>}
+      {error && <PageMessage tone="danger" onTryAgain={reload}>{error}</PageMessage>}
 
-      {!data && !error && <PageMessage>Loading…</PageMessage>}
+      {!data && !error && <PageMessage tone="loading" />}
 
       {data && (
         <PanelGrid className="grid-cols-1">

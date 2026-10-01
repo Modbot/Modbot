@@ -168,7 +168,7 @@ export function AiCallLogSettings() {
         </div>
 
         {!page ? (
-          <EmptyRow tone={error ? 'danger' : 'neutral'}>{error ?? 'Loading…'}</EmptyRow>
+          <EmptyRow tone={error ? 'danger' : 'loading'} onTryAgain={load}>{error}</EmptyRow>
         ) : rows.length === 0 ? (
           <EmptyRow>No calls.</EmptyRow>
         ) : (
@@ -235,6 +235,7 @@ export function AiCallLogSettings() {
 function CallDialog({ id }: { id: string }) {
   const [detail, setDetail] = useState<AiCallDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let open = true
@@ -257,7 +258,7 @@ function CallDialog({ id }: { id: string }) {
     return () => {
       open = false
     }
-  }, [id])
+  }, [id, tries])
 
   return (
     <DialogContent
@@ -266,8 +267,15 @@ function CallDialog({ id }: { id: string }) {
       bodyClassName="flex max-h-[76vh] flex-col gap-3 overflow-y-auto"
     >
       {!detail ? (
-        <EmptyRow className="px-0" tone={error ? 'danger' : 'neutral'}>
-          {error ?? 'Loading…'}
+        <EmptyRow
+          className="px-0"
+          tone={error ? 'danger' : 'loading'}
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
         </EmptyRow>
       ) : (
         <>

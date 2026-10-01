@@ -4,7 +4,7 @@ import { Popover } from 'radix-ui'
 import { CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
 import { Tabs } from '@/components/ui/tabs'
-import { EmptyRow } from '@/components/PanelGrid'
+import { EmptyRow, type RowState } from '@/components/PanelGrid'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
@@ -103,22 +103,11 @@ export function HeaderPicture({ url }: { url: string | null | undefined }) {
 
 /**
  * A one-line state of a popup section (loading, empty, failed), ruled off like a section.
- * `danger` for a read that failed, so it does not look like an empty section.
+ * `danger` for a read that failed, so it does not look like an empty section, with the read to run
+ * again as `onTryAgain` (`EmptyRow`).
  */
-export function Empty({
-  children,
-  className,
-  tone,
-}: {
-  children: React.ReactNode
-  className?: string
-  tone?: 'neutral' | 'danger'
-}) {
-  return (
-    <EmptyRow tone={tone} className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>
-      {children}
-    </EmptyRow>
-  )
+export function Empty({ className, ...row }: RowState & { className?: string }) {
+  return <EmptyRow {...row} className={cn('shrink-0 border-b border-b-(length:--hairline)', className)} />
 }
 
 /** The strip along the foot of a section's list: what the list shows, and how fresh it is. */

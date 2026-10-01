@@ -538,6 +538,8 @@ function SearchEditor({
   const [answered, setAnswered] = useState<{ words: string; found: FilterOption[] | null } | null>(null)
   const found = answered?.words === words ? answered.found : null
   const failed = words.length >= 2 && answered?.words === words && answered.found === null
+  // Bumped by a failed search's "Try again", which asks the same words again.
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     if (words.length < 2 || !property.search) return
@@ -556,7 +558,7 @@ function SearchEditor({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [words, property])
+  }, [words, property, tries])
 
   const rows: (FilterOption & { typedId?: boolean })[] = [
     ...(found ?? []),
@@ -597,7 +599,18 @@ function SearchEditor({
       />
       {words && (
         <div className="max-h-72 overflow-auto py-1">
-          {failed && <EmptyRow tone="danger" className="px-2">Could not search</EmptyRow>}
+          {failed && (
+            <EmptyRow
+              tone="danger"
+              className="px-2"
+              onTryAgain={() => {
+                setAnswered(null)
+                setTries((n) => n + 1)
+              }}
+            >
+              Could not search
+            </EmptyRow>
+          )}
           {words.length >= 2 && answered?.words !== words && <EmptyRow className="px-2">Searching…</EmptyRow>}
           {rows.map((o, i) => (
             <Row key={`${o.typedId ? 'typed' : 'found'}:${o.value}`} active={i === at} onClick={() => pick(o)} onHover={() => setCursor(i)}>

@@ -115,9 +115,9 @@ export function BanReasonsCard() {
       }
     >
       {error ? (
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow tone="danger" onTryAgain={load}>{error}</EmptyRow>
       ) : !reasons ? (
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       ) : (
         <>
           <div className="border-b border-b-(length:--hairline) px-(--panel-pad) py-2">

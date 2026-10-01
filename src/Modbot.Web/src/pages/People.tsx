@@ -276,7 +276,7 @@ export function People({ me }: { me: CurrentUser }) {
   })
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty>Loading…</Empty>
+  if (!list) return <Empty tone="loading" />
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const now = list.coverage.now

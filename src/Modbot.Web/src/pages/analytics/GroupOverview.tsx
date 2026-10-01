@@ -47,7 +47,7 @@ export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
   const { info, error, setInfo } = useGroupInfo()
 
   if (error) return <PageMessage tone="danger">{error}</PageMessage>
-  if (!info) return <PageMessage>Loading…</PageMessage>
+  if (!info) return <PageMessage tone="loading" />
 
   const editable = can(me, 'EditGroupProfile')
   const save = (edit: GroupProfileEdit) => api.updateGroupProfile(edit).then(setInfo)
@@ -94,6 +94,7 @@ function GroupCardTitle({ children }: { children: ReactNode }) {
 function RightNow() {
   const [open, setOpen] = useState<LiveInstance[] | null>(null)
   const [failed, setFailed] = useState(false)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -110,7 +111,7 @@ function RightNow() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [tries])
 
   return (
     <Card>
@@ -119,9 +120,17 @@ function RightNow() {
       </CardHeader>
 
       {failed ? (
-        <EmptyRow tone="danger">Could not load the open instances.</EmptyRow>
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            setFailed(false)
+            setTries((n) => n + 1)
+          }}
+        >
+          Could not load the open instances.
+        </EmptyRow>
       ) : open === null ? (
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       ) : open.length === 0 ? (
         <EmptyRow>No group instances open</EmptyRow>
       ) : (
@@ -152,6 +161,7 @@ function RightNow() {
 function UpcomingEvent({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const [next, setNext] = useState<NextEvent | null | undefined>(undefined)
   const [failed, setFailed] = useState(false)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -185,7 +195,7 @@ function UpcomingEvent({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) =
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [tries])
 
   const calendar = pathOf('calendar')
 
@@ -196,9 +206,18 @@ function UpcomingEvent({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) =
       </CardHeader>
 
       {failed ? (
-        <EmptyRow tone="danger">Could not load the calendar.</EmptyRow>
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            setFailed(false)
+            setNext(undefined)
+            setTries((n) => n + 1)
+          }}
+        >
+          Could not load the calendar.
+        </EmptyRow>
       ) : next === undefined ? (
-        <EmptyRow>Loading…</EmptyRow>
+        <EmptyRow tone="loading" />
       ) : next === null ? (
         <div className="flex flex-wrap items-center justify-between gap-x-3 pr-(--panel-pad)">
           <EmptyRow>No upcoming events</EmptyRow>

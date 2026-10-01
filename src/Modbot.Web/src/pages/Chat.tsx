@@ -316,7 +316,7 @@ export function Chat({
   }, [streamed])
 
   if (error) return <PageMessage tone="danger">{error}</PageMessage>
-  if (available === null) return <PageMessage>Loading…</PageMessage>
+  if (available === null) return <PageMessage tone="loading" />
   if (!available && conversations.length === 0) return <PageMessage>Chat is off.</PageMessage>
 
   const title = conversations.find((c) => c.id === current)?.title

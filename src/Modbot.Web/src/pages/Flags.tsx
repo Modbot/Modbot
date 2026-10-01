@@ -50,7 +50,7 @@ export function Flags({
   const mayDismiss = can(me, 'ReviewTickets')
 
   const load = useCallback(() => {
-    moderationApi
+    return moderationApi
       .flags(state, language)
       .then((r) => {
         setFlags(r.flags)
@@ -88,7 +88,7 @@ export function Flags({
   if (error) {
     return (
       <Card>
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow tone="danger" onTryAgain={load}>{error}</EmptyRow>
       </Card>
     )
   }
@@ -136,7 +136,7 @@ export function Flags({
       {problem && <div className="text-destructive">{problem}</div>}
       <Card>
         {!flags ? (
-          <EmptyRow>Loading…</EmptyRow>
+          <EmptyRow tone="loading" />
         ) : flags.length === 0 ? (
           <EmptyRow>No flags</EmptyRow>
         ) : (

@@ -58,7 +58,8 @@ Every screen is built from these. Paths are under `src/Modbot.Web/src`.
 | `font-label` | `index.css` | The display face at body size, weight 580, width 92. Every panel label, sidebar group name, dialog title and dropdown group heading. |
 | Panel grid lines | `index.css` | `[data-slot="panel-grid"]`: the rules that make panels share one hairline (§5). |
 | `Card`, `CardHeader`, `CardTitle`, `CardAction`, `CardContent`, `CardFooter` | `components/ui/card.tsx` | A panel, its strip, its label, the one control on the strip's right, its padded body and its footer strip. |
-| `PanelGrid`, `EmptyRow` | `components/PanelGrid.tsx` | Panels side by side sharing one hairline; the one-line empty state. |
+| `PanelGrid`, `EmptyRow`, `TryAgainButton` | `components/PanelGrid.tsx` | Panels side by side sharing one hairline; the one-line empty, loading and failed state; the failed state's "Try again" for a failure said inside a line. |
+| `TryAgainArea` | `components/TryAgain.tsx` | The page, and the popup over it, that "Try again" draws afresh when a failed row has no reload of its own (§10.3). |
 | `Table`, `Th`, `Tr`, `Td` | `components/ui/data-table.tsx` | A table run to its panel's edges. |
 | `Stat`, `StatStrip`, `Panel`, `Nothing`, `PageMessage`, `Toggle`, `RangePicker`, `CoverageNote` | `pages/analytics/shared.tsx` | Readings, a page panel with a label, a chart's place while it loads, a page-level message, a small view switch, the range control and the data-covered panel. `StatStrip` is used in the popups too. |
 | `PopupFrame`, `Panel`, `Block`, `Empty`, `Footer`, `More`, `Field`, `Note`, `FactList` | `components/subject/shared.tsx` | The person, world and instance popups: the frame, a named section, an unnamed block, a one-line state, a section's footer strip, the control that opens a tab, a label over a value, a muted note, a list of facts. |
@@ -93,11 +94,13 @@ Some parts share a name. None of them delegates to the other.
   stacked in a popup column. It adds `warn`, which tints the strip. Anything drawn inside a
   `PopupFrame` imports this one (the popups themselves, `SubjectHistory`, `SubjectCaseFiles`,
   `ProfileVersions`, `DiscordSide`, `AccountSide`, `DiscordLinkCard`).
-- **A page-level message.** `Empty` in `pages/Members.tsx` is a `Card` holding an `EmptyRow`, and
-  takes `tone`; the list pages, Health, Logs, Roles and Users import it. `PageMessage` in
-  `pages/analytics/shared.tsx` is the same thing, `tone` included; the analytics pages, Chat,
-  Calendar, Live and Giveaways import it. `Empty` in `components/subject/shared.tsx` is an
-  `EmptyRow` ruled off like a popup section, for a popup, and takes `tone` as well.
+- **A page-level message.** `Empty` in `components/ListParts.tsx` is a `Card` holding an
+  `EmptyRow`, and takes `tone` and `onTryAgain`; the list pages, Health, Logs, Roles and Users
+  import it. `PageMessage` in `pages/analytics/shared.tsx` is that same `Empty` under the name the
+  analytics pages, Chat, Calendar, Live and Giveaways import, and settings' `Placeholder` is it
+  too, the width of the settings grid; since 2026-10-01 the three are one part, so they cannot
+  drift apart. `Empty` in `components/subject/shared.tsx` is an `EmptyRow` ruled off like a popup
+  section, for a popup, and takes the same `tone` and `onTryAgain`.
 - **`Footer`.** `Footer` in `components/Chrome.tsx` is the foot of every page (Docs and Credits).
   `Footer` in `components/subject/shared.tsx` is the strip along the foot of a popup section.
 - **A label over a value.** `Fact` (`ui/fact-row.tsx`) sets the value in `font-medium` and wraps
@@ -396,10 +399,16 @@ waiting." They never explain what would fill it.
 
 ### 10.2 Loading
 
-Loading is the same row saying "Loading…". A page that has nothing to show until it loads returns
-a page-level message (§2.1). A chart that is loading keeps its place with `Nothing`, which is the
-empty row held at the chart's height, so the panel does not jump when the data comes. A picture
-that is loading is a `bg-muted` block that pulses (evidence, `h-40`).
+Loading is the same row with `tone="loading"`: grey `bg-muted` bars where the words would be, of
+different lengths so they read as lines on their way, pulsing unless reduced motion is asked for
+(`motion-reduce:animate-none`). Two bars in a panel's row, three in a page-level message, all in
+the row's own height, so the empty or failed row that replaces them does not jump. The words
+"Loading…" are there for a screen reader only (`role="status"`, `sr-only`), so loading never reads
+as an empty list ("Nobody matches" and "Loading…" used to be drawn alike). A page that has nothing
+to show until it loads returns a page-level message (§2.1) with `tone="loading"`. A chart that is
+loading keeps its place with `Nothing tone="loading"`: a `bg-muted` block the chart's height that
+pulses, so the panel does not jump when the data comes. A picture that is loading is a `bg-muted`
+block that pulses (evidence, `h-40`).
 
 ### 10.3 Failed
 
@@ -413,6 +422,21 @@ inside a panel `EmptyRow tone="danger"`. Never a `text-destructive` class on the
 turns the hollow square red and leaves it hollow. A section that waits for something another part
 reads (Settings' three tabs that wait for the onboarding status) is handed the error with the
 thing, so it can tell a failed read from one still loading.
+
+Every failed row ends in a "Try again" button (`outline`, `xs`, at the row's right end). The words
+stay what they were: what failed ("Could not load the flags."), nothing more. The row is handed the
+read that failed as `onTryAgain`: `useLoad`'s `reload`, `useAnalytics`'s `reload`, or a section's
+own `load`. When that returns a promise, the row shows the loading bars until it settles. A row
+that is not handed one falls back on the area it sits in (`TryAgainArea`, `lib/tryAgain.ts`): the
+page, or the popup, drawn afresh, which reads everything in it again the way opening it does.
+That suits a page whose only read failed; anything that keeps typed work beside a failed read
+(every settings section, a dialog, a page whose filters are not in the address) passes its own
+reload so pressing it redraws nothing else. Outside every area the fallback reloads the app.
+`onTryAgain={null}` leaves the button out, for a row that states a fact rather than a read that
+failed ("You do not have permission to view evidence.", worked out from the signed-in account).
+A failure said inside a line rather than as a row (the person popup's Standing line, the notes
+beside a ban) puts `TryAgainButton` after its words. Nothing that can fail draws nothing: a card
+whose read failed says so (Machine usage, the email queue) rather than leaving its place empty.
 
 The result of an action (a Save, a test) is not a page message. In settings it is `Outcome` beside
 the button: "Saved." in `text-ok`, or the problem in `text-destructive`, at small size. On the
@@ -886,7 +910,7 @@ export function Things() {
   // ...load the list, the filters and the page (see Members.tsx)
 
   if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty>Loading…</Empty>
+  if (!list) return <Empty tone="loading" />
 
   return (
     <div className="flex flex-col gap-3">

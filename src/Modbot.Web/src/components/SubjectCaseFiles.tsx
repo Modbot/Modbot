@@ -19,6 +19,7 @@ import { openCase } from '@/lib/subject'
 export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
   const [list, setList] = useState<CaseFileList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -40,14 +41,22 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
     return () => {
       cancelled = true
     }
-  }, [subjectId])
+  }, [subjectId, tries])
 
   // A failure says so: a missing section would read as "no case files", which is the one thing a
   // moderator must not be told by mistake.
   if (error) {
     return (
       <Panel title="Case files" flush>
-        <EmptyRow tone="danger">{error}</EmptyRow>
+        <EmptyRow
+          tone="danger"
+          onTryAgain={() => {
+            setError(null)
+            setTries((n) => n + 1)
+          }}
+        >
+          {error}
+        </EmptyRow>
       </Panel>
     )
   }

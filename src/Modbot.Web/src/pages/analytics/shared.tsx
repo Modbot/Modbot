@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { EmptyRow, PanelGrid, type RowState } from '@/components/PanelGrid'
+import { Empty } from '@/components/ListParts'
 import { dayRange, longDay } from '@/components/charts'
 import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
@@ -246,34 +247,30 @@ export function Panel({
  * an `EmptyRow`.
  *
  * `danger` when the chart could not be read, so a failure does not look like a chart still loading.
+ * `loading` is a grey block the chart's size that pulses, the way a picture on its way does.
  */
-export function Nothing({
-  children,
-  height,
-  tone,
-}: {
-  children: React.ReactNode
-  height: number
-  tone?: 'neutral' | 'danger'
-}) {
-  return (
-    <EmptyRow className="px-0" minHeight={height} tone={tone}>
-      {children}
-    </EmptyRow>
-  )
+export function Nothing({ height, ...row }: RowState & { height: number }) {
+  if (row.tone === 'loading') {
+    return (
+      <div
+        role="status"
+        className="animate-pulse rounded-sm bg-muted motion-reduce:animate-none"
+        style={{ height }}
+      >
+        <span className="sr-only">Loading…</span>
+      </div>
+    )
+  }
+
+  return <EmptyRow className="px-0" minHeight={height} {...row} />
 }
 
 /**
  * What a page shows in place of its panels: while it loads, when there is nothing to show, or
- * when it could not be read. `danger` for the last, the same as `Empty` on the list pages.
+ * when it could not be read. `danger` for the last. The list pages' `Empty`, under the name the
+ * analytics pages have always used.
  */
-export function PageMessage({ children, tone }: { children: React.ReactNode; tone?: 'neutral' | 'danger' }) {
-  return (
-    <Card>
-      <EmptyRow tone={tone}>{children}</EmptyRow>
-    </Card>
-  )
-}
+export const PageMessage = Empty
 
 /** A small inline toggle, for choosing between two views of one chart. */
 export function Toggle<T extends string>({

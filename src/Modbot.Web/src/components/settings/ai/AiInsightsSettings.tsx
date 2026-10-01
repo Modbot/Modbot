@@ -54,9 +54,9 @@ export function AiInsightsSettings() {
   return (
     <SettingsSection id="ai-insights" title="AI insights">
       {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
+        <Placeholder tone="danger" onTryAgain={load}>{error}</Placeholder>
       ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone="loading" />
       ) : (
         <Form stored={data} onSaved={setData} />
       )}

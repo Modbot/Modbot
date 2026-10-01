@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import { ChartFrame, chartHeight, rechartsTooltip, seriesColor } from '@/components/charts'
-import { api, type MachineUsage } from '@/lib/api'
+import { EmptyRow } from '@/components/PanelGrid'
+import { api, ApiError, type MachineUsage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { SettingsCard } from './SettingsCard'
@@ -33,10 +34,18 @@ const shown = (n: number | null, format: (v: number) => string) => (n === null ?
  * nothing at all can be read — including before the second reading has been taken, since a rate
  * needs two — the card is not there.
  *
+ * A read that fails is said, with "Try again". Until 2026-10-01 a failure hid the card as well,
+ * on the grounds that a diagnostic nobody can read is not worth a line; but a card that vanishes
+ * reads the same as a host that reports nothing, and the operator could not tell a broken server
+ * from a quiet one. No permission (403) still leaves the card out: that is not a failure,
+ * it is a card that is not this person's. A poll that fails while charts are shown keeps them; the
+ * next poll is the retry.
+ *
  * It refreshes at the rate the server samples, so a screen left open follows the machine.
  */
 export function MachineUsageCard() {
   const [data, setData] = useState<MachineUsage | null>(null)
+  const [failed, setFailed] = useState(false)
 
   const every = data?.sampleSeconds ?? 10
 
@@ -47,11 +56,13 @@ export function MachineUsageCard() {
       api
         .machineUsage()
         .then((next) => {
-          if (!stopped) setData(next)
+          if (stopped) return
+          setData(next)
+          setFailed(false)
         })
-        // A diagnostic nobody can read is not worth a line of its own on a screen full of
-        // settings: no permission, or no answer, means the card simply is not there.
-        .catch(() => {})
+        .catch((e: unknown) => {
+          if (!stopped && !(e instanceof ApiError && e.status === 403)) setFailed(true)
+        })
 
     void load()
     const timer = window.setInterval(() => void load(), every * 1000)
@@ -62,7 +73,27 @@ export function MachineUsageCard() {
     }
   }, [every])
 
-  if (!data) return null
+  if (!data) {
+    if (!failed) return null
+
+    // One read now, rather than waiting for the next poll; the row shows the loading bars meanwhile.
+    const tryAgain = () =>
+      api
+        .machineUsage()
+        .then((next) => {
+          setData(next)
+          setFailed(false)
+        })
+        .catch(() => {})
+
+    return (
+      <SettingsCard span={12} title="Machine usage" flush>
+        <EmptyRow tone="danger" onTryAgain={tryAgain}>
+          Could not load machine usage.
+        </EmptyRow>
+      </SettingsCard>
+    )
+  }
 
   const rows = toRows(data.points)
 

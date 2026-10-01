@@ -89,7 +89,7 @@ export function Giveaways() {
 
   const opened = data?.giveaways.find((g) => g.id === openId) ?? null
 
-  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'}>{error}</PageMessage>
 
   return (
     <div className="flex flex-col gap-3">
