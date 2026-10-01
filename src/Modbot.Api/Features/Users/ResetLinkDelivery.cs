@@ -1,3 +1,4 @@
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
@@ -22,8 +23,8 @@ public sealed record DeliveryResult(string? Via, SendOutcome? Outcome)
 /// <remarks>
 /// Email first, if SMTP is set up and the account has an address; otherwise a Discord direct
 /// message, if a bot token is stored and the account has a Discord account that counts
-/// (<see cref="StaffDiscord"/>: proven, or typed in before proving existed and still within the
-/// month those are given). A reset link is a way into the account, so it never goes to a Discord
+/// (<see cref="StaffDiscord"/>: proven, or typed in before proving existed, still within the month
+/// those are given, and held by no other account). A reset link is a way into the account, so it never goes to a Discord
 /// id nobody proved once typed ids stop counting. The message names the
 /// account so a person who did not ask can tell what happened, and it says nothing has changed.
 /// An email is account email under the daily limit and carries the link's expiry, so the queue
@@ -37,23 +38,27 @@ public sealed class ResetLinkDelivery
     private readonly IEmailSender _email;
     private readonly IDiscordMessenger _discord;
     private readonly IModbotClock _clock;
+    private readonly ModbotContext _db;
 
-    public ResetLinkDelivery(IEmailSender email, IDiscordMessenger discord, IModbotClock clock)
+    public ResetLinkDelivery(IEmailSender email, IDiscordMessenger discord, IModbotClock clock, ModbotContext db)
     {
         ArgumentNullException.ThrowIfNull(email);
         ArgumentNullException.ThrowIfNull(discord);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(db);
 
         _email = email;
         _discord = discord;
         _clock = clock;
+        _db = db;
     }
 
     /// <summary>Whether this account has anything a reset link could be sent to, whether or not it is set up.</summary>
-    public bool HasSomewhereToSend(ModbotUser user)
+    public async Task<bool> HasSomewhereToSendAsync(ModbotUser user, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(user);
-        return user.Email is { Length: > 0 } || StaffDiscord.IdOf(user, _clock.UtcNow) is not null;
+        return user.Email is { Length: > 0 }
+            || await StaffDiscord.CountedIdAsync(_db, user, _clock.UtcNow, ct) is not null;
     }
 
     /// <summary>The ways this deployment can send, in order of preference. Empty means none.</summary>
@@ -83,7 +88,7 @@ public sealed class ResetLinkDelivery
             return new DeliveryResult(EmailWay, outcome);
         }
 
-        if (StaffDiscord.IdOf(user, _clock.UtcNow) is { } discord && await _discord.IsConfiguredAsync(ct))
+        if (await StaffDiscord.CountedIdAsync(_db, user, _clock.UtcNow, ct) is { } discord && await _discord.IsConfiguredAsync(ct))
         {
             var outcome = await _discord.SendDirectMessageAsync(discord, text, ct);
             return new DeliveryResult(DiscordWay, outcome);

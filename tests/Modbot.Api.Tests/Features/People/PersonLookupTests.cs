@@ -5,6 +5,7 @@ using Modbot.Api.Features.People;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.People;
@@ -261,6 +262,46 @@ public class PersonLookupTests
 
         Assert.Equal("d_typed", person.Discord?.Id);
         Assert.Equal(FoundBy.Account, person.Discord?.FoundBy);
+    }
+
+    /// <summary>
+    /// A typed Discord id stops tying a Modbot account to a Discord account on the day typed ids
+    /// stop counting (accounts and access design §4.6), the same day the bot stops answering it.
+    /// </summary>
+    [Fact]
+    public async Task ADiscordIdTypedOntoAnAccount_StopsTyingOnceTypedIdsEnd()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        host.Clock.UtcNow = StaffDiscord.TypedIdsEnd.AddDays(1);
+
+        var account = await host.CreateUserAsync("late", "hunter2", ModbotPermissions.None, Ct, linked: false);
+        await RecordOnAccountAsync(host, account.Id, vrchatUserId: "usr_late", discordUserId: "d_late");
+
+        var cookie = await host.SignedInAsync(Reads, Ct);
+
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(vrchat: "usr_late"), cookie, Ct)).Discord);
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(account: account.Id), cookie, Ct)).Discord);
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(discord: "d_late"), cookie, Ct)).Account);
+    }
+
+    /// <summary>Two accounts that typed the same Discord id: nothing says which is meant, so neither.</summary>
+    [Fact]
+    public async Task ADiscordIdTypedOntoTwoAccounts_TiesToNeither()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+
+        var first = await host.CreateUserAsync("first", "hunter2", ModbotPermissions.None, Ct, linked: false);
+        var second = await host.CreateUserAsync("second", "hunter2", ModbotPermissions.None, Ct, linked: false);
+        await RecordOnAccountAsync(host, first.Id, vrchatUserId: "usr_first", discordUserId: "d_twice");
+        await RecordOnAccountAsync(host, second.Id, vrchatUserId: "usr_second", discordUserId: "d_twice");
+
+        var cookie = await host.SignedInAsync(Reads, Ct);
+
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(account: first.Id), cookie, Ct)).Discord);
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(vrchat: "usr_second"), cookie, Ct)).Discord);
+        Assert.Null((await host.GetJsonAsync<PersonView>(Ask(discord: "d_twice"), cookie, Ct)).Account);
     }
 
     // ── What a caller may be told ───────────────────────────────────────────────────────────

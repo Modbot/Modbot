@@ -73,7 +73,7 @@ public class NotificationPipelineTests
         ModbotContext Db, MovingClock Clock, StubSender Email, StubMessenger Discord, ModbotUser Person)
     {
         public IEnumerable<INotificationChannel> Channels =>
-            [new EmailNotificationChannel(Email), new DiscordNotificationChannel(Discord, Clock)];
+            [new EmailNotificationChannel(Email), new DiscordNotificationChannel(Discord, Clock, Db)];
 
         public INotifier Notifier => new Notifier(Db, Clock, Channels);
 

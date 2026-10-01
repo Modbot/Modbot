@@ -397,7 +397,7 @@ public sealed class FactWriter : IFactWriter
         }
 
         var people = await PeopleDirectory.LoadAsync(
-            _db, [(fact.SubjectPlatform, fact.SubjectId), (fact.ActorPlatform, fact.ActorId)], ct);
+            _db, [(fact.SubjectPlatform, fact.SubjectId), (fact.ActorPlatform, fact.ActorId)], _clock.UtcNow, ct);
 
         _groupId ??= await _db.Settings
             .AsNoTracking()

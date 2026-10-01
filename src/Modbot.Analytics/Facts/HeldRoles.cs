@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Users;
 
 namespace Modbot.Analytics.Facts;
 
@@ -83,6 +84,10 @@ public sealed record HeldRoles(
 }
 
 /// <summary>A Modbot account as the lookups see it.</summary>
+/// <param name="DiscordUserId">
+/// The Discord account that counts for it (<see cref="StaffDiscord"/>): proven, or typed in before
+/// proving existed, still within the time typed ids are given, and held by no other account.
+/// </param>
 public sealed record DirectoryAccount(Guid Id, string? VRChatUserId, string? DiscordUserId, IReadOnlySet<Guid> RoleIds);
 
 /// <summary>Every account a person in a fact stands for, and their Modbot account if they have one.</summary>
@@ -106,8 +111,10 @@ public sealed record PersonIdentities(IReadOnlySet<string> VRChatIds, IReadOnlyS
 /// <c>discord_account_link</c> table, active rows) stands for both, and so does the Discord side.
 /// </para>
 /// <para>
-/// A Modbot account id stands for the VRChat account it linked and the Discord id stored on it,
-/// plus whatever those are linked to. Anything else -- a group, a location, a channel -- is nobody.
+/// A Modbot account id stands for the VRChat account it linked and the Discord account that counts
+/// for it (<see cref="StaffDiscord"/>, accounts and access design §4.6), plus whatever those are
+/// linked to. A Discord id typed onto an account and never proven stops standing for it on the day
+/// typed ids stop counting, and never stands for it while another account holds the same id. Anything else -- a group, a location, a channel -- is nobody.
 /// </para>
 /// <para>
 /// <see cref="Of"/> is the one place identities are worked out; a new kind of link is added here.
@@ -186,8 +193,9 @@ public sealed class PeopleDirectory
     }
 
     /// <summary>Accounts and active links for everybody named in these (platform, id) pairs, in a handful of queries.</summary>
+    /// <param name="now">From <c>IModbotClock</c>: whether typed Discord ids still count (<see cref="StaffDiscord"/>).</param>
     public static async Task<PeopleDirectory> LoadAsync(
-        ModbotContext db, IEnumerable<(FactPlatform? Platform, string? Id)> parties, CancellationToken ct)
+        ModbotContext db, IEnumerable<(FactPlatform? Platform, string? Id)> parties, DateTimeOffset now, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(parties);
@@ -211,7 +219,7 @@ public sealed class PeopleDirectory
         if (guids.Count == 0 && vrchat.Count == 0 && discord.Count == 0)
             return Empty;
 
-        var accounts = await AccountsAsync(db, guids, vrchat, discord, ct).ConfigureAwait(false);
+        var accounts = await AccountsAsync(db, guids, vrchat, discord, now, ct).ConfigureAwait(false);
 
         foreach (var account in accounts)
         {
@@ -234,7 +242,7 @@ public sealed class PeopleDirectory
 
         if (linkedVRChat.Count > 0 || linkedDiscord.Count > 0)
         {
-            var more = await AccountsAsync(db, [], linkedVRChat, linkedDiscord, ct).ConfigureAwait(false);
+            var more = await AccountsAsync(db, [], linkedVRChat, linkedDiscord, now, ct).ConfigureAwait(false);
             accounts.AddRange(more.Where(m => accounts.All(a => a.Id != m.Id)));
         }
 
@@ -242,7 +250,12 @@ public sealed class PeopleDirectory
     }
 
     private static async Task<List<DirectoryAccount>> AccountsAsync(
-        ModbotContext db, IReadOnlyCollection<Guid> guids, IReadOnlyCollection<string> vrchat, IReadOnlyCollection<string> discord, CancellationToken ct)
+        ModbotContext db,
+        IReadOnlyCollection<Guid> guids,
+        IReadOnlyCollection<string> vrchat,
+        IReadOnlyCollection<string> discord,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
         var guidList = guids.ToList();
         var vrchatList = vrchat.ToList();
@@ -252,11 +265,19 @@ public sealed class PeopleDirectory
             .Where(u => guidList.Contains(u.Id)
                 || (u.VRChatUserId != null && vrchatList.Contains(u.VRChatUserId))
                 || (u.DiscordUserId != null && discordList.Contains(u.DiscordUserId)))
-            .Select(u => new { u.Id, u.VRChatUserId, u.DiscordUserId, Roles = u.Roles.Select(r => r.RoleId).ToList() })
+            .Select(u => new { u.Id, u.VRChatUserId, u.DiscordUserId, u.DiscordVerifiedAt, Roles = u.Roles.Select(r => r.RoleId).ToList() })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return rows.Select(r => new DirectoryAccount(r.Id, r.VRChatUserId, r.DiscordUserId, r.Roles.ToHashSet())).ToList();
+        // Found by a Discord id or not, an account stands only for the Discord account that counts
+        // for it; one found only by an id that does not count is left with no Discord side.
+        var counted = await StaffDiscord.CountedIdsAsync(
+                db, rows.Select(r => (r.Id, r.DiscordUserId, r.DiscordVerifiedAt)), now, ct)
+            .ConfigureAwait(false);
+
+        return rows
+            .Select(r => new DirectoryAccount(r.Id, r.VRChatUserId, counted.GetValueOrDefault(r.Id), r.Roles.ToHashSet()))
+            .ToList();
     }
 
     private static void Add(Dictionary<string, HashSet<string>> map, string key, string value)

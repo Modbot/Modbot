@@ -193,7 +193,9 @@ public static class DiscordConnectEndpoints
         }
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
-            // Another account proved it between the check above and here.
+            // Another account proved it between the check above and here. Nothing of this attempt
+            // is kept: the typed ids taken off other accounts go back on with it.
+            await transaction.RollbackAsync(ct);
             return Back("taken");
         }
 

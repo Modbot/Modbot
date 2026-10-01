@@ -3,6 +3,8 @@ using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.People;
 
@@ -40,7 +42,9 @@ public readonly record struct PersonSight(bool DiscordSide, bool Account, bool V
 /// <para>
 /// <strong>Only what is written down.</strong> Two things tie accounts together and nothing else
 /// does: the proved link in <c>discord_account_link</c>, and the VRChat id and Discord id recorded
-/// on a <c>modbot_user</c> row. Display names are never compared, and an id's shape is never read
+/// on a <c>modbot_user</c> row -- the Discord id only where it counts (<see cref="StaffDiscord"/>,
+/// accounts and access design §4.6): proven, or typed before proving existed, within the time typed
+/// ids are given and held by no other account. Display names are never compared, and an id's shape is never read
 /// (foundation §3.1.1). An account that ties to nothing resolves to itself, and the view opens on
 /// that alone.
 /// </para>
@@ -50,7 +54,7 @@ public readonly record struct PersonSight(bool DiscordSide, bool Account, bool V
 /// its id in the address already.
 /// </para>
 /// </remarks>
-public sealed class PersonLookup(ModbotContext db)
+public sealed class PersonLookup(ModbotContext db, IModbotClock clock)
 {
     public async Task<PersonView> ResolveAsync(PersonAsk ask, PersonSight sight, CancellationToken ct)
     {
@@ -78,9 +82,9 @@ public sealed class PersonLookup(ModbotContext db)
         if (sight.DiscordSide)
             discordId = await db.LinkedDiscordUserIdAsync(vrchatUserId, ct);
 
-        if (discordId is null && account?.DiscordUserId is { Length: > 0 } typed)
+        if (discordId is null && account is not null && await CountedDiscordIdAsync(account, ct) is { } onAccount)
         {
-            discordId = typed;
+            discordId = onAccount;
             discordFoundBy = FoundBy.Account;
         }
 
@@ -143,7 +147,7 @@ public sealed class PersonLookup(ModbotContext db)
 
         var vrchatId = account.VRChatUserId is { Length: > 0 } id ? id : null;
 
-        var discordId = account.DiscordUserId is { Length: > 0 } typed ? typed : null;
+        var discordId = await CountedDiscordIdAsync(account, ct);
         var discordFoundBy = FoundBy.Account;
 
         if (discordId is null && sight.DiscordSide && vrchatId is not null)
@@ -169,8 +173,12 @@ public sealed class PersonLookup(ModbotContext db)
     private Task<ModbotUser?> AccountByVRChatAsync(string vrchatUserId, CancellationToken ct)
         => AccountsWithRoles().FirstOrDefaultAsync(u => u.VRChatUserId == vrchatUserId, ct);
 
+    /// <summary>The account this Discord account counts for, by the same rule the bot uses.</summary>
     private Task<ModbotUser?> AccountByDiscordAsync(string discordUserId, CancellationToken ct)
-        => AccountsWithRoles().FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, ct);
+        => StaffDiscord.AccountForAsync(db, discordUserId, clock.UtcNow, ct);
+
+    private Task<string?> CountedDiscordIdAsync(ModbotUser account, CancellationToken ct)
+        => StaffDiscord.CountedIdAsync(db, account, clock.UtcNow, ct);
 
     private static PersonAccount View(ModbotUser account, string foundBy)
         => new(

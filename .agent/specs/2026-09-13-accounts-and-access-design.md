@@ -356,8 +356,10 @@ the wrong person. Anything that lets a person *act* from Discord has to know who
   as before; from then on, nowhere. Where two accounts typed the same id, neither counts, because
   the bot cannot tell which is meant.
 - `StaffDiscord` (Modbot.Core) is the one place that decides which Discord account an account is:
-  slash commands, notification direct messages and reset links by direct message all go through
-  it, and so must anything that acts from Discord.
+  slash commands, notification direct messages, reset links by direct message, the person lookup,
+  event routes and the roles saved on facts (`PeopleDirectory`), and the giveaway staff exclusion
+  all go through it, and so must anything that acts from Discord. The rule is the same in each:
+  proven counts; typed counts before the date and only while no other account holds the same id.
 
 ## 5. Sessions
 

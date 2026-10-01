@@ -184,7 +184,7 @@ public static class ResetEndpoints
 
                 // Nothing to send it with: no link, no fact. A link nobody can receive would
                 // only be a token sitting in the database.
-                if (!delivery.HasSomewhereToSend(user))
+                if (!await delivery.HasSomewhereToSendAsync(user, ct))
                     return answer;
 
                 var (link, token) = await links.CreateResetAsync(user.Id, user.Id, ct);

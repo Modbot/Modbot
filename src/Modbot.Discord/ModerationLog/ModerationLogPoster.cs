@@ -248,6 +248,7 @@ public sealed class ModerationLogPoster
                     _db,
                     candidates,
                     withRoles: routes.Any(r => r.SubjectVRChatRoleIds.Count > 0 || r.ActorVRChatRoleIds.Count > 0 || r.ActorModbotRoleIds.Count > 0),
+                    _clock.UtcNow,
                     ct)
                 .ConfigureAwait(false)
             : RoutePeople.Empty;

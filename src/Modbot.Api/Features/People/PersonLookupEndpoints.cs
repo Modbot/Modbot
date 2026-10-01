@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
+using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.People;
 
@@ -33,6 +34,7 @@ public static class PersonLookupEndpoints
         group.MapGet("", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
                 [FromQuery] string? vrchatUserId,
                 [FromQuery] string? discordUserId,
                 [FromQuery] Guid? accountId,
@@ -51,7 +53,7 @@ public static class PersonLookupEndpoints
                 var ask = new PersonAsk(vrchatUserId?.Trim(), discordUserId?.Trim(), accountId);
                 var sight = PersonSight.Of(ModbotAuth.PermissionsOf(http.User));
 
-                return Results.Ok(await new PersonLookup(db).ResolveAsync(ask, sight, ct));
+                return Results.Ok(await new PersonLookup(db, clock).ResolveAsync(ask, sight, ct));
             })
             .WithName("GetPerson")
             .WithSummary("Look up a person")

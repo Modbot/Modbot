@@ -1,5 +1,7 @@
 using Modbot.Analytics.Giveaways;
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Giveaways;
+using Modbot.Core.Users;
 using Modbot.TestSupport;
 
 namespace Modbot.Analytics.Tests.Giveaways;
@@ -448,6 +450,55 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
             Ct);
 
         Assert.Equal(GiveawayKeptOut.Banned, Assert.Single(match.People).KeptOut);
+    }
+
+    /// <summary>
+    /// Staff are known on Discord by the Discord account that counts for them (accounts and access
+    /// design §4.6). This suite's clock is past the day typed ids stop counting, so a typed id on a
+    /// staff account no longer keeps that Discord member out; a proven one still does.
+    /// </summary>
+    [Fact]
+    public async Task StaffAreKeptOutByTheirProvenDiscordAccount_NotByATypedOneThatStoppedCounting()
+    {
+        Assert.True(Now > StaffDiscord.TypedIdsEnd);
+
+        await AddPersonAsync(discord: AliceDiscord, inDiscordDays: 100);
+        await AddPersonAsync(discord: BobDiscord, inDiscordDays: 100);
+
+        await using (var seed = Database.NewContext())
+        {
+            seed.Users.Add(Staff("proven", AliceDiscord, provenAt: Now.AddDays(-30)));
+            seed.Users.Add(Staff("typed", BobDiscord, provenAt: null));
+            await seed.SaveChangesAsync(Ct);
+        }
+
+        await using var context = Database.NewContext();
+        var match = await NewChecker(context).SnapshotAsync(
+            Rule(GiveawayRuleKinds.DiscordMemberDays, 30),
+            new GiveawayExclusions { Staff = true },
+            GiveawayWeights.Uniform,
+            null,
+            entrants: null,
+            Ct);
+
+        Assert.Equal(GiveawayKeptOut.Staff, match.People.Single(p => p.DiscordUserId == AliceDiscord).KeptOut);
+        Assert.Equal(GiveawayKeptOut.No, match.People.Single(p => p.DiscordUserId == BobDiscord).KeptOut);
+    }
+
+    private static ModbotUser Staff(string name, string discordUserId, DateTimeOffset? provenAt)
+    {
+        var tag = $"{name}_{Guid.NewGuid():N}";
+        return new ModbotUser
+        {
+            Id = Guid.NewGuid(),
+            Username = tag,
+            UsernameNormalized = tag.ToUpperInvariant(),
+            Email = $"{tag}@test.example",
+            PasswordHash = "x",
+            DiscordUserId = discordUserId,
+            DiscordUsername = provenAt is null ? null : name,
+            DiscordVerifiedAt = provenAt,
+        };
     }
 
     // ── Weighting ────────────────────────────────────────────────────────────────────────

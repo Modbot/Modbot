@@ -32,18 +32,87 @@ public static class StaffDiscord
     public static bool TypedIdsCount(DateTimeOffset now) => now < TypedIdsEnd;
 
     /// <summary>
-    /// The Discord id Modbot may treat as this person at <paramref name="now"/>, or null. Says
-    /// nothing about whether another account typed the same id; use <see cref="AccountForAsync"/>
-    /// to go from Discord to an account.
+    /// The Discord id this account's own row allows at <paramref name="now"/>: proven, or typed and
+    /// before <see cref="TypedIdsEnd"/>. Does not look at other accounts, so a typed id another
+    /// account holds too still passes here; anything that acts or sends uses
+    /// <see cref="CountedIdAsync"/>, <see cref="CountedIdsAsync"/> or <see cref="AccountForAsync"/>,
+    /// which do.
     /// </summary>
     public static string? IdOf(ModbotUser user, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(user);
+        return IdOf(user.DiscordUserId, user.DiscordVerifiedAt, now);
+    }
 
-        if (user.DiscordUserId is not { Length: > 0 } id)
+    private static string? IdOf(string? discordUserId, DateTimeOffset? verifiedAt, DateTimeOffset now)
+    {
+        if (discordUserId is not { Length: > 0 } id)
             return null;
 
-        return user.DiscordVerifiedAt is not null || TypedIdsCount(now) ? id : null;
+        return verifiedAt is not null || TypedIdsCount(now) ? id : null;
+    }
+
+    /// <summary>
+    /// The Discord id that counts for this account at <paramref name="now"/>, or null: proven; or
+    /// typed, before <see cref="TypedIdsEnd"/>, and held by no other account.
+    /// </summary>
+    public static async Task<string?> CountedIdAsync(ModbotContext db, ModbotUser user, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        var counted = await CountedIdsAsync(db, [(user.Id, user.DiscordUserId, user.DiscordVerifiedAt)], now, ct).ConfigureAwait(false);
+        return counted.GetValueOrDefault(user.Id);
+    }
+
+    /// <summary>
+    /// <see cref="CountedIdAsync"/> for many accounts in one query: the id that counts for each one
+    /// that has one. Accounts without one are left out.
+    /// </summary>
+    public static async Task<IReadOnlyDictionary<Guid, string>> CountedIdsAsync(
+        ModbotContext db,
+        IEnumerable<(Guid Id, string? DiscordUserId, DateTimeOffset? DiscordVerifiedAt)> accounts,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(accounts);
+
+        var counted = new Dictionary<Guid, string>();
+        var typed = new List<(Guid Id, string DiscordUserId)>();
+
+        foreach (var (id, discordUserId, verifiedAt) in accounts)
+        {
+            if (IdOf(discordUserId, verifiedAt, now) is not { } allowed)
+                continue;
+
+            if (verifiedAt is not null)
+                counted[id] = allowed;
+            else
+                typed.Add((id, allowed));
+        }
+
+        if (typed.Count == 0)
+            return counted;
+
+        // A typed id another account holds as well, typed or proven, is nobody's: the proven one
+        // is the person, and between two typed ones nothing says which.
+        var typedIds = typed.Select(t => t.DiscordUserId).Distinct(StringComparer.Ordinal).ToList();
+        var shared = await db.Users.AsNoTracking()
+            .Where(u => u.DeletedAt == null && u.DiscordUserId != null && typedIds.Contains(u.DiscordUserId))
+            .GroupBy(u => u.DiscordUserId!)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var sharedSet = shared.ToHashSet(StringComparer.Ordinal);
+        foreach (var (id, discordUserId) in typed)
+        {
+            if (!sharedSet.Contains(discordUserId))
+                counted[id] = discordUserId;
+        }
+
+        return counted;
     }
 
     /// <summary>

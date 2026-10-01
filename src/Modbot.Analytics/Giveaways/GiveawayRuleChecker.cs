@@ -749,11 +749,18 @@ public sealed class GiveawayRuleChecker
         if (exclusions.Staff)
         {
             var staff = await _db.Users.AsNoTracking()
-                .Select(u => new { u.VRChatUserId, u.DiscordUserId })
+                .Select(u => new { u.Id, u.VRChatUserId, u.DiscordUserId, u.DiscordVerifiedAt })
                 .ToListAsync(ct);
 
+            // A staff member's Discord account is the one that counts for them, by the rule the bot
+            // uses (StaffDiscord): a typed id that stopped counting, or that another account holds
+            // too, says nothing about who is staff, and would keep a stranger out of the draw.
+            var discord = await StaffDiscord.CountedIdsAsync(
+                _db, staff.Select(s => (s.Id, s.DiscordUserId, s.DiscordVerifiedAt)), _clock.UtcNow, ct);
+
             var staffIds = staff
-                .SelectMany(s => new[] { s.VRChatUserId, s.DiscordUserId })
+                .Select(s => s.VRChatUserId)
+                .Concat(discord.Values)
                 .Where(id => !string.IsNullOrEmpty(id))
                 .Select(id => id!)
                 .ToHashSet(StringComparer.Ordinal);

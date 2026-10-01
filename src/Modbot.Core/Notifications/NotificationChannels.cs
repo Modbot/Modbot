@@ -1,3 +1,4 @@
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
@@ -137,21 +138,24 @@ public sealed class EmailNotificationChannel : INotificationChannel
 /// <summary>Notifications by Discord direct message, as the deployment's bot.</summary>
 /// <remarks>
 /// Reaches the Discord account on the person's Modbot account, once it counts
-/// (<see cref="StaffDiscord"/>): proven, or typed in and still within the month typed ids are
-/// given. A person with none is unreachable here, which is one of the ways a critical notification
+/// (<see cref="StaffDiscord"/>): proven, or typed in, still within the month typed ids are given,
+/// and held by no other account. A person with none is unreachable here, which is one of the ways a critical notification
 /// ends up waiting at next sign-in.
 /// </remarks>
 public sealed class DiscordNotificationChannel : INotificationChannel
 {
     private readonly IDiscordMessenger _messenger;
     private readonly IModbotClock _clock;
+    private readonly ModbotContext _db;
 
-    public DiscordNotificationChannel(IDiscordMessenger messenger, IModbotClock clock)
+    public DiscordNotificationChannel(IDiscordMessenger messenger, IModbotClock clock, ModbotContext db)
     {
         ArgumentNullException.ThrowIfNull(messenger);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(db);
         _messenger = messenger;
         _clock = clock;
+        _db = db;
     }
 
     public string Name => NotificationChannels.Discord;
@@ -161,7 +165,7 @@ public sealed class DiscordNotificationChannel : INotificationChannel
         ArgumentNullException.ThrowIfNull(user);
 
         return !user.IsDisabled
-               && StaffDiscord.IdOf(user, _clock.UtcNow) is not null
+               && await StaffDiscord.CountedIdAsync(_db, user, _clock.UtcNow, ct).ConfigureAwait(false) is not null
                && await _messenger.IsConfiguredAsync(ct).ConfigureAwait(false);
     }
 
@@ -170,7 +174,7 @@ public sealed class DiscordNotificationChannel : INotificationChannel
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        if (StaffDiscord.IdOf(user, _clock.UtcNow) is not { } discordUserId)
+        if (await StaffDiscord.CountedIdAsync(_db, user, _clock.UtcNow, ct).ConfigureAwait(false) is not { } discordUserId)
             return SendOutcome.NotConfigured("This account has no Discord account connected, so Discord");
 
         return await _messenger

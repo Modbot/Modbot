@@ -164,8 +164,9 @@ public sealed class RoutePeople
     /// saved in the fact when it was written, or for an older fact without them, worked out from
     /// the role changes recorded since (<see cref="RoleHistory"/>).
     /// </summary>
+    /// <param name="now">From <c>IModbotClock</c>: whether typed staff Discord ids still count.</param>
     public static async Task<RoutePeople> LoadAsync(
-        ModbotContext db, IReadOnlyCollection<ModbotEvent> facts, bool withRoles, CancellationToken ct)
+        ModbotContext db, IReadOnlyCollection<ModbotEvent> facts, bool withRoles, DateTimeOffset now, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -174,6 +175,7 @@ public sealed class RoutePeople
                 db,
                 facts.Select(f => ((FactPlatform?)f.SubjectPlatform, (string?)f.SubjectId))
                     .Concat(facts.Select(f => (f.ActorPlatform, f.ActorId))),
+                now,
                 ct)
             .ConfigureAwait(false);
 
