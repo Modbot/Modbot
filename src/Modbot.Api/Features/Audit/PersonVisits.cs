@@ -19,10 +19,14 @@ namespace Modbot.Api.Features.Audit;
 /// The fact that made them present: an arrival, or "already here" when a moderator's client arrived
 /// after they did. Named and placed like any audit log entry, instance included.
 /// </param>
-/// <param name="Left">The leave, or null when nobody saw them go.</param>
+/// <param name="Left">
+/// The leave, or null when nobody saw them go -- or when the leave was seen but its entry has since
+/// gone (pruned between the two reads); <paramref name="SeenLeaving"/> tells the two apart.
+/// </param>
+/// <param name="SeenLeaving">Whether a leave ended the visit, rather than the instance going quiet or closing.</param>
 /// <param name="Until">
 /// When they left, or, when nobody saw them go, the last thing any client reported from that
-/// instance: the last moment anything is known.
+/// instance in that instance's own life: the last moment anything is known.
 /// </param>
 /// <param name="Name">The display name they had when they arrived, as the client read it.</param>
 /// <param name="Avatars">The avatars they were seen changing into, in order, each once.</param>
@@ -33,6 +37,7 @@ namespace Modbot.Api.Features.Audit;
 public sealed record PersonVisit(
     AuditEntry Arrived,
     AuditEntry? Left,
+    bool SeenLeaving,
     DateTimeOffset Until,
     string? Name,
     IReadOnlyList<string> Avatars,
@@ -48,8 +53,9 @@ public sealed record PersonVisitsPage(IReadOnlyList<PersonVisit> Visits, AuditCu
 /// <para>
 /// The person popup's Activity tab already lists every arrival and leave, but a moderator asking
 /// "how long were they there, and who was with them" had to pair them by eye, often across a page
-/// of other people's entries. The pairing is the one the time-in-world figures already make
-/// (<see cref="PresenceCounts"/>), so the two can never disagree about how long somebody stayed.
+/// of other people's entries. The pairing follows the time-in-world figures' rule
+/// (<see cref="PresenceCounts"/>), kept inside the life of each instance, because VRChat hands an
+/// instance's number out again once it closes.
 /// </para>
 /// <para>
 /// <strong>Read as the audit log is read.</strong> Every visit is made of presence facts, which are
@@ -205,6 +211,7 @@ public static class PersonVisits
             visits.Add(new PersonVisit(
                 arrived,
                 left,
+                visit.EndedBy is not null,
                 visit.Ended,
                 AuditJson.Text(arrived.Data, "displayName"),
                 worn,

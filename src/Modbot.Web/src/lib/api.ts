@@ -821,8 +821,10 @@ export type AuditCursor = { occurredAt: string; id: number }
 export type PersonVisit = {
   /** The arrival, or "already here" when a moderator's client arrived after they did. */
   arrived: AuditEntry
-  /** Null when nobody saw them go. */
+  /** Null when nobody saw them go, or when the leave's entry has since gone. */
   left: AuditEntry | null
+  /** Whether a leave ended the visit. */
+  seenLeaving: boolean
   /** When they left, or the last report from the instance when nobody saw them go. */
   until: string
   /** The display name they had then. */

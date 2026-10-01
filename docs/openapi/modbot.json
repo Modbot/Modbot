@@ -33948,6 +33948,7 @@
         "required": [
           "arrived",
           "left",
+          "seenLeaving",
           "until",
           "name",
           "avatars",
@@ -33967,6 +33968,9 @@
                 "$ref": "#/components/schemas/AuditEntry"
               }
             ]
+          },
+          "seenLeaving": {
+            "type": "boolean"
           },
           "until": {
             "type": "string",

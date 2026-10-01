@@ -13,8 +13,8 @@ const PAGE = 10
  * left, how long that was, the name and avatars they were seen with, and which moderators'
  * companions saw them.
  *
- * Made on the server from the same reports the time-in-world figures add up, so a visit here and
- * "Time seen" above can never disagree. A visit nobody saw end runs to the last report from that
+ * Made on the server from the same reports, by the same rule, as the time-in-world figures, kept
+ * inside each instance's own life. A visit nobody saw end runs to the last report from that
  * instance, which is the last moment anything is known, and the row says it was not seen ending.
  * Hidden when there is nothing to show: a person no companion has seen has no visits, and the
  * figures above already leave that out.
@@ -90,13 +90,13 @@ export function PersonVisits({ userId, currentName }: { userId: string; currentN
  * who saw them. The instance opens its own popup.
  */
 function Visit({ visit, currentName }: { visit: PersonVisit; currentName: string | null }) {
-  const { arrived, left, until, name, avatars, seenBy } = visit
+  const { arrived, seenLeaving, until, name, avatars, seenBy } = visit
   const minutes = (Date.parse(until) - Date.parse(arrived.occurredAt)) / 60_000
 
   // "Already here" is a client arriving to find them there: when they really arrived is not known.
   const alreadyThere = arrived.type === 'vrchat.instance.presence'
 
-  const marks = [alreadyThere ? 'Already there' : null, left ? null : 'Not seen leaving'].filter(Boolean)
+  const marks = [alreadyThere ? 'Already there' : null, seenLeaving ? null : 'Not seen leaving'].filter(Boolean)
   const watchers = seenBy.map((r) => r.name).filter((n): n is string => !!n)
   const seen = [
     name && name !== currentName ? `As ${name}` : null,

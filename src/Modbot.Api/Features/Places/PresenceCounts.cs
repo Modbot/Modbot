@@ -73,21 +73,118 @@ public sealed class PresenceCounts(ModbotContext db)
                    occurred_at AS started,
                    COALESCE(LEAD(occurred_at) OVER (
                        PARTITION BY world_id, instance_id, subject_id
-                       ORDER BY occurred_at, id), last_report) AS ended,
-                   id AS started_id,
-                   LEAD(id) OVER (
-                       PARTITION BY world_id, instance_id, subject_id
-                       ORDER BY occurred_at, id) AS ended_id
+                       ORDER BY occurred_at, id), last_report) AS ended
             FROM changes
             WHERE change <> 0
         )
         """;
 
-    private const string SubjectsInstances = """
-        AND (e.world_id, e.instance_id) IN (
-            SELECT DISTINCT s.world_id, s.instance_id FROM modbot_event s
-            WHERE s.type = ANY(@presence) AND s.subject_id = @subject
-              AND s.world_id IS NOT NULL AND s.instance_id IS NOT NULL)
+    /// <summary>
+    /// The instances <c>@subject</c> was ever reported in, read off the subject index: the
+    /// platform is part of that index, so without it every presence fact there is would be scanned.
+    /// </summary>
+    private const string SubjectsInstancesList = """
+        SELECT DISTINCT s.world_id, s.instance_id FROM modbot_event s
+        WHERE s.subject_platform = @vrchat AND s.subject_id = @subject
+          AND s.type = ANY(@presence)
+          AND s.world_id IS NOT NULL AND s.instance_id IS NOT NULL
+        """;
+
+    private const string SubjectsInstances = $"""
+        AND (e.world_id, e.instance_id) IN ({SubjectsInstancesList})
+        """;
+
+    /// <summary>
+    /// How long a stretch with no report at all from an instance Modbot has no row for may be before
+    /// what comes after it is taken as another instance under the same number.
+    /// </summary>
+    /// <remarks>
+    /// VRChat hands a number out again once an instance closes. For an instance Modbot has a row for,
+    /// the row's own open and close times tell two instances under one number apart; for one it has
+    /// no row for (somewhere a moderator's companion was that the group's list never showed), nothing
+    /// does, and without a bound a visit nobody saw end would run to the last report under that
+    /// number in all of history. Cutting at a long silence can only make a visit shorter than it
+    /// was, never longer, which is the side a moderator reading "how long were they there" should
+    /// be wrong on.
+    /// </remarks>
+    private const string QuietGap = "3 hours";
+
+    /// <summary>
+    /// One person's sessions, each kept inside the life of the instance it happened in, with the
+    /// facts that began and ended it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same rule as <see cref="Sessions"/> -- an arrival makes them present, a leave absent, and a
+    /// session nobody saw end closes at the last report from that instance -- with "that instance"
+    /// meaning one life of it rather than every instance VRChat ever gave the number to. Each report
+    /// is matched to Modbot's row for the instance it was made in (its world and number, between its
+    /// opening and its close or last sighting), the way <see cref="ForInstanceAsync"/> bounds an
+    /// instance; a report with no such row is grouped by <see cref="QuietGap"/> instead.
+    /// </para>
+    /// <para>
+    /// Only the instances the person was ever reported in are read, off the subject index, so the
+    /// popup's cost follows the person's history rather than everybody's.
+    /// </para>
+    /// </remarks>
+    private const string VisitSessions = $"""
+        WITH mine AS (
+            {SubjectsInstancesList}
+        ),
+        matched AS (
+            SELECT e.world_id, e.instance_id, e.subject_id, e.occurred_at, e.id,
+                   CASE WHEN e.type = @leave THEN 0 ELSE 1 END AS here,
+                   r.id AS run_id
+            FROM modbot_event e
+            JOIN mine m ON m.world_id = e.world_id AND m.instance_id = e.instance_id
+            LEFT JOIN LATERAL (
+                SELECT i.id FROM vrchat_instance i
+                WHERE i.world_id = e.world_id AND i.vr_chat_instance_id = e.instance_id
+                  AND i.opened_at <= e.occurred_at
+                  AND e.occurred_at <= COALESCE(i.closed_at, i.last_seen_at)
+                ORDER BY i.opened_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE e.type = ANY(@presence)
+        ),
+        breaks AS (
+            SELECT matched.*,
+                   CASE WHEN run_id IS NULL
+                         AND occurred_at - LAG(occurred_at) OVER (
+                             PARTITION BY world_id, instance_id, run_id
+                             ORDER BY occurred_at, id) > interval '{QuietGap}'
+                        THEN 1 ELSE 0 END AS starts_again
+            FROM matched
+        ),
+        p AS (
+            SELECT breaks.*,
+                   SUM(starts_again) OVER (
+                       PARTITION BY world_id, instance_id, run_id
+                       ORDER BY occurred_at, id) AS stretch
+            FROM breaks
+        ),
+        changes AS (
+            SELECT p.*,
+                   p.here - COALESCE(LAG(p.here) OVER (
+                       PARTITION BY p.world_id, p.instance_id, p.run_id, p.stretch, p.subject_id
+                       ORDER BY p.occurred_at, p.id), 0) AS change,
+                   MAX(p.occurred_at) OVER (
+                       PARTITION BY p.world_id, p.instance_id, p.run_id, p.stretch) AS last_report
+            FROM p
+        ),
+        sessions AS (
+            SELECT world_id, instance_id, subject_id, change,
+                   occurred_at AS started,
+                   COALESCE(LEAD(occurred_at) OVER (
+                       PARTITION BY world_id, instance_id, run_id, stretch, subject_id
+                       ORDER BY occurred_at, id), last_report) AS ended,
+                   id AS started_id,
+                   LEAD(id) OVER (
+                       PARTITION BY world_id, instance_id, run_id, stretch, subject_id
+                       ORDER BY occurred_at, id) AS ended_id
+            FROM changes
+            WHERE change <> 0
+        )
         """;
 
     private const string Totals = """
@@ -210,7 +307,7 @@ public sealed class PresenceCounts(ModbotContext db)
     public async Task<PersonCounts> ForPersonAsync(string userId, CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byInstance: false)}
+            {Sessions(byWorld: false, byInstance: false, bySubjectsInstances: true)}
             SELECT (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(DISTINCT world_id)::int AS worlds,
                    COUNT(DISTINCT (world_id, instance_id))::int AS instances,
@@ -233,7 +330,7 @@ public sealed class PresenceCounts(ModbotContext db)
                     AnalyticsSql.InstantOrNull(r, 4),
                     AnalyticsSql.InstantOrNull(r, 5)),
             ct,
-            [.. Everything(), ("subject", userId)]);
+            [.. Everything(), ("subject", userId), ("vrchat", (short)FactPlatform.VRChat)]);
 
         return rows.Count > 0 ? rows[0] : PersonCounts.Nothing;
     }
@@ -243,9 +340,9 @@ public sealed class PresenceCounts(ModbotContext db)
     /// from the report that made them present to the one that made them absent.
     /// </summary>
     /// <remarks>
-    /// The same sessions everything above adds up, so a visit here and a minute counted in "Time
-    /// seen" can never disagree. Paged by the visit's start and the id of the fact that started it,
-    /// which is unique, so two visits starting in the same second are not skipped at a page edge.
+    /// The same rule everything above adds up by, kept inside each instance's own life (see
+    /// <see cref="VisitSessions"/>). Paged by the visit's start and the id of the fact that started
+    /// it, which is unique, so two visits starting in the same second are not skipped at a page edge.
     /// </remarks>
     /// <param name="before">The start and first fact of the last visit already shown, or null.</param>
     public async Task<IReadOnlyList<PresenceVisit>> VisitsOfPersonAsync(
@@ -255,7 +352,7 @@ public sealed class PresenceCounts(ModbotContext db)
         CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byInstance: false, bySubjectsInstances: true)}
+            {VisitSessions}
             SELECT world_id, instance_id, started, ended, started_id, ended_id
             FROM sessions
             WHERE change = 1 AND subject_id = @subject
@@ -266,7 +363,9 @@ public sealed class PresenceCounts(ModbotContext db)
 
         (string, object?)[] parameters =
         [
-            .. Everything(),
+            ("leave", FactType.InstanceLeft),
+            ("presence", AnalyticsSql.PresenceTypes),
+            ("vrchat", (short)FactPlatform.VRChat),
             ("subject", userId),
             ("limit", limit),
             .. before is { } cursor

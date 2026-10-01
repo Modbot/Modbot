@@ -683,7 +683,7 @@ function Row({
           </div>
         </Td>
         <Td>
-          <div className="flex flex-wrap items-center gap-1">
+          <div className={cn('flex flex-wrap gap-1', from && 'items-center')}>
             {[entry, ...also].map((seen) => (
               <SourceBadge key={seen.id} source={seen.source} />
             ))}

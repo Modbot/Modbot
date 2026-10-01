@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json.Nodes;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Tests.Features.Places;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -61,6 +62,7 @@ public class PersonVisitsTests
         var visit = Assert.Single(page.Visits);
         Assert.Equal(FactType.InstanceJoined, visit.Arrived.Type);
         Assert.NotNull(visit.Left);
+        Assert.True(visit.SeenLeaving);
         Assert.Equal(Evening.AddMinutes(30), visit.Until);
         Assert.Equal("Ada", visit.Name);
         Assert.Null(page.Next);
@@ -80,7 +82,64 @@ public class PersonVisitsTests
 
         var visit = Assert.Single(page.Visits);
         Assert.Null(visit.Left);
+        Assert.False(visit.SeenLeaving);
         Assert.Equal(Evening.AddHours(1), visit.Until);
+    }
+
+    [Fact]
+    public async Task AVisitNobodySawEnd_StopsWhereItsInstanceEnded_NotAtTheNextInstanceUnderTheSameNumber()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+
+        // VRChat gave #39047 to two instances of the same world, two days apart.
+        var tuesday = Evening;
+        var thursday = Evening.AddDays(2);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", tuesday.AddMinutes(-5), tuesday.AddHours(2), tuesday.AddHours(2), Ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", thursday.AddMinutes(-5), thursday.AddHours(1), thursday.AddHours(1), Ct);
+
+        // Ada arrives on Tuesday and nobody sees her go; Bob is reported an hour later in the same
+        // instance. On Thursday the number is somebody else's evening, and Ada arrives there too.
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, Ada, tuesday), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, "usr_bob", tuesday.AddHours(1)), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, "usr_bob", thursday.AddMinutes(10)), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, Ada, thursday.AddMinutes(20)), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceLeft, Ada, thursday.AddMinutes(30)), Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var page = await host.GetJsonAsync<PersonVisitsPage>($"/api/audit/visits?person={Ada}", cookie, Ct);
+
+        // Two visits, not one running from Tuesday to Thursday, and Thursday's arrival is an arrival
+        // rather than "still here" from Tuesday.
+        Assert.Equal(2, page.Visits.Count);
+
+        var thursdays = page.Visits[0];
+        Assert.Equal(thursday.AddMinutes(20), thursdays.Arrived.OccurredAt);
+        Assert.True(thursdays.SeenLeaving);
+
+        var tuesdays = page.Visits[1];
+        Assert.Equal(tuesday, tuesdays.Arrived.OccurredAt);
+        Assert.False(tuesdays.SeenLeaving);
+        Assert.Equal(tuesday.AddHours(1), tuesdays.Until);
+    }
+
+    [Fact]
+    public async Task InAnInstanceModbotHasNoRowFor_ALongSilenceEndsAVisitNobodySawEnd()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+
+        // No instance row at all: somewhere a moderator's companion was that the group list never
+        // showed. Days later the same number in the same world is reported again.
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, Ada, Evening), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, "usr_bob", Evening.AddMinutes(40)), Ct);
+        await host.WriteFactAsync(Presence(FactType.InstanceJoined, "usr_bob", Evening.AddDays(3)), Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var page = await host.GetJsonAsync<PersonVisitsPage>($"/api/audit/visits?person={Ada}", cookie, Ct);
+
+        var visit = Assert.Single(page.Visits);
+        Assert.Equal(Evening.AddMinutes(40), visit.Until);
     }
 
     [Fact]
