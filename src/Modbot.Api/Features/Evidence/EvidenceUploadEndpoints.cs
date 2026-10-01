@@ -195,9 +195,15 @@ public static class EvidenceUploadEndpoints
                     SavedClip? clip = null;
                     if (body.ClipId is { } clipId)
                     {
+                        // Only a clip this case file offers, the same list it shows, so a caller
+                        // cannot try other clip ids to learn which exist.
                         clip = await clips.FindAsync(clipId, ct);
-                        if (clip is null || !EvidenceHash.TryParse(clip.Hash, out var clipHash))
+                        if (clip is null
+                            || !EvidenceHash.TryParse(clip.Hash, out var clipHash)
+                            || !await clips.OffersAsync(caseFile, clipId, ct))
+                        {
                             return Results.NotFound(new { error = "No such clip." });
+                        }
 
                         if (expected is { } claimedHash && claimedHash != clipHash)
                             return Results.Conflict(new { error = NotTheClip(clip) });

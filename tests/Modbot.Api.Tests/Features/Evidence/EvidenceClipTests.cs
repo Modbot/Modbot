@@ -56,6 +56,19 @@ public class EvidenceClipTests(PostgresFixture db)
             },
         });
 
+    /// <summary>The case file's person joining the instance the clips are saved in, so the case file offers them.</summary>
+    private static async Task PersonWasThereAsync(EvidenceApiTestHost host, string person, string instance = "98874")
+        => await WriteAsync(host, new FactRecord
+        {
+            Type = FactType.InstanceJoined,
+            OccurredAt = host.Clock.UtcNow.AddHours(-1),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = person,
+            WorldId = "wrld_cat",
+            InstanceId = instance,
+            Source = FactSource.Companion,
+        });
+
     private static async Task<string> CaseUserAsync(PostgresFixture db, string caseId)
     {
         await using var context = db.NewContext();
@@ -89,6 +102,7 @@ public class EvidenceClipTests(PostgresFixture db)
         await EvidenceUploads.ConfigureAsync(host, cookie, Ct);
 
         var caseId = await host.NewCaseAsync(cookie, Ct);
+        await PersonWasThereAsync(host, await CaseUserAsync(db, caseId));
         var bytes = EvidenceUploads.Png("clip-matches");
         var savedAt = host.Clock.UtcNow.AddMinutes(-30);
         var clipId = await ClipSavedAsync(host, bytes, savedAt);
@@ -131,6 +145,7 @@ public class EvidenceClipTests(PostgresFixture db)
         await EvidenceUploads.ConfigureAsync(host, cookie, Ct);
 
         var caseId = await host.NewCaseAsync(cookie, Ct);
+        await PersonWasThereAsync(host, await CaseUserAsync(db, caseId));
         var clipId = await ClipSavedAsync(host, EvidenceUploads.Png("the-real-clip"), host.Clock.UtcNow.AddMinutes(-30));
 
         var response = await SendAsClipAsync(host, cookie, EvidenceUploads.Png("some-other-file"), caseId, clipId);
@@ -156,6 +171,33 @@ public class EvidenceClipTests(PostgresFixture db)
         var response = await SendAsClipAsync(host, cookie, EvidenceUploads.Png("no-such-clip"), caseId, clipId: 987_654_321);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A clip the case file does not offer, because it was saved in an instance the person was never
+    /// in, is not found: callers cannot try clip ids to learn which exist.
+    /// </summary>
+    [Fact]
+    public async Task AClipTheCaseFileDoesNotOfferIsNotFound()
+    {
+        await EvidenceApiTestHost.ResetAsync(db, Ct);
+        await using var host = await EvidenceApiTestHost.StartAsync(db);
+
+        var cookie = await host.SignedInAsync(Moderator, Ct);
+        await EvidenceUploads.ConfigureAsync(host, cookie, Ct);
+
+        var caseId = await host.NewCaseAsync(cookie, Ct);
+        await PersonWasThereAsync(host, await CaseUserAsync(db, caseId));
+
+        var bytes = EvidenceUploads.Png("clip-elsewhere");
+        var elsewhere = await ClipSavedAsync(host, bytes, host.Clock.UtcNow.AddMinutes(-30), instance: "11111");
+
+        var response = await SendAsClipAsync(host, cookie, bytes, caseId, elsewhere);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
+        await using var context = db.NewContext();
+        Assert.Equal(0, await context.EvidenceAttachments.CountAsync(a => a.CaseId == caseId, Ct));
     }
 
     /// <summary>

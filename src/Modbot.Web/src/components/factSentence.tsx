@@ -749,7 +749,7 @@ const SENTENCES: Record<string, Sentence> = {
   // somebody attaches it to a case file, where the matched file says where it was saved.
   'vrchat.instance.clip-saved': (p) => (
     <>
-      {p.subject} saved a clip in {p.place ?? 'an instance'} on their PC. It was not uploaded.
+      {p.subject} saved a clip in {p.place ?? 'an instance'} on their PC.
     </>
   ),
 

@@ -70,6 +70,32 @@ public sealed class SavedClips
     public async Task<IReadOnlyList<SavedClipView>> NearAsync(
         CaseFile caseFile, IReadOnlySet<string> held, CancellationToken ct)
     {
+        var chosen = await OfferedAsync(caseFile, held, ct);
+        if (chosen.Count == 0)
+            return [];
+
+        var names = await WorldNamesAsync(chosen.Select(c => c.WorldId), ct);
+
+        return [.. chosen.Select(c => new SavedClipView(
+            c.Id, c.SavedAt, c.WorldId, c.InstanceId, c.SavedById, c.SavedBy, c.Bytes,
+            names.GetValueOrDefault(c.WorldId)))];
+    }
+
+    /// <summary>
+    /// Whether this clip is one the case file offers: saved where the person was, near the ban.
+    /// A clip the case file already holds still counts, so putting the same clip on twice is
+    /// answered the same way both times. Anything else is not told apart from no clip at all, so
+    /// a caller cannot probe clip ids the case file never showed.
+    /// </summary>
+    public async Task<bool> OffersAsync(CaseFile caseFile, long clipId, CancellationToken ct)
+    {
+        var offered = await OfferedAsync(caseFile, new HashSet<string>(StringComparer.Ordinal), ct);
+        return offered.Any(c => c.Id == clipId);
+    }
+
+    private async Task<IReadOnlyList<SavedClip>> OfferedAsync(
+        CaseFile caseFile, IReadOnlySet<string> held, CancellationToken ct)
+    {
         ArgumentNullException.ThrowIfNull(caseFile);
         ArgumentNullException.ThrowIfNull(held);
 
@@ -117,12 +143,7 @@ public sealed class SavedClips
                 marks)
             .ToHashSet();
 
-        var chosen = clips.Where(c => picked.Contains(c.Id)).OrderBy(c => c.SavedAt).ThenBy(c => c.Id).ToList();
-        var names = await WorldNamesAsync(chosen.Select(c => c.WorldId), ct);
-
-        return [.. chosen.Select(c => new SavedClipView(
-            c.Id, c.SavedAt, c.WorldId, c.InstanceId, c.SavedById, c.SavedBy, c.Bytes,
-            names.GetValueOrDefault(c.WorldId)))];
+        return [.. clips.Where(c => picked.Contains(c.Id)).OrderBy(c => c.SavedAt).ThenBy(c => c.Id)];
     }
 
     /// <summary>The names Modbot has read for these worlds. A world it has not read is left out.</summary>

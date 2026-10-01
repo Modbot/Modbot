@@ -365,6 +365,16 @@ public sealed class ServerConnection : IIngestTarget
                         _journal?.RecordNote(Name, $"The server refused an event: {Explain(reason)}.");
                 }
 
+                // A refusal that names a place that is not in this batch cannot be shown against
+                // any event, so it is said on its own rather than dropped without a trace.
+                var strayRefusals = (result.Refused ?? []).Count(r => r.Index < 0 || r.Index >= sent.Count);
+                if (strayRefusals > 0)
+                {
+                    _journal?.RecordNote(
+                        Name,
+                        $"The server refused {strayRefusals} event(s) that are not in the batch that was sent.");
+                }
+
                 _buffer.Remove(sent.Select(e => e.CompanionEventId));
                 Succeeded();
                 NoteWaitingChanges();
