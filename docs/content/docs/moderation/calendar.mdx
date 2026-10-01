@@ -118,7 +118,8 @@ becomes **Finished** after the last one.
 Click an event in any view. It opens in a small box beside it, showing:
 
 - when it starts and ends (the time you clicked, for a repeating event), and how it repeats;
-- the description;
+- **Moved from …** when that one date was [moved on its own](#changing-one-date-of-a-repeating-event);
+- the description (that date's own, if it was given one);
 - **World**, which opens the [world popup](/moderation/popups#world-popup). For an event that picks
   from a [world list](/moderation/world-lists), the world picked for its next date, and under it the
   **World list**, with **Pick again** while that date is scheduled; other dates show the list's name;
@@ -178,7 +179,8 @@ times with no instance come last. It shows at most 50, and only when there is at
 row to open that time of the event with **How it went**. On a phone each row shows the event, when it
 started and its new members, with the most at once on the right.
 
-Drafts and deleted events are never listed. A cancelled event's times before the cancel are.
+Drafts and deleted events are never listed. A cancelled event's times before the cancel are. A date
+cancelled on its own is not listed, and a date moved on its own is listed at the time it ran.
 
 A time counts as one the event ran when the event's dates say so, or when Modbot opened an instance
 for it. If you move a repeating event, its earlier times are worked out from the new dates, except
@@ -215,13 +217,17 @@ sent the move at all. If the save fails, the bottom of the screen says why inste
 
 ### Repeating events
 
-A repeating event is saved as one rule (for example, *every Tuesday at 8 PM*), with no exceptions for
-single dates. So **dragging one date of a repeating event moves every date**, by the same amount.
-Before it saves, Modbot asks **Move every date of “…”?** and shows the date you dragged and where it
-is going; click **Move all events** or **Cancel**. The days of the week and the **Last date** move
-with it: a Monday and Wednesday event dragged one day later becomes Tuesday and Thursday.
+When you drag one date of a repeating event, Modbot asks **Move “…”?** and shows the date you dragged
+and where it is going:
 
-To change only one date, [cancel](#cancel) the event and plan the dates separately.
+- **This date** moves only that date. The other dates stay where they are. After it saves, **Date
+  moved · Undo** shows at the bottom of the screen. See
+  [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event).
+- **All dates** moves every date by the same amount, the same as editing the whole event. The days of
+  the week and the **Last date** move with it: a Monday and Wednesday event dragged one day later
+  becomes Tuesday and Thursday.
+
+Close the box to leave the event where it was.
 
 ## Planning an event
 
@@ -399,6 +405,11 @@ nothing is sent.
 
 - **A repeating event is one entry on VRChat**, using VRChat's own repeat, in the event's time zone,
   with the last date when there is one. It is not one entry per week.
+- **One date cancelled or changed on its own** is sent to that one date on VRChat. Modbot reads that
+  month of your calendar once to find VRChat's id for the date, then removes it (a cancel) or changes
+  its time, title and description. If VRChat does not list that date on its own, the date shows
+  **VRChat calendar: Failed** when you open it, and the rest of the event is left alone. See
+  [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event).
 - **Edits are sent as one.** Modbot waits until an event has gone 20 seconds without a change, then
   sends what it says at that moment. Fixing a typo three times in a row costs one change on VRChat.
 - **Modbot sends one VRChat calendar change a minute at most**, across all events. VRChat is strict
@@ -506,6 +517,8 @@ When the **Discord event** chip is on, Modbot makes an event in the server set a
 - **A repeating event gets a new Discord event each time it happens.** Discord cannot move an event
   back from started to scheduled, so after each time, the old one is ended and a new one is made for
   the next time.
+- **One date cancelled on its own** ends that date's Discord event, and the next date gets its own.
+  **One date moved, or given its own title or description**, has its Discord event changed to match.
 - If you schedule an event after its start time, Discord refuses a start in the past, so the Discord
   event starts one minute from when Modbot makes it.
 - If someone deletes or ends the Discord event in Discord, Modbot makes it again the next time the
@@ -530,7 +543,8 @@ as [instance announcements](/discord/instance-announcements).
 - When it finishes, the card says **Finished**. When you cancel or delete the event, it says
   **Cancelled**. The **Join** button is removed either way.
 - **A repeating event gets a new post each time it happens.** The old post keeps its last word
-  (**Finished**) and a new one is posted for the next time.
+  (**Finished**, or **Cancelled** for a date cancelled on its own) and a new one is posted for the
+  next time.
 - Turning off **Discord channel post**, or picking a different channel, deletes the post.
 - If someone deletes the post in Discord, Modbot does not post it again until the event changes.
 
@@ -559,6 +573,9 @@ before each start:
 
 - in the event's world, with its **Who can join** and **Region**;
 - owned by your **Managed group**.
+
+A date cancelled on its own gets no instance. A date moved on its own opens **Minutes early** before
+its new start.
 
 Modbot opens **one instance each time the event happens**, and never more. It notes the attempt
 before asking VRChat, so a restart cannot open a second one. If Modbot was down at the opening time,
@@ -609,6 +626,8 @@ The feed lists every event that is **Scheduled** or **Open**. For each one:
 - the title and description;
 - the start and end, in the event's time zone;
 - the repeat and last date, so calendar apps show every time it happens;
+- dates cancelled on their own left out, and dates moved or reworded on their own at their new time
+  and with their own title and description;
 - the world's name as the location. A repeating event is one entry in the feed, so for one that picks
   from a world list, the location is the world of its next date.
 
@@ -627,6 +646,10 @@ Reading the feed asks VRChat nothing, so it does not use any of your group's VRC
 Open the event and click **Edit**. The form opens with **Save** (and **Save draft** too, while it is
 still a draft). Changes reach every place by themselves: VRChat after 20 seconds without further
 changes, Discord on its next check.
+
+For a repeating event, **Edit** first asks **This date** or **All dates**. **All dates** opens the form
+for the whole event. **This date** opens a smaller form for the date you clicked; see
+[Changing one date of a repeating event](#changing-one-date-of-a-repeating-event).
 
 - A published event cannot go back to being a draft.
 - A cancelled event cannot be edited.
@@ -653,6 +676,48 @@ It is posted once, within about 20 seconds, and never again for that event. On t
 
 A cancelled event no longer appears on the calendar, and cannot be un-cancelled. To run it again,
 plan a new event.
+
+For a repeating event, Modbot asks **Cancel “…”?** with **This date** and **All dates**. **All dates**
+cancels the whole event, as above. **This date** cancels only the date you clicked; see
+[Changing one date of a repeating event](#changing-one-date-of-a-repeating-event).
+
+### Changing one date of a repeating event
+
+You can cancel, move or reword one date of a repeating event and leave every other date as it is:
+for example, skip the week of a holiday, or start one week an hour later.
+
+- **Cancel one date:** open the date, click **Cancel event**, then **This date**.
+- **Move one date:** drag it and choose **This date**, or open it, click **Edit**, then **This date**,
+  and change **Starts** and **Ends**.
+- **Give one date its own title or description:** open it, click **Edit**, then **This date**. Leave
+  a field as the event's own to keep following the event when you change the event later.
+
+These choices show only for a date that has not ended yet, of an event that is **Scheduled** or
+**Open**. A date cannot be moved to start at the same time as another date of the same event.
+
+What happens to that one date:
+
+| Place | Cancelled | Moved or reworded |
+|---|---|---|
+| Calendar page | Shown struck through, with a **Cancelled** badge when opened. | Shown at its new time; opening it shows **Moved from …**. |
+| VRChat calendar | That date is removed. | That date is changed. |
+| Discord event | Ended; the next date gets its own. | Changed to the new time and words. |
+| Channel post | Its last word is **Cancelled**. | Edited to match. |
+| Opening the instance | No instance opens. | Opens **Minutes early** before the new start. |
+| Calendar feed | Left out. | Shown at the new time, with its own title and description. |
+| Past events | Not listed. | Listed at the time it ran. |
+
+**Undo.** After dragging one date, **Date moved · Undo** shows at the bottom of the screen; **Undo**
+puts that date back. A date you move back to exactly its planned time, with the event's own title
+and description, is a normal date again.
+
+**Cancelling a date cannot be undone from the page.** Its other dates are not affected.
+
+**Then editing the whole event.** If you later change the whole event's times (with **All dates** or
+**Edit**), each changed date follows the event to the same day: cancel one Sunday, then move the
+event from 8 PM to 9 PM, and that Sunday stays cancelled. A changed date on a day the event no longer
+has (for example, the event moves from Sundays to Mondays) is dropped. Dates that are over are left
+as they ran.
 
 ### Delete
 
@@ -690,6 +755,8 @@ entries (you need **See the operational log** to see them):
 | **Event planned** | Someone created an event, as a draft or scheduled. |
 | **Planned event changed** | Someone edited or dragged it. Shows what changed; a change of time alone reads as *moved the event … from … to …*. |
 | **Planned event cancelled** | Someone cancelled it. Says whether it was posted in the channel. |
+| **One date of an event cancelled** | Someone cancelled one date of a repeating event. Shows which date. |
+| **One date of an event changed** | Someone moved one date of a repeating event, or gave it its own title or description. |
 | **Planned event deleted** | Someone deleted it. |
 | **Planned event opened** | One of its times started (or its instance opening time came). |
 | **Planned event finished** | Its last time ended. |

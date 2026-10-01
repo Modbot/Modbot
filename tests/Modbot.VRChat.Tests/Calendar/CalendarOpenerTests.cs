@@ -59,6 +59,74 @@ public class CalendarOpenerTests(PostgresFixture fixture) : CalendarTestBase(fix
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventInstanceOpened));
     }
 
+    [Fact]
+    public async Task ADateCancelledOnItsOwnIsNotOpened_TheNextDateIs()
+    {
+        var e = await AddEventAsync(TimeSpan.FromMinutes(30), x =>
+        {
+            x.AutoOpen = true;
+            x.Repeat = CalendarRepeats.Daily;
+            x.DateChanges.Add(new CalendarDateChange
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = x.Id,
+                PlannedStartsAt = x.StartsAt,
+                Cancelled = true,
+                CreatedAt = Clock.UtcNow,
+                UpdatedAt = Clock.UtcNow,
+            });
+        });
+
+        // The cancelled date's opening time, its start and its end: nothing is opened.
+        Clock.Advance(TimeSpan.FromMinutes(25));
+        Assert.Equal(0, (await OpenAsync()).Opened);
+        Clock.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(0, (await OpenAsync()).Opened);
+        Assert.Empty(VRChat.Instances.Created);
+
+        // The next day's date opens as usual.
+        Clock.Advance(TimeSpan.FromDays(1) - TimeSpan.FromHours(1));
+        Assert.Equal(1, (await OpenAsync()).Opened);
+
+        await using var context = Database.NewContext();
+        var opening = await context.CalendarOpenings.AsNoTracking().SingleAsync(o => o.EventId == e.Id, Ct);
+        Assert.Equal(e.StartsAt + TimeSpan.FromDays(1), opening.OccurrenceStartsAt);
+    }
+
+    [Fact]
+    public async Task ADateMovedOnItsOwnOpensAtItsNewTime()
+    {
+        var later = TimeSpan.FromHours(3);
+        var e = await AddEventAsync(TimeSpan.FromMinutes(30), x =>
+        {
+            x.AutoOpen = true;
+            x.OpenMinutesBefore = 10;
+            x.Repeat = CalendarRepeats.Weekly;
+            x.DateChanges.Add(new CalendarDateChange
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = x.Id,
+                PlannedStartsAt = x.StartsAt,
+                StartsAt = x.StartsAt + later,
+                EndsAt = x.EndsAt + later,
+                CreatedAt = Clock.UtcNow,
+                UpdatedAt = Clock.UtcNow,
+            });
+        });
+
+        // The planned opening time passes with nothing opened.
+        Clock.Advance(TimeSpan.FromMinutes(25));
+        Assert.Equal(0, (await OpenAsync()).Opened);
+
+        // Five minutes before the moved start -- inside its ten minutes early -- it opens.
+        Clock.Advance(later);
+        Assert.Equal(1, (await OpenAsync()).Opened);
+
+        await using var context = Database.NewContext();
+        var opening = await context.CalendarOpenings.AsNoTracking().SingleAsync(o => o.EventId == e.Id, Ct);
+        Assert.Equal(e.StartsAt + later, opening.OccurrenceStartsAt);
+    }
+
     /// <summary>
     /// VRChat refuses a null <c>instancePersistenceEnabled</c> with a 400 (seen 2026-10-01), and the
     /// SDK writes null for it unless it is set. Read from the body as the SDK writes it, not from the

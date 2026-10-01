@@ -254,9 +254,14 @@ public static class CalendarEndpoints
 
                 var before = Describe(calendarEvent);
                 var now = clock.UtcNow;
+                var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
 
                 if (Apply(body, calendarEvent) is { } problem)
                     return Results.BadRequest(new { error = problem });
+
+                // Dates cancelled or changed on their own follow the series to its new times, by the
+                // day they fall on (calendar design §2.2).
+                CalendarDates.Rematch(calendarEvent, zoneBefore, now);
 
                 if (!body.Draft)
                 {
@@ -366,6 +371,181 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPut("/events/{id:guid}/dates", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromBody] CalendarDateRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
+                if (calendarEvent is null)
+                    return Results.NotFound();
+
+                var now = clock.UtcNow;
+                var planned = body.PlannedStartsAt;
+
+                if (DateProblem(calendarEvent, planned, now) is { } problem)
+                    return problem;
+
+                var change = calendarEvent.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == planned);
+                if (change is { Cancelled: true })
+                    return Results.Conflict(new { error = "That date is cancelled." });
+
+                var was = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
+
+                if (ApplyDate(body, calendarEvent, was, now) is { } wrong)
+                    return Results.BadRequest(new { error = wrong });
+
+                var length = CalendarRepeat.LengthOf(calendarEvent);
+                var title = Own(body.Title, calendarEvent.Title);
+                var description = Own(body.Description, calendarEvent.Description);
+                var keepsTime = body.StartsAt == planned && body.EndsAt == planned + length;
+
+                if (change is null)
+                {
+                    change = new CalendarDateChange
+                    {
+                        Id = Guid.CreateVersion7(),
+                        EventId = calendarEvent.Id,
+                        PlannedStartsAt = planned,
+                        CreatedAt = now,
+                    };
+
+                    calendarEvent.DateChanges.Add(change);
+                }
+
+                change.StartsAt = keepsTime ? null : body.StartsAt;
+                change.EndsAt = keepsTime ? null : body.EndsAt;
+                change.Title = title;
+                change.Description = description;
+                change.UpdatedAt = now;
+
+                // Put back exactly as planned: nothing of its own is left to keep.
+                if (CalendarDates.IsPlain(change, length))
+                    calendarEvent.DateChanges.Remove(change);
+
+                var after = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
+
+                MovedOn(calendarEvent, now);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await db.SaveChangesAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.PlannedDateChanged,
+                    calendarEvent.Id.ToString(),
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["title"] = calendarEvent.Title,
+                        ["date"] = planned.ToString("O", CultureInfo.InvariantCulture),
+                        ["before"] = DateFields(calendarEvent, was),
+                        ["after"] = DateFields(calendarEvent, after),
+                    },
+                    ct);
+
+                await transaction.CommitAsync(ct);
+
+                var views = await ViewsAsync(db, [calendarEvent], now, now.AddDays(42), ct);
+                return Results.Ok(views[0]);
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("ChangeCalendarDate")
+            .WithSummary("Change one date of an event")
+            .WithDescription(
+                "Moves one date of a repeating event, or gives it its own title or description, leaving "
+                + "the other dates as they are. Sending the planned time and the event's own words puts "
+                + "the date back as planned.")
+            .Produces<CalendarEventView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
+        group.MapPost("/events/{id:guid}/dates/cancel", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromBody] CalendarDateCancelRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
+                if (calendarEvent is null)
+                    return Results.NotFound();
+
+                var now = clock.UtcNow;
+                var planned = body.PlannedStartsAt;
+                var change = calendarEvent.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == planned);
+
+                if (change is { Cancelled: true })
+                    return Results.NoContent();
+
+                if (DateProblem(calendarEvent, planned, now) is { } problem)
+                    return problem;
+
+                var was = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
+
+                if (change is null)
+                {
+                    change = new CalendarDateChange
+                    {
+                        Id = Guid.CreateVersion7(),
+                        EventId = calendarEvent.Id,
+                        PlannedStartsAt = planned,
+                        CreatedAt = now,
+                    };
+
+                    calendarEvent.DateChanges.Add(change);
+                }
+
+                // The times it was moved to are kept: VRChat may have the date there, and taking it
+                // off VRChat's calendar has to find it.
+                change.Cancelled = true;
+                change.UpdatedAt = now;
+
+                MovedOn(calendarEvent, now);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await db.SaveChangesAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.PlannedDateCancelled,
+                    calendarEvent.Id.ToString(),
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["title"] = calendarEvent.Title,
+                        ["date"] = planned.ToString("O", CultureInfo.InvariantCulture),
+                        ["startsAt"] = was.StartsAt.ToString("O", CultureInfo.InvariantCulture),
+                        ["endsAt"] = was.EndsAt.ToString("O", CultureInfo.InvariantCulture),
+                    },
+                    ct);
+
+                await transaction.CommitAsync(ct);
+
+                return Results.NoContent();
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("CancelCalendarDate")
+            .WithSummary("Cancel one date of an event")
+            .WithDescription(
+                "Cancels one date of a repeating event and leaves the others. That date is taken off "
+                + "VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
 
         group.MapDelete("/events/{id:guid}", async (
                 HttpContext http,
@@ -670,6 +850,84 @@ public static class CalendarEndpoints
             ? "That event has already ended."
             : null;
 
+    /// <summary>Why one date of this event cannot be cancelled or changed now, or null when it can.</summary>
+    private static IResult? DateProblem(CalendarEvent calendarEvent, DateTimeOffset planned, DateTimeOffset now)
+    {
+        if (calendarEvent.State == CalendarEventStates.Cancelled)
+            return Results.Conflict(new { error = "A cancelled event cannot be changed." });
+
+        if (calendarEvent.State == CalendarEventStates.Finished)
+            return Results.Conflict(new { error = "That event has already ended." });
+
+        if (calendarEvent.Repeat == CalendarRepeats.None)
+            return Results.BadRequest(new { error = "Only a repeating event has dates of its own." });
+
+        if (!CalendarRepeat.IsPlannedDate(calendarEvent, planned))
+            return Results.BadRequest(new { error = "That event has no date then." });
+
+        if (CalendarRepeat.ForDate(calendarEvent, planned) is { } date && date.EndsAt <= now)
+            return Results.Conflict(new { error = "That date has already ended." });
+
+        return null;
+    }
+
+    /// <summary>Checks a change to one date. Returns what is wrong, or null.</summary>
+    private static string? ApplyDate(CalendarDateRequest body, CalendarEvent calendarEvent, CalendarOccurrence was, DateTimeOffset now)
+    {
+        if (body.EndsAt <= body.StartsAt)
+            return "The end must be after the start.";
+
+        if (body.EndsAt - body.StartsAt > MaxLength)
+            return "An event can last at most 7 days.";
+
+        if (body.EndsAt <= now)
+            return "That time has already passed.";
+
+        if (body.Title?.Trim() is { Length: > CalendarEvent.MaxTitleLength })
+            return $"The title is longer than {CalendarEvent.MaxTitleLength} characters.";
+
+        if (body.Description?.Trim() is { Length: > CalendarEvent.MaxDescriptionLength })
+            return $"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.";
+
+        // Two dates starting together could not be told apart by the places that name a date by
+        // its start: the instance opened for it, and the page.
+        var clash = CalendarRepeat.Between(calendarEvent, body.StartsAt - TimeSpan.FromTicks(1), body.StartsAt + TimeSpan.FromTicks(1))
+            .Any(o => o.StartsAt == body.StartsAt && o.PlannedStartsAt != was.PlannedStartsAt);
+
+        return clash ? "Another date of this event starts then." : null;
+    }
+
+    /// <summary>A date's own words: null when empty or the same as the event's.</summary>
+    private static string? Own(string? text, string eventText)
+    {
+        var trimmed = text?.Trim();
+        return string.IsNullOrEmpty(trimmed) || string.Equals(trimmed, eventText, StringComparison.Ordinal) ? null : trimmed;
+    }
+
+    /// <summary>
+    /// After one date changed: the event is a newer version, and the date it is dealing with is
+    /// worked out again -- a cancelled one is skipped, a moved one opens at its new time.
+    /// </summary>
+    private static void MovedOn(CalendarEvent calendarEvent, DateTimeOffset now)
+    {
+        calendarEvent.Version++;
+        calendarEvent.UpdatedAt = now;
+
+        if (!CalendarEventStates.IsLive(calendarEvent.State))
+            return;
+
+        calendarEvent.OccurrenceStartsAt = null;
+        CalendarTimeline.Advance(calendarEvent, now);
+    }
+
+    private static JsonObject DateFields(CalendarEvent calendarEvent, CalendarOccurrence date) => new()
+    {
+        ["startsAt"] = date.StartsAt.ToString("O", CultureInfo.InvariantCulture),
+        ["endsAt"] = date.EndsAt.ToString("O", CultureInfo.InvariantCulture),
+        ["title"] = CalendarRepeat.TitleOf(calendarEvent, date),
+        ["description"] = CalendarRepeat.DescriptionOf(calendarEvent, date),
+    };
+
     /// <summary>Checks a request and copies it onto the event. Returns what is wrong, or null.</summary>
     /// <param name="preview">
     /// For the form's preview: a piece not filled in yet -- the title, the description VRChat needs,
@@ -939,7 +1197,14 @@ public static class CalendarEndpoints
 
             var occurrences = e.State == CalendarEventStates.Cancelled
                 ? []
-                : CalendarRepeat.Between(e, from, to).Take(100).Select(o => new CalendarOccurrenceView(o.StartsAt, o.EndsAt)).ToList();
+                : CalendarRepeat.Between(e, from, to).Take(100).Select(OccurrenceView).ToList();
+
+            var cancelledDates = e.State == CalendarEventStates.Cancelled
+                ? []
+                : CalendarRepeat.CancelledBetween(e, from, to).Take(100).Select(OccurrenceView).ToList();
+
+            // The date the event is dealing with keeps its own end when it was moved on its own.
+            var currentDate = e.OccurrenceStartsAt is not null ? CalendarRepeat.Current(e) : (CalendarOccurrence?)null;
 
             return new CalendarEventView(
                 e.Id,
@@ -974,7 +1239,7 @@ public static class CalendarEndpoints
                 e.OpenMinutesBefore,
                 e.State,
                 e.OccurrenceStartsAt,
-                e.OccurrenceStartsAt + length,
+                currentDate?.EndsAt ?? e.OccurrenceStartsAt + length,
                 e.Version,
                 e.CreatedAt,
                 e.UpdatedAt,
@@ -1004,9 +1269,18 @@ public static class CalendarEndpoints
                 e.CancelledAt,
                 e.WorldListId,
                 e.WorldListId is { } list ? listNames.GetValueOrDefault(list) : null,
-                e.WorldListId is { } emptyCheck && !filledLists.Contains(emptyCheck));
+                e.WorldListId is { } emptyCheck && !filledLists.Contains(emptyCheck),
+                cancelledDates);
         })];
     }
+
+    private static CalendarOccurrenceView OccurrenceView(CalendarOccurrence o) => new(
+        o.StartsAt,
+        o.EndsAt,
+        o.PlannedStartsAt,
+        o.Change?.Title,
+        o.Change?.Description,
+        o.Change?.VRChatError);
 
     private static string LocalText(DateTimeOffset at, DateTimeZone zone) =>
         LocalPattern.Format(Instant.FromDateTimeOffset(at).InZone(zone).LocalDateTime);

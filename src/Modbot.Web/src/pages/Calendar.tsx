@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
+import { DateForm } from '@/components/calendar/DateForm'
 import type { Change, Entry, Spot } from '@/components/calendar/entry'
-import { spotOf } from '@/components/calendar/entry'
+import { dateAt, spotOf } from '@/components/calendar/entry'
 import { EventDetails } from '@/components/calendar/EventDetails'
 import { MiniMonth } from '@/components/calendar/MiniMonth'
 import { MonthView } from '@/components/calendar/MonthView'
@@ -24,6 +25,7 @@ import {
   type CalendarEvent,
   type CalendarEventInput,
   type CalendarFeed,
+  type CalendarOccurrence,
   type CalendarOccurrenceResult,
   type CalendarView,
   hasRun,
@@ -82,8 +84,10 @@ export function Calendar() {
   const [editing, setEditing] = useState<{ event: CalendarEvent | null; initial?: CalendarEventInput } | null>(null)
   const [quick, setQuick] = useState<{ start: Date; end: Date; spot: Spot } | null>(null)
   const [asking, setAsking] = useState<{ entry: Entry; change: Change } | null>(null)
-  // An event drawn at its new time while its save is on the way, so it does not jump back.
-  const [moving, setMoving] = useState<{ eventId: string; startBy: number; endBy: number } | null>(null)
+  // An event drawn at its new time while its save is on the way, so it does not jump back: every
+  // date of it, or only `date` when one date is moving on its own.
+  const [moving, setMoving] = useState<{ eventId: string; date?: string; startBy: number; endBy: number } | null>(null)
+  const [editingDate, setEditingDate] = useState<{ event: CalendarEvent; occurrence: CalendarOccurrence } | null>(null)
   const [toast, setToast] = useState<Toast | null>(null)
   const toastCount = useRef(0)
   // How far the server's clock is ahead of the browser's, from the last load.
@@ -185,17 +189,30 @@ export function Calendar() {
   const entries = useMemo<Entry[]>(
     () =>
       (data?.view.events ?? [])
-        .flatMap((event) =>
-          event.occurrences.map((o) => {
-            const shift = moving?.eventId === event.id ? moving : null
+        .flatMap((event) => {
+          // A date is known by its planned start, so one moved on its own keeps its place in the
+          // list; dates cancelled on their own are drawn too, struck through (calendar design §2.2).
+          const toEntry = (o: CalendarOccurrence, cancelled: boolean): Entry => {
+            const shift =
+              !cancelled && moving?.eventId === event.id && (moving.date === undefined || moving.date === o.plannedStartsAt)
+                ? moving
+                : null
             return {
-              key: `${event.id}|${o.startsAt}`,
+              key: `${event.id}|${o.plannedStartsAt}`,
               event,
               start: new Date(new Date(o.startsAt).getTime() + (shift?.startBy ?? 0)),
               end: new Date(new Date(o.endsAt).getTime() + (shift?.endBy ?? 0)),
+              date: o.plannedStartsAt,
+              title: o.title || event.title,
+              cancelled,
             }
-          }),
-        )
+          }
+
+          return [
+            ...event.occurrences.map((o) => toEntry(o, false)),
+            ...(event.cancelledDates ?? []).map((o) => toEntry(o, true)),
+          ]
+        })
         .sort((a, b) => a.start.getTime() - b.start.getTime() || a.key.localeCompare(b.key)),
     [data, moving],
   )
@@ -259,15 +276,63 @@ export function Calendar() {
     }
   }
 
+  /** Puts one date back as it was before a drag, through the same change. */
+  const undoDate = (eventId: string, before: CalendarOccurrence) => {
+    calendarApi
+      .changeDate(eventId, {
+        plannedStartsAt: before.plannedStartsAt,
+        startsAt: before.startsAt,
+        endsAt: before.endsAt,
+        title: before.title ?? null,
+        description: before.description ?? null,
+      })
+      .then(() => load())
+      .catch((e: unknown) => say({ tone: 'problem', text: e instanceof ApiError ? e.message : 'Could not undo the move.' }))
+  }
+
+  /** Saves one drag of one date of a repeating event, leaving its other dates where they are. */
+  const saveDate = async (entry: Entry, change: Change) => {
+    const before = dateAt(entry.event, entry.start)?.occurrence
+    if (!before) return
+
+    setMoving({
+      eventId: entry.event.id,
+      date: entry.date,
+      startBy: change.start.getTime() - entry.start.getTime(),
+      endBy: change.end.getTime() - entry.end.getTime(),
+    })
+
+    try {
+      await calendarApi.changeDate(entry.event.id, {
+        plannedStartsAt: entry.date,
+        startsAt: change.start.toISOString(),
+        endsAt: change.end.toISOString(),
+        title: before.title ?? null,
+        description: before.description ?? null,
+      })
+      await load()
+      say({
+        tone: 'done',
+        text: change.kind === 'move' ? 'Date moved' : 'Date changed',
+        undo: () => undoDate(entry.event.id, before),
+      })
+    } catch (e: unknown) {
+      say({ tone: 'problem', text: e instanceof ApiError ? e.message : 'Could not move the date.' })
+    } finally {
+      setMoving(null)
+    }
+  }
+
   const onChange = (entry: Entry, change: Change) => {
     setDetail(null)
     setQuick(null)
 
-    // The calendar keeps one rule per repeating event and no exceptions to it, so a date of one
-    // cannot move on its own: the whole series moves, and the moderator is told first.
+    // A repeating event asks first: this one date, or every date (calendar design §2.2). Only the
+    // dragged date is drawn at its new place while it asks.
     if (entry.event.repeat !== 'none') {
       setMoving({
         eventId: entry.event.id,
+        date: entry.date,
         startBy: change.start.getTime() - entry.start.getTime(),
         endBy: change.end.getTime() - entry.end.getTime(),
       })
@@ -442,13 +507,18 @@ export function Calendar() {
           start={detail.start}
           end={detail.end}
           spot={detail.spot}
-          results={!!data.view.canSeeResults && hasRun(opened, detail.start, now)}
+          results={!!data.view.canSeeResults && hasRun(opened, detail.start, now) && !dateAt(opened, detail.start)?.cancelled}
           live={live}
           ready={data.view.ready}
+          now={now}
           canManage={canManage}
           onClose={() => setDetail(null)}
           onEdit={() => {
             setEditing({ event: opened })
+            setDetail(null)
+          }}
+          onEditDate={(occurrence) => {
+            setEditingDate({ event: opened, occurrence })
             setDetail(null)
           }}
           onDuplicate={() => {
@@ -487,7 +557,7 @@ export function Calendar() {
       >
         {asking && (
           <DialogContent
-            title={`${asking.change.kind === 'move' ? 'Move' : 'Change'} every date of “${asking.entry.event.title}”?`}
+            title={`${asking.change.kind === 'move' ? 'Move' : 'Change'} “${asking.entry.title}”?`}
             className="max-w-[480px]"
             foot={
               <DialogFoot>
@@ -495,11 +565,12 @@ export function Calendar() {
                   size="sm"
                   variant="outline"
                   onClick={() => {
+                    const { entry, change } = asking
                     setAsking(null)
-                    setMoving(null)
+                    void saveDate(entry, change)
                   }}
                 >
-                  Cancel
+                  This date
                 </Button>
                 <Button
                   size="sm"
@@ -509,13 +580,12 @@ export function Calendar() {
                     void save(entry, change)
                   }}
                 >
-                  {asking.change.kind === 'move' ? 'Move all events' : 'Change all events'}
+                  All dates
                 </Button>
               </DialogFoot>
             }
           >
             <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
-              <p>This event repeats. Modbot can only move all of its dates together, not one date on its own.</p>
               <p className="font-mono">
                 {shortDay.format(asking.entry.start)}, {timeOfDay(asking.entry.start.toISOString())} –{' '}
                 {timeOfDay(asking.entry.end.toISOString())}
@@ -545,6 +615,20 @@ export function Calendar() {
               end: new Date(saved.occurrenceEndsAt ?? saved.endsAt),
               spot: null,
             })
+          }}
+        />
+      )}
+
+      {editingDate && (
+        <DateForm
+          event={editingDate.event}
+          occurrence={editingDate.occurrence}
+          onClose={() => setEditingDate(null)}
+          onSaved={(saved) => {
+            const id = editingDate.event.id
+            setEditingDate(null)
+            void load()
+            setDetail({ id, start: saved.startsAt, end: saved.endsAt, spot: null })
           }}
         />
       )}

@@ -1281,6 +1281,33 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // One date of a repeating event, cancelled or changed on its own (calendar design §2.2).
+  'modbot.calendar.date.cancel': (p) => {
+    const starts = when(p.text('startsAt') ?? p.text('date'))
+    return (
+      <>
+        {p.actor} cancelled the event<Quoted value={p.text('title')} />
+        {starts ? <> on {starts}</> : ' on one date'}, leaving its other dates.
+      </>
+    )
+  },
+
+  'modbot.calendar.date.change': (p) => {
+    const before = record(p.entry.data?.['before'])
+    const after = record(p.entry.data?.['after'])
+    const retimed = before && after ? timeChange(before, after) : null
+    const renamed = before && after && before['title'] !== after['title'] ? after['title'] : null
+    const starts = when(p.text('date'))
+
+    return (
+      <>
+        {p.actor} changed one date of the event<Quoted value={p.text('title')} />
+        {retimed ? (retimed.moved ? <>, moving it from {retimed.from} to {retimed.to}</> : <>, its end from {retimed.from} to {retimed.to}</>) : starts ? <>, {starts}</> : null}
+        {typeof renamed === 'string' ? <>, calling it<Quoted value={renamed} /></> : null}.
+      </>
+    )
+  },
+
   'modbot.calendar.event.delete': (p) =>
     p.text('on') === 'vrchat' ? (
       <>

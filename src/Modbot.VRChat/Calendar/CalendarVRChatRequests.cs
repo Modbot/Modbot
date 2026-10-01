@@ -12,7 +12,9 @@ namespace Modbot.VRChat.Calendar;
 /// <remarks>
 /// A repeating event is one VRChat series with VRChat's own recurrence, not one VRChat event per
 /// occurrence (calendar design §3.1). The start sent is the occurrence Modbot is dealing with, so a
-/// series whose first date has passed is not sent as starting in the past.
+/// series whose first date has passed is not sent as starting in the past -- at the time the repeat
+/// gives it, even when that date was moved on its own: the series is the repeat, and the move is
+/// sent to that one date afterwards (§2.2).
 /// </remarks>
 public static class CalendarVRChatRequests
 {
@@ -90,10 +92,51 @@ public static class CalendarVRChatRequests
             usesInstanceOverflow: e.VRChatUsesInstanceOverflow ?? false);
     }
 
+    /// <summary>
+    /// A hash of what one date's own change sends: cancelled or not, its times and its words. The
+    /// event's title and description are in it for a date that uses them, so an edit to the whole
+    /// series reaches a date VRChat holds apart from it.
+    /// </summary>
+    public static string DateFingerprint(CalendarEvent e, CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        ArgumentNullException.ThrowIfNull(change);
+
+        if (change.Cancelled)
+            return CalendarFingerprint.Of("date", change.PlannedStartsAt, "cancelled");
+
+        var date = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e));
+
+        return CalendarFingerprint.Of(
+            "date", change.PlannedStartsAt, date.StartsAt, date.EndsAt,
+            CalendarRepeat.TitleOf(e, date), CalendarRepeat.DescriptionOf(e, date));
+    }
+
+    /// <summary>
+    /// The update for one date of the series, sent to that date's own id: the series' settings with
+    /// the date's times and words, and no repeat, since it is one date.
+    /// </summary>
+    public static UpdateCalendarEventRequest UpdateDate(CalendarEvent e, CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        ArgumentNullException.ThrowIfNull(change);
+
+        var date = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e));
+        var request = Update(e);
+
+        request.StartsAt = date.StartsAt.UtcDateTime;
+        request.EndsAt = date.EndsAt.UtcDateTime;
+        request.Title = CalendarRepeat.TitleOf(e, date);
+        request.Description = CalendarRepeat.DescriptionOf(e, date) ?? string.Empty;
+        request.Recurrence = null!;
+
+        return request;
+    }
+
     private static (DateTime Starts, DateTime Ends) Times(CalendarEvent e)
     {
-        var length = e.EndsAt - e.StartsAt;
-        var starts = e.OccurrenceStartsAt ?? e.StartsAt;
+        var length = CalendarRepeat.LengthOf(e);
+        var starts = e.OccurrenceStartsAt is not null ? CalendarRepeat.Current(e).PlannedStartsAt : e.StartsAt;
         return (starts.UtcDateTime, (starts + length).UtcDateTime);
     }
 

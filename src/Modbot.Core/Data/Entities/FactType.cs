@@ -542,6 +542,12 @@ public static class FactType
     public const string PlannedEventCancelled = "modbot.calendar.event.cancel";
     public const string PlannedEventDeleted = "modbot.calendar.event.delete";
 
+    /// <summary>One date of a repeating event was cancelled on its own (calendar design §2.2).</summary>
+    public const string PlannedDateCancelled = "modbot.calendar.date.cancel";
+
+    /// <summary>One date of a repeating event was moved, or given its own title or description; carries before and after.</summary>
+    public const string PlannedDateChanged = "modbot.calendar.date.change";
+
     /// <summary>An occurrence opened. Written by the scheduler; no actor.</summary>
     public const string PlannedEventOpened = "modbot.calendar.event.open";
 

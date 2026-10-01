@@ -233,8 +233,13 @@ public sealed class CalendarDiscordPublisher
             && e.OccurrenceStartsAt is not null
             && pass.GuildId is { Length: > 0 };
 
-        // The occurrence moved on, or the event is not wanted in Discord any more: end the one there is.
-        if (place?.ExternalId is { } existing && (!wants || place.OccurrenceStartsAt != e.OccurrenceStartsAt))
+        // The date it is about, known by its planned start: a date moved on its own keeps its own
+        // Discord event and has it updated, rather than ended and made again (calendar design §2.2).
+        var occurrence = CalendarRepeat.Current(e);
+
+        // The occurrence moved on -- or the date was cancelled on its own, which moves it on too --
+        // or the event is not wanted in Discord any more: end the one there is.
+        if (place?.ExternalId is { } existing && (!wants || place.OccurrenceStartsAt != occurrence.PlannedStartsAt))
         {
             var guild = place.ChannelId ?? pass.GuildId ?? string.Empty;
             var ended = await pass.Call(g => g.EndEventAsync(guild, existing, pass.Ct)).ConfigureAwait(false);
@@ -270,8 +275,9 @@ public sealed class CalendarDiscordPublisher
 
         place ??= AddPlace(e, CalendarPlaces.DiscordEvent);
 
-        var occurrence = Occurrence(e);
         var open = e.State == CalendarEventStates.Open;
+        var title = CalendarRepeat.TitleOf(e, occurrence);
+        var description = CalendarRepeat.DescriptionOf(e, occurrence);
         var world = pass.WorldOf(e);
 
         // Modbot's short address only leads somewhere while there is a join link behind it: an
@@ -283,7 +289,7 @@ public sealed class CalendarDiscordPublisher
         var location = Location(pass.PublicAddress, e, joinLink);
 
         var fingerprint = CalendarFingerprint.Of(
-            "discordEvent", e.Title, e.Description, occurrence.StartsAt, occurrence.EndsAt,
+            "discordEvent", title, description, occurrence.StartsAt, occurrence.EndsAt,
             location, joinLink, open, e.ImageUrl, world?.Name, world?.ImageUrl, e.WorldId);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
@@ -305,7 +311,7 @@ public sealed class CalendarDiscordPublisher
             {
                 place.ExternalId = created;
                 place.ChannelId = guildId;
-                place.OccurrenceStartsAt = e.OccurrenceStartsAt;
+                place.OccurrenceStartsAt = occurrence.PlannedStartsAt;
 
                 // Opened already: start it now rather than on the next pass.
                 if (open && pass.Calls < CallsPerPass)
@@ -349,13 +355,21 @@ public sealed class CalendarDiscordPublisher
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        var occurrence = Occurrence(calendarEvent);
+        // The date it is about, with its own times and words when it was changed on its own (§2.2).
+        var occurrence = CalendarRepeat.Current(calendarEvent);
         var open = calendarEvent.State == CalendarEventStates.Open;
         var link = open ? joinLink : null;
         var startsAt = occurrence.StartsAt > now ? occurrence.StartsAt : now + LateStartAhead;
 
         return CalendarCard.EventDetails(
-            calendarEvent, world, startsAt, occurrence.EndsAt, Location(publicAddress, calendarEvent, link), link);
+            calendarEvent,
+            world,
+            startsAt,
+            occurrence.EndsAt,
+            Location(publicAddress, calendarEvent, link),
+            link,
+            CalendarRepeat.TitleOf(calendarEvent, occurrence),
+            CalendarRepeat.DescriptionOf(calendarEvent, occurrence));
     }
 
     /// <summary>
@@ -369,7 +383,7 @@ public sealed class CalendarDiscordPublisher
 
         var state = calendarEvent.State == CalendarEventStates.Open ? CalendarCardState.Open : CalendarCardState.Scheduled;
         var card = CalendarCard.For(
-            calendarEvent, Occurrence(calendarEvent), world, state, joinLink, style, new CardPicture(Image: picture));
+            calendarEvent, CalendarRepeat.Current(calendarEvent), world, state, joinLink, style, new CardPicture(Image: picture));
 
         return (card, CalendarCard.Links(state, joinLink));
     }
@@ -403,10 +417,11 @@ public sealed class CalendarDiscordPublisher
     {
         var channelId = e.ChannelId?.Trim();
         var removedInModbot = e.State == CalendarEventStates.Cancelled || e.DeletedAt is not null;
+        var current = CalendarRepeat.Current(e);
 
         if (place?.ExternalId is { } messageId && place.ChannelId is { } postedIn)
         {
-            var movedOn = CalendarEventStates.IsLive(e.State) && place.OccurrenceStartsAt != e.OccurrenceStartsAt;
+            var movedOn = CalendarEventStates.IsLive(e.State) && place.OccurrenceStartsAt != current.PlannedStartsAt;
             var ended = e.State == CalendarEventStates.Finished || removedInModbot || movedOn;
             var unticked = !removedInModbot && (!e.PostToChannel || channelId != postedIn || e.State == CalendarEventStates.Draft);
 
@@ -425,11 +440,15 @@ public sealed class CalendarDiscordPublisher
             }
             else if (ended)
             {
-                // The post's last word, about the occurrence it was made for.
-                var state = removedInModbot ? CalendarCardState.Cancelled : CalendarCardState.Finished;
+                // The post's last word, about the date it was made for: "Cancelled" for a date
+                // cancelled on its own as well as for the whole event.
+                var dateCancelled = place.OccurrenceStartsAt is { } posted
+                    && e.DateChanges.Any(c => c.Cancelled && c.PlannedStartsAt == posted);
+                var state = removedInModbot || dateCancelled ? CalendarCardState.Cancelled : CalendarCardState.Finished;
                 var occurrence = place.OccurrenceStartsAt is { } was
-                    ? new CalendarOccurrence(was, was + (e.EndsAt - e.StartsAt))
-                    : Occurrence(e);
+                    ? CalendarRepeat.ForDate(e, was)
+                        ?? new CalendarOccurrence(was, was + CalendarRepeat.LengthOf(e), was, e.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == was))
+                    : current;
 
                 // The picture is already on the message and stays there, so the last word costs
                 // no upload.
@@ -518,7 +537,7 @@ public sealed class CalendarDiscordPublisher
             {
                 place.ExternalId = posted;
                 place.ChannelId = channelId;
-                place.OccurrenceStartsAt = e.OccurrenceStartsAt;
+                place.OccurrenceStartsAt = current.PlannedStartsAt;
             }
         }
         else
@@ -636,12 +655,6 @@ public sealed class CalendarDiscordPublisher
         }
 
         return InstanceJoinLink.For(location);
-    }
-
-    private static CalendarOccurrence Occurrence(CalendarEvent e)
-    {
-        var starts = e.OccurrenceStartsAt ?? e.StartsAt;
-        return new CalendarOccurrence(starts, starts + (e.EndsAt - e.StartsAt));
     }
 
     private CalendarEventPlace AddPlace(CalendarEvent e, string place)

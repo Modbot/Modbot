@@ -213,6 +213,8 @@ public static class AuditVisibility
         [FactType.PlannedEventChanged] = AuditCategory.Operational,
         [FactType.PlannedEventCancelled] = AuditCategory.Operational,
         [FactType.PlannedEventDeleted] = AuditCategory.Operational,
+        [FactType.PlannedDateCancelled] = AuditCategory.Operational,
+        [FactType.PlannedDateChanged] = AuditCategory.Operational,
         [FactType.PlannedEventOpened] = AuditCategory.Operational,
         [FactType.PlannedEventFinished] = AuditCategory.Operational,
         [FactType.PlannedEventInstanceOpened] = AuditCategory.Operational,

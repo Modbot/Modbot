@@ -181,6 +181,70 @@ public class CalendarEvent
 
     /// <summary>Set when deleted: a cancel that is also hidden from the calendar page.</summary>
     public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>
+    /// Dates of a repeating event cancelled or changed on their own (calendar design §2.2). Loaded
+    /// with the event every time, because every place an event goes has to follow them.
+    /// </summary>
+    public List<CalendarDateChange> DateChanges { get; set; } = [];
+}
+
+/// <summary>
+/// One date of a repeating event, cancelled or changed on its own. The table is
+/// <c>calendar_date_change</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A date is known by <see cref="PlannedStartsAt"/>: when the event's repeat says it starts. That
+/// stays the same when the date is moved, so the Discord event, the channel post and VRChat's own
+/// copy of the date are the same ones before and after the move -- the way a calendar program's
+/// <c>RECURRENCE-ID</c> names the date an override replaces.
+/// </para>
+/// <para>
+/// The <c>VRChat…</c> fields are the publisher's: what it last sent to VRChat for this date.
+/// </para>
+/// </remarks>
+public class CalendarDateChange
+{
+    public Guid Id { get; set; }
+
+    public Guid EventId { get; set; }
+
+    /// <summary>When the event's repeat says this date starts.</summary>
+    public DateTimeOffset PlannedStartsAt { get; set; }
+
+    /// <summary>The date does not happen.</summary>
+    public bool Cancelled { get; set; }
+
+    /// <summary>When it starts instead. Null keeps the planned time.</summary>
+    public DateTimeOffset? StartsAt { get; set; }
+
+    /// <summary>When it ends instead. Null keeps the planned length.</summary>
+    public DateTimeOffset? EndsAt { get; set; }
+
+    /// <summary>Its own title. Null uses the event's.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>Its own description. Null uses the event's.</summary>
+    public string? Description { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>When a person last changed it. What quick edits are folded against before VRChat hears.</summary>
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>VRChat's id for this one date of the series, once Modbot has found it.</summary>
+    public string? VRChatId { get; set; }
+
+    /// <summary>A hash of what was last sent to VRChat for this date, or found already there.</summary>
+    public string? VRChatSentFingerprint { get; set; }
+
+    /// <summary>A hash of what VRChat last refused for this date. Not sent again until it changes.</summary>
+    public string? VRChatFailedFingerprint { get; set; }
+
+    public string? VRChatError { get; set; }
+
+    public DateTimeOffset? VRChatErrorAt { get; set; }
 }
 
 /// <summary>The words stored in <see cref="CalendarEventPlace.Place"/>.</summary>

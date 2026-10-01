@@ -12,7 +12,9 @@ namespace Modbot.Core.Calendar;
 /// <para>
 /// One <c>VEVENT</c> per event with its repeat as an <c>RRULE</c>, never one per occurrence: a
 /// calendar program expands the rule itself, and a stable <c>UID</c> is what lets it update the
-/// event it already has instead of adding a copy.
+/// event it already has instead of adding a copy. A date cancelled on its own is an <c>EXDATE</c>;
+/// a date moved or given its own words is one more <c>VEVENT</c> with the same <c>UID</c> and a
+/// <c>RECURRENCE-ID</c>, which is how iCalendar says one date of a series differs.
 /// </para>
 /// <para>
 /// Times carry the event's <c>TZID</c>, and RFC 5545 requires a <c>VTIMEZONE</c> for every
@@ -59,7 +61,7 @@ public static class CalendarFeedWriter
                      .OrderBy(g => g.Key, StringComparer.Ordinal))
         {
             var zone = group.First().Zone;
-            var from = Instant.FromDateTimeOffset(group.Min(e => e.Event.StartsAt));
+            var from = Instant.FromDateTimeOffset(group.Min(e => EarliestOf(e.Event)));
             var to = group.Max(e => CoversUntil(e.Event, zone, now));
 
             WriteZone(output, zone, from, to);
@@ -85,21 +87,75 @@ public static class CalendarFeedWriter
         Line(output, "DTSTART" + Time(calendarEvent.StartsAt, zone));
         Line(output, "DTEND" + Time(calendarEvent.EndsAt, zone));
 
-        if (Rule(calendarEvent, zone) is { } rule)
+        var rule = Rule(calendarEvent, zone);
+
+        if (rule is not null)
+        {
             Line(output, "RRULE:" + rule);
+
+            // A date cancelled on its own is taken out of the repeat (calendar design §6).
+            foreach (var cancelled in calendarEvent.DateChanges.Where(c => c.Cancelled).OrderBy(c => c.PlannedStartsAt))
+                Line(output, "EXDATE" + Time(cancelled.PlannedStartsAt, zone));
+        }
 
         var entry = Entry(calendarEvent, worldNames);
 
-        Line(output, "SUMMARY:" + Escape(entry.Title));
+        WriteText(output, entry.Title, entry.Notes, entry.Location);
+        Line(output, "END:VEVENT");
 
-        if (entry.Notes is { } notes)
+        if (rule is null)
+            return;
+
+        // A date moved, or given its own title or description, is its own VEVENT with the same UID,
+        // naming the date it replaces in RECURRENCE-ID: how a calendar program learns that one date
+        // of a series differs from the rest.
+        foreach (var change in calendarEvent.DateChanges.Where(c => !c.Cancelled).OrderBy(c => c.PlannedStartsAt))
+        {
+            var occurrence = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent));
+            var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence);
+
+            Line(output, "BEGIN:VEVENT");
+            Line(output, $"UID:{calendarEvent.Id:D}@modbot");
+            Line(output, "DTSTAMP:" + Utc(change.UpdatedAt > calendarEvent.UpdatedAt ? change.UpdatedAt : calendarEvent.UpdatedAt));
+            Line(output, "SEQUENCE:" + calendarEvent.Version.ToString(CultureInfo.InvariantCulture));
+            Line(output, "RECURRENCE-ID" + Time(change.PlannedStartsAt, zone));
+            Line(output, "DTSTART" + Time(occurrence.StartsAt, zone));
+            Line(output, "DTEND" + Time(occurrence.EndsAt, zone));
+            WriteText(
+                output,
+                CalendarRepeat.TitleOf(calendarEvent, occurrence),
+                string.IsNullOrWhiteSpace(description) ? null : description,
+                entry.Location);
+            Line(output, "END:VEVENT");
+        }
+    }
+
+    /// <summary>The title, description, world and status of one VEVENT.</summary>
+    private static void WriteText(StringBuilder output, string title, string? notes, string? location)
+    {
+        Line(output, "SUMMARY:" + Escape(title));
+
+        if (notes is not null)
             Line(output, "DESCRIPTION:" + Escape(notes));
 
-        if (entry.Location is { } location)
+        if (location is not null)
             Line(output, "LOCATION:" + Escape(location));
 
         Line(output, "STATUS:CONFIRMED");
-        Line(output, "END:VEVENT");
+    }
+
+    /// <summary>The earliest instant an event's zone has to be described from: its first start, or a date moved before it.</summary>
+    private static DateTimeOffset EarliestOf(CalendarEvent calendarEvent)
+    {
+        var earliest = calendarEvent.StartsAt;
+
+        foreach (var change in calendarEvent.DateChanges)
+        {
+            if (change.StartsAt is { } starts && starts < earliest)
+                earliest = starts;
+        }
+
+        return earliest;
     }
 
     /// <summary>
@@ -186,8 +242,21 @@ public static class CalendarFeedWriter
         Line(output, "END:VTIMEZONE");
     }
 
-    /// <summary>The latest instant an event's zone has to be described up to.</summary>
+    /// <summary>The latest instant an event's zone has to be described up to, a date moved past its last one included.</summary>
     private static Instant CoversUntil(CalendarEvent calendarEvent, DateTimeZone zone, DateTimeOffset now)
+    {
+        var until = RepeatCoversUntil(calendarEvent, zone, now);
+
+        foreach (var change in calendarEvent.DateChanges)
+        {
+            if (change.EndsAt is { } ends && Instant.FromDateTimeOffset(ends) > until)
+                until = Instant.FromDateTimeOffset(ends);
+        }
+
+        return until;
+    }
+
+    private static Instant RepeatCoversUntil(CalendarEvent calendarEvent, DateTimeZone zone, DateTimeOffset now)
     {
         var end = Instant.FromDateTimeOffset(calendarEvent.EndsAt > now ? calendarEvent.EndsAt : now);
 

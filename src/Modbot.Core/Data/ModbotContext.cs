@@ -280,6 +280,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
+    /// <summary>Dates of repeating events cancelled or changed on their own (calendar design §2.2).</summary>
+    public DbSet<CalendarDateChange> CalendarDateChanges => Set<CalendarDateChange>();
+
     /// <summary>Where each event is published and what was last written there (calendar design §3).</summary>
     public DbSet<CalendarEventPlace> CalendarEventPlaces => Set<CalendarEventPlace>();
 
@@ -2161,6 +2164,35 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .WithMany()
                 .HasForeignKey(e => e.WorldListId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Every place an event goes has to follow the dates changed on their own, so they come
+            // with the event on every read rather than when somebody remembers to ask (§2.2).
+            entity.HasMany(e => e.DateChanges)
+                .WithOne()
+                .HasForeignKey(c => c.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Navigation(e => e.DateChanges).AutoInclude();
+        });
+
+        builder.Entity<CalendarDateChange>(entity =>
+        {
+            entity.ToTable("calendar_date_change");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Title).HasMaxLength(CalendarEvent.MaxTitleLength);
+            entity.Property(e => e.Description).HasMaxLength(CalendarEvent.MaxDescriptionLength);
+            entity.Property(e => e.VRChatId).HasColumnType("text").HasColumnName("vrchat_id");
+            entity.Property(e => e.VRChatSentFingerprint).HasMaxLength(64).HasColumnName("vrchat_sent_fingerprint");
+            entity.Property(e => e.VRChatFailedFingerprint).HasMaxLength(64).HasColumnName("vrchat_failed_fingerprint");
+            entity.Property(e => e.VRChatError).HasMaxLength(1024).HasColumnName("vrchat_error");
+            entity.Property(e => e.VRChatErrorAt).HasColumnName("vrchat_error_at");
+
+            // One change per date.
+            entity.HasIndex(e => new { e.EventId, e.PlannedStartsAt })
+                .IsUnique()
+                .HasDatabaseName("ux_calendar_date_change_date");
         });
 
         builder.Entity<WorldList>(entity =>

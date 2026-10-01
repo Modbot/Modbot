@@ -108,6 +108,8 @@ public static class FactSubjects
         [FactType.PlannedEventChanged] = SubjectKind.Other,
         [FactType.PlannedEventCancelled] = SubjectKind.Other,
         [FactType.PlannedEventDeleted] = SubjectKind.Other,
+        [FactType.PlannedDateCancelled] = SubjectKind.Other,
+        [FactType.PlannedDateChanged] = SubjectKind.Other,
         [FactType.PlannedEventOpened] = SubjectKind.Other,
         [FactType.PlannedEventFinished] = SubjectKind.Other,
         [FactType.PlannedEventInstanceOpened] = SubjectKind.Other,

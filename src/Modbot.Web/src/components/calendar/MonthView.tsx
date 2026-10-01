@@ -4,7 +4,7 @@ import { atMinutes, daysTouched, isAllDay, minutesIntoDay, movedByDays, sameDay 
 import { timeOfDay } from '@/lib/format'
 import { isModalOpen } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
-import { mayChange, spotOf, toneClass, type Change, type Entry, type Spot } from './entry'
+import { entryClass, mayMove, spotOf, type Change, type Entry, type Spot } from './entry'
 import { beginPress, dayIndexAt, type PointerPoint } from './pointer'
 
 /** How many events a day cell lists before the rest are a "+2 more" that opens the day. */
@@ -53,7 +53,7 @@ export function MonthView({
     const element = event.currentTarget
     const open = () => onOpen(entry, spotOf(element))
 
-    if (!mayChange(canManage, entry.event)) {
+    if (!mayMove(canManage, entry)) {
       beginPress(event, { onTap: open, onEnd: open })
       return
     }
@@ -138,12 +138,12 @@ export function MonthView({
                 type="button"
                 onPointerDown={(e) => pressEntry(e, entry, index)}
                 onKeyDown={(e) => openByKey(e, entry)}
-                title={entry.event.title}
+                title={entry.title}
                 className={cn(
                   'min-h-(--control-h) truncate rounded-sm border border-(length:--hairline) border-l-[3px] px-1 text-left',
-                  toneClass(entry.event),
+                  entryClass(entry),
                   entry.event.state === 'finished' && 'opacity-70',
-                  mayChange(canManage, entry.event) && 'cursor-grab',
+                  mayMove(canManage, entry) && 'cursor-grab',
                   drag?.entry.key === entry.key && 'opacity-40',
                 )}
                 style={{ fontSize: 'var(--text-small)' }}
@@ -153,7 +153,7 @@ export function MonthView({
                 {!isAllDay(entry) && (
                   <span className="hidden font-mono opacity-80 sm:inline">{timeOfDay(entry.start.toISOString())} </span>
                 )}
-                {entry.event.title}
+                {entry.title}
               </button>
             ))}
 
@@ -162,11 +162,11 @@ export function MonthView({
                 aria-hidden
                 className={cn(
                   'pointer-events-none min-h-(--control-h) truncate rounded-sm border border-(length:--hairline) border-l-[3px] px-1 shadow-sm',
-                  toneClass(drag.entry.event),
+                  entryClass(drag.entry),
                 )}
                 style={{ fontSize: 'var(--text-small)' }}
               >
-                {drag.entry.event.title}
+                {drag.entry.title}
               </div>
             )}
 

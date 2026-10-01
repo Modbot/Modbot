@@ -79,9 +79,12 @@ public static class CalendarCard
 
         var link = state == CalendarCardState.Open ? joinLink : null;
 
+        // A date with its own title or description says its own (calendar design §2.2).
+        var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence);
+
         return new DiscordEmbedContent(
-            Title: CardText.Plain(calendarEvent.Title, 256),
-            Description: string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Cut(calendarEvent.Description, 4096),
+            Title: CardText.Plain(CalendarRepeat.TitleOf(calendarEvent, occurrence), 256),
+            Description: string.IsNullOrWhiteSpace(description) ? null : Cut(description, 4096),
             Color: state switch
             {
                 CalendarCardState.Open => Green,
@@ -126,6 +129,8 @@ public static class CalendarCard
             : [];
 
     /// <summary>The server event's details. <paramref name="startsAt"/> is already moved off the past.</summary>
+    /// <param name="title">The date's own title, when it has one; the event's otherwise.</param>
+    /// <param name="description">The date's own description, when it has one; the event's otherwise.</param>
     /// <param name="location">
     /// A short address that leads to the join link, or the join link itself, or null before the
     /// instance is open. Discord allows 100 characters here and VRChat's links are longer, so a link
@@ -137,11 +142,13 @@ public static class CalendarCard
         DateTimeOffset startsAt,
         DateTimeOffset endsAt,
         string? location,
-        string? joinLink)
+        string? joinLink,
+        string? title = null,
+        string? description = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        var description = calendarEvent.Description?.Trim() ?? string.Empty;
+        description = (description ?? calendarEvent.Description)?.Trim() ?? string.Empty;
         string where;
 
         if (location is { Length: > 0 and <= DiscordEventLocationLimit })
@@ -160,7 +167,7 @@ public static class CalendarCard
         }
 
         return new DiscordScheduledEventDetails(
-            Cut(calendarEvent.Title, DiscordEventNameLimit),
+            Cut(title ?? calendarEvent.Title, DiscordEventNameLimit),
             description.Length == 0 ? null : Cut(description, DiscordEventDescriptionLimit),
             startsAt,
             endsAt > startsAt ? endsAt : startsAt.AddMinutes(1),

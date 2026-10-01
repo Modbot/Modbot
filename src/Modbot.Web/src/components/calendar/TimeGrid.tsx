@@ -22,7 +22,7 @@ import {
 import { timeOfDay } from '@/lib/format'
 import { isModalOpen } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
-import { mayChange, spotOf, toneClass, type Change, type Entry, type Spot } from './entry'
+import { entryClass, mayMove, spotOf, type Change, type Entry, type Spot } from './entry'
 import { beginPress, dayIndexAt, type PointerPoint } from './pointer'
 
 /** The hours down the side, from 1 AM: midnight is the top edge and needs no label. */
@@ -178,7 +178,7 @@ export function TimeGrid({
     const element = event.currentTarget
     const open = () => onOpen(entry, spotOf(element))
 
-    if (!mayChange(canManage, entry.event)) {
+    if (!mayMove(canManage, entry)) {
       beginPress(event, { onTap: open, onEnd: open })
       return
     }
@@ -231,7 +231,7 @@ export function TimeGrid({
     const element = event.currentTarget
     const open = () => onOpen(entry, spotOf(element))
 
-    if (!mayChange(canManage, entry.event)) {
+    if (!mayMove(canManage, entry)) {
       beginPress(event, { onTap: open, onEnd: open })
       return
     }
@@ -328,13 +328,13 @@ export function TimeGrid({
                           onKeyDown={(e) => openByKey(e, entry)}
                           className={cn(
                             'min-h-(--control-h) truncate rounded-sm border border-(length:--hairline) border-l-[3px] px-1.5 text-left font-medium',
-                            toneClass(entry.event),
+                            entryClass(entry),
                             entry.event.state === 'finished' && 'opacity-70',
                             dragged === entry.key && 'opacity-40',
                           )}
                           style={{ fontSize: 'var(--text-small)' }}
                         >
-                          {entry.event.title}
+                          {entry.title}
                         </button>
                       ))}
                   </div>
@@ -386,7 +386,7 @@ export function TimeGrid({
                   {pieces.map(({ entry, segment }) => {
                     const place = placed.get(entry.key)!
                     const last = sameDay(day, new Date(entry.end.getTime() - 1))
-                    const editable = mayChange(canManage, entry.event)
+                    const editable = mayMove(canManage, entry)
 
                     return (
                       <button
@@ -396,7 +396,7 @@ export function TimeGrid({
                         onKeyDown={(e) => openByKey(e, entry)}
                         className={cn(
                           'absolute flex flex-col rounded-sm border border-(length:--hairline) border-l-[3px] px-1.5 py-0.5 text-left focus-visible:outline-2 focus-visible:outline-ring',
-                          toneClass(entry.event),
+                          entryClass(entry),
                           entry.event.state === 'finished' && 'opacity-70',
                           editable && 'cursor-grab',
                           dragged === entry.key && 'opacity-40',
@@ -410,7 +410,7 @@ export function TimeGrid({
                         }}
                       >
                         <span className="flex min-h-0 flex-col overflow-hidden">
-                          <span className="truncate font-medium">{entry.event.title}</span>
+                          <span className="truncate font-medium">{entry.title}</span>
                           <span className="truncate font-mono opacity-80" style={{ fontSize: 'var(--text-tiny)' }}>
                             {timeOfDay(entry.start.toISOString())} – {timeOfDay(entry.end.toISOString())}
                           </span>
@@ -432,10 +432,10 @@ export function TimeGrid({
                   {preview && preview.kind !== 'shift' && segmentOn(preview, day) && (
                     <Preview
                       segment={segmentOn(preview, day)!}
-                      title={preview.kind === 'create' ? null : preview.entry.event.title}
+                      title={preview.kind === 'create' ? null : preview.entry.title}
                       start={preview.start}
                       end={preview.end}
-                      tone={preview.kind === 'create' ? null : toneClass(preview.entry.event)}
+                      tone={preview.kind === 'create' ? null : entryClass(preview.entry)}
                     />
                   )}
 

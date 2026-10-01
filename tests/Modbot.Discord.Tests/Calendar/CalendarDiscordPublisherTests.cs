@@ -276,6 +276,87 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task CancellingOneDateEndsOnlyItsServerEvent_AndTheNextDateGetsItsOwn()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromHours(1), x => x.Repeat = CalendarRepeats.Daily);
+        await RunAsync(services, gateway);
+        var first = Assert.Single(gateway.ServerEvents.Values);
+
+        // The first date is cancelled on its own; the event moves on to the next day.
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.DateChanges.Add(new CalendarDateChange
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = x.Id,
+                PlannedStartsAt = x.StartsAt,
+                Cancelled = true,
+                CreatedAt = services.Clock.UtcNow,
+                UpdatedAt = services.Clock.UtcNow,
+            });
+            x.OccurrenceStartsAt = null;
+            CalendarTimeline.Advance(x, services.Clock.UtcNow);
+        });
+
+        await RunAsync(services, gateway);
+
+        Assert.Equal(2, gateway.ServerEvents.Count);
+        Assert.True(gateway.ServerEvents[first.Id].Ended);
+        var next = Assert.Single(gateway.ServerEvents.Values, s => !s.Ended);
+        Assert.Equal(e.StartsAt + TimeSpan.FromDays(1), next.Details.StartsAt);
+
+        // The first date's post says it was cancelled, not that it finished.
+        Assert.Equal("Cancelled", Assert.Single(gateway.Edits).Embeds[0].Footer);
+        Assert.Equal(2, gateway.Messages.Count);
+    }
+
+    [Fact]
+    public async Task MovingTheCurrentDateUpdatesItsServerEvent_RatherThanMakingAnother()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromHours(5), x => x.Repeat = CalendarRepeats.Weekly);
+        await RunAsync(services, gateway);
+        var created = Assert.Single(gateway.ServerEvents.Values);
+
+        var later = e.StartsAt + TimeSpan.FromHours(2);
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.DateChanges.Add(new CalendarDateChange
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = x.Id,
+                PlannedStartsAt = x.StartsAt,
+                StartsAt = later,
+                EndsAt = later + TimeSpan.FromHours(1),
+                Title = "Movie night, late",
+                CreatedAt = services.Clock.UtcNow,
+                UpdatedAt = services.Clock.UtcNow,
+            });
+            x.OccurrenceStartsAt = null;
+            CalendarTimeline.Advance(x, services.Clock.UtcNow);
+        });
+
+        await RunAsync(services, gateway);
+
+        var serverEvent = Assert.Single(gateway.ServerEvents.Values);
+        Assert.Equal(created.Id, serverEvent.Id);
+        Assert.False(serverEvent.Ended);
+        Assert.Equal(later, serverEvent.Details.StartsAt);
+        Assert.Equal("Movie night, late", serverEvent.Details.Name);
+
+        // The post is edited in place as well.
+        Assert.Single(gateway.Messages);
+        Assert.Equal("Movie night, late", gateway.Edits[^1].Embeds[0].Title);
+    }
+
+    [Fact]
     public async Task EachOccurrenceOfARepeatingEventGetsItsOwnServerEventAndPost()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);

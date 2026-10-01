@@ -9,13 +9,21 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Checkbox, Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
-import { calendarApi, PLACE_LABEL, PLACE_STATE_LABEL, STATE_LABEL, worldAt, type CalendarEvent } from '@/lib/calendar'
+import {
+  calendarApi,
+  PLACE_LABEL,
+  PLACE_STATE_LABEL,
+  STATE_LABEL,
+  worldAt,
+  type CalendarEvent,
+  type CalendarOccurrence,
+} from '@/lib/calendar'
 import { worldPickApi } from '@/lib/worldLists'
 import { sameDay } from '@/lib/calendarGrid'
 import { DESTINATION_LABEL, notSetUp, type CalendarReady } from '@/lib/calendarPlaces'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
-import type { Spot } from './entry'
+import { dateAt, type Spot } from './entry'
 import { EventResults } from './EventResults'
 import { NextGame } from './NextGame'
 import { NotSetUp } from './NotSetUp'
@@ -23,12 +31,17 @@ import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
-/** The event's state, and where it was made when that was VRChat (calendar design §12). */
-export function StateBadge({ event }: { event: CalendarEvent }) {
+/**
+ * The event's state, and where it was made when that was VRChat (calendar design §12). A date
+ * cancelled on its own (`dateCancelled`) reads as cancelled whatever the event's state.
+ */
+export function StateBadge({ event, dateCancelled = false }: { event: CalendarEvent; dateCancelled?: boolean }) {
+  const state = dateCancelled ? 'cancelled' : event.state
+
   return (
     <span className="inline-flex flex-wrap gap-1">
-      <Badge variant={event.state === 'open' ? 'ok' : event.state === 'cancelled' ? 'destructive' : event.state === 'draft' ? 'outline' : 'secondary'}>
-        {STATE_LABEL[event.state] ?? event.state}
+      <Badge variant={state === 'open' ? 'ok' : state === 'cancelled' ? 'destructive' : state === 'draft' ? 'outline' : 'secondary'}>
+        {STATE_LABEL[state] ?? state}
       </Badge>
       {event.madeOnVRChat && <Badge variant="outline">VRChat</Badge>}
     </span>
@@ -59,6 +72,8 @@ function when(start: Date, end: Date): string {
 type Actions = {
   canManage: boolean
   onEdit: () => void
+  /** "This date" chosen for Edit: the form for this one date of a repeating event. */
+  onEditDate: (occurrence: CalendarOccurrence) => void
   onDuplicate: () => void
   /** After a cancel or a delete went through. */
   onChanged: () => void
@@ -75,6 +90,7 @@ function EventBody({
   start,
   end,
   ready,
+  occurrence,
   results,
   canManage = false,
   onChanged,
@@ -84,6 +100,8 @@ function EventBody({
   start: Date
   end: Date
   ready?: CalendarReady | null
+  /** The date clicked, with its own change when it has one. */
+  occurrence: CalendarOccurrence | null
   results?: ReactNode
   canManage?: boolean
   onChanged?: () => void
@@ -92,10 +110,19 @@ function EventBody({
   // A ticked place that cannot work as things are set up, while the event can still go anywhere.
   const pending = event.state === 'draft' || event.state === 'scheduled' || event.state === 'open'
   const missing = pending ? notSetUp(event, ready) : []
+  const description = occurrence?.description || event.description
+  const planned = occurrence ? new Date(occurrence.plannedStartsAt) : null
+  const moved = planned !== null && planned.getTime() !== start.getTime()
 
   return (
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
       <div className="font-mono">{when(start, end)}</div>
+
+      {moved && (
+        <div className="text-muted-foreground">
+          Moved from {longDay.format(planned)}, {timeOfDay(planned.toISOString())}
+        </div>
+      )}
 
       {event.repeat !== 'none' && (
         <div className="text-muted-foreground">
@@ -104,7 +131,7 @@ function EventBody({
         </div>
       )}
 
-      {event.description && <p className="line-clamp-6 whitespace-pre-wrap">{event.description}</p>}
+      {description && <p className="line-clamp-6 whitespace-pre-wrap">{description}</p>}
 
       <WorldLine event={event} start={start} canManage={canManage} onChanged={onChanged} />
 
@@ -150,6 +177,12 @@ function EventBody({
               <NotSetUp place={place} />
             </div>
           ))}
+          {occurrence?.vrChatError && (
+            <div className="flex flex-wrap items-center gap-2">
+              <PlaceBadge place="vrchat" state="failed" />
+              <span className="text-destructive">{occurrence.vrChatError}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -308,15 +341,25 @@ function CancelBody({ event, onClose, onDone }: { event: CalendarEvent; onClose:
   )
 }
 
-function Heading({ event, children }: { event: CalendarEvent; children?: ReactNode }) {
+function Heading({
+  event,
+  title,
+  dateCancelled,
+  children,
+}: {
+  event: CalendarEvent
+  title: string
+  dateCancelled: boolean
+  children?: ReactNode
+}) {
   return (
     <div className="flex items-start gap-2">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-          {event.title}
+          {title}
         </div>
         <div>
-          <StateBadge event={event} />
+          <StateBadge event={event} dateCancelled={dateCancelled} />
         </div>
       </div>
       {children}
@@ -340,6 +383,7 @@ export function EventDetails({
   results,
   live,
   ready,
+  now,
   ...actions
 }: Actions & {
   event: CalendarEvent
@@ -351,11 +395,33 @@ export function EventDetails({
   live: number
   /** Which places are set up, from the calendar's own read. */
   ready?: CalendarReady | null
+  /** The page's clock: a date still to come can be changed on its own. */
+  now: Date
 }) {
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null)
+  const [choosing, setChoosing] = useState<'edit' | 'cancel' | null>(null)
   const sheet = useMedia(SHEET)
+
+  // The date clicked. A repeating event's Edit and Cancel ask "This date" or "All dates" while that
+  // date is still to come and was not cancelled on its own (calendar design §2.2).
+  const found = dateAt(event, start)
+  const occurrence = found?.occurrence ?? null
+  const dateCancelled = found?.cancelled ?? false
+  const title = occurrence?.title || event.title
+  const ownDate =
+    event.repeat !== 'none' &&
+    (event.state === 'scheduled' || event.state === 'open') &&
+    occurrence !== null &&
+    !dateCancelled &&
+    end.getTime() > now.getTime()
+
   const buttons = actions.canManage && (
-    <EventButtons event={event} onEdit={actions.onEdit} onDuplicate={actions.onDuplicate} onAsk={setConfirm} />
+    <EventButtons
+      event={event}
+      onEdit={() => (ownDate ? setChoosing('edit') : actions.onEdit())}
+      onDuplicate={actions.onDuplicate}
+      onAsk={(what) => (what === 'cancel' && ownDate ? setChoosing('cancel') : setConfirm(what))}
+    />
   )
   const shown = results ? <EventResults event={event} start={start} live={live} /> : undefined
   const body = (
@@ -364,6 +430,7 @@ export function EventDetails({
       start={start}
       end={end}
       ready={ready}
+      occurrence={occurrence}
       results={shown}
       canManage={actions.canManage}
       onChanged={actions.onChanged}
@@ -393,6 +460,29 @@ export function EventDetails({
       <Dialog open={confirm === 'cancel'} onOpenChange={(open) => !open && setConfirm(null)}>
         {confirm === 'cancel' && <CancelBody event={event} onClose={() => setConfirm(null)} onDone={done} />}
       </Dialog>
+      {choosing && occurrence && (
+        <DatesDialog
+          title={choosing === 'cancel' ? `Cancel “${title}”?` : `Edit “${title}”?`}
+          when={when(start, end)}
+          destructive={choosing === 'cancel'}
+          failed={choosing === 'cancel' ? 'Could not cancel the event.' : 'Could not open the event.'}
+          onClose={() => setChoosing(null)}
+          onThisDate={() => {
+            if (choosing === 'edit') {
+              actions.onEditDate(occurrence)
+              return null
+            }
+            return calendarApi.cancelDate(event.id, occurrence.plannedStartsAt).then(done)
+          }}
+          onAllDates={() => {
+            if (choosing === 'edit') {
+              actions.onEdit()
+              return null
+            }
+            return calendarApi.cancel(event.id).then(done)
+          }}
+        />
+      )}
     </>
   )
 
@@ -401,8 +491,8 @@ export function EventDetails({
       <>
         <Dialog open onOpenChange={(open) => !open && actions.onClose()}>
           <DialogContent
-            title={event.title}
-            subtitle={<StateBadge event={event} />}
+            title={title}
+            subtitle={<StateBadge event={event} dateCancelled={dateCancelled} />}
             foot={buttons && <DialogFoot>{buttons}</DialogFoot>}
           >
             <EventBody
@@ -410,6 +500,7 @@ export function EventDetails({
               start={start}
               end={end}
               ready={ready}
+              occurrence={occurrence}
               results={shown}
               canManage={actions.canManage}
               onChanged={actions.onChanged}
@@ -424,7 +515,11 @@ export function EventDetails({
     return (
       <>
         <Dialog open onOpenChange={(open) => !open && actions.onClose()}>
-          <DialogContent title={event.title} subtitle={<StateBadge event={event} />} className="max-w-[560px]">
+          <DialogContent
+            title={title}
+            subtitle={<StateBadge event={event} dateCancelled={dateCancelled} />}
+            className="max-w-[560px]"
+          >
             {body}
           </DialogContent>
         </Dialog>
@@ -433,7 +528,7 @@ export function EventDetails({
     )
 
   const holdOpen = (e: Event) => {
-    if (confirm !== null) e.preventDefault()
+    if (confirm !== null || choosing !== null) e.preventDefault()
   }
 
   return (
@@ -448,12 +543,12 @@ export function EventDetails({
             align="start"
             sideOffset={8}
             collisionPadding={8}
-            aria-label={event.title}
+            aria-label={title}
             onInteractOutside={holdOpen}
             onEscapeKeyDown={holdOpen}
             className="z-40 flex max-h-[var(--radix-popover-content-available-height)] w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-3 overflow-y-auto rounded-sm border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
           >
-            <Heading event={event}>
+            <Heading event={event} title={title} dateCancelled={dateCancelled}>
               <Popover.Close
                 aria-label="Close"
                 className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -468,5 +563,68 @@ export function EventDetails({
       </Popover.Root>
       {confirmation}
     </>
+  )
+}
+
+/**
+ * "This date" or "All dates", for Edit and Cancel on a repeating event. For a cancel, either button
+ * is the confirmation itself; it stays open with the server's words when the cancel fails.
+ */
+function DatesDialog({
+  title,
+  when,
+  destructive,
+  failed,
+  onClose,
+  onThisDate,
+  onAllDates,
+}: {
+  title: string
+  when: string
+  destructive: boolean
+  failed: string
+  onClose: () => void
+  /** A request to wait for, or null when the choice only opens something. */
+  onThisDate: () => Promise<unknown> | null
+  onAllDates: () => Promise<unknown> | null
+}) {
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const choose = (pick: () => Promise<unknown> | null) => {
+    const request = pick()
+    if (!request) {
+      onClose()
+      return
+    }
+
+    setSending(true)
+    setProblem(null)
+    request
+      .then(onClose)
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : failed))
+      .finally(() => setSending(false))
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !sending && onClose()}>
+      <DialogContent
+        title={title}
+        subtitle={<span className="font-mono">{when}</span>}
+        className="max-w-[460px]"
+        foot={
+          <DialogFoot>
+            <Button size="sm" variant="outline" disabled={sending} onClick={() => choose(onThisDate)}>
+              This date
+            </Button>
+            <Button size="sm" variant={destructive ? 'destructive' : 'default'} disabled={sending} onClick={() => choose(onAllDates)}>
+              All dates
+            </Button>
+          </DialogFoot>
+        }
+      >
+        {problem && <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>{problem}</span>}
+      </DialogContent>
+    </Dialog>
   )
 }

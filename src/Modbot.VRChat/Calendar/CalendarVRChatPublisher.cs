@@ -1,11 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Serilog;
+using CalendarEventOccurrenceKind = VRChat.API.Model.CalendarEventOccurrenceKind;
 using PaginatedCalendarEventList = VRChat.API.Model.PaginatedCalendarEventList;
+using VRChatCalendarEvent = VRChat.API.Model.CalendarEvent;
 
 namespace Modbot.VRChat.Calendar;
 
@@ -193,6 +196,32 @@ public sealed class CalendarVRChatPublisher
 
         if (due is not { } work)
         {
+            // The series are as they should be: a date changed on its own is next (§2.2).
+            if (DueDate(events, places, now) is { } date)
+            {
+                var dateOutcome = await WriteDateAsync(date.Event, date.Place, date.Change, date.Fingerprint, groupId, now, ct)
+                    .ConfigureAwait(false);
+
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                if (dateOutcome == CalendarPublishOutcome.Failed)
+                {
+                    await _facts.RecordAsync(
+                        FactType.PlannedEventPublishFailed,
+                        date.Event,
+                        new JsonObject
+                        {
+                            ["place"] = CalendarPlaces.VRChat,
+                            ["action"] = "date",
+                            ["date"] = date.Change.PlannedStartsAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                            ["error"] = date.Change.VRChatError,
+                        },
+                        ct: ct).ConfigureAwait(false);
+                }
+
+                return new CalendarPublishResult(dateOutcome, date.Event.Id, "date");
+            }
+
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             await RecordChangesAsync(events, places, was, ct).ConfigureAwait(false);
             return new CalendarPublishResult(CalendarPublishOutcome.NothingToDo);
@@ -267,6 +296,245 @@ public sealed class CalendarVRChatPublisher
         calendarEvent.PublishToVRChat
         && calendarEvent.DeletedAt is null
         && CalendarEventStates.IsLive(calendarEvent.State);
+
+    // ── One date of a series (calendar design §2.2) ──────────────────────────────────────
+    //
+    // VRChat keeps a repeating event as a series, and lists each of its dates as an "occurrence"
+    // with an id of its own and the series' id beside it. A date cancelled in Modbot is deleted on
+    // VRChat by that date's own id, and a date moved or reworded is updated by it -- the same delete
+    // and update calls the series uses, on the same calendar budget. The id is found by reading the
+    // month the date is in once, and kept.
+    //
+    // Never sent to the series' own id: deleting that would take every date off VRChat. A date that
+    // VRChat does not list apart from its series is shown as failed rather than guessed at.
+
+    /// <summary>
+    /// The first date changed on its own that VRChat has not been told about, of an event whose
+    /// series VRChat already has as it should be.
+    /// </summary>
+    private static (CalendarEvent Event, CalendarEventPlace Place, CalendarDateChange Change, string Fingerprint)? DueDate(
+        List<CalendarEvent> events, Dictionary<Guid, CalendarEventPlace> places, DateTimeOffset now)
+    {
+        foreach (var calendarEvent in events)
+        {
+            if (!Wants(calendarEvent) || calendarEvent.Repeat == CalendarRepeats.None || calendarEvent.DateChanges.Count == 0)
+                continue;
+
+            if (!places.TryGetValue(calendarEvent.Id, out var place)
+                || place.ExternalId is null
+                || place.State != CalendarPlaceStates.Published
+                || place.SentFingerprint != CalendarVRChatRequests.Fingerprint(calendarEvent))
+            {
+                continue;
+            }
+
+            foreach (var change in calendarEvent.DateChanges.OrderBy(c => c.PlannedStartsAt))
+            {
+                if (IsOver(calendarEvent, change, now))
+                    continue;
+
+                var fingerprint = CalendarVRChatRequests.DateFingerprint(calendarEvent, change);
+
+                if (change.VRChatSentFingerprint == fingerprint || DateHeld(change, fingerprint, now))
+                    continue;
+
+                // Still being changed: three quick fixes to one date are one write, as for a series.
+                if (now - change.UpdatedAt < SettleFor)
+                    continue;
+
+                return (calendarEvent, place, change, fingerprint);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A date that has ended, at its planned time and at its own: nothing to tell VRChat about it.</summary>
+    private static bool IsOver(CalendarEvent calendarEvent, CalendarDateChange change, DateTimeOffset now) =>
+        change.PlannedStartsAt + CalendarRepeat.LengthOf(calendarEvent) <= now
+        && (change.EndsAt is not { } ends || ends <= now);
+
+    /// <summary>A date's failure that should not be sent again yet, by the same rule as a series'.</summary>
+    private static bool DateHeld(CalendarDateChange change, string fingerprint, DateTimeOffset now)
+    {
+        if (change.VRChatErrorAt is not { } at)
+            return false;
+
+        if (change.VRChatFailedFingerprint == fingerprint)
+            return true;
+
+        return change.VRChatFailedFingerprint is null && now - at < RetryUnansweredAfter;
+    }
+
+    private async Task<CalendarPublishOutcome> WriteDateAsync(
+        CalendarEvent calendarEvent,
+        CalendarEventPlace place,
+        CalendarDateChange change,
+        string fingerprint,
+        string groupId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var seriesId = place.ExternalId!;
+        var id = change.VRChatId;
+        var foundNow = false;
+
+        if (id is null)
+        {
+            var look = await _gate.ExecuteAsync(
+                new VRChatEndpoint(VRChatEndpointClass.CalendarRead, groupId, "GetGroupCalendarEvents"),
+                (client, token) => client.Calendar.GetGroupCalendarEventsWithHttpInfoAsync(
+                    groupId, date: change.PlannedStartsAt.UtcDateTime, cancellationToken: token),
+                VRChatCallPriority.Background,
+                ct).ConfigureAwait(false);
+
+            if (look.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
+                return CalendarPublishOutcome.RateLimited;
+
+            if (!look.Success)
+            {
+                DateFailed(change, "Could not read VRChat's calendar: " + Reason(look.Kind, look.RawResponse, look.ErrorMessage, look.StatusCode), refused: null, now);
+                return CalendarPublishOutcome.Failed;
+            }
+
+            id = FindDate(look.Value?.Results ?? [], seriesId, change);
+            foundNow = true;
+
+            if (id is null)
+            {
+                if (change.Cancelled)
+                {
+                    // Not on VRChat's calendar: nothing to take off.
+                    DateSent(change, fingerprint);
+                    return CalendarPublishOutcome.NothingToDo;
+                }
+
+                DateFailed(change, "VRChat's calendar does not list this date on its own.", refused: fingerprint, now);
+                return CalendarPublishOutcome.Failed;
+            }
+        }
+
+        int status;
+        bool success;
+        string? error;
+        string? body;
+        VRChatFailureKind kind;
+        DateTimeOffset? answeredUpdatedAt = null;
+        var dateId = id;
+
+        if (change.Cancelled)
+        {
+            var result = await _gate.ExecuteAsync(
+                new VRChatEndpoint(VRChatEndpointClass.CalendarWrite, groupId, "DeleteGroupCalendarEvent"),
+                (client, token) => client.Calendar.DeleteGroupCalendarEventWithHttpInfoAsync(groupId, dateId, token),
+                VRChatCallPriority.Background,
+                ct).ConfigureAwait(false);
+
+            (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
+
+            // Already gone is what a cancel wanted.
+            if (status == 404)
+                success = true;
+        }
+        else
+        {
+            var request = CalendarVRChatRequests.UpdateDate(calendarEvent, change);
+            var result = await _gate.ExecuteAsync(
+                new VRChatEndpoint(VRChatEndpointClass.CalendarWrite, groupId, "UpdateGroupCalendarEvent"),
+                (client, token) => client.Calendar.UpdateGroupCalendarEventWithHttpInfoAsync(groupId, dateId, request, token),
+                VRChatCallPriority.Background,
+                ct).ConfigureAwait(false);
+
+            (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
+            answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
+
+            // The id kept from before is gone: looked for again on the next pass. One just found
+            // and already gone is a failure, so the two do not go round in a loop.
+            if (status == 404 && !foundNow)
+            {
+                change.VRChatId = null;
+                return CalendarPublishOutcome.NothingToDo;
+            }
+        }
+
+        if (success)
+        {
+            change.VRChatId = dateId;
+            DateSent(change, fingerprint);
+
+            // The series' dates carry this write's time now; a read of the calendar should not take
+            // it for a change made on VRChat.
+            if (answeredUpdatedAt is { } updatedAt && (place.VRChatUpdatedAt is null || updatedAt > place.VRChatUpdatedAt))
+                place.VRChatUpdatedAt = updatedAt;
+
+            _log.Information(
+                "VRChat calendar {Action} for one date of the event {EventId}",
+                change.Cancelled ? "delete" : "update", calendarEvent.Id);
+
+            return CalendarPublishOutcome.Written;
+        }
+
+        if (kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
+        {
+            // Never retried here: the limiter decides when anything is sent again.
+            change.VRChatId ??= dateId;
+            return CalendarPublishOutcome.RateLimited;
+        }
+
+        change.VRChatId ??= dateId;
+        DateFailed(change, Reason(kind, body, error, status), refused: status == 0 || status >= 500 ? null : fingerprint, now);
+
+        _log.Warning(
+            "VRChat calendar write for one date of the event {EventId} failed: {Status} {Reason}",
+            calendarEvent.Id, status, change.VRChatError);
+
+        return CalendarPublishOutcome.Failed;
+    }
+
+    /// <summary>
+    /// VRChat's own id for the date: the one listed with the series' id beside it, at the date's
+    /// planned start, or at the time it was moved to when VRChat has it there already.
+    /// </summary>
+    internal static string? FindDate(IEnumerable<VRChatCalendarEvent> rows, string seriesId, CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(change);
+
+        var dates = rows
+            .Where(r => r.Id is { Length: > 0 }
+                && r.DeletedAt is null
+                && r.OccurrenceKind == CalendarEventOccurrenceKind.Occurrence
+                && string.Equals(r.SeriesId, seriesId, StringComparison.Ordinal)
+                && !string.Equals(r.Id, seriesId, StringComparison.Ordinal))
+            .ToList();
+
+        var planned = dates.FirstOrDefault(r => SameTime(r.StartsAt, change.PlannedStartsAt));
+        if (planned is not null)
+            return planned.Id;
+
+        return change.StartsAt is { } moved
+            ? dates.FirstOrDefault(r => SameTime(r.StartsAt, moved))?.Id
+            : null;
+    }
+
+    private static bool SameTime(DateTime vrchat, DateTimeOffset modbot) =>
+        Math.Abs((AsUtc(vrchat) - modbot.UtcDateTime).TotalSeconds) < 1;
+
+    private static void DateSent(CalendarDateChange change, string fingerprint)
+    {
+        change.VRChatSentFingerprint = fingerprint;
+        change.VRChatFailedFingerprint = null;
+        change.VRChatError = null;
+        change.VRChatErrorAt = null;
+    }
+
+    /// <param name="refused">The fingerprint VRChat refused, not sent again until it changes; null tries again later.</param>
+    private static void DateFailed(CalendarDateChange change, string error, string? refused, DateTimeOffset now)
+    {
+        change.VRChatError = Trim(error);
+        change.VRChatErrorAt = now;
+        change.VRChatFailedFingerprint = refused;
+    }
 
     /// <summary>
     /// A create was sent and got no answer, and nothing has been confirmed since, so the event may
@@ -451,6 +719,18 @@ public sealed class CalendarVRChatPublisher
                 // it for a change made there. Null when VRChat did not say; the next read starts from
                 // whatever it finds.
                 place.VRChatUpdatedAt = answeredUpdatedAt;
+
+                // A series made or written again may not hold the dates changed on their own any
+                // more, and whether VRChat keeps them through an update is not known: each one still
+                // to come is looked for again and sent again.
+                foreach (var change in calendarEvent.DateChanges.Where(c => !IsOver(calendarEvent, c, now)))
+                {
+                    change.VRChatId = null;
+                    change.VRChatSentFingerprint = null;
+                    change.VRChatFailedFingerprint = null;
+                    change.VRChatError = null;
+                    change.VRChatErrorAt = null;
+                }
             }
 
             place.FailedFingerprint = null;

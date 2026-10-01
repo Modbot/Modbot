@@ -5,7 +5,8 @@
 - **Covers:** planning events in Modbot, publishing them to VRChat's calendar, Discord and a
   channel, opening the instance on time, and a calendar feed; reading VRChat's calendar back in
   (§12, added 2026-09-27); where an event goes, its preview, places not set up and the cancel
-  post (§14, added 2026-10-01)
+  post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
+  added 2026-10-01)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -60,6 +61,41 @@ every place knows which one it is about.
 Deleting an event is a cancel that also hides it from the calendar page. The row stays, because
 the facts about it point at it.
 
+### 2.2 One date on its own (added 2026-10-01)
+
+Until 2026-10-01 a repeating event was its rule and nothing else, so one date could not be skipped
+or moved: a drag moved every date, and the page said so (§11). The maintainer asked for Google
+Calendar's "This date / All dates". This narrows §2's "the rule is stored, not the occurrences":
+the rule is still stored, plus **the dates changed on their own**.
+
+- **`calendar_date_change`**, one row per changed date: the event, **`planned_starts_at`** (when the
+  rule says that date starts), whether it is **cancelled**, and otherwise its own start and end
+  (null keeps the planned time), title and description (null uses the event's). Loaded with the
+  event on every read (EF `AutoInclude`), because every place an event goes has to follow them and
+  a place that forgot to ask would silently be wrong.
+- **A date is known by its planned start everywhere**, the way iCalendar's `RECURRENCE-ID` names the
+  date an override replaces. A moved date keeps its Discord event, its post and its VRChat id; only
+  what they say changes.
+- **The list of dates** (`CalendarRepeat.Between`) leaves a cancelled date out and puts a moved one
+  at its new time, in order. The timeline (§2.1), the opener (§4), the feed (§6), Past events (§13)
+  and the page all read it, so none of them has a rule of its own for this. `PlannedBetween` is the
+  rule alone, for the few places that mean the rule (VRChat's "after N times", checking a date
+  exists). `CalendarEvent.OccurrenceStartsAt` stays the date's **actual** start, which is what an
+  opening is keyed by.
+- **Changing the whole event afterwards** (an edit, an "All dates" drag, or a change read from
+  VRChat) moves each changed date to the rule's date **on the same day** in the event's zone, and
+  drops one on a day the rule no longer has. By day rather than exact time, so moving a weekly series
+  an hour later keeps the Sunday cancelled in it cancelled. A date that is over is left as it ran.
+- **The API:** `PUT /api/calendar/events/{id}/dates` (times, title, description of one date) and
+  `POST /api/calendar/events/{id}/dates/cancel`. Only a repeating event that is not cancelled or
+  finished, only a date the rule has, only one that has not ended, and never onto another date's
+  start (two dates starting together could not be told apart by an opening or the page). A date
+  put back exactly as planned loses its row. Facts `modbot.calendar.date.change` (before and after)
+  and `modbot.calendar.date.cancel` (§8).
+- **A cancelled date cannot be brought back from the page.** Not asked for; it can be added later.
+- **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A
+  cancelled date is drawn struck through; an opened moved date says where it was moved from.
+
 ## 3. Where it is published, and how changes flow
 
 Each event has one row per place (`calendar_event_place`) holding the outside id (VRChat's event
@@ -84,6 +120,20 @@ event finishing and cancelling: each changes what the place should say.
 - A repeating event is sent as **one VRChat series** with VRChat's own recurrence (daily, weekly
   on days, monthly; interval 1; the event's time zone; an end date when there is one), not one
   VRChat event per occurrence.
+- **One date changed on its own (§2.2)** is sent to that date, not the series. VRChat lists a
+  series' dates as `occurrenceKind: occurrence` rows with an `id` of their own and the series' id as
+  `seriesId` (the SDK's `CalendarEvent`); a cancelled date is deleted by that id and a moved or
+  reworded one updated by it (no `recurrence`, the series' other settings, the date's times and
+  words). These are the delete and update calls the series already uses, on the same
+  `calendar.write` budget; the id is found with one `GetGroupCalendarEvents` for the date's month on
+  `calendar.read`, and kept. No new endpoint. The id must be a dated row of **this** series and never
+  the series' own id, because deleting that would take every date off VRChat; a date VRChat does not
+  list on its own is marked failed on the date rather than guessed at. A cancelled date VRChat does
+  not list needs nothing taken off. Dates wait for their series: nothing is sent for a date while the
+  series itself has a write waiting, and after every create or update of the series each date still
+  to come is looked for and sent again, since whether VRChat keeps a changed date through a series
+  update is not known. Settling (20 s), one write a pass, and the rules for refusals and no answers
+  are the series' own.
 - Cancelling, deleting, or unticking VRChat deletes the event on VRChat. A finished event is left
   there: it is history on VRChat's side as well.
 - A write VRChat refuses is not sent again until the event changes. A write that got no answer
@@ -123,6 +173,11 @@ event finishing and cancelling: each changes what the place should say.
 - Started when the occurrence opens, ended (completed) when it finishes, ended (cancelled) when
   the event is cancelled. Discord cannot move an event backwards, so **each occurrence of a
   repeating event gets its own Discord event.**
+- The place remembers **the planned start** of the date it is about (§2.2). A date cancelled on its
+  own moves the event on, so its Discord event is ended and the next date gets one; a date moved or
+  reworded keeps its Discord event, which is updated. The channel post follows the same rule, and a
+  cancelled date's post ends as "Cancelled". Posts and Discord events made before 2026-10-01 hold
+  the actual start, which is the planned one for every date that has no change.
 - Discord refuses an event that starts in the past, so an event created after its start is given
   a start one minute from now.
 - The bot needs **Manage Events**. Health's Discord card shows it as missing when an event wants a
@@ -156,6 +211,8 @@ event finishing and cancelling: each changes what the place should say.
   the next occurrence gets its own attempt. An automatic retry loop against a write VRChat just
   refused is the thing §4.3 exists to prevent.
 - An occurrence is still opened if Modbot comes up late, as long as the occurrence has not ended.
+- A date cancelled on its own is never opened, and a moved one opens before its new start (§2.2):
+  the opener asks the same list of dates as everything else.
 - The instance is not linked to the VRChat calendar event (`calendarEntryId`): whether VRChat
   wants the series id or an occurrence id there has not been checked against the real API.
 - **`instancePersistenceEnabled` is sent as `false`** (added 2026-10-01). The SDK writes `null` for
@@ -195,6 +252,10 @@ existing `worlds.read` budget; nothing else new is called.
   - Text is escaped (`\\`, `\;`, `\,`, `\n`) and lines are folded at 75 octets with CRLF.
   - The location is the world's name. The join link is left out: the feed is public to anyone with
     the link, and the link changes every occurrence.
+  - A date cancelled on its own (§2.2) is an `EXDATE` in the event's zone. A date moved or given
+    its own words is one more `VEVENT` with the same `UID`, a `RECURRENCE-ID` naming the planned
+    start, and its own `DTSTART`, `DTEND`, `SUMMARY` and `DESCRIPTION`. The `VTIMEZONE` covers a date
+    moved past the rule's last one.
 
 ## 7. Permissions
 
@@ -216,6 +277,8 @@ the operational log:
 | `modbot.calendar.event.change` | Edited; carries before and after |
 | `modbot.calendar.event.cancel` | Cancelled |
 | `modbot.calendar.event.delete` | Deleted |
+| `modbot.calendar.date.cancel` | One date of a repeating event cancelled on its own (§2.2); carries the date |
+| `modbot.calendar.date.change` | One date moved or reworded on its own; carries the date, before and after |
 | `modbot.calendar.event.open` | An occurrence opened |
 | `modbot.calendar.event.finish` | The last occurrence ended |
 | `modbot.calendar.instance.open` | Modbot opened the instance; carries the world and instance ids |
@@ -250,6 +313,11 @@ Two loops, both on `IModbotClock`, never the system clock:
 - Whether `CreateInstance` for a group needs anything beyond owner, type, access, region and
   `instancePersistenceEnabled` (§4; the last was learned from a 400 on 2026-10-01).
 - Discord's handling of external event covers fetched from arbitrary picture links.
+- **One date on VRChat (§3.1, added 2026-10-01).** That VRChat's month list gives each date of a
+  series an id of its own; that a delete or update by that id changes only that date (and not the
+  series); whether an update to one date wants `parentId`; and whether VRChat keeps a changed date
+  through a later update of the series. Built from the spec's model (`occurrenceKind`,
+  `occurrenceModified`, `seriesId`, `parentId`), not from a call to the real service.
 
 ## 11. The page (added 2026-09-27)
 
@@ -269,10 +337,12 @@ Schedule views, a small month to jump with on wide screens, and events moved by 
   event's own wall clock between the old and new date is applied to its first start and end, so a
   one-off event lands exactly where it was dropped and a weekly 20:00 stays on the wall clock across
   daylight saving.
-- **A repeating event moves as a whole.** §2 stores one rule and no exceptions, so "this date only"
-  or "this and following" cannot be expressed without splitting the event into two, which would make
-  a second VRChat series and Discord events nobody asked for. The page says so and asks before it
-  moves every date; weekly days and the last date shift with the start.
+- **A repeating event asks "This date / All dates"** (changed 2026-10-01). Until then §2 stored one
+  rule and no exceptions, so a drag moved every date and the page said so. "This date" is now a
+  change to that one date (§2.2), through `PUT …/dates`, with its own undo; "All dates" is the edit
+  it always was, and weekly days and the last date shift with the start. "This and following" is
+  still not offered: it would split the event into two, with a second VRChat series and Discord
+  events nobody asked for.
 - **Undo** is the same update with the event as it was before the drag. Because VRChat writes wait
   20 s for edits to settle (§3.1), an undo straight away usually costs no VRChat write at all.
 - **The quick form saves drafts only.** A scheduled event is published at once and VRChat refuses one
@@ -354,8 +424,11 @@ in September, a weekly series, none from Modbot).
 - **One exception, kept from before:** an update that meets a 404, because the event was deleted on
   VRChat while an edit made in Modbot waited to go out, makes the event again. The edit is the newer
   of the two.
-- A change to **one date** of a VRChat series cannot be held by Modbot's rule (§11). It stays on
-  VRChat; Modbot keeps the series.
+- A change to **one date** of a VRChat series made on VRChat stays on VRChat; Modbot keeps the
+  series. Modbot's own dates changed on their own (§2.2) are not read back from VRChat: a read finds
+  the date Modbot changed with a newer `updatedAt` and reads the series, which has not changed, so
+  nothing is copied. Reading VRChat's own one-date changes into §2.2 rows is possible now and not
+  built.
 
 ### 12.4 Not checked against the real services
 

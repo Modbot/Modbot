@@ -257,7 +257,7 @@ public sealed class CalendarResults(ModbotContext db)
 
             return new CalendarOccurrenceResult(
                 w.Event.Id,
-                w.Event.Title,
+                CalendarRepeat.TitleOf(w.Event, w.Time),
                 w.Time.StartsAt,
                 w.Time.EndsAt,
                 instance,

@@ -29,7 +29,28 @@ export type CalendarOpening = {
   error: string | null
 }
 
-export type CalendarOccurrence = { startsAt: string; endsAt: string }
+/** One date of an event (calendar design §2.2). */
+export type CalendarOccurrence = {
+  startsAt: string
+  endsAt: string
+  /** When the repeat says this date starts; what a change to this one date names it by. */
+  plannedStartsAt: string
+  /** The date's own title, when it was given one. */
+  title?: string | null
+  /** The date's own description, when it was given one. */
+  description?: string | null
+  /** What VRChat said when it refused this date's own change. */
+  vrChatError?: string | null
+}
+
+/** A change to one date of a repeating event: its times and, when they differ, its own words. */
+export type CalendarDateInput = {
+  plannedStartsAt: string
+  startsAt: string
+  endsAt: string
+  title: string | null
+  description: string | null
+}
 
 export type CalendarEvent = {
   id: string
@@ -80,6 +101,8 @@ export type CalendarEvent = {
   worldListName?: string | null
   /** The list has no worlds, so no world can be picked for the event. */
   worldListEmpty?: boolean
+  /** Dates of a repeating event cancelled on their own, at their planned times. */
+  cancelledDates?: CalendarOccurrence[] | null
 }
 
 /**
@@ -266,6 +289,11 @@ export const calendarApi = {
   /** The form's input drawn the way each place would show it. Saves nothing. */
   preview: (eventId: string | null, input: CalendarEventInput) =>
     http.post<CalendarPreview>(`${base}/preview`, { eventId, event: input }),
+  /** Moves one date of a repeating event, or gives it its own words; the other dates stay. */
+  changeDate: (id: string, body: CalendarDateInput) => http.put<CalendarEvent>(`${base}/events/${id}/dates`, body),
+  /** Cancels one date of a repeating event; the other dates stay. */
+  cancelDate: (id: string, plannedStartsAt: string) =>
+    http.post<void>(`${base}/events/${id}/dates/cancel`, { plannedStartsAt }),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),

@@ -611,6 +611,7 @@ public sealed class CalendarVRChatReader
         var before = CalendarEventFields.Of(calendarEvent);
         var fingerprint = CalendarVRChatRequests.Fingerprint(calendarEvent);
         var picture = calendarEvent.ImageUrl;
+        var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
 
         CalendarVRChatCopy.Onto(calendarEvent, source);
 
@@ -621,6 +622,10 @@ public sealed class CalendarVRChatReader
             // Given new dates: the current occurrence is worked out again, as an edit on the page does.
             if (calendarEvent.State == CalendarEventStates.Finished)
                 calendarEvent.State = CalendarEventStates.Scheduled;
+
+            // Dates changed on their own in Modbot follow the series by day, as after an edit on
+            // the page (calendar design §2.2).
+            CalendarDates.Rematch(calendarEvent, zoneBefore, now);
 
             calendarEvent.OccurrenceStartsAt = null;
             CalendarTimeline.Advance(calendarEvent, now);

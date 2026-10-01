@@ -139,7 +139,7 @@ public static class CalendarVRChatCopy
         {
             target.RepeatUntil = null;
 
-            var last = CalendarRepeat.Between(target, target.StartsAt).Skip(end.Count - 1).Select(o => (CalendarOccurrence?)o).FirstOrDefault();
+            var last = CalendarRepeat.PlannedBetween(target, target.StartsAt).Skip(end.Count - 1).Select(o => (CalendarOccurrence?)o).FirstOrDefault();
             if (last is not { } found)
                 return null;
 

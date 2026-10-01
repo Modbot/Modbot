@@ -4,7 +4,23 @@ using NodaTime;
 namespace Modbot.Core.Calendar;
 
 /// <summary>One occurrence of an event: when it starts and when it ends.</summary>
-public readonly record struct CalendarOccurrence(DateTimeOffset StartsAt, DateTimeOffset EndsAt);
+/// <param name="PlannedStartsAt">
+/// When the event's repeat says this date starts. The same as <paramref name="StartsAt"/> unless the
+/// date was moved on its own; it is what the date is known by everywhere (calendar design §2.2).
+/// </param>
+/// <param name="Change">The date's own change, when it has one: a move, its own title or description.</param>
+public readonly record struct CalendarOccurrence(
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    DateTimeOffset PlannedStartsAt,
+    CalendarDateChange? Change = null)
+{
+    /// <summary>A date as the repeat has it, with nothing changed.</summary>
+    public CalendarOccurrence(DateTimeOffset startsAt, DateTimeOffset endsAt)
+        : this(startsAt, endsAt, startsAt)
+    {
+    }
+}
 
 /// <summary>
 /// Works out when an event happens from the rule it is stored as (calendar design §2).
@@ -66,18 +82,97 @@ public static class CalendarRepeat
 
     /// <summary>
     /// Every occurrence that is still going on at <paramref name="from"/> or starts after it, and
-    /// starts before <paramref name="to"/>, earliest first.
+    /// starts before <paramref name="to"/>, earliest first -- with the dates changed on their own
+    /// (calendar design §2.2): a cancelled date is left out, a moved one is where it was moved to.
     /// </summary>
     public static IEnumerable<CalendarOccurrence> Between(
         CalendarEvent calendarEvent, DateTimeOffset from, DateTimeOffset? to = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        var zone = ZoneOf(calendarEvent);
-        var length = calendarEvent.EndsAt - calendarEvent.StartsAt;
+        if (calendarEvent.DateChanges.Count == 0)
+            return PlannedBetween(calendarEvent, from, to);
 
-        if (length < TimeSpan.Zero)
-            length = TimeSpan.Zero;
+        return WithChanges(calendarEvent, from, to);
+    }
+
+    private static IEnumerable<CalendarOccurrence> WithChanges(
+        CalendarEvent calendarEvent, DateTimeOffset from, DateTimeOffset? to)
+    {
+        var length = LengthOf(calendarEvent);
+        var changes = new Dictionary<DateTimeOffset, CalendarDateChange>();
+
+        foreach (var change in calendarEvent.DateChanges)
+            changes.TryAdd(change.PlannedStartsAt, change);
+
+        // Every date with a change of its own that still happens, at its own time. They are merged
+        // into the repeat's dates by start, so the whole list stays earliest first however far a
+        // date was moved.
+        var changed = changes.Values
+            .Where(c => !c.Cancelled)
+            .Select(c => Changed(c, length))
+            .OrderBy(o => o.StartsAt)
+            .ThenBy(o => o.PlannedStartsAt)
+            .ToList();
+
+        var next = 0;
+
+        foreach (var planned in PlannedBetween(calendarEvent, from, to))
+        {
+            while (next < changed.Count && changed[next].StartsAt <= planned.StartsAt)
+            {
+                var occurrence = changed[next++];
+                if (Inside(occurrence, from, to))
+                    yield return occurrence;
+            }
+
+            if (changes.ContainsKey(planned.PlannedStartsAt))
+                continue;
+
+            yield return planned;
+        }
+
+        while (next < changed.Count)
+        {
+            var occurrence = changed[next++];
+            if (Inside(occurrence, from, to))
+                yield return occurrence;
+        }
+    }
+
+    /// <summary>A changed date as it happens: its own times, or the planned ones it kept.</summary>
+    public static CalendarOccurrence Changed(CalendarDateChange change, TimeSpan length)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        var starts = change.StartsAt ?? change.PlannedStartsAt;
+        var ends = change.EndsAt is { } end && end > starts ? end : starts + length;
+        return new CalendarOccurrence(starts, ends, change.PlannedStartsAt, change);
+    }
+
+    private static bool Inside(CalendarOccurrence occurrence, DateTimeOffset from, DateTimeOffset? to) =>
+        occurrence.EndsAt > from && (to is not { } end || occurrence.StartsAt < end);
+
+    /// <summary>How long every date lasts unless it was changed: the first one's length.</summary>
+    public static TimeSpan LengthOf(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var length = calendarEvent.EndsAt - calendarEvent.StartsAt;
+        return length < TimeSpan.Zero ? TimeSpan.Zero : length;
+    }
+
+    /// <summary>
+    /// The dates the repeat gives, from <paramref name="from"/> to <paramref name="to"/> as
+    /// <see cref="Between"/> counts them, with no date's own change applied.
+    /// </summary>
+    public static IEnumerable<CalendarOccurrence> PlannedBetween(
+        CalendarEvent calendarEvent, DateTimeOffset from, DateTimeOffset? to = null)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var zone = ZoneOf(calendarEvent);
+        var length = LengthOf(calendarEvent);
 
         foreach (var local in LocalStarts(calendarEvent, zone))
         {
@@ -98,6 +193,96 @@ public static class CalendarRepeat
             return occurrence;
 
         return null;
+    }
+
+    /// <summary>
+    /// The occurrence that starts at <paramref name="startsAt"/>, as the event's
+    /// <see cref="CalendarEvent.OccurrenceStartsAt"/> names it; null when no date starts then.
+    /// </summary>
+    public static CalendarOccurrence? StartingAt(CalendarEvent calendarEvent, DateTimeOffset startsAt)
+    {
+        foreach (var occurrence in Between(calendarEvent, startsAt - TimeSpan.FromTicks(1)))
+        {
+            if (occurrence.StartsAt == startsAt)
+                return occurrence;
+
+            if (occurrence.StartsAt > startsAt)
+                break;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The occurrence the event is dealing with now (<see cref="CalendarEvent.OccurrenceStartsAt"/>),
+    /// with its own change when it has one, or the first start when it has none yet.
+    /// </summary>
+    public static CalendarOccurrence Current(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var starts = calendarEvent.OccurrenceStartsAt ?? calendarEvent.StartsAt;
+        return StartingAt(calendarEvent, starts)
+            ?? new CalendarOccurrence(starts, starts + LengthOf(calendarEvent));
+    }
+
+    /// <summary>
+    /// The date the repeat starts at <paramref name="plannedStartsAt"/>, as it now happens; null when
+    /// it was cancelled, or the repeat has no date then.
+    /// </summary>
+    public static CalendarOccurrence? ForDate(CalendarEvent calendarEvent, DateTimeOffset plannedStartsAt)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        if (calendarEvent.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == plannedStartsAt) is { } change)
+            return change.Cancelled ? null : Changed(change, LengthOf(calendarEvent));
+
+        return IsPlannedDate(calendarEvent, plannedStartsAt)
+            ? new CalendarOccurrence(plannedStartsAt, plannedStartsAt + LengthOf(calendarEvent))
+            : null;
+    }
+
+    /// <summary>Whether the event's repeat has a date starting at <paramref name="plannedStartsAt"/>.</summary>
+    public static bool IsPlannedDate(CalendarEvent calendarEvent, DateTimeOffset plannedStartsAt)
+    {
+        foreach (var occurrence in PlannedBetween(calendarEvent, plannedStartsAt - TimeSpan.FromTicks(1)))
+        {
+            if (occurrence.StartsAt == plannedStartsAt)
+                return true;
+
+            if (occurrence.StartsAt > plannedStartsAt)
+                return false;
+        }
+
+        return false;
+    }
+
+    /// <summary>The dates cancelled on their own whose planned time falls in the range, earliest first.</summary>
+    public static IEnumerable<CalendarOccurrence> CancelledBetween(
+        CalendarEvent calendarEvent, DateTimeOffset from, DateTimeOffset to)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var length = LengthOf(calendarEvent);
+
+        return calendarEvent.DateChanges
+            .Where(c => c.Cancelled && c.PlannedStartsAt + length > from && c.PlannedStartsAt < to)
+            .OrderBy(c => c.PlannedStartsAt)
+            .Select(c => new CalendarOccurrence(c.PlannedStartsAt, c.PlannedStartsAt + length, c.PlannedStartsAt, c));
+    }
+
+    /// <summary>The title a date goes out with: its own, or the event's.</summary>
+    public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return occurrence.Change?.Title is { Length: > 0 } own ? own : calendarEvent.Title;
+    }
+
+    /// <summary>The description a date goes out with: its own, or the event's.</summary>
+    public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description;
     }
 
     /// <summary>When an occurrence counts as open: its start, or earlier by the minutes its instance opens early.</summary>

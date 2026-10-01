@@ -17406,6 +17406,173 @@
         ]
       }
     },
+    "/api/calendar/events/{id}/dates": {
+      "put": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Change one date of an event",
+        "description": "Moves one date of a repeating event, or gives it its own title or description, leaving the other dates as they are. Sending the planned time and the event's own words puts the date back as planned.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "ChangeCalendarDate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarDateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events/{id}/dates/cancel": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Cancel one date of an event",
+        "description": "Cancels one date of a repeating event and leaves the others. That date is taken off VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "CancelCalendarDate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarDateCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/preview": {
       "post": {
         "tags": [
@@ -23491,6 +23658,54 @@
           }
         }
       },
+      "CalendarDateCancelRequest": {
+        "required": [
+          "plannedStartsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "plannedStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarDateRequest": {
+        "required": [
+          "plannedStartsAt",
+          "startsAt",
+          "endsAt",
+          "title",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "plannedStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CalendarDiscordEventPreview": {
         "required": [
           "name",
@@ -23968,6 +24183,15 @@
           "worldListEmpty": {
             "type": "boolean",
             "default": false
+          },
+          "cancelledDates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarOccurrenceView"
+            }
           }
         }
       },
@@ -24115,7 +24339,8 @@
       "CalendarOccurrenceView": {
         "required": [
           "startsAt",
-          "endsAt"
+          "endsAt",
+          "plannedStartsAt"
         ],
         "type": "object",
         "properties": {
@@ -24126,6 +24351,28 @@
           "endsAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "plannedStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatError": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

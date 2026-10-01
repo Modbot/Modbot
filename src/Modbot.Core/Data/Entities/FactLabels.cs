@@ -144,6 +144,8 @@ public static class FactLabels
         [FactType.PlannedEventChanged] = "Planned event changed",
         [FactType.PlannedEventCancelled] = "Planned event cancelled",
         [FactType.PlannedEventDeleted] = "Planned event deleted",
+        [FactType.PlannedDateCancelled] = "One date of an event cancelled",
+        [FactType.PlannedDateChanged] = "One date of an event changed",
         [FactType.PlannedEventOpened] = "Planned event opened",
         [FactType.PlannedEventFinished] = "Planned event finished",
         [FactType.PlannedEventInstanceOpened] = "Instance opened for an event",

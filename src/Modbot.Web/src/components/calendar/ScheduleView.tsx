@@ -5,7 +5,7 @@ import { addDays, sameDay, startOfDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
-import { spotOf, toneClass, type Entry, type Spot } from './entry'
+import { entryClass, spotOf, type Entry, type Spot } from './entry'
 import { PlaceBadge, StateBadge } from './EventDetails'
 
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -63,10 +63,10 @@ export function ScheduleView({
                   className="flex min-h-(--control-h) min-w-0 items-center gap-2 text-left font-medium hover:underline"
                   onClick={(e) => onOpen(entry, spotOf(e.currentTarget))}
                 >
-                  <span aria-hidden className={cn('size-3 shrink-0 rounded-sm border border-(length:--hairline) border-l-[3px]', toneClass(entry.event))} />
-                  <span className="truncate">{entry.event.title}</span>
+                  <span aria-hidden className={cn('size-3 shrink-0 rounded-sm border border-(length:--hairline) border-l-[3px]', entryClass(entry))} />
+                  <span className={cn('truncate', entry.cancelled && 'line-through')}>{entry.title}</span>
                 </button>
-                <StateBadge event={entry.event} />
+                <StateBadge event={entry.event} dateCancelled={entry.cancelled} />
                 <EntryWorld entry={entry} />
                 <div className="flex flex-wrap gap-1">
                   {entry.event.places

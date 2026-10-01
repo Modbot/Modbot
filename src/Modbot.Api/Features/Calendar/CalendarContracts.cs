@@ -66,7 +66,37 @@ public sealed record CalendarOpeningView(
     bool Closed,
     string? Error);
 
-public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOffset EndsAt);
+/// <summary>One date of an event.</summary>
+/// <param name="PlannedStartsAt">
+/// When the event's repeat says this date starts. The same as <paramref name="StartsAt"/> unless it
+/// was moved on its own; what a change to this one date names it by.
+/// </param>
+/// <param name="Title">The date's own title, when it was given one.</param>
+/// <param name="Description">The date's own description, when it was given one.</param>
+/// <param name="VRChatError">What VRChat said when it refused this date's own change.</param>
+public sealed record CalendarOccurrenceView(
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    DateTimeOffset PlannedStartsAt,
+    string? Title = null,
+    string? Description = null,
+    string? VRChatError = null);
+
+/// <summary>A change to one date of a repeating event (calendar design §2.2).</summary>
+/// <param name="PlannedStartsAt">The date, as its occurrence's <c>plannedStartsAt</c> names it.</param>
+/// <param name="StartsAt">When that date starts now.</param>
+/// <param name="EndsAt">When that date ends now.</param>
+/// <param name="Title">Its own title. Empty, or the event's own, keeps the event's.</param>
+/// <param name="Description">Its own description. Empty, or the event's own, keeps the event's.</param>
+public sealed record CalendarDateRequest(
+    DateTimeOffset PlannedStartsAt,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    string? Title,
+    string? Description);
+
+/// <param name="PlannedStartsAt">The date to cancel, as its occurrence's <c>plannedStartsAt</c> names it.</param>
+public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt);
 
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>
@@ -76,6 +106,7 @@ public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOff
 /// <param name="WorldListId">The world list the world is picked from, or null.</param>
 /// <param name="WorldListName">That list's name.</param>
 /// <param name="WorldListEmpty">The list has no worlds, so there is nothing to pick from.</param>
+/// <param name="CancelledDates">Dates of a repeating event cancelled on their own, inside the range asked for, at their planned times.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -120,7 +151,8 @@ public sealed record CalendarEventView(
     DateTimeOffset? CancelledAt = null,
     Guid? WorldListId = null,
     string? WorldListName = null,
-    bool WorldListEmpty = false);
+    bool WorldListEmpty = false,
+    IReadOnlyList<CalendarOccurrenceView>? CancelledDates = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
