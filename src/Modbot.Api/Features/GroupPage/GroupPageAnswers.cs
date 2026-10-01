@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Modbot.Analytics.Facts;
+using Modbot.Api.Conventions;
 using Modbot.Core.Data.Entities;
 using Modbot.VRChat;
 
@@ -43,22 +44,32 @@ public static class GroupPageAnswers
                 : StatusCodes.Status502BadGateway;
 
     /// <summary>
-    /// A refusal, as the web app reads one: <c>{ error, missingGroupPermission }</c> with the status
-    /// above. The second is set when VRChat answered 403 because Modbot's own VRChat account lacks
+    /// A refusal, as the web app reads one: the problem shape with <c>missingGroupPermission</c>
+    /// beside it, and the status above. The second is set when VRChat answered 403 because Modbot's own VRChat account lacks
     /// the group permission <paramref name="operation"/> needs, so the page can name it and link to
     /// where it is granted (<see cref="VRChatGroupPermissions"/>).
     /// </summary>
     /// <param name="operation">The operation name the call gave its endpoint, such as <c>UpdateGroup</c>.</param>
     /// <param name="settings">For the account's roles and permissions as last read.</param>
     public static IResult Refused<T>(VRChatResult<T> result, string operation, string groupId, Core.Data.Entities.Settings? settings)
-        => Results.Json(
+        => Problems.Of(
+            StatusFor(result),
+            Said(result),
+            CodeFor(result),
             new
             {
-                error = Said(result),
                 missingGroupPermission = VRChatGroupPermissions.Refusal(
                     result.StatusCode, result.Kind, operation, groupId, result.RawResponse, settings),
-            },
-            statusCode: StatusFor(result));
+            });
+
+    /// <summary>The error code a refusal is passed on with (API conventions design §2), beside <see cref="StatusFor"/>.</summary>
+    public static string CodeFor<T>(VRChatResult<T> result)
+        => StatusFor(result) switch
+        {
+            StatusCodes.Status429TooManyRequests => Problems.VRChatRateLimited,
+            StatusCodes.Status503ServiceUnavailable => Problems.NotSetUp,
+            _ => Problems.VRChatRefused,
+        };
 
     /// <summary>A request Modbot turned down before asking VRChat anything.</summary>
     public static IResult Invalid(string message)
@@ -66,13 +77,11 @@ public static class GroupPageAnswers
 
     /// <summary>What a write answers when this deployment cannot act in VRChat at all.</summary>
     public static IResult NotSetUp()
-        => Results.Problem("This deployment is not set up to act in VRChat.", statusCode: StatusCodes.Status503ServiceUnavailable);
+        => Problems.Of(StatusCodes.Status503ServiceUnavailable, "This deployment is not set up to act in VRChat.", Problems.NotSetUp);
 
     /// <summary>What anything answers before a group has been chosen.</summary>
     public static IResult NoGroup()
-        => Results.Json(
-            new { error = "No VRChat group is set up yet." },
-            statusCode: StatusCodes.Status409Conflict);
+        => Problems.Of(StatusCodes.Status409Conflict, "No VRChat group is set up yet.", Problems.NoGroup);
 
     /// <summary>
     /// The fact for a change VRChat accepted: about the group, by the Modbot account that asked,

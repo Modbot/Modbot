@@ -130,6 +130,12 @@ public static class ApiSurface
         // Its wording, sign-in schemes, error shape and section order are in OpenApiReference.
         services.AddOpenApi(DocumentName, options => options.AddModbotReference());
 
+        // A refused request says which permission it needed, in the one error shape (API
+        // conventions design §2). Replaces the framework's handler, which it still runs first.
+        services.Replace(ServiceDescriptor.Singleton<
+            Microsoft.AspNetCore.Authorization.IAuthorizationMiddlewareResultHandler,
+            Conventions.ProblemAuthorizationResultHandler>());
+
         // The live event WebSocket (API keys design §5). Tickets and the connection count are held
         // in memory: a restart forgets both, and so do the connections they belong to.
         services.TryAddSingleton(new EventSocketOptions());
@@ -279,6 +285,20 @@ public static class ApiSurface
     }
 
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        // Everything below sits in one group with no address of its own, so that one filter gives
+        // every endpoint the same error shape (API conventions design §2) without each feature
+        // having to remember it.
+        var all = app.MapGroup(string.Empty);
+        all.AddEndpointFilter(Conventions.ProblemFilter.ShapeAsync);
+
+        MapEverything(all);
+        return app;
+    }
+
+    private static void MapEverything(IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").WithTags("Version");
 
@@ -540,8 +560,6 @@ public static class ApiSurface
         app.MapSelectGroup();
         app.MapIntegrations();
         app.MapCompleteOnboarding();
-
-        return app;
     }
 }
 

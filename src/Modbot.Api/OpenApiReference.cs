@@ -31,7 +31,7 @@ internal static class OpenApiReference
 {
     public const string SessionScheme = "session";
     public const string ApiKeyScheme = "apiKey";
-    public const string ErrorSchema = "Error";
+    public const string ErrorSchema = "Problem";
 
     /// <summary>The live event WebSocket, which authenticates inside the handler.</summary>
     private const string EventSocketOperation = "EventSocket";
@@ -121,8 +121,10 @@ internal static class OpenApiReference
                 + "and never more than that person holds now. The web app uses the "
                 + "`modbot.session` cookie instead. Both are refused for an account that is "
                 + "disabled or has not linked its VRChat account.\n\n"
-                + "**Errors** usually carry a JSON body with one field, `error`, saying what went "
-                + "wrong in a sentence.\n\n"
+                + "**Errors** are `application/problem+json`: `code` says what went wrong in a "
+                + "word a program can compare (`not-found`, `needs-permission`, `vrchat-refused`), "
+                + "and `detail` says it in a sentence. `error` repeats `detail` for one more API "
+                + "version. See https://docs.modbot.co/api/errors/.\n\n"
                 + $"API version {ModbotVersion.Api} (oldest still supported: "
                 + $"{ModbotVersion.ApiMinimum}). The API version is a plain number, separate from "
                 + "the release version, and goes up only on a breaking change.",
@@ -171,14 +173,52 @@ internal static class OpenApiReference
         document.Components.Schemas[ErrorSchema] = new OpenApiSchema
         {
             Type = JsonSchemaType.Object,
-            Description = "What went wrong. Some errors have no body at all.",
+            Description =
+                "What went wrong (RFC 9457). Some errors carry more fields beside these, such as "
+                + "`neededPermissions` or `missingGroupPermission`.",
+            Required = new HashSet<string> { "type", "title", "status", "code" },
+            AdditionalPropertiesAllowed = true,
             Properties = new Dictionary<string, IOpenApiSchema>
             {
-                ["error"] = new OpenApiSchema
+                ["type"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Format = "uri",
+                    Description = "Where the code is explained.",
+                    Examples = [JsonValue.Create(Conventions.Problems.TypeBase + Conventions.Problems.NotFound)],
+                },
+                ["title"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "The code, in a few words.",
+                    Examples = [JsonValue.Create("Not found")],
+                },
+                ["status"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Integer,
+                    Format = "int32",
+                    Description = "The HTTP status, repeated.",
+                },
+                ["detail"] = new OpenApiSchema
                 {
                     Type = JsonSchemaType.String,
                     Description = "One sentence saying what went wrong.",
                     Examples = [JsonValue.Create("That username is already taken.")],
+                },
+                ["code"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description =
+                        "What went wrong, as a word a program can compare. Never renamed; new ones "
+                        + "may be added, so treat an unknown code by its HTTP status. One of: "
+                        + string.Join(", ", Conventions.Problems.All.Select(c => $"`{c.Code}`")) + ".",
+                    Examples = [JsonValue.Create(Conventions.Problems.NotFound)],
+                },
+                ["error"] = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Description = "The same sentence as `detail`, kept for one more API version.",
+                    Deprecated = true,
                 },
             },
         };
@@ -272,16 +312,17 @@ internal static class OpenApiReference
         if (operation.Responses is null)
             return;
 
+        // Every error answers in the one shape (API conventions design §2).
         foreach (var (status, response) in operation.Responses)
         {
             if (response is not OpenApiResponse concrete || concrete.Content is { Count: > 0 })
                 continue;
 
-            if (status is "400" or "404" or "409" or "413" or "415" or "429" or "503")
+            if (status.Length == 3 && status[0] is '4' or '5')
             {
                 concrete.Content = new Dictionary<string, OpenApiMediaType>
                 {
-                    ["application/json"] = new()
+                    [Conventions.Problems.ContentType] = new()
                     {
                         Schema = new OpenApiSchemaReference(ErrorSchema, context.Document),
                     },

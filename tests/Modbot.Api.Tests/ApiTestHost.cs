@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Api.Features.Companion;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -93,6 +94,7 @@ public sealed class ApiTestHost : IAsyncDisposable
         var app = builder.Build();
 
         app.UseWebSockets();
+        app.UseApiProblems();
         app.UseOldApiPaths();
         app.UseAuthentication();
         app.UseAuthorization();

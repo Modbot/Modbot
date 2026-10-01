@@ -4,6 +4,7 @@ using Modbot.Analytics;
 using Microsoft.AspNetCore.DataProtection;
 using Modbot.Api;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Api.Features.Demo;
 using Modbot.Core.Cloud;
 using Modbot.Core.Configuration;
@@ -508,6 +509,10 @@ try
 
     // The live event WebSocket (API keys design §5). Keep-alive pings are set per connection.
     app.UseWebSockets();
+
+    // An error that leaves with no body gets the API's one error shape on the way out (API
+    // conventions design §2). Ahead of authentication, so a 401 from sign-in is shaped too.
+    app.UseApiProblems();
 
     // Before authentication, because what it turns away is signing in (demo mode design §3.2).
     app.UseDemoRefusals();

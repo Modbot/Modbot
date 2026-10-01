@@ -116,8 +116,8 @@ public static class DemoRefusalMiddleware
             if (DemoAuthentication.MayServeEveryoneAsAdministrator(demo)
                 && DemoRefusals.Refuses(context.Request.Path))
             {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = DemoRefusals.Message });
+                await Conventions.Problems.WriteAsync(
+                    context, StatusCodes.Status403Forbidden, DemoRefusals.Message, Conventions.Problems.Refused);
                 return;
             }
 
