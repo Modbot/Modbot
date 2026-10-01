@@ -40,10 +40,10 @@ export const NAV = [
   // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
   //
-  // "Community" heads the pages about the group's people, from here down to Giveaways
+  // "Community" heads the pages about the group's people, from here down to Lists
   // (2026-09-27). Before it the first eleven entries ran on with no heading, Chat in the middle.
   // Inside it, the pages that act on a person come first and Bans follows Live, where a
-  // moderator most often decides one; Calendar and Giveaways, opened less often, close it. Each
+  // moderator most often decides one; Calendar, Giveaways and Lists, opened less often, close it. Each
   // of them names the heading, so it is still drawn for somebody who may not open Requests.
   { id: 'requests', label: 'Requests', group: 'Community', needs: 'ViewJoinRequests', words: ['join', 'join requests', 'applicants'] },
   // The Discord server's own member list. Separate from Members, because most people are on one
@@ -77,6 +77,10 @@ export const NAV = [
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
+  // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
+  // design). After Giveaways, whose rules they are. Seeing one shows nobody See members does not
+  // already show, so it needs that and nothing of its own; making one is the page's own check.
+  { id: 'lists', label: 'Lists', group: 'Community', needs: 'ViewMembers', words: ['segments', 'regulars', 'export'] },
   // The "Integrations" heading itself (2026-09-30): a card for each outside service Modbot is
   // connected to, its status, and a Set up button into the part of Settings where it is set up.
   // Not a row of its own: the heading is its link (`heads`, `sidebarRows`), and on a phone its tile
@@ -176,6 +180,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   live: 'l',
   calendar: 'e',
   giveaways: 'p',
+  lists: '',
   chat: 'c',
   bans: 'b',
   flags: 'f',

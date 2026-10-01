@@ -56,6 +56,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Giveaways } from '@/pages/Giveaways'
+import { Lists } from '@/pages/Lists'
 import { Integrations } from '@/pages/Integrations'
 import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
@@ -93,6 +94,7 @@ const TITLES: Record<PageId, string> = {
   live: 'Live',
   calendar: 'Calendar',
   giveaways: 'Giveaways',
+  lists: 'Lists',
   chat: 'Chat',
   bans: 'Bans',
   flags: 'Flags',
@@ -137,6 +139,7 @@ const PATHS: Record<PageId, string> = {
   live: '/live',
   calendar: '/calendar',
   giveaways: '/giveaways',
+  lists: '/lists',
   chat: '/chat',
   bans: '/bans',
   flags: '/flags',
@@ -627,6 +630,7 @@ function Shell({
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
           {page === 'giveaways' && <Giveaways />}
+          {page === 'lists' && <Lists />}
           {page === 'chat' && (
             <Suspense fallback={null}>
               <Chat

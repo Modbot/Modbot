@@ -2919,6 +2919,8 @@ export type AutoInvites = {
   discordRoles: { id: string; name: string }[]
   moderationFactRetentionDays: number
   presenceFactRetentionDays: number
+  /** The saved lists a rule can name. */
+  lists: { id: string; name: string }[]
   invitesSent: number
   lastInviteAt: string | null
 }

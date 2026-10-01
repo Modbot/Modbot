@@ -5,12 +5,18 @@ import { Select } from '@/components/ui/select'
 import {
   COMBINE_LABEL,
   COMBINING,
+  MODERATION_KINDS,
+  MODERATION_KIND_LABEL,
   RULE_LABEL,
   RULE_UNIT,
   TRUST_RANKS,
   TRUST_RANK_LABEL,
   isCombining,
+  offeredKinds,
   takesAmount,
+  takesDate,
+  takesList,
+  takesModerationKind,
   takesRank,
   takesRole,
   takesWindow,
@@ -51,7 +57,7 @@ function Group({
   onRemove?: () => void
 }) {
   const rules = rule.rules ?? []
-  const kinds = builder?.ruleKinds ?? Object.keys(RULE_LABEL)
+  const kinds = offeredKinds(builder?.ruleKinds ?? Object.keys(RULE_LABEL), builder?.lists)
 
   const replace = (index: number, next: GiveawayRule) =>
     onChange({ ...rule, rules: rules.map((r, i) => (i === index ? next : r)) })
@@ -138,8 +144,12 @@ function Row({
   onChange: (rule: GiveawayRule) => void
   onRemove: () => void
 }) {
-  const kinds = builder?.ruleKinds ?? Object.keys(RULE_LABEL)
+  const offered = offeredKinds(builder?.ruleKinds ?? Object.keys(RULE_LABEL), builder?.lists)
+  // A rule saved before its kind stopped being offered -- the last list deleted -- still shows
+  // what it is rather than an empty picker.
+  const kinds = offered.includes(rule.kind) ? offered : [...offered, rule.kind]
   const roles = rule.kind === 'groupRole' ? (builder?.groupRoles ?? []) : (builder?.discordRoles ?? [])
+  const lists = builder?.lists ?? []
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
@@ -152,7 +162,15 @@ function Row({
             kind,
             amount: takesAmount(kind) ? (rule.amount ?? 1) : undefined,
             withinDays: takesWindow(kind) ? (rule.withinDays ?? null) : undefined,
-            id: takesRole(kind) || takesRank(kind) ? rule.id : undefined,
+            id:
+              takesRole(kind) || takesRank(kind)
+                ? rule.id
+                : takesModerationKind(kind)
+                  ? MODERATION_KINDS[0]
+                  : takesList(kind)
+                    ? lists[0]?.id
+                    : undefined,
+            date: takesDate(kind) ? (rule.date ?? today()) : undefined,
           })
         }
       >
@@ -190,6 +208,41 @@ function Row({
             </option>
           ))}
         </Select>
+      )}
+
+      {takesModerationKind(rule.kind) && (
+        <Select
+          aria-label="What was done"
+          value={rule.id ?? ''}
+          onChange={(id) => onChange({ ...rule, id: id || undefined })}
+        >
+          {MODERATION_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {MODERATION_KIND_LABEL[k]}
+            </option>
+          ))}
+        </Select>
+      )}
+
+      {takesList(rule.kind) && (
+        <Select aria-label="List" value={rule.id ?? ''} onChange={(id) => onChange({ ...rule, id: id || undefined })}>
+          <option value="">Pick a list</option>
+          {lists.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </Select>
+      )}
+
+      {takesDate(rule.kind) && (
+        <Input
+          type="date"
+          aria-label="Day"
+          className="max-w-40"
+          value={rule.date ?? ''}
+          onChange={(e) => onChange({ ...rule, date: e.target.value || undefined })}
+        />
       )}
 
       {takesRank(rule.kind) && (
@@ -243,4 +296,11 @@ function Row({
       </Button>
     </div>
   )
+}
+
+/** Today in the browser's own calendar, as a date input holds it: `2026-10-01`. */
+function today(): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }

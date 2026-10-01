@@ -54,7 +54,26 @@ export const RULE_LABEL: Record<string, string> = {
   vrchatAccountDays: 'VRChat account at least',
   trustRankAtLeast: 'Trust rank at least',
   age18Plus: '18+ verified',
+  groupJoinedWithinDays: 'Joined the group in the last',
+  groupJoinedBefore: 'Joined the group before',
+  groupJoinedSince: 'Joined the group on or after',
+  firstSeenWithinDays: 'First seen by Modbot in the last',
+  daysSeen: 'Days seen, at least',
+  notSeenWithinDays: 'Seen before, but not in the last',
+  moderationCount: 'Times moderated, at least',
+  inList: 'In the list',
 }
+
+/** What a moderation count counts, as the picker beside it says it. */
+export const MODERATION_KIND_LABEL: Record<string, string> = {
+  ban: 'Banned',
+  removal: 'Removed from the group',
+  instanceKick: 'Kicked from an instance',
+  warn: 'Warned',
+  rejection: 'Join request turned down',
+}
+
+export const MODERATION_KINDS = Object.keys(MODERATION_KIND_LABEL)
 
 /** The words VRChat's nameplate shows for each trust rank a rule can ask for. */
 export const TRUST_RANK_LABEL: Record<string, string> = {
@@ -79,6 +98,11 @@ export const RULE_UNIT: Record<string, string> = {
   messages: 'messages',
   seenWithinDays: 'days',
   vrchatAccountDays: 'days',
+  groupJoinedWithinDays: 'days',
+  firstSeenWithinDays: 'days',
+  daysSeen: 'days',
+  notSeenWithinDays: 'days',
+  moderationCount: 'times',
 }
 
 export const COMBINING = ['allOf', 'anyOf', 'noneOf']
@@ -92,7 +116,30 @@ export function takesAmount(kind: string): boolean {
 }
 
 export function takesWindow(kind: string): boolean {
-  return ['instanceHours', 'oneInstanceHours', 'voiceHours', 'messages', 'noTrouble'].includes(kind)
+  return ['instanceHours', 'oneInstanceHours', 'voiceHours', 'messages', 'noTrouble', 'daysSeen', 'moderationCount'].includes(kind)
+}
+
+/** Whether a rule names a day, in `date`: "joined the group before 1 June". */
+export function takesDate(kind: string): boolean {
+  return kind === 'groupJoinedBefore' || kind === 'groupJoinedSince'
+}
+
+/** Whether a rule names a saved list, in `id`. */
+export function takesList(kind: string): boolean {
+  return kind === 'inList'
+}
+
+/** Whether a rule names a kind of moderation, in `id`. */
+export function takesModerationKind(kind: string): boolean {
+  return kind === 'moderationCount'
+}
+
+/**
+ * The rule kinds a builder offers. "In the list" only where there is a list to pick: a picker with
+ * nothing in it is a control that can only fail.
+ */
+export function offeredKinds(kinds: string[], lists: { id: string }[] | undefined): string[] {
+  return kinds.filter((k) => k !== 'inList' || (lists?.length ?? 0) > 0)
 }
 
 export function takesRole(kind: string): boolean {
@@ -106,7 +153,7 @@ export function takesRank(kind: string): boolean {
 
 /** Whether a rule's answer comes from polled presence reports rather than exactly-timed facts. */
 export function fromPolledData(kind: string): boolean {
-  return ['instanceHours', 'oneInstanceHours', 'seenWithinDays'].includes(kind)
+  return ['instanceHours', 'oneInstanceHours', 'seenWithinDays', 'daysSeen', 'notSeenWithinDays'].includes(kind)
 }
 
 /** `2026-09-20T20:00` for a Date, in the browser's own time — what a datetime-local input holds. */

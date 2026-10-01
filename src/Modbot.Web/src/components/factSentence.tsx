@@ -1429,6 +1429,45 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Saved lists ─────────────────────────────────────────────────────────────────────────────
+  'modbot.list.create': (p) => (
+    <>
+      {p.actor} made the list<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.list.change': (p) => {
+    const before = record(p.entry.data?.['before'])
+    const renamedFrom = typeof before?.['name'] === 'string' && before['name'] !== p.text('name') ? before['name'] : null
+
+    return (
+      <>
+        {p.actor} changed the list<Quoted value={p.text('name')} />
+        {renamedFrom ? <> (was “{renamedFrom}”)</> : null}.
+      </>
+    )
+  },
+
+  'modbot.list.delete': (p) => (
+    <>
+      {p.actor} deleted the list<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  // The payload names the format and the count, never the people in the file.
+  'modbot.list.export': (p) => {
+    const count = p.entry.data?.['count']
+    const format = p.text('format')
+
+    return (
+      <>
+        {p.actor} exported the list<Quoted value={p.text('name')} />
+        {typeof count === 'number' ? <>, {count.toLocaleString()} {count === 1 ? 'person' : 'people'}</> : null}
+        {format ? <>, as {format.toUpperCase()}</> : null}.
+      </>
+    )
+  },
+
   // ── Webhooks ────────────────────────────────────────────────────────────────────────────────
   'modbot.webhook.create': (p) => (
     <>

@@ -14,6 +14,8 @@ export type GiveawayRule = {
   amount?: number
   withinDays?: number | null
   id?: string
+  /** A day, `2026-06-01`, for the rules that ask about one. */
+  date?: string
 }
 
 export type GiveawayExclusions = {
@@ -131,6 +133,8 @@ export type GiveawayBuilder = {
   discordRoles: GiveawayRole[]
   moderationFactRetentionDays: number
   presenceFactRetentionDays: number
+  /** The saved lists a rule can name. */
+  lists?: GiveawayRole[]
 }
 
 export type GiveawayInput = {
@@ -180,6 +184,8 @@ export {
   COMBINE_LABEL,
   COMBINING,
   ENTRY_WAY_LABEL,
+  MODERATION_KIND_LABEL,
+  MODERATION_KINDS,
   POST_STATE_LABEL,
   RULE_LABEL,
   RULE_UNIT,
@@ -194,7 +200,11 @@ export {
   isCombining,
   localInputValue,
   measured,
+  offeredKinds,
   takesAmount,
+  takesDate,
+  takesList,
+  takesModerationKind,
   takesRank,
   takesRole,
   takesWindow,

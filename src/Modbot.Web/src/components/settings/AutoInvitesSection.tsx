@@ -56,6 +56,7 @@ export function AutoInvitesSection() {
         discordRoles: loaded.discordRoles,
         moderationFactRetentionDays: loaded.moderationFactRetentionDays,
         presenceFactRetentionDays: loaded.presenceFactRetentionDays,
+        lists: loaded.lists,
       }
     : null
 

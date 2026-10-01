@@ -148,14 +148,14 @@ test('Reviews sits beside Flags, under the same heading', () => {
   assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
 })
 
-test('Community heads the pages from Requests to Giveaways, each of which names it', () => {
+test('Community heads the pages from Requests to Lists, each of which names it', () => {
   const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
   const community = shown.filter((n) => 'group' in n && n.group === 'Community')
   const first = shown.indexOf(community[0])
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'giveaways'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'giveaways', 'lists'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
