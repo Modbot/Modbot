@@ -427,8 +427,11 @@ When **Discord event** is ticked, Modbot makes an event in the server set as **S
 - It has the title, description, start and end, and the picture link (or the world's picture) as its
   cover. If the picture cannot be fetched, the event is made without a cover.
 - **Before the instance opens**, its location is the world's name.
-- **When the event opens**, Modbot starts the Discord event and puts the join link in it. Discord only
-  allows 100 characters for a location, and VRChat's join links are longer. So:
+- **When the event opens**, Modbot starts the Discord event. If Modbot opened the instance for it,
+  the join link goes in it until the instance closes. If it did not (**Open the instance
+  automatically** is off, or VRChat refused), the location stays the world's name. Discord only
+  allows 100 characters for a location, and VRChat's join links are longer. So, while there is a join
+  link:
   - if your **Public address** is set (**Settings**, **Server**), the location is a short
     Modbot address that sends people on to the instance;
   - otherwise the location stays the world's name, and the join link goes at the top of the

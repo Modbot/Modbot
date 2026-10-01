@@ -109,11 +109,16 @@ event finishing and cancelling: each changes what the place should say.
 
 - An **external** event in the server from settings, with the occurrence's start and end, the
   description, and the picture link as its cover.
-- **Location:** the join link once the instance is open; before that, the world's name. Discord
-  allows 100 characters there and VRChat's launch links are around 180, so the location is Modbot's
-  own short address, `{public address}/api/calendar/join/{event id}`, which redirects to the open
-  instance and answers 404 otherwise. Without a public address, or when that is too long too, the
-  location is the world's name and the link goes at the top of the description.
+- **Location:** the join link while the instance Modbot opened for the occurrence is open (§4);
+  otherwise the world's name, or "VRChat" with no world. Discord allows 100 characters there and
+  VRChat's launch links are around 180, so the location is Modbot's own short address,
+  `{public address}/api/calendar/join/{event id}`, which redirects to the open instance and answers
+  404 otherwise. Without a public address, or when that is too long too, the location is the
+  world's name and the link goes at the top of the description.
+- The short address is used **only while there is a join link behind it** (changed 2026-10-01).
+  Before that it was used whenever the event was open, so an event whose instance Modbot did not
+  open -- opening it automatically turned off, or the opening refused -- showed a location that
+  answered 404.
 - Started when the occurrence opens, ended (completed) when it finishes, ended (cancelled) when
   the event is cancelled. Discord cannot move an event backwards, so **each occurrence of a
   repeating event gets its own Discord event.**

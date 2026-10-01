@@ -217,7 +217,14 @@ public sealed class CalendarDiscordPublisher
         var occurrence = Occurrence(e);
         var open = e.State == CalendarEventStates.Open;
         var world = pass.WorldOf(e);
-        var location = open ? ShortJoinAddress(pass.PublicAddress, e) ?? joinLink : null;
+
+        // Modbot's short address only leads somewhere while there is a join link behind it: an
+        // instance Modbot opened for this occurrence that has not closed. Until 2026-10-01 it was
+        // used whenever the event was open, so an event with no opened instance -- opening it
+        // automatically turned off, or the opening refused -- showed a link that answered 404.
+        // Without a join link the location stays the world's name, the same rule the description's
+        // "Join:" line and the post's Join button already follow.
+        var location = joinLink is not null ? ShortJoinAddress(pass.PublicAddress, e) ?? joinLink : null;
 
         var fingerprint = CalendarFingerprint.Of(
             "discordEvent", e.Title, e.Description, occurrence.StartsAt, occurrence.EndsAt,

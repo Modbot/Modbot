@@ -181,6 +181,67 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         Assert.StartsWith("Join: " + link, serverEvent.Details.Description, StringComparison.Ordinal);
     }
 
+    private static async Task AddWorldAsync(TestServices services, string name)
+    {
+        var now = services.Clock.UtcNow;
+
+        await using var context = services.Database.NewContext();
+        context.VRChatWorlds.Add(new VRChatWorld { WorldId = World, Name = name, FirstSeenAt = now, LastSeenAt = now });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>What the VRChat side leaves behind when VRChat refused to open the instance.</summary>
+    private static async Task RefusedOpeningAsync(TestServices services, CalendarEvent e)
+    {
+        await using var context = services.Database.NewContext();
+        context.CalendarOpenings.Add(new CalendarOpening
+        {
+            EventId = e.Id,
+            OccurrenceStartsAt = e.StartsAt,
+            AttemptedAt = services.Clock.UtcNow,
+            Error = "instancePersistenceEnabled must be a boolean: 'null'",
+        });
+
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>
+    /// Open with no instance Modbot opened -- auto-open off, or VRChat refused it -- there is no join
+    /// link, so the location is the world's name and not Modbot's join address, which would answer
+    /// 404 (found in review, 2026-10-01).
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OpenWithNoInstanceOpened_TheLocationIsTheWorldsName_NotAJoinAddress(bool openingRefused)
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGuildId = Guild;
+            s.PublicAddress = "https://modbot.example";
+        }, Ct);
+        await AddWorldAsync(services, "The Black Cat");
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromMinutes(-5), x => x.AutoOpen = openingRefused);
+        Assert.Equal(CalendarEventStates.Open, e.State);
+
+        if (openingRefused)
+            await RefusedOpeningAsync(services, e);
+
+        await RunAsync(services, gateway);
+
+        var serverEvent = Assert.Single(gateway.ServerEvents.Values);
+        Assert.True(serverEvent.Started);
+        Assert.Equal("The Black Cat", serverEvent.Details.Location);
+        Assert.Equal("Bring snacks", serverEvent.Details.Description);
+
+        var post = Assert.Single(gateway.Messages);
+        Assert.Empty(post.Links);
+        Assert.Null(post.Embeds[0].Url);
+    }
+
     [Fact]
     public async Task CancellingEndsTheServerEventAndMarksThePostCancelled()
     {
