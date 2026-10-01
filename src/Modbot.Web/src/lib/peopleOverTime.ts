@@ -209,14 +209,16 @@ export function peopleOverTimeRows(
     }
   }
 
-  // A presence change inside a step sits on that step's line, or the line would break there.
-  let open: { kind: StepKind; value: number } | null = null
+  // A presence change inside a step sits on that step's line, or the line would break there. One at
+  // the very instant a step ends sits on the step that starts there, or, when none does (the chart's
+  // last instant), on the end of the step that just closed: it is still on the line at that instant.
+  let open: { kind: StepKind; value: number; until: number } | null = null
   for (const row of rows) {
-    if (row.order === 0) open = null
-    else if (row.order === 1) {
+    if (row.order !== 2) {
       const kind = STEP_KINDS.find((k) => row[k] !== null)
-      open = kind ? { kind, value: row[kind]! } : null
-    } else if (open) row[open.kind] = open.value
+      // A step's start holds its line open until the next end; a step's end only for its own instant.
+      open = kind ? { kind, value: row[kind]!, until: row.order === 1 ? Infinity : row.at } : null
+    } else if (open && row.at <= open.until) row[open.kind] = open.value
   }
 
   return rows
