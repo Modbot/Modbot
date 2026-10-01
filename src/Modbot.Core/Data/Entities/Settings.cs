@@ -194,11 +194,13 @@ public class Settings
 
     /// <summary>
     /// Whether the calendar's event form may upload a picture to VRChat, on the VRChat account Modbot
-    /// signs in as (calendar design §2). On by default, like the public instances listing: the upload
-    /// is a person's own choice of a file, one at a time. Off, the upload endpoint answers "Picture
-    /// uploads are off." and sends nothing to VRChat, and events keep the picture ids they have.
+    /// signs in as (calendar design §2). Off until an operator turns it on: VRChat refused the
+    /// gallery upload on the account the maintainer tried (it very likely needs VRChat+ on the account
+    /// Modbot signs in as), and a scripted upload is the part of Modbot's VRChat use a terms-of-service
+    /// review would look at hardest. Off, the upload endpoint answers "Picture uploads are off." and
+    /// sends nothing to VRChat, and events keep the picture ids they have.
     /// </summary>
-    public bool VRChatPictureUploads { get; set; } = true;
+    public bool VRChatPictureUploads { get; set; }
 
     /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first

@@ -140,7 +140,7 @@ export type CalendarView = {
   canSeeResults?: boolean
   /** Which places are set up (calendar design §14.3). Missing from an older server: taken as set up. */
   ready?: CalendarReady | null
-  /** Whether the form may upload a VRChat picture (Settings). Missing from an older server: taken as on. */
+  /** Whether the form may upload a VRChat picture (Settings). Missing from an older server: taken as off. */
   pictureUploads?: boolean
 }
 
@@ -282,6 +282,17 @@ const base = '/api/calendar'
 
 /** The pictures VRChat's calendar picture may be. Checked again by the server, from the bytes. */
 export const VRCHAT_PICTURE_TYPES = ['image/png', 'image/jpeg']
+
+/** Where a person gets VRChat+, which VRChat's gallery upload needs on the account Modbot signs in as. */
+export const VRCHAT_PLUS_URL = 'https://hello.vrchat.com/vrchatplus'
+
+/**
+ * Whether VRChat refused an upload for want of the permission to use the gallery tag (its words:
+ * "You don't have permission to use tag: gallery."), which is what an account without VRChat+ gets.
+ */
+export function isGalleryRefusal(message: string): boolean {
+  return /permission to use tag/i.test(message)
+}
 
 /** The largest VRChat calendar picture: 10 MB, the server's `VRChatPictureUploads.MaxBytes`. */
 export const VRCHAT_PICTURE_MAX_BYTES = 10 * 1024 * 1024

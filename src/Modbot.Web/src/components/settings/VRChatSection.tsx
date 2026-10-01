@@ -6,6 +6,7 @@ import { refreshGateHealth } from '@/lib/useGateHealth'
 import { ConfirmButton, Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { dateTime } from '@/components/charts/format'
+import { VRCHAT_PLUS_URL } from '@/lib/calendar'
 
 /**
  * The VRChat account and the egress proxy — spec 7.1 steps 2 and 3, re-run.
@@ -164,7 +165,7 @@ function CredentialsCard({
 
 /**
  * The one switch for uploading the calendar's VRChat pictures. Saves at once: it is one yes or no
- * with nothing to save beside it. On by default.
+ * with nothing to save beside it. Off by default, with the link to where VRChat+ is had beside it.
  */
 function PicturesCard() {
   const [on, setOn] = useState<boolean | null>(null)
@@ -191,9 +192,16 @@ function PicturesCard() {
 
   return (
     <SettingsCard title="Pictures" footer={<Outcome tone="problem">{error}</Outcome>}>
-      <Switch checked={on ?? false} disabled={busy || on === null} onChange={change}>
-        Upload VRChat pictures
-      </Switch>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+        <Switch checked={on ?? false} disabled={busy || on === null} onChange={change}>
+          Upload VRChat pictures
+        </Switch>
+        <Button asChild size="xs" variant="outline">
+          <a href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
+            Get VRChat+
+          </a>
+        </Button>
+      </div>
     </SettingsCard>
   )
 }

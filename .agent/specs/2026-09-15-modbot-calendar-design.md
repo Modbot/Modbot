@@ -706,12 +706,17 @@ upload.
 - **Modbot keeps none of the bytes.** The body is read into memory, sent, and dropped; only the file
   id is stored, on the event. The file lives on the VRChat account Modbot signs in as, and the
   privacy page says so.
-- **An operator's switch** (added 2026-10-01): Settings → Modbot's VRChat login → Pictures → *Upload
-  VRChat pictures*, on by default (`settings.vr_chat_picture_uploads`). Scripted uploads are the part
-  of Modbot's VRChat use a terms-of-service review would look at hardest, and the project's value is
-  that an operator can switch off what leaves the server. Off, the endpoint answers 409 "Picture
+- **An operator's switch, off by default** (added 2026-10-01): Settings → Modbot's VRChat login →
+  Pictures → *Upload VRChat pictures* (`settings.vr_chat_picture_uploads`), with a *Get VRChat+* link
+  beside it. It first shipped on; the maintainer decided the same day to ship it off, after VRChat
+  answered the first real upload with 403 "You don't have permission to use tag: gallery." (it very
+  likely needs VRChat+ on Modbot's account; VRChat does not say so). Scripted uploads are also the
+  part of Modbot's VRChat use a terms-of-service review would look at hardest, and the project's value
+  is that an operator can switch off what leaves the server. Every install starts off, new or
+  upgraded. A refusal that names the gallery tag shows VRChat's words and the same link under the
+  picture field. Off, the endpoint answers 409 "Picture
   uploads are off." before it reads the body, VRChat is never asked, the calendar read says
-  `pictureUploads: false`, and the form shows the old typed *VRChat image id* box instead of
+  `pictureUploads: false` (what the calendar read says whenever it is not on), and the form shows the old typed *VRChat image id* box instead of
   *Choose picture*, so an event's existing id can still be seen and changed. Changing it writes a
   settings-changed fact.
 - **Large bodies** are refused before they are read: a `Content-Length` over the limit gets 413 with

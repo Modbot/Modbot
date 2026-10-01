@@ -99,7 +99,7 @@ public static class CalendarEndpoints
                     now,
                     ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics),
                     CalendarReadiness.Of(settings, discordBot),
-                    settings?.VRChatPictureUploads ?? true));
+                    settings?.VRChatPictureUploads ?? false));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")
@@ -693,7 +693,7 @@ public static class CalendarEndpoints
                 // read from the body or sent to VRChat.
                 var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
-                if (settings is { VRChatPictureUploads: false })
+                if (settings is not { VRChatPictureUploads: true })
                 {
                     return Results.Json(
                         new { error = "Picture uploads are off." },
@@ -796,7 +796,7 @@ public static class CalendarEndpoints
                 + "eventId names the event when it is already saved, for the audit log. One request "
                 + "to VRChat, at most one a minute and never retried; a picture that is too big or "
                 + "not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" "
-                + "while the operator has turned uploads off in Settings. Modbot keeps none of the bytes.")
+                + "until the operator turns uploads on in Settings; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.")
             .Produces<CalendarVRChatPictureView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

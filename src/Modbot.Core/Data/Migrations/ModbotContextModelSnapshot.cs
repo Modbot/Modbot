@@ -6717,9 +6717,7 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("vr_chat_password_encrypted");
 
                     b.Property<bool>("VRChatPictureUploads")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(true)
                         .HasColumnName("vr_chat_picture_uploads");
 
                     b.Property<bool>("VRChatProxyEnabled")

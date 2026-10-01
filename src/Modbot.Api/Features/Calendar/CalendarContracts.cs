@@ -184,7 +184,7 @@ public sealed record CalendarView(
     DateTimeOffset Now,
     bool CanSeeResults = false,
     CalendarReadyView? Ready = null,
-    bool PictureUploads = true);
+    bool PictureUploads = false);
 
 /// <summary>Whether the places an event can go are set up (calendar design §14.3).</summary>
 /// <param name="VRChat">

@@ -366,6 +366,19 @@ Shown while the **VRChat calendar** chip is on.
 VRChat's calendar does not take a picture link, so its picture is a separate field from **Picture
 link**, which only Discord uses.
 
+**Uploading a picture is off until you turn it on, and it needs VRChat+.** VRChat takes the upload
+only from an account that has [VRChat+](https://hello.vrchat.com/vrchatplus), and the account that
+has to have it is the VRChat account Modbot signs in as for your group. Without it VRChat refuses
+the upload with *You don't have permission to use tag: gallery.* Modbot shows that sentence under the
+field with a **Get VRChat+** link, and nothing is uploaded.
+
+To turn it on, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn on **Upload
+VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off the form has a
+box for a VRChat image id instead: the `file_` id of a picture already on VRChat, typed by hand, as
+before uploads existed.
+
+With it on:
+
 - **Choose picture** and pick a **PNG** or **JPEG** of up to **10 MB**. Modbot uploads it to VRChat
   straight away, and a small copy of it shows in the form once VRChat has it. While it uploads,
   **Save** and **Schedule** wait.
@@ -377,12 +390,11 @@ link**, which only Discord uses.
   small copy, because Modbot keeps only the id. So does an event made on VRChat with a picture.
 - Modbot uploads **one picture a minute at most**, the same pace as its VRChat calendar changes. A
   second picture chosen within the minute waits for its turn.
-- **To turn the upload off**, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn
-  off **Upload VRChat pictures**. It is on by default. With it off, Modbot never sends a picture to
-  VRChat: the form has no **Choose picture** button (an event that already has a picture keeps it,
-  shown as **VRChat picture set**, and the box for a VRChat image id comes back), and the server
-  answers **Picture uploads are off.** to anyone who asks it to upload. Turning it on or off is in
-  the audit log as a settings change.
+- **To turn the upload off again**, turn off **Upload VRChat pictures**. Modbot then never sends a
+  picture to VRChat: the form has no **Choose picture** button (an event that already has a
+  picture keeps it, and the box for a VRChat image id is back), and the server answers **Picture
+  uploads are off.** to anyone who asks it to upload. Turning it on or off is in the audit log as a
+  settings change.
 
 If the upload fails, the reason shows under the field:
 
@@ -390,6 +402,8 @@ If the upload fails, the reason shows under the field:
 - **The picture is larger than 10 MB.**
 - **VRChat is not taking uploads right now. Try again in a few minutes.** VRChat asked Modbot to
   slow down. Modbot does not try again by itself; choose the picture again later.
+- **You don't have permission to use tag: gallery.** The account Modbot signs in as does not have
+  [VRChat+](https://hello.vrchat.com/vrchatplus). The **Get VRChat+** link is beside it.
 - Anything else VRChat says, in VRChat's own words.
 
 Who uploaded which picture, and for which event, is in the [audit log](#in-the-audit-log).

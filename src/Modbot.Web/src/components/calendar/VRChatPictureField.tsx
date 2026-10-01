@@ -2,7 +2,13 @@ import { useRef, useState } from 'react'
 import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
-import { calendarApi, VRCHAT_PICTURE_MAX_BYTES, VRCHAT_PICTURE_TYPES } from '@/lib/calendar'
+import {
+  calendarApi,
+  isGalleryRefusal,
+  VRCHAT_PICTURE_MAX_BYTES,
+  VRCHAT_PICTURE_TYPES,
+  VRCHAT_PLUS_URL,
+} from '@/lib/calendar'
 import type { PictureThumbnails } from './usePictureThumbnails'
 
 /**
@@ -107,7 +113,16 @@ export function VRChatPictureField({
           }}
         />
       </div>
-      {error && <Outcome tone="problem">{error}</Outcome>}
+      {error && (
+        <div className="flex flex-wrap items-center gap-x-3">
+          <Outcome tone="problem">{error}</Outcome>
+          {isGalleryRefusal(error) && (
+            <a className="underline" href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
+              Get VRChat+
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }

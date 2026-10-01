@@ -21,10 +21,10 @@ public sealed record SetVRChatPictureUploadsRequest([property: JsonPropertyName(
 /// signs in as (calendar design §2).
 /// </summary>
 /// <remarks>
-/// On by default. Off, <c>POST /api/calendar/vrchat-picture</c> answers "Picture uploads are off."
-/// and VRChat is never asked; events keep the picture ids they already have and the form shows them.
-/// A scripted upload to VRChat is the part of Modbot's VRChat use an operator is most likely to want
-/// to turn off, so it has a switch of its own.
+/// Off by default, on every install: VRChat answers the upload with a refusal unless the account
+/// Modbot signs in as has VRChat+. Off, <c>POST /api/calendar/vrchat-picture</c> answers "Picture
+/// uploads are off." and VRChat is never asked; events keep the picture ids they already have, and
+/// the form takes a <c>file_</c> id typed by hand, as it did before uploads existed.
 /// </remarks>
 public static class VRChatPictureSettingsEndpoints
 {

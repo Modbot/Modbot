@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001223819_AddVRChatPictureUploadsSwitch")]
+    [Migration("20261001233901_AddVRChatPictureUploadsSwitch")]
     partial class AddVRChatPictureUploadsSwitch
     {
         /// <inheritdoc />
@@ -1193,6 +1193,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ChannelId")
                         .HasColumnType("text")
                         .HasColumnName("channel_id");
+
+                    b.Property<string>("CreateSent")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("create_sent");
 
                     b.Property<string>("Error")
                         .HasMaxLength(1024)
@@ -6716,9 +6720,7 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("vr_chat_password_encrypted");
 
                     b.Property<bool>("VRChatPictureUploads")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(true)
                         .HasColumnName("vr_chat_picture_uploads");
 
                     b.Property<bool>("VRChatProxyEnabled")

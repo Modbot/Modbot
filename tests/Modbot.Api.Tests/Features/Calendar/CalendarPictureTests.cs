@@ -40,10 +40,13 @@ public class CalendarPictureTests(PostgresFixture db)
         JsonConvert.DeserializeObject<VRChatFileModel>(
             $$"""{"id":"{{id}}","extension":".png","mimeType":"image/png","name":"picture","ownerId":"usr_modbot","tags":["gallery"],"versions":[]}""")!;
 
-    private async Task<ApiTestHost> StartAsync(FakeVRChatGate gate, bool uploads = true)
+    private async Task<ApiTestHost> StartAsync(FakeVRChatGate gate, bool uploads = true, bool switchOn = true)
     {
         await using (var context = db.NewContext())
             await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+
+        // Off until an operator turns it on, so every test that uploads turns it on first.
+        await SetUploadsAsync(switchOn);
 
         return await ApiTestHost.StartAsync(
             db, gate, configure: uploads ? s => s.AddSingleton<VRChatPictureUploads>() : null);
@@ -169,31 +172,24 @@ public class CalendarPictureTests(PostgresFixture db)
     public async Task WithUploadsTurnedOff_ThePictureIsRefusedAndVRChatIsNotAsked()
     {
         var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
-        await using var host = await StartAsync(gate);
+        await using var host = await StartAsync(gate, switchOn: false);
         var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
 
-        await SetUploadsAsync(false);
+        var response = await UploadAsync(host, manager, Png());
 
-        try
-        {
-            var response = await UploadAsync(host, manager, Png());
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("Picture uploads are off.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Empty(gate.Calls);
 
-            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("Picture uploads are off.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
-            Assert.Empty(gate.Calls);
-
-            var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
-            Assert.False((await ApiTestHost.BodyOf(view, Ct)).GetProperty("pictureUploads").GetBoolean());
-        }
-        finally
-        {
-            await SetUploadsAsync(true);
-        }
+        var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
+        Assert.False((await ApiTestHost.BodyOf(view, Ct)).GetProperty("pictureUploads").GetBoolean());
     }
 
     [Fact]
-    public async Task UploadsAreOnUntilTheOperatorTurnsThemOff()
+    public async Task UploadsAreOffUntilTheOperatorTurnsThemOn()
     {
+        Assert.False(new Modbot.Core.Data.Entities.Settings().VRChatPictureUploads);
+
         var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
         await using var host = await StartAsync(gate);
         var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);

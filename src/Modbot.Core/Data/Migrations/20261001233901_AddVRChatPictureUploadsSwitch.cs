@@ -5,9 +5,9 @@
 namespace Modbot.Core.Data.Migrations
 {
     /// <summary>
-    /// The switch for uploading a calendar picture to VRChat (calendar design §2). On for every
-    /// deployment, new or old, because the event form already offered the upload; an operator
-    /// who does not want scripted uploads turns it off.
+    /// The switch for uploading a calendar picture to VRChat (calendar design §2). Off on every
+    /// deployment, new or old: VRChat takes the upload only from an account with VRChat+, and a
+    /// scripted upload is something an operator turns on, not finds on.
     /// </summary>
     public partial class AddVRChatPictureUploadsSwitch : Migration
     {
@@ -19,7 +19,7 @@ namespace Modbot.Core.Data.Migrations
                 table: "settings",
                 type: "boolean",
                 nullable: false,
-                defaultValue: true);
+                defaultValue: false);
         }
 
         /// <inheritdoc />

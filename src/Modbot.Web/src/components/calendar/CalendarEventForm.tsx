@@ -61,7 +61,7 @@ export function CalendarEventForm({
   categories,
   platforms,
   ready,
-  pictureUploads = true,
+  pictureUploads = false,
   onClose,
   onSaved,
 }: {
