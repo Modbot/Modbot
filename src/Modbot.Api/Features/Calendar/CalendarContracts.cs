@@ -67,6 +67,7 @@ public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOff
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>
 /// <param name="MadeOnVRChat">Made on VRChat (on vrchat.com or in the game) and read in by Modbot.</param>
+/// <param name="CancelledAt">When it was cancelled; its times after that never ran. Null when it was not.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -107,7 +108,8 @@ public sealed record CalendarEventView(
     bool MadeOnVRChat,
     IReadOnlyList<CalendarPlaceView> Places,
     CalendarOpeningView? Opening,
-    IReadOnlyList<CalendarOccurrenceView> Occurrences);
+    IReadOnlyList<CalendarOccurrenceView> Occurrences,
+    DateTimeOffset? CancelledAt = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

@@ -71,6 +71,18 @@ export type CalendarEvent = {
   places: CalendarPlace[]
   opening: CalendarOpening | null
   occurrences: CalendarOccurrence[]
+  /** When it was cancelled; its times after that never ran. */
+  cancelledAt?: string | null
+}
+
+/**
+ * Whether a time of an event has run, or is running, so it has results: started by `now`, not a
+ * draft, and not after the event was cancelled (the server has no results for those).
+ */
+export function hasRun(event: CalendarEvent, start: Date, now: Date): boolean {
+  if (event.state === 'draft' || start.getTime() > now.getTime()) return false
+  if (event.state === 'cancelled' && event.cancelledAt && start.getTime() >= Date.parse(event.cancelledAt)) return false
+  return true
 }
 
 export type CalendarView = {

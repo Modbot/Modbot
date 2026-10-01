@@ -837,7 +837,8 @@ public static class CalendarEndpoints
                         closed ? null : InstanceJoinLink.For(opening.Location),
                         closed,
                         opening.Error),
-                occurrences);
+                occurrences,
+                e.CancelledAt);
         })];
     }
 

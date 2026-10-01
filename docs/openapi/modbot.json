@@ -21581,6 +21581,13 @@
             "items": {
               "$ref": "#/components/schemas/CalendarOccurrenceView"
             }
+          },
+          "cancelledAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

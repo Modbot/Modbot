@@ -26,6 +26,7 @@ import {
   type CalendarFeed,
   type CalendarOccurrenceResult,
   type CalendarView,
+  hasRun,
   vrchatReadProblem,
 } from '@/lib/calendar'
 import {
@@ -441,7 +442,7 @@ export function Calendar() {
           start={detail.start}
           end={detail.end}
           spot={detail.spot}
-          results={!!data.view.canSeeResults && opened.state !== 'draft' && detail.start.getTime() <= now.getTime()}
+          results={!!data.view.canSeeResults && hasRun(opened, detail.start, now)}
           live={live}
           canManage={canManage}
           onClose={() => setDetail(null)}
