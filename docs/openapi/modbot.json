@@ -637,8 +637,9 @@
         "operationId": "Search",
         "parameters": [
           {
-            "name": "q",
+            "name": "search",
             "in": "query",
+            "description": "Also accepted as `q`.",
             "schema": {
               "type": "string"
             }
@@ -7845,8 +7846,9 @@
         "operationId": "ListModerationFlags",
         "parameters": [
           {
-            "name": "state",
+            "name": "status",
             "in": "query",
+            "description": "Also accepted as `state`.",
             "schema": {
               "type": "string"
             }
@@ -7859,15 +7861,17 @@
             }
           },
           {
-            "name": "vrchat",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `vrchat`.",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "discord",
+            "name": "discordUserId",
             "in": "query",
+            "description": "Also accepted as `discord`.",
             "schema": {
               "type": "string"
             }
@@ -9221,8 +9225,9 @@
             }
           },
           {
-            "name": "state",
+            "name": "status",
             "in": "query",
+            "description": "Also accepted as `state`.",
             "schema": {
               "type": "string"
             }
@@ -11193,8 +11198,9 @@
             }
           },
           {
-            "name": "q",
+            "name": "search",
             "in": "query",
+            "description": "Also accepted as `q`.",
             "schema": {
               "type": "string"
             }
@@ -12477,8 +12483,9 @@
             }
           },
           {
-            "name": "text",
+            "name": "search",
             "in": "query",
+            "description": "Also accepted as `text`.",
             "schema": {
               "type": "string"
             }
@@ -13850,8 +13857,9 @@
         "operationId": "GetVRChatUserProfile",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -13920,8 +13928,9 @@
         "operationId": "GetVRChatUserMetrics",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -13990,8 +13999,9 @@
         "operationId": "RequestVRChatUserRefresh",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -14060,8 +14070,9 @@
         "operationId": "SetVRChatUserAgeVerified",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -14140,8 +14151,9 @@
         "operationId": "GetVRChatUserHistory",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -14210,8 +14222,9 @@
         "operationId": "GetVRChatUserRaw",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -16453,8 +16466,9 @@
         "operationId": "GetSubjectHistory",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -16523,8 +16537,9 @@
         "operationId": "ListReviews",
         "parameters": [
           {
-            "name": "state",
+            "name": "status",
             "in": "query",
+            "description": "Also accepted as `state`.",
             "schema": {
               "type": "string"
             }
@@ -16937,8 +16952,9 @@
         "operationId": "GetMembership",
         "parameters": [
           {
-            "name": "id",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `id`.",
             "required": true,
             "schema": {
               "type": "string"
@@ -17336,8 +17352,9 @@
         "operationId": "ListCaseFiles",
         "parameters": [
           {
-            "name": "userId",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `userId`.",
             "schema": {
               "type": "string"
             }
@@ -17650,8 +17667,9 @@
         "operationId": "LookupCaseFiles",
         "parameters": [
           {
-            "name": "userId",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `userId`.",
             "schema": {
               "type": "array",
               "items": {
@@ -18762,15 +18780,17 @@
         "operationId": "ListPersonWatches",
         "parameters": [
           {
-            "name": "vrchat",
+            "name": "vrchatUserId",
             "in": "query",
+            "description": "Also accepted as `vrchat`.",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "discord",
+            "name": "discordUserId",
             "in": "query",
+            "description": "Also accepted as `discord`.",
             "schema": {
               "type": "string"
             }
@@ -22540,8 +22560,9 @@
         "operationId": "ListGiveaways",
         "parameters": [
           {
-            "name": "state",
+            "name": "status",
             "in": "query",
+            "description": "Also accepted as `state`.",
             "schema": {
               "type": "string"
             }

@@ -309,6 +309,8 @@ internal static class OpenApiReference
             AddResponse(operation, StatusCodes.Status403Forbidden, "Signed in, but without a permission this needs.");
         }
 
+        NameQueryParameters(operation, context);
+
         if (operation.Responses is null)
             return;
 
@@ -328,6 +330,37 @@ internal static class OpenApiReference
                     },
                 };
             }
+        }
+    }
+
+    /// <summary>
+    /// Documents each query parameter under its common name (<see cref="Conventions.QueryAliases"/>),
+    /// so a client generated from the document sends one word per idea. The endpoint's own name
+    /// still works and is mentioned.
+    /// </summary>
+    private static void NameQueryParameters(OpenApiOperation operation, OpenApiOperationTransformerContext context)
+    {
+        var path = "/" + (context.Description.RelativePath ?? string.Empty).TrimStart('/');
+        var aliases = Conventions.QueryAliases.For(path);
+
+        if (aliases.Length == 0 || operation.Parameters is not { Count: > 0 } parameters)
+            return;
+
+        foreach (var (common, own) in aliases)
+        {
+            if (parameters.Any(p => string.Equals(p.Name, common, StringComparison.Ordinal)))
+                continue;
+
+            if (parameters.OfType<OpenApiParameter>().FirstOrDefault(p =>
+                    p.In == ParameterLocation.Query && string.Equals(p.Name, own, StringComparison.Ordinal)) is not { } parameter)
+            {
+                continue;
+            }
+
+            parameter.Name = common;
+            parameter.Description = string.IsNullOrWhiteSpace(parameter.Description)
+                ? $"Also accepted as `{own}`."
+                : $"{parameter.Description.TrimEnd()} Also accepted as `{own}`.";
         }
     }
 

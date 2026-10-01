@@ -95,6 +95,7 @@ public sealed class ApiTestHost : IAsyncDisposable
 
         app.UseWebSockets();
         app.UseApiProblems();
+        app.UseQueryAliases();
         app.UseOldApiPaths();
         app.UseAuthentication();
         app.UseAuthorization();

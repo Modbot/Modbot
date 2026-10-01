@@ -514,6 +514,10 @@ try
     // conventions design §2). Ahead of authentication, so a 401 from sign-in is shaped too.
     app.UseApiProblems();
 
+    // One name for one kind of query parameter (API conventions design §3): `search`, `status`,
+    // `vrchatUserId`, copied to the name each endpoint reads before it reads it.
+    app.UseQueryAliases();
+
     // Before authentication, because what it turns away is signing in (demo mode design §3.2).
     app.UseDemoRefusals();
     app.UseOldApiPaths();
