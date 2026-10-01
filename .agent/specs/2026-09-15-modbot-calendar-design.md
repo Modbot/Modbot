@@ -190,6 +190,11 @@ event finishing and cancelling: each changes what the place should say.
   the world's. The world is a linked name rather than an id, and the world's picture is sent with
   the message (Discord embeds design 2026-09-17); the event's own picture is linked as it is,
   because it is on a host that serves anybody.
+- **The world links to its page on vrchat.com** (`https://vrchat.com/home/world/{id}`, changed
+  2026-10-01). It linked to the world in Modbot, as the moderators' cards do, but this post is for
+  members, and Modbot answered every member who clicked it with its sign-in page. The Discord event
+  and the feed name the world without a link, so nothing else member-facing pointed into Modbot for
+  a world.
 - A Join button once the instance is open. Rewritten when the event changes or opens.
 - Ends as "Finished" or "Cancelled", without the button. A repeating event gets a new post for
   each occurrence, the way a notice board would.
@@ -243,7 +248,13 @@ existing `worlds.read` budget; nothing else new is called.
 - `GET /api/calendar/feed/{token}.ics` — no sign-in, `text/calendar`.
 - The token is 32 random bytes. Only its SHA-256 is used to find it; it is also stored encrypted so
   the calendar page can show the link again to people who may manage the calendar.
-- **Regenerate** makes a new token and the old link stops working at once.
+- **Regenerate** makes a new token and the old link stops working at once. Since 2026-10-01 the
+  page's **New link** asks first, in a dialog that says what happens: "Make a new feed link?", "The
+  old link stops working. Everyone who added it to their calendar stops getting updates and has to
+  add the new link.", **Make new link** (red) and **Cancel**. That explanation is in the UI because
+  the maintainer asked for it on 2026-10-01, the one exception to the repository's rule against
+  explanatory text. Before, one click broke every subscriber's link with nothing in the way. The
+  first **Make link**, with no link yet to break, does not ask.
 - Contains every `scheduled` and `open` event, one `VEVENT` each, repeats as `RRULE`; and, since
   2026-10-01, every `finished` event for **30 days** after its last date ended and every `cancelled`
   one for 30 days after the cancel (`CalendarFeedWriter.KeepEndedFor`), the cancelled ones with

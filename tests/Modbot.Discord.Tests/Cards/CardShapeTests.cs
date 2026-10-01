@@ -232,8 +232,21 @@ public class CardShapeTests
         Assert.Equal("attachment://pw.png", card.ImageUrl);
         Assert.Equal(CardColour.Violet, card.Color);
 
+        // Members read this card and cannot sign in to Modbot: the world opens on vrchat.com.
         Assert.Equal(
-            $"[The Black Cat]({Address}/analytics/worlds?subject=world%3A{World})",
+            $"[The Black Cat](https://vrchat.com/home/world/{World})",
+            Assert.Single(card.Fields, f => f.Name == "World").Value);
+    }
+
+    [Fact]
+    public void ACalendarCard_LinksAWorldWithNoKnownNameToVRChatToo()
+    {
+        var card = CalendarCard.For(
+            Party(), new CalendarOccurrence(At, At.AddHours(3)), world: null,
+            CalendarCardState.Scheduled, null, Style);
+
+        Assert.Equal(
+            $"[`{World}`](https://vrchat.com/home/world/{World})",
             Assert.Single(card.Fields, f => f.Name == "World").Value);
     }
 

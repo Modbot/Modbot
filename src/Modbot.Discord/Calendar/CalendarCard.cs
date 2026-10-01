@@ -67,10 +67,11 @@ public static class CalendarCard
             new("Ends", Stamp(occurrence.EndsAt, "t"), Inline: true),
         };
 
-        // The world's name, opening the world in Modbot: the same rule every other card follows,
-        // and the id that used to be the only way to identify a world stays out of the card.
+        // The world's name, opening the world's page on vrchat.com. This card is for members, who
+        // cannot sign in to Modbot, so the link other cards use -- the world in Modbot -- led them
+        // to a sign-in page (changed 2026-10-01, calendar design §3.3). The id stays out of the card.
         if (calendarEvent.WorldId is { Length: > 0 } worldId)
-            fields.Add(new DiscordEmbedField("World", CardLink.World(world?.Name, worldId, style.PublicAddress), Inline: true));
+            fields.Add(new DiscordEmbedField("World", CardLink.WorldOnVRChat(world?.Name, worldId), Inline: true));
         else if (WorldName(calendarEvent, world) is { } place)
             fields.Add(new DiscordEmbedField("World", CardText.EscapeName(place), Inline: true));
 

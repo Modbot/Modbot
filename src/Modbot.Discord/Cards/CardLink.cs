@@ -104,6 +104,24 @@ public static class CardLink
     public static string World(string? name, string id, string? publicAddress)
         => For(CardSubject.World, name, id, publicAddress);
 
+    /// <summary>
+    /// A world on a card members read: the name, linked to the world's own page on vrchat.com
+    /// rather than to Modbot, which members cannot sign in to.
+    /// </summary>
+    /// <remarks>
+    /// Added 2026-10-01 for the calendar's channel post (calendar design §3.3): its World link
+    /// opened Modbot's sign-in for every member who clicked it. The id goes into the address as it
+    /// is, escaped, never checked for shape (foundation §3.1.1).
+    /// </remarks>
+    public static string WorldOnVRChat(string? name, string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        // The label as every other card writes it, then pointed at VRChat instead.
+        var label = For(CardSubject.World, name, id, publicAddress: null);
+        return $"[{label}](https://vrchat.com/home/world/{Uri.EscapeDataString(id)})";
+    }
+
     /// <summary>An instance: its world's name, linked to the instance's popup.</summary>
     public static string Instance(string? name, string id, string? publicAddress)
         => For(CardSubject.Instance, name, id, publicAddress);

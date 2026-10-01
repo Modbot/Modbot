@@ -13,6 +13,7 @@ import { QuickCreate } from '@/components/calendar/QuickCreate'
 import { ScheduleView } from '@/components/calendar/ScheduleView'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
@@ -658,6 +659,7 @@ function FeedRow() {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
 
   useEffect(() => {
     calendarApi
@@ -695,7 +697,7 @@ function FeedRow() {
           <Button size="sm" variant="outline" onClick={copy}>
             {copied ? 'Copied' : 'Copy'}
           </Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={regenerate}>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => setAsking(true)}>
             New link
           </Button>
         </>
@@ -705,6 +707,18 @@ function FeedRow() {
         </Button>
       )}
       {error && <span className="text-destructive">{error}</span>}
+
+      {/* Asks first: a new link breaks the old one for everyone who added it. The explanation in
+          it is there because the maintainer asked for it on 2026-10-01 (calendar design §6). */}
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        title="Make a new feed link?"
+        subtitle="The old link stops working. Everyone who added it to their calendar stops getting updates and has to add the new link."
+        action="Make new link"
+        failed="Could not make a new link."
+        onConfirm={() => calendarApi.regenerateFeed().then(setFeed)}
+      />
     </div>
   )
 }
