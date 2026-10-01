@@ -218,14 +218,9 @@ public static class EventsHandler
 
         if (notifier is not null)
         {
-            var names = people.ToDictionary(
-                p => p,
-                p => submitted.FirstOrDefault(e => e.SubjectId == p)?.Data?.GetValueOrDefault("displayName"),
-                StringComparer.Ordinal);
-
             try
             {
-                await WatchAlerts.RaiseAsync(notifier, database, arrivals, flagged, names, ct);
+                await WatchAlerts.RaiseAsync(notifier, arrivals, flagged, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

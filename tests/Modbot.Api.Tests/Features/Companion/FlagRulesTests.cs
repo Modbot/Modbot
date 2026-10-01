@@ -325,7 +325,7 @@ public class FlagRulesTests
     }
 
     [Fact]
-    public async Task AWatch_Flags_WithItsReasonFirst()
+    public async Task AWatch_Flags_ListedFirst_AsTheWordAloneWithoutItsReason()
     {
         await using var host = await ReadyAsync();
 
@@ -335,8 +335,12 @@ public class FlagRulesTests
         var match = (await ReadAsync(host, null, "usr_p"))["usr_p"];
 
         Assert.True(match.IsFlagged);
-        Assert.Equal(new[] { "Watched: Said they would come back with alts", "1 kick or ban" }, match.Reasons);
+        Assert.Equal(new[] { "Watched", "1 kick or ban" }, match.Reasons);
         Assert.Equal(watch.Id, match.Watch?.Id);
+
+        // The reasons reach a paired companion, the Live page and the chat tools, none of which
+        // needs the audit log's permission; the watch's reason is that log's to show.
+        Assert.DoesNotContain("alts", match.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -379,20 +383,8 @@ public class FlagRulesTests
 
         var match = (await ReadAsync(host, null, "usr_linked"))["usr_linked"];
 
-        Assert.Equal("Watched: Raid in the Discord", match.Reason);
+        Assert.Equal("Watched", match.Reason);
         Assert.Equal(FactPlatform.Discord, match.Watch?.Platform);
-    }
-
-    [Fact]
-    public async Task AWatch_ALongReason_IsShortenedOnTheChip()
-    {
-        await using var host = await ReadyAsync();
-        await WatchAsync(host, "usr_p", new string('a', 150));
-
-        var reason = (await ReadAsync(host, null, "usr_p"))["usr_p"].Reasons.Single();
-
-        Assert.Equal("Watched: ".Length + FlagRules.WatchReasonOnAChip, reason.Length);
-        Assert.EndsWith("…", reason, StringComparison.Ordinal);
     }
 
     [Fact]

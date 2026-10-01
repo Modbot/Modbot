@@ -79,24 +79,24 @@ public sealed class WatchPass
         if (due.Count == 0)
             return 0;
 
-        var names = await _watches.NamesAsync(due, ct);
-
         foreach (var watch in due)
         {
-            var name = names.GetValueOrDefault((watch.SubjectPlatform, watch.SubjectId)) ?? watch.SubjectId;
-
             // To whoever set it: they asked to be reminded. Everybody else who may read watches
             // sees it on Now, under Follow-ups due, without a message each.
+            //
+            // Nothing about the person goes in: not their name, id or the reason. The row outlives
+            // a purge of the person and goes out by email and Discord message; Now, which the link
+            // opens, shows who under the reader's own permissions.
             await _notifier.RaiseAsync(
                 new Notification(
                     NotificationKinds.WatchFollowUpDue,
                     NotificationSeverity.Warning,
                     "Modbot: time to check on a watched person",
-                    $"{name}\n\nWatched: {watch.Reason}",
+                    "A follow-up on a watched person is due.",
                     NotificationAudience.These([watch.SetByUserId]))
                 {
                     SameAs = $"{NotificationKinds.WatchFollowUpDue}:{watch.Id}:{watch.FollowUpAt!.Value:O}",
-                    Link = WatchLinks.Person(watch.SubjectPlatform, watch.SubjectId, "/"),
+                    Link = "/",
                 },
                 ct);
 
@@ -105,17 +105,6 @@ public sealed class WatchPass
         }
 
         return due.Count;
-    }
-}
-
-/// <summary>Where in Modbot a notification about a watched person points.</summary>
-public static class WatchLinks
-{
-    /// <summary>The page at <paramref name="page"/>, with the person's popup open on it.</summary>
-    public static string Person(FactPlatform platform, string subjectId, string page)
-    {
-        var subject = platform == FactPlatform.Discord ? "discord-person:" + subjectId : subjectId;
-        return $"{page}?subject={Uri.EscapeDataString(subject)}";
     }
 }
 

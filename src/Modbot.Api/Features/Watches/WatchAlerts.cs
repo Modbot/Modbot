@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Context;
-using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Notifications;
 
@@ -29,69 +29,53 @@ public static class WatchAlerts
 {
     /// <summary>Who is told: everybody who may see live instances and read the moderation log.</summary>
     /// <remarks>
-    /// Both, because the message says where somebody is standing (the Live page's permission) and
-    /// why they are watched (a fact in the moderation log).
+    /// Both, because what it leads to is where somebody is standing (the Live page's permission)
+    /// and a watch, which is a fact in the moderation log.
     /// </remarks>
     public static readonly ModbotPermissions Audience = ModbotPermissions.ViewLiveInstances | ModbotPermissions.ViewAuditLog;
 
     /// <param name="arrivals">The genuine joins in this batch.</param>
     /// <param name="flagged">What the flag rules decided for the people in them.</param>
-    /// <param name="names">The names the batch carried, by person.</param>
     /// <returns>How many notifications were raised.</returns>
+    /// <remarks>
+    /// <para>
+    /// <strong>Nothing about the person is written into the notification.</strong> Not their name,
+    /// not their id and not the watch's reason: a notification row is kept after a purge has erased
+    /// the person, and it goes out by email and Discord message. It says that a watched person
+    /// joined and points at Live, where whoever opens it sees who under their own permissions.
+    /// </para>
+    /// <para>
+    /// The key names the watch and a hash of the instance's id rather than the id itself, because a
+    /// VRChat instance id can carry its owner's user id.
+    /// </para>
+    /// </remarks>
     public static async Task<int> RaiseAsync(
         INotifier notifier,
-        ModbotContext db,
         IReadOnlyList<FactRecord> arrivals,
         IReadOnlyDictionary<string, FlagMatch> flagged,
-        IReadOnlyDictionary<string, string?> names,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(notifier);
-        ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(arrivals);
         ArgumentNullException.ThrowIfNull(flagged);
-        ArgumentNullException.ThrowIfNull(names);
-
-        var watched = arrivals
-            .Where(a => flagged.GetValueOrDefault(a.SubjectId)?.Watch is not null)
-            .ToList();
-
-        if (watched.Count == 0)
-            return 0;
-
-        var people = watched.Select(a => a.SubjectId).Distinct(StringComparer.Ordinal).ToList();
-        var worldIds = watched.Where(a => a.WorldId is not null).Select(a => a.WorldId!).Distinct(StringComparer.Ordinal).ToList();
-
-        var storedNames = await db.VRChatUsers.AsNoTracking()
-            .Where(u => people.Contains(u.UserId) && u.DisplayName != null)
-            .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct);
-
-        var worldNames = worldIds.Count == 0
-            ? new Dictionary<string, string>(StringComparer.Ordinal)
-            : await db.VRChatWorlds.AsNoTracking()
-                .Where(w => worldIds.Contains(w.WorldId) && w.Name != null)
-                .ToDictionaryAsync(w => w.WorldId, w => w.Name!, StringComparer.Ordinal, ct);
 
         var raised = 0;
 
-        foreach (var arrival in watched)
+        foreach (var arrival in arrivals)
         {
-            var watch = flagged[arrival.SubjectId].Watch!;
-            var name = names.GetValueOrDefault(arrival.SubjectId) ?? storedNames.GetValueOrDefault(arrival.SubjectId) ?? arrival.SubjectId;
-            var where = arrival.WorldId is { } world && worldNames.TryGetValue(world, out var worldName)
-                ? worldName
-                : "one of the group's instances";
+            if (flagged.GetValueOrDefault(arrival.SubjectId)?.Watch is not { } watch)
+                continue;
 
             await notifier.RaiseAsync(
                 new Notification(
                     NotificationKinds.WatchedPersonJoined,
                     NotificationSeverity.Warning,
                     "Modbot: a watched person joined",
-                    $"{name} joined {where}.\n\nWatched: {watch.Reason}",
+                    "A watched person joined a group instance.",
                     NotificationAudience.Holding(Audience))
                 {
-                    SameAs = $"{NotificationKinds.WatchedPersonJoined}:{watch.Id}:{arrival.InstanceId}",
-                    Link = WatchLinks.Person(FactPlatform.VRChat, arrival.SubjectId, "/live"),
+                    SameAs = $"{NotificationKinds.WatchedPersonJoined}:{watch.Id}:{InstanceKey(arrival.InstanceId)}",
+                    Link = "/live",
                 },
                 ct);
 
@@ -100,4 +84,8 @@ public static class WatchAlerts
 
         return raised;
     }
+
+    /// <summary>A short hash of an instance's id: the same instance, the same key, and no id in it.</summary>
+    public static string InstanceKey(string? instanceId)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instanceId ?? string.Empty)))[..16].ToLowerInvariant();
 }

@@ -122,9 +122,14 @@ public sealed record FlagMatch(int PriorActions, IReadOnlyList<string> Reasons)
 }
 
 /// <summary>A standing watch, as the flag rules found it.</summary>
+/// <remarks>
+/// No reason: what the flag rules decide reaches readers who may not read the moderation log -- a
+/// paired companion, the Live page, the chat tools -- and a watch's reason is a moderator's words
+/// about a person, which only that log's permission may read (watching a person design §4).
+/// </remarks>
 /// <param name="Platform">Which account the watch is on. Discord when it was found through a link.</param>
 /// <param name="SubjectId">That account's id.</param>
-public sealed record WatchHit(Guid Id, FactPlatform Platform, string SubjectId, string Reason);
+public sealed record WatchHit(Guid Id, FactPlatform Platform, string SubjectId);
 
 /// <summary>
 /// Decides who is Flagged, for everybody who shows it: the companion roster and person card, the
@@ -148,8 +153,11 @@ public static class FlagRules
     /// <summary>The facts that count as a kick or ban.</summary>
     private static readonly string[] KicksAndBans = [FactType.MemberKicked, FactType.MemberBanned];
 
-    /// <summary>How much of a watch's reason a roster chip carries. The whole of it is on the popup.</summary>
-    public const int WatchReasonOnAChip = 60;
+    /// <summary>
+    /// What a watch says among the reasons. The word alone: the reasons go to every reader of
+    /// Flagged, most of whom may not read the watch's reason.
+    /// </summary>
+    public const string Watched = "Watched";
 
     /// <summary>Reads the settings and decides every one of these people.</summary>
     /// <param name="ranks">The stored trust ranks the caller already read; a person missing from it
@@ -254,9 +262,9 @@ public static class FlagRules
             var watch = watches.GetValueOrDefault(id);
 
             // First, because a moderator chose to say it, and a roster chip or a join card cut
-            // short must still show it.
+            // short must still show it. The word only, never the reason (see WatchHit).
             if (watch is not null)
-                reasons.Add("Watched: " + Shortened(watch.Reason, WatchReasonOnAChip));
+                reasons.Add(Watched);
 
             if (settings.KicksAndBans && countedActions > 0)
                 reasons.Add(countedActions == 1 ? "1 kick or ban" : $"{countedActions} kicks or bans");
@@ -349,7 +357,7 @@ public static class FlagRules
             .Where(w => w.EndedAt == null && (w.EndsAt == null || w.EndsAt > now))
             .Where(w => (w.SubjectPlatform == FactPlatform.VRChat && ids.Contains(w.SubjectId))
                      || (w.SubjectPlatform == FactPlatform.Discord && discordIds.Contains(w.SubjectId)))
-            .Select(w => new WatchHit(w.Id, w.SubjectPlatform, w.SubjectId, w.Reason))
+            .Select(w => new WatchHit(w.Id, w.SubjectPlatform, w.SubjectId))
             .ToListAsync(ct);
 
         var result = new Dictionary<string, WatchHit>(StringComparer.Ordinal);
@@ -421,8 +429,4 @@ public static class FlagRules
 
         return result;
     }
-
-    /// <summary>The first <paramref name="limit"/> characters, with an ellipsis when there were more.</summary>
-    private static string Shortened(string text, int limit)
-        => text.Length <= limit ? text : text[..(limit - 1)].TrimEnd() + "…";
 }

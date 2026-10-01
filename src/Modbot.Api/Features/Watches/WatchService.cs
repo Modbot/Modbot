@@ -139,7 +139,7 @@ public sealed class WatchService
         {
             await _db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException e) when (e.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
         {
             // Two moderators pressed Watch on the same person at once; the index let one through.
             throw new WatchRefused(409, "Somebody is already watching this person.");
@@ -390,13 +390,19 @@ public sealed class WatchService
     }
 
     /// <summary>A standing watch the caller may change, or a refusal.</summary>
+    /// <remarks>
+    /// The permission is decided before whether the watch exists, so somebody who may not change
+    /// watches cannot learn which ids are real by the answer.
+    /// </remarks>
     private async Task<PersonWatch> FindChangeableAsync(Guid id, Caller caller, CancellationToken ct)
     {
-        var watch = await _db.PersonWatches.FirstOrDefaultAsync(w => w.Id == id, ct)
-            ?? throw new WatchRefused(404, "No such watch.");
+        var watch = await _db.PersonWatches.FirstOrDefaultAsync(w => w.Id == id, ct);
 
-        if (!caller.Has(ModbotPermissions.WriteNotes) && watch.SetByUserId != caller.UserId)
+        if (!caller.Has(ModbotPermissions.WriteNotes) && watch?.SetByUserId != caller.UserId)
             throw new WatchRefused(403, "You do not have permission to change this watch.");
+
+        if (watch is null)
+            throw new WatchRefused(404, "No such watch.");
 
         if (!watch.StandsAt(_clock.UtcNow))
             throw new WatchRefused(409, "This watch has already ended.");

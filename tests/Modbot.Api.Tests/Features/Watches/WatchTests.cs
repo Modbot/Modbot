@@ -235,6 +235,25 @@ public class WatchTests
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await host.PostJsonAsync($"/api/watches/{watch.Id}/stop", null, reader, Ct)).StatusCode);
+
+        // Refused the same way for an id that does not exist, so the answer tells them nothing.
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.PostJsonAsync($"/api/watches/{Guid.NewGuid()}/stop", null, reader, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AReaderWithoutTheAuditLog_CannotReadAWatchOrItsReason()
+    {
+        var (host, _) = await ReadyAsync();
+        await using var hosting = host;
+        var moderator = await host.SignedInAsync(Moderator, Ct);
+        var liveOnly = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        await StartAsync(host, moderator);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync($"/api/watches/person?vrchat={Person}", liveOnly, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/watches", liveOnly, Ct)).StatusCode);
     }
 
     // ── Following up ───────────────────────────────────────────────────────────────────────
@@ -262,6 +281,7 @@ public class WatchTests
         var reminder = Assert.Single(notifier.Raised);
         Assert.Equal(NotificationKinds.WatchFollowUpDue, reminder.Kind);
         Assert.Contains(watch.Id.ToString(), reminder.SameAsKey, StringComparison.Ordinal);
+        AssertSaysNothingAboutThePerson(reminder, Person, "Came back on an alt");
 
         // To whoever set it, and nobody else.
         using (var scope = host.Services.CreateScope())
@@ -330,13 +350,27 @@ public class WatchTests
         var watch = await ReadAsync<WatchView>(await StartAsync(host, cookie));
         await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_banned", Day.AddDays(-3)), Ct);
 
+        using (var names = host.Services.CreateScope())
+        {
+            var context = names.ServiceProvider.GetRequiredService<ModbotContext>();
+            context.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = Person,
+                DisplayName = "Ada",
+                FirstSeenAt = Day,
+                LastSeenAt = Day,
+                LastRefreshedAt = Day,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
         FactRecord Join(string who) => new()
         {
             Type = FactType.InstanceJoined,
             OccurredAt = Day,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = who,
-            InstanceId = "12345~group(grp_x)",
+            InstanceId = $"12345~hidden({Person})",
             WorldId = "wrld_x",
             Source = FactSource.Companion,
         };
@@ -352,22 +386,37 @@ public class WatchTests
         Assert.True(flagged["usr_banned"].IsFlagged);
         Assert.Null(flagged["usr_banned"].Watch);
 
-        var raised = await WatchAlerts.RaiseAsync(
-            notifier,
-            db,
-            arrivals,
-            flagged,
-            new Dictionary<string, string?>(StringComparer.Ordinal) { [Person] = "Ada" },
-            Ct);
+        var raised = await WatchAlerts.RaiseAsync(notifier, arrivals, flagged, Ct);
 
         Assert.Equal(1, raised);
 
         var notification = Assert.Single(notifier.Raised);
         Assert.Equal(NotificationKinds.WatchedPersonJoined, notification.Kind);
         Assert.Equal(NotificationSeverity.Warning, notification.Severity);
-        Assert.Contains("Ada", notification.Body, StringComparison.Ordinal);
-        Assert.Contains("Came back on an alt", notification.Body, StringComparison.Ordinal);
-        Assert.Equal($"{NotificationKinds.WatchedPersonJoined}:{watch.Id}:12345~group(grp_x)", notification.SameAsKey);
+        Assert.Equal("/live", notification.Link);
+        Assert.Contains(watch.Id.ToString(), notification.SameAsKey, StringComparison.Ordinal);
         Assert.Equal<ModbotPermissions?>(WatchAlerts.Audience, notification.Audience.Permission);
+
+        // The instance id here carries the person's own id, as a VRChat instance id can; the key
+        // is a hash of it, so it does not.
+        AssertSaysNothingAboutThePerson(notification, Person, "Came back on an alt", "Ada");
+
+        // The same instance is the same key, so an evening of coming and going is said once.
+        Assert.Equal(WatchAlerts.InstanceKey($"12345~hidden({Person})"), notification.SameAsKey.Split(':')[^1]);
+    }
+
+    /// <summary>
+    /// Every field a notification is stored with and sent in, checked for the person: their id,
+    /// their name, and the watch's reason. A notification row outlives a purge of the person.
+    /// </summary>
+    private static void AssertSaysNothingAboutThePerson(Notification notification, params string[] about)
+    {
+        string?[] fields = [notification.Title, notification.Body, notification.Link, notification.SameAsKey];
+
+        foreach (var field in fields)
+        {
+            foreach (var word in about)
+                Assert.DoesNotContain(word, field ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

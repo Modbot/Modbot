@@ -263,7 +263,7 @@ public class LiveStreamTests
     }
 
     [Fact]
-    public async Task AJoinBySomebodyWatched_ArrivesAsAFlaggedJoin_WithTheWatchsReason()
+    public async Task AJoinBySomebodyWatched_ArrivesAsAFlaggedJoin_WithoutTheWatchsReason()
     {
         await using var host = await StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
@@ -291,8 +291,12 @@ public class LiveStreamTests
 
         var @event = await NextEventAsync(socket);
         Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
-        Assert.Equal("Watched: Threatened to raid", @event.GetProperty("reason").GetString());
+        Assert.Equal("Watched", @event.GetProperty("reason").GetString());
         Assert.Equal(0, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
+
+        // This reader may see live instances and nothing else: the watch's reason is the audit
+        // log's, and is nowhere in what it was sent.
+        Assert.DoesNotContain("raid", @event.GetRawText(), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
