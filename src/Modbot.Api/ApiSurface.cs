@@ -526,6 +526,7 @@ public static class ApiSurface
         Features.GroupPage.GroupPostEndpoints.MapGroupPosts(app);
         Features.GroupPage.GroupRoleEndpoints.MapGroupRoles(app);
         Features.GroupPage.GroupInviteEndpoints.MapGroupInvites(app);
+        Features.GroupPage.GroupMemberRoleEndpoints.MapGroupMemberRoles(app);
         Features.GroupPage.GroupGalleryEndpoints.MapGroupGallery(app);
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in

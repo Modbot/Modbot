@@ -20,14 +20,24 @@ namespace Modbot.VRChat.Moderation;
 /// pass makes is the second brake, so a first run against a large group spreads over passes
 /// rather than emptying the bucket in one go.
 /// </para>
+/// <para>
+/// The API's role endpoints use the same class at <see cref="VRChatCallPriority.Interactive"/>
+/// (API conventions design §8): the same endpoint, so the same budget, and one press is one
+/// request.
+/// </para>
 /// </remarks>
 public sealed class GroupRoles(IVRChatGate gate)
 {
     private readonly IVRChatGate _gate = gate ?? throw new ArgumentNullException(nameof(gate));
 
     /// <summary>Gives a member one of the group's roles.</summary>
+    /// <param name="priority">
+    /// Background for a sync pass; Interactive when a person pressed something and is waiting
+    /// (the API's role endpoints, API conventions design §8).
+    /// </param>
     public Task<VRChatResult<List<string>>> GiveAsync(
-        string groupId, string userId, string roleId, CancellationToken ct = default)
+        string groupId, string userId, string roleId, CancellationToken ct = default,
+        VRChatCallPriority priority = VRChatCallPriority.Background)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
@@ -36,13 +46,15 @@ public sealed class GroupRoles(IVRChatGate gate)
         return _gate.ExecuteAsync(
             new VRChatEndpoint(VRChatEndpointClass.ModerationWrite, groupId, "AddGroupMemberRole"),
             (client, token) => client.Groups.AddGroupMemberRoleWithHttpInfoAsync(groupId, userId, roleId, cancellationToken: token),
-            VRChatCallPriority.Background,
+            priority,
             ct);
     }
 
     /// <summary>Takes one of the group's roles away from a member.</summary>
+    /// <param name="priority">As for <see cref="GiveAsync"/>.</param>
     public Task<VRChatResult<List<string>>> TakeAsync(
-        string groupId, string userId, string roleId, CancellationToken ct = default)
+        string groupId, string userId, string roleId, CancellationToken ct = default,
+        VRChatCallPriority priority = VRChatCallPriority.Background)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
@@ -51,7 +63,7 @@ public sealed class GroupRoles(IVRChatGate gate)
         return _gate.ExecuteAsync(
             new VRChatEndpoint(VRChatEndpointClass.ModerationWrite, groupId, "RemoveGroupMemberRole"),
             (client, token) => client.Groups.RemoveGroupMemberRoleWithHttpInfoAsync(groupId, userId, roleId, cancellationToken: token),
-            VRChatCallPriority.Background,
+            priority,
             ct);
     }
 }

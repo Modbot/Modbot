@@ -120,6 +120,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         builder.Services.AddSingleton<Modbot.VRChat.GroupPage.GroupSentInvites>();
         builder.Services.AddSingleton<Modbot.VRChat.GroupPage.GroupGalleries>();
 
+        // A member's group roles and a group invite, for the API's own writes (API conventions §8).
+        builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupRoles>();
+        builder.Services.AddScoped<Modbot.VRChat.Invites.GroupInvites>();
+
         builder.Services.AddSingleton<ISecretProtector>(services =>
         {
             using var scope = services.CreateScope();

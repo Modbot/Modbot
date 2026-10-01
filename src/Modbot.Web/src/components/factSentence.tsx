@@ -1875,6 +1875,20 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.group.invite.cancel': (p) => <>{p.actor} cancelled the group's invite to {p.subject}.</>,
 
+  'modbot.group.invite.create': (p) => <>{p.actor} invited {p.subject} to the group.</>,
+
+  'modbot.group.role.give': (p) => (
+    <>
+      {p.actor} gave {p.subject} the group role<Quoted value={p.text('roleName')} />.
+    </>
+  ),
+
+  'modbot.group.role.take': (p) => (
+    <>
+      {p.actor} took the group role<Quoted value={p.text('roleName')} /> away from {p.subject}.
+    </>
+  ),
+
   'modbot.group.gallery.image.delete': (p) => (
     <>
       {p.actor} removed an image from the gallery<Quoted value={p.text('galleryName')} />.

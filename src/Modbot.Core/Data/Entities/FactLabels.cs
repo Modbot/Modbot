@@ -173,6 +173,9 @@ public static class FactLabels
         [FactType.GroupRoleEdited] = "Group role changed",
         [FactType.GroupRoleRemoved] = "Group role deleted",
         [FactType.GroupInviteCancelled] = "Group invite cancelled",
+        [FactType.GroupInviteSent] = "Group invite sent",
+        [FactType.GroupRoleGiven] = "Group role given",
+        [FactType.GroupRoleTaken] = "Group role taken away",
         [FactType.GroupGalleryImageRemoved] = "Gallery image removed",
 
         [FactType.GiveawayEntered] = "Entered a giveaway",

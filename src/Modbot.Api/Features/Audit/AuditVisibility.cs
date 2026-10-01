@@ -72,6 +72,9 @@ public static class AuditVisibility
         [FactType.GroupRoleEdited] = AuditCategory.Moderation,
         [FactType.GroupRoleRemoved] = AuditCategory.Moderation,
         [FactType.GroupInviteCancelled] = AuditCategory.Moderation,
+        [FactType.GroupInviteSent] = AuditCategory.Moderation,
+        [FactType.GroupRoleGiven] = AuditCategory.Moderation,
+        [FactType.GroupRoleTaken] = AuditCategory.Moderation,
         [FactType.GroupGalleryImageRemoved] = AuditCategory.Moderation,
 
         // The first read of each list: a headcount with a date on it, which is membership

@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.VRChat;
 using Modbot.VRChat.GroupPage;
+using Modbot.VRChat.Invites;
 using Modbot.VRChat.Sync;
 using SentInvite = VRChat.API.Model.GroupMember;
 
@@ -17,7 +20,7 @@ namespace Modbot.Api.Features.GroupPage;
 
 /// <summary>
 /// The invites the group has sent on VRChat, from the VRChat page's Invites tab: the list, and
-/// cancelling one.
+/// cancelling one; and sending one, for a group's own tools (API conventions design §8).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,6 +32,13 @@ namespace Modbot.Api.Features.GroupPage;
 /// <strong>A cancel is one request, and nothing is recorded unless VRChat accepted it.</strong>
 /// The fact is about the person who was invited, so it shows on their history. Their id travels
 /// in the body (foundation §3.1.1).
+/// </para>
+/// <para>
+/// <strong>Sending one goes through <see cref="GroupInvites"/>,</strong> the same code auto-invites
+/// use, so the deployment's one invite every thirty seconds holds whoever asks, and the person is
+/// remembered as invited, so auto-invites wait their usual time before asking them again. The
+/// row it writes is the auto-invites' own, so it also counts in their "Invites sent". The endpoint
+/// class is <c>groups.invites</c> (foundation §4.3.4), which that pace was set for.
 /// </para>
 /// </remarks>
 public static class GroupInviteEndpoints
@@ -91,6 +101,87 @@ public static class GroupInviteEndpoints
                 + "page); `hasMore` is true when the page came back full, because VRChat sends no "
                 + "total. One request to VRChat per call, never retried.")
             .Produces<GroupInviteList>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapPost("/", async (
+                HttpContext http,
+                [FromBody] GroupInviteSend body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] GroupInvites? invites,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (ModbotAuth.UserIdOf(http.User) is not { } actor)
+                    return Results.Forbid();
+
+                if (invites is null || facts is null || partitions is null)
+                    return GroupPageAnswers.NotSetUp();
+
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+
+                if (settings?.ManagedGroupId is not { Length: > 0 } groupId)
+                    return GroupPageAnswers.NoGroup();
+
+                if (string.IsNullOrWhiteSpace(body.UserId))
+                    return GroupPageAnswers.Invalid("Say who to invite.");
+
+                // Compared as text: the id is opaque (foundation §3.1.1).
+                if (settings.VRChatSessionUserId is { Length: > 0 } self && string.Equals(self, body.UserId, StringComparison.Ordinal))
+                    return GroupPageAnswers.Invalid("That is the account Modbot signs in as.");
+
+                // The deployment's one-invite-every-thirty-seconds, shared with auto-invites
+                // (auto-invites design §5). Said with how long is left, never waited out here.
+                var wait = await invites.WaitBeforeNextAsync(ct);
+                if (wait > TimeSpan.Zero)
+                    return TooSoon(http, wait);
+
+                var sent = await invites.SendAsync(groupId, body.UserId, instanceId: null, ct, VRChatCallPriority.Interactive);
+
+                switch (sent.Outcome)
+                {
+                    case InviteOutcome.TooSoon:
+                        return TooSoon(http, await invites.WaitBeforeNextAsync(ct));
+
+                    case InviteOutcome.Refused:
+                        return Problems.Of(
+                            StatusCodes.Status502BadGateway,
+                            sent.Problem ?? "VRChat did not send the invite.",
+                            Problems.VRChatRefused);
+                }
+
+                await GroupPageAnswers.WriteFactAsync(
+                    facts, partitions, FactType.GroupInviteSent, groupId, actor, clock.UtcNow,
+                    new JsonObject
+                    {
+                        ["groupId"] = groupId,
+                        ["displayName"] = string.IsNullOrWhiteSpace(body.DisplayName) ? null : body.DisplayName.Trim(),
+                    },
+                    ct,
+                    subjectId: body.UserId);
+
+                return Results.NoContent();
+            })
+            .RequiresFlag(ModbotPermissions.ManageGroupInvites)
+            .WithName("SendGroupInvite")
+            .WithSummary("Invite to the group")
+            .WithDescription(
+                "Invite one person to the group on VRChat. `userId` names them; `displayName` is "
+                + "kept in the audit log. At most one invite goes out every thirty seconds across "
+                + "the deployment, auto-invites included: sooner answers 429 with `Retry-After`. "
+                + "One request, never retried; a refusal answers with what VRChat said. Once VRChat "
+                + "accepts, the audit log records who sent it, on the invited person's history. It "
+                + "counts as an invite Modbot sent, so auto-invites wait as long before inviting "
+                + "the same person as they would after one of their own.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status429TooManyRequests)
@@ -173,6 +264,18 @@ public static class GroupInviteEndpoints
             .Produces(StatusCodes.Status503ServiceUnavailable);
 
         return app;
+    }
+
+    /// <summary>An invite asked for too soon after the last one, with how long is left.</summary>
+    private static IResult TooSoon(HttpContext http, TimeSpan wait)
+    {
+        var seconds = Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds));
+        http.Response.Headers.RetryAfter = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        return Problems.Of(
+            StatusCodes.Status429TooManyRequests,
+            $"One invite goes out every thirty seconds. Try again in {seconds} second{(seconds == 1 ? "" : "s")}.",
+            Problems.TooManyRequests);
     }
 
     /// <summary>The name VRChat sent with the invite, or the one Modbot already knows.</summary>

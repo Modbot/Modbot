@@ -89,6 +89,17 @@ public sealed class GroupInvites
             .Select(i => (DateTimeOffset?)i.InvitedAt)
             .FirstOrDefaultAsync(ct);
 
+    /// <summary>How long until another invite may go out; zero when one may go now.</summary>
+    public async Task<TimeSpan> WaitBeforeNextAsync(CancellationToken ct = default)
+    {
+        var last = await LastSentAtAsync(ct).ConfigureAwait(false);
+        if (last is not { } when)
+            return TimeSpan.Zero;
+
+        var left = when + NoFasterThan - _clock.UtcNow;
+        return left > TimeSpan.Zero ? left : TimeSpan.Zero;
+    }
+
     /// <summary>Whether another invite may go out right now.</summary>
     public async Task<bool> MaySendAsync(CancellationToken ct = default)
     {
@@ -102,8 +113,13 @@ public sealed class GroupInvites
     /// <param name="groupId">The managed group. Opaque text, never validated (foundation §3.1.1).</param>
     /// <param name="userId">Who to invite. Opaque text too.</param>
     /// <param name="instanceId">VRChat's number for the instance they were in, for the record.</param>
+    /// <param name="priority">
+    /// Background for auto-invites; Interactive when a person asked through the API and is waiting
+    /// (API conventions design §8). The thirty-second gap is the same either way.
+    /// </param>
     public async Task<InviteResult> SendAsync(
-        string groupId, string userId, string? instanceId = null, CancellationToken ct = default)
+        string groupId, string userId, string? instanceId = null, CancellationToken ct = default,
+        VRChatCallPriority priority = VRChatCallPriority.Background)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
@@ -137,7 +153,7 @@ public sealed class GroupInvites
         var result = await _gate.ExecuteAsync(
             new VRChatEndpoint(VRChatEndpointClass.GroupsInvites, groupId, "CreateGroupInvite"),
             (client, token) => client.Groups.CreateGroupInviteWithHttpInfoAsync(groupId, request, cancellationToken: token),
-            VRChatCallPriority.Background,
+            priority,
             ct).ConfigureAwait(false);
 
         // A 403 for a missing group permission is said as that, not as VRChat's "Forbidden".

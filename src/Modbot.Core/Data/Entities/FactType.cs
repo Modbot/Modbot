@@ -513,6 +513,23 @@ public static class FactType
     public const string GroupInviteCancelled = "modbot.group.invite.cancel";
 
     /// <summary>
+    /// Somebody invited a person to the group from Modbot (API conventions design §8), and VRChat
+    /// accepted. The subject is that person, so it shows on their history. Payload: the group's id
+    /// and their name, when the caller gave one. An invite Modbot sent on its own is
+    /// <see cref="GroupAutoInvited"/> instead.
+    /// </summary>
+    public const string GroupInviteSent = "modbot.group.invite.create";
+
+    /// <summary>
+    /// Somebody gave a member one of the group's roles from Modbot, and VRChat accepted. The subject
+    /// is the member. Payload: the group's id, and the role's id and name as Modbot last read it.
+    /// </summary>
+    public const string GroupRoleGiven = "modbot.group.role.give";
+
+    /// <summary>Somebody took one of the group's roles away from a member. As <see cref="GroupRoleGiven"/>.</summary>
+    public const string GroupRoleTaken = "modbot.group.role.take";
+
+    /// <summary>
     /// Somebody removed an image from one of the group's galleries. Payload: the gallery's id and
     /// name, the image's id and who submitted it.
     /// </summary>

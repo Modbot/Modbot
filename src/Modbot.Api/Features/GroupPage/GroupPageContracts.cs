@@ -147,6 +147,11 @@ public sealed record GroupInviteList(
 /// <param name="DisplayName">Their name as the page showed it, kept in the audit log.</param>
 public sealed record GroupInviteCancel(string UserId, string? DisplayName = null);
 
+/// <summary>An invite to send.</summary>
+/// <param name="UserId">Who to invite: their VRChat id, taken as sent (foundation §3.1.1).</param>
+/// <param name="DisplayName">Their name, when the caller knows it, kept in the audit log.</param>
+public sealed record GroupInviteSend(string UserId, string? DisplayName = null);
+
 /// <summary>One of the group's galleries, as the group poll last found it.</summary>
 public sealed record GroupGalleryChoice(string Id, string? Name, string? Description, bool MembersOnly);
 
