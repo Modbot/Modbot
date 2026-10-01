@@ -378,8 +378,12 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
             await db.SaveChangesAsync(Ct);
         }
 
+        // The place store only changes what the context tracks; the caller saves.
         await using (var db = Database.NewContext())
+        {
             await new PlaceStore(db, Clock).RecordSightingAsync(instance.Location, Now, fromGroupList: true, ct: Ct);
+            await db.SaveChangesAsync(Ct);
+        }
 
         await using (var db = Database.NewContext())
         {
