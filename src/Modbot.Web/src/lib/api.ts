@@ -5347,8 +5347,13 @@ export const api = {
   },
 
   /** Write a note about somebody. Needs WriteNotes. */
-  writeNote: (body: { userId: string; platform?: string; text: string; briefCallId?: string }) =>
-    post<Note>('/api/notes', body),
+  writeNote: (body: { userId: string; platform?: string; text: string }) => post<Note>('/api/notes', body),
+
+  /**
+   * Save one of your person briefs as a note about that person, marked as written by AI. The
+   * server writes the note's words from the brief; 409 once it is saved. Needs WriteNotes.
+   */
+  saveBriefAsNote: (callId: string) => post<Note>(`/api/briefs/${encodeURIComponent(callId)}/note`),
 
   /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
   takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),

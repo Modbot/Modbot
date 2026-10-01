@@ -132,7 +132,11 @@ internal sealed class BriefWriter(
             KeepText: true,
             ChatTimeLimitSeconds: settings.AiChatTimeLimitSeconds);
 
-        AiCallResult<string> result;
+        // Written by Modbot from the entries, never by the model, so it is known before the call.
+        var times = subject.Entries.Select(e => e.OccurredAt).ToList();
+        var builtFrom = BriefPrompt.BuiltFrom(subject.Entries.Count, subject.Newest, times.Min(), times.Max(), zone);
+
+        AiCallResult<string>? result = null;
         try
         {
             result = await runner.RunAsync(plan, async (client, token) =>
@@ -145,9 +149,11 @@ internal sealed class BriefWriter(
                     options,
                     token);
 
-                var answer = string.Concat(completion.Content
+                // One string for the dialog, the call log and a note saved from it, so the three
+                // never disagree about what the brief said.
+                var answer = BriefPrompt.Shown(string.Concat(completion.Content
                     .Where(p => p.Kind == ChatMessageContentPartKind.Text)
-                    .Select(p => p.Text)).Trim();
+                    .Select(p => p.Text)));
 
                 return new AiCallAnswer<string>(answer, completion.Model, completion.Usage, answer);
             }, ct);
@@ -155,10 +161,19 @@ internal sealed class BriefWriter(
         finally
         {
             // Who read about whom, once for the brief and whatever came of the call: the entries
-            // were read and sent either way (AI chat design §13).
+            // were read and sent either way (AI chat design §13). A brief that answered also names
+            // its call and the line it was built from, which is what lets it be saved as a note
+            // about this person and nobody else (§14.6).
+            var details = (JsonObject)subject.Details.DeepClone();
+            if (result is { Answered: true } answered && !string.IsNullOrEmpty(answered.Value))
+            {
+                details[BriefNotes.CallKey] = answered.CallId.ToString();
+                details[BriefNotes.BuiltFromKey] = builtFrom;
+            }
+
             await ChatLookupFacts.RecordAsync(
                 facts, partitions, clock.UtcNow, new Actor(asker.UserId, asker.Username),
-                subject.Details, subject.People, [], CancellationToken.None);
+                details, subject.People, [], CancellationToken.None);
         }
 
         if (!result.Answered)
@@ -168,14 +183,8 @@ internal sealed class BriefWriter(
         if (text.Length == 0)
             throw new BriefRefused(StatusCodes.Status502BadGateway, NoText);
 
-        if (text.Length > BriefPrompt.MaxTextLength)
-            text = string.Concat(text.AsSpan(0, BriefPrompt.MaxTextLength - 1), "…");
-
         var given = subject.Entries.Select(e => e.Id).ToHashSet();
         var sources = BriefPrompt.Cited(text).Where(given.Contains).ToList();
-
-        var times = subject.Entries.Select(e => e.OccurredAt).ToList();
-        var builtFrom = BriefPrompt.BuiltFrom(subject.Entries.Count, subject.Newest, times.Min(), times.Max(), zone);
 
         return new BriefView(text, sources, subject.Entries.Count, subject.Newest, builtFrom, result.CallId, result.Model);
     }

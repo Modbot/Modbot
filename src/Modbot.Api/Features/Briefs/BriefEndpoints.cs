@@ -83,7 +83,7 @@ public static class BriefEndpoints
                         entries,
                         newest,
                         BriefWriter.PeopleIn(entries),
-                        new JsonObject { ["via"] = "brief", ["instanceId"] = id.ToString() },
+                        new JsonObject { ["via"] = "brief", [BriefNotes.KindKey] = BriefNotes.InstanceBrief, ["instanceId"] = id.ToString() },
                         row.VRChatInstanceId is { Length: > 0 } number ? (row.WorldId, number) : null);
 
                     return Results.Ok(await writer.WriteAsync(settings, subject, asker, body?.TimeZone, ct));
@@ -188,7 +188,7 @@ public static class BriefEndpoints
                         entries,
                         newest,
                         people,
-                        new JsonObject { ["via"] = "brief" });
+                        new JsonObject { ["via"] = "brief", [BriefNotes.KindKey] = BriefNotes.PersonBrief });
 
                     return Results.Ok(await writer.WriteAsync(settings, subject, asker, body.TimeZone, ct));
                 }
@@ -215,6 +215,43 @@ public static class BriefEndpoints
             .Produces(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status429TooManyRequests)
             .Produces(StatusCodes.Status502BadGateway);
+
+        group.MapPost("/{callId:guid}/note", async (
+                HttpContext http,
+                [FromRoute] Guid callId,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+            {
+                if (AskerOf(http) is not { } asker)
+                    return Results.Forbid();
+
+                try
+                {
+                    return Results.Ok(await new Notes.NoteService(db, clock, facts, partitions)
+                        .SaveBriefAsync(callId, new Cases.Caller(asker.UserId, asker.Username, asker.Held), ct));
+                }
+                catch (Notes.NoteRefused refused)
+                {
+                    return Results.Json(new { error = refused.Message }, statusCode: refused.Status);
+                }
+            })
+            .RequiresFlag(ModbotPermissions.WriteNotes)
+            .WithName("SaveBriefAsNote")
+            .WithSummary("Save a brief as a note")
+            .WithDescription(
+                "Saves one of your person briefs as a note about that person, marked `writtenByAi`. "
+                + "The server writes the note: the brief's text as the call log holds it, a blank "
+                + "line, and its `builtFrom` line. `callId` is the brief's own; a brief about an "
+                + "instance, one somebody else asked for, or one that did not answer is 404, and a "
+                + "brief already saved is 409. Needs Write notes.")
+            .Produces<Notes.NoteView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
 
         return app;
     }

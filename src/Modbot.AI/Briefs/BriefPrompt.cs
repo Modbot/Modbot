@@ -45,8 +45,15 @@ public static partial class BriefPrompt
     /// <summary>The most a details field carries. A brief needs what happened, not every key of a payload.</summary>
     public const int MaxDetailsLength = 400;
 
-    /// <summary>What is kept of an answer. The model is asked for far less; this only stops a runaway one.</summary>
-    public const int MaxTextLength = 4000;
+    /// <summary>
+    /// What is kept of an answer: the model is asked for less, so this only stops a runaway one. Small
+    /// enough that the answer, a blank line and the longest <see cref="BuiltFrom"/> line always fit
+    /// in a note (2,000 characters), so a brief can always be saved whole.
+    /// </summary>
+    public const int MaxTextLength = 1800;
+
+    /// <summary>The longest <see cref="BuiltFrom"/> line can be: its words, two times and the longest zone name.</summary>
+    public const int MaxBuiltFromLength = 190;
 
     /// <summary>The length the model is asked to stay under, so a brief fits in a note with its source line.</summary>
     public const int AskedLength = 1500;
@@ -102,7 +109,7 @@ public static partial class BriefPrompt
 
         var text = new StringBuilder();
 
-        text.Append("About: ").AppendLine(about.Trim());
+        text.Append("About: ").AppendLine(OneLine(about));
         text.Append("Times are in ").Append(zone.Id).AppendLine(".");
         text.Append("Entries, oldest first: ").Append(records.Count.ToString(CultureInfo.InvariantCulture)).AppendLine(".");
 
@@ -133,6 +140,20 @@ public static partial class BriefPrompt
 
         return text.ToString();
     }
+
+    /// <summary>
+    /// The brief as it is shown, logged and saved: the model's text trimmed, and cut at
+    /// <see cref="MaxTextLength"/> with "…" when it ran on. One string for all three, so the call
+    /// log, the dialog and a saved note never say different things.
+    /// </summary>
+    public static string Shown(string? answer)
+    {
+        var text = (answer ?? string.Empty).Trim();
+        return text.Length <= MaxTextLength ? text : string.Concat(text.AsSpan(0, MaxTextLength - 1), "…");
+    }
+
+    /// <summary>The note a brief is saved as: its text, a blank line, and the line saying what it was built from.</summary>
+    public static string AsNote(string shown, string builtFrom) => $"{shown}\n\n{builtFrom}";
 
     /// <summary>
     /// The entry ids an answer cites, in the order first written. Only ids inside square brackets

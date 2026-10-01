@@ -732,21 +732,33 @@ twenty people the instance's entries name. A brief refused by a limit sent nothi
 
 ### 14.6 Saving a brief as a note
 
-A person's brief can be saved as a note (notes design). The note's text is the brief with its
-`builtFrom` line, and the request names the brief's call log row (`briefCallId`). The server checks
-that the row is this person's own answered Chat call and that the note starts with its stored
-answer, then marks the note `writtenBy: ai` with the call's id. So a note of one's own cannot be
-marked as AI-written, and an AI brief cannot pass as somebody's own words once saved. The Notes tab
-shows **AI brief** on it, and the audit log reads "saved an AI brief as a note". The note limit
-(2,000 characters) still applies; the model is asked for at most 1,500.
+A person's brief can be saved as a note (notes design §8a) with `POST /api/briefs/{callId}/note`.
+**The server writes the note; the browser only names the brief.** The text is the answer the call
+log holds for that call, a blank line, and the brief's `builtFrom` line. So the "AI brief" mark can
+never sit on a moderator's own words, and nothing can be added to a brief saved under it.
+
+- **Whose.** The call must be the saver's own answered Chat call.
+- **About whom.** The brief's lookup entries (§14.5) carry `brief: person` or `brief: instance`,
+  the call's id and the `builtFrom` line, and their subject is the person the brief was about. The
+  note is written about that person (the VRChat account where there is one, as the popup files
+  notes) and nobody else. An instance's brief has no person and cannot be saved.
+- **Once.** A note already carrying the call's id refuses a second (409). The check and the write
+  hold a transaction lock on the call, so two presses at once still make one note.
+
+The answer is one string everywhere: `BriefPrompt.Shown` trims it and cuts a runaway one at 1,800
+characters with "…", before it is shown, logged or saved, so the dialog, the call log and the note
+never differ. 1,800, the blank line and the longest `builtFrom` line (at most 190) always fit in a
+note's 2,000; the model is asked for at most 1,500. The Notes tab shows **AI brief** on it, and the
+audit log reads "saved an AI brief as a note".
 
 The instance brief can only be copied: case comments (TASK-017) do not exist yet, and a note is
 about a person.
 
 ### 14.7 Endpoints
 
-`POST /api/briefs/instances/{id}` and `POST /api/briefs/people` (one of `vrchatUserId`,
+`POST /api/briefs/instances/{id}`, `POST /api/briefs/people` (one of `vrchatUserId`,
 `discordUserId`, `accountId`), each with an optional `timeZone` (an IANA name; UTC when missing or
 unknown, via NodaTime as Insights does). POST because each is a paid call; a GET is something a
 browser or a link preview may fetch on its own. 409 when briefs are off or AI is not set up, 429 at a
-limit, 502 when the provider did not answer.
+limit, 502 when the provider did not answer. And `POST /api/briefs/{callId}/note` (§14.6), which
+needs Write notes.

@@ -320,8 +320,9 @@ public class BriefTests
 
     // ── Saving one as a note ─────────────────────────────────────────────────────────────────
 
+    /// <summary>The server writes the note: the brief exactly as logged, a blank line, and its source line.</summary>
     [Fact]
-    public async Task ABriefSavedAsANote_IsMarkedAsWrittenByAi()
+    public async Task ABriefSavedAsANote_IsTheBriefExactly_AboutItsPerson_MarkedAsWrittenByAi()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         var provider = new ScriptedProvider();
@@ -330,35 +331,63 @@ public class BriefTests
 
         var person = $"usr_{Guid.NewGuid():N}";
         var joined = await FactAsync(host, Presence(FactType.InstanceJoined, person, host.Clock.UtcNow.AddHours(-1), "wrld_n", "5"));
-        provider.Answer = $"Joined an instance [#{joined}]";
+        provider.Answer = $"  Joined an instance [#{joined}]  ";
 
-        var brief = await ApiTestHost.BodyOf(
-            await host.SendJsonAsync(HttpMethod.Post, "/api/briefs/people", new { vrchatUserId = person }, cookie, Ct), Ct);
-
-        var text = $"{brief.GetProperty("text").GetString()}\n\n{brief.GetProperty("builtFrom").GetString()}";
-        var saved = await host.SendJsonAsync(HttpMethod.Post, "/api/notes", new
-        {
-            userId = person,
-            text,
-            briefCallId = brief.GetProperty("callId").GetGuid(),
-        }, cookie, Ct);
+        var brief = await BriefAboutAsync(host, cookie, person);
+        var saved = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{brief.GetProperty("callId").GetGuid()}/note", null, cookie, Ct);
 
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
-        Assert.True((await ApiTestHost.BodyOf(saved, Ct)).GetProperty("writtenByAi").GetBoolean());
+
+        var expected = $"Joined an instance [#{joined}]\n\n{brief.GetProperty("builtFrom").GetString()}";
+        var note = await ApiTestHost.BodyOf(saved, Ct);
+        Assert.True(note.GetProperty("writtenByAi").GetBoolean());
+        Assert.Equal(expected, note.GetProperty("text").GetString());
+        Assert.Equal(person, note.GetProperty("subjectId").GetString());
+
+        // The brief shown, the call log and the note are the same words.
+        Assert.Equal($"Joined an instance [#{joined}]", brief.GetProperty("text").GetString());
+        await using (var context = _db.NewContext())
+            Assert.Equal(brief.GetProperty("text").GetString(), (await context.AiCalls.SingleAsync(c => c.Id == brief.GetProperty("callId").GetGuid(), Ct)).Answer);
 
         var listed = await ApiTestHost.BodyOf(
             await host.SendJsonAsync(HttpMethod.Get, $"/api/notes?userId={person}", null, cookie, Ct), Ct);
-        var note = Assert.Single(listed.GetProperty("notes").EnumerateArray());
-        Assert.True(note.GetProperty("writtenByAi").GetBoolean());
-        Assert.Equal(text, note.GetProperty("text").GetString());
+        var row = Assert.Single(listed.GetProperty("notes").EnumerateArray());
+        Assert.True(row.GetProperty("writtenByAi").GetBoolean());
+        Assert.Equal(expected, row.GetProperty("text").GetString());
 
         var fact = Assert.Single(await host.FactsAsync(FactType.NoteAdded, person, Ct));
         Assert.Equal("ai", ApiTestHost.DataOf(fact).GetProperty("writtenBy").GetString());
     }
 
-    /// <summary>A note cannot claim a brief it did not come from, and somebody else's brief is not theirs to save.</summary>
+    /// <summary>One brief, one note: pressing Save again, or racing it, saves nothing more.</summary>
     [Fact]
-    public async Task ANoteNamingABrief_ItDidNotComeFrom_IsRefused()
+    public async Task ABriefCanBeSavedOnlyOnce()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(Reader | ModbotPermissions.WriteNotes, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var joined = await FactAsync(host, Presence(FactType.InstanceJoined, person, host.Clock.UtcNow.AddHours(-1), "wrld_o", "5"));
+        provider.Answer = $"Joined an instance [#{joined}]";
+
+        var callId = (await BriefAboutAsync(host, cookie, person)).GetProperty("callId").GetGuid();
+
+        var first = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{callId}/note", null, cookie, Ct);
+        var again = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{callId}/note", null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Single(await host.FactsAsync(FactType.NoteAdded, person, Ct));
+    }
+
+    /// <summary>
+    /// Only a person's brief, only by the person who asked for it, and only about that person. A
+    /// note written the ordinary way never carries the mark, whatever it sends.
+    /// </summary>
+    [Fact]
+    public async Task OnlyYourOwnPersonBrief_CanBeSaved_AndAnOrdinaryNoteIsNeverMarked()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         var provider = new ScriptedProvider();
@@ -367,24 +396,71 @@ public class BriefTests
         var (_, other) = await host.SignedInAsync(Reader | ModbotPermissions.WriteNotes, Ct);
 
         var person = $"usr_{Guid.NewGuid():N}";
-        var joined = await FactAsync(host, Presence(FactType.InstanceJoined, person, host.Clock.UtcNow.AddHours(-1), "wrld_r", "5"));
+        var world = $"wrld_{Guid.NewGuid():N}";
+        var opened = host.Clock.UtcNow.AddHours(-3);
+        var instance = await InstanceAsync(host, world, "7", opened, opened.AddHours(2));
+        var joined = await FactAsync(host, Presence(FactType.InstanceJoined, person, opened.AddMinutes(5), world, "7"));
         provider.Answer = $"Joined an instance [#{joined}]";
 
-        var brief = await ApiTestHost.BodyOf(
-            await host.SendJsonAsync(HttpMethod.Post, "/api/briefs/people", new { vrchatUserId = person }, cookie, Ct), Ct);
-        var callId = brief.GetProperty("callId").GetGuid();
+        var personCall = (await BriefAboutAsync(host, cookie, person)).GetProperty("callId").GetGuid();
+        var instanceCall = (await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/instances/{instance}", new { }, cookie, Ct), Ct)).GetProperty("callId").GetGuid();
 
-        var ownWords = await host.SendJsonAsync(HttpMethod.Post, "/api/notes",
-            new { userId = person, text = "My own words.", briefCallId = callId }, cookie, Ct);
-        var notTheirs = await host.SendJsonAsync(HttpMethod.Post, "/api/notes",
-            new { userId = person, text = brief.GetProperty("text").GetString(), briefCallId = callId }, other, Ct);
-        var noSuchCall = await host.SendJsonAsync(HttpMethod.Post, "/api/notes",
-            new { userId = person, text = brief.GetProperty("text").GetString(), briefCallId = Guid.NewGuid() }, cookie, Ct);
+        // Somebody else's brief, an instance's brief (which also read this person), and no brief.
+        var notTheirs = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{personCall}/note", null, other, Ct);
+        var instanceBrief = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{instanceCall}/note", null, cookie, Ct);
+        var noSuchCall = await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{Guid.NewGuid()}/note", null, cookie, Ct);
 
-        Assert.Equal(HttpStatusCode.BadRequest, ownWords.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, notTheirs.StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, noSuchCall.StatusCode);
-        Assert.Empty(await host.FactsAsync(FactType.NoteAdded, person, Ct));
+        Assert.Equal(HttpStatusCode.NotFound, notTheirs.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, instanceBrief.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, noSuchCall.StatusCode);
+
+        // The brief's words with more added, sent as an ordinary note naming the brief: saved as the
+        // moderator's own words, never under the AI mark.
+        var ordinary = await host.SendJsonAsync(HttpMethod.Post, "/api/notes", new
+        {
+            userId = person,
+            text = provider.Answer + " and was rude to everyone",
+            briefCallId = personCall,
+            writtenBy = "ai",
+        }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, ordinary.StatusCode);
+        Assert.False((await ApiTestHost.BodyOf(ordinary, Ct)).GetProperty("writtenByAi").GetBoolean());
+
+        var fact = Assert.Single(await host.FactsAsync(FactType.NoteAdded, person, Ct));
+        Assert.False(ApiTestHost.DataOf(fact).TryGetProperty("writtenBy", out _));
+    }
+
+    /// <summary>The note is written about the person the brief was about, never about anyone else.</summary>
+    [Fact]
+    public async Task ABriefIsSavedAboutItsOwnPerson_NotAnyoneElse()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(Reader | ModbotPermissions.WriteNotes, Ct);
+
+        var ada = $"usr_{Guid.NewGuid():N}";
+        var bob = $"usr_{Guid.NewGuid():N}";
+        var joined = await FactAsync(host, Presence(FactType.InstanceJoined, ada, host.Clock.UtcNow.AddHours(-1), "wrld_q", "5"));
+        await FactAsync(host, Presence(FactType.InstanceJoined, bob, host.Clock.UtcNow.AddHours(-1), "wrld_q", "6"));
+        provider.Answer = $"Joined an instance [#{joined}]";
+
+        var callId = (await BriefAboutAsync(host, cookie, ada)).GetProperty("callId").GetGuid();
+        var saved = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/briefs/{callId}/note", null, cookie, Ct), Ct);
+
+        Assert.Equal(ada, saved.GetProperty("subjectId").GetString());
+        Assert.Single(await host.FactsAsync(FactType.NoteAdded, ada, Ct));
+        Assert.Empty(await host.FactsAsync(FactType.NoteAdded, bob, Ct));
+    }
+
+    private static async Task<JsonElement> BriefAboutAsync(ApiTestHost host, string cookie, string person)
+    {
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/briefs/people", new { vrchatUserId = person }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await ApiTestHost.BodyOf(response, Ct);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────

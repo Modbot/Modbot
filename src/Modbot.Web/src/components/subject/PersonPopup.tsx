@@ -423,7 +423,7 @@ function Resolved({
       <BriefDialog
         state={brief}
         me={me}
-        note={notesId ? { userId: notesId, platform: notesPlatform } : null}
+        savable={notesId !== null}
         onSaved={() => setActed((n) => n + 1)}
       />
     </PopupFrame>

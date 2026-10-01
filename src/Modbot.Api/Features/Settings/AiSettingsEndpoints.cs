@@ -362,7 +362,7 @@ public static class AiSettingsEndpoints
         new("Insights", "Counts for the period and the one before it, and the busiest worlds and instances by world name."),
         new("Chat", "The conversation so far, and what Modbot's lookups return: people's names, ids and bios, their history, case files and bans, the audit log, Discord messages and members, flags, live instances and figures. After the first reply, the first question and answer go once more to name the conversation."),
         new("Briefs, when a moderator asks for one", "The newest audit log entries, up to 100, that an instance's or a person's Activity tab shows the asker: each entry's time, what happened, the names of who it was about and who did it (their ids when Modbot has no name), the world and instance, and the entry's own details, which can carry ids and text people wrote."),
-        new("Test and model list","One short message, and a request for the model list."),
+        new("Test and model list", "One short message, and a request for the model list."),
     ];
 
     private static string Endpoint(Core.Data.Entities.Settings settings, string? onTheForm = null)

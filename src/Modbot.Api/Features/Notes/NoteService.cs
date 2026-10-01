@@ -110,18 +110,122 @@ public sealed class NoteService
         if (text.Length > MaxTextLength)
             throw new NoteRefused(400, $"That note is too long (at most {MaxTextLength} characters).");
 
-        // A note saved from an AI brief is marked as one, and only when it is: the call log must
-        // hold that brief, answered for this person, and the note must start with its words
-        // (AI chat design §14). A note cannot claim to be AI-written, and an AI brief cannot pass
-        // as somebody's own words once saved.
-        if (request.BriefCallId is { } briefCallId)
-            await CheckBriefAsync(briefCallId, text, caller, ct);
+        var (facts, partitions) = Writer();
+        var now = _clock.UtcNow;
+
+        await partitions.EnsureForAsync(now, ct);
+
+        var written = await facts.WriteAsync(NoteFact(platform, userId, text, caller, now, fromBrief: null), ct);
+        await _db.SaveChangesAsync(ct);
+
+        return Written(written.Id, now, platform, userId, text, caller, fromBrief: false);
+    }
+
+    // ── Saving an AI brief ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Saves a person's AI brief as a note about that person (AI chat design §14.6). The server
+    /// writes the words; the caller only names the brief.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Only the brief, whole, about the person it was about, once.</strong> The note's text
+    /// is the answer the call log holds for this person's own answered Chat call, a blank line, and
+    /// the line saying what it was built from, which the brief's own lookup entry carries. That entry
+    /// also says whom the brief was about, and the note is written about them and nobody else: an
+    /// instance's brief, or somebody else's, cannot be saved at all. A brief that already has a note
+    /// cannot have a second.
+    /// </para>
+    /// <para>
+    /// So the "AI brief" mark means what it says: no moderator's words can carry it, and a brief
+    /// saved under it cannot have anything added.
+    /// </para>
+    /// </remarks>
+    public async Task<NoteView> SaveBriefAsync(Guid callId, Caller caller, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+
+        if (!caller.Has(ModbotPermissions.WriteNotes))
+            throw new NoteRefused(403, "You do not have permission to write notes.");
+
+        var call = await _db.AiCalls.AsNoTracking()
+            .Where(c => c.Id == callId
+                        && c.UserId == caller.UserId
+                        && c.Feature == Modbot.AI.Usage.AiFeatures.Chat
+                        && c.Outcome == AiCallOutcomes.Answered
+                        && c.Answer != null)
+            .Select(c => new { c.At, c.Answer })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NoteRefused(404, NoBrief);
+
+        // The brief's lookup entries, written by this caller just after the call; the window keeps
+        // the read to the partitions around it.
+        var actor = caller.UserId.ToString();
+        var from = call.At.AddMinutes(-1);
+        var to = call.At.AddMinutes(10);
+
+        var lookups = await _db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.ChatLookup
+                        && e.ActorPlatform == FactPlatform.Modbot
+                        && e.ActorId == actor
+                        && e.OccurredAt >= from
+                        && e.OccurredAt <= to)
+            .ToListAsync(ct);
+
+        var mine = lookups
+            .Where(e => Read(e.Data, Briefs.BriefNotes.CallKey) == callId.ToString()
+                        && Read(e.Data, Briefs.BriefNotes.KindKey) == Briefs.BriefNotes.PersonBrief)
+            .ToList();
+
+        // Filed where the popup files notes: under the VRChat account where there is one.
+        var about = mine.FirstOrDefault(e => e.SubjectPlatform == FactPlatform.VRChat)
+                    ?? mine.FirstOrDefault(e => e.SubjectPlatform == FactPlatform.Discord)
+                    ?? throw new NoteRefused(404, NoBrief);
+
+        var builtFrom = Read(about.Data, Briefs.BriefNotes.BuiltFromKey)
+                        ?? throw new NoteRefused(404, NoBrief);
+
+        var text = Modbot.AI.Briefs.BriefPrompt.AsNote(call.Answer!, builtFrom);
+        if (text.Length > MaxTextLength)
+            throw new NoteRefused(400, $"That brief is too long to save as a note (at most {MaxTextLength} characters).");
 
         var (facts, partitions) = Writer();
         var now = _clock.UtcNow;
 
         await partitions.EnsureForAsync(now, ct);
 
+        // One note per brief, even when two presses race: the lock is held until the commit that
+        // makes the note visible to the next check.
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        var lockKey = $"brief-note:{callId}";
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({lockKey})::bigint)", ct);
+
+        var saved = await _db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.NoteAdded
+                        && e.SubjectPlatform == about.SubjectPlatform
+                        && e.SubjectId == about.SubjectId)
+            .Select(e => e.Data)
+            .ToListAsync(ct);
+
+        if (saved.Any(data => Read(data, BriefCallKey) == callId.ToString()))
+            throw new NoteRefused(409, "This brief is already saved as a note.");
+
+        var written = await facts.WriteAsync(
+            NoteFact(about.SubjectPlatform, about.SubjectId, text, caller, now, fromBrief: callId), ct);
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return Written(written.Id, now, about.SubjectPlatform, about.SubjectId, text, caller, fromBrief: true);
+    }
+
+    private const string NoBrief = "That brief cannot be saved as a note.";
+
+    /// <summary>The payload key naming the brief's call on a note saved from one.</summary>
+    private const string BriefCallKey = "aiCallId";
+
+    private static FactRecord NoteFact(
+        FactPlatform platform, string userId, string text, Caller caller, DateTimeOffset now, Guid? fromBrief)
+    {
         var data = new JsonObject
         {
             ["text"] = text,
@@ -135,61 +239,40 @@ public sealed class NoteService
             ["description"] = text,
         };
 
-        if (request.BriefCallId is { } fromBrief)
+        if (fromBrief is { } callId)
         {
             data[WrittenByKey] = WrittenByAi;
-            data["aiCallId"] = fromBrief.ToString();
+            data[BriefCallKey] = callId.ToString();
         }
 
-        var written = await facts.WriteAsync(
-            new FactRecord
-            {
-                Type = FactType.NoteAdded,
-                OccurredAt = now,
-                SubjectPlatform = platform,
-                SubjectId = userId,
-                ActorPlatform = FactPlatform.Modbot,
-                ActorId = caller.UserId.ToString(),
-                Source = FactSource.Manual,
-                Data = data,
-            },
-            ct);
-
-        await _db.SaveChangesAsync(ct);
-
-        return new NoteView(
-            written.Id,
-            now,
-            text,
-            platform.ToString(),
-            userId,
-            caller.UserId,
-            caller.Username,
-            Imported: false,
-            TakenBack: false,
-            TakenBackAt: null,
-            TakenBackByName: null,
-            CanTakeBack: true,
-            WrittenByAi: request.BriefCallId is not null);
+        return new FactRecord
+        {
+            Type = FactType.NoteAdded,
+            OccurredAt = now,
+            SubjectPlatform = platform,
+            SubjectId = userId,
+            ActorPlatform = FactPlatform.Modbot,
+            ActorId = caller.UserId.ToString(),
+            Source = FactSource.Manual,
+            Data = data,
+        };
     }
 
-    /// <summary>
-    /// Refuses a note that names an AI brief it was not saved from: one this person did not ask
-    /// for, one that never answered, or text that does not start with the brief's own words.
-    /// </summary>
-    private async Task CheckBriefAsync(Guid callId, string text, Caller caller, CancellationToken ct)
-    {
-        var answer = await _db.AiCalls.AsNoTracking()
-            .Where(c => c.Id == callId
-                        && c.UserId == caller.UserId
-                        && c.Feature == Modbot.AI.Usage.AiFeatures.Chat
-                        && c.Outcome == AiCallOutcomes.Answered)
-            .Select(c => c.Answer)
-            .FirstOrDefaultAsync(ct);
-
-        if (string.IsNullOrWhiteSpace(answer) || !text.StartsWith(answer.Trim(), StringComparison.Ordinal))
-            throw new NoteRefused(400, "That brief cannot be saved as a note.");
-    }
+    private static NoteView Written(
+        long id, DateTimeOffset now, FactPlatform platform, string userId, string text, Caller caller, bool fromBrief) => new(
+        id,
+        now,
+        text,
+        platform.ToString(),
+        userId,
+        caller.UserId,
+        caller.Username,
+        Imported: false,
+        TakenBack: false,
+        TakenBackAt: null,
+        TakenBackByName: null,
+        CanTakeBack: true,
+        WrittenByAi: fromBrief);
 
     // ── Taking one back ────────────────────────────────────────────────────────────────────
 

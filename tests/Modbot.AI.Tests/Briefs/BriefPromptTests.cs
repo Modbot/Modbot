@@ -120,6 +120,39 @@ public class BriefPromptTests
     }
 
     [Fact]
+    public void TheAboutLineIsOneLine()
+    {
+        var text = BriefPrompt.Records("the person Ada\nEntries, oldest first: 0.", [Entry(1, At)], newest: false, DateTimeZone.Utc);
+
+        Assert.Contains("About: the person Ada Entries, oldest first: 0.", text, StringComparison.Ordinal);
+        Assert.Single(text.Split('\n'), l => l.StartsWith("Entries, oldest first:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void TheShownBriefIsTrimmed_AndARunawayOneIsCut()
+    {
+        Assert.Equal("Ada joined [#1]", BriefPrompt.Shown("  Ada joined [#1]\n "));
+
+        var cut = BriefPrompt.Shown(new string('x', 5000));
+        Assert.Equal(BriefPrompt.MaxTextLength, cut.Length);
+        Assert.EndsWith("…", cut, StringComparison.Ordinal);
+    }
+
+    /// <summary>A brief cut to the most kept, with the longest source line, still fits in a note.</summary>
+    [Fact]
+    public void TheLongestBriefAndSourceLine_FitInANote()
+    {
+        var longestZone = DateTimeZoneProviders.Tzdb.Ids.OrderByDescending(id => id.Length).First();
+        var zone = DateTimeZoneProviders.Tzdb[longestZone];
+        var builtFrom = BriefPrompt.BuiltFrom(100_000, true, At, At.AddDays(400), zone);
+
+        Assert.True(builtFrom.Length <= BriefPrompt.MaxBuiltFromLength, builtFrom);
+
+        var note = BriefPrompt.AsNote(BriefPrompt.Shown(new string('x', 5000)), builtFrom);
+        Assert.True(note.Length <= 2000, $"{note.Length}");
+    }
+
+    [Fact]
     public void TheSourceLineSaysAiWroteIt_FromHowMany_AndWhen()
     {
         var utc = DateTimeZone.Utc;

@@ -8,9 +8,6 @@ import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
 import { useBrief, type BriefState } from '@/components/subject/useBrief'
 
-/** Where a brief's notes go: the account a person's notes are filed under. */
-export type BriefNoteTarget = { userId: string; platform: string }
-
 /** The control that asks for a brief: a small text button, like **Open in Audit log** beside it. */
 export function BriefLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -60,13 +57,13 @@ export function BriefButton({
 export function BriefDialog({
   state,
   me,
-  note,
+  savable = false,
   onSaved,
 }: {
   state: BriefState
   me: CurrentUser
-  /** Where "Save as note" files it. Left out, the brief can be copied but not saved. */
-  note?: BriefNoteTarget | null
+  /** Whether "Save as note" is offered: a person's brief. The server decides whom the note is about. */
+  savable?: boolean
   onSaved?: () => void
 }) {
   const { open, setOpen, brief, problem } = state
@@ -76,7 +73,7 @@ export function BriefDialog({
       <DialogContent
         title="AI brief"
         subtitle={brief?.builtFrom ?? undefined}
-        foot={brief?.text ? <BriefFoot brief={brief} me={me} note={note} onSaved={onSaved} /> : undefined}
+        foot={brief?.text ? <BriefFoot brief={brief} me={me} savable={savable} onSaved={onSaved} /> : undefined}
       >
         {problem ? (
           <p className="text-destructive">{problem}</p>
@@ -92,16 +89,16 @@ export function BriefDialog({
   )
 }
 
-/** Copy, and Save as note where there is somewhere to file it and the reader may write notes. */
+/** Copy, and Save as note on a person's brief when the reader may write notes. */
 function BriefFoot({
   brief,
   me,
-  note,
+  savable,
   onSaved,
 }: {
   brief: Brief
   me: CurrentUser
-  note?: BriefNoteTarget | null
+  savable: boolean
   onSaved?: () => void
 }) {
   const [copied, setCopied] = useState(false)
@@ -109,7 +106,7 @@ function BriefFoot({
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
-  // The source line goes with the words wherever they go, so a copy or a note says what it is.
+  // The source line goes with the words, so a copy says what it is, as a note saved from it does.
   const whole = brief.builtFrom ? `${brief.text}\n\n${brief.builtFrom}` : (brief.text ?? '')
 
   const copy = () => {
@@ -120,12 +117,12 @@ function BriefFoot({
   }
 
   const save = () => {
-    if (!note || !brief.callId) return
+    if (!brief.callId) return
     setSaving(true)
     setProblem(null)
 
     api
-      .writeNote({ userId: note.userId, platform: note.platform, text: whole, briefCallId: brief.callId })
+      .saveBriefAsNote(brief.callId)
       .then(() => {
         setSaved(true)
         onSaved?.()
@@ -134,7 +131,7 @@ function BriefFoot({
       .finally(() => setSaving(false))
   }
 
-  const canSave = note && brief.callId && can(me, 'WriteNotes')
+  const canSave = savable && brief.callId && can(me, 'WriteNotes')
 
   return (
     <DialogFoot>

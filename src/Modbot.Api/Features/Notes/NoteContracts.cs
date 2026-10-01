@@ -10,12 +10,7 @@ namespace Modbot.Api.Features.Notes;
 /// Defaults to VRChat.
 /// </param>
 /// <param name="Text">The moderator's own words. Stored and shown as text, never as markup.</param>
-/// <param name="BriefCallId">
-/// Set when the note is an AI brief being saved: the call log row the brief came back on
-/// (<c>callId</c> from <c>POST /api/briefs/…</c>). The note is then marked as written by AI. It must
-/// be a brief this person asked for, and the text must start with its words.
-/// </param>
-public sealed record WriteNoteRequest(string UserId, string? Platform = null, string Text = "", Guid? BriefCallId = null);
+public sealed record WriteNoteRequest(string UserId, string? Platform = null, string Text = "");
 
 /// <summary>One note, as it is read back.</summary>
 /// <param name="Id">

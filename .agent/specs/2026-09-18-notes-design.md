@@ -252,13 +252,16 @@ reason).
 
 ## 8a. Saved AI briefs (added 2026-10-01)
 
-A person's AI brief (AI chat design §14) can be saved as a note. It is an ordinary
+A person's AI brief (AI chat design §14.6) can be saved as a note. It is an ordinary
 `modbot.note.add` written by the moderator who saved it, with two more payload keys: `writtenBy:
-"ai"` and `aiCallId`, the call log row the brief came back on. The server writes them only when that
-row is the moderator's own answered Chat call and the note's text starts with its stored answer, so
-the mark cannot be put on a moderator's own words, and a saved brief cannot lose it. `NoteView`
-carries `writtenByAi`; the Notes tab shows **AI brief** beside it, and the audit log sentence reads
-"saved an AI brief as a note". Taking one back is the same as any other note.
+"ai"` and `aiCallId`, the call log row the brief came back on. It is not written through
+`POST /api/notes`, which never sets those keys whatever it is sent, but through
+`POST /api/briefs/{callId}/note`, where the server writes the words itself: the brief as the call
+log holds it and the line saying what it was built from, about the person the brief was about, once
+per brief. So the mark cannot be put on a moderator's own words, and a saved brief cannot have
+anything added or lose the mark. `NoteView` carries `writtenByAi`; the Notes tab shows **AI brief**
+beside it, and the audit log sentence reads "saved an AI brief as a note". Taking one back is the
+same as any other note.
 
 ## 9. Still open
 
