@@ -233,6 +233,15 @@ public class CalendarDateChange
     /// <summary>When a person last changed it. What quick edits are folded against before VRChat hears.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// For a cancelled date: the channel to post in that it is cancelled, when the moderator ticked
+    /// it (calendar design §14.4). Null when no post was asked for, or when Discord refused it.
+    /// </summary>
+    public string? CancelPostChannelId { get; set; }
+
+    /// <summary>The cancel post's message id once it is posted. Posted once, never again.</summary>
+    public string? CancelPostId { get; set; }
+
     /// <summary>VRChat's id for this one date of the series, once Modbot has found it.</summary>
     public string? VRChatId { get; set; }
 

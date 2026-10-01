@@ -198,6 +198,35 @@ public class CalendarDateEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task CancellingOneDateWithTheTickAsksForAPostInTheEventsChannel()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        // No channel: nothing to post in.
+        var (bare, bareDates) = await CreateAsync(host, manager, Body(host));
+        var refused = await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/calendar/events/{bare}/dates/cancel",
+            new { plannedStartsAt = At(bareDates[1], "plannedStartsAt"), postInChannel = true }, manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        await using (var context = db.NewContext())
+        {
+            var e = await context.CalendarEvents.SingleAsync(x => x.Id == bare, Ct);
+            e.ChannelId = "222222222222222222";
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var posted = await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/calendar/events/{bare}/dates/cancel",
+            new { plannedStartsAt = At(bareDates[1], "plannedStartsAt"), postInChannel = true }, manager, Ct);
+        Assert.Equal(HttpStatusCode.NoContent, posted.StatusCode);
+
+        await using var check = db.NewContext();
+        Assert.Equal("222222222222222222", (await check.CalendarDateChanges.SingleAsync(c => c.EventId == bare, Ct)).CancelPostChannelId);
+    }
+
+    [Fact]
     public async Task CancellingTheNextDateMovesTheEventOnToTheOneAfter()
     {
         await using var host = await StartAsync();

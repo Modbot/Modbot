@@ -25,6 +25,8 @@ namespace Modbot.Core.Data.Migrations
                     description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    cancel_post_channel_id = table.Column<string>(type: "text", nullable: true),
+                    cancel_post_id = table.Column<string>(type: "text", nullable: true),
                     vrchat_id = table.Column<string>(type: "text", nullable: true),
                     vrchat_sent_fingerprint = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     vrchat_failed_fingerprint = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),

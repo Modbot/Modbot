@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001194602_CancelOrMoveOneDate")]
+    [Migration("20261001202624_CancelOrMoveOneDate")]
     partial class CancelOrMoveOneDate
     {
         /// <inheritdoc />
@@ -886,6 +886,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("CancelPostChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("cancel_post_channel_id");
+
+                    b.Property<string>("CancelPostId")
+                        .HasColumnType("text")
+                        .HasColumnName("cancel_post_id");
 
                     b.Property<bool>("Cancelled")
                         .HasColumnType("boolean")

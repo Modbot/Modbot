@@ -2184,6 +2184,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Title).HasMaxLength(CalendarEvent.MaxTitleLength);
             entity.Property(e => e.Description).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.VRChatId).HasColumnType("text").HasColumnName("vrchat_id");
+            entity.Property(e => e.CancelPostChannelId).HasColumnType("text");
+            entity.Property(e => e.CancelPostId).HasColumnType("text");
             entity.Property(e => e.VRChatSentFingerprint).HasMaxLength(64).HasColumnName("vrchat_sent_fingerprint");
             entity.Property(e => e.VRChatFailedFingerprint).HasMaxLength(64).HasColumnName("vrchat_failed_fingerprint");
             entity.Property(e => e.VRChatError).HasMaxLength(1024).HasColumnName("vrchat_error");

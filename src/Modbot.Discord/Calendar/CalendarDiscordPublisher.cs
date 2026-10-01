@@ -118,6 +118,11 @@ public sealed class CalendarDiscordPublisher
                     || (p.State == CalendarPlaceStates.Failed && p.FailedFingerprint == null)))
             .ToListAsync(ct).ConfigureAwait(false);
 
+        // One date of a repeating event cancelled with the channel post ticked, not posted yet (§2.2).
+        var dateCancelPosts = await _db.CalendarDateChanges
+            .Where(c => c.Cancelled && c.CancelPostChannelId != null && c.CancelPostId == null)
+            .ToListAsync(ct).ConfigureAwait(false);
+
         // What each place said before this pass, and whether Discord held a copy of it, so a first
         // publish or a take-down can be told from an edit.
         var was = places.Concat(cancelPosts)
@@ -134,7 +139,7 @@ public sealed class CalendarDiscordPublisher
             .OrderBy(e => e.UpdatedAt)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        if (events.Count == 0 && cancelPosts.Count == 0)
+        if (events.Count == 0 && cancelPosts.Count == 0 && dateCancelPosts.Count == 0)
             return new CalendarDiscordPass(0);
 
         var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
@@ -155,6 +160,7 @@ public sealed class CalendarDiscordPublisher
 
         // First: a cancel post is news, and there are few of them.
         await SyncCancelPostsAsync(pass, cancelPosts).ConfigureAwait(false);
+        await SyncDateCancelPostsAsync(pass, dateCancelPosts).ConfigureAwait(false);
 
         foreach (var calendarEvent in events)
         {
@@ -615,6 +621,55 @@ public sealed class CalendarDiscordPublisher
 
             place.ExternalId = outcome.MessageId ?? string.Empty;
             Published(place, CancelPostFingerprint, pass.Now);
+            pass.Written++;
+        }
+    }
+
+    /// <summary>
+    /// The cancel post for one date cancelled on its own, when the moderator ticked it: the same
+    /// message a whole-event cancel posts, with that date's time, posted once. A refusal is not
+    /// sent again; anything else is tried on the next pass.
+    /// </summary>
+    private async Task SyncDateCancelPostsAsync(Pass pass, List<CalendarDateChange> dates)
+    {
+        if (dates.Count == 0)
+            return;
+
+        var ids = dates.Select(c => c.EventId).Distinct().ToList();
+        var owners = await _db.CalendarEvents
+            .Where(e => ids.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, pass.Ct).ConfigureAwait(false);
+
+        foreach (var date in dates)
+        {
+            if (pass.Calls >= CallsPerPass)
+                return;
+
+            if (!owners.TryGetValue(date.EventId, out var e) || date.CancelPostChannelId is not { Length: > 0 } channelId)
+                continue;
+
+            var startsAt = date.StartsAt ?? date.PlannedStartsAt;
+            var outcome = await pass
+                .Call(g => g.PostAsync(channelId, CalendarCard.CancelNotice(e, startsAt), [], null, pass.Ct))
+                .ConfigureAwait(false);
+
+            if (!outcome.Sent)
+            {
+                var error = outcome.Error ?? "Discord refused.";
+                _log.Warning("Could not post that one date of the event {EventId} is cancelled: {Reason}", e.Id, error);
+
+                // Refused: not sent again, and said once as a failed place. Anything else waits for
+                // the next pass.
+                if (outcome.Permanent)
+                {
+                    date.CancelPostChannelId = null;
+                    pass.Failures.Add((e, CalendarPlaces.CancelPost, error.Length <= 1024 ? error : error[..1023] + "…"));
+                }
+
+                continue;
+            }
+
+            date.CancelPostId = outcome.MessageId ?? string.Empty;
             pass.Written++;
         }
     }

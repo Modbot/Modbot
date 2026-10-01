@@ -496,6 +496,10 @@ public static class CalendarEndpoints
                     return problem;
 
                 var was = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
+                var channelId = calendarEvent.ChannelId?.Trim();
+
+                if (body.PostInChannel && string.IsNullOrEmpty(channelId))
+                    return Results.BadRequest(new { error = "The event has no channel to post in." });
 
                 if (change is null)
                 {
@@ -509,6 +513,10 @@ public static class CalendarEndpoints
 
                     calendarEvent.DateChanges.Add(change);
                 }
+
+                // The calendar's Discord loop posts it, once (calendar design §14.4).
+                if (body.PostInChannel)
+                    change.CancelPostChannelId = channelId;
 
                 // The times it was moved to are kept: VRChat may have the date there, and taking it
                 // off VRChat's calendar has to find it.
@@ -530,6 +538,7 @@ public static class CalendarEndpoints
                         ["date"] = planned.ToString("O", CultureInfo.InvariantCulture),
                         ["startsAt"] = was.StartsAt.ToString("O", CultureInfo.InvariantCulture),
                         ["endsAt"] = was.EndsAt.ToString("O", CultureInfo.InvariantCulture),
+                        ["postInChannel"] = body.PostInChannel,
                     },
                     ct);
 
@@ -542,7 +551,9 @@ public static class CalendarEndpoints
             .WithSummary("Cancel one date of an event")
             .WithDescription(
                 "Cancels one date of a repeating event and leaves the others. That date is taken off "
-                + "VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out.")
+                + "VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out. "
+                + "With postInChannel, a short message that the date is cancelled is posted in the "
+                + "event's channel, once.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

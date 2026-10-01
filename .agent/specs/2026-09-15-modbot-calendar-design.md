@@ -101,6 +101,12 @@ the rule is still stored, plus **the dates changed on their own**.
   refusing is the honest answer until it is. Facts `modbot.calendar.date.change` (before and after)
   and `modbot.calendar.date.cancel` (§8).
 - **A cancelled date cannot be brought back from the page.** Not asked for; it can be added later.
+- **The cancel post (§14.4) for one date.** The "This date / All dates" cancel dialog has the same
+  "Post that it's cancelled in the channel" tick. For one date it is kept on the date's own row
+  (`cancel_post_channel_id`, then `cancel_post_id` once posted) rather than as a `cancelPost` place,
+  because a place is one per event and an event can have several dates cancelled. The Discord loop
+  posts the same message with that date's time, once; a refusal is recorded as a failed `cancelPost`
+  and not sent again.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A
   cancelled date is drawn struck through; an opened moved date says where it was moved from.
 

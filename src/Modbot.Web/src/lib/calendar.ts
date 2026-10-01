@@ -291,9 +291,9 @@ export const calendarApi = {
     http.post<CalendarPreview>(`${base}/preview`, { eventId, event: input }),
   /** Moves one date of a repeating event, or gives it its own words; the other dates stay. */
   changeDate: (id: string, body: CalendarDateInput) => http.put<CalendarEvent>(`${base}/events/${id}/dates`, body),
-  /** Cancels one date of a repeating event; the other dates stay. */
-  cancelDate: (id: string, plannedStartsAt: string) =>
-    http.post<void>(`${base}/events/${id}/dates/cancel`, { plannedStartsAt }),
+  /** Cancels one date of a repeating event; the other dates stay. `postInChannel` as for `cancel`. */
+  cancelDate: (id: string, plannedStartsAt: string, postInChannel = false) =>
+    http.post<void>(`${base}/events/${id}/dates/cancel`, { plannedStartsAt, postInChannel }),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),

@@ -96,7 +96,10 @@ public sealed record CalendarDateRequest(
     string? Description);
 
 /// <param name="PlannedStartsAt">The date to cancel, as its occurrence's <c>plannedStartsAt</c> names it.</param>
-public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt);
+/// <param name="PostInChannel">
+/// Also post in the event's channel that this date is cancelled, once, as a whole-event cancel can.
+/// </param>
+public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt, bool PostInChannel = false);
 
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>

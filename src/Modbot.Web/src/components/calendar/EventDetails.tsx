@@ -466,20 +466,21 @@ export function EventDetails({
           when={when(start, end)}
           destructive={choosing === 'cancel'}
           failed={choosing === 'cancel' ? 'Could not cancel the event.' : 'Could not open the event.'}
+          channelTick={choosing === 'cancel' && !!event.channelId ? event.postToChannel : null}
           onClose={() => setChoosing(null)}
-          onThisDate={() => {
+          onThisDate={(post) => {
             if (choosing === 'edit') {
               actions.onEditDate(occurrence)
               return null
             }
-            return calendarApi.cancelDate(event.id, occurrence.plannedStartsAt).then(done)
+            return calendarApi.cancelDate(event.id, occurrence.plannedStartsAt, post).then(done)
           }}
-          onAllDates={() => {
+          onAllDates={(post) => {
             if (choosing === 'edit') {
               actions.onEdit()
               return null
             }
-            return calendarApi.cancel(event.id).then(done)
+            return calendarApi.cancel(event.id, post).then(done)
           }}
         />
       )}
@@ -568,13 +569,16 @@ export function EventDetails({
 
 /**
  * "This date" or "All dates", for Edit and Cancel on a repeating event. For a cancel, either button
- * is the confirmation itself; it stays open with the server's words when the cancel fails.
+ * is the confirmation itself; it stays open with the server's words when the cancel fails. A cancel
+ * of an event with a channel offers the same tick as the one-off cancel (`CancelBody`), for either
+ * choice (calendar design §14.4).
  */
 function DatesDialog({
   title,
   when,
   destructive,
   failed,
+  channelTick,
   onClose,
   onThisDate,
   onAllDates,
@@ -583,16 +587,19 @@ function DatesDialog({
   when: string
   destructive: boolean
   failed: string
+  /** Where the channel-post tick starts, or null to show none. */
+  channelTick: boolean | null
   onClose: () => void
-  /** A request to wait for, or null when the choice only opens something. */
-  onThisDate: () => Promise<unknown> | null
-  onAllDates: () => Promise<unknown> | null
+  /** A request to wait for, or null when the choice only opens something. `post`: the tick. */
+  onThisDate: (post: boolean) => Promise<unknown> | null
+  onAllDates: (post: boolean) => Promise<unknown> | null
 }) {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [post, setPost] = useState(channelTick ?? false)
 
-  const choose = (pick: () => Promise<unknown> | null) => {
-    const request = pick()
+  const choose = (pick: (post: boolean) => Promise<unknown> | null) => {
+    const request = pick(channelTick !== null && post)
     if (!request) {
       onClose()
       return
@@ -623,7 +630,16 @@ function DatesDialog({
           </DialogFoot>
         }
       >
-        {problem && <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>{problem}</span>}
+        {channelTick !== null || problem ? (
+          <div className="flex flex-col gap-3">
+            {channelTick !== null && (
+              <Checkbox checked={post} onChange={setPost}>
+                Post that it&apos;s cancelled in the channel
+              </Checkbox>
+            )}
+            {problem && <Outcome tone="problem">{problem}</Outcome>}
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   )

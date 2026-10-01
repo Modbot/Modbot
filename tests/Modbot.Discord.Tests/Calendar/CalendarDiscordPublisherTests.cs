@@ -315,6 +315,45 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task CancellingOneDateWithTheTickPostsThatItIsCancelled_Once()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1), x =>
+        {
+            x.Repeat = CalendarRepeats.Weekly;
+            x.PostToChannel = false;
+        });
+
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        await ChangeAsync(services, e.Id, x => x.DateChanges.Add(new CalendarDateChange
+        {
+            Id = Guid.CreateVersion7(),
+            EventId = x.Id,
+            PlannedStartsAt = second,
+            Cancelled = true,
+            CancelPostChannelId = Channel,
+            CreatedAt = services.Clock.UtcNow,
+            UpdatedAt = services.Clock.UtcNow,
+        }));
+
+        await RunAsync(services, gateway);
+
+        var notice = Assert.Single(gateway.Messages, m => m.ChannelId == Channel);
+        Assert.EndsWith("Cancelled", notice.Text, StringComparison.Ordinal);
+        Assert.Contains($"<t:{second.ToUnixTimeSeconds()}:F>", notice.Text, StringComparison.Ordinal);
+
+        // Posted once.
+        await RunAsync(services, gateway);
+        Assert.Single(gateway.Messages, m => m.ChannelId == Channel);
+
+        await using var context = services.Database.NewContext();
+        Assert.NotNull((await context.CalendarDateChanges.SingleAsync(c => c.EventId == e.Id, Ct)).CancelPostId);
+    }
+
+    [Fact]
     public async Task MovingTheCurrentDateUpdatesItsServerEvent_RatherThanMakingAnother()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);

@@ -17499,7 +17499,7 @@
           "Calendar"
         ],
         "summary": "Cancel one date of an event",
-        "description": "Cancels one date of a repeating event and leaves the others. That date is taken off VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Cancels one date of a repeating event and leaves the others. That date is taken off VRChat's calendar, its Discord event is ended, and the calendar feed leaves it out. With postInChannel, a short message that the date is cancelled is posted in the event's channel, once.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CancelCalendarDate",
         "parameters": [
           {
@@ -23667,6 +23667,10 @@
           "plannedStartsAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "postInChannel": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
