@@ -9,7 +9,8 @@ Modbot can run a Discord bot for your community's server. Once it is connected i
 - announces your group's open instances in a channel ([Instance announcements](/discord/instance-announcements));
 - lets members link their Discord and VRChat accounts, and gives linked members a role ([Account linking](/discord/account-linking));
 - keeps a copy of the server's messages, members and voice time, for the **Discord members** list and the **Discord** analytics page ([Messages and analytics](/discord/messages-and-analytics));
-- answers four slash commands, and a fifth for members when you switch it on (see [Slash commands](#slash-commands)).
+- answers four slash commands, and a fifth for members when you switch it on (see [Slash commands](#slash-commands));
+- lets moderators look people up, write notes, report messages, and kick, ban or answer join requests from right-click menus and buttons under cards ([Acting from Discord](/discord/acting-from-discord)).
 
 The bot is optional. Until you give Modbot a token and a server id, the bot does not start and the
 rest of Modbot works as normal.
@@ -171,7 +172,7 @@ Open **Health** from the **Discord** row at the bottom of the sidebar. It needs
 |---|---|
 | **not set up** | No token or no server id is saved. This is not a fault. |
 | **connecting** | Signing in to Discord. |
-| **working** | Connected. It also shows how long it has been connected and how many slash commands were registered. |
+| **working** | Connected. It also shows how long it has been connected and how many commands were registered: the slash commands and the right-click menus. |
 | **reconnecting** | The connection dropped and Modbot is getting it back. This usually clears within a minute. |
 | **stopped — needs you** | Discord refused to let the bot sign in, usually because the token is wrong. The bot waits until you change the settings. |
 
@@ -225,6 +226,14 @@ then replaces it. Where two accounts typed the same id, the bot answers neither.
 </Callout>
 
 Every command run, answered or refused, is recorded in the audit log as **Discord command used**.
+
+### Right-click menus
+
+The bot also registers three menus, under **Apps** when you right-click a member or a message:
+**Look up in Modbot**, **Add a note** and **Report this message**. They follow the same rules as the
+commands: a connected Modbot account and the matching permission. Only members with Discord's
+**Timeout Members** permission see them until a server admin changes that under **Server Settings →
+Integrations**. See [Acting from Discord](/discord/acting-from-discord).
 
 ## Turning the bot off
 

@@ -1,0 +1,127 @@
+---
+title: Acting from Discord
+description: Look people up, write notes, report messages, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
+---
+
+Moderators can act on what they see in Discord without opening Modbot: right-click a member or a
+message, or press a button under a card the bot posted. Everything happens as the moderator's own
+Modbot account, with the same permissions, reasons and records as the web app.
+
+Every reply, form and confirmation is visible only to the person who pressed. The one thing the
+channel sees is a line above a card once somebody has acted on it, such as **Banned by alice**.
+
+## Who can use it
+
+The same people who can use the [slash commands](/discord/bot-setup#slash-commands): a moderator
+who has pressed **Connect Discord** on their **Your account** page. Each action then needs the
+permission it needs in the web app:
+
+| What | Needs |
+|---|---|
+| **Look up in Modbot** | **See profiles** |
+| **Add a note**, **Report this message**, the **Add note** button | **Write notes** |
+| **Kick** | **Kick** |
+| **Ban** | **Ban** |
+| **Approve**, **Reject** | **Answer join requests** |
+
+Anything that writes — a note or an action — also needs a VRChat account linked to the moderator's
+Modbot account, as the web app does. Without one the bot replies "Link your VRChat account in
+Modbot first." Without the permission, the reply names it, for example
+`You need the "Ban" permission in Modbot.`
+
+Permissions are checked again when a form is sent and when a confirmation is pressed, so a
+permission taken away in between stops the action.
+
+## Right-click menus
+
+Right-click a member or a message, then **Apps**:
+
+| Menu | On | What it does |
+|---|---|---|
+| **Look up in Modbot** | a member | A card about them. For a member who has linked their VRChat account, it is their VRChat profile, the same card `/lookup` shows, with **Add note**, **Kick** and **Ban** buttons for the ones you may use (no **Kick** or **Ban** for somebody already banned). For a member with no link, it shows their Discord name, **VRChat: Not linked**, how many notes they have, and how many timeouts, Discord bans and kicks Modbot has recorded, with an **Add note** button. |
+| **Add a note** | a member | A form with one box. The note is written about their Discord account and shows on their person view in Modbot. |
+| **Report this message** | a message | A form with one box for what is wrong. It writes a note about whoever sent the message. The note holds what you typed, the channel, when it was sent, the message's words and a link to it, and Modbot keeps the message with the note. |
+
+A message from a bot cannot be reported, and the menus refuse Modbot's own Discord account.
+
+### Who sees the menus
+
+The menus are shown only to members with Discord's **Timeout Members** permission. To change that,
+open your server's **Server Settings → Integrations**, pick the bot, and choose the roles or members
+for each menu. This only changes who sees them: Modbot still checks the moderator's Modbot
+permissions on every press.
+
+## Buttons under cards
+
+When an [event channel](/discord/event-channels) posts a message with one card in it, the card gets
+buttons for the person it is about:
+
+| Card | Buttons |
+|---|---|
+| Something a VRChat person did or had done to them: joined, left, warned, kicked, role changes, profile changes, flags, notes | **Add note**, **Kick**, **Ban** |
+| A ban | **Add note**, and **Open case** when a case file covers the ban and a public address is set |
+| **Asked to join the group** | **Approve**, **Reject**, **Add note** |
+| Something that happened to a Discord account: joined, left, timed out, banned from Discord | **Add note** |
+| Anything else: instances, the group, settings | none |
+
+A message that holds several cards, which happens when many events arrive at once, has no buttons:
+Discord puts buttons under the message, so they could not say which card they are for.
+
+Everybody who can read the channel sees the buttons. Pressing one without the permission is refused.
+
+## Kick, ban, approve and reject
+
+None of these happen on one press.
+
+<Steps>
+
+<Step>
+
+### Press the button
+
+**Kick**, **Ban** and **Reject** open a form with the group's [reasons](/moderation/case-files#the-reason-list)
+for that action and a note. A ban always needs a reason; a kick or a rejection needs one when your
+group has switched on **Require a reason on kicks, unbans and rejected join requests**. Discord
+shows at most 25 reasons, the first 25 in your list's order. **Approve** has no form.
+
+</Step>
+
+<Step>
+
+### Send the form
+
+Modbot checks everything it checks in the web app before anything is sent: the reasons are on the
+list and ticked for this action, a reason that needs a note has one, and the person is not the
+account Modbot signs in as. Anything wrong is said now.
+
+</Step>
+
+<Step>
+
+### Confirm
+
+A message asks, for example, "Ban **jessie** from the group?", with the reasons and the note, a red
+**Ban** and a **Cancel**. Only you can press it, and it runs out after 15 minutes, or if Modbot
+restarts; press the card's button again to start over.
+
+</Step>
+
+</Steps>
+
+Once VRChat answers, the confirmation says what happened. **Nothing is recorded unless VRChat
+accepted it**, and a refusal says what VRChat said. A ban writes its case file and bans the
+person's linked Discord account, exactly as a ban in the web app does.
+
+One confirmation acts once. Pressing it twice, or from two devices, sends one action and answers
+the second press with the first answer.
+
+When the action was started from a card, the card gets a line above it, such as
+**Banned by alice**, and loses its **Kick**, **Ban**, **Approve** and **Reject** buttons. **Add note**
+stays.
+
+## What is recorded
+
+Notes and actions from Discord are the same records as from the web app: the same note, the same
+kick or ban in the audit log under the moderator's name, the same case file. Every menu, button and
+form that finishes or is refused is also recorded as **Discord command used**, which shows that it
+came through Discord.

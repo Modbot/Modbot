@@ -37,7 +37,7 @@ namespace Modbot.Discord.Gateway;
 /// pool at once, so a slow database query answers late rather than stalling the heartbeat.
 /// </para>
 /// </remarks>
-public sealed class DiscordNetGateway : IDiscordGateway
+public sealed partial class DiscordNetGateway : IDiscordGateway
 {
     /// <summary>
     /// What the session asks Discord for. The server: channels, roles, slash commands. Messages and
@@ -96,6 +96,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Disconnected += OnDisconnected;
         _client.SlashCommandExecuted += OnSlashCommand;
         _client.ButtonExecuted += OnButton;
+        _client.UserCommandExecuted += OnUserCommand;
+        _client.MessageCommandExecuted += OnMessageCommand;
+        _client.ModalSubmitted += OnFormSubmitted;
 
         _client.ChannelCreated += OnChannelCreated;
         _client.ChannelUpdated += OnChannelUpdated;
@@ -216,6 +219,16 @@ public sealed class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        PostAsync(channelId, text, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
@@ -223,7 +236,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         return InChannelAsync(channelId, async channel =>
         {
             var built = embeds.Select(ToEmbed).ToArray();
-            var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
+            var buttons = Buttons(links, actions) is { Components.Count: > 0 } b ? b : null;
 
             // Names inside an embed never ping anybody, even one that happens to read like @here,
             // and neither does the operator's own line above it.
@@ -1378,6 +1391,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Disconnected -= OnDisconnected;
         _client.SlashCommandExecuted -= OnSlashCommand;
         _client.ButtonExecuted -= OnButton;
+        _client.UserCommandExecuted -= OnUserCommand;
+        _client.MessageCommandExecuted -= OnMessageCommand;
+        _client.ModalSubmitted -= OnFormSubmitted;
         _client.ChannelCreated -= OnChannelCreated;
         _client.ChannelUpdated -= OnChannelUpdated;
         _client.ChannelDestroyed -= OnChannelDestroyed;
@@ -2295,24 +2311,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
                     && ourGuildId is { Length: > 0 } ours
                     && id.EndsWith(DiscordActionButton.ServerMark + ours, StringComparison.Ordinal)));
 
-    private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
-    {
-        // The same three seconds as a command, deferred the same way: a new private message is
-        // coming, rather than a change to the card the button sits on, which stays as it is.
-        await press.DeferLoadingAsync(ephemeral: true).ConfigureAwait(false);
-
-        var call = new DiscordButtonPress(
-            press.User.Id.ToString(CultureInfo.InvariantCulture),
-            press.User.Username,
-            id,
-            (reply, _) => AnswerAsync(press, reply));
-
-        var handler = ButtonPressed;
-        if (handler is not null)
-            await handler(call).ConfigureAwait(false);
-    }
-
-    /// <summary>One answer to a slash command or a button, with the pictures its cards point at.</summary>
+    /// <summary>One answer to a slash command, with the pictures its cards point at.</summary>
     private static async Task AnswerAsync(SocketInteraction command, DiscordReply reply)
     {
         var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
@@ -2507,9 +2506,31 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private static ApplicationCommandProperties ToProperties(DiscordCommandDefinition command)
     {
+        // Who sees it in Discord's menus until a server admin says otherwise. Only that: Modbot's
+        // own permission check is what decides (acting from Discord design §10).
+        GuildPermission? shownTo = command.StaffOnly ? GuildPermission.ModerateMembers : null;
+
+        switch (command.Kind)
+        {
+            case DiscordCommandKind.User:
+                return new UserCommandBuilder()
+                    .WithName(command.Name)
+                    .WithDefaultMemberPermissions(shownTo)
+                    .Build();
+
+            case DiscordCommandKind.Message:
+                return new MessageCommandBuilder()
+                    .WithName(command.Name)
+                    .WithDefaultMemberPermissions(shownTo)
+                    .Build();
+        }
+
         var builder = new SlashCommandBuilder()
             .WithName(command.Name)
             .WithDescription(command.Description);
+
+        if (shownTo is not null)
+            builder.WithDefaultMemberPermissions(shownTo);
 
         foreach (var option in command.Options)
         {
@@ -2551,7 +2572,15 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 && action.Id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal)
                 && action.Id.Length <= 100)
             {
-                builder.WithButton(label: action.Label, customId: action.Id, style: ButtonStyle.Secondary);
+                builder.WithButton(
+                    label: action.Label,
+                    customId: action.Id,
+                    style: action.Style switch
+                    {
+                        DiscordButtonStyle.Danger => ButtonStyle.Danger,
+                        DiscordButtonStyle.Main => ButtonStyle.Primary,
+                        _ => ButtonStyle.Secondary,
+                    });
             }
         }
 

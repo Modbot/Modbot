@@ -9,6 +9,7 @@ using Modbot.Core.Time;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Interactions;
 using Serilog;
 
 namespace Modbot.Discord.ModerationLog;
@@ -403,8 +404,22 @@ public sealed class ModerationLogPoster
 
             at += chunk.Length;
 
+            // Buttons only under a message that is one card: Discord puts them under the message,
+            // and a row under ten cards could not say which one it acts on (acting from Discord
+            // design §7). A quiet log posts one card at a time, which is when they matter.
+            var buttons = chunk.Length == 1
+                ? await ButtonsForAsync(chunk[0].Latest, style, ct).ConfigureAwait(false)
+                : CardButtonSet.None;
+
             var outcome = await gateway
-                .PostAsync(channelId, null, embeds, null, files, ct)
+                .PostAsync(
+                    channelId,
+                    null,
+                    embeds,
+                    buttons.Links.Count > 0 ? buttons.Links : null,
+                    files,
+                    buttons.Actions.Count > 0 ? buttons.Actions : null,
+                    ct)
                 .ConfigureAwait(false);
             messages++;
             sent++;
@@ -485,6 +500,34 @@ public sealed class ModerationLogPoster
         _status.Posted(posted, now);
 
         return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.Posted, rows.Count, posted, error);
+    }
+
+    /// <summary>
+    /// The buttons under a card that is a message of its own: <see cref="CardButtons"/>, with the
+    /// case file that covers a ban when there is one and a public address to open it at.
+    /// </summary>
+    private async Task<CardButtonSet> ButtonsForAsync(ModbotEvent fact, CardStyle style, CancellationToken ct)
+    {
+        string? caseUrl = null;
+
+        if (fact.SubjectPlatform == FactPlatform.VRChat
+            && CardButtons.IsBan(fact.Type)
+            && style.PublicAddress is { Length: > 0 } address)
+        {
+            // The case file this ban wrote, else the one covering their ban now.
+            var caseId = await _db.CaseFiles.AsNoTracking()
+                .Where(c => c.UserId == fact.SubjectId && c.WithdrawnAt == null && c.LiftedAt == null)
+                .OrderByDescending(c => c.BanFactId == fact.Id)
+                .ThenByDescending(c => c.CreatedAt)
+                .Select(c => (Guid?)c.Id)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            if (caseId is { } id)
+                caseUrl = $"{address.TrimEnd('/')}/cases/{id}";
+        }
+
+        return CardButtons.For(fact.Type, fact.SubjectPlatform, fact.SubjectId, caseUrl);
     }
 
     /// <summary>The cards for one message, and the pictures they point at.</summary>

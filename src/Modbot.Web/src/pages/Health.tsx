@@ -837,7 +837,7 @@ function DiscordBot({
         bot.connectedSince && (
           <>
             since <Ago iso={bot.connectedSince} now={now} /> ·{' '}
-            <Count n={bot.commandsRegistered} what="slash commands registered" />
+            <Count n={bot.commandsRegistered} what="commands registered" />
           </>
         )
       }

@@ -23,11 +23,36 @@ public sealed record DiscordCommandOption(
     long? Min = null,
     long? Max = null);
 
-/// <summary>One slash command, as registered on the guild.</summary>
+/// <summary>Where a command is run from.</summary>
+public enum DiscordCommandKind
+{
+    /// <summary>Typed as <c>/name</c>.</summary>
+    Slash = 1,
+
+    /// <summary>Right-click a member, then Apps.</summary>
+    User = 2,
+
+    /// <summary>Right-click a message, then Apps.</summary>
+    Message = 3,
+}
+
+/// <summary>One command, as registered on the guild.</summary>
+/// <param name="Name">
+/// A slash command's name is lower case with no spaces. A right-click menu's name is what the menu
+/// shows, so it is ordinary words.
+/// </param>
+/// <param name="Description">A slash command's one line. Discord takes none for a right-click menu.</param>
+/// <param name="StaffOnly">
+/// Hidden from members who lack Discord's Timeout Members permission, until a server admin changes
+/// that in the server's Integrations settings (<c>default_member_permissions</c>). Only hides it:
+/// Modbot's own permission check is what decides.
+/// </param>
 public sealed record DiscordCommandDefinition(
     string Name,
     string Description,
-    IReadOnlyList<DiscordCommandOption> Options);
+    IReadOnlyList<DiscordCommandOption> Options,
+    DiscordCommandKind Kind = DiscordCommandKind.Slash,
+    bool StaffOnly = false);
 
 public sealed record DiscordEmbedField(string Name, string Value, bool Inline = false);
 
@@ -112,7 +137,8 @@ public sealed record DiscordLinkButton(string Label, string Url);
 /// other bot or an older Modbot put there is told apart and left alone. Discord allows 100
 /// characters.
 /// </param>
-public sealed record DiscordActionButton(string Label, string Id)
+/// <param name="Style">How the button looks. Red is for the press that bans or kicks.</param>
+public sealed record DiscordActionButton(string Label, string Id, DiscordButtonStyle Style = DiscordButtonStyle.Plain)
 {
     public const string Prefix = "modbot:";
 
@@ -134,6 +160,80 @@ public sealed record DiscordActionButton(string Label, string Id)
     /// <summary>An id that a press in a direct message can be traced back to this server by.</summary>
     public static string Marked(string id, string guildId) => id + ServerMark + guildId;
 }
+
+public enum DiscordButtonStyle
+{
+    /// <summary>Grey.</summary>
+    Plain = 0,
+
+    /// <summary>Discord's own blue, for the one thing a message asks you to do.</summary>
+    Main = 1,
+
+    /// <summary>Red, for a press that changes something for somebody else: a ban, a kick.</summary>
+    Danger = 2,
+}
+
+/// <summary>What kind of box a form field is.</summary>
+public enum DiscordFormFieldKind
+{
+    /// <summary>One line of text.</summary>
+    ShortText = 1,
+
+    /// <summary>Several lines of text.</summary>
+    LongText = 2,
+
+    /// <summary>A list to pick from.</summary>
+    Choice = 3,
+}
+
+/// <summary>One thing a <see cref="DiscordFormFieldKind.Choice"/> field offers.</summary>
+/// <param name="Value">What comes back when it is picked. Discord allows 100 characters.</param>
+/// <param name="Description">A line under the label, or null.</param>
+public sealed record DiscordChoice(string Label, string Value, string? Description = null);
+
+/// <summary>One field of a <see cref="DiscordForm"/>.</summary>
+/// <param name="Id">What the field's answer comes back under in <see cref="DiscordFormSubmit.Values"/>.</param>
+/// <param name="MaxLength">For text: the most characters. Discord allows 4,000.</param>
+/// <param name="Choices">For a list: what it offers. Discord allows 25.</param>
+/// <param name="MaxChoices">For a list: how many may be picked.</param>
+public sealed record DiscordFormField(
+    string Id,
+    string Label,
+    DiscordFormFieldKind Kind,
+    bool Required,
+    string? Placeholder = null,
+    int? MaxLength = null,
+    IReadOnlyList<DiscordChoice>? Choices = null,
+    int MaxChoices = 1);
+
+/// <summary>
+/// A form Discord shows over the app (Discord calls it a modal). Sending it arrives as a
+/// <see cref="DiscordFormSubmit"/> carrying <see cref="Id"/>.
+/// </summary>
+/// <param name="Title">Discord shows 45 characters.</param>
+/// <param name="Id">Always starts with <see cref="DiscordActionButton.Prefix"/>, like a button's.</param>
+public sealed record DiscordForm(string Title, string Id, IReadOnlyList<DiscordFormField> Fields);
+
+/// <summary>The member a right-click menu was used on.</summary>
+public sealed record DiscordTargetUser(string Id, string Username, bool IsBot);
+
+/// <summary>The message a right-click menu was used on, as Discord handed it over.</summary>
+/// <param name="ChannelName">The channel's name, without the #, when Discord sent it.</param>
+/// <param name="Text">
+/// The message's words. Discord hands these over for the message a menu was used on even without
+/// the Message Content intent.
+/// </param>
+/// <param name="Url">The message's own link, which opens it in Discord.</param>
+public sealed record DiscordTargetMessage(
+    string Id,
+    string ChannelId,
+    string? ChannelName,
+    string AuthorId,
+    string AuthorName,
+    bool AuthorIsBot,
+    string Text,
+    DateTimeOffset SentAt,
+    string Url);
 
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
 /// <param name="Links">Buttons under the reply that open a web address, or null for none.</param>
@@ -161,13 +261,19 @@ public sealed record DiscordReply(
 public sealed class DiscordCommandCall
 {
     private readonly Func<DiscordReply, CancellationToken, Task> _reply;
+    private readonly Func<DiscordForm, CancellationToken, Task>? _showForm;
 
+    /// <param name="showForm">
+    /// Shows a form as the answer. Null where none can be shown: a slash command has already been
+    /// acknowledged before it is raised.
+    /// </param>
     public DiscordCommandCall(
         string discordUserId,
         string discordUsername,
         string commandName,
         IReadOnlyDictionary<string, string> options,
-        Func<DiscordReply, CancellationToken, Task> reply)
+        Func<DiscordReply, CancellationToken, Task> reply,
+        Func<DiscordForm, CancellationToken, Task>? showForm = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
@@ -179,6 +285,7 @@ public sealed class DiscordCommandCall
         CommandName = commandName;
         Options = options;
         _reply = reply;
+        _showForm = showForm;
     }
 
     public string DiscordUserId { get; }
@@ -189,10 +296,28 @@ public sealed class DiscordCommandCall
 
     public IReadOnlyDictionary<string, string> Options { get; }
 
+    /// <summary>A slash command, or one of the right-click menus.</summary>
+    public DiscordCommandKind Kind { get; init; } = DiscordCommandKind.Slash;
+
+    /// <summary>The member a <see cref="DiscordCommandKind.User"/> menu was used on.</summary>
+    public DiscordTargetUser? TargetUser { get; init; }
+
+    /// <summary>The message a <see cref="DiscordCommandKind.Message"/> menu was used on.</summary>
+    public DiscordTargetMessage? TargetMessage { get; init; }
+
     public string? Option(string name)
         => Options.TryGetValue(name, out var value) ? value : null;
 
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
+
+    /// <summary>
+    /// Shows a form instead of a reply. Only as the first answer, and only within Discord's three
+    /// seconds; throws when it can no longer be shown.
+    /// </summary>
+    public Task ShowFormAsync(DiscordForm form, CancellationToken ct = default)
+        => _showForm is null
+            ? throw new InvalidOperationException("A form cannot be shown for this command.")
+            : _showForm(form, ct);
 }
 
 /// <summary>
@@ -202,12 +327,20 @@ public sealed class DiscordCommandCall
 public sealed class DiscordButtonPress
 {
     private readonly Func<DiscordReply, CancellationToken, Task> _reply;
+    private readonly Func<DiscordForm, CancellationToken, Task>? _showForm;
+    private readonly Func<DiscordReply, CancellationToken, Task>? _update;
 
+    /// <param name="showForm">Shows a form as the answer, or null where none can be shown.</param>
+    /// <param name="update">
+    /// Rewrites the message the button sits on, or null where that cannot be done.
+    /// </param>
     public DiscordButtonPress(
         string discordUserId,
         string discordUsername,
         string buttonId,
-        Func<DiscordReply, CancellationToken, Task> reply)
+        Func<DiscordReply, CancellationToken, Task> reply,
+        Func<DiscordForm, CancellationToken, Task>? showForm = null,
+        Func<DiscordReply, CancellationToken, Task>? update = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(buttonId);
@@ -217,6 +350,8 @@ public sealed class DiscordButtonPress
         DiscordUsername = discordUsername;
         ButtonId = buttonId;
         _reply = reply;
+        _showForm = showForm;
+        _update = update;
     }
 
     public string DiscordUserId { get; }
@@ -225,6 +360,76 @@ public sealed class DiscordButtonPress
 
     /// <summary>The <see cref="DiscordActionButton.Id"/> of the button pressed.</summary>
     public string ButtonId { get; }
+
+    /// <summary>
+    /// The channel of the message the button sits on, when that message is a card in a channel;
+    /// null under a reply only the presser can see.
+    /// </summary>
+    public string? CardChannelId { get; init; }
+
+    /// <summary>The card's message id, beside <see cref="CardChannelId"/>.</summary>
+    public string? CardMessageId { get; init; }
+
+    public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
+
+    /// <summary>Shows a form instead of a reply. Only as the first answer; throws when it can no longer be shown.</summary>
+    public Task ShowFormAsync(DiscordForm form, CancellationToken ct = default)
+        => _showForm is null
+            ? throw new InvalidOperationException("A form cannot be shown for this button.")
+            : _showForm(form, ct);
+
+    /// <summary>
+    /// Rewrites the message the button sits on with <paramref name="reply"/>, buttons and all; meant
+    /// for a private message, such as a confirmation. Falls back to a new reply where it cannot.
+    /// </summary>
+    public Task UpdateAsync(DiscordReply reply, CancellationToken ct = default)
+        => (_update ?? _reply)(reply, ct);
+}
+
+/// <summary>
+/// Somebody sent one of the bot's <see cref="DiscordForm"/>s, with a way to answer. The answer is
+/// visible only to them.
+/// </summary>
+public sealed class DiscordFormSubmit
+{
+    private readonly Func<DiscordReply, CancellationToken, Task> _reply;
+
+    public DiscordFormSubmit(
+        string discordUserId,
+        string discordUsername,
+        string formId,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> values,
+        Func<DiscordReply, CancellationToken, Task> reply)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(formId);
+        ArgumentNullException.ThrowIfNull(values);
+        ArgumentNullException.ThrowIfNull(reply);
+
+        DiscordUserId = discordUserId;
+        DiscordUsername = discordUsername;
+        FormId = formId;
+        Values = values;
+        _reply = reply;
+    }
+
+    public string DiscordUserId { get; }
+
+    public string DiscordUsername { get; }
+
+    /// <summary>The <see cref="DiscordForm.Id"/> of the form sent.</summary>
+    public string FormId { get; }
+
+    /// <summary>Each field's answer by its <see cref="DiscordFormField.Id"/>: one text, or the values picked.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Values { get; }
+
+    /// <summary>A text field's answer, trimmed; empty when it was left blank or is not there.</summary>
+    public string Text(string fieldId)
+        => Values.TryGetValue(fieldId, out var value) && value.Count > 0 ? (value[0] ?? string.Empty).Trim() : string.Empty;
+
+    /// <summary>A list field's picks; empty when none were.</summary>
+    public IReadOnlyList<string> Picked(string fieldId)
+        => Values.TryGetValue(fieldId, out var value) ? value : [];
 
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
 }
@@ -513,8 +718,10 @@ public interface IDiscordGateway : IAsyncDisposable
     event Func<DiscordDisconnect, Task>? Disconnected;
 
     /// <summary>
-    /// Somebody ran one of the bot's slash commands in the session's own server
+    /// Somebody ran one of the bot's slash commands or right-click menus in the session's own server
     /// (<see cref="DiscordGatewayOptions.GuildId"/>). Commands from anywhere else are never raised.
+    /// A slash command arrives already acknowledged; a right-click menu does not, so it can be
+    /// answered with a form (acting from Discord design §11).
     /// </summary>
     event Func<DiscordCommandCall, Task>? CommandReceived;
 
@@ -524,6 +731,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <see cref="DiscordActionButton.Prefix"/> are raised.
     /// </summary>
     event Func<DiscordButtonPress, Task>? ButtonPressed;
+
+    /// <summary>
+    /// Somebody sent a form the bot showed. Only forms sent in the session's own server whose id
+    /// starts with <see cref="DiscordActionButton.Prefix"/> are raised, as for a button.
+    /// </summary>
+    event Func<DiscordFormSubmit, Task>? FormSubmitted;
 
     /// <summary>
     /// A channel was created or changed -- renamed, moved, or its permission overwrites edited.
@@ -609,6 +822,34 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct);
+
+    /// <summary>
+    /// Posts a message with pictures and with buttons the bot answers when pressed, after the links.
+    /// </summary>
+    /// <param name="actions">
+    /// Buttons whose presses arrive as <see cref="ButtonPressed"/>. Null or empty sends none, which
+    /// is the same as the overload without them.
+    /// </param>
+    Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Adds a line to a card the bot posted saying who dealt with it, and takes away the card's
+    /// buttons whose ids start with <paramref name="removeButtonsStarting"/> (acting from Discord
+    /// design §6). The card, its picture and its other buttons stay as they are.
+    /// </summary>
+    /// <param name="line">
+    /// The line, for example "Banned by alice". Added to the message's own text, above the card, so
+    /// the card itself is sent back untouched.
+    /// </param>
+    Task<DiscordPostOutcome> MarkHandledAsync(
+        string channelId, string messageId, string line, string removeButtonsStarting, CancellationToken ct);
 
     /// <summary>
     /// Rewrites a message the bot posted earlier.

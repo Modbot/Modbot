@@ -139,6 +139,11 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<MemberCommandLimits>();
         services.AddScoped<MeCommand>();
         services.AddScoped<DiscordCommandHandler>();
+
+        // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting
+        // on a press (acting from Discord design). IStaffActions, which does the work, is the API's.
+        services.TryAddSingleton<Interactions.PendingStaffActions>();
+        services.AddScoped<Interactions.StaffInteractionHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<InstanceAnnouncer>();
         services.AddScoped<DiscordServerIndex>();

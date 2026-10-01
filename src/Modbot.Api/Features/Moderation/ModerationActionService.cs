@@ -151,6 +151,51 @@ public sealed class ModerationActionService
         if (note.Length > MaxNoteLength)
             throw new ModerationRefused(400, $"The note is too long (at most {MaxNoteLength} characters).");
 
+        var (settings, groupId, reasons) = await PrepareAsync(action, userId, request.ReasonIds, note, ct);
+
+        // The key is claimed before anything is sent. Whatever happens next -- a timeout, a second
+        // click, a browser that retried -- there is exactly one row and therefore one action.
+        var (row, alreadyRan) = await ClaimAsync(action, key, userId, groupId, caller, reasons, note, ct);
+
+        if (alreadyRan)
+            return Describe(row, repeat: true, MissingPermissionOf(row, settings));
+
+        return await SendAsync(row, action, userId, groupId, caller, reasons, note, settings, ct);
+    }
+
+    /// <summary>
+    /// Every check <see cref="RunAsync"/> makes before it claims a key, without claiming one or
+    /// sending anything. Throws <see cref="ModerationRefused"/> with the same sentence
+    /// <see cref="RunAsync"/> would.
+    /// </summary>
+    /// <remarks>
+    /// For a confirmation that is shown before the action is sent (acting from Discord design §4):
+    /// a missing reason or a group that is not set up is said before the moderator confirms, not
+    /// after. <see cref="RunAsync"/> checks it all again, because things change between the two.
+    /// </remarks>
+    public async Task CheckAsync(string action, ModerationActionRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var userId = (request.UserId ?? string.Empty).Trim();
+        var note = (request.Note ?? string.Empty).Trim();
+
+        if (userId.Length == 0)
+            throw new ModerationRefused(400, "Pick a person first: Modbot was given no VRChat id.");
+
+        if (note.Length > MaxNoteLength)
+            throw new ModerationRefused(400, $"The note is too long (at most {MaxNoteLength} characters).");
+
+        if (action is not (Kick or Ban or Unban or Approve or Reject))
+            throw new ModerationRefused(400, $"'{action}' is not something Modbot can do.");
+
+        await PrepareAsync(action, userId, request.ReasonIds, note, ct);
+    }
+
+    /// <summary>The group to act in and the reasons picked, refusing anything that must not be sent.</summary>
+    private async Task<(Modbot.Core.Data.Entities.Settings Settings, string GroupId, IReadOnlyList<BanReason> Reasons)> PrepareAsync(
+        string action, string userId, IReadOnlyList<Guid>? reasonIds, string note, CancellationToken ct)
+    {
         var settings = await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
         if (settings?.ManagedGroupId is not { Length: > 0 } groupId)
@@ -166,16 +211,9 @@ public sealed class ModerationActionService
             throw new ModerationRefused(400, "That is the account Modbot signs in as. Modbot will not act on itself.");
         }
 
-        var reasons = await ReasonsAsync(action, request.ReasonIds, note, settings.RequireModerationClassification, ct);
+        var reasons = await ReasonsAsync(action, reasonIds, note, settings.RequireModerationClassification, ct);
 
-        // The key is claimed before anything is sent. Whatever happens next -- a timeout, a second
-        // click, a browser that retried -- there is exactly one row and therefore one action.
-        var (row, alreadyRan) = await ClaimAsync(action, key, userId, groupId, caller, reasons, note, ct);
-
-        if (alreadyRan)
-            return Describe(row, repeat: true, MissingPermissionOf(row, settings));
-
-        return await SendAsync(row, action, userId, groupId, caller, reasons, note, settings, ct);
+        return (settings, groupId, reasons);
     }
 
     // ── The outbound call, and everything that follows from its answer ──────────────────────

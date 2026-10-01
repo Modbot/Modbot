@@ -10,6 +10,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Interactions;
 using Modbot.Discord.Members;
 using Modbot.Discord.Messages;
 using Modbot.Discord.ServerIndex;
@@ -334,6 +335,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Disconnected += OnDisconnectedAsync;
         gateway.CommandReceived += OnCommandAsync;
         gateway.ButtonPressed += OnButtonAsync;
+        gateway.FormSubmitted += OnFormSubmittedAsync;
         gateway.ChannelChanged += OnChannelChangedAsync;
         gateway.ChannelRemoved += OnChannelRemovedAsync;
         gateway.ServerChanged += OnServerChangedAsync;
@@ -399,7 +401,7 @@ public sealed class DiscordBotService : BackgroundService
         // channel poster still works, and a fixed guild id is picked up by the settings poll
         // without a restart.
         if (await RegisterCommandsAsync(gateway, guildId, meCommand).ConfigureAwait(false))
-            _log.Information("Discord bot connected; {Count} slash commands registered on the guild", _commandsRegistered);
+            _log.Information("Discord bot connected; {Count} commands registered on the guild", _commandsRegistered);
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
         StartReading(signedIn: true);
@@ -965,6 +967,18 @@ public sealed class DiscordBotService : BackgroundService
         try
         {
             using var scope = _scopes.CreateScope();
+
+            // A right-click menu may answer with a form rather than a reply (acting from Discord
+            // design §2); a null reply means it did.
+            if (call.Kind != DiscordCommandKind.Slash)
+            {
+                var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
+                if (await staff.HandleMenuAsync(call, ReadyGateway, CancellationToken.None).ConfigureAwait(false) is { } answer)
+                    await call.ReplyAsync(answer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
             var reply = await handler.HandleAsync(call, CancellationToken.None).ConfigureAwait(false);
             await call.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
@@ -995,13 +1009,28 @@ public sealed class DiscordBotService : BackgroundService
         {
             using var scope = _scopes.CreateScope();
 
-            // The join gate's buttons: a member's Get in, I agree and Check, and staff's Hold, Lift
-            // hold and Pause invites on an alert (join gate design §4 and §8).
-            var reply = Gate.JoinGateButtons.Is(press.ButtonId) && scope.ServiceProvider.GetService<Gate.JoinGate>() is { } gate
-                ? await gate.PressAsync(ReadyGateway, press, CancellationToken.None).ConfigureAwait(false)
-                : await scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>()
-                    .HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+            // The join gate's buttons first: a member's Get in, I agree and Check, and staff's Hold,
+            // Lift hold and Pause invites on an alert (join gate design §4 and §8). The gateway
+            // acknowledged these before this ran, as it always has.
+            if (Gate.JoinGateButtons.Is(press.ButtonId) && scope.ServiceProvider.GetService<Gate.JoinGate>() is { } gate)
+            {
+                var gateReply = await gate.PressAsync(ReadyGateway, press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(gateReply, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
 
+            // The staff buttons under cards, lookups and confirmations; everything else is /me's.
+            if (StaffMenus.IsStaffButton(press.ButtonId))
+            {
+                var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
+                if (await staff.HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false) is { } answer)
+                    await press.ReplyAsync(answer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
+            var reply = await scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>()
+                .HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
             await press.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -1019,6 +1048,35 @@ public sealed class DiscordBotService : BackgroundService
             catch (Exception replyError)
             {
                 _log.Debug(replyError, "Could not tell Discord that the button failed");
+            }
+        }
+    }
+
+    /// <summary>A form the bot showed was sent: answered only to the person who sent it.</summary>
+    private async Task OnFormSubmittedAsync(DiscordFormSubmit submit)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
+            var reply = await staff.HandleFormAsync(submit, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+            await submit.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _log.Error(e, "A form failed");
+            _status.Problem($"A form failed: {e.Message}", _clock.UtcNow);
+
+            try
+            {
+                await submit.ReplyAsync(
+                        DiscordReply.Say("Something went wrong on Modbot's side. The operator can find the details in the log."),
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception replyError)
+            {
+                _log.Debug(replyError, "Could not tell Discord that the form failed");
             }
         }
     }
@@ -1056,6 +1114,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Disconnected -= OnDisconnectedAsync;
         gateway.CommandReceived -= OnCommandAsync;
         gateway.ButtonPressed -= OnButtonAsync;
+        gateway.FormSubmitted -= OnFormSubmittedAsync;
         gateway.ChannelChanged -= OnChannelChangedAsync;
         gateway.ChannelRemoved -= OnChannelRemovedAsync;
         gateway.ServerChanged -= OnServerChangedAsync;

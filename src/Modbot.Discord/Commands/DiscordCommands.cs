@@ -51,6 +51,10 @@ public static class DiscordCommands
             Me,
             "What Modbot holds about you",
             []),
+
+        // The right-click menus staff act from (acting from Discord design §2). Registered beside
+        // the slash commands because Discord replaces the whole set in one call.
+        .. Interactions.StaffMenus.All,
     ];
 
     /// <summary>
@@ -81,6 +85,10 @@ public static class DiscordCommands
     {
         ModbotPermissions.ViewProfile => "See profiles",
         ModbotPermissions.ViewAuditLog => "See the audit log",
+        ModbotPermissions.Kick => "Kick",
+        ModbotPermissions.Ban => "Ban",
+        ModbotPermissions.WriteNotes => "Write notes",
+        ModbotPermissions.AnswerJoinRequests => "Answer join requests",
         _ => permission.ToString(),
     };
 

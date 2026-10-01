@@ -347,8 +347,8 @@ public sealed class DiscordCommandHandler
         sb.Append(snapshot.State switch
         {
             DiscordBotState.Connected when snapshot.ConnectedSince is { } since =>
-                $"Modbot's Discord bot is connected (since {DiscordTime.Relative(since)}) with {snapshot.CommandsRegistered} slash commands registered.",
-            DiscordBotState.Connected => $"Modbot's Discord bot is connected with {snapshot.CommandsRegistered} slash commands registered.",
+                $"Modbot's Discord bot is connected (since {DiscordTime.Relative(since)}) with {snapshot.CommandsRegistered} commands registered.",
+            DiscordBotState.Connected => $"Modbot's Discord bot is connected with {snapshot.CommandsRegistered} commands registered.",
             DiscordBotState.Disconnected => "Modbot's Discord bot has lost its connection and is reconnecting.",
             _ => "Modbot's Discord bot is answering, so it is connected.",
         });

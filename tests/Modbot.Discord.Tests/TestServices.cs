@@ -53,6 +53,9 @@ public sealed class TestServices : IAsyncDisposable
 
     public FakeSecretProtector Protector { get; } = new();
 
+    /// <summary>What the staff menus, buttons and forms asked the API's services to do.</summary>
+    public FakeStaffActions Staff { get; private init; } = new();
+
     public static async Task<TestServices> CreateAsync(PostgresFixture fixture, CancellationToken ct)
     {
         var database = await IsolatedDatabase.CreateAsync(fixture, ct);
@@ -61,8 +64,12 @@ public sealed class TestServices : IAsyncDisposable
         var protector = new FakeSecretProtector();
         var checker = new RecordingChecker();
         var vrchat = new FakeVRChatActions();
+        var staff = new FakeStaffActions();
 
         var services = new ServiceCollection();
+        services.AddSingleton<Modbot.Core.Discord.IStaffActions>(staff);
+        services.AddSingleton<Modbot.Discord.Interactions.PendingStaffActions>();
+        services.AddScoped<Modbot.Discord.Interactions.StaffInteractionHandler>();
         services.AddDbContext<ModbotContext>(o => o.UseNpgsql(database.ConnectionString));
         services.AddSingleton<IModbotClock>(clock);
         services.AddSingleton<ISecretProtector>(protector);
@@ -107,7 +114,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Discord.Sync.ListRoleSync>();
 
         var provider = services.BuildServiceProvider();
-        var built = new TestServices(database, provider, clock, status, checker, vrchat);
+        var built = new TestServices(database, provider, clock, status, checker, vrchat) { Staff = staff };
 
         // Facts in these tests all fall around the fake clock's month.
         using var scope = provider.CreateScope();

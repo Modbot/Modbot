@@ -393,6 +393,16 @@ public sealed class FakeGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        PostAsync(channelId, text, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
@@ -405,6 +415,7 @@ public sealed class FakeGateway : IDiscordGateway
         Posts.Add((channelId, embeds));
         Messages.Add((channelId, messageId, text, embeds, links ?? []));
         PicturesSent[messageId] = pictures;
+        ActionsSent[messageId] = actions ?? [];
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
@@ -434,6 +445,24 @@ public sealed class FakeGateway : IDiscordGateway
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
+
+    /// <summary>The buttons the bot answers that each posted message carried, by message id.</summary>
+    public Dictionary<string, IReadOnlyList<DiscordActionButton>> ActionsSent { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every card marked as dealt with, in order.</summary>
+    public List<(string ChannelId, string MessageId, string Line, string RemoveButtonsStarting)> Handled { get; } = [];
+
+    public Task<DiscordPostOutcome> MarkHandledAsync(
+        string channelId, string messageId, string line, string removeButtonsStarting, CancellationToken ct)
+    {
+        Handled.Add((channelId, messageId, line, removeButtonsStarting));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public event Func<DiscordFormSubmit, Task>? FormSubmitted;
+
+    public Task RaiseFormAsync(DiscordFormSubmit submit)
+        => FormSubmitted?.Invoke(submit) ?? Task.CompletedTask;
 
     public Task<DiscordPostOutcome> EditAsync(
         string channelId,

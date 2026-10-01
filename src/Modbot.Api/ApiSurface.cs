@@ -139,6 +139,10 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
 
+        // What the bot's right-click menus, forms and card buttons do: the moderation and note
+        // services, built as the endpoints build them (acting from Discord design §5).
+        services.AddScoped<IStaffActions, Features.Moderation.StaffActionsForDiscord>();
+
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
         // and an undecided DemoMode is never on -- so the fallback cannot serve anybody as an
