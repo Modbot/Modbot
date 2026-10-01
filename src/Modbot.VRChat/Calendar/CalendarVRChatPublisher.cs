@@ -303,7 +303,9 @@ public sealed class CalendarVRChatPublisher
     // with an id of its own and the series' id beside it. A date cancelled in Modbot is deleted on
     // VRChat by that date's own id, and a date moved or reworded is updated by it -- the same delete
     // and update calls the series uses, on the same calendar budget. The id is found by reading the
-    // month the date is in once, and kept.
+    // month the date is in before every write, never taken from an earlier pass: when the series is
+    // written again VRChat makes its dates afresh with new ids, and a write to an old id answered
+    // 200 and changed nothing (seen 2026-10-01), so a kept id cannot be trusted.
     //
     // Never sent to the series' own id: deleting that would take every date off VRChat. A date that
     // VRChat does not list apart from its series is shown as failed rather than guessed at.
@@ -381,10 +383,9 @@ public sealed class CalendarVRChatPublisher
         CancellationToken ct)
     {
         var seriesId = place.ExternalId!;
-        var id = change.VRChatId;
-        var foundNow = false;
+        string? id = null;
 
-        if (id is null)
+        // Looked up before every write, never sent to an id kept from an earlier pass (see above).
         {
             // Every page of the month the date is planned in, the neighbouring month when it is near
             // the edge (VRChat's month is not exactly the UTC month), and the month it was moved to:
@@ -418,8 +419,6 @@ public sealed class CalendarVRChatPublisher
                 if (id is not null)
                     break;
             }
-
-            foundNow = true;
 
             // Not found is never taken as "nothing to do": a cancel would then be marked sent while
             // the date is still on VRChat. It shows on the date instead, and is not looked for again
@@ -455,20 +454,9 @@ public sealed class CalendarVRChatPublisher
 
             (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
 
-            // Already gone is what a cancel wanted -- for an id found in this pass. A kept id may be
-            // stale (the series written again since), and the date may still be on VRChat under a
-            // new one: it is forgotten and the date looked for again on the next pass, as an update
-            // does below.
+            // Already gone is what a cancel wanted: the id was found in this very pass.
             if (status == 404)
-            {
-                if (!foundNow)
-                {
-                    change.VRChatId = null;
-                    return CalendarPublishOutcome.NothingToDo;
-                }
-
                 success = true;
-            }
         }
         else
         {
@@ -482,13 +470,9 @@ public sealed class CalendarVRChatPublisher
             (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
             answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
 
-            // The id kept from before is gone: looked for again on the next pass. One just found
-            // and already gone is a failure, so the two do not go round in a loop.
-            if (status == 404 && !foundNow)
-            {
-                change.VRChatId = null;
-                return CalendarPublishOutcome.NothingToDo;
-            }
+            // A 404 for an id found in this very pass is a failure like any other, shown on the
+            // date: it is not looked for again until the date changes, so the two cannot go round
+            // in a loop.
         }
 
         if (success)
@@ -520,11 +504,9 @@ public sealed class CalendarVRChatPublisher
         if (kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             // Never retried here: the limiter decides when anything is sent again.
-            change.VRChatId ??= dateId;
             return CalendarPublishOutcome.RateLimited;
         }
 
-        change.VRChatId ??= dateId;
         DateFailed(change, Reason(kind, body, error, status), refused: status == 0 || status >= 500 ? null : fingerprint, now);
 
         _log.Warning(
@@ -550,6 +532,9 @@ public sealed class CalendarVRChatPublisher
                 && string.Equals(r.SeriesId, seriesId, StringComparison.Ordinal)
                 && !string.Equals(r.Id, seriesId, StringComparison.Ordinal))
             .ToList();
+
+        if (change.VRChatId is { Length: > 0 } known && dates.FirstOrDefault(r => r.Id == known) is { } listed)
+            return listed.Id;
 
         var planned = dates.FirstOrDefault(r => SameTime(r.StartsAt, change.PlannedStartsAt));
         if (planned is not null)
@@ -777,10 +762,12 @@ public sealed class CalendarVRChatPublisher
 
                 foreach (var change in calendarEvent.DateChanges.Where(c => !IsOver(calendarEvent, c, now)))
                 {
-                    // A cancelled date is looked for again: a delete by a stale id answers 404, which reads as
-                    // done. A changed one keeps its id; an update by a stale one answers 404 and looks again.
-                    if (change.Cancelled)
-                        change.VRChatId = null;
+                    // VRChat makes the series' dates afresh, with new ids, and puts a moved date back
+                    // at its planned time (seen 2026-10-01): every changed date -- cancelled, moved,
+                    // reworded or put back -- is looked for again and sent again. Where it was last
+                    // sent no longer holds either.
+                    change.VRChatId = null;
+                    change.VRChatSentStartsAt = null;
 
                     change.VRChatSentFingerprint = change.Cancelled && change.PlannedStartsAt < seriesStartsAt
                         ? CalendarVRChatRequests.DateFingerprint(calendarEvent, change)

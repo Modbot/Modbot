@@ -108,11 +108,21 @@ the rule is still stored, plus **the dates changed on their own**.
   posts the same message with that date's time and title, once; a refusal is recorded as a failed
   `cancelPost` and not sent again. It is dropped unposted when the event has been deleted since, or
   the date ended more than a day ago: by then it is not news.
-- **A date's VRChat id is trusted only when found in the same pass.** A delete or an update by an id
-  kept from before that answers 404 forgets the id and looks for the date again on the next pass;
-  only a 404 for an id just found counts as gone. The row also keeps where the last update put the
-  date on VRChat (`vrchat_sent_starts_at`), so a date put back as planned -- no times of its own any
-  more -- is still looked for at the time VRChat has it.
+- **A date's VRChat id is never written to from an earlier pass** (changed 2026-10-01, after
+  phase-2 testing). Writing the whole series again makes VRChat build its dates afresh, with new ids,
+  and put a moved date back at its planned time; an update to the old id then answered 200 and
+  changed nothing (a read of it was a 404), so Modbot marked the move sent and it was lost on
+  VRChat. Now every date write is preceded by the month read that finds the date's id, so the id
+  written to is always one VRChat listed in the same pass (a 404 for it counts as gone for a delete,
+  and as a failure for an update). The kept `vrchat_id` is used only to pick the date out of that
+  read when VRChat still lists it. This costs one `calendar.read` (up to its three pages) per date
+  write, on the read budget that is ten times the write one; a confirming read after each write
+  was the other choice, and was not taken because a write by a freshly found id has not been seen
+  to fail silently. After any series write, every changed date still to come -- cancelled, moved,
+  reworded or put back -- forgets its id, its sent fingerprint and where it was last sent, and is
+  looked for and sent again (a cancelled date before where the series now starts excepted). The row
+  keeps where the last update put the date on VRChat (`vrchat_sent_starts_at`), so a date put back
+  as planned -- no times of its own any more -- is still looked for at the time VRChat has it.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A
   cancelled date is drawn struck through; an opened moved date says where it was moved from.
 
@@ -148,15 +158,15 @@ event finishing and cancelling: each changes what the place should say.
   `calendar.write` budget; the id is found by reading the date's month with `GetGroupCalendarEvents`
   on `calendar.read` -- every page, up to the calendar page's own three, by the reader's own paging
   -- plus the neighbouring month when the date is within 14 hours of the edge and the month it was
-  moved to, and kept. No new endpoint. The id must be a dated row of **this** series and never the
+  moved to, before every write (§2.2: a kept id can be stale). No new endpoint. The id must be a dated row of **this** series and never the
   series' own id, because deleting that would take every date off VRChat. **A date not found is
   shown as failed on that date**, cancelled or not, and not looked for again until the date changes:
   taking "not found" as "nothing to take off" would mark a cancel sent while the date could still be
   on VRChat (a later page, a month edge). Dates wait for their series: nothing is sent for a date
   while the series itself has a write waiting, and after every create or update of the series each
-  date still to come is looked for and sent again, since whether VRChat keeps a changed date through
-  a series update is not known -- except a cancelled date before where the series now starts, which
-  the series no longer holds. A finished event's dates are still sent: an event finishes when its
+  date still to come is looked for and sent again, since VRChat puts a moved date back at its
+  planned time under a new id when the series is written (seen 2026-10-01) -- except a cancelled
+  date before where the series now starts, which the series no longer holds. A finished event's dates are still sent: an event finishes when its
   last date is cancelled, and that date's delete has to go out. Settling (20 s), one write a pass,
   and the rules for refusals and no answers are the series' own.
 - **An update carries `accessType`** (added 2026-10-01). The SDK's `UpdateCalendarEventRequest` has

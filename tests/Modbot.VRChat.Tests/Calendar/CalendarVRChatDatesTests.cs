@@ -210,30 +210,67 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
     }
 
     [Fact]
-    public async Task ACancelWhoseKeptIdIsGone_LooksForTheDateAgain_RatherThanCountingItDone()
+    public async Task AKeptIdIsNeverWrittenTo_TheDateIsLookedUpFirst()
     {
         var e = await PublishedWeeklyAsync();
         var second = e.StartsAt + TimeSpan.FromDays(7);
 
-        // An id kept from an earlier pass, which VRChat no longer knows; the date is listed under a new one.
+        // An id kept from an earlier pass, which VRChat no longer lists; the date is there under a new one.
         await ChangeDateAsync(e.Id, second, c =>
         {
             c.Cancelled = true;
             c.VRChatId = "occ_stale";
         });
 
-        VRChat.Calendar.Answer(System.Net.HttpStatusCode.NotFound);
+        var lists = VRChat.Calendar.Lists;
         Clock.Advance(Settle);
-        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
 
-        var after = await DateAsync(e.Id);
-        Assert.Null(after.VRChatId);
-        Assert.Null(after.VRChatSentFingerprint);
+        Assert.True(VRChat.Calendar.Lists > lists);
+        Assert.Equal("occ_2", Assert.Single(VRChat.Calendar.Deletes));
+        Assert.Equal("occ_2", (await DateAsync(e.Id)).VRChatId);
+    }
 
-        // The next pass finds it and takes it off.
+    [Fact]
+    public async Task AnAllDatesEditAfterAMove_FindsTheMovedDateByItsNewIdAndSendsTheMoveAgain()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        var moved = second + TimeSpan.FromHours(1);
+
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.StartsAt = moved;
+            c.EndsAt = moved + TimeSpan.FromHours(2);
+        });
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal("occ_2", VRChat.Calendar.Updates[^1].Id);
+
+        // "All dates": the description of the whole series changes.
+        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        Clock.Advance(Settle + TimeSpan.FromMinutes(1));
+        Assert.Equal("update", (await PublishAsync()).Action);
+        Assert.Equal("cal_1", VRChat.Calendar.Updates[^1].Id);
+
+        // VRChat makes the series' dates afresh: new ids, and the moved date back at its planned time.
+        VRChat.Calendar.OnVRChat.Clear();
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("occ_1b", e.Title, e.StartsAt, TimeSpan.FromHours(2), Clock.UtcNow, VRChatKind.Occurrence, "cal_1"));
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("occ_2b", e.Title, second, TimeSpan.FromHours(2), Clock.UtcNow, VRChatKind.Occurrence, "cal_1"));
+
+        var date = await DateAsync(e.Id);
+        Assert.Null(date.VRChatId);
+        Assert.Null(date.VRChatSentFingerprint);
+
+        // The move goes out again, to the new id.
         Clock.Advance(TimeSpan.FromMinutes(2));
         Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
-        Assert.Equal("occ_2", Assert.Single(VRChat.Calendar.Deletes));
+
+        var (id, body) = VRChat.Calendar.Updates[^1];
+        Assert.Equal("occ_2b", id);
+        Assert.Equal(moved.UtcDateTime, body.StartsAt);
+        Assert.DoesNotContain(VRChat.Calendar.Updates.Skip(2), u => u.Id == "occ_2");
     }
 
     [Fact]
