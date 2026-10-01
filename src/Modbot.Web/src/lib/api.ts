@@ -814,6 +814,31 @@ export type AuditReporter = {
 
 export type AuditCursor = { occurredAt: string; id: number }
 
+/**
+ * One stretch of one person in one instance, made from the same presence reports the time-in-world
+ * figures add up.
+ */
+export type PersonVisit = {
+  /** The arrival, or "already here" when a moderator's client arrived after they did. */
+  arrived: AuditEntry
+  /** Null when nobody saw them go. */
+  left: AuditEntry | null
+  /** When they left, or the last report from the instance when nobody saw them go. */
+  until: string
+  /** The display name they had then. */
+  name: string | null
+  /** Avatars they were seen changing into, in order, each once. */
+  avatars: string[]
+  /** The moderators whose clients reported them. */
+  seenBy: AuditReporter[]
+}
+
+export type PersonVisitsPage = {
+  visits: PersonVisit[]
+  next: AuditCursor | null
+  now: string
+}
+
 export type AuditCoverage = {
   oldestFact: string | null
   firstObservedAt: string | null
@@ -830,8 +855,12 @@ export type AuditPage = {
 
 export type AuditActor = { platform: string; id: string; name: string | null; actions: number }
 
+/** What a person's timeline can be narrowed to; no value is everything (see `AuditShow` on the server). */
+export type AuditShow = 'moderation' | 'presence' | 'discord'
+
 export type AuditFilters = {
-  types: { value: string; label: string; category: AuditCategory }[]
+  /** `shows` says which of the timeline's narrowings the type is in. */
+  types: { value: string; label: string; category: AuditCategory; shows: AuditShow[] }[]
   sources: string[]
   actors: AuditActor[]
   canViewModeration: boolean
@@ -891,6 +920,15 @@ export type AuditRequest = {
    * alone is half the story.
    */
   account?: string
+  /**
+   * One person's whole history across every account the server can tie to this one: facts about
+   * any of them and facts any of them did. Tied with the caller's own permissions.
+   */
+  person?: string
+  /** Which platform `person` is on. The server takes VRChat when it is left out. */
+  personPlatform?: 'VRChat' | 'Discord' | 'Modbot'
+  /** Only moderation, only presence or only Discord. Left out, everything. */
+  show?: AuditShow
   from?: string
   to?: string
   /** Only facts that happened in this world. */
@@ -4614,6 +4652,9 @@ export const api = {
     if (query.actor) q.set('actor', query.actor)
     if (query.actorPlatform) q.set('actorPlatform', query.actorPlatform)
     if (query.account) q.set('account', query.account)
+    if (query.person) q.set('person', query.person)
+    if (query.personPlatform) q.set('personPlatform', query.personPlatform)
+    if (query.show) q.set('show', query.show)
     if (query.from) q.set('from', query.from)
     if (query.to) q.set('to', query.to)
     if (query.world) q.set('world', query.world)
@@ -4632,6 +4673,16 @@ export const api = {
   },
 
   auditFilters: () => request<AuditFilters>('/api/audit/filters'),
+
+  /** One VRChat user's visits, newest first. `before` is the `next` of the page before. */
+  personVisits: (userId: string, before: AuditCursor | null = null, limit = 10) => {
+    const q = new URLSearchParams({ person: userId, limit: String(limit) })
+    if (before) {
+      q.set('beforeStartedAt', before.occurredAt)
+      q.set('beforeId', String(before.id))
+    }
+    return request<PersonVisitsPage>(`/api/audit/visits?${q.toString()}`)
+  },
 
   /**
    * One person's VRChat, Discord and Modbot accounts, from any one of them. Give exactly one.

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { JsonView } from '@/components/JsonView'
@@ -15,8 +15,11 @@ import {
   DiscordMetrics,
 } from '@/components/subject/DiscordSide'
 import { ModerationActions, ModerationDialog } from '@/components/moderation/ModerationActions'
+import { JoinStory } from '@/components/subject/JoinStory'
+import { PersonActivity } from '@/components/subject/PersonActivity'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
+import { PersonVisits } from '@/components/subject/PersonVisits'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { PhoneActions, StandingBar } from '@/components/subject/Standing'
 import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame, PopupMenu, PopupTabs } from '@/components/subject/shared'
@@ -29,7 +32,6 @@ import { useLoad } from '@/lib/useLoad'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import {
   api,
-  type AuditEntry,
   type CurrentUser,
   type MembershipView,
   type PersonMetrics,
@@ -38,6 +40,8 @@ import {
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay, notLinkedTo, oldestReading } from '@/lib/format'
 import { concernsPerson } from '@/lib/liveRules'
+import { askedOf, foundUnder, type PersonAsked } from '@/lib/personTimeline'
+import { usePersonLatest } from '@/lib/usePersonLatest'
 import type { LiveEvent } from '@/lib/liveStream'
 import { can, canAny } from '@/lib/permissions'
 import { actionsFor } from '@/lib/moderationActions'
@@ -68,7 +72,8 @@ const MOVED: Record<string, Tab> = { metrics: 'overview' }
  *
  * **Tabs by account, plus one merged Activity.** *What happened to this person* wants the merge, so
  * **Activity** is every fact about or by any of their accounts, each row naming the account it was
- * found under. *What did this moderator do* and *what did they write in Discord* want neither
+ * found under. The server does the merge, so the list pages and filters like the audit log it is
+ * (see PersonActivity). *What did this moderator do* and *what did they write in Discord* want neither
  * merged nor interleaved, so **Account**, **Discord** and **Messages** stay whole (design §4).
  *
  * **Each part is gated on the permission that part already needed.** What this account may not
@@ -123,6 +128,9 @@ function Resolved({
   const seesMembers = can(me, 'ViewMembers')
   const readsMessages = can(me, 'ReadDiscordMessages')
   const readsLogs = canAny(me, ['ViewAuditLog', 'ViewOperationalLog'])
+
+  // The account the address named, which the server ties the others to for the merged lists.
+  const asked = useMemo(() => askedOf(at), [at])
 
   // Notes are facts in the moderation log, so the log's own permission is what opens them --
   // there is no second, looser door onto the same rows (notes design §4).
@@ -334,13 +342,16 @@ function Resolved({
           <Overview
             key={fresh}
             person={person}
+            asked={asked}
             me={me}
             stored={stored}
             onMore={pick}
             accounts={phone ? accounts : null}
           />
         )}
-        {tab === 'logs' && <Logs key={fresh} person={person} />}
+        {/* Not remounted on live events: the list takes them in itself, and a remount would put
+            the reader's filters back. */}
+        {tab === 'logs' && <PersonActivity person={person} asked={asked} />}
         {tab === 'notes' && notesId && (
           <PersonNotes
             key={`${notesId}-${live}`}
@@ -388,66 +399,6 @@ function Resolved({
   )
 }
 
-/** What each fact was found under, for the merged list. */
-const VRCHAT = 'VRChat'
-const DISCORD = 'Discord'
-const ACCOUNT = 'Modbot account'
-
-/** `now` is the server's clock from the reads; empty only when there was nothing to read. */
-type MergedFacts = { entries: AuditEntry[]; from: Map<number, string>; now: string }
-
-/**
- * Every fact about or by any of this person's accounts, newest first.
- *
- * One read per account per side, merged here rather than on the server: the log filters subject
- * and actor separately, and the newest N of each merged and cut to N are exactly the newest N of
- * all of them. The Modbot account needs only one read, because `?account=` answers both halves.
- *
- * Which account each row was found under travels with it. The merge is a convenience, not a
- * claim: a Discord row is still a Discord row.
- */
-function usePersonFacts(person: PersonView, limit: number) {
-  const vrchatId = person.vrChat?.id ?? null
-  const discordId = person.discord?.id ?? null
-  const accountId = person.account?.id ?? null
-
-  const load = useCallback(async (): Promise<MergedFacts> => {
-    const asks: { from: string; page: Promise<{ entries: AuditEntry[]; now: string }> }[] = []
-
-    if (vrchatId) {
-      asks.push({ from: VRCHAT, page: api.audit({ subject: vrchatId, subjectPlatform: 'VRChat', limit }) })
-      asks.push({ from: VRCHAT, page: api.audit({ actor: vrchatId, actorPlatform: 'VRChat', limit }) })
-    }
-
-    if (discordId) {
-      asks.push({ from: DISCORD, page: api.audit({ subject: discordId, subjectPlatform: 'Discord', limit }) })
-      asks.push({ from: DISCORD, page: api.audit({ actor: discordId, actorPlatform: 'Discord', limit }) })
-    }
-
-    if (accountId) asks.push({ from: ACCOUNT, page: api.audit({ account: accountId, limit }) })
-
-    const pages = await Promise.all(asks.map((a) => a.page))
-
-    const from = new Map<number, string>()
-    const seen = new Set<number>()
-    const entries: AuditEntry[] = []
-
-    pages.forEach((page, i) => {
-      for (const entry of page.entries) {
-        if (seen.has(entry.id)) continue
-        seen.add(entry.id)
-        from.set(entry.id, asks[i].from)
-        entries.push(entry)
-      }
-    })
-
-    entries.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt) || b.id - a.id)
-    return { entries: entries.slice(0, limit), from, now: pages[0]?.now ?? '' }
-  }, [vrchatId, discordId, accountId, limit])
-
-  return useLoad(load)
-}
-
 /**
  * The glance: the profile, how often they have been acted on, where they have been, and the newest facts.
  *
@@ -456,22 +407,26 @@ function usePersonFacts(person: PersonView, limit: number) {
  */
 function Overview({
   person,
+  asked,
   me,
   stored,
   onMore,
   accounts,
 }: {
   person: PersonView
+  asked: PersonAsked
   me: CurrentUser
   stored: StoredProfile
   onMore: (tab: Tab) => void
   accounts: React.ReactNode
 }) {
   const seesProfile = can(me, 'ViewProfile')
+  // Visits are made of arrivals and leaves, which are audit log entries, so they need its permission.
+  const readsVisits = can(me, 'ViewAuditLog')
   const vrchatId = person.vrChat?.id ?? null
   const phone = accounts != null
 
-  const facts = usePersonFacts(person, 8)
+  const facts = usePersonLatest(asked, 8)
 
   const loadMetrics = useCallback(() => api.userMetrics(vrchatId!), [vrchatId])
   const metrics = useLoad(seesProfile && vrchatId ? loadMetrics : null)
@@ -509,6 +464,10 @@ function Overview({
         </Panel>
       )}
 
+      {readsVisits && vrchatId && (
+        <PersonVisits userId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
+      )}
+
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
         {facts.error && <EmptyRow tone="danger" onTryAgain={facts.reload}>{facts.error}</EmptyRow>}
         {!facts.error && !facts.data && <EmptyRow tone="loading" />}
@@ -517,30 +476,11 @@ function Overview({
             entries={facts.data.entries}
             empty="Nothing recorded yet."
             now={facts.data.now}
-            from={(entry) => facts.data!.from.get(entry.id)}
+            from={(entry) => foundUnder(person, entry)}
           />
         )}
       </Panel>
     </div>
-  )
-}
-
-function Logs({ person }: { person: PersonView }) {
-  const { data, error, reload } = usePersonFacts(person, 50)
-
-  return (
-    <Panel title="Everything recorded about this person" flush>
-      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
-      {!error && !data && <EmptyRow tone="loading" />}
-      {data && (
-        <FactList
-          entries={data.entries}
-          empty="Nothing recorded yet."
-          now={data.now}
-          from={(entry) => data.from.get(entry.id)}
-        />
-      )}
-    </Panel>
   )
 }
 
@@ -676,6 +616,10 @@ function MembershipCard({
           ) : (
             <p className="text-muted-foreground">Not a member.</p>
           )}
+
+          {/* Who invited them, who let them in, and their join requests. From the audit log, so
+              only for those who may read it. */}
+          {can(me, 'ViewAuditLog') && <JoinStory vrchatId={subjectId} />}
 
           {view.roleNames.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">

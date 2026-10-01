@@ -59,6 +59,17 @@ const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modb
 const NONE: FilterChip[] = []
 
 /**
+ * The Show filter's choices. "Everything" narrows nothing, and is a choice so the chip can sit in
+ * the bar from the start and say what the list is showing.
+ */
+const SHOWS: FilterOption[] = [
+  { value: 'everything', label: 'Everything' },
+  { value: 'moderation', label: 'Moderation only' },
+  { value: 'presence', label: 'Presence' },
+  { value: 'discord', label: 'Discord' },
+]
+
+/**
  * The merged timeline (spec 5.9.5): the filter bar and the rows under it.
  *
  * One log, because the questions people actually ask span sources: *"who changed the ban
@@ -84,6 +95,9 @@ export function AuditLogList({
   factId = null,
   openAt = null,
   place,
+  showFilter = false,
+  concerns,
+  foundUnder,
 }: {
   chips: FilterChip[]
   /** Where the list starts: the first is what Clear puts back, and "filtered" means not at any of them. */
@@ -97,6 +111,15 @@ export function AuditLogList({
   openAt?: AuditEntry | null
   /** A card of its own on the page; run to the edges of the section that holds it in a popup. */
   place: 'page' | 'popup'
+  /** Offer the Show filter: Everything, Moderation only, Presence or Discord. A person's list does. */
+  showFilter?: boolean
+  /**
+   * Whether a live event is about what the list is pinned to, where the pinned chips cannot say it
+   * themselves: a person chip names one account, and the server reads every account tied to it.
+   */
+  concerns?: (event: LiveEvent) => boolean
+  /** Which of a person's accounts a row was found under, beside its sources (one view per person design §4). */
+  foundUnder?: (entry: AuditEntry) => string | undefined
 }) {
   const [filters, setFilters] = useState<AuditFilters | null>(null)
   const [pages, setPages] = useState<AuditPage[]>([])
@@ -205,10 +228,20 @@ export function AuditLogList({
       .catch(() => undefined)
   }, [query])
 
+  // The Show chip is a set of types the server keeps, sent with the filter list. Until that list has
+  // arrived nothing can be ruled out, and the read that follows filters exactly anyway.
+  const shown = useMemo(() => {
+    const show = query.show
+    if (!show || !filters) return null
+    return new Set(filters.types.filter((t) => t.shows.includes(show)).map((t) => t.value))
+  }, [query.show, filters])
+
   useLiveStream(
     useCallback(
       (event: LiveEvent) => {
         if (!auditMatches(event, query)) return
+        if (concerns && !concerns(event)) return
+        if (shown && !shown.has(event.type)) return
 
         if (scrollerOf(listRef.current).scrollTop > AT_TOP_PX) {
           setPending((n) => n + 1)
@@ -218,7 +251,7 @@ export function AuditLogList({
         window.clearTimeout(settle.current)
         settle.current = window.setTimeout(prepend, SETTLE_MS)
       },
-      [query, prepend],
+      [query, prepend, concerns, shown],
     ),
   )
 
@@ -298,6 +331,9 @@ export function AuditLogList({
     () =>
       (
         [
+          ...(showFilter
+            ? [{ id: 'show', label: 'Show', kind: 'choice', multi: false, negatable: false, options: SHOWS } satisfies FilterProperty]
+            : []),
           { id: 'source', label: 'Source', kind: 'choice', options: SOURCES.map((s) => ({ value: s, label: sourceLabel(s) })) },
           {
             id: 'type',
@@ -364,7 +400,7 @@ export function AuditLogList({
       )
         // A pinned property is not on offer: a second chip for it could only disagree with the pin.
         .filter((p) => !fixed.some((c) => c.property === p.id)),
-    [filters, names, remember, fixed],
+    [filters, names, remember, fixed, showFilter],
   )
 
   if (error) {
@@ -405,6 +441,7 @@ export function AuditLogList({
                 <NarrowFact
                   key={row.entry.id}
                   row={row}
+                  from={foundUnder?.(row.entry)}
                   marked={isNamed(row, factId)}
                   open={isOpen(row)}
                   onToggle={() => toggle(row)}
@@ -425,6 +462,7 @@ export function AuditLogList({
             <Row
               key={row.entry.id}
               row={row}
+              from={foundUnder?.(row.entry)}
               marked={isNamed(row, factId)}
               open={isOpen(row)}
               onToggle={() => toggle(row)}
@@ -544,11 +582,14 @@ function Sentence({ entry }: { entry: AuditEntry }) {
  */
 function NarrowFact({
   row: { entry, also },
+  from,
   marked,
   open,
   onToggle,
 }: {
   row: FactRow
+  /** The person's account the row was found under, in a person's list. */
+  from?: string
   marked: boolean
   open: boolean
   onToggle: () => void
@@ -565,6 +606,7 @@ function NarrowFact({
             <SourceBadge key={seen.id} source={seen.source} />
           ))}
         </span>,
+        ...(from ? [<span key="from">{from}</span>] : []),
         <FactTime key="when" entry={entry} withDay />,
       ]}
       onOpen={onToggle}
@@ -598,12 +640,15 @@ function NarrowFact({
  */
 function Row({
   row: { entry, also },
+  from,
   marked,
   open,
   onToggle,
   ...rowAttributes
 }: {
   row: FactRow
+  /** The person's account the row was found under, in a person's list. */
+  from?: string
   marked: boolean
   open: boolean
   onToggle: () => void
@@ -638,10 +683,15 @@ function Row({
           </div>
         </Td>
         <Td>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {[entry, ...also].map((seen) => (
               <SourceBadge key={seen.id} source={seen.source} />
             ))}
+            {from && (
+              <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                {from}
+              </span>
+            )}
           </div>
         </Td>
         <Td className="max-w-3xl min-w-[20rem] whitespace-normal" title={entry.type}>

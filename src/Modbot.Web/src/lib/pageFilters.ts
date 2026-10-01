@@ -26,6 +26,8 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
   const precision = chipFor(chips, 'precision')
   const text = chipFor(chips, 'text')
   const when = dateRange(chips, 'when')
+  const person = chipFor(chips, 'person')
+  const show = chipFor(chips, 'show')?.values[0]
 
   // "Is not" on a fixed list is the rest of the list, which the server takes as a plain list.
   const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modbot', 'Import']
@@ -50,8 +52,29 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
     q: text?.values[0]?.trim() || undefined,
     from: when.from,
     to: when.to,
+    // A person chip carries the platform first and the id second (see `personChip`).
+    person: person?.values[1] || undefined,
+    personPlatform: person?.values[1] ? (person.values[0] as AuditRequest['personPlatform']) : undefined,
+    // "Everything" is a value a moderator can pick, and it narrows nothing.
+    show: show === 'moderation' || show === 'presence' || show === 'discord' ? show : undefined,
   }
 }
+
+/**
+ * The chip that pins the audit log to one person: every account the server can tie to this one.
+ *
+ * The platform travels with the id rather than being guessed from it, because an id's shape is
+ * never read (spec 3.1.1). The person popup's Activity tab pins it and never draws it.
+ */
+export function personChip(platform: 'VRChat' | 'Discord' | 'Modbot', id: string): FilterChip {
+  return { property: 'person', operator: 'is', values: [platform, id] }
+}
+
+/**
+ * Where a person's Activity tab starts: everything, with the Show chip already in the bar so the
+ * narrower views are one click away rather than behind the Filter menu.
+ */
+export const PERSON_ACTIVITY_START: FilterChip[] = [{ property: 'show', operator: 'is', values: ['everything'] }]
 
 /** The Audit log page at these chips, as an address a link can carry. */
 export function auditAddress(chips: FilterChip[]): string {

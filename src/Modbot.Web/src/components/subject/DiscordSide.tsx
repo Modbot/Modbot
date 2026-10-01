@@ -40,6 +40,15 @@ const HISTORY_TYPES = [
   'discord.member.timeout.remove',
   'discord.link.create',
   'discord.link.remove',
+  // A ban or a role Modbot carried over from VRChat lands on this account without anybody in
+  // Discord pressing anything, and without these the history shows a ban from nowhere. The failed
+  // copies are the operational log's, so they only show for those who may read it.
+  'modbot.copy.ban',
+  'modbot.copy.unban',
+  'modbot.copy.remove',
+  'modbot.copy.role.give',
+  'modbot.copy.role.take',
+  'modbot.copy.failed',
 ]
 
 /** Who they are in the server: picture, names and the marks. Somebody the bot never saw says so. */
@@ -122,7 +131,8 @@ function DiscordDetails({ member, timedOut }: { member: DiscordMember; timedOut:
 }
 
 /**
- * Coming, going, renames, roles, timeouts and links: this account's own history in the server.
+ * Coming, going, renames, roles, timeouts, bans, links and what Modbot copied over from VRChat:
+ * this account's own history in the server.
  *
  * @param children Drawn between the details and the history -- the activity charts, which need a
  *   different permission from this and so are handed in by the caller that checked it.
