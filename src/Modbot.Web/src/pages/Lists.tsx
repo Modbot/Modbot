@@ -186,6 +186,11 @@ function UseBadges({ use }: { use: SavedList['usedBy'] }) {
         </Badge>
       ))}
       {use.autoInvites && <Badge variant="secondary">Auto-invites</Badge>}
+      {(use.events ?? []).map((title, i) => (
+        <Badge key={`event:${i}`} variant="secondary">
+          Event: {title}
+        </Badge>
+      ))}
     </span>
   )
 }
@@ -229,7 +234,7 @@ function ListDialog({
     }
   }, [list.id, list.updatedAt, at.page, attempt])
 
-  const inUse = list.usedBy.giveaways.length > 0 || list.usedBy.autoInvites
+  const inUse = list.usedBy.giveaways.length > 0 || list.usedBy.autoInvites || (list.usedBy.events ?? []).length > 0
 
   return (
     <>

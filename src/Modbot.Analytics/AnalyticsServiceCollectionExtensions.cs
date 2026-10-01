@@ -48,6 +48,10 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<Giveaways.GiveawayScheduler>();
         services.AddHostedService<Giveaways.GiveawayService>();
 
+        // An event's invites: shared by the calendar's VRChat loop, which sends VRChat invites, and
+        // its Discord loop, which sends the direct messages (calendar auto-invite design).
+        services.AddScoped<Calendar.CalendarInvites>();
+
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
         services.AddScoped<PurgePreviewer>();

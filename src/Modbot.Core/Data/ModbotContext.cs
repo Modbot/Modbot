@@ -291,6 +291,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>One row per occurrence whose instance Modbot tried to open (calendar design §4).</summary>
     public DbSet<CalendarOpening> CalendarOpenings => Set<CalendarOpening>();
 
+    /// <summary>The people each opened occurrence invites, in order (calendar auto-invite design).</summary>
+    public DbSet<CalendarInvite> CalendarInvites => Set<CalendarInvite>();
+
+    /// <summary>Who Modbot has learned is a friend of its VRChat account, or not (calendar auto-invite design §3.1).</summary>
+    public DbSet<VRChatFriend> VRChatFriends => Set<VRChatFriend>();
+
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
@@ -2156,6 +2162,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatCloseInstanceAfterEndMinutes).HasColumnName("vrchat_close_instance_after_end_minutes");
             entity.Property(e => e.VRChatRoleIds).HasColumnType("jsonb").HasColumnName("vrchat_role_ids");
             entity.Property(e => e.VRChatUsesInstanceOverflow).HasColumnName("vrchat_uses_instance_overflow");
+            entity.Property(e => e.InviteStaffUserIds).HasColumnType("jsonb");
+            entity.Property(e => e.AnnounceFirstJoinInVRChat).HasColumnName("announce_first_join_in_vrchat");
 
             // The scheduler's question every pass: which events are still live.
             entity.HasIndex(e => e.State).HasDatabaseName("ix_calendar_event_state");
@@ -2316,6 +2324,47 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.Property(e => e.Location).HasColumnType("text");
             entity.Property(e => e.Error).HasMaxLength(1024);
+            entity.Property(e => e.FirstJoinDiscordPostError).HasMaxLength(1024);
+            entity.Property(e => e.FirstJoinVRChatPostedAt).HasColumnName("first_join_vrchat_posted_at");
+            entity.Property(e => e.FirstJoinVRChatPostError).HasMaxLength(1024).HasColumnName("first_join_vrchat_post_error");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<VRChatFriend>(entity =>
+        {
+            entity.ToTable("vrchat_friend");
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.LearnedFrom).HasMaxLength(16);
+        });
+
+        builder.Entity<CalendarInvite>(entity =>
+        {
+            entity.ToTable("calendar_invite");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Role).HasMaxLength(16);
+            entity.Property(e => e.PersonKey).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.Problem).HasMaxLength(1024);
+
+            // One row per person per occurrence: the promise that nobody is invited twice.
+            entity.HasIndex(e => new { e.EventId, e.OccurrenceStartsAt, e.PersonKey })
+                .IsUnique()
+                .HasDatabaseName("ux_calendar_invite_person");
+
+            // The senders' question every pass: what is still to send.
+            entity.HasIndex(e => e.State).HasDatabaseName("ix_calendar_invite_state");
+
+            // A purge's question.
+            entity.HasIndex(e => e.VRChatUserId).HasDatabaseName("ix_calendar_invite_vrchat_user_id");
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_calendar_invite_discord_user_id");
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

@@ -62,13 +62,15 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// Rows in a past draw's frozen entrant list whose name and ids were erased, keeping the place and
 /// the weight (giveaways design §6.3).
 /// </param>
+/// <param name="EventInvitesDeleted">Rows on events' invite queues (calendar auto-invite design §8).</param>
 public sealed record PurgeResult(
     int FactsDeleted,
     int CountedDailyTotalsDeleted,
     int DaysRecomputed,
     int MessagesDeleted = 0,
     int GiveawayEntriesDeleted = 0,
-    int GiveawayEntrantsBlanked = 0);
+    int GiveawayEntrantsBlanked = 0,
+    int EventInvitesDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -222,21 +224,36 @@ public sealed class UserPurger : IUserPurger
 
             var (entriesDeleted, entrantsBlanked) = await ErasedFromGiveawaysAsync(platform, subjectId, ct);
 
+            // An event's invite queue names the person by id (calendar auto-invite design §8). Their
+            // row goes; the event's "Invited N of M" counts one fewer, which is what erasing them means.
+            var invitesDeleted = await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM calendar_invite WHERE discord_user_id = @subject"
+                    : "DELETE FROM calendar_invite WHERE vrchat_user_id = @subject",
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
+            // And whether they are a friend of the group's VRChat account, which names them too.
+            if (platform == FactPlatform.VRChat)
+            {
+                await ExecuteAsync(
+                    "DELETE FROM vrchat_friend WHERE user_id = @subject",
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+            }
+
             if (days.Count > 0)
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
-            await RecordAsync(
-                platform,
-                actor,
-                new PurgeResult(
-                    factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked),
-                ct);
+            var result = new PurgeResult(
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted);
+
+            await RecordAsync(platform, actor, result, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
-            return new PurgeResult(
-                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked);
+            return result;
         }
         finally
         {
@@ -355,6 +372,7 @@ public sealed class UserPurger : IUserPurger
             ["messages"] = result.MessagesDeleted,
             ["giveawayEntries"] = result.GiveawayEntriesDeleted,
             ["giveawayPlaces"] = result.GiveawayEntrantsBlanked,
+            ["eventInvites"] = result.EventInvitesDeleted,
         };
 
         if (actor is not null)

@@ -60,6 +60,8 @@ public static class AuditVisibility
         // way it reads a kick.
         [FactType.GroupAutoInvited] = AuditCategory.Moderation,
         [FactType.GroupAutoInviteFailed] = AuditCategory.Moderation,
+        [FactType.PlannedEventInviteSent] = AuditCategory.Moderation,
+        [FactType.PlannedEventInviteFailed] = AuditCategory.Moderation,
         [FactType.GroupInfoChanged] = AuditCategory.Moderation,
 
         // The group's page changed from Modbot, beside VRChat's own record of the same change:

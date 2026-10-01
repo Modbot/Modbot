@@ -109,9 +109,26 @@ public sealed class FakeGroups
     /// <summary>What <c>CreateGroupInvite</c> answers with. 403 is VRChat refusing one.</summary>
     public HttpStatusCode InviteStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>Every group post VRChat was asked to make, in order.</summary>
+    public List<CreateGroupPostRequest> Posts { get; } = [];
+
+    /// <summary>What <c>AddGroupPost</c> answers with.</summary>
+    public HttpStatusCode PostStatus { get; set; } = HttpStatusCode.OK;
+
     public IGroupsApi Build()
     {
         var groups = Substitute.For<IGroupsApi>();
+
+        groups
+            .AddGroupPostWithHttpInfoAsync(
+                Arg.Any<string>(), Arg.Any<CreateGroupPostRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Posts.Add(call.ArgAt<CreateGroupPostRequest>(1));
+
+                return Task.FromResult(new ApiResponse<GroupPost>(
+                    PostStatus, new Multimap<string, string>(), null!, PostStatus == HttpStatusCode.OK ? "{}" : "{\"error\":{\"message\":\"no\"}}"));
+            });
 
         groups
             .CreateGroupInviteWithHttpInfoAsync(

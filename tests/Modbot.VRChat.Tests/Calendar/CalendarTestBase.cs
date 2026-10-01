@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Calendar;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Giveaways;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Calendar;
+using Modbot.VRChat.Session;
 using Modbot.VRChat.Tests.Sync;
 
 namespace Modbot.VRChat.Tests.Calendar;
@@ -46,6 +49,91 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
     {
         await using var context = Database.NewContext();
         return await new CalendarOpener(Gate, context, new PlaceStore(context, Clock), Clock, Facts(context)).RunOnceAsync(Ct);
+    }
+
+    /// <summary>The friends ids a sign-in brought, shared across passes the way the app shares it.</summary>
+    protected SignInFriends SignInFriends { get; } = new();
+
+    /// <summary>One pass of the invite loop, in its own scope, the way the hosted service runs it.</summary>
+    protected async Task<CalendarInviterResult> InviteAsync()
+    {
+        await using var context = Database.NewContext();
+        return await new CalendarInviter(
+            Gate,
+            context,
+            Clock,
+            new GiveawayRuleChecker(context, Clock),
+            Invites(context),
+            SignInFriends).RunOnceAsync(Ct);
+    }
+
+    /// <summary>One pass of the VRChat group post for the first person, in its own scope.</summary>
+    protected async Task<int> PostFirstJoinAsync()
+    {
+        await using var context = Database.NewContext();
+        return await new CalendarFirstJoinVRChatPost(Gate, context, Clock).RunOnceAsync(Ct);
+    }
+
+    protected CalendarInvites Invites(ModbotContext context) =>
+        new(context, new FactWriter(context, Clock), new EventPartitionMaintainer(context, Clock));
+
+    /// <summary>The invite rows for an event, in the order they are sent.</summary>
+    protected async Task<List<CalendarInvite>> InviteRowsAsync(Guid eventId)
+    {
+        await using var context = Database.NewContext();
+        return await context.CalendarInvites.AsNoTracking()
+            .Where(i => i.EventId == eventId)
+            .OrderBy(i => i.Position)
+            .ToListAsync(Ct);
+    }
+
+    /// <summary>A staff account with the accounts it linked.</summary>
+    protected async Task<ModbotUser> AddStaffAsync(string name, string? vrchatUserId = null, string? discordUserId = null)
+    {
+        var user = new ModbotUser
+        {
+            Username = name,
+            UsernameNormalized = name.ToUpperInvariant(),
+            PasswordHash = "x",
+            VRChatUserId = vrchatUserId,
+            DiscordUserId = discordUserId,
+            DiscordVerifiedAt = discordUserId is null ? null : Clock.UtcNow,
+            CreatedAt = Clock.UtcNow,
+        };
+
+        await using var context = Database.NewContext();
+        context.Users.Add(user);
+        await context.SaveChangesAsync(Ct);
+        return user;
+    }
+
+    /// <summary>A saved list everybody in the group is on: no rules.</summary>
+    protected async Task<SavedList> AddEverybodyListAsync(params string[] groupMembers)
+    {
+        await using var context = Database.NewContext();
+
+        foreach (var id in groupMembers)
+        {
+            context.GroupMembers.Add(new Core.Data.Entities.GroupMember
+            {
+                GroupId = GroupId,
+                UserId = id,
+                FirstSeenAt = Clock.UtcNow,
+                LastSeenAt = Clock.UtcNow,
+            });
+        }
+
+        var list = new SavedList
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "Everybody",
+            CreatedAt = Clock.UtcNow,
+            UpdatedAt = Clock.UtcNow,
+        };
+
+        context.SavedLists.Add(list);
+        await context.SaveChangesAsync(Ct);
+        return list;
     }
 
     protected async Task<int> ScheduleAsync()

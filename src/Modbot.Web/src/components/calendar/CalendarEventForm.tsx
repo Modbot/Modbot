@@ -19,6 +19,7 @@ import {
   PLATFORM_LABEL,
   type CalendarEvent,
   type CalendarEventInput,
+  type CalendarInviteChoices,
   type CalendarRepeat,
   type CalendarWorld,
 } from '@/lib/calendar'
@@ -79,6 +80,7 @@ export function CalendarEventForm({
 }) {
   const [input, setInput] = useState<CalendarEventInput>(() => initial ?? (event ? inputFrom(event) : blankEvent(new Date())))
   const [worlds, setWorlds] = useState<CalendarWorld[]>([])
+  const [choices, setChoices] = useState<CalendarInviteChoices>({ staff: [], lists: null })
   const [typedWorld, setTypedWorld] = useState(false)
   const [lists, setLists] = useState<WorldList[]>([])
   const [pickingList, setPickingList] = useState(false)
@@ -105,6 +107,10 @@ export function CalendarEventForm({
       .all()
       .then((answer) => setLists(answer.lists))
       .catch(() => setLists([]))
+    calendarApi
+      .inviteChoices()
+      .then(setChoices)
+      .catch(() => setChoices({ staff: [], lists: null }))
   }, [])
 
   const zones = useMemo(() => {
@@ -137,6 +143,8 @@ export function CalendarEventForm({
     languages: splitList(languages),
     tags: splitList(tags),
     draft,
+    // Off with the channel post it needs, rather than a refusal for a box that cannot be ticked.
+    announceFirstJoinInDiscord: input.announceFirstJoinInDiscord && input.postToChannel && input.channelId !== null,
   })
 
   // "Pick from a list" with no list chosen would save as an event with no world at all.
@@ -451,6 +459,7 @@ export function CalendarEventForm({
                         onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
                       />
                     </Labelled>
+                    <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={set} />
                   </Section>
                 )}
               </div>
@@ -480,6 +489,92 @@ function Counted({
       </span>
       {children}
     </label>
+  )
+}
+
+/**
+ * Who the event invites when its instance opens, and the post when the first person is in
+ * (calendar auto-invite design §10). Shown only with "Open the instance automatically".
+ */
+function InviteFields({
+  input,
+  choices,
+  listName,
+  set,
+}: {
+  input: CalendarEventInput
+  choices: CalendarInviteChoices
+  /** The list already on the event, named even for somebody who may not pick lists. */
+  listName: string | null
+  set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
+}) {
+  const toggleStaff = (id: string) =>
+    set(
+      'inviteStaffUserIds',
+      input.inviteStaffUserIds.includes(id)
+        ? input.inviteStaffUserIds.filter((s) => s !== id)
+        : [...input.inviteStaffUserIds, id],
+    )
+
+  const canAnnounce = input.postToChannel && input.channelId !== null
+  const lists = choices.lists
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Labelled label="Host">
+          <Select value={input.inviteHostUserId ?? ''} onChange={(v) => set('inviteHostUserId', v || null)} aria-label="Host">
+            <option value="">None</option>
+            {choices.staff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </Labelled>
+        <Labelled label="Invite list">
+          <Select
+            value={input.inviteListId ?? ''}
+            onChange={(v) => set('inviteListId', v || null)}
+            aria-label="Invite list"
+            disabled={lists === null}
+          >
+            <option value="">None</option>
+            {lists === null
+              ? input.inviteListId && <option value={input.inviteListId}>{listName ?? input.inviteListId}</option>
+              : lists.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+          </Select>
+        </Labelled>
+      </div>
+
+      {choices.staff.length > 0 && (
+        <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="text-muted-foreground">Staff</span>
+          <div className="flex flex-wrap gap-3">
+            {choices.staff.map((s) => (
+              <Checkbox key={s.id} checked={input.inviteStaffUserIds.includes(s.id)} onChange={() => toggleStaff(s.id)}>
+                {s.name}
+              </Checkbox>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Checkbox
+        checked={input.announceFirstJoinInDiscord && canAnnounce}
+        disabled={!canAnnounce}
+        onChange={(v) => set('announceFirstJoinInDiscord', v)}
+      >
+        Announce in Discord when the first person joins
+      </Checkbox>
+      <Checkbox checked={input.announceFirstJoinInVRChat} onChange={(v) => set('announceFirstJoinInVRChat', v)}>
+        Announce in VRChat when the first person joins
+      </Checkbox>
+    </>
   )
 }
 

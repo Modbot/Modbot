@@ -390,6 +390,29 @@ public static class VRChatEndpointClass
     public const string GroupsGalleryWrite = "groups.gallery.write";
 
     /// <summary>
+    /// Inviting one person to an instance -- <c>POST /invite/{userId}</c>. Used by the calendar to
+    /// invite an event's host, staff and list once Modbot has opened its instance (calendar
+    /// auto-invite design §4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One request every thirty seconds.</strong> Decided by the user on 2026-10-01, in
+    /// answer to spec 4.3.4's standing question; not a number read off <see cref="GroupsInvites"/>,
+    /// which is a different endpoint that happens to share it.
+    /// </para>
+    /// <para>
+    /// Its own lane and class, so a 429 here stops event invites and nothing else -- not group
+    /// invites, not instance opening. Counted against <see cref="Global"/>: a timer sends these
+    /// and nobody is waiting on one. Never retried on a 429 (spec 4.3.1).
+    /// </para>
+    /// <para>
+    /// VRChat only lets an account invite its friends, and answers 403 otherwise. Modbot does not
+    /// read the friends list to know in advance; that would be another new endpoint.
+    /// </para>
+    /// </remarks>
+    public const string InvitesSend = "invites.send";
+
+    /// <summary>
     /// A request forwarded to VRChat as it was written, on the service account's session --
     /// <c>/api/proxy/vrchat/…</c> (VRChat proxy design). Any endpoint, any method.
     /// </summary>

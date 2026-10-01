@@ -29,6 +29,10 @@ export type CalendarOpening = {
   joinLink: string | null
   closed: boolean
   error: string | null
+  /** What Discord said when the post for the first person was refused. */
+  firstJoinDiscordPostError?: string | null
+  /** What VRChat said when the group post for the first person was refused. */
+  firstJoinVRChatPostError?: string | null
 }
 
 /** One date of an event (calendar design §2.2). */
@@ -53,6 +57,28 @@ export type CalendarDateInput = {
   title: string | null
   description: string | null
 }
+/** How far the current time's invites have got (calendar auto-invite design §10). */
+export type CalendarInvites = {
+  /** The M in "Invited N of M": everybody on the queue who was not skipped. */
+  total: number
+  /** The N: VRChat invites and Discord messages that went out. */
+  invited: number
+  vrChat: number
+  discord: number
+  couldNotReach: number
+  noWay: number
+  waiting: number
+  stopped: number
+  skipped: number
+}
+
+export type CalendarStaffChoice = { id: string; name: string; hasVRChat: boolean; hasDiscord: boolean }
+
+export type CalendarListChoice = { id: string; name: string }
+
+/** Who an event can invite. `lists` is null without See members and See profiles. */
+export type CalendarInviteChoices = { staff: CalendarStaffChoice[]; lists: CalendarListChoice[] | null }
+
 
 export type CalendarEvent = {
   id: string
@@ -105,6 +131,15 @@ export type CalendarEvent = {
   worldListEmpty?: boolean
   /** Dates of a repeating event cancelled on their own, at their planned times. */
   cancelledDates?: CalendarOccurrence[] | null
+  inviteHostUserId?: string | null
+  inviteStaffUserIds?: string[] | null
+  inviteListId?: string | null
+  /** Null when it has no list, or the list is gone. */
+  inviteListName?: string | null
+  announceFirstJoinInDiscord?: boolean
+  announceFirstJoinInVRChat?: boolean
+  /** Null before any invites were queued for the current time. */
+  invites?: CalendarInvites | null
 }
 
 /**
@@ -276,6 +311,11 @@ export type CalendarEventInput = {
   draft: boolean
   /** Pick the world from this world list, date by date, instead of `worldId`. */
   worldListId?: string | null
+  inviteHostUserId: string | null
+  inviteStaffUserIds: string[]
+  inviteListId: string | null
+  announceFirstJoinInDiscord: boolean
+  announceFirstJoinInVRChat: boolean
 }
 
 const base = '/api/calendar'
@@ -328,6 +368,7 @@ export const calendarApi = {
       `${base}/vrchat-picture${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`,
       { method: 'POST', body: picture, headers: { 'content-type': picture.type || 'application/octet-stream' } },
     ),
+  inviteChoices: () => http.request<CalendarInviteChoices>(`${base}/invite-choices`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   /** What the time of an event that started at `at` did. */
   results: (id: string, at: Date) =>
@@ -453,6 +494,11 @@ export function blankEvent(now: Date): CalendarEventInput {
     autoOpen: false,
     openMinutesBefore: 10,
     draft: false,
+    inviteHostUserId: null,
+    inviteStaffUserIds: [],
+    inviteListId: null,
+    announceFirstJoinInDiscord: false,
+    announceFirstJoinInVRChat: false,
   }
 }
 
@@ -491,5 +537,10 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     openMinutesBefore: event.openMinutesBefore,
     draft: event.state === 'draft',
     worldListId: event.worldListId ?? null,
+    inviteHostUserId: event.inviteHostUserId ?? null,
+    inviteStaffUserIds: event.inviteStaffUserIds ?? [],
+    inviteListId: event.inviteListId ?? null,
+    announceFirstJoinInDiscord: event.announceFirstJoinInDiscord ?? false,
+    announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
   }
 }

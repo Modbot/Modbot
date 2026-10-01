@@ -49,6 +49,14 @@ public static class CalendarEventFields
             ["channelId"] = e.ChannelId,
             ["autoOpen"] = e.AutoOpen,
             ["openMinutesBefore"] = e.OpenMinutesBefore,
+
+            // Staff account and list ids, never a member's: who an event invites is the organiser's
+            // choice of accounts and lists, and the people on a list are worked out later.
+            ["inviteHost"] = e.InviteHostUserId?.ToString(),
+            ["inviteStaff"] = string.Join(",", e.InviteStaffUserIds),
+            ["inviteList"] = e.InviteListId?.ToString(),
+            ["announceFirstJoinInDiscord"] = e.AnnounceFirstJoinInDiscord,
+            ["announceFirstJoinInVRChat"] = e.AnnounceFirstJoinInVRChat,
         };
     }
 }

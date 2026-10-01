@@ -74,8 +74,10 @@ public sealed class FakeVRChat
         var instances = Instances.Build();
         var worlds = Worlds.Build();
         var calendar = Calendar.Build();
+        var invites = Invites.Build();
 
         Client = Substitute.For<IVRChat>();
+        Client.Invites.Returns(invites);
         Client.Authentication.Returns(authentication);
         Client.Groups.Returns(groups);
         Client.Users.Returns(users);
@@ -101,6 +103,9 @@ public sealed class FakeVRChat
 
     /// <summary>The group calendar's writes.</summary>
     public FakeCalendar Calendar { get; } = new();
+
+    /// <summary>Invites to an instance: friends accepted, everybody else refused with a 403.</summary>
+    public FakeInvites Invites { get; } = new();
 
     /// <summary>When set, every GetCurrentUser fails with this instead of answering.</summary>
     public Exception? ThrowOnGetCurrentUser { get; set; }

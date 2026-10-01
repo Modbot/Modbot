@@ -425,6 +425,11 @@ Shown while the **Open the instance** chip is on. It needs a world, or a world l
 | Field | Notes |
 |---|---|
 | **Minutes early** | How long before the start the instance opens: 0 to 120. The default is 10. |
+| **Host** | A staff account Modbot invites first once the instance is open. See [Inviting people](#inviting-people). |
+| **Invite list** | A [saved list](/moderation/lists) whose people Modbot invites last. Picking one needs **See members** and **See profiles**. |
+| **Staff** | Staff accounts Modbot invites after the host. |
+| **Announce in Discord when the first person joins** | Posts once in the **Channel** when the first person is in the instance. Can only be ticked with **Post to channel** and a channel. |
+| **Announce in VRChat when the first person joins** | Posts once in your VRChat group's posts when the first person is in the instance. |
 
 When the instance opens early, the event counts as **Open** from that moment, not from the start
 time.
@@ -655,6 +660,62 @@ attempt. If you need the instance now, open it yourself in VRChat.
 
 Modbot opens at most one instance every 5 seconds, which is well within what an event needs.
 
+## Inviting people
+
+Once Modbot has opened an event's instance, it can invite people to it, in this order:
+
+1. the **Host**;
+2. the **Staff**;
+3. the people on the **Invite list**, as the list holds them at the moment the instance opens.
+
+Not every group member: only who you picked. Somebody who is host, staff and on the list is invited
+once.
+
+**What is sent, and from where.** Everything is sent from your group's own accounts:
+
+- a **VRChat invite** to the instance, from your group's Modbot VRChat account (the one under
+  **Settings → VRChat**). VRChat only lets an account invite its **friends**, so somebody who is not a
+  friend of that account cannot get one;
+- otherwise, a **Discord direct message** from your server's Modbot bot, to people whose Discord
+  account Modbot knows (linked to their VRChat account, or proven on their staff account). It holds
+  the event's title and a **Join** button, nothing else.
+
+Somebody with neither counts as **No way to reach**. Somebody whose direct messages are closed counts
+as **Couldn't reach**, and is not asked again.
+
+**Who is left out:** people banned from the group or from the Discord server, and people a moderator's
+client already sees in the instance.
+
+**Who is a friend.** VRChat does not give Modbot the whole friends list, so Modbot remembers what it
+learns: an invite VRChat accepts means a friend, a refused one means not, and the friends VRChat lists
+when Modbot signs in count as friends. Somebody Modbot knows is not a friend gets the Discord message
+straight away; after a week, Modbot tries a VRChat invite once more in case they added the account.
+Somebody Modbot knows nothing about gets one VRChat invite first.
+
+**How fast.** One VRChat invite every 30 seconds, and a direct message every few seconds. Sending stops
+when the instance closes or the event ends, so a long list may not get through in time. If VRChat asks
+Modbot to slow down, Modbot does not ask again for that person: it sends the direct message instead,
+and waits before the next VRChat invite.
+
+**Nobody is invited twice.** Modbot notes each person before it sends, so a restart picks up where it
+stopped and never sends the same invite again.
+
+The event shows **Invited N of M**, and under it how many by **VRChat invite**, by **Discord
+message**, **Couldn't reach** and **No way to reach**.
+
+### Announce when the first person joins
+
+As soon as VRChat counts somebody in the instance, Modbot posts once each time the event happens:
+
+- with **Announce in Discord when the first person joins**, in the event's **Channel**: the event's
+  title and a **Join** button, from your server's Modbot bot;
+- with **Announce in VRChat when the first person joins**, in your VRChat group's posts, from your
+  group's Modbot VRChat account: the event's title, *… has started.* and the join link. It is visible
+  to the group, and VRChat does **not** notify members about it.
+
+If Discord or VRChat refuses, the event shows what it said under **Instance**, and Modbot does not try
+again for that time.
+
 ## The calendar feed
 
 The calendar feed is a link people add to their own calendar app (Google Calendar, Outlook, Apple
@@ -854,6 +915,14 @@ entries (you need **See the operational log** to see them):
 | **Event picture uploaded to VRChat** | Someone uploaded a VRChat picture. Names the event when it was already saved; for a new event, the event's own **Event planned** entry carries the same picture. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 | **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
+
+Each invite is recorded too, about the person who was invited, with the moderation entries (you need
+**See the audit log**):
+
+| Entry | When |
+|---|---|
+| **Invited to an event** | Modbot sent a VRChat invite or a Discord message. |
+| **Event invite failed** | Neither got through. Shows what VRChat or Discord said. |
 
 For events read from VRChat, the entries say so instead of naming a person: *Modbot added the event
 “…” from VRChat's calendar*, *The event “…” was changed on VRChat: …* and *The event “…” was

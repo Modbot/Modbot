@@ -12,10 +12,10 @@ namespace Modbot.VRChat.Calendar;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two loops rather than one. A calendar write waits up to a minute for its turn in the gate, and
+/// Three loops rather than one. A calendar write waits up to a minute for its turn in the gate, and
 /// an instance due to open must not wait behind it; moving events along asks VRChat nothing and
-/// must not wait behind either. So the scheduler and the opener share one loop, in that order, and
-/// the calendar writes have their own.
+/// must not wait behind either. So the scheduler and the opener share one loop, in that order, the
+/// calendar writes have their own, and so do the invites to an opened instance.
 /// </para>
 /// <para>
 /// Fifteen seconds between passes. Time here comes from <c>IModbotClock</c> inside each pass; the
@@ -42,7 +42,17 @@ public sealed class CalendarService : BackgroundService
     protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
         Task.WhenAll(
             LoopAsync("calendar schedule", RunScheduleAsync, stoppingToken),
-            LoopAsync("VRChat calendar publish", RunPublishAsync, stoppingToken));
+            LoopAsync("VRChat calendar publish", RunPublishAsync, stoppingToken),
+            LoopAsync("calendar invites", RunInvitesAsync, stoppingToken));
+
+    // Its own loop: working out a long list, or waiting for an invite's turn, must never hold up an
+    // instance that is due to open (calendar auto-invite design §4).
+    // The group post for the first person shares it: both follow an instance Modbot has opened.
+    private static async Task RunInvitesAsync(IServiceProvider scope, CancellationToken ct)
+    {
+        await scope.GetRequiredService<CalendarInviter>().RunOnceAsync(ct).ConfigureAwait(false);
+        await scope.GetRequiredService<CalendarFirstJoinVRChatPost>().RunOnceAsync(ct).ConfigureAwait(false);
+    }
 
     private static async Task RunScheduleAsync(IServiceProvider scope, CancellationToken ct)
     {

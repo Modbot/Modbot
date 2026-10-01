@@ -17,6 +17,14 @@ namespace Modbot.Api.Features.Calendar;
 /// <param name="WorldListId">
 /// Pick the world from this world list, date by date, instead of <paramref name="WorldId"/>.
 /// </param>
+/// <param name="InviteHostUserId">The staff account invited first when the instance opens.</param>
+/// <param name="InviteStaffUserIds">The staff accounts invited after the host.</param>
+/// <param name="InviteListId">
+/// The saved list whose people are invited last. Picking or changing it needs See members and See
+/// profiles.
+/// </param>
+/// <param name="AnnounceFirstJoinInDiscord">Post once in the channel post's channel when the first person is in the instance.</param>
+/// <param name="AnnounceFirstJoinInVRChat">Post once in the VRChat group's posts when the first person is in the instance.</param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -44,7 +52,38 @@ public sealed record CalendarEventRequest(
     bool AutoOpen,
     int? OpenMinutesBefore,
     bool Draft,
-    Guid? WorldListId = null);
+    Guid? WorldListId = null,
+    Guid? InviteHostUserId = null,
+    IReadOnlyList<Guid>? InviteStaffUserIds = null,
+    Guid? InviteListId = null,
+    bool AnnounceFirstJoinInDiscord = false,
+    bool AnnounceFirstJoinInVRChat = false);
+
+/// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
+/// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
+/// <param name="Invited">VRChat invites and Discord messages that went out: the N.</param>
+/// <param name="Skipped">Banned, or already in the instance. Not in <paramref name="Total"/>.</param>
+public sealed record CalendarInvitesView(
+    int Total,
+    int Invited,
+    int VRChat,
+    int Discord,
+    int CouldNotReach,
+    int NoWay,
+    int Waiting,
+    int Stopped,
+    int Skipped);
+
+/// <summary>A staff account an event can invite.</summary>
+public sealed record CalendarStaffChoice(Guid Id, string Name, bool HasVRChat, bool HasDiscord);
+
+/// <summary>A saved list an event can invite.</summary>
+public sealed record CalendarListChoice(Guid Id, string Name);
+
+/// <param name="Lists">Null without See members and See profiles: picking a list needs both.</param>
+public sealed record CalendarInviteChoicesView(
+    IReadOnlyList<CalendarStaffChoice> Staff,
+    IReadOnlyList<CalendarListChoice>? Lists);
 
 /// <summary>One place an event is published, and how that went.</summary>
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c> or <c>channelPost</c>.</param>
@@ -67,13 +106,17 @@ public sealed record CalendarPlaceView(
 
 /// <summary>The instance Modbot opened, or tried to, for the current occurrence.</summary>
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>
+/// <param name="FirstJoinDiscordPostError">What Discord said when the post for the first person was refused.</param>
+/// <param name="FirstJoinVRChatPostError">What VRChat said when the group post for the first person was refused.</param>
 public sealed record CalendarOpeningView(
     DateTimeOffset OccurrenceStartsAt,
     DateTimeOffset AttemptedAt,
     Guid? InstanceId,
     string? JoinLink,
     bool Closed,
-    string? Error);
+    string? Error,
+    string? FirstJoinDiscordPostError = null,
+    string? FirstJoinVRChatPostError = null);
 
 /// <summary>One date of an event.</summary>
 /// <param name="PlannedStartsAt">
@@ -123,6 +166,8 @@ public sealed record CalendarVRChatPictureView(string FileId);
 /// <param name="WorldListName">That list's name.</param>
 /// <param name="WorldListEmpty">The list has no worlds, so there is nothing to pick from.</param>
 /// <param name="CancelledDates">Dates of a repeating event cancelled on their own, inside the range asked for, at their planned times.</param>
+/// <param name="InviteListName">The invite list's name, or null when it has none or the list is gone.</param>
+/// <param name="Invites">How far the current time's invites have got; null before any were queued.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -168,7 +213,14 @@ public sealed record CalendarEventView(
     Guid? WorldListId = null,
     string? WorldListName = null,
     bool WorldListEmpty = false,
-    IReadOnlyList<CalendarOccurrenceView>? CancelledDates = null);
+    IReadOnlyList<CalendarOccurrenceView>? CancelledDates = null,
+    Guid? InviteHostUserId = null,
+    IReadOnlyList<Guid>? InviteStaffUserIds = null,
+    Guid? InviteListId = null,
+    string? InviteListName = null,
+    bool AnnounceFirstJoinInDiscord = false,
+    CalendarInvitesView? Invites = null,
+    bool AnnounceFirstJoinInVRChat = false);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

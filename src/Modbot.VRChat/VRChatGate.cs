@@ -98,6 +98,9 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     /// <summary>For tests: what to send over instead of a real connection. Never set in production.</summary>
     private readonly Func<HttpMessageHandler>? _handlerWithoutCookies;
 
+    /// <summary>Where the friends ids that come with a sign-in are kept, when anything wants them.</summary>
+    private readonly Session.SignInFriends? _signInFriends;
+
     /// <summary>Separate from the session lock, so a health read never waits behind a sign-in.</summary>
     private readonly SemaphoreSlim _loading = new(1, 1);
 
@@ -139,7 +142,8 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         RateLimitOptions? rateLimits = null,
         Uri? apiHost = null,
         VRChatClientOptions? clientOptions = null,
-        Func<HttpMessageHandler>? handlerWithoutCookies = null)
+        Func<HttpMessageHandler>? handlerWithoutCookies = null,
+        Session.SignInFriends? signInFriends = null)
     {
         ArgumentNullException.ThrowIfNull(clients);
         ArgumentNullException.ThrowIfNull(connections);
@@ -156,6 +160,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         _signInLimit = (rateLimits ?? new RateLimitOptions()).SignInsPerHour;
         _apiHost = apiHost ?? DefaultApiHost;
         _handlerWithoutCookies = handlerWithoutCookies;
+        _signInFriends = signInFriends;
 
         var options = clientOptions ?? new VRChatClientOptions();
         _passthroughUserAgent = $"{options.ApplicationName}/{options.ApplicationVersion} {options.DeveloperContactEmail}";
@@ -1290,6 +1295,10 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         var signedInAt = _clock.UtcNow;
         await _signIns.RecordSignedInAsync(signedInAt, ct).ConfigureAwait(false);
         _lastSignedInAt = signedInAt;
+
+        // The account's friends ids came with it; kept for the calendar's invites rather than
+        // thrown away. No request of its own (calendar auto-invite design §3.1).
+        _signInFriends?.Remember(user.Friends, signedInAt);
 
         var waited = _wait is not null;
         await EndWaitAsync(ct).ConfigureAwait(false);

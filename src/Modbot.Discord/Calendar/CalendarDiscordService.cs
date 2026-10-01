@@ -49,6 +49,12 @@ public sealed class CalendarDiscordService : BackgroundService
                     using var scope = _scopes.CreateScope();
                     var publisher = scope.ServiceProvider.GetRequiredService<CalendarDiscordPublisher>();
                     await publisher.RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
+
+                    // After the publisher, so the join link is on the event's own post first.
+                    await scope.ServiceProvider.GetRequiredService<CalendarFirstJoinPost>()
+                        .RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
+                    await scope.ServiceProvider.GetRequiredService<CalendarInviteMessages>()
+                        .RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

@@ -63,6 +63,8 @@ public static class DiscordServiceCollectionExtensions
 
         // The calendar's server events and channel posts (calendar design §9). Its own loop too.
         services.AddScoped<Calendar.CalendarDiscordPublisher>();
+        services.AddScoped<Calendar.CalendarFirstJoinPost>();
+        services.AddScoped<Calendar.CalendarInviteMessages>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 
         // The event form's preview of the Discord event and the channel post, from the same

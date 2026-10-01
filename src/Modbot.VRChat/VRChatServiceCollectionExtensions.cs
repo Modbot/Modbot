@@ -68,6 +68,9 @@ public static class VRChatServiceCollectionExtensions
         // cannot hand the hour's sign-ins back or cut a wait short.
         services.AddSingleton<IVRChatSignInStore, DatabaseSignInStore>();
 
+        // The friends ids a sign-in brings, kept for the calendar's invites (calendar auto-invite
+        // design §3.1). One per process, like the gate that fills it.
+        services.AddSingleton<SignInFriends>();
         services.AddSingleton<IVRChatGate>(provider => new VRChatGate(
             provider.GetRequiredService<IVRChatClientFactory>(),
             provider.GetRequiredService<IVRChatConnectionStore>(),
@@ -76,7 +79,8 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IMonotonicClock>(),
             signIns: provider.GetRequiredService<IVRChatSignInStore>(),
             rateLimits: rateLimits,
-            clientOptions: clientOptions));
+            clientOptions: clientOptions,
+            signInFriends: provider.GetRequiredService<SignInFriends>()));
 
         // The bytes behind a picture address, for anything that cannot follow a VRChat address
         // itself -- a Discord card sends them, because Discord fetches pictures signed in as
@@ -395,6 +399,17 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.PlaceStore>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<Calendar.CalendarFacts>()));
+        services.AddScoped<Calendar.CalendarInviter>(provider => new Calendar.CalendarInviter(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<Analytics.Giveaways.GiveawayRuleChecker>(),
+            provider.GetRequiredService<Analytics.Calendar.CalendarInvites>(),
+            provider.GetRequiredService<SignInFriends>()));
+        services.AddScoped<Calendar.CalendarFirstJoinVRChatPost>(provider => new Calendar.CalendarFirstJoinVRChatPost(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
         services.AddScoped<Calendar.CalendarVRChatPublisher>(provider => new Calendar.CalendarVRChatPublisher(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),

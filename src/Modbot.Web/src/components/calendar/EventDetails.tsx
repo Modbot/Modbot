@@ -17,6 +17,7 @@ import {
   worldAt,
   type CalendarEvent,
   type CalendarOccurrence,
+  type CalendarInvites,
 } from '@/lib/calendar'
 import { worldPickApi } from '@/lib/worldLists'
 import { sameDay } from '@/lib/calendarGrid'
@@ -154,8 +155,16 @@ function EventBody({
               Join
             </a>
           )}
+          {event.opening.firstJoinDiscordPostError && (
+            <div className="text-destructive">{event.opening.firstJoinDiscordPostError}</div>
+          )}
+          {event.opening.firstJoinVRChatPostError && (
+            <div className="text-destructive">{event.opening.firstJoinVRChatPostError}</div>
+          )}
         </div>
       )}
+
+      {event.invites && <InviteCounts invites={event.invites} />}
 
       {(event.places.length > 0 || missing.length > 0) && (
         <div className="flex flex-col gap-1">
@@ -283,6 +292,34 @@ function PlaceTryAgain({ event, onDone }: { event: CalendarEvent; onDone: () => 
       </Button>
       {problem && <span className="text-destructive">{problem}</span>}
     </>
+  )
+}
+
+/** "Invited N of M", and how: by VRChat invite, by Discord message, and who could not be reached. */
+function InviteCounts({ invites }: { invites: CalendarInvites }) {
+  const parts: [string, number][] = [
+    ['VRChat invite', invites.vrChat],
+    ['Discord message', invites.discord],
+    ["Couldn't reach", invites.couldNotReach],
+    ['No way to reach', invites.noWay],
+  ]
+
+  return (
+    <div>
+      <span className="text-muted-foreground">Invites </span>
+      <span>
+        Invited {invites.invited} of {invites.total}
+      </span>
+      <div className="flex flex-wrap gap-x-3 text-muted-foreground">
+        {parts
+          .filter(([, count]) => count > 0)
+          .map(([label, count]) => (
+            <span key={label}>
+              {label} <span className="font-mono text-foreground">{count}</span>
+            </span>
+          ))}
+      </div>
+    </div>
   )
 }
 

@@ -1376,6 +1376,24 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.calendar.invite.send': (p) =>
+    p.text('via') === 'discord' ? (
+      <>
+        Modbot sent {p.subject} a Discord message inviting them to the event<Quoted value={p.text('title')} />.
+      </>
+    ) : (
+      <>
+        Modbot invited {p.subject} to the event<Quoted value={p.text('title')} /> in VRChat.
+      </>
+    ),
+
+  'modbot.calendar.invite.fail': (p) => (
+    <>
+      Modbot could not invite {p.subject} to the event<Quoted value={p.text('title')} />
+      {p.text('problem') ? <>: {p.text('problem')}</> : null}.
+    </>
+  ),
+
   // `check`: a create that got no answer was not tried again, because Modbot could not read
   // VRChat's calendar to see whether the first try had made the event after all.
   'modbot.calendar.publish.fail': (p) =>
@@ -2246,6 +2264,11 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   channelId: 'the channel',
   autoOpen: { toggle: 'opening the instance' },
   openMinutesBefore: { word: 'how early the instance opens', show: (v) => (typeof v === 'number' ? lengthOfTime(v) : plain(v)) },
+  inviteHost: 'the host',
+  inviteStaff: 'the staff',
+  inviteList: 'the invite list',
+  announceFirstJoinInDiscord: { toggle: 'the Discord post when the first person joins' },
+  announceFirstJoinInVRChat: { toggle: 'the VRChat post when the first person joins' },
 }
 
 const GIVEAWAY_FIELDS: Record<string, Say> = {

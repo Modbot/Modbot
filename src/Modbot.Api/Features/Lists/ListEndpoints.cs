@@ -311,7 +311,9 @@ public static class ListEndpoints
             .RequiresFlag(ModbotPermissions.ManageLists)
             .WithName("DeleteList")
             .WithSummary("Delete list")
-            .WithDescription("Delete a list. Refused while a giveaway still being run, or auto-invites, names it.")
+            .WithDescription(
+                "Delete a list. Refused while a giveaway still being run, auto-invites, or an event still "
+                + "being run names it.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -462,7 +464,12 @@ public static class ListEndpoints
                 : $"The giveaways “{use.Giveaways[0]}” and {use.Giveaways.Count - 1} more use this list.";
         }
 
-        return "Auto-invites use this list.";
+        if (use.AutoInvites)
+            return "Auto-invites use this list.";
+
+        return use.Events.Count == 1
+            ? $"The event “{use.Events[0]}” invites this list."
+            : $"The events “{use.Events[0]}” and {use.Events.Count - 1} more invite this list.";
     }
 
     private static int Size(int? pageSize) => Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
@@ -524,7 +531,7 @@ public static class ListEndpoints
                 list.CreatedByUserId is { } by && names.TryGetValue(by, out var username) ? username : null,
                 list.CreatedAt,
                 list.UpdatedAt,
-                new ListUseView(use.Giveaways, use.AutoInvites));
+                new ListUseView(use.Giveaways, use.AutoInvites, use.Events));
         })];
     }
 

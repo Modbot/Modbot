@@ -593,6 +593,17 @@ public static class FactType
     /// <c>vrchatImageId</c>.
     /// </summary>
     public const string PlannedEventPictureUploaded = "modbot.calendar.picture.upload";
+    // Invites to an event's instance (calendar auto-invite design §8). The subject is the person --
+    // the VRChat id, else the Discord id -- so a purge erases them with everything else about that
+    // person. No actor: Modbot sent them on its own. Payload: the event's id and title, how
+    // (`via`: vrchat or discord), why they were on the list (`role`), and on a failure the words
+    // VRChat or Discord gave. Never a name.
+
+    /// <summary>A VRChat invite or a Discord direct message for an event went out.</summary>
+    public const string PlannedEventInviteSent = "modbot.calendar.invite.send";
+
+    /// <summary>Neither a VRChat invite nor a direct message got through.</summary>
+    public const string PlannedEventInviteFailed = "modbot.calendar.invite.fail";
 
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 

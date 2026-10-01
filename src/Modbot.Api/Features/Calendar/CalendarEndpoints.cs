@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Calendar;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.GroupPage;
 using Modbot.Api.Features.Users;
@@ -45,6 +46,12 @@ public static class CalendarEndpoints
     public const int MaxListItems = 20;
     public const int MaxListItemLength = 64;
     public const int MaxOpenMinutesBefore = 120;
+
+    /// <summary>The most staff accounts one event invites, besides the host.</summary>
+    public const int MaxInviteStaff = 20;
+
+    /// <summary>What picking an invite list needs: the Lists rule (lists design §6).</summary>
+    public const ModbotPermissions ToPickAList = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
 
     /// <summary>The longest one occurrence may last. Discord and VRChat both expect an evening, not a week.</summary>
     public static readonly TimeSpan MaxLength = TimeSpan.FromDays(7);
@@ -204,6 +211,9 @@ public static class CalendarEndpoints
                 if (Apply(body, calendarEvent) is { } problem)
                     return Results.BadRequest(new { error = problem });
 
+                if (await CheckInvitesAsync(http, db, body, keptListId: null, kept: [], ct) is { } refused)
+                    return refused;
+
                 calendarEvent.State = body.Draft ? CalendarEventStates.Draft : CalendarEventStates.Scheduled;
 
                 if (!body.Draft && Place(calendarEvent, now) is { } ended)
@@ -259,6 +269,14 @@ public static class CalendarEndpoints
                 var before = Describe(calendarEvent);
                 var now = clock.UtcNow;
                 var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
+
+                // Keeping the list already on the event needs nothing more; picking one does.
+                List<Guid> kept = [.. calendarEvent.InviteStaffUserIds];
+                if (calendarEvent.InviteHostUserId is { } keptHost)
+                    kept.Add(keptHost);
+
+                if (await CheckInvitesAsync(http, db, body, keptListId: calendarEvent.InviteListId, kept, ct) is { } refused)
+                    return refused;
 
                 if (Apply(body, calendarEvent) is { } problem)
                     return Results.BadRequest(new { error = problem });
@@ -827,6 +845,41 @@ public static class CalendarEndpoints
             .Produces<IReadOnlyList<CalendarWorldView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/invite-choices", async (
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var staff = await db.Users.AsNoTracking()
+                    .Where(u => u.DeletedAt == null && !u.IsDisabled)
+                    .OrderBy(u => u.Username)
+                    .Select(u => new CalendarStaffChoice(
+                        u.Id,
+                        u.Username,
+                        u.VRChatUserId != null && u.VRChatUserId != "",
+                        u.DiscordUserId != null && u.DiscordUserId != ""))
+                    .ToListAsync(ct);
+
+                // The names of lists are no secret, but picking one is the Lists rule's to allow.
+                var lists = ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ToPickAList)
+                    ? await db.SavedLists.AsNoTracking()
+                        .Where(l => l.DeletedAt == null)
+                        .OrderBy(l => l.Name)
+                        .Select(l => new CalendarListChoice(l.Id, l.Name))
+                        .ToListAsync(ct)
+                    : null;
+
+                return Results.Ok(new CalendarInviteChoicesView(staff, lists));
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("ListCalendarInviteChoices")
+            .WithSummary("List who an event can invite")
+            .WithDescription(
+                "The staff accounts an event can invite as its host and staff, and the saved lists it can "
+                + "invite. Lists are null without See members and See profiles.")
+            .Produces<CalendarInviteChoicesView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/feed", async (
                 [FromServices] ModbotContext db,
                 [FromServices] ISecretProtector protector,
@@ -1094,6 +1147,54 @@ public static class CalendarEndpoints
         await transaction.CommitAsync(ct);
     }
 
+    /// <summary>
+    /// Checks who the event invites against what exists and what the caller may pick (calendar
+    /// auto-invite design §9). Null when it is fine.
+    /// </summary>
+    /// <param name="keptListId">The list already on the event: keeping it needs no more than editing the event.</param>
+    /// <param name="kept">
+    /// The staff accounts already on the event. Not checked again, so an account disabled since does
+    /// not stop an unrelated edit; the invites leave a disabled account out anyway.
+    /// </param>
+    internal static async Task<IResult?> CheckInvitesAsync(
+        HttpContext http,
+        ModbotContext db,
+        CalendarEventRequest body,
+        Guid? keptListId,
+        IReadOnlyCollection<Guid> kept,
+        CancellationToken ct)
+    {
+        var accounts = new List<Guid>();
+
+        if (body.InviteHostUserId is { } host)
+            accounts.Add(host);
+
+        accounts.AddRange(body.InviteStaffUserIds ?? []);
+        accounts = [.. accounts.Distinct().Where(id => !kept.Contains(id))];
+
+        if (accounts.Count > 0)
+        {
+            var found = await db.Users.AsNoTracking()
+                .CountAsync(u => accounts.Contains(u.Id) && u.DeletedAt == null && !u.IsDisabled, ct);
+
+            if (found != accounts.Count)
+                return Results.BadRequest(new { error = "That staff account does not exist." });
+        }
+
+        if (body.InviteListId is not { } listId || listId == keptListId)
+            return null;
+
+        if (!ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ToPickAList))
+        {
+            return Results.Json(
+                new { error = "Picking a list needs See members and See profiles." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        var exists = await db.SavedLists.AsNoTracking().AnyAsync(l => l.Id == listId && l.DeletedAt == null, ct);
+        return exists ? null : Results.BadRequest(new { error = "That list does not exist." });
+    }
+
     /// <summary>Works out the event's state and current occurrence; says so when nothing is left of it.</summary>
     private static string? Place(CalendarEvent calendarEvent, DateTimeOffset now) =>
         CalendarTimeline.Advance(calendarEvent, now) == CalendarStep.Finished
@@ -1340,6 +1441,14 @@ public static class CalendarEndpoints
         if (openBefore is < 0 or > MaxOpenMinutesBefore)
             return $"The instance can open between 0 and {MaxOpenMinutesBefore} minutes early.";
 
+        // The post goes in the channel post's channel; without one there is nowhere to say it.
+        if (body.AnnounceFirstJoinInDiscord && (!body.PostToChannel || channelId is null) && !preview)
+            return "Posting when the first person joins needs a channel post.";
+
+        var staff = (body.InviteStaffUserIds ?? []).Distinct().ToList();
+        if (staff.Count > MaxInviteStaff)
+            return $"At most {MaxInviteStaff} staff.";
+
         target.Title = title;
         target.Description = description;
         target.StartsAt = starts;
@@ -1383,6 +1492,11 @@ public static class CalendarEndpoints
         target.ChannelId = channelId;
         target.AutoOpen = body.AutoOpen;
         target.OpenMinutesBefore = openBefore;
+        target.InviteHostUserId = body.InviteHostUserId;
+        target.InviteStaffUserIds = staff;
+        target.InviteListId = body.InviteListId;
+        target.AnnounceFirstJoinInDiscord = body.AnnounceFirstJoinInDiscord;
+        target.AnnounceFirstJoinInVRChat = body.AnnounceFirstJoinInVRChat;
 
         // The start's own day is always one of a weekly event's days, so every place agrees on the
         // first occurrence.
@@ -1476,6 +1590,18 @@ public static class CalendarEndpoints
                 .Select(i => i.ListId)
                 .Distinct()
                 .ToListAsync(ct);
+        var inviteListIds = events.Where(e => e.InviteListId != null).Select(e => e.InviteListId!.Value).Distinct().ToList();
+        var inviteListNames = inviteListIds.Count == 0
+            ? []
+            : await db.SavedLists.AsNoTracking()
+                .Where(l => inviteListIds.Contains(l.Id) && l.DeletedAt == null)
+                .ToDictionaryAsync(l => l.Id, l => l.Name, ct);
+
+        // Only the states, counted per time: who was invited is the audit log's to show.
+        var inviteStates = await db.CalendarInvites.AsNoTracking()
+            .Where(i => ids.Contains(i.EventId))
+            .Select(i => new { i.EventId, i.OccurrenceStartsAt, i.State })
+            .ToListAsync(ct);
 
         return [.. events.Select(e =>
         {
@@ -1488,6 +1614,18 @@ public static class CalendarEndpoints
                 : null;
 
             var closed = opening?.InstanceId is { } instance && closedInstances.Contains(instance);
+
+            CalendarInvitesView? invites = null;
+            if (opening?.InvitesQueuedAt is not null)
+            {
+                var counts = CalendarInviteCounts.From(inviteStates
+                    .Where(i => i.EventId == e.Id && i.OccurrenceStartsAt == opening.OccurrenceStartsAt)
+                    .Select(i => i.State));
+
+                invites = new CalendarInvitesView(
+                    counts.Total, counts.Invited, counts.VRChat, counts.Discord, counts.CouldNotReach,
+                    counts.NoWay, counts.Waiting, counts.Stopped, counts.Skipped);
+            }
 
             var occurrences = e.State == CalendarEventStates.Cancelled
                 ? []
@@ -1559,13 +1697,22 @@ public static class CalendarEndpoints
                         opening.InstanceId,
                         closed ? null : InstanceJoinLink.For(opening.Location),
                         closed,
-                        opening.Error),
+                        opening.Error,
+                        opening.FirstJoinDiscordPostError,
+                        opening.FirstJoinVRChatPostError),
                 occurrences,
                 e.CancelledAt,
                 e.WorldListId,
                 e.WorldListId is { } list ? listNames.GetValueOrDefault(list) : null,
                 e.WorldListId is { } emptyCheck && !filledLists.Contains(emptyCheck),
-                cancelledDates);
+                cancelledDates,
+                e.InviteHostUserId,
+                e.InviteStaffUserIds,
+                e.InviteListId,
+                e.InviteListId is { } listId && inviteListNames.TryGetValue(listId, out var listName) ? listName : null,
+                e.AnnounceFirstJoinInDiscord,
+                invites,
+                e.AnnounceFirstJoinInVRChat);
         })];
     }
 

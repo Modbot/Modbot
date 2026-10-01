@@ -16,7 +16,8 @@ public sealed record ListExportRequest(string? Format);
 /// <summary>What would change if a list changed.</summary>
 /// <param name="Giveaways">Giveaways still being run that name the list among their rules.</param>
 /// <param name="AutoInvites">Auto-invites name the list among their rules.</param>
-public sealed record ListUseView(IReadOnlyList<string> Giveaways, bool AutoInvites);
+/// <param name="Events">Titles of events still being run that invite the list.</param>
+public sealed record ListUseView(IReadOnlyList<string> Giveaways, bool AutoInvites, IReadOnlyList<string>? Events = null);
 
 /// <param name="RuleLines">The rules in plain words, one line each.</param>
 /// <param name="CreatedBy">The username of the account that made it, while that account exists.</param>

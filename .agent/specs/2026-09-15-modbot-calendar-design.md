@@ -328,8 +328,14 @@ weekly event filled with old cards and "Cancelled" lines, a card per date and a 
   `null`; the refusal named only the instance setting.
 
 **To review (2026-10-01).** The maintainer wants a check of whether a bot opening group instances
-on a timer is within VRChat's Terms of Service before this feature is promoted any further. It
-stays as built until then; nothing in the user docs speaks to it.
+on a timer is within VRChat's Terms of Service before this feature is promoted any further. The
+same review covers what follows an opened instance: the invites and direct messages, and the group
+post when the first person is in (calendar auto-invite design §11). It stays as built until then;
+nothing in the user docs speaks to it.
+
+**Inviting people, and the first person** (added 2026-10-01). Once the instance is open, an event can
+invite its host, staff and one saved list, by VRChat invite or Discord direct message, and post once
+in Discord and in the VRChat group when the first person is in. See the calendar auto-invite design.
 
 ## 5. Rate limits
 
@@ -339,6 +345,7 @@ stays as built until then; nothing in the user docs speaks to it.
 | `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used for the look for a create that got no answer (§3.1), and for reading the calendar back when someone opens a page or presses Refresh (§12.1). Never on a timer. |
 | `instances.create` | `instances.create` | **1 per 5 s** | Measured by the maintainer. |
 | `files.upload` | `files.upload` | **1 per 60 s** | **Not measured.** Taken from the codebase on 2026-10-01: `calendar.write`'s pace, since the only upload is an event's VRChat picture (§15). Not scoped to the group, because the file belongs to Modbot's VRChat account. |
+| `invites.send` | `invites.send` | **1 per 30 s** | Set by the user 2026-10-01, not measured. Inviting people to an opened instance (calendar auto-invite design §4). |
 
 All four are resource-scoped to the group where it applies, count against the global backstop,
 and follow §4.3.1 unchanged: **a 429 cold-stops that bucket**, the place shows "Waiting", nothing
@@ -418,6 +425,8 @@ the operational log:
 | `modbot.calendar.publish.remove` | A place that held the event no longer does (added 2026-10-01, §14.1); carries which place and what it was before |
 | `modbot.calendar.picture.upload` | A VRChat picture was uploaded (added 2026-10-01, §15); carries the file id, the event's id and title when it was already saved, and the size and type |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
+| `modbot.calendar.invite.send` | A person was invited to the instance (subject: the person; calendar auto-invite design §8) |
+| `modbot.calendar.invite.fail` | A person could not be invited (subject: the person) |
 
 `modbot.calendar.event.cancel` carries `postInChannel` (added 2026-10-01, §14.4).
 

@@ -264,6 +264,9 @@ public static class VRChatRateLimits
     /// <summary>Removing a gallery image (<see cref="VRChatEndpointClass.GroupsGalleryWrite"/>).</summary>
     public const string GroupsGalleryWriteLane = "groups.gallery.write";
 
+    /// <summary>Inviting a person to an event's instance (<see cref="VRChatEndpointClass.InvitesSend"/>).</summary>
+    public const string InvitesSendLane = "invites.send";
+
     /// <summary>
     /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
     /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
@@ -512,6 +515,14 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.GroupsGalleryWrite, GroupsGalleryWriteLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
+
+            // One invite to an instance every thirty seconds -- the user's answer to spec 4.3.4's
+            // standing question for POST /invite/{userId}, given on 2026-10-01 (calendar auto-invite
+            // design §4). Own lane, global backstop (a timer sends these), not resource-scoped: the
+            // limit is the account's, not one person's.
+            [VRChatEndpointClass.InvitesSend] = new(
+                VRChatEndpointClass.InvitesSend, InvitesSendLane,
+                HardMaxPerSecond: PerSeconds(30), DefaultCeilingPerSecond: CeilingFor(PerSeconds(30))),
 
             // A request forwarded as it was written (VRChat proxy design). The limiter cannot see
             // which VRChat endpoint it reaches, so the cap sits at the bottom of spec 4.3.4's

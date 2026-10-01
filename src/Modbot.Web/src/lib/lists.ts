@@ -3,7 +3,12 @@ import type { GiveawayBuilder, GiveawayRule } from '@/lib/giveaways'
 import { fileNameFrom, type ExportFormat } from './listWords.ts'
 
 /** What would change if a list changed. */
-export type ListUse = { giveaways: string[]; autoInvites: boolean }
+export type ListUse = {
+  giveaways: string[]
+  autoInvites: boolean
+  /** Titles of events still being run that invite the list. */
+  events?: string[] | null
+}
 
 /** A saved list: a name and the rules that decide who is in it (lists design). */
 export type SavedList = {

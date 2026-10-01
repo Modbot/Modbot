@@ -7,9 +7,12 @@ namespace Modbot.Core.Giveaways;
 /// <summary>Where a saved list is used, by what it would change.</summary>
 /// <param name="Giveaways">The names of giveaways still being run that name it among their rules.</param>
 /// <param name="AutoInvites">Auto-invites name it among their rules.</param>
-public sealed record SavedListUse(IReadOnlyList<string> Giveaways, bool AutoInvites)
+/// <param name="Events">
+/// The titles of events still being run that invite the list (calendar auto-invite design §9).
+/// </param>
+public sealed record SavedListUse(IReadOnlyList<string> Giveaways, bool AutoInvites, IReadOnlyList<string> Events)
 {
-    public bool Any => Giveaways.Count > 0 || AutoInvites;
+    public bool Any => Giveaways.Count > 0 || AutoInvites || Events.Count > 0;
 }
 
 /// <summary>
@@ -157,7 +160,7 @@ public static class SavedListRules
     }
 
     /// <summary>A list nothing names.</summary>
-    public static SavedListUse Unused { get; } = new([], false);
+    public static SavedListUse Unused { get; } = new([], false, []);
 
     /// <summary><see cref="UseOfAsync"/> for every list at once, by id. A list nothing names is left out.</summary>
     public static async Task<Dictionary<string, SavedListUse>> UsesAsync(ModbotContext db, CancellationToken ct)
@@ -193,11 +196,28 @@ public static class SavedListRules
 
         var invited = GiveawayRules.ListsIn(GiveawayRules.ReadStored(autoInvites)).ToHashSet(StringComparer.Ordinal);
 
-        return giveaways.Keys.Concat(invited)
+        // Events still being run that invite a list. A finished or cancelled one already sent its
+        // invites, and an event that has not opened yet still needs the list to be there.
+        var eventLists = await db.CalendarEvents.AsNoTracking()
+            .Where(e => e.InviteListId != null
+                && e.DeletedAt == null
+                && (e.State == CalendarEventStates.Draft || e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open))
+            .OrderBy(e => e.Title)
+            .Select(e => new { e.Title, ListId = e.InviteListId!.Value })
+            .ToListAsync(ct);
+
+        var events = eventLists
+            .GroupBy(e => e.ListId.ToString("D"), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(e => e.Title).ToList(), StringComparer.Ordinal);
+
+        return giveaways.Keys.Concat(invited).Concat(events.Keys)
             .Distinct(StringComparer.Ordinal)
             .ToDictionary(
                 id => id,
-                id => new SavedListUse(giveaways.GetValueOrDefault(id) ?? [], invited.Contains(id)),
+                id => new SavedListUse(
+                    giveaways.GetValueOrDefault(id) ?? [],
+                    invited.Contains(id),
+                    events.GetValueOrDefault(id) ?? []),
                 StringComparer.Ordinal);
     }
 

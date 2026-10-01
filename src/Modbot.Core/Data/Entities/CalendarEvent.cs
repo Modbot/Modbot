@@ -159,6 +159,26 @@ public class CalendarEvent
     /// <summary>How many minutes before the start the instance is opened.</summary>
     public int OpenMinutesBefore { get; set; } = 10;
 
+    // ── Who is invited when the instance opens (calendar auto-invite design) ─────────────
+
+    /// <summary>The staff account invited first. Reached through its linked accounts.</summary>
+    public Guid? InviteHostUserId { get; set; }
+
+    /// <summary>The staff accounts invited after the host, in this order.</summary>
+    public List<Guid> InviteStaffUserIds { get; set; } = [];
+
+    /// <summary>The saved list whose people are invited last, worked out when the instance opens.</summary>
+    public Guid? InviteListId { get; set; }
+
+    /// <summary>Post once in the channel post's channel when the first person is in the instance.</summary>
+    public bool AnnounceFirstJoinInDiscord { get; set; }
+
+    /// <summary>Post once in the VRChat group's posts when the first person is in the instance.</summary>
+    public bool AnnounceFirstJoinInVRChat { get; set; }
+
+    /// <summary>Whether opening the instance also invites anybody.</summary>
+    public bool InvitesAnybody => InviteHostUserId is not null || InviteStaffUserIds.Count > 0 || InviteListId is not null;
+
     // ── Where it is now ──────────────────────────────────────────────────────────────────
 
     /// <summary>One of <see cref="CalendarEventStates"/>.</summary>
@@ -408,6 +428,131 @@ public class CalendarOpening
     public Guid? InstanceId { get; set; }
 
     public string? Error { get; set; }
+
+    /// <summary>
+    /// When the invites for this occurrence were put in <c>calendar_invite</c>. Written once; null
+    /// until then, and for an event that invites nobody.
+    /// </summary>
+    public DateTimeOffset? InvitesQueuedAt { get; set; }
+
+    /// <summary>
+    /// When the "first person is in" post went to the event's Discord channel, or was about to:
+    /// written before the post, so it goes out once however many restarts.
+    /// </summary>
+    public DateTimeOffset? FirstJoinDiscordPostedAt { get; set; }
+
+    /// <summary>What Discord said when that post was refused.</summary>
+    public string? FirstJoinDiscordPostError { get; set; }
+
+    /// <summary>The same for the VRChat group post, written before it is sent.</summary>
+    public DateTimeOffset? FirstJoinVRChatPostedAt { get; set; }
+
+    /// <summary>What VRChat said when the group post was refused.</summary>
+    public string? FirstJoinVRChatPostError { get; set; }
+}
+
+/// <summary>The words stored in <see cref="CalendarInvite.State"/> (calendar auto-invite design §3).</summary>
+public static class CalendarInviteStates
+{
+    /// <summary>A VRChat invite is next.</summary>
+    public const string Waiting = "waiting";
+
+    /// <summary>The VRChat invite is being sent. Left here by a crash; counted as sent, never sent again.</summary>
+    public const string Sending = "sending";
+
+    /// <summary>VRChat accepted the invite.</summary>
+    public const string Invited = "invited";
+
+    /// <summary>A Discord direct message is next.</summary>
+    public const string ToMessage = "toMessage";
+
+    /// <summary>The direct message is being sent. Like <see cref="Sending"/>, never sent again.</summary>
+    public const string Messaging = "messaging";
+
+    /// <summary>The direct message went out.</summary>
+    public const string Messaged = "messaged";
+
+    /// <summary>Tried, and neither VRChat nor Discord took it.</summary>
+    public const string CouldNotReach = "couldNotReach";
+
+    /// <summary>Not a friend of the group's VRChat account and no Discord account, or no account at all.</summary>
+    public const string NoWay = "noWay";
+
+    /// <summary>Banned, or already in the instance. Not counted.</summary>
+    public const string Skipped = "skipped";
+
+    /// <summary>The instance closed or the time ended before it was sent.</summary>
+    public const string Stopped = "stopped";
+
+    /// <summary>States that still have something to send.</summary>
+    public static readonly IReadOnlyList<string> Open = [Waiting, ToMessage];
+}
+
+/// <summary>The words stored in <see cref="CalendarInvite.Role"/>: why the person is on the queue.</summary>
+public static class CalendarInviteRoles
+{
+    public const string Host = "host";
+    public const string Staff = "staff";
+    public const string List = "list";
+}
+
+/// <summary>
+/// One person to invite to one occurrence's instance. The table is <c>calendar_invite</c>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>The queue lives here, not in memory</strong>, so a restart carries on where it stopped
+/// (calendar auto-invite design §5). <see cref="Position"/> is the order: host, staff, list.
+/// </para>
+/// <para>
+/// One row per person per occurrence, by <see cref="PersonKey"/>. A row is marked sending or
+/// messaging before the request goes out, so a crash between the two never sends twice.
+/// </para>
+/// <para>
+/// The ids are opaque text, never parsed or validated (foundation §3.1.1). A purge deletes the
+/// person's rows.
+/// </para>
+/// </remarks>
+public class CalendarInvite
+{
+    public long Id { get; set; }
+
+    public Guid EventId { get; set; }
+
+    public DateTimeOffset OccurrenceStartsAt { get; set; }
+
+    /// <summary>The order the person is invited in, from zero.</summary>
+    public int Position { get; set; }
+
+    /// <summary>One of <see cref="CalendarInviteRoles"/>.</summary>
+    public string Role { get; set; } = CalendarInviteRoles.List;
+
+    /// <summary><c>vrchat:usr_…</c> or <c>discord:…</c>, the way lists name people. Unique per occurrence.</summary>
+    public string PersonKey { get; set; } = string.Empty;
+
+    public string? VRChatUserId { get; set; }
+
+    public string? DiscordUserId { get; set; }
+
+    /// <summary>One of <see cref="CalendarInviteStates"/>.</summary>
+    public string State { get; set; } = CalendarInviteStates.Waiting;
+
+    /// <summary>Why it did not get through, or why it was skipped, in plain words.</summary>
+    public string? Problem { get; set; }
+
+    public DateTimeOffset QueuedAt { get; set; }
+
+    /// <summary>When the VRChat invite was sent, or about to be. What the thirty seconds are counted from.</summary>
+    public DateTimeOffset? TriedAt { get; set; }
+
+    /// <summary>When the direct message was sent, or about to be.</summary>
+    public DateTimeOffset? MessagedAt { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>The person's key for a VRChat id, else a Discord id.</summary>
+    public static string KeyFor(string? vrchatUserId, string? discordUserId) =>
+        vrchatUserId is { Length: > 0 } vrchat ? $"vrchat:{vrchat}" : $"discord:{discordUserId}";
 }
 
 /// <summary>
