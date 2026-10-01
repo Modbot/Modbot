@@ -21,6 +21,9 @@ public sealed class FakeInvites
     /// <summary>A status to answer for one person instead, such as 429.</summary>
     public Dictionary<string, HttpStatusCode> Status { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>People whose invite Cloudflare stops before VRChat sees it: a 403 with its block page.</summary>
+    public HashSet<string> CloudflareBlocks { get; } = new(StringComparer.Ordinal);
+
     public FakeInvites FriendsWith(params string[] userIds)
     {
         Friends.UnionWith(userIds);
@@ -41,6 +44,15 @@ public sealed class FakeInvites
                 var status = Status.TryGetValue(userId, out var set)
                     ? set
                     : Friends.Contains(userId) ? HttpStatusCode.OK : HttpStatusCode.Forbidden;
+
+                if (CloudflareBlocks.Contains(userId))
+                {
+                    return Task.FromResult(new ApiResponse<SentNotification>(
+                        HttpStatusCode.Forbidden,
+                        new Multimap<string, string>(),
+                        null!,
+                        "<html><title>Attention Required! | Cloudflare</title><body>Error code 1020 cf-ray</body></html>"));
+                }
 
                 var raw = status switch
                 {

@@ -75,7 +75,7 @@ by the user 2026-10-01:
 | Learned from | Says |
 |---|---|
 | An invite VRChat accepted | friend |
-| An invite VRChat refused with 403 | not a friend |
+| An invite VRChat refused with 403, not a Cloudflare block | not a friend |
 | The `friends` ids VRChat sends with the account when Modbot signs in (no extra call) | friend. Only adds: that list may be incomplete, so nobody missing from it is marked not a friend |
 
 How it is used, for each person with a VRChat id:
@@ -105,7 +105,8 @@ messages and sends at most five a pass.
 | Backstop | `global` — timer-driven, nobody is waiting on it |
 | Priority | Background |
 | 429 | Cold-stops this class (§4.3.1). That person's invite is not sent again; they fall to Discord. The next people wait for the class to open. |
-| 5xx, 408, no answer | The invite may have arrived. Not sent again, and **no direct message on top**: the person counts as couldn't reach. Only a refusal VRChat certainly acted on (a 4xx other than 408), or one Cloudflare stopped, hands them to Discord. |
+| 5xx, 408, no answer | The invite may have arrived. Not sent again, and **no direct message on top**: the person counts as couldn't reach. Only a refusal VRChat certainly acted on (a 4xx other than 408) hands them to Discord. |
+| Cloudflare block | Arrives as a 403 with Cloudflare's page; checked before the 403 rule. VRChat never saw it: nothing is learned about the person, no direct message, and the row waits for a later turn. |
 
 The pace is kept twice, as group invites do: by the bucket, and by the last send time stored on the
 rows (`tried_at`), so a restart cannot hand back a turn.

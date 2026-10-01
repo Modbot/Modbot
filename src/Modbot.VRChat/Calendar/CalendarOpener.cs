@@ -83,8 +83,9 @@ public sealed record CalendarOpenNowResult(CalendarOpenNowOutcome Outcome, Calen
 /// while still making things, so a second request could open a second instance. It is
 /// <strong>never sent again on its own</strong>. Modbot looks, in what the group instance poll has
 /// already recorded, for an instance of the event's world in the group made since the attempt, and
-/// takes it as the event's if there is one. If a poll that ran after the attempt shows none, the
-/// attempt is shown as failed and Open now is left to the moderator.</item>
+/// takes it as the event's if there is one. If a poll that ran at least <see cref="PollAfterAttempt"/>
+/// after the unclear answer came back shows none, the attempt is shown as failed, recorded as a fact
+/// like a refusal, and Open now is left to the moderator.</item>
 /// </list>
 /// <para>
 /// The instance is recorded through <see cref="PlaceStore"/> the same way a sighting is, so Live, the
@@ -100,8 +101,8 @@ public sealed class CalendarOpener
     public static readonly TimeSpan OpenNowEarliest = TimeSpan.FromMinutes(120);
 
     /// <summary>
-    /// How long after an unanswered attempt a group instance poll must have run before "no instance"
-    /// is believed: long enough for VRChat to list an instance it was still making.
+    /// How long after an unclear answer came back a group instance poll must have run before "no
+    /// instance" is believed: long enough for VRChat to list an instance it was still making.
     /// </summary>
     public static readonly TimeSpan PollAfterAttempt = TimeSpan.FromSeconds(15);
 
@@ -284,6 +285,7 @@ public sealed class CalendarOpener
             attempt.Error = null;
             attempt.TryAgain = false;
             attempt.Checking = false;
+            attempt.CheckingSince = null;
             attempt.AttemptedAt = now;
             attempt.OpenedByUserId = actorUserId;
             attempt.FirstJoinDiscordPostedAt = null;
@@ -368,6 +370,10 @@ public sealed class CalendarOpener
 
             case CalendarOpenOutcome.Checking:
                 attempt.Checking = true;
+
+                // When the answer came back, not when the request left: a request can hang for a
+                // while, and a poll that ran during it says nothing about what it made.
+                attempt.CheckingSince = _clock.UtcNow;
                 attempt.Error = null;
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
@@ -421,6 +427,10 @@ public sealed class CalendarOpener
                 attempt.Checking = false;
                 attempt.Error = NoAnswer;
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                if (calendarEvent is not null)
+                    await GaveUpAsync(calendarEvent, attempt, ct).ConfigureAwait(false);
+
                 continue;
             }
 
@@ -432,7 +442,8 @@ public sealed class CalendarOpener
             }
 
             var ended = now >= attempt.OccurrenceStartsAt + (calendarEvent.EndsAt - calendarEvent.StartsAt);
-            var pollSince = polledAt is { } at && at >= attempt.AttemptedAt + PollAfterAttempt;
+            var answeredAt = attempt.CheckingSince ?? attempt.AttemptedAt;
+            var pollSince = polledAt is { } at && at >= answeredAt + PollAfterAttempt;
 
             if (ended || pollSince)
             {
@@ -440,11 +451,22 @@ public sealed class CalendarOpener
                 attempt.Checking = false;
                 attempt.Error = NoAnswer;
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                await GaveUpAsync(calendarEvent, attempt, ct).ConfigureAwait(false);
             }
         }
 
         return found;
     }
+
+    /// <summary>The fact for an attempt that ended with no instance, the same one a refusal writes.</summary>
+    private Task GaveUpAsync(CalendarEvent calendarEvent, CalendarOpening attempt, CancellationToken ct) =>
+        _facts.RecordAsync(
+            FactType.PlannedEventInstanceFailed,
+            calendarEvent,
+            new JsonObject { ["error"] = attempt.Error, ["status"] = 0 },
+            worldId: calendarEvent.WorldId,
+            ct: ct,
+            actorUserId: attempt.OpenedByUserId);
 
     /// <summary>
     /// An open instance of the event's world in the group, with its access and region, that Modbot
@@ -485,6 +507,7 @@ public sealed class CalendarOpener
         attempt.Error = null;
         attempt.TryAgain = false;
         attempt.Checking = false;
+        attempt.CheckingSince = null;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         _log.Information("Opened the instance for the event {EventId}", calendarEvent.Id);

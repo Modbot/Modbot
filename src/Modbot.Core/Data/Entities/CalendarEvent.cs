@@ -446,6 +446,12 @@ public class CalendarOpening
     /// </summary>
     public bool Checking { get; set; }
 
+    /// <summary>
+    /// When the unclear answer came back. Only a group instance poll that ran well after this can
+    /// say no instance was made: one that started while VRChat was still making it proves nothing.
+    /// </summary>
+    public DateTimeOffset? CheckingSince { get; set; }
+
     /// <summary>The staff account that pressed Open now, or null when Modbot opened it on time.</summary>
     public Guid? OpenedByUserId { get; set; }
 

@@ -35,6 +35,8 @@ export type CalendarOpening = {
   firstJoinVRChatPostError?: string | null
   /** VRChat gave no clear answer, and Modbot is looking for an instance it may have made. */
   checking?: boolean
+  /** VRChat made the instance, whether or not Modbot has it on record yet. */
+  instanceMade?: boolean
 }
 
 /** One date of an event (calendar design §2.2). */
@@ -185,6 +187,8 @@ export function canOpenNow(event: CalendarEvent, now: Date): boolean {
   const opening = event.opening
   if (!opening) return true
   if (opening.instanceId) return opening.closed
+  // Made, but not on record as an instance: the server would call it open.
+  if (opening.instanceMade) return false
   // VRChat may have made one; a second request could make two.
   if (opening.checking) return false
   // A failed attempt, or one with no answer for a minute.

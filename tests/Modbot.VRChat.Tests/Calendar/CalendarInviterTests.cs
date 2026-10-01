@@ -182,6 +182,48 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
     }
 
     [Fact]
+    public async Task ACloudflareBlockTeachesNothing_AndTheInviteWaitsForALaterTurn()
+    {
+        var eve = await AddStaffAsync("eve", "usr_eve", discordUserId: "100");
+        VRChat.Invites.FriendsWith("usr_eve");
+        VRChat.Invites.CloudflareBlocks.Add("usr_eve");
+
+        await using (var context = Database.NewContext())
+        {
+            context.VRChatFriends.Add(new VRChatFriend
+            {
+                UserId = "usr_eve",
+                IsFriend = true,
+                CheckedAt = Clock.UtcNow,
+                LearnedFrom = VRChatFriendSources.SignIn,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var e = await OpenedEventAsync(x => x.InviteStaffUserIds = [eve.Id]);
+        await InviteAsync();
+
+        // Still a friend, still waiting, and no direct message on its way.
+        var row = Assert.Single(await InviteRowsAsync(e.Id));
+        Assert.Equal(CalendarInviteStates.Waiting, row.State);
+
+        await using (var context = Database.NewContext())
+        {
+            var friend = await context.VRChatFriends.AsNoTracking().SingleAsync(f => f.UserId == "usr_eve", Ct);
+            Assert.True(friend.IsFriend);
+            Assert.Equal(VRChatFriendSources.SignIn, friend.LearnedFrom);
+        }
+
+        // Cloudflare lets it through later: the invite goes out on a later turn.
+        VRChat.Invites.CloudflareBlocks.Clear();
+        Clock.Advance(Turn);
+        await InviteAsync();
+
+        Assert.Equal(CalendarInviteStates.Invited, Assert.Single(await InviteRowsAsync(e.Id)).State);
+        Assert.Equal(2, VRChat.Invites.Sent.Count);
+    }
+
+    [Fact]
     public async Task PeopleBannedFromTheGroupAreSkipped()
     {
         var list = await AddEverybodyListAsync("usr_a", "usr_banned");

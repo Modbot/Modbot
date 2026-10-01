@@ -103,6 +103,9 @@ public class CalendarOpenNowTests(PostgresFixture fixture) : CalendarTestBase(fi
         Assert.False(opening.TryAgain);
         Assert.Equal(CalendarOpener.NoAnswer, opening.Error);
 
+        // Recorded the way a refusal is.
+        Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventInstanceFailed));
+
         for (var i = 0; i < 5; i++)
         {
             Clock.Advance(CalendarOpener.TryAgainAfter);

@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001200743_LookForAnInstanceVRChatMayHaveOpened")]
+    [Migration("20261001201347_LookForAnInstanceVRChatMayHaveOpened")]
     partial class LookForAnInstanceVRChatMayHaveOpened
     {
         /// <inheritdoc />
@@ -1300,6 +1300,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("Checking")
                         .HasColumnType("boolean")
                         .HasColumnName("checking");
+
+                    b.Property<DateTimeOffset?>("CheckingSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checking_since");
 
                     b.Property<string>("Error")
                         .HasMaxLength(1024)

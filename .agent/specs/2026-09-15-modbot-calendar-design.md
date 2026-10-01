@@ -330,8 +330,12 @@ weekly event filled with old cards and "Cancelled" lines, a card per date and a 
     and **never sent again on its own**. Each pass looks, in `vrchat_instance` as the group instance
     poll recorded it, for an open instance of the event's world in the group (same access and
     region) first seen after the attempt and taken by no other time; one found becomes the time's
-    instance. Once a poll that ran at least 15 s after the attempt (`settings.group_instances_polled_at`)
-    shows none, or the time ends, the row is shown as failed and Open now is left to the moderator.
+    instance. Once a poll that ran at least 15 s after the unclear answer came back
+    (`calendar_opening.checking_since`, against `settings.group_instances_polled_at`) shows none, or
+    the time ends, the row is shown as failed, the same `modbot.calendar.instance.fail` fact a refusal
+    writes is recorded, and Open now is left to the moderator. Counting from the answer rather than
+    from when the request left matters: a request can hang, and a poll that ran meanwhile proves
+    nothing about what it made.
 - **Open now** (added 2026-10-01): somebody with Manage calendar can open the instance for the current
   or next time, from two hours before its start until its end, while none is open and no attempt is
   in flight or `checking` (the page shows "Checking…"). Same path, same

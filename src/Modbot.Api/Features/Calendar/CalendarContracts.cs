@@ -112,6 +112,7 @@ public sealed record CalendarPlaceView(
 /// VRChat gave no clear answer to the attempt, and Modbot is looking for an instance it may have
 /// made. Open now is refused meanwhile.
 /// </param>
+/// <param name="InstanceMade">VRChat made the instance, whether or not Modbot has it on record yet.</param>
 public sealed record CalendarOpeningView(
     DateTimeOffset OccurrenceStartsAt,
     DateTimeOffset AttemptedAt,
@@ -121,7 +122,8 @@ public sealed record CalendarOpeningView(
     string? Error,
     string? FirstJoinDiscordPostError = null,
     string? FirstJoinVRChatPostError = null,
-    bool Checking = false);
+    bool Checking = false,
+    bool InstanceMade = false);
 
 /// <summary>One date of an event.</summary>
 /// <param name="PlannedStartsAt">

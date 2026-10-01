@@ -1340,6 +1340,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("checking");
 
+                    b.Property<DateTimeOffset?>("CheckingSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checking_since");
+
                     b.Property<string>("Error")
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")

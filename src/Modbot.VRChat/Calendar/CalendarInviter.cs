@@ -573,6 +573,17 @@ public sealed class CalendarInviter
             return 0;
         }
 
+        // Cloudflare stopped it before VRChat saw it, and its block also arrives as a 403. Nothing
+        // reached VRChat and nothing is learned about the person: the row waits for a later turn,
+        // with no direct message. Checked before the 403 below, which would otherwise mark a friend
+        // as not one for a week.
+        if (result.IsWafBlocked)
+        {
+            Mark(row, CalendarInviteStates.Waiting, problem: null, now);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return 0;
+        }
+
         // A 403 is VRChat's "You need to be friends with that user first": the one refusal its
         // description of this call lists. Remembered, so the next event goes straight to Discord.
         if (result.StatusCode == 403)
@@ -584,12 +595,11 @@ public sealed class CalendarInviter
 
         var problem = CalendarInvites.Short(result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.");
 
-        // Only a refusal VRChat certainly acted on (a 4xx other than 408, a 429 among them) or one
-        // Cloudflare stopped before VRChat saw it hands the person to Discord. After a 5xx, a 408 or
-        // no answer the invite may have arrived, and a direct message on top would be the second
-        // message the person gets; they count as not reached instead, and nothing is sent again.
-        var certainlyNotSent = result.IsWafBlocked
-            || (result.StatusCode is >= 400 and < 500 && result.StatusCode != 408);
+        // Only a refusal VRChat certainly acted on (a 4xx other than 408, a 429 among them) hands the
+        // person to Discord. After a 5xx, a 408 or no answer the invite may have arrived, and a
+        // direct message on top would be the second message the person gets; they count as not
+        // reached instead, and nothing is sent again.
+        var certainlyNotSent = result.StatusCode is >= 400 and < 500 && result.StatusCode != 408;
 
         if (certainlyNotSent && row.DiscordUserId is { Length: > 0 })
         {
