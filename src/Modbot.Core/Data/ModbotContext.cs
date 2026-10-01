@@ -430,6 +430,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // the column is added to a row that already exists, and without it every Modbot that
             // upgraded would silently have the listing off.
             entity.Property(e => e.SharePublicInstances).HasDefaultValue(true);
+            // On as well, for the same reason: an upgrade must not turn the calendar's picture upload off.
+            entity.Property(e => e.VRChatPictureUploads).HasDefaultValue(true);
         });
 
         builder.Entity<ProtectorKey>(entity =>

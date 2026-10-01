@@ -3,13 +3,7 @@ import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
 import { calendarApi, VRCHAT_PICTURE_MAX_BYTES, VRCHAT_PICTURE_TYPES } from '@/lib/calendar'
-
-/**
- * The thumbnails of pictures uploaded on this page, by file id: links to the files on this
- * computer. Kept outside the field so a thumbnail survives the field being drawn again (the
- * Preview tab, the VRChat chip turned off and on), and let go of when the picture is removed.
- */
-const thumbnails = new Map<string, string>()
+import type { PictureThumbnails } from './usePictureThumbnails'
 
 /**
  * The picture for VRChat's calendar (calendar design §2). Choosing a file uploads it to VRChat at
@@ -22,12 +16,15 @@ const thumbnails = new Map<string, string>()
  */
 export function VRChatPictureField({
   eventId,
+  thumbnails,
   value,
   onChange,
   onUploading,
 }: {
   /** The event, when it is already saved: the server names it in the audit log. */
   eventId: string | null
+  /** The form's thumbnails, so one outlives this field being drawn again. */
+  thumbnails: PictureThumbnails
   value: string | null
   onChange: (fileId: string | null) => void
   /** Told when an upload starts and ends, so the form does not save without the picture. */
@@ -63,7 +60,7 @@ export function VRChatPictureField({
     calendarApi
       .uploadVRChatPicture(file, eventId)
       .then(({ fileId }) => {
-        thumbnails.set(fileId, URL.createObjectURL(file))
+        thumbnails.add(fileId, file)
         onChange(fileId)
       })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not upload the picture.'))
@@ -71,10 +68,7 @@ export function VRChatPictureField({
   }
 
   const remove = () => {
-    if (thumbnail && value) {
-      URL.revokeObjectURL(thumbnail)
-      thumbnails.delete(value)
-    }
+    if (value) thumbnails.drop(value)
 
     setError(null)
     onChange(null)

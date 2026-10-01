@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -97,7 +98,8 @@ public static class CalendarEndpoints
                     CalendarVRChatRequests.Platforms,
                     now,
                     ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics),
-                    CalendarReadiness.Of(settings, discordBot)));
+                    CalendarReadiness.Of(settings, discordBot),
+                    settings?.VRChatPictureUploads ?? true));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")
@@ -687,12 +689,38 @@ public static class CalendarEndpoints
                 [FromServices] VRChatPictureUploads? uploads,
                 CancellationToken ct) =>
             {
-                if (uploads is null)
+                // The operator's switch (Settings, Modbot's VRChat login). Asked before anything is
+                // read from the body or sent to VRChat.
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+
+                if (settings is { VRChatPictureUploads: false })
                 {
                     return Results.Json(
-                        new { error = "This server is not set up to act in VRChat." },
+                        new { error = "Picture uploads are off." },
+                        statusCode: StatusCodes.Status409Conflict);
+                }
+
+                if (uploads is null)
+                {
+                    // Only a host built without VRChat lacks the service; a Modbot server always has it,
+                    // signed in or not (a missing sign-in is VRChat's answer below).
+                    return Results.Json(
+                        new { error = "This build of Modbot cannot upload pictures to VRChat." },
                         statusCode: StatusCodes.Status503ServiceUnavailable);
                 }
+
+                // A picture that says it is too big is refused before a byte of it is read, and
+                // whatever the body turns out to be, Kestrel stops reading just past the limit, the
+                // way imports do.
+                if (http.Request.ContentLength > VRChatPictureUploads.MaxBytes)
+                {
+                    return Results.Json(
+                        new { error = VRChatPictureUploads.TooBig },
+                        statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+
+                if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                    limit.MaxRequestBodySize = VRChatPictureUploads.MaxBytes + 1;
 
                 CalendarEvent? calendarEvent = null;
 
@@ -708,7 +736,7 @@ public static class CalendarEndpoints
                         return Results.Conflict(new { error = "A cancelled event cannot be changed." });
                 }
 
-                var bytes = await ReadPictureAsync(http.Request.Body, ct);
+                var bytes = await ReadPictureAsync(http.Request.Body, http.Request.ContentLength, ct);
 
                 if (VRChatPictureUploads.Problem(bytes) is { } problem)
                 {
@@ -767,7 +795,8 @@ public static class CalendarEndpoints
                 + "Answers with the file id VRChat gave it; save that as the event's vrChatImageId. "
                 + "eventId names the event when it is already saved, for the audit log. One request "
                 + "to VRChat, at most one a minute and never retried; a picture that is too big or "
-                + "not a PNG or JPEG is refused before VRChat is asked. Modbot keeps none of the bytes.")
+                + "not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" "
+                + "while the operator has turned uploads off in Settings. Modbot keeps none of the bytes.")
             .Produces<CalendarVRChatPictureView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -932,17 +961,45 @@ public static class CalendarEndpoints
     }
 
     /// <summary>
-    /// The picture in a request body, read until it runs past <see cref="VRChatPictureUploads.MaxBytes"/>
-    /// and no further: enough to know it is too big without holding all of it.
+    /// The picture in a request body, read until it runs one byte past
+    /// <see cref="VRChatPictureUploads.MaxBytes"/> and no further: enough to know it is too big
+    /// without holding all of it. A body that says its length (a browser's file always does, and the
+    /// caller has already refused one over the limit) is read straight into an array of that size,
+    /// with no second copy.
     /// </summary>
-    private static async Task<byte[]> ReadPictureAsync(Stream body, CancellationToken ct)
+    private static async Task<byte[]> ReadPictureAsync(Stream body, long? length, CancellationToken ct)
     {
+        const int OverTheLimit = (int)VRChatPictureUploads.MaxBytes + 1;
+
+        if (length is { } size and <= VRChatPictureUploads.MaxBytes)
+        {
+            var whole = new byte[size];
+            var filled = 0;
+
+            while (filled < whole.Length)
+            {
+                var read = await body.ReadAsync(whole.AsMemory(filled), ct);
+                if (read == 0)
+                    break;
+
+                filled += read;
+            }
+
+            // The body ended early: what arrived is the picture.
+            if (filled < whole.Length)
+                Array.Resize(ref whole, filled);
+
+            return whole;
+        }
+
+        // No length (a chunked body): grow as it arrives.
         using var buffer = new MemoryStream();
         var chunk = new byte[64 * 1024];
 
-        while (buffer.Length <= VRChatPictureUploads.MaxBytes)
+        while (buffer.Length < OverTheLimit)
         {
-            var read = await body.ReadAsync(chunk, ct);
+            var wanted = (int)Math.Min(chunk.Length, OverTheLimit - buffer.Length);
+            var read = await body.ReadAsync(chunk.AsMemory(0, wanted), ct);
             if (read == 0)
                 break;
 

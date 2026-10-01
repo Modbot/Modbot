@@ -616,6 +616,7 @@ export function Calendar() {
           categories={data.view.categories}
           platforms={data.view.platforms}
           ready={data.view.ready}
+          pictureUploads={data.view.pictureUploads}
           onClose={closeForm}
           onSaved={(saved) => {
             closeForm()

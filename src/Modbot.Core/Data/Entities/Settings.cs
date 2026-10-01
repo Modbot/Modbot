@@ -193,6 +193,14 @@ public class Settings
     public bool SharePublicInstances { get; set; } = true;
 
     /// <summary>
+    /// Whether the calendar's event form may upload a picture to VRChat, on the VRChat account Modbot
+    /// signs in as (calendar design §2). On by default, like the public instances listing: the upload
+    /// is a person's own choice of a file, one at a time. Off, the upload endpoint answers "Picture
+    /// uploads are off." and sends nothing to VRChat, and events keep the picture ids they have.
+    /// </summary>
+    public bool VRChatPictureUploads { get; set; } = true;
+
+    /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>

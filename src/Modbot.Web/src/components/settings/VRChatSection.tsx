@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DiagnosisNote } from '@/pages/setup/DiagnosisNote'
 import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '@/lib/api'
@@ -35,6 +35,7 @@ export function VRChatSection({
           <AccountCard status={status} />
           <CredentialsCard status={status} refresh={refresh} />
           <ProxyCard status={status} refresh={refresh} />
+          <PicturesCard />
         </>
       ) : (
         <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>
@@ -157,6 +158,42 @@ function CredentialsCard({
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
       </form>
+    </SettingsCard>
+  )
+}
+
+/**
+ * The one switch for uploading the calendar's VRChat pictures. Saves at once: it is one yes or no
+ * with nothing to save beside it. On by default.
+ */
+function PicturesCard() {
+  const [on, setOn] = useState<boolean | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .vrchatPictureUploads()
+      .then((view) => setOn(view.on))
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
+  }, [])
+
+  const change = (next: boolean) => {
+    setBusy(true)
+    setError(null)
+
+    api
+      .setVRChatPictureUploads(next)
+      .then((view) => setOn(view.on))
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard title="Pictures" footer={<Outcome tone="problem">{error}</Outcome>}>
+      <Switch checked={on ?? false} disabled={busy || on === null} onChange={change}>
+        Upload VRChat pictures
+      </Switch>
     </SettingsCard>
   )
 }

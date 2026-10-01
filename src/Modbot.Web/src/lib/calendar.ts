@@ -140,6 +140,8 @@ export type CalendarView = {
   canSeeResults?: boolean
   /** Which places are set up (calendar design §14.3). Missing from an older server: taken as set up. */
   ready?: CalendarReady | null
+  /** Whether the form may upload a VRChat picture (Settings). Missing from an older server: taken as on. */
+  pictureUploads?: boolean
 }
 
 /** The event as each place would show it, drawn by the server from the code that sends it (§14.2). */

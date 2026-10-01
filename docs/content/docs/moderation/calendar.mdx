@@ -377,6 +377,12 @@ link**, which only Discord uses.
   small copy, because Modbot keeps only the id. So does an event made on VRChat with a picture.
 - Modbot uploads **one picture a minute at most**, the same pace as its VRChat calendar changes. A
   second picture chosen within the minute waits for its turn.
+- **To turn the upload off**, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn
+  off **Upload VRChat pictures**. It is on by default. With it off, Modbot never sends a picture to
+  VRChat: the form has no **Choose picture** button (an event that already has a picture keeps it,
+  shown as **VRChat picture set**, and the box for a VRChat image id comes back), and the server
+  answers **Picture uploads are off.** to anyone who asks it to upload. Turning it on or off is in
+  the audit log as a settings change.
 
 If the upload fails, the reason shows under the field:
 

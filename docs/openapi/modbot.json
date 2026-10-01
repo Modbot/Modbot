@@ -5024,6 +5024,86 @@
         ]
       }
     },
+    "/api/settings/vrchat-pictures": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get VRChat picture uploads",
+        "description": "Whether the calendar's event form may upload a picture to VRChat.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetVRChatPictureUploads",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VRChatPictureUploadsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set VRChat picture uploads",
+        "description": "Turn the calendar form's upload of a picture to VRChat on or off.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetVRChatPictureUploads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVRChatPictureUploadsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VRChatPictureUploadsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/auto-invites": {
       "get": {
         "tags": [
@@ -22941,7 +23021,7 @@
           "Calendar"
         ],
         "summary": "Upload VRChat calendar picture",
-        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" while the operator has turned uploads off in Settings. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UploadCalendarVRChatPicture",
         "parameters": [
           {
@@ -30401,6 +30481,10 @@
                 "$ref": "#/components/schemas/CalendarReadyView"
               }
             ]
+          },
+          "pictureUploads": {
+            "type": "boolean",
+            "default": true
           }
         }
       },
@@ -44664,6 +44748,17 @@
           }
         }
       },
+      "SetVRChatPictureUploadsRequest": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
       "Showcase": {
         "required": [
           "available",
@@ -46515,6 +46610,17 @@
           },
           "profileUrl": {
             "type": "string"
+          }
+        }
+      },
+      "VRChatPictureUploadsView": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
           }
         }
       },

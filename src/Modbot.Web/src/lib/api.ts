@@ -406,6 +406,9 @@ export type PublicInstancesView = {
   lastSentAt: string | null
 }
 
+/** Whether the calendar's event form may upload a picture to VRChat. */
+export type VRChatPictureUploadsView = { on: boolean }
+
 export type CloudStatusView = {
   disabled: boolean
   endpoint: string
@@ -4529,6 +4532,10 @@ export const api = {
   publicInstances: () => request<PublicInstancesView>('/api/settings/public-instances'),
 
   setPublicInstances: (shared: boolean) => put<PublicInstancesView>('/api/settings/public-instances', { shared }),
+
+  vrchatPictureUploads: () => request<VRChatPictureUploadsView>('/api/settings/vrchat-pictures'),
+
+  setVRChatPictureUploads: (on: boolean) => put<VRChatPictureUploadsView>('/api/settings/vrchat-pictures', { on }),
 
   updateCheck: () => request<UpdateView>('/api/settings/updates'),
 

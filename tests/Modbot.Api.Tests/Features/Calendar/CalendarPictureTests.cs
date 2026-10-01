@@ -166,6 +166,52 @@ public class CalendarPictureTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task WithUploadsTurnedOff_ThePictureIsRefusedAndVRChatIsNotAsked()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        await SetUploadsAsync(false);
+
+        try
+        {
+            var response = await UploadAsync(host, manager, Png());
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("Picture uploads are off.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+            Assert.Empty(gate.Calls);
+
+            var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
+            Assert.False((await ApiTestHost.BodyOf(view, Ct)).GetProperty("pictureUploads").GetBoolean());
+        }
+        finally
+        {
+            await SetUploadsAsync(true);
+        }
+    }
+
+    [Fact]
+    public async Task UploadsAreOnUntilTheOperatorTurnsThemOff()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
+
+        Assert.True((await ApiTestHost.BodyOf(view, Ct)).GetProperty("pictureUploads").GetBoolean());
+    }
+
+    private async Task SetUploadsAsync(bool on)
+    {
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.VRChatPictureUploads = on;
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
     public async Task APictureTooBigIsRefusedBeforeVRChatIsAsked()
     {
         var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));

@@ -363,6 +363,7 @@ public static class ApiSurface
         app.MapPublicAddressSettings();
         app.MapServerSettings();
         app.MapPublicInstancesSettings();
+        app.MapVRChatPictureSettings();
         app.MapAutoInviteSettings();
         app.MapRepeatOffenderSettings();
         app.MapFlagRuleSettings();

@@ -44,8 +44,8 @@ public sealed class VRChatPictureUploads(IVRChatGate gate)
     public const string Png = "image/png";
     public const string Jpeg = "image/jpeg";
 
-    /// <summary>The types an upload may be, in the order the form's picker lists them.</summary>
-    public static IReadOnlyList<string> Types { get; } = [Png, Jpeg];
+    /// <summary>The sentence for a picture over <see cref="MaxBytes"/>.</summary>
+    public static string TooBig => $"The picture is larger than {MaxBytes / (1024 * 1024)} MB.";
 
     private static ReadOnlySpan<byte> PngStart => [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -75,7 +75,7 @@ public sealed class VRChatPictureUploads(IVRChatGate gate)
             return "Choose a picture to upload.";
 
         if (bytes.Length > MaxBytes)
-            return $"The picture is larger than {MaxBytes / (1024 * 1024)} MB.";
+            return TooBig;
 
         return TypeOf(bytes) is null ? "The picture must be a PNG or JPEG." : null;
     }

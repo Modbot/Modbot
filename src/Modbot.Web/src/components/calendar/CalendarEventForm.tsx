@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
+import { usePictureThumbnails } from './usePictureThumbnails'
 import { VRChatPictureField } from './VRChatPictureField'
 
 const OTHER_WORLD = '__other__'
@@ -60,6 +61,7 @@ export function CalendarEventForm({
   categories,
   platforms,
   ready,
+  pictureUploads = true,
   onClose,
   onSaved,
 }: {
@@ -70,6 +72,8 @@ export function CalendarEventForm({
   platforms: string[]
   /** Which places are set up, from the calendar's own read. */
   ready?: CalendarReady | null
+  /** Whether a VRChat picture may be uploaded (Settings). Off, the picture is only an id typed or cleared. */
+  pictureUploads?: boolean
   onClose: () => void
   onSaved: (saved: CalendarEvent) => void
 }) {
@@ -86,6 +90,7 @@ export function CalendarEventForm({
   const [busy, setBusy] = useState(false)
   // A VRChat picture on its way up: saving now would save the event without it.
   const [uploading, setUploading] = useState(false)
+  const pictureThumbnails = usePictureThumbnails()
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('details')
   // What Preview draws: the form as it was when Preview was opened.
@@ -392,12 +397,22 @@ export function CalendarEventForm({
                       </Labelled>
                       <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
                       <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
-                      <VRChatPictureField
-                        eventId={event?.id ?? null}
-                        value={input.vrChatImageId}
-                        onChange={(id) => set('vrChatImageId', id)}
-                        onUploading={setUploading}
-                      />
+                      {pictureUploads ? (
+                        <VRChatPictureField
+                          eventId={event?.id ?? null}
+                          thumbnails={pictureThumbnails}
+                          value={input.vrChatImageId}
+                          onChange={(id) => set('vrChatImageId', id)}
+                          onUploading={setUploading}
+                        />
+                      ) : (
+                        <Field
+                          label="VRChat image id"
+                          value={input.vrChatImageId ?? ''}
+                          placeholder="file_…"
+                          onChange={(v) => set('vrChatImageId', v.trim() || null)}
+                        />
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {platforms.map((p) => (
