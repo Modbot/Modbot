@@ -40161,6 +40161,7 @@
           },
           "value": {
             "type": "integer",
+            "description": "The bit, for composing a bitfield. Administrator's is above 2^53, where a JavaScript number rounds; `name` is how the API refers to a permission.",
             "format": "int64"
           },
           "label": {

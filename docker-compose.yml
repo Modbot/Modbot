@@ -45,6 +45,8 @@ services:
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
       # Where the server selector is, for the "Add to my.modbot.co" links. Only ever a link.
       MODBOT_MY_URL: ${MODBOT_MY_URL:-}
+      # Other web addresses allowed to call the API from a browser with an API key, or * for any.
+      MODBOT_CORS_ORIGINS: ${MODBOT_CORS_ORIGINS:-}
       # 1 fills a fresh database with made-up data and opens the app with no sign-in, so everyone
       # who can reach it is an administrator. Ignored once this Modbot has been set up for real.
       MODBOT_DEMO: ${MODBOT_DEMO:-}

@@ -41,6 +41,13 @@ namespace Modbot.Core.Configuration;
 /// operator who deploys somewhere the console is awkward to read. Optional; unset, a random code
 /// is printed to the console instead.
 /// </para>
+/// <para>
+/// <c>MODBOT_CORS_ORIGINS</c> lets a web page on another address call the API with a key (API
+/// conventions design §6). It is the same kind of exception as <c>MODBOT_MY_URL</c>: a statement
+/// about where this server sits among other sites, which an operator sets beside the address they
+/// host it on, and which a person signed in to the app has no business changing. Unset, no other
+/// site may read an answer, as before.
+/// </para>
 /// </remarks>
 public sealed class ModbotEnvironment
 {
@@ -51,6 +58,7 @@ public sealed class ModbotEnvironment
     public const string CloudDisabledVariable = "MODBOT_CLOUD_DISABLED";
     public const string MyUrlVariable = "MODBOT_MY_URL";
     public const string SetupCodeVariable = "MODBOT_SETUP_CODE";
+    public const string CorsOriginsVariable = "MODBOT_CORS_ORIGINS";
 
     /// <summary>Where my.modbot.co is, when nothing says otherwise.</summary>
     public const string DefaultMyUrl = "https://my.modbot.co";
@@ -104,6 +112,17 @@ public sealed class ModbotEnvironment
     /// </summary>
     public string? SetupCode { get; init; }
 
+    /// <summary>
+    /// <c>MODBOT_CORS_ORIGINS</c>: the web addresses allowed to call the API from a browser, as
+    /// <c>https://host[:port]</c>, or <c>*</c> for any. Empty when unset, which allows none.
+    /// </summary>
+    /// <remarks>
+    /// Separated by commas or spaces. An entry that is not an <c>http</c> or <c>https</c> address
+    /// is left out rather than guessed at; a path on one is dropped, because a browser sends only
+    /// the scheme, host and port.
+    /// </remarks>
+    public IReadOnlyList<string> CorsOrigins { get; init; } = [];
+
     public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)
     {
         string? Get(string key) => source is not null
@@ -124,6 +143,7 @@ public sealed class ModbotEnvironment
             MyUrl = Address(Get(MyUrlVariable)) ?? DefaultMyUrl,
             Demo = Truthy(Get(DemoMode.Variable)),
             SetupCode = Blank(Get(SetupCodeVariable)),
+            CorsOrigins = Origins(Get(CorsOriginsVariable)),
 
             // A year of hours is the ceiling. Anything outside it -- or not a number at all -- is
             // somebody's typo, and a typo should leave the default in place rather than turn the
@@ -140,6 +160,18 @@ public sealed class ModbotEnvironment
             Uri.TryCreate(Blank(v), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
                 ? uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/')
                 : null;
+
+        static IReadOnlyList<string> Origins(string? v) =>
+            (v ?? string.Empty)
+                .Split([',', ' ', ';', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(o => o == "*"
+                    ? o
+                    : Uri.TryCreate(o, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
+                        ? uri.GetLeftPart(UriPartial.Authority)
+                        : null)
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
         static bool Truthy(string? v) =>
             v is not null && v.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";

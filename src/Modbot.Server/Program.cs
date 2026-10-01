@@ -522,6 +522,10 @@ try
     app.UseDemoRefusals();
     app.UseOldApiPaths();
 
+    // Other web addresses allowed to call the API with a key, when MODBOT_CORS_ORIGINS names any
+    // (API conventions design §6). After routing, before sign-in, so a preflight is answered here.
+    app.UseApiCors();
+
     app.UseAuthentication();
     app.UseAuthorization();
 

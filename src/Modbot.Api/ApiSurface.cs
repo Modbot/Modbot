@@ -130,6 +130,10 @@ public static class ApiSurface
         // Its wording, sign-in schemes, error shape and section order are in OpenApiReference.
         services.AddOpenApi(DocumentName, options => options.AddModbotReference());
 
+        // Other web addresses the operator allows to call the API with a key (API conventions
+        // design §6). Registers nothing that answers unless MODBOT_CORS_ORIGINS names one.
+        Conventions.ApiCors.AddApiCors(services);
+
         // A refused request says which permission it needed, in the one error shape (API
         // conventions design §2). Replaces the framework's handler, which it still runs first.
         services.Replace(ServiceDescriptor.Singleton<
