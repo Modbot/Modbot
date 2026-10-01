@@ -177,6 +177,9 @@ public class DemoSeedTests
         var knownWorlds = new HashSet<string>(
             await host.Db.VRChatWorlds.Select(w => w.WorldId).ToListAsync(ct), StringComparer.Ordinal);
 
+        var knownLocations = new HashSet<string>(
+            await host.Db.VRChatInstances.Select(i => i.Location).ToListAsync(ct), StringComparer.Ordinal);
+
         var settings = await host.Db.GetSettingsAsync(ct);
 
         var facts = await host.Db.Events.AsNoTracking()
@@ -195,7 +198,11 @@ public class DemoSeedTests
                 continue;
             }
 
-            if (fact.SubjectPlatform == FactPlatform.VRChat)
+            // An instance that ended on its own has the instance's location for its subject, like
+            // the real entry (InstanceEndFacts), so it must name an instance the demo holds.
+            if (fact.Type == FactType.InstanceEndedOnItsOwn)
+                Assert.Contains(fact.SubjectId, knownLocations);
+            else if (fact.SubjectPlatform == FactPlatform.VRChat)
                 Assert.Contains(fact.SubjectId, known);
 
             if (fact.SubjectPlatform == FactPlatform.Discord)
