@@ -149,14 +149,16 @@ export function peopleOverTimeRows(
   present: PeoplePresentPoint[],
   to: number,
 ): PeopleRow[] {
+  // `?? null` and `?? []`: an answer from a server build older than this chart, which sends neither,
+  // draws held steps and no member lines instead of throwing and taking the popup down.
   const readings: Reading[] = headCounts
-    .map((h) => ({ at: Date.parse(h.at), people: h.people, unsure: h.unsure, change: h.change }))
+    .map((h) => ({ at: Date.parse(h.at), people: h.people, unsure: h.unsure, change: h.change ?? null }))
     .filter((r) => Number.isFinite(r.at))
     .sort((a, b) => a.at - b.at)
 
   if (readings.length === 0) return []
 
-  const seen: Presence[] = present
+  const seen: Presence[] = (present ?? [])
     .map((p) => ({ ...p, at: Date.parse(p.at) }))
     .filter((p) => Number.isFinite(p.at))
     .sort((a, b) => a.at - b.at)

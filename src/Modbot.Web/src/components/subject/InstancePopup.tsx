@@ -362,7 +362,7 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
   const to = Date.parse(view.instance.closedAt ?? view.now)
   const span = to - from
 
-  const present = view.canSeeWhoWasThere ? view.peoplePresent : NOBODY
+  const present = (view.canSeeWhoWasThere && view.peoplePresent) || NOBODY
   const rows = useMemo(() => peopleOverTimeRows(view.headCounts, present, to), [view.headCounts, present, to])
   const lines = useMemo(() => (present.length > 0 ? presenceLines(present) : []), [present])
   const [shown, setShown] = useState<ReadonlySet<PresenceKey>>(() => new Set())

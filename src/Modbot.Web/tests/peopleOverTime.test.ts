@@ -95,6 +95,19 @@ test('every row says what the head count was at its instant, and no head counts 
   assert.deepEqual(peopleOverTimeRows([], [present(5, { members: 2 })], ms(20)), [])
 })
 
+test('an answer without changes or presence draws held steps instead of throwing', () => {
+  // What a server build older than the coloured chart sends: no `change`, no `peoplePresent`.
+  const old = [reading(0, 4, null), reading(10, 7, null)].map((r) => {
+    const sent: Partial<Reading> = { ...r }
+    delete sent.change
+    return sent as Reading
+  })
+  const rows = peopleOverTimeRows(old, undefined as unknown as PeoplePresentPoint[], ms(20))
+
+  assert.deepEqual(runs(rows, 'held'), [[[ms(0), 4], [ms(10), 7], [ms(10), 7], [ms(20), 7]]])
+  assert.ok(rows.every((r) => r.change === null && r.members === null))
+})
+
 test('an unsure reading stays unsure on its rows', () => {
   const rows = peopleOverTimeRows([reading(0, 80, null, true), reading(10, 51, 'left')], [], ms(10))
 
