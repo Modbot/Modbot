@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Calendar;
@@ -150,42 +151,85 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal("description is required", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.Error);
     }
 
+    /// <summary>
+    /// Seen three times on 2026-10-01: VRChat answered a create with a 500, made the event anyway,
+    /// and changed its title (en dash dropped, "." turned into a look-alike dot). The copy is taken
+    /// as the event's own: one create, no second one, and no second event taken in by the read.
+    /// </summary>
     [Fact]
-    public async Task ACreateAnsweredWith500ThatWasSavedAnywayIsFound_NotMadeTwice()
+    public async Task ACreateAnsweredWith500ThatWasSavedAnywayIsTakenAsItsOwn_NotMadeTwice()
     {
-        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – Alien.";
+        });
+        VRChat.Calendar.SavesTitleAs = VRChatsTitle;
         Clock.Advance(Settle);
         VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
 
         Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
         Assert.Equal(0, VRChat.Calendar.Lists);
 
-        // Not asked again before the wait for an unanswered write is over.
+        // Not known to have failed: the place waits, and the fact keeps VRChat's words.
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal(CalendarPlaceStates.Waiting, place?.State);
+        Assert.Null(place?.Error);
+        Assert.False(CalendarVRChatPublisher.NotAdded(place!));
+        var failed = Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
+        Assert.Equal("no", System.Text.Json.Nodes.JsonNode.Parse(failed.Data)?["error"]?.ToString());
+
+        // Not looked for before the wait is over.
         Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
         Assert.Equal(0, VRChat.Calendar.Lists);
 
-        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
         Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
 
         Assert.Equal(1, VRChat.Calendar.Lists);
         Assert.Single(VRChat.Calendar.Creates);
 
-        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
         Assert.Equal("cal_1", place?.ExternalId);
+        Assert.Equal(CalendarPlaceStates.Published, place?.State);
         Assert.Null(place?.Error);
+        Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));
 
-        // What VRChat holds is not known, so it is brought up to date with an update, not a create.
+        // Not edited since: VRChat has what was sent, so nothing more goes out.
         Clock.Advance(TimeSpan.FromMinutes(1));
-        var result = await PublishAsync();
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(1, VRChat.Calendar.Calls);
 
-        Assert.Equal("update", result.Action);
-        Assert.Equal("cal_1", Assert.Single(VRChat.Calendar.Updates).Id);
-        Assert.Single(VRChat.Calendar.OnVRChat);
-        Assert.Equal(CalendarPlaceStates.Published, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+        // The calendar read finds it owned, and takes nothing in.
+        await ReadAsync(refresh: true);
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
     }
 
     [Fact]
-    public async Task ACreateAnsweredWith500ThatWasNotSavedIsSentAgain()
+    public async Task AnEditMadeWhileACreateHadNoAnswerGoesOutAsAnUpdateOnceItsCopyIsFound()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        Clock.Advance(TimeSpan.FromSeconds(30));
+        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
+        await PublishAsync();
+        Assert.Equal("cal_1", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.ExternalId);
+
+        var result = await PublishAsync();
+
+        Assert.Equal("update", result.Action);
+        var (id, body) = Assert.Single(VRChat.Calendar.Updates);
+        Assert.Equal("cal_1", id);
+        Assert.Equal("Bring snacks and a blanket", body.Description);
+        Assert.Single(VRChat.Calendar.Creates);
+    }
+
+    [Fact]
+    public async Task ACreateAnsweredWith500ThatWasNotSavedIsNeverSentAgainOnItsOwn_OnlyByTryAgain()
     {
         var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
         Clock.Advance(Settle);
@@ -193,14 +237,41 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
 
         Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
 
-        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+        // Looked for once, after the wait, across the whole month: not there.
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
         var result = await PublishAsync();
+
+        Assert.Equal(CalendarPublishOutcome.Failed, result.Outcome);
+        Assert.Equal(1, VRChat.Calendar.Lists);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal(CalendarPlaceStates.Failed, place?.State);
+        Assert.Equal(CalendarVRChatPublisher.NotAddedError, place?.Error);
+        Assert.True(CalendarVRChatPublisher.NotAdded(place!));
+
+        var fact = (await FactsOfTypeAsync(FactType.PlannedEventPublishFailed)).Last();
+        Assert.Equal(CalendarVRChatPublisher.NotAddedError, System.Text.Json.Nodes.JsonNode.Parse(fact.Data)?["error"]?.ToString());
+
+        // Not sent again however long it waits, nor after an edit, and not looked for again.
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter * 4);
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+        Assert.Equal(1, VRChat.Calendar.Lists);
+
+        // A moderator's Try again sends it.
+        Assert.True(await TryAgainAsync(e.Id));
+        result = await PublishAsync();
 
         Assert.Equal(CalendarPublishOutcome.Written, result.Outcome);
         Assert.Equal("create", result.Action);
-        Assert.Equal(1, VRChat.Calendar.Lists);
-        Assert.Single(VRChat.Calendar.OnVRChat);
         Assert.Equal("cal_1", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.ExternalId);
+
+        // Nothing to try again once it went through.
+        Assert.False(await TryAgainAsync(e.Id));
     }
 
     [Fact]
@@ -246,12 +317,27 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         var held = (await FactsOfTypeAsync(FactType.PlannedEventPublishFailed)).Last();
         Assert.Equal("check", System.Text.Json.Nodes.JsonNode.Parse(held.Data)?["action"]?.ToString());
 
-        // Still looked for, not given up on: once the calendar can be read, the create goes ahead.
+        // Still looked for, not given up on. Once the calendar can be read and the event is not
+        // there, the place fails and waits for Try again: the create is not sent on its own.
         VRChat.Calendar.ListStatus = HttpStatusCode.OK;
         Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
 
-        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
         Assert.Equal(2, VRChat.Calendar.Lists);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+        Assert.Equal(CalendarVRChatPublisher.NotAddedError, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.Error);
+    }
+
+    /// <summary>What VRChat did to titles on 2026-10-01: dropped an en dash, and turned "." into "․".</summary>
+    private static string VRChatsTitle(string title) => title.Replace(" – ", "  ", StringComparison.Ordinal).Replace('.', '․');
+
+    private async Task<bool> TryAgainAsync(Guid id)
+    {
+        await using var context = Database.NewContext();
+        var place = await context.CalendarEventPlaces.SingleAsync(p => p.EventId == id && p.Place == CalendarPlaces.VRChat, Ct);
+        var tried = CalendarVRChatPublisher.TryAgain(place, Clock.UtcNow);
+        await context.SaveChangesAsync(Ct);
+        return tried;
     }
 
     [Fact]

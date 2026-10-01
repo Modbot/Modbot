@@ -177,17 +177,34 @@ event finishing and cancelling: each changes what the place should say.
   machine, not yet against VRChat.
 - Cancelling, deleting, or unticking VRChat deletes the event on VRChat. A finished event is left
   there: it is history on VRChat's side as well.
-- A write VRChat refuses is not sent again until the event changes. A write that got no answer
-  (timeout, VRChat's own 5xx) is tried again after 15 minutes. What VRChat said
+- A write VRChat refuses is not sent again until the event changes. An update or delete that got no
+  answer (timeout, VRChat's own 5xx) is tried again after 15 minutes. What VRChat said
   (`error.message` in its reply) is what the event's VRChat status shows, not the bare HTTP reason.
-- **A create with no answer may still have made the event.** VRChat has answered a create with a 500
-  (seen 2026-09-25), and a 500 says nothing about whether it saved. Before that create is sent again,
-  and before an event never confirmed on VRChat is let go, the group's calendar is read once for
-  the month it starts in (`GetGroupCalendarEvents`, `calendar.read`). An event there with the same
-  title and start, not owned by another Modbot event, is taken as this one: updated to what the
-  event says now, or deleted if it is no longer wanted. If the read fails, nothing is written and
-  the look is made again later. Only one page is read, so a group with more events than that in one
-  month could still end up with a copy.
+- **A create with no answer is never sent again on its own** (changed 2026-10-01). VRChat has
+  answered a create with a 500 and saved the event anyway (2026-09-25, and three times on
+  2026-10-01), so a 5xx, a timeout or an answer with no id says nothing about whether it saved:
+  - The place shows **Waiting**, not Failed. The `publish.fail` fact keeps VRChat's words.
+  - Two minutes later the group's calendar is read for it: every page of the month its current
+    time starts in, and the month beside it when the start is within 14 hours of the edge
+    (`GetGroupCalendarEvents`, `calendar.read`, the same paged read as §12). A copy is a row with the
+    same start and length (for a repeating event, one of its times), the same title once both are
+    cut down to their letters and digits, made no earlier than two minutes before the create was
+    sent, and not owned by another Modbot event.
+  - **A copy found is taken as this event's own** (adopted): its id is kept and the place is
+    Published. If the event was edited after the create was sent, the edit goes out as an update.
+    An event no longer wanted has its copy deleted instead.
+  - **None found after a whole read:** the place is Failed with *VRChat did not add the event.*, and
+    nothing is sent until a moderator presses **Try again** on it
+    (`POST /api/calendar/events/{id}/vrchat/try-again`; the place's `canTryAgain`). An edit does
+    not send it either. A read that could not reach the end of a month (more than three pages)
+    decides nothing, and the look is made again 15 minutes later; so is a read that failed.
+  - The calendar read (§12) does the same: a row that is a copy of a create with no answer, or of
+    one that was not added, is adopted rather than taken in, whenever it shows up.
+  - **Why** (2026-10-01): the old look ran once, only before an automatic retry 15 minutes on; it
+    compared titles exactly and read one page. VRChat changes titles (it dropped an en dash and
+    turned "." into a look-alike dot), so neither the look nor §12.2's title guard recognised the
+    copy, and the read about two minutes later took it in as a second event, which then made its
+    own Discord event. The retry would have made a third.
 - **Changes made on VRChat's own site are read back** when someone opens the calendar (§12). Until
   2026-09-27 they were not, and Modbot was the only source: the next edit in Modbot overwrote them.
   That was narrowed because groups plan events on vrchat.com and in the game as well, and the
@@ -275,7 +292,7 @@ stays as built until then; nothing in the user docs speaks to it.
 | Class | Lane | Rate | Source |
 |---|---|---|---|
 | `calendar.write` | `calendar` | **1 per 60 s**, shared by create, update and delete | **Not measured.** The maintainer asked for "a very lax rate limit by default" because VRChat's calendar limit is strict. Must be confirmed. |
-| `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used for the look before a create that got no answer is sent again (§3.1), and for reading the calendar back when someone opens a page or presses Refresh (§12.1). Never on a timer. |
+| `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used for the look for a create that got no answer (§3.1), and for reading the calendar back when someone opens a page or presses Refresh (§12.1). Never on a timer. |
 | `instances.create` | `instances.create` | **1 per 5 s** | Measured by the maintainer. |
 
 All three are resource-scoped to the group where it applies, count against the global backstop,
@@ -472,6 +489,8 @@ in September, a weekly series, none from Modbot).
 - **Not taken in:** drafts; a series every second week or more, or yearly (Modbot's rule has
   neither); and a row with the title of a Modbot event whose create has no id yet, or whose VRChat
   place was just removed -- it may be that very event, and taking it in would make a second.
+  Titles are compared by their letters and digits only, since VRChat changes the text it is sent
+  (2026-10-01). A row that is the copy of a create with no answer is adopted instead (§3.1).
 - A title or description longer than Modbot's limits (100 and 1000) is cut.
 
 ### 12.3 Changes and deletes made on VRChat

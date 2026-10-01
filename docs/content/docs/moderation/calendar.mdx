@@ -490,7 +490,11 @@ What Modbot does next depends on why it failed:
 - **VRChat refused the event** (for example, a field it does not accept). Modbot does not send the
   same thing again. Fix the event in Modbot, and the changed version is sent. Saving it with nothing
   changed does not send it again.
-- **VRChat did not answer, or had a problem on its side.** Modbot tries again after 15 minutes.
+- **VRChat did not answer, or had a problem on its side.** For a change to an event already on
+  VRChat, Modbot tries again after 15 minutes. For a new event, VRChat sometimes adds it anyway, so
+  Modbot looks on VRChat's calendar instead of sending it again: if it is there, the place shows
+  **Published**; if not, it shows **Failed** with *VRChat did not add the event.* and a **Try
+  again** button, and Modbot sends nothing until you press it.
 
 ## Discord
 

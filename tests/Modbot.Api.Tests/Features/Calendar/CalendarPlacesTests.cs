@@ -149,6 +149,60 @@ public class CalendarPlacesTests(PostgresFixture db)
         Assert.Empty(await CancelPostsAsync(id));
     }
 
+    // ── Try again on VRChat's calendar ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Calendar design §3.1 (2026-10-01): a create VRChat gave no answer to, and that was not on its
+    /// calendar afterwards, is sent again only when a moderator asks, and only from that state.
+    /// </summary>
+    [Fact]
+    public async Task TryAgain_SendsOnlyAVRChatCreateThatWasNotAdded_AndNeedsManageCalendar()
+    {
+        await using var host = await StartAsync();
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var id = await CreateAsync(host, manager, Event(host));
+        var path = $"/api/calendar/events/{id}/vrchat/try-again";
+
+        // No VRChat place yet.
+        Assert.Equal(HttpStatusCode.NotFound, (await host.SendJsonAsync(HttpMethod.Post, path, null, manager, Ct)).StatusCode);
+
+        await using (var context = db.NewContext())
+        {
+            context.CalendarEventPlaces.Add(new CalendarEventPlace
+            {
+                EventId = id,
+                Place = CalendarPlaces.VRChat,
+                State = CalendarPlaceStates.Failed,
+                FailedFingerprint = CalendarVRChatPublisher.NotAddedFingerprint,
+                Error = CalendarVRChatPublisher.NotAddedError,
+                ErrorAt = host.Clock.UtcNow,
+                UpdatedAt = host.Clock.UtcNow,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var shown = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/calendar/events/{id}", null, manager, Ct), Ct);
+        var vrchat = shown.GetProperty("places").EnumerateArray().Single(p => p.GetProperty("place").GetString() == CalendarPlaces.VRChat);
+        Assert.True(vrchat.GetProperty("canTryAgain").GetBoolean());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Post, path, null, viewer, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(HttpMethod.Post, path, null, manager, Ct)).StatusCode);
+
+        await using (var context = db.NewContext())
+        {
+            var place = await context.CalendarEventPlaces.AsNoTracking().SingleAsync(p => p.EventId == id && p.Place == CalendarPlaces.VRChat, Ct);
+            Assert.Equal(CalendarPlaceStates.Waiting, place.State);
+            Assert.Null(place.FailedFingerprint);
+            Assert.Null(place.Error);
+            Assert.Null(place.ErrorAt);
+        }
+
+        // Nothing left to try again.
+        Assert.Equal(HttpStatusCode.Conflict, (await host.SendJsonAsync(HttpMethod.Post, path, null, manager, Ct)).StatusCode);
+    }
+
     // ── The preview ─────────────────────────────────────────────────────────────────────
 
     [Fact]

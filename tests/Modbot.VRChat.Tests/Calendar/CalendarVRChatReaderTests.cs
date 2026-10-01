@@ -283,17 +283,82 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
     }
 
+    /// <summary>
+    /// Seen 2026-10-01: VRChat saved a create but answered with a 500, under a title it had changed
+    /// (en dash dropped, "." turned into a look-alike dot). The read about two minutes later took it
+    /// in as a second event. Now the read takes it as the first event's own.
+    /// </summary>
     [Fact]
-    public async Task AnEventModbotIsStillCreatingIsNotTakenIn()
+    public async Task AnEventModbotIsStillCreatingIsTakenAsItsOwn_NotTakenIn()
     {
-        // VRChat saved the create but answered with a 500: the event is there, and Modbot has no id.
-        await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – Alien.";
+        });
+        VRChat.Calendar.SavesTitleAs = t => t.Replace(" – ", "  ", StringComparison.Ordinal).Replace('.', '․');
         Clock.Advance(Settle);
         VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
         await PublishAsync();
 
+        Clock.Advance(TimeSpan.FromMinutes(1));
         await ReadAsync();
 
-        Assert.Single(await EventsAsync());
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventCreated));
+
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_1", place?.ExternalId);
+        Assert.Equal(CalendarPlaceStates.Published, place?.State);
+        Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));
+
+        // The publisher has nothing left to look for or send.
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+        Assert.Equal(1, VRChat.Calendar.Lists);
+    }
+
+    [Fact]
+    public async Task ARowMatchingACreateStillWaitingToGoOutIsNotTakenIn()
+    {
+        // Still settling: no create sent yet. A row with its title as VRChat would write it is held.
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – Alien.";
+        });
+        await PublishAsync();
+        Assert.Equal(CalendarPlaceStates.Waiting, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_other", "Movie night  Alien․", Clock.UtcNow.AddDays(2), TwoHours, Clock.UtcNow));
+
+        await ReadAsync();
+
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+    }
+
+    [Fact]
+    public async Task ACopyThatShowsUpAfterACreateWasNotAddedIsStillTakenAsItsOwn()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        var sentAt = Clock.UtcNow;
+        VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
+        await PublishAsync();
+        Assert.True(CalendarVRChatPublisher.NotAdded((await PlaceAsync(e.Id, CalendarPlaces.VRChat))!));
+
+        // VRChat shows it late, made when the create was sent.
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_late", "Movie night", e.StartsAt, TwoHours, sentAt.AddSeconds(5)));
+        await ReadAsync(refresh: true);
+
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_late", place?.ExternalId);
+        Assert.Equal(CalendarPlaceStates.Published, place?.State);
+        Assert.Equal(1, VRChat.Calendar.Calls);
     }
 }

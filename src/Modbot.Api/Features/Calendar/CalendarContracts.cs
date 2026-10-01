@@ -48,13 +48,18 @@ public sealed record CalendarEventRequest(
 /// <param name="MissingGroupPermission">
 /// Set when VRChat refused the last write because Modbot's VRChat account lacks a group permission.
 /// </param>
+/// <param name="CanTryAgain">
+/// VRChat's calendar only: a create that got no answer and was not on VRChat's calendar either.
+/// Modbot does not send it again on its own; <c>POST /api/calendar/events/{id}/vrchat/try-again</c> does.
+/// </param>
 public sealed record CalendarPlaceView(
     string Place,
     string State,
     string? Error,
     DateTimeOffset? ErrorAt,
     DateTimeOffset UpdatedAt,
-    MissingGroupPermission? MissingGroupPermission = null);
+    MissingGroupPermission? MissingGroupPermission = null,
+    bool CanTryAgain = false);
 
 /// <summary>The instance Modbot opened, or tried to, for the current occurrence.</summary>
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>

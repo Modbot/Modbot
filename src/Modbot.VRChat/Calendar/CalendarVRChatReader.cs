@@ -110,7 +110,7 @@ public sealed class CalendarVRChatReader
     /// VRChat's month is not exactly the UTC month (an event at 01:00 UTC on the 1st has been seen in
     /// the month before), so an event only counts as missing when Modbot expects it this far inside.
     /// </summary>
-    private static readonly TimeSpan MonthEdge = TimeSpan.FromHours(14);
+    internal static readonly TimeSpan MonthEdge = TimeSpan.FromHours(14);
 
     private readonly IVRChatGate _gate;
     private readonly ModbotContext _db;
@@ -391,6 +391,7 @@ public sealed class CalendarVRChatReader
 
         // A Modbot event whose create has not come back with an id, or whose place was just taken
         // off: a row with its title may be that very event, and taking it in would make a second.
+        // Compared by letters and digits only, because VRChat changes the text it is sent.
         var waitingIds = places.Where(p => p.ExternalId is null && p.State != CalendarPlaceStates.Removed).Select(p => p.EventId).ToHashSet();
         var removedIds = places.Where(p => p.State == CalendarPlaceStates.Removed && p.UpdatedAt >= startedAt - CalendarVRChatReadMemory.KeepFor).Select(p => p.EventId).ToHashSet();
         var unplaced = await _db.CalendarEvents.AsNoTracking()
@@ -401,9 +402,20 @@ public sealed class CalendarVRChatReader
 
         var held = known.Values
             .Where(e => waitingIds.Contains(e.Id) || removedIds.Contains(e.Id))
-            .Select(e => e.Title.Trim())
-            .Concat(unplaced.Select(t => t.Trim()))
+            .Select(e => e.Title)
+            .Concat(unplaced)
+            .Select(CalendarVRChatMatch.PlainTitle)
             .ToHashSet(StringComparer.Ordinal);
+
+        // A create that got no answer, which VRChat may have made anyway: a copy of it on the
+        // calendar is taken as that event's own rather than taken in (calendar design §3.1).
+        var unanswered = places
+            .Where(p => p.ErrorAt is not null
+                && (CalendarVRChatPublisher.MayHaveBeenCreated(p) || CalendarVRChatPublisher.NotAdded(p))
+                && known.TryGetValue(p.EventId, out var e)
+                && CalendarVRChatPublisher.Wants(e))
+            .OrderBy(p => p.ErrorAt)
+            .ToList();
 
         var live = rows.Where(r => !r.IsDraft && r.DeletedAt is null && r.Id is { Length: > 0 }).ToList();
         var groups = live.GroupBy(KeyOf, StringComparer.Ordinal).ToList();
@@ -479,7 +491,16 @@ public sealed class CalendarVRChatReader
                 continue;
             }
 
-            if (held.Contains((first.Title ?? string.Empty).Trim()))
+            var sent = unanswered.FirstOrDefault(p => group.Any(r => CalendarVRChatMatch.IsCopyOf(r, known[p.EventId], p.ErrorAt!.Value)));
+            if (sent is not null)
+            {
+                unanswered.Remove(sent);
+                Adopt(key, known[sent.EventId], sent, updatedAt, now, facts);
+                owned[key] = sent;
+                continue;
+            }
+
+            if (held.Contains(CalendarVRChatMatch.PlainTitle(first.Title)))
                 continue;
 
             VRChatEvent? made = first;
@@ -631,6 +652,26 @@ public sealed class CalendarVRChatReader
         facts.Add((FactType.PlannedEventCreated, calendarEvent, data));
 
         _log.Information("Took in the VRChat calendar event {VRChatEventId} as {EventId}", externalId, calendarEvent.Id);
+    }
+
+    /// <summary>
+    /// The copy a create with no answer made after all, taken as that event's VRChat place instead of
+    /// being taken in as a second event.
+    /// </summary>
+    private void Adopt(
+        string externalId,
+        CalendarEvent calendarEvent,
+        CalendarEventPlace place,
+        DateTimeOffset? updatedAt,
+        DateTimeOffset now,
+        List<(string Type, CalendarEvent Event, JsonObject Data)> facts)
+    {
+        CalendarVRChatMatch.Adopt(place, calendarEvent, externalId, updatedAt, now);
+        facts.Add((FactType.PlannedEventPublished, calendarEvent, new JsonObject { ["place"] = CalendarPlaces.VRChat }));
+
+        _log.Information(
+            "VRChat calendar create for the event {EventId} had gone through after all as {VRChatEventId}",
+            calendarEvent.Id, externalId);
     }
 
     /// <summary>A change made on VRChat, copied onto the Modbot event it belongs to.</summary>

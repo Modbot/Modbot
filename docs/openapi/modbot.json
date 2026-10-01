@@ -22781,6 +22781,66 @@
         ]
       }
     },
+    "/api/calendar/events/{id}/vrchat/try-again": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Try VRChat's calendar again",
+        "description": "Send an event to VRChat's calendar again after VRChat gave no answer to adding it and the event was not on VRChat's calendar afterwards (its VRChat place has canTryAgain). Modbot never sends that again on its own. 409 when the place is in any other state.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "TryVRChatCalendarAgain",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/preview": {
       "post": {
         "tags": [
@@ -29788,6 +29848,10 @@
                 "$ref": "#/components/schemas/MissingGroupPermission"
               }
             ]
+          },
+          "canTryAgain": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

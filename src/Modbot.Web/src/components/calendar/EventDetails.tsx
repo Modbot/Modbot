@@ -75,7 +75,7 @@ type Actions = {
   /** "This date" chosen for Edit: the form for this one date of a repeating event. */
   onEditDate: (occurrence: CalendarOccurrence) => void
   onDuplicate: () => void
-  /** After a cancel or a delete went through. */
+  /** After a cancel, a delete, a Pick again or a place's Try again went through. */
   onChanged: () => void
   onClose: () => void
 }
@@ -169,6 +169,7 @@ function EventBody({
                 ) : (
                   p.error && <span className="text-destructive">{p.error}</span>
                 )}
+                {p.canTryAgain && canManage && onChanged && <PlaceTryAgain event={event} onDone={onChanged} />}
               </div>
             ))}
           {missing.map((place) => (
@@ -253,6 +254,35 @@ function WorldLine({
       )}
       {error && <span className="text-destructive">{error}</span>}
     </div>
+  )
+}
+
+/**
+ * "Try again" on the VRChat place, when VRChat gave no answer to adding the event and does not have
+ * it: Modbot never sends that again on its own (calendar design §3.1).
+ */
+function PlaceTryAgain({ event, onDone }: { event: CalendarEvent; onDone: () => void }) {
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const press = () => {
+    setSending(true)
+    setProblem(null)
+
+    calendarApi
+      .tryVRChatAgain(event.id)
+      .then(onDone)
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not try again.'))
+      .finally(() => setSending(false))
+  }
+
+  return (
+    <>
+      <Button type="button" variant="outline" size="xs" disabled={sending} onClick={press}>
+        Try again
+      </Button>
+      {problem && <span className="text-destructive">{problem}</span>}
+    </>
   )
 }
 

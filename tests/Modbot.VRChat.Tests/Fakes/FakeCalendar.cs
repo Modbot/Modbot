@@ -50,6 +50,12 @@ public sealed class FakeCalendar
     /// <summary>Every write of any kind, in order, including ones answered with a failure.</summary>
     public int Calls { get; private set; }
 
+    /// <summary>
+    /// What VRChat makes of a create's title before it saves it. Seen 2026-10-01: an en dash
+    /// dropped, and "." turned into a look-alike dot.
+    /// </summary>
+    public Func<string, string>? SavesTitleAs { get; set; }
+
     /// <summary>Makes the next write answer with this status instead of 200.</summary>
     public FakeCalendar Answer(HttpStatusCode status)
     {
@@ -90,7 +96,8 @@ public sealed class FakeCalendar
                     return Task.FromResult(Failure<CalendarEvent>(status, message));
 
                 Creates.Add(request);
-                var created = Event($"cal_{_nextId++}", request.Title, request.StartsAt);
+                var created = Event($"cal_{_nextId++}", SavesTitleAs?.Invoke(request.Title) ?? request.Title, request.StartsAt);
+                created.EndsAt = request.EndsAt;
                 OnVRChat.Add(created);
 
                 return Task.FromResult(status == HttpStatusCode.OK ? Ok(created) : Failure<CalendarEvent>(status, message));

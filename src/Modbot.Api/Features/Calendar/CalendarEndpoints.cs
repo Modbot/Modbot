@@ -560,6 +560,39 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
+        // A create VRChat gave no answer to, and that was not on VRChat's calendar either, is never
+        // sent again on its own: VRChat has made events while answering 500 (calendar design §3.1).
+        group.MapPost("/events/{id:guid}/vrchat/try-again", async (
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                var place = await db.CalendarEventPlaces.FirstOrDefaultAsync(
+                    p => p.EventId == id && p.Place == CalendarPlaces.VRChat, ct);
+
+                if (place is null || !await db.CalendarEvents.AnyAsync(e => e.Id == id && e.DeletedAt == null, ct))
+                    return Results.NotFound();
+
+                if (!CalendarVRChatPublisher.TryAgain(place, clock.UtcNow))
+                    return Results.Conflict(new { error = "There is nothing to try again." });
+
+                await db.SaveChangesAsync(ct);
+                return Results.NoContent();
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("TryVRChatCalendarAgain")
+            .WithSummary("Try VRChat's calendar again")
+            .WithDescription(
+                "Send an event to VRChat's calendar again after VRChat gave no answer to adding it "
+                + "and the event was not on VRChat's calendar afterwards (its VRChat place has "
+                + "canTryAgain). Modbot never sends that again on its own. 409 when the place is in "
+                + "any other state.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
         group.MapDelete("/events/{id:guid}", async (
                 HttpContext http,
                 [FromRoute] Guid id,
@@ -1332,7 +1365,8 @@ public static class CalendarEndpoints
                         p.UpdatedAt,
                         p.MissingGroupPermission is { } permission && settings?.ManagedGroupId is { Length: > 0 } groupId
                             ? new MissingGroupPermission(permission, groupId, VRChatGroupPermissions.RoleNames(settings), p.Error)
-                            : null))],
+                            : null,
+                        CalendarVRChatPublisher.NotAdded(p)))],
                 opening is null
                     ? null
                     : new CalendarOpeningView(

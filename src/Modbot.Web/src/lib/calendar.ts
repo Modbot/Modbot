@@ -18,6 +18,8 @@ export type CalendarPlace = {
   errorAt: string | null
   updatedAt: string
   missingGroupPermission?: MissingGroupPermission | null
+  /** VRChat only: VRChat gave no answer to adding it and does not have it. Sent again only by `tryVRChatAgain`. */
+  canTryAgain?: boolean
 }
 
 export type CalendarOpening = {
@@ -286,6 +288,8 @@ export const calendarApi = {
   update: (id: string, body: CalendarEventInput) => http.put<CalendarEvent>(`${base}/events/${id}`, body),
   /** `postInChannel`: also post in the event's channel that it is cancelled, once. */
   cancel: (id: string, postInChannel = false) => http.post<void>(`${base}/events/${id}/cancel`, { postInChannel }),
+  /** Sends the event to VRChat's calendar again, for a VRChat place with `canTryAgain`. */
+  tryVRChatAgain: (id: string) => http.post<void>(`${base}/events/${id}/vrchat/try-again`),
   /** The form's input drawn the way each place would show it. Saves nothing. */
   preview: (eventId: string | null, input: CalendarEventInput) =>
     http.post<CalendarPreview>(`${base}/preview`, { eventId, event: input }),
