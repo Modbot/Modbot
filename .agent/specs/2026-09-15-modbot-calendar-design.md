@@ -4,7 +4,8 @@
 - **Status:** Built
 - **Covers:** planning events in Modbot, publishing them to VRChat's calendar, Discord and a
   channel, opening the instance on time, and a calendar feed; reading VRChat's calendar back in
-  (§12, added 2026-09-27)
+  (§12, added 2026-09-27); where an event goes, its preview, places not set up and the cancel
+  post (§14, added 2026-10-01)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -40,7 +41,7 @@ the access the event names — never public by default, and never for an event n
 | Instance access, region | `members`, `plus` or `public`; `us`, `use`, `eu` or `jp`. |
 | Image | A picture link for Discord, and optionally a VRChat file id for VRChat's calendar. Modbot does not upload files to VRChat — that endpoint has no rate limit set. |
 | VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), and whether VRChat notifies group members. Exactly the fields `CreateCalendarEventRequest` has that make sense to set. |
-| Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). A new event starts with VRChat calendar and Discord event ticked (changed 2026-09-27: with only VRChat ticked, events reached one side unless someone remembered the second box). The channel post starts off, since it needs a channel picked. |
+| Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). A new event starts with VRChat calendar and Discord event ticked (changed 2026-09-27: with only VRChat ticked, events reached one side unless someone remembered the second box). The channel post starts off, since it needs a channel picked. In the form these are one row of chips, with the calendar feed shown and always on (§14). |
 
 ### 2.1 States
 
@@ -220,7 +221,11 @@ the operational log:
 | `modbot.calendar.instance.open` | Modbot opened the instance; carries the world and instance ids |
 | `modbot.calendar.instance.fail` | Opening the instance failed; carries VRChat's words |
 | `modbot.calendar.publish.fail` | A place failed; carries which place and the error |
+| `modbot.calendar.publish.done` | A place's state turned to published (added 2026-10-01, §14.1); carries which place |
+| `modbot.calendar.publish.remove` | A place's state turned to removed (added 2026-10-01, §14.1); carries which place and what it was before |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
+
+`modbot.calendar.event.cancel` carries `postInChannel` (added 2026-10-01, §14.4).
 
 Changes read from VRChat's calendar (§12) use `create`, `change` and `delete` with `"on": "vrchat"` in
 the data and no actor: nobody in Modbot made them.
@@ -392,3 +397,102 @@ group; nothing joined them. `CalendarResults` does, read-only, from Modbot's own
   would be one query per row.
 - **Not posted anywhere.** A Discord post after the event was left optional and is not built; if it
   ever is, it carries counts and no names.
+
+## 14. Where it goes, the preview, and telling members (added 2026-10-01)
+
+A review of the calendar on 2026-10-01 found that publishing to both sides worked, and that the
+weak part was what a moderator could see: the form never said where an event would go or how it
+would look there, a ticked place that was not set up did nothing and said nothing, "Published"
+never appeared without a reload, and a cancel told members nothing unless they happened to look at
+the old card. The maintainer approved the four fixes below on 2026-10-01.
+
+### 14.1 "Published" without a reload
+
+The live stream carries facts and nothing else (live updates design §2), and a place's state
+changing wrote none unless it failed. So the page never heard that a place went from Waiting to
+Published, although the docs said it did.
+
+- **A place whose state turns to `published` writes `modbot.calendar.publish.done`; one that turns
+  to `removed` writes `modbot.calendar.publish.remove`**, both with the place. A failure already
+  wrote `modbot.calendar.publish.fail`. Each publisher remembers every place's state at the start of
+  its pass and compares after saving, so **an edit sent to a place that is already published writes
+  nothing**: the facts follow changes of state, not writes. A repeating event's Discord places move
+  on each occurrence (published, then waiting, then published within one pass), which is no change
+  and writes nothing.
+- The calendar page already reads again on any `modbot.calendar.*` fact (live updates design §6.1),
+  so the grid and the open event both redraw. No new kind and no new rule were needed.
+- **Not changed:** a `fact` on the stream follows the audit log's rules, and calendar facts are in
+  the operational log, so somebody with Manage calendar but not See the operational log still gets
+  no live calendar updates. That was so before this change and is left as it is.
+
+### 14.2 The form: chips and the preview
+
+- **Where it goes is one row of chips at the top**: VRChat calendar, Discord event, Discord channel
+  post, Calendar feed and Open the instance. The feed is shown pressed and cannot be switched: every
+  scheduled or open event is in it. The old tick boxes are gone; each place's own settings stay in
+  their section and show only while its chip is on (VRChat's category, visibility and the rest; the
+  channel; the minutes early). The auto-invite controls for an opened instance belong in Open the
+  instance's section.
+- **A Preview tab draws the event the way each place that is on would show it**: the Discord event
+  (cover, time, name, location, description), the channel card (group, title, description, fields,
+  picture, footer, Join button), what VRChat's calendar is sent, and what a phone or desktop calendar
+  reads from the feed.
+- **One set of rules: the server draws it** (`POST /api/calendar/preview`, Manage calendar). Every
+  part comes from the code that sends it, so the preview and the real thing cannot disagree:
+  - Discord: the publisher's own `ServerEventDetails` and `Post`, behind `ICalendarDiscordPreview`
+    (declared in Core so the API needs no reference to the bot, as `IDiscordBotStatus` is). The name
+    is cut at 100 and the description at 1000; the location is the world's name, "VRChat" without a
+    world, and the short join address only while an instance Modbot opened is open. The one
+    difference: a post sends the world's picture as a file, the preview shows the address.
+  - VRChat: the request `CalendarVRChatRequests` builds, read back field by field, VRChat's own
+    words for category, platform and days taken from the request as the SDK writes it. An event on
+    VRChat already previews as the update it would be, which sends no visibility and notifies nobody.
+    VRChat rewrites some characters after it receives them (seen 2026-10-01: an en dash dropped, a
+    full stop changed); the preview shows what is sent, and the form says nothing about it.
+  - The phone calendar: `CalendarFeedWriter.Entry`, the same values the feed writes.
+  A copy of these rules in the browser was the other choice; it would have been a second answer that
+  could drift from the first, and the Discord cuts and the location rule have already changed once.
+- **The preview lets an unfinished event through**: no title, no description, no channel, or no
+  world to open yet is still drawn. A title or description too long, or a time zone or date that is
+  not one, is refused with the same message a save gives.
+- **Counters** beside the title and the description, "12 / 100" and "0 / 1000", red once over. They
+  count as the server does: after trimming, in UTF-16 units.
+- **The buttons are pinned under the form** (the dialog's foot), so on a phone Schedule and Save
+  draft never scroll out of reach; the form was about 1836px tall at 360px wide.
+
+### 14.3 "Not set up"
+
+A ticked place that cannot work now says **Not set up**, linking to where it is set up, in three
+places: beside its chip in the form, on the event where its place would be, and on Health's
+Calendar card. The rule is on the server (`CalendarReadiness`) and comes with the calendar's own read
+(`CalendarView.ready`), read from settings and the bot's own status and never by asking VRChat or
+Discord:
+
+| Places | Set up when | Link |
+|---|---|---|
+| VRChat calendar, Open the instance | a managed group is chosen and Modbot has a VRChat account (username and password) | Settings → Modbot's VRChat login |
+| Discord event, channel post | a server id is set and the bot is connected | Settings → Discord |
+
+- The Discord loop only runs while the bot is connected, so a bot that is connecting or reconnecting
+  counts as not set up while it is: nothing is sent until it is back.
+- A sign-in VRChat refused is not counted here; the gate's own banner says that.
+- In the form a channel post with no channel picked also says Not set up, without a link: the
+  channel is picked in its own section, just below.
+- On an event, the mark replaces the place's state for draft, scheduled and open events, and shows
+  even when the place has no row yet, which is the usual case: a publisher that cannot run never
+  makes one.
+
+### 14.4 The cancel post
+
+- **Cancel event opens a dialog with one tick, "Post that it's cancelled in the channel"**, shown
+  when the event has a channel, and ticked to start with when the event has a channel post. An edit
+  to the old card, which turns red as before, notifies nobody; a new message does.
+- Ticked, the cancel makes a `cancelPost` place for the event, waiting, with the channel and the
+  occurrence. The calendar's Discord loop posts it **once**: the title, the time as a Discord
+  timestamp, and "Cancelled", as a plain message with mentions off. The row then holds the message's
+  id and is published; nothing edits or posts it again. A refusal is not sent again; a failure that
+  was not a refusal is tried on the next pass.
+- A second cancel of a cancelled event changes nothing and never makes a second post. A tick on an
+  event with no channel is refused. The body may be left out, as before: nothing is posted.
+- Discord scheduled events still end and vanish on a cancel, as before.
+- The cancel's fact carries `postInChannel`, so the audit log says whether members were told.

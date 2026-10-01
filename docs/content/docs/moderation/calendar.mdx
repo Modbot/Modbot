@@ -13,7 +13,8 @@ Modbot does the rest:
   Calendar;
 - **opens the group instance** a few minutes before the start, if you ask it to.
 
-Each of these is a tick box on the event. Leave any of them off and Modbot does not touch that place.
+Each of these is a chip at the top of the event form: click it to turn that place on or off. Leave
+one off and Modbot does not touch that place. The calendar feed is always on.
 
 Events made on VRChat itself, on vrchat.com or in the game, show up on the page too, and you can
 edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
@@ -232,28 +233,81 @@ drew.
 <Step>
 ### Fill it in
 
-Every field is described below. Only **Title** is required, plus a world if the instance should open
-by itself, and a channel if you tick **Post to channel**.
+Pick [where it goes](#where-it-goes) with the chips at the top, then fill in the fields under
+**Details**. Every field is described below. Only **Title** is required, plus a world if the
+instance should open by itself, and a channel if **Discord channel post** is on. **Preview** shows
+the event the way each place will show it.
 </Step>
 <Step>
 ### Save it
 
-- **Schedule** saves it and starts publishing it everywhere you ticked.
+- **Schedule** saves it and starts publishing it everywhere that is on.
 - **Save draft** saves it without publishing or opening anything. You can come back to it from
   **Drafts** and click **Schedule** later.
-- **Close** leaves without saving.
+- **Cancel** leaves without saving.
+
+The buttons stay at the bottom of the form while you scroll, on a phone too. When you edit an event
+that is already scheduled, **Save** takes the place of **Schedule** and **Save draft**.
 </Step>
 </Steps>
 
 Modbot does not publish while you wait on the form. It saves the event, then publishes it in the
-background within a minute or so. Watch the place badges change on the event.
+background within a minute or so. Watch the place badges change on the event; they change without
+reloading the page.
+
+### Where it goes
+
+The chips at the top of the form say where the event goes. A chip that is on has a tick.
+
+| Chip | What it does | Its own settings |
+|---|---|---|
+| **VRChat calendar** | Puts the event on your group's [VRChat calendar](#vrchats-group-calendar). On for a new event. | [VRChat calendar](#vrchat-calendar) |
+| **Discord event** | Makes a [Discord event](#the-discord-event) in your server. On for a new event. | None |
+| **Discord channel post** | Posts a [card](#the-channel-post) in a channel. | [Discord channel post](#discord-channel-post) |
+| **Calendar feed** | Lists the event in the [calendar feed](#the-calendar-feed). Always on; it cannot be turned off. | None |
+| **Open the instance** | [Opens a group instance](#opening-the-instance) before each start. | [Open the instance](#open-the-instance) |
+
+A place's own settings only show while its chip is on.
+
+**Not set up.** A chip that is on but cannot work yet says **Not set up** beside it. Click it to open
+the setting that is missing, in a new tab, so what you typed stays:
+
+| Chip | Needs |
+|---|---|
+| **VRChat calendar**, **Open the instance** | A **Managed group** and a VRChat account, in **Settings**, **Modbot's VRChat login**. |
+| **Discord event**, **Discord channel post** | A **Server id** and the bot connected, in **Settings**, **Discord**. While the bot is connecting or reconnecting, these say **Not set up** too, because nothing is sent until it is back. |
+
+**Discord channel post** also says **Not set up** until you pick a channel in its section.
+
+You can still save an event with a place that is not set up. Nothing is sent there until it is set
+up; then Modbot catches up by itself. The event shows the same **Not set up** where that place would
+be, and so does [Health](#on-health).
+
+### Preview
+
+**Preview**, next to **Details**, shows the event the way each place that is on will show it:
+
+- **Discord event**: the cover, the time, the title, the location and the description, cut to
+  Discord's 100 and 1,000 characters. The location is the world's name (or **VRChat** with no world);
+  the join address only appears while an instance Modbot opened is open.
+- **Discord channel post**: the card as it will be posted, with the times in your own time.
+- **VRChat calendar**: exactly what is sent to VRChat: the title, time, repeat, category, who can see
+  it, languages, platforms, tags, picture id, whether members are notified, and the description.
+  VRChat may change some characters after it gets them.
+- **Calendar feed**: what a phone or desktop calendar shows: the title, time, repeat, location,
+  the calendar's name and the notes.
+
+The preview is made by the same code that sends the event, so it matches what goes out. It does not
+save anything or send anything to VRChat or Discord. It can draw an event that is not finished yet,
+with no title or no channel, but shows the error instead if something would be refused, such as a
+title that is too long.
 
 ### Title and description
 
 | Field | Notes |
 |---|---|
-| **Title** | Required. Up to 100 characters. |
-| **Description** | Optional. Up to 1,000 characters. Line breaks are kept. |
+| **Title** | Required. Up to 100 characters. The count beside it, such as **12 / 100**, turns red when it is too long. |
+| **Description** | Optional, except for the VRChat calendar. Up to 1,000 characters, counted the same way. Line breaks are kept. |
 
 ### When
 
@@ -284,9 +338,10 @@ skips months that have no 31st.
 
 ### VRChat calendar
 
+Shown while the **VRChat calendar** chip is on.
+
 | Field | Notes |
 |---|---|
-| **Publish to VRChat calendar** | Ticked for a new event. The fields below only show while it is ticked. |
 | **Category** | One of VRChat's categories: **Arts**, **Avatars**, **Dance**, **Education**, **Exploration**, **Film & media**, **Gaming**, **Hangout** (the default), **Music**, **Other**, **Performance**, **Roleplaying** or **Wellness**. |
 | **Visible to** | **Group** or **Everyone**. |
 | **Languages** | Separate with commas, for example `eng, jpn`. At most 20, each up to 64 characters. |
@@ -295,19 +350,22 @@ skips months that have no 31st.
 | **PC**, **Android**, **iOS** | The platforms the event is for. |
 | **Notify group members** | Asks VRChat to tell your group members about the event. VRChat is only asked this when the event is first put on its calendar, not when you edit it later. |
 
-### Discord
+### Discord channel post
+
+Shown while the **Discord channel post** chip is on.
 
 | Field | Notes |
 |---|---|
-| **Discord event** | Ticked for a new event. Makes a Discord event in your server. |
-| **Post to channel** | Posts the event in a channel. |
-| **Channel** | Shown when **Post to channel** is ticked. A channel where the bot is missing View Channel, Send Messages or Embed Links is marked **Missing** followed by what it lacks. |
+| **Channel** | Required. A channel where the bot is missing View Channel, Send Messages or Embed Links is marked **Missing** followed by what it lacks. |
 
-### Instance
+The **Discord event** has no settings of its own.
+
+### Open the instance
+
+Shown while the **Open the instance** chip is on. It needs a world.
 
 | Field | Notes |
 |---|---|
-| **Open the instance automatically** | Modbot opens a group instance for each time the event happens. Needs a world. |
 | **Minutes early** | How long before the start the instance opens: 0 to 120. The default is 10. |
 
 When the instance opens early, the event counts as **Open** from that moment, not from the start
@@ -328,7 +386,7 @@ The form shows what is wrong, for example:
 
 ## VRChat's group calendar
 
-When **Publish to VRChat calendar** is ticked, Modbot adds the event to the calendar of the group
+When the **VRChat calendar** chip is on, Modbot adds the event to the calendar of the group
 chosen as **Managed group** (**Settings**, **Modbot's VRChat login**). With no managed group chosen,
 nothing is sent.
 
@@ -339,7 +397,7 @@ nothing is sent.
 - **Modbot sends one VRChat calendar change a minute at most**, across all events. VRChat is strict
   about its calendar, so this is kept slow on purpose. If you plan several events at once, they reach
   VRChat one after another.
-- **Cancelling or deleting** the event, or unticking **Publish to VRChat calendar**, removes it from
+- **Cancelling or deleting** the event, or turning off **VRChat calendar**, removes it from
   VRChat's calendar.
 - **A finished event stays** on VRChat's calendar as a past event.
 - **Changes made on VRChat are read back.** See [Events made on VRChat](#events-made-on-vrchat).
@@ -366,8 +424,8 @@ first time Modbot sees it, and again after it is changed on VRChat, to read how 
 **How they show.** An event made on VRChat has a **VRChat** badge next to its status. It is an
 ordinary Modbot event: with **Manage calendar** you can open, edit, drag, cancel and delete it, and
 your change is sent to that same event on VRChat, never as a second copy. It arrives with
-**Publish to VRChat calendar** and **Discord event** ticked, and **Post to channel** and **Open the
-instance automatically** off; tick them if you want them. VRChat settings the Modbot form does not
+**VRChat calendar** and **Discord event** on, and **Discord channel post** and **Open the
+instance** off; turn them on if you want them. VRChat settings the Modbot form does not
 have, such as **Featured** or how early hosts may join, are kept as they are when you edit it.
 
 **Changed on VRChat.** The newest change wins. Modbot copies in a change made on VRChat, for any
@@ -399,7 +457,7 @@ The **VRChat calendar** place on the event shows one of:
 | **Waiting** | Queued: waiting for its turn, for your edits to settle, or for a rate limit to pass. |
 | **Published** | VRChat has the latest version. |
 | **Failed** | VRChat refused, or did not answer. VRChat's own error is shown beside it. |
-| **Removed** | Taken off VRChat after a cancel, a delete, or unticking. |
+| **Removed** | Taken off VRChat after a cancel, a delete, or turning it off. |
 
 What Modbot does next depends on why it failed:
 
@@ -421,23 +479,23 @@ can take a little longer.
 
 ### The Discord event
 
-When **Discord event** is ticked, Modbot makes an event in the server set as **Server id**
+When the **Discord event** chip is on, Modbot makes an event in the server set as **Server id**
 (**Settings**, **Discord**, **Bot**). The bot needs the **Manage Events** permission in that server.
 
 - It has the title, description, start and end, and the picture link (or the world's picture) as its
   cover. If the picture cannot be fetched, the event is made without a cover.
 - **Before the instance opens**, its location is the world's name.
 - **When the event opens**, Modbot starts the Discord event. If Modbot opened the instance for it,
-  the join link goes in it until the instance closes. If it did not (**Open the instance
-  automatically** is off, or VRChat refused), the location stays the world's name. Discord only
+  the join link goes in it until the instance closes. If it did not (**Open the instance**
+  is off, or VRChat refused), the location stays the world's name. Discord only
   allows 100 characters for a location, and VRChat's join links are longer. So, while there is a join
   link:
   - if your **Public address** is set (**Settings**, **Server**), the location is a short
     Modbot address that sends people on to the instance;
   - otherwise the location stays the world's name, and the join link goes at the top of the
     description.
-- **When it finishes**, Modbot ends the Discord event. **When you cancel or delete it**, or untick
-  **Discord event**, the Discord event is ended too.
+- **When it finishes**, Modbot ends the Discord event. **When you cancel or delete it**, or turn off
+  **Discord event**, the Discord event is ended too, and disappears from your server.
 - **A repeating event gets a new Discord event each time it happens.** Discord cannot move an event
   back from started to scheduled, so after each time, the old one is ended and a new one is made for
   the next time.
@@ -451,7 +509,7 @@ is still open; at any other time it answers "not found".
 
 ### The channel post
 
-When **Post to channel** is ticked, Modbot posts a card in the channel you picked, in the same style
+When the **Discord channel post** chip is on, Modbot posts a card in the channel you picked, in the same style
 as [instance announcements](/discord/instance-announcements).
 
 - The card shows your group's name, the title, the description, **When** and **Ends** (as Discord
@@ -466,7 +524,7 @@ as [instance announcements](/discord/instance-announcements).
   **Cancelled**. The **Join** button is removed either way.
 - **A repeating event gets a new post each time it happens.** The old post keeps its last word
   (**Finished**) and a new one is posted for the next time.
-- Unticking **Post to channel**, or picking a different channel, deletes the post.
+- Turning off **Discord channel post**, or picking a different channel, deletes the post.
 - If someone deletes the post in Discord, Modbot does not post it again until the event changes.
 
 The bot needs View Channel, Send Messages and Embed Links in the channel.
@@ -489,7 +547,7 @@ check.
 
 ## Opening the instance
 
-When **Open the instance automatically** is ticked, Modbot opens a group instance **Minutes early**
+When the **Open the instance** chip is on, Modbot opens a group instance **Minutes early**
 before each start:
 
 - in the event's world, with its **Who can join** and **Region**;
@@ -571,15 +629,22 @@ changes, Discord on its next check.
 **Cancel event** is shown for a **Scheduled** or **Open** event. Cancelling it:
 
 - removes it from VRChat's calendar;
-- ends the Discord event;
+- ends the Discord event, which then disappears from your server;
 - changes the channel post to **Cancelled**;
 - takes it out of the calendar feed;
 - stops any future instance from opening.
 
+Modbot asks **Cancel “…”?** first; click **Cancel event** to go ahead.
+
+**Telling members.** Changing the old channel post does not notify anyone. When the event has a
+channel, the question has a tick, **Post that it's cancelled in the channel**. It starts ticked when
+the event has **Discord channel post** on. Leave it ticked, and Modbot posts a short message in that
+channel: the event's title, its date and time (in each reader's own time zone), and **Cancelled**.
+It is posted once, within about 20 seconds, and never again for that event. On the event it shows as
+**Cancelled post: Published**. Untick it to cancel without a message.
+
 A cancelled event no longer appears on the calendar, and cannot be un-cancelled. To run it again,
 plan a new event.
-
-Modbot asks **Cancel “…”?** first; click **Cancel event** to go ahead.
 
 ### Delete
 
@@ -598,8 +663,11 @@ for events that are **Scheduled** or **Open**:
 - **A Calendar card** appears when something failed. Each line reads: the event's title, the place
   (**VRChat calendar**, **Discord event**, **Channel post** or **Instance**), the error, and how long
   ago. An **Instance** line means the instance for the current time did not open.
+- **Not set up** lines in the same **Calendar** card name each place an event wants that cannot
+  work yet (see [Where it goes](#where-it-goes)): for example **Discord event · Not set up**, linking
+  to the setting that is missing.
 - **Missing Manage Events** appears in the **Discord bot** card when an event has **Discord event**
-  ticked and the bot does not have Manage Events in your server.
+  on and the bot does not have Manage Events in your server.
 
 A place that is only **Waiting** because of a VRChat rate limit is not a problem and is not listed
 here. Look at **VRChat request limits** on the same page instead.
@@ -613,13 +681,15 @@ entries (you need **See the operational log** to see them):
 |---|---|
 | **Event planned** | Someone created an event, as a draft or scheduled. |
 | **Planned event changed** | Someone edited or dragged it. Shows what changed; a change of time alone reads as *moved the event … from … to …*. |
-| **Planned event cancelled** | Someone cancelled it. |
+| **Planned event cancelled** | Someone cancelled it. Says whether it was posted in the channel. |
 | **Planned event deleted** | Someone deleted it. |
 | **Planned event opened** | One of its times started (or its instance opening time came). |
 | **Planned event finished** | Its last time ended. |
 | **Instance opened for an event** | Modbot opened the instance. |
 | **Instance for an event failed to open** | VRChat refused to open it. Shows VRChat's error. |
 | **Event failed to publish** | A place failed. Shows which place and the error. |
+| **Event published** | A place has the event now: VRChat's calendar, the Discord event, the channel post, or the message that it is cancelled. Written once when it first gets there, not for every edit after. |
+| **Event taken down** | A place no longer has the event, after a cancel, a delete or turning it off. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 
 For events read from VRChat, the entries say so instead of naming a person: *Modbot added the event
