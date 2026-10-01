@@ -278,6 +278,12 @@ export type CalendarEventInput = {
 
 const base = '/api/calendar'
 
+/** The pictures VRChat's calendar picture may be. Checked again by the server, from the bytes. */
+export const VRCHAT_PICTURE_TYPES = ['image/png', 'image/jpeg']
+
+/** The largest VRChat calendar picture: 10 MB, the server's `VRChatPictureUploads.MaxBytes`. */
+export const VRCHAT_PICTURE_MAX_BYTES = 10 * 1024 * 1024
+
 export const calendarApi = {
   view: (from: Date, to: Date) =>
     http.request<CalendarView>(
@@ -300,6 +306,15 @@ export const calendarApi = {
     http.post<void>(`${base}/events/${id}/dates/cancel`, { plannedStartsAt, postInChannel }),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
+  /**
+   * Uploads a picture to VRChat for the event's VRChat calendar entry and answers with its file id,
+   * to save as `vrChatImageId`. `eventId`: the event, when it is already saved.
+   */
+  uploadVRChatPicture: (picture: Blob, eventId: string | null) =>
+    http.request<{ fileId: string }>(
+      `${base}/vrchat-picture${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`,
+      { method: 'POST', body: picture, headers: { 'content-type': picture.type || 'application/octet-stream' } },
+    ),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   /** What the time of an event that started at `at` did. */
   results: (id: string, at: Date) =>

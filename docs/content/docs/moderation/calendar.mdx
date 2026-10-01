@@ -357,9 +357,36 @@ Shown while the **VRChat calendar** chip is on.
 | **Visible to** | **Group** or **Everyone**. |
 | **Languages** | Separate with commas, for example `eng, jpn`. At most 20, each up to 64 characters. |
 | **Tags** | Separate with commas. At most 20, each up to 64 characters. |
-| **VRChat image id** | Optional. The id of a picture already uploaded to VRChat, starting with `file_`. Modbot does not upload pictures to VRChat for you. |
+| **VRChat picture** | Optional. The picture on VRChat's calendar. See [The VRChat picture](#the-vrchat-picture). |
 | **PC**, **Android**, **iOS** | The platforms the event is for. |
 | **Notify group members** | Asks VRChat to tell your group members about the event. VRChat is only asked this when the event is first put on its calendar, not when you edit it later. |
+
+### The VRChat picture
+
+VRChat's calendar does not take a picture link, so its picture is a separate field from **Picture
+link**, which only Discord uses.
+
+- **Choose picture** and pick a **PNG** or **JPEG** of up to **10 MB**. Modbot uploads it to VRChat
+  straight away, and a small copy of it shows in the form once VRChat has it. While it uploads,
+  **Save** and **Schedule** wait.
+- **The picture is uploaded to VRChat, to the VRChat account Modbot signs in as for your group.**
+  It is a file on that account from then on, like a picture uploaded on vrchat.com. Modbot does not
+  keep a copy; it keeps only the id VRChat gives the picture, and sends that id with the event.
+- **Remove** takes the picture off the event. The file stays on VRChat.
+- An event saved with a picture, opened again later, shows **VRChat picture set** instead of the
+  small copy, because Modbot keeps only the id. So does an event made on VRChat with a picture.
+- Modbot uploads **one picture a minute at most**, the same pace as its VRChat calendar changes. A
+  second picture chosen within the minute waits for its turn.
+
+If the upload fails, the reason shows under the field:
+
+- **The picture must be a PNG or JPEG.** Modbot looks at the file itself, not its name.
+- **The picture is larger than 10 MB.**
+- **VRChat is not taking uploads right now. Try again in a few minutes.** VRChat asked Modbot to
+  slow down. Modbot does not try again by itself; choose the picture again later.
+- Anything else VRChat says, in VRChat's own words.
+
+Who uploaded which picture, and for which event, is in the [audit log](#in-the-audit-log).
 
 ### Discord channel post
 
@@ -794,6 +821,7 @@ entries (you need **See the operational log** to see them):
 | **Event failed to publish** | A place failed. Shows which place and the error. |
 | **Event published** | A place has the event now: VRChat's calendar, the Discord event, the channel post, or the message that it is cancelled. Written once when it first gets there, not for every edit after. |
 | **Event taken down** | A place that had the event no longer has it, after a cancel, a delete or turning it off. Not written for a place the event never reached. |
+| **Event picture uploaded to VRChat** | Someone uploaded a VRChat picture. Names the event when it was already saved; for a new event, the event's own **Event planned** entry carries the same picture. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 | **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
 

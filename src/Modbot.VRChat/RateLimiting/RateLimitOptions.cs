@@ -207,6 +207,12 @@ public static class VRChatRateLimits
     public const string InstancesCreateLane = "instances.create";
 
     /// <summary>
+    /// Uploading pictures (<see cref="VRChatEndpointClass.FilesUpload"/>). Its own queue, because an
+    /// upload waits up to a minute for its turn and must not hold a calendar write up while it does.
+    /// </summary>
+    public const string FilesUploadLane = "files.upload";
+
+    /// <summary>
     /// Kicks, bans and unbans a moderator presses. Its own queue, so the one thing a human is
     /// actually waiting on is never behind a member sweep, and a slow moderation write never holds
     /// the sweeps up either.
@@ -617,6 +623,16 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.CalendarRead, CalendarReadLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
+
+            // NOT MEASURED -- uploading a picture, POST /file/image. Taken from the codebase on
+            // 2026-10-01, not measured: calendar.write's one request a minute, because the only
+            // upload is a calendar event's VRChat picture. Its own lane and class, so a 429 here
+            // stops uploads and not the calendar writes. Global backstop, like the other writes below
+            // moderation. Not scoped to the group: the file belongs to Modbot's VRChat account, not
+            // to the group, so a group id would name nothing a limit could key on.
+            [VRChatEndpointClass.FilesUpload] = new(
+                VRChatEndpointClass.FilesUpload, FilesUploadLane,
+                HardMaxPerSecond: PerSeconds(60), DefaultCeilingPerSecond: CeilingFor(PerSeconds(60))),
 
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,

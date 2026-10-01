@@ -22935,6 +22935,115 @@
         ]
       }
     },
+    "/api/calendar/vrchat-picture": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Upload VRChat calendar picture",
+        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "UploadCalendarVRChatPicture",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarVRChatPictureView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/worlds": {
       "get": {
         "tags": [
@@ -30063,6 +30172,17 @@
               "number"
             ],
             "format": "double"
+          }
+        }
+      },
+      "CalendarVRChatPictureView": {
+        "required": [
+          "fileId"
+        ],
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
           }
         }
       },

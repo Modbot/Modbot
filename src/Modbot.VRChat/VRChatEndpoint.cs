@@ -124,6 +124,26 @@ public static class VRChatEndpointClass
     public const string CalendarRead = "calendar.read";
 
     /// <summary>
+    /// Uploading a picture to VRChat -- <c>POST /file/image</c>, one multipart request that answers
+    /// with the new file and its <c>file_…</c> id. Used for a calendar event's VRChat picture.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> Taken from the codebase on 2026-10-01: the same one request a
+    /// minute as <see cref="CalendarWrite"/>, the write the picture is for. Spec 4.3.4 forbids
+    /// treating that as a finding; it is a starting point meant to be too low.
+    /// </para>
+    /// <para>
+    /// Its own class and lane, so a 429 on an upload stops uploads and nothing else -- not the
+    /// calendar writes, which must still go out with the picture already uploaded. On the
+    /// <see cref="Global"/> backstop like the other writes below moderation, and never retried
+    /// (spec 4.3.1): the person who pressed the button is told, and choosing the picture again is
+    /// theirs to do.
+    /// </para>
+    /// </remarks>
+    public const string FilesUpload = "files.upload";
+
+    /// <summary>
     /// The full user object -- <c>GET /users/{userId}</c>. Runs in its own lane, exempt from the
     /// global ceiling (spec 4.2.5).
     /// </summary>

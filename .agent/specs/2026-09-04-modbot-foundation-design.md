@@ -1169,6 +1169,7 @@ endpoint classes §4.2 does not schedule:
 | `groups.invites.cancel` | **0.1 req/s** | 2026-09-27 — cancelling a sent invite; unmeasured; `global` backstop; apart from `groups.invites`, so it never uses up auto-invites' pace |
 | `groups.gallery` | **0.2 req/s** | 2026-09-27 — reading one gallery's images when the Gallery tab opens, a gallery is picked, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate; `interactive` backstop. The gallery list itself comes from the group poll |
 | `groups.gallery.write` | **0.1 req/s** | 2026-09-27 — removing a gallery image; unmeasured; `global` backstop, below moderation |
+| `files.upload` | **1 per 60 s** | 2026-10-01 — uploading a calendar event's VRChat picture, `POST /file/image`; taken from the codebase (`calendar.write`'s pace), not measured; own lane, `global` backstop, never retried (calendar design §15) |
 | `users.lookup` | **1 req/s** | 2026-09-17 — one person read because somebody is waiting; §4.2.5's original users-lane rate, kept under the 3.5 the sync reads run at on the same endpoints (§4.3.5) |
 | `proxy` | **0.3 req/s** | 2026-09-17 — a request forwarded as the service account; the bottom of this table's range, because the limiter cannot see which endpoint it reaches (VRChat proxy design §4) |
 | `proxy.passthrough` | **0.5 req/s** | 2026-09-17 — a request forwarded with a caller's own cookie; a guess kept low, not counted against the service account (VRChat proxy design §4) |

@@ -6,7 +6,7 @@
   channel, opening the instance on time, and a calendar feed; reading VRChat's calendar back in
   (§12, added 2026-09-27); where an event goes, its preview, places not set up and the cancel
   post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
-  added 2026-10-01)
+  added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -40,7 +40,7 @@ the access the event names — never public by default, and never for an event n
 | Repeat | `none`, `daily`, `weekly` on chosen days, or `monthly` on the same day of the month. An optional last date. **The rule is stored, not the occurrences.** A monthly event on the 31st skips months without one, the same as iCalendar. |
 | World | Picked from worlds Modbot knows, or typed as an id. Never checked for shape (foundation §3.1.1). Or picked from a world list, date by date (world lists design, added 2026-10-01): `WorldId` is then the current date's pick. |
 | Instance access, region | `members`, `plus` or `public`; `us`, `use`, `eu` or `jp`. |
-| Image | A picture link for Discord, and optionally a VRChat file id for VRChat's calendar. Modbot does not upload files to VRChat — that endpoint has no rate limit set. |
+| Image | Two fields, kept apart on purpose: a picture link for Discord, and a VRChat picture for VRChat's calendar, stored as its VRChat file id. The VRChat picture is uploaded from the form (§15, changed 2026-10-01). Before that the form took a typed `file_…` id and Modbot uploaded nothing, because the upload endpoint had no rate limit set. |
 | VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), and whether VRChat notifies group members. Exactly the fields `CreateCalendarEventRequest` has that make sense to set. |
 | Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). A new event starts with VRChat calendar and Discord event ticked (changed 2026-09-27: with only VRChat ticked, events reached one side unless someone remembered the second box). The channel post starts off, since it needs a channel picked. In the form these are one row of chips, with the calendar feed shown and always on (§14). |
 
@@ -304,8 +304,9 @@ stays as built until then; nothing in the user docs speaks to it.
 | `calendar.write` | `calendar` | **1 per 60 s**, shared by create, update and delete | **Not measured.** The maintainer asked for "a very lax rate limit by default" because VRChat's calendar limit is strict. Must be confirmed. |
 | `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used for the look for a create that got no answer (§3.1), and for reading the calendar back when someone opens a page or presses Refresh (§12.1). Never on a timer. |
 | `instances.create` | `instances.create` | **1 per 5 s** | Measured by the maintainer. |
+| `files.upload` | `files.upload` | **1 per 60 s** | **Not measured.** Taken from the codebase on 2026-10-01: `calendar.write`'s pace, since the only upload is an event's VRChat picture (§15). Not scoped to the group, because the file belongs to Modbot's VRChat account. |
 
-All three are resource-scoped to the group where it applies, count against the global backstop,
+All four are resource-scoped to the group where it applies, count against the global backstop,
 and follow §4.3.1 unchanged: **a 429 cold-stops that bucket**, the place shows "Waiting", nothing
 is retried until the bucket's own wait is over, and then the one probe the limiter allows is the
 next queued write. Nothing in the calendar ever retries a 429 immediately. World names use the
@@ -381,6 +382,7 @@ the operational log:
 | `modbot.calendar.publish.fail` | A place failed; carries which place and the error |
 | `modbot.calendar.publish.done` | A place got the event for the first time, not for each edit after (added 2026-10-01, §14.1); carries which place |
 | `modbot.calendar.publish.remove` | A place that held the event no longer does (added 2026-10-01, §14.1); carries which place and what it was before |
+| `modbot.calendar.picture.upload` | A VRChat picture was uploaded (added 2026-10-01, §15); carries the file id, the event's id and title when it was already saved, and the size and type |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
 
 `modbot.calendar.event.cancel` carries `postInChannel` (added 2026-10-01, §14.4).
@@ -413,6 +415,8 @@ Two loops, both on `IModbotClock`, never the system clock:
   series); whether an update to one date wants `parentId`; and whether VRChat keeps a changed date
   through a later update of the series. Built from the spec's model (`occurrenceKind`,
   `occurrenceModified`, `seriesId`, `parentId`), not from a call to the real service.
+- Whether `POST /file/image` with the `gallery` purpose needs VRChat+ on Modbot's account, what size
+  VRChat takes, and its real rate limit (§15).
 
 ## 11. The page (added 2026-09-27)
 
@@ -676,3 +680,38 @@ Discord:
   event with no channel is refused. The body may be left out, as before: nothing is posted.
 - Discord scheduled events still end and vanish on a cancel, as before.
 - The cancel's fact carries `postInChannel`, so the audit log says whether members were told.
+
+## 15. The VRChat picture (added 2026-10-01)
+
+The picture link only ever reached Discord, and VRChat's calendar needed a `file_…` id that nobody
+had a way to make, so in practice events reached VRChat without a picture. The maintainer kept the
+two fields apart (a picture link for Discord, a VRChat picture for VRChat) and made the second an
+upload.
+
+- **Uploaded when it is chosen, by its own request**, `POST /api/calendar/vrchat-picture` (Manage
+  calendar), not when the event is saved. Saving stays plain JSON and never waits on VRChat, which is
+  what the rest of the calendar is built on (§3, §9): an upload waits on its own one-a-minute budget
+  and can be refused, and a refusal belongs on the picture field, at the moment the picture is
+  chosen, not on a save that would then fail as a whole. The answer is the file id; the form puts it
+  in `vrChatImageId` and the save stores it like any other field. Publishing is unchanged.
+- **The request body is the picture**, no multipart form. PNG or JPEG only, told apart by the first
+  bytes rather than the Content-Type, and at most **10 MB**. VRChat publishes no limit for this
+  endpoint, so 10 MB is a guess kept well above an event picture and well under what an image host
+  is likely to refuse. Anything else is refused before VRChat is asked (400, or 413 for too big). The
+  form checks the same two things first.
+- **One request, through the gate**, `FilesApi.UploadImageWithHttpInfoAsync` with
+  `ImagePurpose.Gallery`, on `files.upload` (§5) at interactive priority. A 429 cold-stops the class
+  and answers 429 with a plain sentence; nothing is sent again (foundation §4.3.1). Any other refusal
+  carries VRChat's words.
+- **Modbot keeps none of the bytes.** The body is read into memory, sent, and dropped; only the file
+  id is stored, on the event. The file lives on the VRChat account Modbot signs in as, and the
+  privacy page says so.
+- **Remove** clears the id on the event. The file stays on VRChat: deleting it would be a second
+  VRChat write for nothing members can see.
+- **The thumbnail** in the form is drawn from the file on the person's own computer, so it shows only
+  for a picture chosen on that page. A saved id, or one an event made on VRChat brought with it, reads
+  "VRChat picture set": Modbot has no address for it without asking VRChat.
+- **Fact:** `modbot.calendar.picture.upload` with the person as actor. Its subject is the event's id
+  when the form sends `eventId` (an event already saved); for a new event there is no id yet, so the
+  subject is the file id, and the event's `create` fact names the same file as `vrchatImageId`. No
+  member data is in it.

@@ -182,6 +182,9 @@ public static class VRChatServiceCollectionExtensions
         services.AddSingleton<GroupPage.GroupSentInvites>();
         services.AddSingleton<GroupPage.GroupGalleries>();
 
+        // A calendar event's VRChat picture, uploaded when someone chooses it in the form.
+        services.AddSingleton<Files.VRChatPictureUploads>();
+
         // Auto-invites (auto-invites design). Scoped, not singleton like the three above, because
         // both hold a ModbotContext for the pass: the sender writes the row that remembers an
         // invite and measures the thirty seconds from it, and the decider reads who is standing in

@@ -9,6 +9,10 @@ namespace Modbot.Api.Features.Calendar;
 /// <param name="Repeat"><c>none</c>, <c>daily</c>, <c>weekly</c> or <c>monthly</c>.</param>
 /// <param name="RepeatDays">For weekly: <c>MO</c> to <c>SU</c>.</param>
 /// <param name="RepeatUntil">The last date an occurrence may start on, <c>2026-12-31</c>, or null.</param>
+/// <param name="VRChatImageId">
+/// The VRChat file id of the picture for VRChat's calendar, as <c>POST /api/calendar/vrchat-picture</c>
+/// answered it, or one an older event already has. Null for none.
+/// </param>
 /// <param name="Draft">Save without publishing anything or opening anything.</param>
 /// <param name="WorldListId">
 /// Pick the world from this world list, date by date, instead of <paramref name="WorldId"/>.
@@ -105,6 +109,10 @@ public sealed record CalendarDateRequest(
 /// Also post in the event's channel that this date is cancelled, once, as a whole-event cancel can.
 /// </param>
 public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt, bool PostInChannel = false);
+
+/// <summary>A picture uploaded to VRChat for an event's VRChat calendar entry.</summary>
+/// <param name="FileId">The <c>file_…</c> id VRChat gave it, to save as the event's <c>vrChatImageId</c>.</param>
+public sealed record CalendarVRChatPictureView(string FileId);
 
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>

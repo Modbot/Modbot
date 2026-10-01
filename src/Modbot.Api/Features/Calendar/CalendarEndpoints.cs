@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.GroupPage;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
@@ -19,6 +20,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.VRChat;
 using Modbot.VRChat.Calendar;
+using Modbot.VRChat.Files;
 using NodaTime;
 using NodaTime.Text;
 
@@ -672,6 +674,110 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        // Its own request rather than part of saving the event: the upload waits on its own
+        // one-a-minute budget and can be refused, and a save must never wait on VRChat or fail
+        // because of it (the class remarks). The person sees the picture's answer on the picture
+        // field the moment they choose it, and saving stays the plain JSON it was.
+        group.MapPost("/vrchat-picture", async (
+                HttpContext http,
+                [FromQuery] Guid? eventId,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                // Optional: the VRChat services are wired by the host, not by the API.
+                [FromServices] VRChatPictureUploads? uploads,
+                CancellationToken ct) =>
+            {
+                if (uploads is null)
+                {
+                    return Results.Json(
+                        new { error = "This server is not set up to act in VRChat." },
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
+
+                CalendarEvent? calendarEvent = null;
+
+                if (eventId is { } id)
+                {
+                    calendarEvent = await db.CalendarEvents.AsNoTracking()
+                        .FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
+
+                    if (calendarEvent is null)
+                        return Results.NotFound();
+
+                    if (calendarEvent.State == CalendarEventStates.Cancelled)
+                        return Results.Conflict(new { error = "A cancelled event cannot be changed." });
+                }
+
+                var bytes = await ReadPictureAsync(http.Request.Body, ct);
+
+                if (VRChatPictureUploads.Problem(bytes) is { } problem)
+                {
+                    return Results.Json(
+                        new { error = problem },
+                        statusCode: bytes.Length > VRChatPictureUploads.MaxBytes
+                            ? StatusCodes.Status413PayloadTooLarge
+                            : StatusCodes.Status400BadRequest);
+                }
+
+                var answer = await uploads.UploadAsync(bytes, ct);
+
+                if (!answer.Success)
+                {
+                    // Never sent again from here (foundation §4.3.1). Choosing the picture again is
+                    // the person's decision.
+                    var said = answer.IsRateLimited || answer.Kind == VRChatFailureKind.RateLimited
+                        ? "VRChat is not taking uploads right now. Try again in a few minutes."
+                        : GroupPageAnswers.Said(answer);
+
+                    return Results.Json(new { error = said }, statusCode: GroupPageAnswers.StatusFor(answer));
+                }
+
+                if (answer.Value?.Id is not { Length: > 0 } fileId)
+                {
+                    return Results.Json(
+                        new { error = "VRChat did not give the picture an id." },
+                        statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                await facts.RecordAsync(
+                    FactType.PlannedEventPictureUploaded,
+                    calendarEvent?.Id.ToString() ?? fileId,
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["fileId"] = fileId,
+                        ["eventId"] = calendarEvent?.Id.ToString(),
+                        ["title"] = calendarEvent?.Title,
+                        ["bytes"] = bytes.Length,
+                        ["type"] = VRChatPictureUploads.TypeOf(bytes),
+                    },
+                    ct);
+
+                return Results.Ok(new CalendarVRChatPictureView(fileId));
+            })
+            // No declared request body, as with imports: the body is a file, and the reference
+            // generator cannot draw a sample of one.
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("UploadCalendarVRChatPicture")
+            .WithSummary("Upload VRChat calendar picture")
+            .WithDescription(
+                "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an "
+                + "event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG "
+                + "of at most 10 MB, told apart by its first bytes rather than its Content-Type. "
+                + "Answers with the file id VRChat gave it; save that as the event's vrChatImageId. "
+                + "eventId names the event when it is already saved, for the audit log. One request "
+                + "to VRChat, at most one a minute and never retried; a picture that is too big or "
+                + "not a PNG or JPEG is refused before VRChat is asked. Modbot keeps none of the bytes.")
+            .Produces<CalendarVRChatPictureView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status413PayloadTooLarge)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
         group.MapGet("/worlds", async (
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
@@ -823,6 +929,27 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    /// <summary>
+    /// The picture in a request body, read until it runs past <see cref="VRChatPictureUploads.MaxBytes"/>
+    /// and no further: enough to know it is too big without holding all of it.
+    /// </summary>
+    private static async Task<byte[]> ReadPictureAsync(Stream body, CancellationToken ct)
+    {
+        using var buffer = new MemoryStream();
+        var chunk = new byte[64 * 1024];
+
+        while (buffer.Length <= VRChatPictureUploads.MaxBytes)
+        {
+            var read = await body.ReadAsync(chunk, ct);
+            if (read == 0)
+                break;
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
     }
 
     /// <summary>SHA-256 of a feed token, hex. Only the hash is ever matched.</summary>

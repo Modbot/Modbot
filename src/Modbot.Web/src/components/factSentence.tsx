@@ -1403,6 +1403,16 @@ const SENTENCES: Record<string, Sentence> = {
       </>
     ),
 
+  // `title` is there only when the event was already saved; a new event's create names the same file id.
+  'modbot.calendar.picture.upload': (p) =>
+    p.text('title') ? (
+      <>
+        {p.actor} uploaded a picture to VRChat for<Quoted value={p.text('title')} />.
+      </>
+    ) : (
+      <>{p.actor} uploaded a picture to VRChat for a new event.</>
+    ),
+
   'modbot.calendar.feed.regenerate': (p) =>
     p.entry.data?.['replaced'] === true ? (
       <>{p.actor} made a new calendar feed link, and the old one stopped working.</>

@@ -584,6 +584,16 @@ public static class FactType
 
     /// <summary>A place no longer has the event: taken off after a cancel, a delete or unticking.</summary>
     public const string PlannedEventTakenDown = "modbot.calendar.publish.remove";
+
+    /// <summary>
+    /// Somebody uploaded a picture to VRChat for an event's VRChat calendar entry (added 2026-10-01).
+    /// Carries the <c>fileId</c> VRChat gave it, the event's id and title when the event was already
+    /// saved, and the picture's size and type. The subject is the event's id; for an event not saved
+    /// yet it is the file id, and the event's create fact names the same id as its
+    /// <c>vrchatImageId</c>.
+    /// </summary>
+    public const string PlannedEventPictureUploaded = "modbot.calendar.picture.upload";
+
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
     /// <summary>

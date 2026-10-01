@@ -117,6 +117,7 @@ public static class FactSubjects
         [FactType.PlannedEventPublishFailed] = SubjectKind.Other,
         [FactType.PlannedEventPublished] = SubjectKind.Other,
         [FactType.PlannedEventTakenDown] = SubjectKind.Other,
+        [FactType.PlannedEventPictureUploaded] = SubjectKind.Other,
         [FactType.CalendarFeedRegenerated] = SubjectKind.Other,
         [FactType.CalendarWorldPicked] = SubjectKind.Other,
         [FactType.WorldListCreated] = SubjectKind.Other,

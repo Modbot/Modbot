@@ -153,6 +153,7 @@ public static class FactLabels
         [FactType.PlannedEventPublishFailed] = "Event failed to publish",
         [FactType.PlannedEventPublished] = "Event published",
         [FactType.PlannedEventTakenDown] = "Event taken down",
+        [FactType.PlannedEventPictureUploaded] = "Event picture uploaded to VRChat",
         [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
         [FactType.CalendarWorldPicked] = "World picked for an event",
         [FactType.WorldListCreated] = "World list made",

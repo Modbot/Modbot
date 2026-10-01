@@ -15,7 +15,8 @@ namespace Modbot.VRChat.GroupPage;
 /// </para>
 /// <para>
 /// Adding an image is not here. VRChat takes a picture through its file upload first and a gallery
-/// entry second, and Modbot does not upload files to VRChat yet.
+/// entry second, and Modbot uploads files only for a calendar event's picture
+/// (<see cref="Files.VRChatPictureUploads"/>), not for galleries yet.
 /// </para>
 /// <para>
 /// Reads are on <see cref="VRChatEndpointClass.GroupsGallery"/> and removals on
