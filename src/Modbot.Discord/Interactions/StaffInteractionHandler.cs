@@ -58,6 +58,7 @@ public sealed class StaffInteractionHandler
     public const string EmptyNoteMessage = "A note needs something in it.";
     public const string NoReasonsMessage = "Modbot's reason list has none for this. Add one in Modbot first.";
     public const string UnknownReasonMessage = "One of those reasons is not on the list.";
+    public const string FailedMessage = "Something went wrong on Modbot's side. Check the person in Modbot before pressing again.";
 
     /// <summary>The longest note, as the note service allows.</summary>
     public const int NoteLength = 2000;
@@ -462,9 +463,33 @@ public sealed class StaffInteractionHandler
             return null;
         }
 
-        var answer = await _staff.RunAsync(
-                pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, Member(user!), ct)
-            .ConfigureAwait(false);
+        StaffActionAnswer answer;
+
+        try
+        {
+            answer = await _staff.RunAsync(
+                    pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, Member(user!), ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The confirmation already says "Banning…"; it must not stay that way. Whether VRChat
+            // got the request is not known here, so the line sends the moderator to look rather
+            // than guessing: starting again from the card makes a new key, which could act twice.
+            _log.Error(e, "A {Action} from Discord failed", pending.Action);
+
+            try
+            {
+                await press.UpdateAsync(DiscordReply.Say(FailedMessage), ct).ConfigureAwait(false);
+            }
+            catch (Exception updateError)
+            {
+                _log.Debug(updateError, "Could not rewrite the confirmation after a failure");
+            }
+
+            await RecordAsync(press.DiscordUserId, user, pending.Action, "error", pending.SubjectId, ct).ConfigureAwait(false);
+            return null;
+        }
 
         var publicAddress = await PublicAddressAsync(ct).ConfigureAwait(false);
         await press.UpdateAsync(Answer(pending, answer, publicAddress), ct).ConfigureAwait(false);

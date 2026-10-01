@@ -244,7 +244,8 @@ public sealed partial class DiscordNetGateway
         return builder.Build();
     }
 
-    private static string Cut(string text, int length) => text.Length <= length ? text : text[..length];
+    /// <summary>Discord's limit, never splitting an emoji in half (Discord refuses half of one).</summary>
+    private static string Cut(string text, int length) => Interactions.StaffInteractionHandler.Cut(text, length);
 
     /// <summary>
     /// The one answer an interaction gets, in whichever form the handler chooses: a form, a reply,
