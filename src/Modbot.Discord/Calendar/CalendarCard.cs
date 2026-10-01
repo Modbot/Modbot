@@ -181,11 +181,12 @@ public static class CalendarCard
     /// title, the time as a Discord timestamp, and the word. A message of its own rather than only
     /// the card turning red, because an edit to an old card notifies nobody.
     /// </summary>
-    public static string CancelNotice(CalendarEvent calendarEvent, DateTimeOffset startsAt)
+    /// <param name="title">One date's own title (calendar design §2.2); the event's when null.</param>
+    public static string CancelNotice(CalendarEvent calendarEvent, DateTimeOffset startsAt, string? title = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
         // Escaped, because it sits inside the bold: a title with a star in it would end it early.
-        return $"**{CardText.EscapeName(calendarEvent.Title)}** · {Stamp(startsAt, "F")} · Cancelled";
+        return $"**{CardText.EscapeName(title ?? calendarEvent.Title)}** · {Stamp(startsAt, "F")} · Cancelled";
     }
 
     private static string? WorldName(CalendarEvent calendarEvent, VRChatWorld? world) =>

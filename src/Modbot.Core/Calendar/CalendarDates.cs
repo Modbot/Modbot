@@ -77,7 +77,7 @@ public static class CalendarDates
     public static bool MayBeOnVRChat(CalendarDateChange change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        return change.VRChatSentFingerprint is not null || change.VRChatId is not null;
+        return change.VRChatSentFingerprint is not null || change.VRChatId is not null || change.VRChatSentStartsAt is not null;
     }
 
     /// <summary>

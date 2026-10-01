@@ -630,6 +630,9 @@ public sealed class CalendarDiscordPublisher
     /// message a whole-event cancel posts, with that date's time, posted once. A refusal is not
     /// sent again; anything else is tried on the next pass.
     /// </summary>
+    /// <summary>How long after a cancelled date ended its cancel post is still worth posting.</summary>
+    public static readonly TimeSpan DateCancelPostKeptFor = TimeSpan.FromDays(1);
+
     private async Task SyncDateCancelPostsAsync(Pass pass, List<CalendarDateChange> dates)
     {
         if (dates.Count == 0)
@@ -648,9 +651,19 @@ public sealed class CalendarDiscordPublisher
             if (!owners.TryGetValue(date.EventId, out var e) || date.CancelPostChannelId is not { Length: > 0 } channelId)
                 continue;
 
-            var startsAt = date.StartsAt ?? date.PlannedStartsAt;
+            var occurrence = CalendarRepeat.Changed(date, CalendarRepeat.LengthOf(e));
+
+            // News only while it is news: not for an event deleted since, nor a date long over (a
+            // pass that could not post for a while, then catches up).
+            if (e.DeletedAt is not null || occurrence.EndsAt < pass.Now - DateCancelPostKeptFor)
+            {
+                date.CancelPostChannelId = null;
+                continue;
+            }
+
+            var notice = CalendarCard.CancelNotice(e, occurrence.StartsAt, CalendarRepeat.TitleOf(e, occurrence));
             var outcome = await pass
-                .Call(g => g.PostAsync(channelId, CalendarCard.CancelNotice(e, startsAt), [], null, pass.Ct))
+                .Call(g => g.PostAsync(channelId, notice, [], null, pass.Ct))
                 .ConfigureAwait(false);
 
             if (!outcome.Sent)

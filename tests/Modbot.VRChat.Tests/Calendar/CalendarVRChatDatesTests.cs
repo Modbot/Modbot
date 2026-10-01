@@ -210,6 +210,58 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
     }
 
     [Fact]
+    public async Task ACancelWhoseKeptIdIsGone_LooksForTheDateAgain_RatherThanCountingItDone()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+
+        // An id kept from an earlier pass, which VRChat no longer knows; the date is listed under a new one.
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.Cancelled = true;
+            c.VRChatId = "occ_stale";
+        });
+
+        VRChat.Calendar.Answer(System.Net.HttpStatusCode.NotFound);
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+
+        var after = await DateAsync(e.Id);
+        Assert.Null(after.VRChatId);
+        Assert.Null(after.VRChatSentFingerprint);
+
+        // The next pass finds it and takes it off.
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal("occ_2", Assert.Single(VRChat.Calendar.Deletes));
+    }
+
+    [Fact]
+    public async Task APutBackDateIsFoundWhereVRChatLastHadIt()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        var movedTo = second + TimeSpan.FromHours(1);
+
+        // VRChat lists the date where Modbot last sent it; the row is put back and its id forgotten.
+        VRChat.Calendar.OnVRChat.RemoveAll(r => r.Id == "occ_2");
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("occ_2", e.Title, movedTo, TimeSpan.FromHours(2), Clock.UtcNow, VRChatKind.Occurrence, "cal_1"));
+
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.VRChatSentStartsAt = movedTo;
+            c.VRChatSentFingerprint = "sent before";
+        });
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        var (id, body) = Assert.Single(VRChat.Calendar.Updates);
+        Assert.Equal("occ_2", id);
+        Assert.Equal(second.UtcDateTime, body.StartsAt);
+    }
+
+    [Fact]
     public async Task ADateOnALaterPageOfTheMonthIsFound()
     {
         var e = await PublishedWeeklyAsync();

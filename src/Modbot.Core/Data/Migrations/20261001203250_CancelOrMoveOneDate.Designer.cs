@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001202624_CancelOrMoveOneDate")]
+    [Migration("20261001203250_CancelOrMoveOneDate")]
     partial class CancelOrMoveOneDate
     {
         /// <inheritdoc />
@@ -956,6 +956,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("vrchat_sent_fingerprint");
 
+                    b.Property<DateTimeOffset?>("VRChatSentStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vrchat_sent_starts_at");
+
                     b.HasKey("Id")
                         .HasName("pk_calendar_date_change");
 
@@ -1155,11 +1159,22 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("world_id");
 
+                    b.Property<Guid?>("WorldListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("world_list_id");
+
+                    b.Property<DateTimeOffset?>("WorldPickedFor")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("world_picked_for");
+
                     b.HasKey("Id")
                         .HasName("pk_calendar_event");
 
                     b.HasIndex("State")
                         .HasDatabaseName("ix_calendar_event_state");
+
+                    b.HasIndex("WorldListId")
+                        .HasDatabaseName("ix_calendar_event_world_list_id");
 
                     b.ToTable("calendar_event", (string)null);
                 });
@@ -7409,6 +7424,164 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("world_head_count", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_world_list");
+
+                    b.ToTable("world_list", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListItem", b =>
+                {
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<string>("WorldId")
+                        .HasColumnType("text")
+                        .HasColumnName("world_id");
+
+                    b.Property<int?>("MaxPlayers")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_players");
+
+                    b.Property<int?>("MinPlayers")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_players");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.HasKey("ListId", "WorldId")
+                        .HasName("pk_world_list_item");
+
+                    b.ToTable("world_list_item", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListShuffle", b =>
+                {
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("LastPlayed")
+                        .HasColumnType("text")
+                        .HasColumnName("last_played");
+
+                    b.PrimitiveCollection<string>("Order")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("world_order");
+
+                    b.PrimitiveCollection<string>("Played")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("played");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("integer")
+                        .HasColumnName("round");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ListId", "EventId")
+                        .HasName("pk_world_list_shuffle");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("ix_world_list_shuffle_event_id");
+
+                    b.ToTable("world_list_shuffle", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldPick", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("ListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("list_id");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<int?>("People")
+                        .HasColumnType("integer")
+                        .HasColumnName("people");
+
+                    b.Property<DateTimeOffset>("PickedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("picked_at");
+
+                    b.Property<Guid?>("PickedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("picked_by_user_id");
+
+                    b.Property<DateTimeOffset?>("PutBackAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("put_back_at");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("world_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_world_pick");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt")
+                        .IsUnique()
+                        .HasDatabaseName("ux_world_pick_date")
+                        .HasFilter("kind = 'date' AND put_back_at IS NULL");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt", "PickedAt")
+                        .HasDatabaseName("ix_world_pick_event_date");
+
+                    b.ToTable("world_pick", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
@@ -7472,6 +7645,15 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_date_change_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
+                        .WithMany()
+                        .HasForeignKey("WorldListId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_calendar_event_world_lists_world_list_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEventPlace", b =>
@@ -7642,6 +7824,43 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_api_webhook_delivery_api_webhook_webhook_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListItem", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
+                        .WithMany()
+                        .HasForeignKey("ListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_world_list_item_world_list_list_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListShuffle", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_world_list_shuffle_calendar_event_event_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
+                        .WithMany()
+                        .HasForeignKey("ListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_world_list_shuffle_world_list_list_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldPick", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_world_pick_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>

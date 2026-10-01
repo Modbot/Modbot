@@ -245,6 +245,12 @@ public class CalendarDateChange
     /// <summary>VRChat's id for this one date of the series, once Modbot has found it.</summary>
     public string? VRChatId { get; set; }
 
+    /// <summary>
+    /// Where the last update sent to VRChat put this date. Kept when the date is put back as planned,
+    /// so it can still be found on VRChat at the time VRChat has it.
+    /// </summary>
+    public DateTimeOffset? VRChatSentStartsAt { get; set; }
+
     /// <summary>A hash of what was last sent to VRChat for this date, or found already there.</summary>
     public string? VRChatSentFingerprint { get; set; }
 

@@ -105,8 +105,14 @@ the rule is still stored, plus **the dates changed on their own**.
   "Post that it's cancelled in the channel" tick. For one date it is kept on the date's own row
   (`cancel_post_channel_id`, then `cancel_post_id` once posted) rather than as a `cancelPost` place,
   because a place is one per event and an event can have several dates cancelled. The Discord loop
-  posts the same message with that date's time, once; a refusal is recorded as a failed `cancelPost`
-  and not sent again.
+  posts the same message with that date's time and title, once; a refusal is recorded as a failed
+  `cancelPost` and not sent again. It is dropped unposted when the event has been deleted since, or
+  the date ended more than a day ago: by then it is not news.
+- **A date's VRChat id is trusted only when found in the same pass.** A delete or an update by an id
+  kept from before that answers 404 forgets the id and looks for the date again on the next pass;
+  only a 404 for an id just found counts as gone. The row also keeps where the last update put the
+  date on VRChat (`vrchat_sent_starts_at`), so a date put back as planned -- no times of its own any
+  more -- is still looked for at the time VRChat has it.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A
   cancelled date is drawn struck through; an opened moved date says where it was moved from.
 

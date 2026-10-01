@@ -391,6 +391,7 @@ public sealed class CalendarVRChatPublisher
             // read the way the calendar page reads them, until the date turns up.
             var months = CalendarVRChatReader.MonthsListing(change.PlannedStartsAt)
                 .Concat(change.StartsAt is { } movedTo ? CalendarVRChatReader.MonthsListing(movedTo) : [])
+                .Concat(change.VRChatSentStartsAt is { } sentTo ? CalendarVRChatReader.MonthsListing(sentTo) : [])
                 .Distinct()
                 .ToList();
 
@@ -454,9 +455,20 @@ public sealed class CalendarVRChatPublisher
 
             (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
 
-            // Already gone is what a cancel wanted.
+            // Already gone is what a cancel wanted -- for an id found in this pass. A kept id may be
+            // stale (the series written again since), and the date may still be on VRChat under a
+            // new one: it is forgotten and the date looked for again on the next pass, as an update
+            // does below.
             if (status == 404)
+            {
+                if (!foundNow)
+                {
+                    change.VRChatId = null;
+                    return CalendarPublishOutcome.NothingToDo;
+                }
+
                 success = true;
+            }
         }
         else
         {
@@ -483,6 +495,11 @@ public sealed class CalendarVRChatPublisher
         {
             change.VRChatId = dateId;
             DateSent(change, fingerprint);
+
+            // Where VRChat now has the date, so a later look for it can find it there even after
+            // the date is put back as planned and its own times are gone from the row.
+            if (!change.Cancelled)
+                change.VRChatSentStartsAt = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent)).StartsAt;
 
             // A date put back as planned was kept only until VRChat had the planned date back.
             if (CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)))
@@ -538,9 +555,15 @@ public sealed class CalendarVRChatPublisher
         if (planned is not null)
             return planned.Id;
 
-        return change.StartsAt is { } moved
-            ? dates.FirstOrDefault(r => SameTime(r.StartsAt, moved))?.Id
-            : null;
+        // Where it was moved to, and where Modbot last sent it: a date put back as planned has no
+        // times of its own any more, but VRChat still has it where the last write put it.
+        foreach (var at in new[] { change.StartsAt, change.VRChatSentStartsAt })
+        {
+            if (at is { } time && dates.FirstOrDefault(r => SameTime(r.StartsAt, time)) is { } found)
+                return found.Id;
+        }
+
+        return null;
     }
 
     private static bool SameTime(DateTime vrchat, DateTimeOffset modbot) =>
