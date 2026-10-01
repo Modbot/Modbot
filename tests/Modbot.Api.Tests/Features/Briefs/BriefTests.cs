@@ -456,6 +456,52 @@ public class BriefTests
         Assert.Empty(await host.FactsAsync(FactType.NoteAdded, bob, Ct));
     }
 
+    /// <summary>
+    /// A note whose payload says "writtenBy: ai" without being saved from a brief -- carried in by an
+    /// import, or written straight into the log -- shows no AI brief mark.
+    /// </summary>
+    [Fact]
+    public async Task ANoteNotSavedFromABrief_NeverShowsTheMark_WhateverItsPayloadSays()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+        var (user, cookie) = await host.SignedInAsync(Reader, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var at = host.Clock.UtcNow.AddHours(-1);
+
+        FactRecord Note(JsonObject data, FactSource source, int minute) => new()
+        {
+            Type = FactType.NoteAdded,
+            OccurredAt = at.AddMinutes(minute),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = person,
+            ActorPlatform = FactPlatform.Modbot,
+            ActorId = user.Id.ToString(),
+            Source = source,
+            Data = data,
+        };
+
+        // Imported, carrying both keys a saved brief has.
+        await FactAsync(host, Note(new JsonObject
+        {
+            ["text"] = "Imported words.",
+            ["writtenBy"] = "ai",
+            ["aiCallId"] = Guid.NewGuid().ToString(),
+            ["importId"] = "import-1",
+        }, FactSource.Manual, 0));
+
+        // Not imported, but with the mark and no call behind it.
+        await FactAsync(host, Note(new JsonObject { ["text"] = "Own words.", ["writtenBy"] = "ai" }, FactSource.Manual, 1));
+
+        var listed = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/notes?userId={person}", null, cookie, Ct), Ct);
+
+        var notes = listed.GetProperty("notes").EnumerateArray().ToList();
+        Assert.Equal(2, notes.Count);
+        Assert.All(notes, n => Assert.False(n.GetProperty("writtenByAi").GetBoolean()));
+    }
+
     private static async Task<JsonElement> BriefAboutAsync(ApiTestHost host, string cookie, string person)
     {
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/briefs/people", new { vrchatUserId = person }, cookie, Ct);

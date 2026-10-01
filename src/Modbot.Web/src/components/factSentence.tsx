@@ -1063,7 +1063,10 @@ const SENTENCES: Record<string, Sentence> = {
   // imported note carries whatever its file held, so `description` stands in for it.
   'modbot.note.add': (p) => (
     <>
-      {p.actor} {p.text('writtenBy') === 'ai' ? 'saved an AI brief as a note' : 'wrote a note'} about {p.subject}
+      {/* Only a brief saved here carries both keys; an imported payload's `writtenBy` marks nothing. */}
+      {p.actor}{' '}
+      {p.text('writtenBy') === 'ai' && p.text('aiCallId') && !p.text('importId') ? 'saved an AI brief as a note' : 'wrote a note'}{' '}
+      about {p.subject}
       {p.text('text') ?? p.text('description') ? <>: {p.text('text') ?? p.text('description')}</> : null}.
     </>
   ),

@@ -181,6 +181,8 @@ shows the operator the list below and records who confirmed it. What is sent dep
   the names of who it was about and who did it (or their ids when Modbot has no name), the world and
   instance, and the entry's own details, which can carry ids and text people wrote, such as a note or
   a reason. A brief that read about people is recorded in their history, as a Chat question is.
+  Modbot keeps the whole prompt and the whole answer of each brief in the AI call log, which deletes
+  rows older than thirty days by default; a purge does not remove them.
 - **Insights.** Counts for the period and the one before it, and the busiest worlds and instances by
   world name. No person's name, id or message.
 - **Alerts.** What was counted, the period it covered and what is normal, and for the two instance

@@ -442,8 +442,18 @@ public sealed class NoteService
             TakenBackAt: takenBack?.At,
             TakenBackByName: takenBack?.ByName,
             CanTakeBack: takenBack is null && (caller.Has(ModbotPermissions.WriteNotes) || mine),
-            WrittenByAi: Read(note.Data, WrittenByKey) == WrittenByAi);
+            WrittenByAi: IsSavedBrief(note.Data));
     }
+
+    /// <summary>
+    /// Whether a note is an AI brief saved here (AI chat design §14.6): the mark and the call it
+    /// came from, and no import behind it. Only <see cref="SaveBriefAsync"/> writes both keys; an
+    /// imported file's payload is carried in as it was, so a <c>writtenBy</c> in it marks nothing.
+    /// </summary>
+    private static bool IsSavedBrief(string data)
+        => Read(data, WrittenByKey) == WrittenByAi
+           && Guid.TryParse(Read(data, BriefCallKey), out _)
+           && !ImportedFrom(data);
 
     /// <summary>
     /// What a note says.
