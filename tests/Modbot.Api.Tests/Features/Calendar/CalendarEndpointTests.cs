@@ -224,4 +224,26 @@ public class CalendarEndpointTests(PostgresFixture db)
 
         Assert.Equal(2, (await host.FactsAsync(FactType.CalendarFeedRegenerated, "calendar-feed", Ct)).Count);
     }
+
+    [Fact]
+    public async Task ACancelledEventStaysInTheFeedAsCancelled_ButADeletedOneLeaves()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var id = await CreateAsync(host, manager, Body(host));
+
+        var path = (await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/feed", null, manager, Ct), Ct))
+            .GetProperty("path").GetString()!;
+
+        await host.SendJsonAsync(HttpMethod.Post, $"/api/calendar/events/{id}/cancel", null, manager, Ct);
+
+        var cancelled = await (await host.Client.GetAsync(path, Ct)).Content.ReadAsStringAsync(Ct);
+        Assert.Contains($"UID:{id:D}@modbot", cancelled, StringComparison.Ordinal);
+        Assert.Contains("STATUS:CANCELLED", cancelled, StringComparison.Ordinal);
+
+        await host.SendJsonAsync(HttpMethod.Delete, $"/api/calendar/events/{id}", null, manager, Ct);
+
+        var deleted = await (await host.Client.GetAsync(path, Ct)).Content.ReadAsStringAsync(Ct);
+        Assert.DoesNotContain($"UID:{id:D}@modbot", deleted, StringComparison.Ordinal);
+    }
 }

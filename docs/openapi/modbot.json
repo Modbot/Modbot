@@ -17754,7 +17754,7 @@
           "Calendar"
         ],
         "summary": "Get calendar feed file",
-        "description": "The calendar feed as iCalendar. No sign-in: the token in the address is the key.",
+        "description": "The calendar feed as iCalendar. No sign-in: the token in the address is the key. Holds every scheduled and open event, and finished and cancelled ones for 30 days after.",
         "operationId": "GetCalendarFeedFile",
         "parameters": [
           {

@@ -621,7 +621,15 @@ it leaks.
 
 ### What it contains
 
-The feed lists every event that is **Scheduled** or **Open**. For each one:
+The feed lists:
+
+- every event that is **Scheduled** or **Open**;
+- every **Finished** event for **30 days** after its last time ended, so it stays in people's
+  calendars as something that happened;
+- every **Cancelled** event for **30 days** after it was cancelled, marked as cancelled, so calendar
+  apps can show it as cancelled instead of it quietly disappearing.
+
+For each one:
 
 - the title and description;
 - the start and end, in the event's time zone;
@@ -629,12 +637,15 @@ The feed lists every event that is **Scheduled** or **Open**. For each one:
 - dates cancelled on their own left out, and dates moved or reworded on their own at their new time
   and with their own title and description;
 - the world's name as the location. A repeating event is one entry in the feed, so for one that picks
-  from a world list, the location is the world of its next date.
+  from a world list, the location is the world of its next date;
+- a link to the event on your Modbot calendar page, when your **Public address** is set
+  (**Settings**, **Server**). The link needs a Modbot sign-in, like the page itself.
 
 The calendar is named after your managed group, or **Modbot** if none is set.
 
-It does **not** contain drafts, finished, cancelled or deleted events, the join link, the picture, or
-anything about Discord or VRChat. When you cancel or delete an event, it drops out of the feed.
+It does **not** contain drafts, deleted events, the join link, the picture, anything about Discord
+or VRChat, or anything about your members. When you delete an event, it drops out of the feed. How a
+calendar app shows a cancelled event is up to the app: some strike it through, some leave it out.
 Calendar apps check a feed on their own schedule, so a change can take a while to show up there.
 
 Reading the feed asks VRChat nothing, so it does not use any of your group's VRChat requests.
@@ -662,7 +673,7 @@ for the whole event. **This date** opens a smaller form for the date you clicked
 - removes it from VRChat's calendar;
 - ends the Discord event, which then disappears from your server;
 - changes the channel post to **Cancelled**;
-- takes it out of the calendar feed;
+- marks it cancelled in the calendar feed, where it stays for 30 days;
 - stops any future instance from opening.
 
 Modbot asks **Cancel “…”?** first; click **Cancel event** to go ahead.
@@ -722,7 +733,8 @@ as they ran.
 ### Delete
 
 **Delete** is shown for every event, including drafts. For an event that is still **Scheduled** or
-**Open**, deleting does everything cancelling does, and also hides it from the Calendar page. A
+**Open**, deleting does everything cancelling does, and also hides it from the Calendar page and
+takes it out of the calendar feed at once. A
 deleted **Finished** event is also removed from VRChat's calendar.
 
 Modbot asks **Delete “…”?** first; click **Delete** to go ahead. There is no way to bring a deleted

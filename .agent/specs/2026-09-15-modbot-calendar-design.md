@@ -52,7 +52,7 @@ the access the event names — never public by default, and never for an event n
 | `scheduled` | The next occurrence has not started. |
 | `open` | The next occurrence has started — or its instance opening time has come — and has not ended. |
 | `finished` | No occurrences are left. |
-| `cancelled` | A person cancelled it. Removed from every place it was published. |
+| `cancelled` | A person cancelled it. Removed from every place it was published; the feed shows it as cancelled for 30 days (§6). |
 
 A repeating event goes `scheduled → open → scheduled` for each occurrence and only becomes
 `finished` after the last one. The event row keeps the start of the **current occurrence**, so
@@ -244,7 +244,14 @@ existing `worlds.read` budget; nothing else new is called.
 - The token is 32 random bytes. Only its SHA-256 is used to find it; it is also stored encrypted so
   the calendar page can show the link again to people who may manage the calendar.
 - **Regenerate** makes a new token and the old link stops working at once.
-- Contains every `scheduled` and `open` event, one `VEVENT` each, repeats as `RRULE`:
+- Contains every `scheduled` and `open` event, one `VEVENT` each, repeats as `RRULE`; and, since
+  2026-10-01, every `finished` event for **30 days** after its last date ended and every `cancelled`
+  one for 30 days after the cancel (`CalendarFeedWriter.KeepEndedFor`), the cancelled ones with
+  `STATUS:CANCELLED`. Until then the feed held live events only, so a cancel or the end of an event
+  removed it from every subscriber's calendar without a word, and a group's history went with it.
+  Thirty days is long enough for every calendar program to have read the feed many times, and short
+  enough that the feed does not grow with every event a group has ever run. A deleted event still
+  leaves at once: deleting is for mistakes.
   - `UID` is `{event id}@modbot`, stable for the life of the event; `SEQUENCE` is its version.
   - `DTSTART`/`DTEND` carry `TZID` with a `VTIMEZONE` built from the time zone database for the
     years the event covers; a UTC event uses `Z` times and no `VTIMEZONE`.
@@ -256,6 +263,15 @@ existing `worlds.read` budget; nothing else new is called.
     its own words is one more `VEVENT` with the same `UID`, a `RECURRENCE-ID` naming the planned
     start, and its own `DTSTART`, `DTEND`, `SUMMARY` and `DESCRIPTION`. The `VTIMEZONE` covers a date
     moved past the rule's last one.
+  - **A cancelled date is an `EXDATE`, not a cancelled `RECURRENCE-ID` copy** (chosen 2026-10-01).
+    `EXDATE` is part of the repeat itself, which every calendar program has to read to expand the
+    series at all, so the date is gone everywhere. `STATUS:CANCELLED` on one date's copy only works
+    in a program that reads status on a single date; one that does not shows the date as if it
+    still happens, which is the worse of the two failures. Not checked against the programs
+    themselves.
+  - `URL` is the event on Modbot's calendar page, `{public address}/calendar?event={id}`, left out
+    without a public address. The page asks for a sign-in, and the event id is all it carries: the
+    feed holds nothing about members.
 
 ## 7. Permissions
 

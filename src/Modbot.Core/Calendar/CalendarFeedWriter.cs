@@ -17,6 +17,13 @@ namespace Modbot.Core.Calendar;
 /// <c>RECURRENCE-ID</c>, which is how iCalendar says one date of a series differs.
 /// </para>
 /// <para>
+/// <strong>Events stay a while after they end or are cancelled</strong> (calendar design §6, changed
+/// 2026-10-01): a finished event for <see cref="KeepEndedFor"/> after its last date, a cancelled one
+/// for as long after the cancel, with <c>STATUS:CANCELLED</c>. A program removes an event that leaves
+/// its feed without saying anything, so before then a cancelled event simply vanished from members'
+/// calendars, and a finished one took its history with it.
+/// </para>
+/// <para>
 /// Times carry the event's <c>TZID</c>, and RFC 5545 requires a <c>VTIMEZONE</c> for every
 /// <c>TZID</c> used. Each is written from the time zone database as one observance per change of
 /// offset over the years the feed covers, which is valid and needs no rule of its own. A UTC event
@@ -30,15 +37,50 @@ public static class CalendarFeedWriter
     /// <summary>How far past the later of now and an event's last date a zone's changes are written.</summary>
     public static readonly Period ZoneYearsAhead = Period.FromYears(2);
 
+    /// <summary>
+    /// How long a finished event stays in the feed after its last date ended, and a cancelled one
+    /// after it was cancelled: long enough for every calendar program to have read the feed many
+    /// times over, short enough that the feed does not grow with every event a group ever ran.
+    /// </summary>
+    public static readonly TimeSpan KeepEndedFor = TimeSpan.FromDays(30);
+
+    /// <summary>
+    /// Whether an event belongs in the feed at <paramref name="now"/>: scheduled or open; finished,
+    /// with a date that ended in the last <see cref="KeepEndedFor"/>; or cancelled in that time.
+    /// Never a draft or a deleted event.
+    /// </summary>
+    public static bool Belongs(CalendarEvent calendarEvent, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        if (calendarEvent.DeletedAt is not null)
+            return false;
+
+        var since = now - KeepEndedFor;
+
+        return calendarEvent.State switch
+        {
+            CalendarEventStates.Scheduled or CalendarEventStates.Open => true,
+            CalendarEventStates.Finished => CalendarRepeat.Between(calendarEvent, since, now).Any(),
+            CalendarEventStates.Cancelled => calendarEvent.CancelledAt is { } cancelled && cancelled >= since,
+            _ => false,
+        };
+    }
+
     /// <param name="calendarName">Shown by calendar programs as the calendar's name.</param>
-    /// <param name="events">Only live events belong in the feed; the caller picks them.</param>
+    /// <param name="events">The events that <see cref="Belongs"/> in the feed; the caller picks them.</param>
     /// <param name="worldNames">World names by id, for <c>LOCATION</c>.</param>
     /// <param name="now">From <c>IModbotClock</c>. Decides how far ahead repeating events' zones are written.</param>
+    /// <param name="publicAddress">
+    /// Modbot's public address. Each event's <c>URL</c> opens it on the calendar page there; without
+    /// an address there is none.
+    /// </param>
     public static string Write(
         string calendarName,
         IReadOnlyList<CalendarEvent> events,
         IReadOnlyDictionary<string, string> worldNames,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? publicAddress = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(worldNames);
@@ -67,8 +109,10 @@ public static class CalendarFeedWriter
             WriteZone(output, zone, from, to);
         }
 
+        var address = string.IsNullOrWhiteSpace(publicAddress) ? null : publicAddress.Trim().TrimEnd('/');
+
         foreach (var calendarEvent in ordered)
-            WriteEvent(output, calendarEvent, worldNames);
+            WriteEvent(output, calendarEvent, worldNames, address is null ? null : $"{address}/calendar?event={calendarEvent.Id:D}");
 
         Line(output, "END:VCALENDAR");
 
@@ -76,7 +120,7 @@ public static class CalendarFeedWriter
     }
 
     private static void WriteEvent(
-        StringBuilder output, CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames)
+        StringBuilder output, CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames, string? link)
     {
         var zone = CalendarRepeat.ZoneOf(calendarEvent);
 
@@ -94,13 +138,14 @@ public static class CalendarFeedWriter
             Line(output, "RRULE:" + rule);
 
             // A date cancelled on its own is taken out of the repeat (calendar design §6).
-            foreach (var cancelled in calendarEvent.DateChanges.Where(c => c.Cancelled).OrderBy(c => c.PlannedStartsAt))
-                Line(output, "EXDATE" + Time(cancelled.PlannedStartsAt, zone));
+            foreach (var dropped in calendarEvent.DateChanges.Where(c => c.Cancelled).OrderBy(c => c.PlannedStartsAt))
+                Line(output, "EXDATE" + Time(dropped.PlannedStartsAt, zone));
         }
 
         var entry = Entry(calendarEvent, worldNames);
+        var cancelled = calendarEvent.State == CalendarEventStates.Cancelled;
 
-        WriteText(output, entry.Title, entry.Notes, entry.Location);
+        WriteText(output, entry.Title, entry.Notes, entry.Location, link, cancelled);
         Line(output, "END:VEVENT");
 
         if (rule is null)
@@ -125,13 +170,20 @@ public static class CalendarFeedWriter
                 output,
                 CalendarRepeat.TitleOf(calendarEvent, occurrence),
                 string.IsNullOrWhiteSpace(description) ? null : description,
-                entry.Location);
+                entry.Location,
+                link,
+                cancelled);
             Line(output, "END:VEVENT");
         }
     }
 
-    /// <summary>The title, description, world and status of one VEVENT.</summary>
-    private static void WriteText(StringBuilder output, string title, string? notes, string? location)
+    /// <summary>The title, description, world, link and status of one VEVENT.</summary>
+    /// <remarks>
+    /// The link is to the event on Modbot's calendar page, which asks for a sign-in: nothing about
+    /// the group's members is in the feed, and following the link shows nobody anything they could
+    /// not already see in Modbot.
+    /// </remarks>
+    private static void WriteText(StringBuilder output, string title, string? notes, string? location, string? link, bool cancelled)
     {
         Line(output, "SUMMARY:" + Escape(title));
 
@@ -141,7 +193,12 @@ public static class CalendarFeedWriter
         if (location is not null)
             Line(output, "LOCATION:" + Escape(location));
 
-        Line(output, "STATUS:CONFIRMED");
+        if (link is not null)
+            Line(output, "URL:" + link);
+
+        // A cancelled event says so rather than leaving the feed, so a calendar program can show it
+        // as cancelled instead of quietly dropping it.
+        Line(output, cancelled ? "STATUS:CANCELLED" : "STATUS:CONFIRMED");
     }
 
     /// <summary>The earliest instant an event's zone has to be described from: its first start, or a date moved before it.</summary>

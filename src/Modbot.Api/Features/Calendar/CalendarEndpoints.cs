@@ -716,10 +716,20 @@ public static class CalendarEndpoints
                 if (!await db.CalendarFeeds.AsNoTracking().AnyAsync(f => f.TokenHash == hash, ct))
                     return Results.NotFound();
 
-                var events = await db.CalendarEvents.AsNoTracking()
+                // Live events, and finished or cancelled ones for a while after (calendar design §6):
+                // the database narrows it to those states, and the writer's own rule decides.
+                var now = clock.UtcNow;
+                var cancelledSince = now - CalendarFeedWriter.KeepEndedFor;
+
+                var candidates = await db.CalendarEvents.AsNoTracking()
                     .Where(e => e.DeletedAt == null
-                        && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open))
+                        && (e.State == CalendarEventStates.Scheduled
+                            || e.State == CalendarEventStates.Open
+                            || e.State == CalendarEventStates.Finished
+                            || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= cancelledSince)))
                     .ToListAsync(ct);
+
+                var events = candidates.Where(e => CalendarFeedWriter.Belongs(e, now)).ToList();
 
                 var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
                 var names = await db.VRChatWorlds.AsNoTracking()
@@ -729,14 +739,15 @@ public static class CalendarEndpoints
                 var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
                 var name = string.IsNullOrWhiteSpace(settings?.ManagedGroupName) ? "Modbot" : settings.ManagedGroupName;
 
-                var body = CalendarFeedWriter.Write(name, events, names, clock.UtcNow);
+                var body = CalendarFeedWriter.Write(name, events, names, now, settings?.PublicAddress);
                 return Results.Text(body, "text/calendar; charset=utf-8", Encoding.UTF8);
             })
             .AllowAnonymous()
             .WithName("GetCalendarFeedFile")
             .WithSummary("Get calendar feed file")
             .WithDescription(
-                "The calendar feed as iCalendar. No sign-in: the token in the address is the key.")
+                "The calendar feed as iCalendar. No sign-in: the token in the address is the key. Holds "
+                + "every scheduled and open event, and finished and cancelled ones for 30 days after.")
             .Produces<string>(StatusCodes.Status200OK, "text/calendar")
             .Produces(StatusCodes.Status404NotFound);
 
