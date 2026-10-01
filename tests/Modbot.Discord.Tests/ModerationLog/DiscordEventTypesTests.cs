@@ -32,7 +32,11 @@ public class DiscordEventTypesTests
     [Fact]
     public void EverythingElseInFactType_IsSendable_SoANewTypeAppearsOnItsOwn()
     {
-        Assert.All(FactType.All.Where(DiscordEventTypes.CanSend), t => Assert.Contains(t, DiscordEventTypes.Sendable));
+        // "Ended on its own" can be sent but is not a box of its own: it rides on "Instance closed"
+        // (see AnInstanceEndedOnItsOwn_IsNotAChoice_ButFollowsInstanceClosed).
+        Assert.All(
+            FactType.All.Where(DiscordEventTypes.CanSend).Where(t => t != FactType.InstanceEndedOnItsOwn),
+            t => Assert.Contains(t, DiscordEventTypes.Sendable));
         Assert.Contains(FactType.MemberBanned, DiscordEventTypes.Sendable);
         Assert.Contains(FactType.UserRolesChanged, DiscordEventTypes.Sendable);
         Assert.Contains(FactType.DiscordVoiceJoined, DiscordEventTypes.Sendable);

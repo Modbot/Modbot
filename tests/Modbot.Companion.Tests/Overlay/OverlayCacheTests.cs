@@ -61,7 +61,7 @@ public class OverlayCacheTests
     }
 
     [Theory]
-    [InlineData(45, "as of 45s ago")]
+    [InlineData(50, "as of 50s ago")]
     [InlineData(20 * 60, "as of 20m ago")]
     [InlineData(3 * 60 * 60, "as of 3h ago")]
     public void StatesTheAgeInWordsAModeratorCanActOn(int ageSeconds, string expected)
