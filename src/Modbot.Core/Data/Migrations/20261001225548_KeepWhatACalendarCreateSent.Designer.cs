@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001213027_KeepWhatACalendarCreateSent")]
+    [Migration("20261001225548_KeepWhatACalendarCreateSent")]
     partial class KeepWhatACalendarCreateSent
     {
         /// <inheritdoc />
@@ -879,6 +879,95 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_ban_reason_order");
 
                     b.ToTable("ban_reason", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarDateChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CancelPostChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("cancel_post_channel_id");
+
+                    b.Property<string>("CancelPostId")
+                        .HasColumnType("text")
+                        .HasColumnName("cancel_post_id");
+
+                    b.Property<bool>("Cancelled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cancelled");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("PlannedStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("planned_starts_at");
+
+                    b.Property<DateTimeOffset?>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VRChatError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("vrchat_error");
+
+                    b.Property<DateTimeOffset?>("VRChatErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vrchat_error_at");
+
+                    b.Property<string>("VRChatFailedFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("vrchat_failed_fingerprint");
+
+                    b.Property<string>("VRChatId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_id");
+
+                    b.Property<string>("VRChatSentFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("vrchat_sent_fingerprint");
+
+                    b.Property<DateTimeOffset?>("VRChatSentStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vrchat_sent_starts_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_date_change");
+
+                    b.HasIndex("EventId", "PlannedStartsAt")
+                        .IsUnique()
+                        .HasDatabaseName("ux_calendar_date_change_date");
+
+                    b.ToTable("calendar_date_change", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
@@ -7552,6 +7641,16 @@ namespace Modbot.Core.Data.Migrations
                     b.Navigation("UserRow");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarDateChange", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany("DateChanges")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_date_change_calendar_event_event_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
@@ -7771,6 +7870,11 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
+                {
+                    b.Navigation("DateChanges");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotRole", b =>
