@@ -7,11 +7,24 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InviteToEventsAndSayWhenTheFirstPersonJoins : Migration
+    public partial class InviteToEventsAndOpenTheirInstancesSafely : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<bool>(
+                name: "checking",
+                table: "calendar_opening",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "checking_since",
+                table: "calendar_opening",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.AddColumn<string>(
                 name: "first_join_discord_post_error",
                 table: "calendar_opening",
@@ -43,6 +56,19 @@ namespace Modbot.Core.Data.Migrations
                 table: "calendar_opening",
                 type: "timestamp with time zone",
                 nullable: true);
+
+            migrationBuilder.AddColumn<Guid>(
+                name: "opened_by_user_id",
+                table: "calendar_opening",
+                type: "uuid",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "try_again",
+                table: "calendar_opening",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
 
             migrationBuilder.AddColumn<bool>(
                 name: "announce_first_join_in_discord",
@@ -154,6 +180,14 @@ namespace Modbot.Core.Data.Migrations
                 name: "vrchat_friend");
 
             migrationBuilder.DropColumn(
+                name: "checking",
+                table: "calendar_opening");
+
+            migrationBuilder.DropColumn(
+                name: "checking_since",
+                table: "calendar_opening");
+
+            migrationBuilder.DropColumn(
                 name: "first_join_discord_post_error",
                 table: "calendar_opening");
 
@@ -171,6 +205,14 @@ namespace Modbot.Core.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "invites_queued_at",
+                table: "calendar_opening");
+
+            migrationBuilder.DropColumn(
+                name: "opened_by_user_id",
+                table: "calendar_opening");
+
+            migrationBuilder.DropColumn(
+                name: "try_again",
                 table: "calendar_opening");
 
             migrationBuilder.DropColumn(
