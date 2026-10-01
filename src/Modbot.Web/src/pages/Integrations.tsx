@@ -11,7 +11,6 @@ import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
 import type { Tone } from '@/lib/status'
 import { useGateHealth } from '@/lib/useGateHealth'
-import { useSyncHealth } from '@/lib/useStatusRows'
 
 /** The same pictures the phone's Menu gives the VRChat and Discord pages. */
 const ICONS: Record<IntegrationId, LucideIcon> = {
@@ -32,8 +31,9 @@ const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
  * topic where it is set up (lib/integrations.ts). Opened from the sidebar's Integrations heading.
  *
  * The saved settings come from the onboarding status, read fresh here rather than taken from the
- * shell's copy, so coming back from Settings shows what was just saved. The live status comes from
- * the reads the sidebar's status rows already make, shared rather than made again.
+ * shell's copy, so coming back from Settings shows what was just saved. VRChat's live status is the
+ * gate read the sidebar already makes, shared rather than made again; Discord's is the bot state
+ * read, because the sidebar's Health read needs See Modbot's log and this page only Change settings.
  */
 export function Integrations({ me }: { me: CurrentUser }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
@@ -53,14 +53,35 @@ export function Integrations({ me }: { me: CurrentUser }) {
   if (error) return <Empty tone="danger">{error}</Empty>
   if (!status) return <Empty>Loading…</Empty>
 
-  // The Discord bot's own state is part of the Health read, which needs See Modbot's log. Without
-  // it the read is not made at all, and a saved bot says "Unknown" rather than a guess.
-  return can(me, 'ViewOperationalLog') ? <WithBotState status={status} /> : <Cards status={status} />
+  // The Discord bot's state comes from its own small read, which needs Change settings like the page
+  // (the full bot report in the Health read needs See Modbot's log). Without it the read is not made
+  // at all, and a saved bot says "Unknown" rather than a guess.
+  return can(me, 'ManageSettings') ? <WithBotState status={status} /> : <Cards status={status} />
 }
 
+/** How often the bot's state is read again while the page is open: the sidebar's status rows' pace. */
+const BOT_STATE_EVERY_MS = 30_000
+
 function WithBotState({ status }: { status: OnboardingStatus }) {
-  const health = useSyncHealth()
-  return <Cards status={status} discordBot={health ? health.discordBot : undefined} />
+  const [bot, setBot] = useState<IntegrationReading['discordBot']>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    const read = () =>
+      api
+        .discordBotState()
+        .then((view) => !cancelled && setBot(view.state))
+        .catch(() => !cancelled && setBot(undefined))
+
+    void read()
+    const timer = window.setInterval(() => void read(), BOT_STATE_EVERY_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [])
+
+  return <Cards status={status} discordBot={bot} />
 }
 
 function Cards({

@@ -422,3 +422,15 @@ public sealed record DiscordReadBackHealth(
     string? LastError,
     DateTimeOffset? LastErrorAt,
     DateTimeOffset? UpdatedAt);
+
+/// <summary>
+/// The Discord bot's state alone, for the Integrations page.
+/// </summary>
+/// <remarks>
+/// The whole bot report sits in <see cref="SyncHealth"/>, which needs <c>ViewOperationalLog</c>
+/// because its errors and counts are Modbot's operational record. The Integrations page is for
+/// whoever may change settings, and its Discord card needs only the one word the sidebar's status
+/// row shows, so this answers that word and nothing else: no error text, no times, no counts.
+/// </remarks>
+/// <param name="State">Where the bot is in its life. Null when this server runs no bot at all.</param>
+public sealed record DiscordBotStateView(Modbot.Core.Discord.DiscordBotState? State);

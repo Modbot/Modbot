@@ -9881,6 +9881,42 @@
         ]
       }
     },
+    "/api/health/discord-bot": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Get the Discord bot's state",
+        "description": "Where the Discord bot is: `NotConfigured`, `Connecting`, `Connected`, `Disconnected` or `Failed`; null when this server runs no bot. The word alone, for the Integrations page, so it needs ManageSettings rather than ViewOperationalLog. The bot's errors and counts stay in the sync health read.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordBotState",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordBotStateView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/health/gate": {
       "get": {
         "tags": [
@@ -23068,6 +23104,34 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "DiscordBotState": {
+        "enum": [
+          "NotConfigured",
+          "Connecting",
+          "Connected",
+          "Disconnected",
+          "Failed",
+          null
+        ]
+      },
+      "DiscordBotStateView": {
+        "required": [
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DiscordBotState"
+              }
+            ]
           }
         }
       },

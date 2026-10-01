@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { integrations, settingsPath, type IntegrationReading } from '../src/lib/integrations.ts'
-import type { DiscordBotHealth } from '../src/lib/api.ts'
+import { integrations, settingsPath, type DiscordBotState, type IntegrationReading } from '../src/lib/integrations.ts'
 
-function bot(state: DiscordBotHealth['state']): DiscordBotHealth {
-  return { state } as DiscordBotHealth
+function bot(state: DiscordBotState): DiscordBotState {
+  return state
 }
 
 function reading(over: Partial<IntegrationReading> = {}): IntegrationReading {
@@ -42,6 +41,11 @@ test("Discord says the bot's own state, and never Working when the state could n
   assert.equal(stateOf('discord', { discordBot: bot('Disconnected') })?.label, 'Reconnecting')
   assert.equal(stateOf('discord', { discordBot: undefined })?.label, 'Unknown')
   assert.equal(stateOf('discord', { discordConfigured: false, discordBot: undefined })?.label, 'Needs setup')
+})
+
+test('a saved bot token with no bot running, or a bot without its settings, says Needs setup', () => {
+  assert.equal(stateOf('discord', { discordBot: null })?.label, 'Needs setup')
+  assert.equal(stateOf('discord', { discordBot: bot('NotConfigured') })?.label, 'Needs setup')
 })
 
 test('each Set up leads to the Settings topic where it is set up', () => {

@@ -2308,6 +2308,12 @@ export type DiscordBotHealth = {
   missingIntents: string[] | null
 }
 
+/**
+ * The bot's state alone, for the Integrations page: readable with Change settings, where the rest
+ * of `DiscordBotHealth` needs See Modbot's log. Null when this server runs no bot.
+ */
+export type DiscordBotStateView = { state: DiscordBotHealth['state'] | null }
+
 /** How far the bot has read back through the Discord server's message history. */
 export type DiscordReadBackHealth = {
   channels: number
@@ -4819,6 +4825,8 @@ export const api = {
   gateHealth: () => request<GateHealth>('/api/health/gate'),
 
   syncHealth: () => request<SyncHealth>('/api/health/sync'),
+
+  discordBotState: () => request<DiscordBotStateView>('/api/health/discord-bot'),
 
   machineUsage: () => request<MachineUsage>('/api/health/machine'),
 

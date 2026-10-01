@@ -192,6 +192,21 @@ public static class SyncHealthEndpoints
             .Produces<SyncHealth>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/discord-bot", (
+                // Optional like the sync read's: the bot is wired by the host, not by the API.
+                [FromServices] Modbot.Core.Discord.IDiscordBotStatus? discordBot) =>
+                Results.Ok(new DiscordBotStateView(discordBot?.Snapshot().State)))
+            .RequiresFlag(ModbotPermissions.ManageSettings)
+            .WithName("GetDiscordBotState")
+            .WithSummary("Get the Discord bot's state")
+            .WithDescription(
+                "Where the Discord bot is: `NotConfigured`, `Connecting`, `Connected`, `Disconnected` "
+                + "or `Failed`; null when this server runs no bot. The word alone, for the "
+                + "Integrations page, so it needs ManageSettings rather than ViewOperationalLog. "
+                + "The bot's errors and counts stay in the sync health read.")
+            .Produces<DiscordBotStateView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         return app;
     }
 

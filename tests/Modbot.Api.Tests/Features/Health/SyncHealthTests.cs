@@ -115,6 +115,34 @@ public class SyncHealthEndpointTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>
+    /// The Integrations page's Discord card: whoever may change settings reads the bot's one word,
+    /// without the operational log the rest of the bot's report needs. A host with no bot says null.
+    /// </summary>
+    [Fact]
+    public async Task TheBotState_IsReadableWithManageSettings_AndNullWithNoBot()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, ct);
+        var view = await host.GetJsonAsync<DiscordBotStateView>("/api/health/discord-bot", cookie, ct);
+
+        Assert.Null(view.State);
+    }
+
+    [Fact]
+    public async Task TheBotState_NeedsManageSettings()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, ct);
+        var response = await host.GetAsync("/api/health/discord-bot", cookie, ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     [Fact]
     public async Task SyncHealth_CarriesThePollRateAndItsReason()
     {

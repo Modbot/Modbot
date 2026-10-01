@@ -2,6 +2,9 @@
 import type { DiscordBotHealth } from './api.ts'
 import { discordState, vrchatState, type State } from './status.ts'
 
+/** The bot's one word, as the bot state read and the Health read both say it. */
+export type DiscordBotState = DiscordBotHealth['state']
+
 /**
  * The Integrations page (2026-09-30): one card for each outside service Modbot is connected to, its
  * status, and where in Settings it is set up. The setting up stays in Settings; the page only
@@ -48,10 +51,10 @@ export type IntegrationReading = {
   /** Whether a Discord bot token is saved (the onboarding status). */
   discordConfigured: boolean
   /**
-   * The bot's own state, from the Health read the sidebar's Discord row also makes. Undefined when
-   * that read was not made or has not answered (it needs See Modbot's log); null when no bot runs.
+   * The bot's own state, from the bot state read (it needs Change settings, as the page does).
+   * Undefined when that read was not made or has not answered; null when no bot runs.
    */
-  discordBot: DiscordBotHealth | null | undefined
+  discordBot: DiscordBotState | null | undefined
   /** Whether a mail server is saved (the onboarding status, which the Email sending card reads). */
   smtpConfigured: boolean
 }
@@ -94,11 +97,11 @@ function vrchatStatus(gate: string | null): State {
   return capitalised(vrchatState(gate))
 }
 
-function discordStatus(configured: boolean, bot: DiscordBotHealth | null | undefined): State {
+function discordStatus(configured: boolean, bot: DiscordBotState | null | undefined): State {
   if (!configured) return NEEDS_SETUP
   if (bot === undefined) return UNKNOWN
-  if (bot === null || bot.state === 'NotConfigured') return NEEDS_SETUP
-  return capitalised(discordState(bot.state))
+  if (bot === null || bot === 'NotConfigured') return NEEDS_SETUP
+  return capitalised(discordState(bot))
 }
 
 function capitalised(state: State): State {
