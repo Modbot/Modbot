@@ -192,11 +192,13 @@ public class CalendarPlacesTests(PostgresFixture db)
 
         await using (var context = db.NewContext())
         {
+            // Waiting for one more look, then the create. When the first create was sent is kept for that look.
             var place = await context.CalendarEventPlaces.AsNoTracking().SingleAsync(p => p.EventId == id && p.Place == CalendarPlaces.VRChat, Ct);
             Assert.Equal(CalendarPlaceStates.Waiting, place.State);
-            Assert.Null(place.FailedFingerprint);
+            Assert.Equal(CalendarVRChatPublisher.TryAgainFingerprint, place.FailedFingerprint);
             Assert.Null(place.Error);
-            Assert.Null(place.ErrorAt);
+            Assert.NotNull(place.ErrorAt);
+            Assert.False(CalendarVRChatPublisher.NotAdded(place));
         }
 
         // Nothing left to try again.

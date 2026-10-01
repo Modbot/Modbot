@@ -59,11 +59,16 @@ public sealed record CalendarPublishResult(CalendarPublishOutcome Outcome, Guid?
 /// creates with a 500 and made the event anyway (2026-09-25, and three times on 2026-10-01), so the
 /// place waits, and <see cref="LookAfter"/> later the group's calendar is read, every page of the
 /// event's month, for the copy (<see cref="CalendarVRChatMatch"/>). One found is taken as this
-/// event's own, or deleted if the event is no longer wanted. With none found after a whole read,
-/// the place fails with <see cref="NotAddedError"/>, and only a moderator's Try again
-/// (<see cref="TryAgain"/>) sends the create again. Until 2026-10-01 the look ran only before an
-/// automatic retry 15 minutes on, compared titles exactly, and read one page; the calendar read had
-/// already taken VRChat's copy in as a second event by then.
+/// event's own, or deleted if the event is no longer wanted. It is looked for as the create sent it
+/// (<see cref="CalendarEventPlace.CreateSent"/>), so a fix made meanwhile goes out as an update.
+/// With none found after a whole read, the place fails with <see cref="NotAddedError"/>, and only a
+/// moderator's Try again (<see cref="TryAgain"/>) sends the create again, after one more look. Until
+/// 2026-10-01 the look ran only before an automatic retry 15 minutes on, compared titles exactly,
+/// and read one page; the calendar read had already taken VRChat's copy in as a second event by then.
+/// </para>
+/// <para>
+/// While the place waits for the look nothing has failed yet, so no failure fact is written until
+/// the create is found not added.
 /// </para>
 /// </remarks>
 public sealed class CalendarVRChatPublisher
@@ -90,6 +95,18 @@ public sealed class CalendarVRChatPublisher
     /// </summary>
     public const string NotAddedFingerprint = "not-added";
 
+    /// <summary>
+    /// The store marker for a moderator's Try again: the calendar is looked at once more, and the
+    /// create is sent only when the copy is not there.
+    /// </summary>
+    public const string TryAgainFingerprint = "try-again";
+
+    /// <summary>
+    /// How long after a create that was not added the calendar read still takes a copy that turns
+    /// up late as that event's own. Later than this, a row like it is somebody else's.
+    /// </summary>
+    public static readonly TimeSpan FindLateCopyFor = TimeSpan.FromHours(24);
+
     private readonly IVRChatGate _gate;
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -103,10 +120,10 @@ public sealed class CalendarVRChatPublisher
     private string? _couldNotCheck;
 
     /// <summary>
-    /// VRChat's words for a create that got no answer, for its fact. The place itself only waits:
-    /// whether the create failed is not known until the calendar is read.
+    /// A create got no answer this pass. The place only waits: whether it failed is not known until
+    /// the calendar is read, so no failure fact is written yet.
     /// </summary>
-    private string? _unanswered;
+    private bool _waitingToLook;
 
     public CalendarVRChatPublisher(
         IVRChatGate gate, ModbotContext db, IModbotClock clock, CalendarFacts facts, ILogger? log = null)
@@ -178,6 +195,13 @@ public sealed class CalendarVRChatPublisher
                 // except by a moderator's Try again.
                 if (NotAdded(place))
                     continue;
+
+                // A moderator's Try again: one more look, then the create.
+                if (TryingAgain(place))
+                {
+                    due ??= (calendarEvent, place, "create", fingerprint);
+                    continue;
+                }
 
                 if (MayHaveBeenCreated(place))
                 {
@@ -279,7 +303,7 @@ public sealed class CalendarVRChatPublisher
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         await RecordChangesAsync(events, places, was, ct).ConfigureAwait(false);
 
-        if (outcome == CalendarPublishOutcome.Failed)
+        if (outcome == CalendarPublishOutcome.Failed && !_waitingToLook)
         {
             await _facts.RecordAsync(
                 FactType.PlannedEventPublishFailed,
@@ -288,7 +312,7 @@ public sealed class CalendarVRChatPublisher
                 {
                     ["place"] = CalendarPlaces.VRChat,
                     ["action"] = _couldNotCheck is null ? work.Action : "check",
-                    ["error"] = _couldNotCheck ?? _unanswered ?? work.Place.Error,
+                    ["error"] = _couldNotCheck ?? work.Place.Error,
                 },
                 ct: ct).ConfigureAwait(false);
         }
@@ -639,9 +663,13 @@ public sealed class CalendarVRChatPublisher
     }
 
     /// <summary>
-    /// A moderator's Try again on a create that was not added: the next pass sends the create.
-    /// False, changing nothing, for a place in any other state.
+    /// A moderator's Try again on a create that was not added: the next pass looks at the calendar
+    /// once more, takes the copy if it has turned up, and otherwise sends the create. False,
+    /// changing nothing, for a place in any other state.
     /// </summary>
+    /// <remarks>
+    /// When the first create was sent, and what it sent, are kept for that look.
+    /// </remarks>
     public static bool TryAgain(CalendarEventPlace place, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(place);
@@ -650,13 +678,18 @@ public sealed class CalendarVRChatPublisher
             return false;
 
         place.State = CalendarPlaceStates.Waiting;
-        place.FailedFingerprint = null;
+        place.FailedFingerprint = TryAgainFingerprint;
         place.Error = null;
-        place.ErrorAt = null;
         place.MissingGroupPermission = null;
         place.UpdatedAt = now;
         return true;
     }
+
+    /// <summary>A moderator pressed Try again, and the look before the create has not run yet.</summary>
+    internal static bool TryingAgain(CalendarEventPlace place) =>
+        place.ExternalId is null
+        && place.ErrorAt is not null
+        && place.FailedFingerprint == TryAgainFingerprint;
 
     /// <summary>
     /// Whether the calendar is read for a create's copy this pass: <see cref="LookAfter"/> after
@@ -715,7 +748,9 @@ public sealed class CalendarVRChatPublisher
 
         if (MayHaveBeenCreated(place))
         {
-            var look = await LookForEarlierCreateAsync(calendarEvent, place.ErrorAt!.Value, groupId, ct).ConfigureAwait(false);
+            // Looked for as it was sent: VRChat's copy has none of the edits made since.
+            var look = await LookForEarlierCreateAsync(
+                CalendarVRChatMatch.AsSent(place, calendarEvent), place.ErrorAt!.Value, groupId, ct).ConfigureAwait(false);
 
             if (look.Failed is { } failed)
                 return CouldNotLook(calendarEvent, place, action, failed, now);
@@ -766,7 +801,37 @@ public sealed class CalendarVRChatPublisher
                 place.Error = null;
                 place.MissingGroupPermission = null;
                 place.ErrorAt = null;
+                place.CreateSent = null;
                 place.UpdatedAt = now;
+                return CalendarPublishOutcome.NothingToDo;
+            }
+        }
+
+        if (TryingAgain(place) && action == "create")
+        {
+            // One more look before a moderator's Try again sends the create: the copy may have
+            // turned up since. A look that fails goes back to waiting for the copy, as after a
+            // create with no answer; nothing is sent without it.
+            var look = await LookForEarlierCreateAsync(
+                CalendarVRChatMatch.AsSent(place, calendarEvent), place.ErrorAt!.Value, groupId, ct).ConfigureAwait(false);
+
+            if (look.Failed is { } failed)
+            {
+                // A rate limit keeps the Try again for the next pass; the limiter decides when.
+                if (failed.Kind is not (VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting))
+                    place.FailedFingerprint = null;
+
+                return CouldNotLook(calendarEvent, place, action, failed, now);
+            }
+
+            if (look.FoundId is { } lateId)
+            {
+                CalendarVRChatMatch.Adopt(place, calendarEvent, lateId, look.UpdatedAt, now);
+
+                _log.Information(
+                    "VRChat calendar create for the event {EventId} was found as {VRChatEventId} before it was tried again",
+                    calendarEvent.Id, lateId);
+
                 return CalendarPublishOutcome.NothingToDo;
             }
         }
@@ -892,6 +957,7 @@ public sealed class CalendarVRChatPublisher
             place.Error = null;
             place.MissingGroupPermission = null;
             place.ErrorAt = null;
+            place.CreateSent = null;
 
             _log.Information("VRChat calendar {Action} for the event {EventId}", action, calendarEvent.Id);
             return CalendarPublishOutcome.Written;
@@ -909,8 +975,9 @@ public sealed class CalendarVRChatPublisher
         }
 
         // A create with no answer, VRChat's own trouble, or an answer with no id: the event may be
-        // on VRChat's calendar. The place waits, and the calendar is read for it before anything
-        // else is sent (calendar design §3.1).
+        // on VRChat's calendar. The place waits, what was sent is kept, and the calendar is read for
+        // it before anything else is sent (calendar design §3.1). No failure fact yet: nothing is
+        // known to have failed.
         if (action == "create" && (status == 0 || status >= 500 || status is >= 200 and < 300))
         {
             place.State = CalendarPlaceStates.Waiting;
@@ -918,14 +985,18 @@ public sealed class CalendarVRChatPublisher
             place.ErrorAt = now;
             place.FailedFingerprint = null;
             place.MissingGroupPermission = null;
-            _unanswered = Trim(Reason(kind, body, error, status));
+            place.CreateSent = CalendarVRChatMatch.Remember(calendarEvent);
+            _waitingToLook = true;
 
             _log.Warning(
                 "VRChat calendar create for the event {EventId} got no answer: {Status} {Reason}; its calendar is read for it before anything else is sent",
-                calendarEvent.Id, status, _unanswered);
+                calendarEvent.Id, status, Trim(Reason(kind, body, error, status)));
 
             return CalendarPublishOutcome.Failed;
         }
+
+        if (action == "create")
+            place.CreateSent = null;
 
         place.State = CalendarPlaceStates.Failed;
         place.Error = Trim(Reason(kind, body, error, status));

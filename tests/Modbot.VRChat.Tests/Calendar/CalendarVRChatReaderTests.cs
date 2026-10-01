@@ -319,6 +319,70 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         Assert.Equal(1, VRChat.Calendar.Lists);
     }
 
+    /// <summary>
+    /// Review of 2026-10-01: the title and time fixed while the create had no answer are not on
+    /// VRChat's copy. The read matches what was sent, so it adopts the copy instead of taking it in.
+    /// </summary>
+    [Fact]
+    public async Task ACopyIsTakenAsItsOwnEvenAfterItsTitleAndTimeWereFixedMeanwhile()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – Alien.";
+        });
+        VRChat.Calendar.SavesTitleAs = t => t.Replace(" – ", "  ", StringComparison.Ordinal).Replace('.', '․');
+        Clock.Advance(Settle);
+        VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        Clock.Advance(TimeSpan.FromSeconds(30));
+        var later = e.StartsAt.AddHours(1);
+        await EditAsync(e.Id, x =>
+        {
+            x.Title = "Quiz night";
+            x.StartsAt = later;
+            x.EndsAt = later.Add(TwoHours);
+        });
+
+        Clock.Advance(TimeSpan.FromSeconds(30));
+        await ReadAsync();
+
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_1", place?.ExternalId);
+
+        // The fix goes out as an update to that copy.
+        Clock.Advance(Settle);
+        var result = await PublishAsync();
+        Assert.Equal("update", result.Action);
+        Assert.Equal("Quiz night", Assert.Single(VRChat.Calendar.Updates).Body.Title);
+        Assert.Single(VRChat.Calendar.Creates);
+    }
+
+    [Fact]
+    public async Task ACopyShowingUpLongAfterACreateWasNotAddedIsNotTakenAsItsOwn()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        var sentAt = Clock.UtcNow;
+        VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
+        await PublishAsync();
+
+        Clock.Advance(CalendarVRChatPublisher.FindLateCopyFor);
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_late", "Movie night", e.StartsAt, TwoHours, sentAt.AddSeconds(5)));
+        await ReadAsync(refresh: true);
+
+        Assert.True(CalendarVRChatPublisher.NotAdded((await PlaceAsync(e.Id, CalendarPlaces.VRChat))!));
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventPublished));
+
+        // Still not taken in as a second event while the place waits for Try again: its title is held.
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+    }
+
     [Fact]
     public async Task ARowMatchingACreateStillWaitingToGoOutIsNotTakenIn()
     {

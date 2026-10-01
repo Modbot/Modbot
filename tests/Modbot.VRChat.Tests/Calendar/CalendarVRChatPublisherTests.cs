@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Calendar;
+using Modbot.VRChat.Tests.Fakes;
 
 namespace Modbot.VRChat.Tests.Calendar;
 
@@ -171,13 +172,13 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
         Assert.Equal(0, VRChat.Calendar.Lists);
 
-        // Not known to have failed: the place waits, and the fact keeps VRChat's words.
+        // Not known to have failed: the place waits, keeps what was sent, and no failure is written.
         var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
         Assert.Equal(CalendarPlaceStates.Waiting, place?.State);
         Assert.Null(place?.Error);
+        Assert.NotNull(place?.CreateSent);
         Assert.False(CalendarVRChatPublisher.NotAdded(place!));
-        var failed = Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
-        Assert.Equal("no", System.Text.Json.Nodes.JsonNode.Parse(failed.Data)?["error"]?.ToString());
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
 
         // Not looked for before the wait is over.
         Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
@@ -193,7 +194,9 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal("cal_1", place?.ExternalId);
         Assert.Equal(CalendarPlaceStates.Published, place?.State);
         Assert.Null(place?.Error);
+        Assert.Null(place?.CreateSent);
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
 
         // Not edited since: VRChat has what was sent, so nothing more goes out.
         Clock.Advance(TimeSpan.FromMinutes(1));
@@ -205,27 +208,80 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
     }
 
+    /// <summary>
+    /// Review of 2026-10-01: VRChat's copy holds what the create sent, so a title and time fixed
+    /// during the wait must not stop the copy being found. It is looked for as sent, adopted, and
+    /// the fix goes out as an update.
+    /// </summary>
     [Fact]
-    public async Task AnEditMadeWhileACreateHadNoAnswerGoesOutAsAnUpdateOnceItsCopyIsFound()
+    public async Task ATitleAndTimeFixedWhileACreateHadNoAnswerGoOutAsAnUpdateOnceItsCopyIsFound()
     {
-        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – Alien.";
+        });
+        VRChat.Calendar.SavesTitleAs = VRChatsTitle;
         Clock.Advance(Settle);
         VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
         await PublishAsync();
 
         Clock.Advance(TimeSpan.FromSeconds(30));
-        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        var later = e.StartsAt.AddHours(1);
+        await EditAsync(e.Id, x =>
+        {
+            x.Title = "Movie night – Aliens.";
+            x.StartsAt = later;
+            x.EndsAt = later.AddHours(2);
+            x.OccurrenceStartsAt = later;
+        });
+
         Clock.Advance(CalendarVRChatPublisher.LookAfter);
         await PublishAsync();
-        Assert.Equal("cal_1", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.ExternalId);
+
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_1", place?.ExternalId);
+        Assert.Equal(CalendarPlaceStates.Published, place?.State);
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
 
         var result = await PublishAsync();
 
         Assert.Equal("update", result.Action);
         var (id, body) = Assert.Single(VRChat.Calendar.Updates);
         Assert.Equal("cal_1", id);
-        Assert.Equal("Bring snacks and a blanket", body.Description);
+        Assert.Equal("Movie night – Aliens.", body.Title);
+        Assert.Equal(later.UtcDateTime, body.StartsAt);
         Assert.Single(VRChat.Calendar.Creates);
+
+        // Nothing taken in as a second event.
+        await ReadAsync(refresh: true);
+        Assert.Equal(e.Id, Assert.Single(await EventsAsync()).Id);
+    }
+
+    [Fact]
+    public async Task TryAgainLooksOnceMore_AndTakesACopyThatTurnedUpInsteadOfSendingAgain()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        var sentAt = Clock.UtcNow;
+        VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        Clock.Advance(CalendarVRChatPublisher.LookAfter);
+        await PublishAsync();
+        Assert.True(CalendarVRChatPublisher.NotAdded((await PlaceAsync(e.Id, CalendarPlaces.VRChat))!));
+
+        // VRChat shows it late, made when the create was sent.
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_late", "Movie night", e.StartsAt, TimeSpan.FromHours(2), sentAt.AddSeconds(5)));
+
+        Assert.True(await TryAgainAsync(e.Id));
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+
+        Assert.Equal(2, VRChat.Calendar.Lists);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_late", place?.ExternalId);
+        Assert.Equal(CalendarPlaceStates.Published, place?.State);
     }
 
     [Fact]
@@ -236,6 +292,7 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
 
         Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
+        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
 
         // Looked for once, after the wait, across the whole month: not there.
         Clock.Advance(CalendarVRChatPublisher.LookAfter);
@@ -250,7 +307,8 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(CalendarVRChatPublisher.NotAddedError, place?.Error);
         Assert.True(CalendarVRChatPublisher.NotAdded(place!));
 
-        var fact = (await FactsOfTypeAsync(FactType.PlannedEventPublishFailed)).Last();
+        // The one failure fact, written when it is known not added.
+        var fact = Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublishFailed));
         Assert.Equal(CalendarVRChatPublisher.NotAddedError, System.Text.Json.Nodes.JsonNode.Parse(fact.Data)?["error"]?.ToString());
 
         // Not sent again however long it waits, nor after an edit, and not looked for again.
@@ -262,12 +320,14 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(1, VRChat.Calendar.Calls);
         Assert.Equal(1, VRChat.Calendar.Lists);
 
-        // A moderator's Try again sends it.
+        // A moderator's Try again looks once more, then sends it.
         Assert.True(await TryAgainAsync(e.Id));
+        Assert.False(CalendarVRChatPublisher.NotAdded((await PlaceAsync(e.Id, CalendarPlaces.VRChat))!));
         result = await PublishAsync();
 
         Assert.Equal(CalendarPublishOutcome.Written, result.Outcome);
         Assert.Equal("create", result.Action);
+        Assert.Equal(2, VRChat.Calendar.Lists);
         Assert.Equal("cal_1", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.ExternalId);
 
         // Nothing to try again once it went through.

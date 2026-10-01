@@ -400,18 +400,28 @@ public sealed class CalendarVRChatReader
             .Select(e => e.Title)
             .ToListAsync(ct).ConfigureAwait(false);
 
+        // The title a create with no answer sent is held too: an edit since is not on VRChat's copy.
+        var sentTitles = places
+            .Where(p => waitingIds.Contains(p.EventId) && p.CreateSent is not null && known.ContainsKey(p.EventId))
+            .Select(p => CalendarVRChatMatch.AsSent(p, known[p.EventId]).Title);
+
         var held = known.Values
             .Where(e => waitingIds.Contains(e.Id) || removedIds.Contains(e.Id))
             .Select(e => e.Title)
             .Concat(unplaced)
+            .Concat(sentTitles)
             .Select(CalendarVRChatMatch.PlainTitle)
             .ToHashSet(StringComparer.Ordinal);
 
         // A create that got no answer, which VRChat may have made anyway: a copy of it on the
-        // calendar is taken as that event's own rather than taken in (calendar design §3.1).
+        // calendar is taken as that event's own rather than taken in, matched against what the
+        // create sent (calendar design §3.1). One found not added is still taken for a while, as
+        // VRChat may show it late; after that a row like it is somebody else's.
         var unanswered = places
-            .Where(p => p.ErrorAt is not null
-                && (CalendarVRChatPublisher.MayHaveBeenCreated(p) || CalendarVRChatPublisher.NotAdded(p))
+            .Where(p => p.ErrorAt is { } sentAt
+                && (CalendarVRChatPublisher.MayHaveBeenCreated(p)
+                    || CalendarVRChatPublisher.TryingAgain(p)
+                    || (CalendarVRChatPublisher.NotAdded(p) && now - sentAt < CalendarVRChatPublisher.FindLateCopyFor))
                 && known.TryGetValue(p.EventId, out var e)
                 && CalendarVRChatPublisher.Wants(e))
             .OrderBy(p => p.ErrorAt)
@@ -491,7 +501,11 @@ public sealed class CalendarVRChatReader
                 continue;
             }
 
-            var sent = unanswered.FirstOrDefault(p => group.Any(r => CalendarVRChatMatch.IsCopyOf(r, known[p.EventId], p.ErrorAt!.Value)));
+            var sent = unanswered.FirstOrDefault(p =>
+            {
+                var asSent = CalendarVRChatMatch.AsSent(p, known[p.EventId]);
+                return group.Any(r => CalendarVRChatMatch.IsCopyOf(r, asSent, p.ErrorAt!.Value));
+            });
             if (sent is not null)
             {
                 unanswered.Remove(sent);

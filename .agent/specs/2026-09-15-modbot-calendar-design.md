@@ -183,23 +183,32 @@ event finishing and cancelling: each changes what the place should say.
 - **A create with no answer is never sent again on its own** (changed 2026-10-01). VRChat has
   answered a create with a 500 and saved the event anyway (2026-09-25, and three times on
   2026-10-01), so a 5xx, a timeout or an answer with no id says nothing about whether it saved:
-  - The place shows **Waiting**, not Failed. The `publish.fail` fact keeps VRChat's words.
-  - Two minutes later the group's calendar is read for it: every page of the month its current
-    time starts in, and the month beside it when the start is within 14 hours of the edge
+  - The place shows **Waiting**, not Failed, and no `publish.fail` fact is written: nothing is
+    known to have failed yet. VRChat's words go to the log.
+  - **What the create sent is kept** on the place (`create_sent`: title, times, repeat), because
+    VRChat's copy holds that, not a fix made while it is looked for. The copy is matched against it.
+  - Two minutes later the group's calendar is read for it: every page of the month the sent time
+    starts in, and the month beside it when the start is within 14 hours of the edge
     (`GetGroupCalendarEvents`, `calendar.read`, the same paged read as §12). A copy is a row with the
-    same start and length (for a repeating event, one of its times), the same title once both are
-    cut down to their letters and digits, made no earlier than two minutes before the create was
-    sent, and not owned by another Modbot event.
+    same start and length as sent (for a repeating event, one of its times), the same title once
+    both are cut down to their letters and digits, made no earlier than two minutes before the
+    create was sent, and not owned by another Modbot event.
   - **A copy found is taken as this event's own** (adopted): its id is kept and the place is
-    Published. If the event was edited after the create was sent, the edit goes out as an update.
-    An event no longer wanted has its copy deleted instead.
-  - **None found after a whole read:** the place is Failed with *VRChat did not add the event.*, and
-    nothing is sent until a moderator presses **Try again** on it
-    (`POST /api/calendar/events/{id}/vrchat/try-again`; the place's `canTryAgain`). An edit does
-    not send it either. A read that could not reach the end of a month (more than three pages)
-    decides nothing, and the look is made again 15 minutes later; so is a read that failed.
-  - The calendar read (§12) does the same: a row that is a copy of a create with no answer, or of
-    one that was not added, is adopted rather than taken in, whenever it shows up.
+    Published. If the event was edited after the create was sent (a title or time fixed during the
+    wait, say), the edit goes out as an update. An event no longer wanted has its copy deleted.
+  - **None found after a whole read:** the place is Failed with *VRChat did not add the event.*,
+    and that is when the `publish.fail` fact is written. Nothing is sent until a moderator presses
+    **Try again** on it (`POST /api/calendar/events/{id}/vrchat/try-again`; the place's
+    `canTryAgain`). An edit does not send it either. A read that could not reach the end of a month
+    (more than three pages) decides nothing, and the look is made again 15 minutes later; so is a
+    read that failed.
+  - **Try again looks once more first**, with the same read: a copy that turned up since is adopted
+    and nothing is sent. Only with none there is the create sent. If that look fails, the place goes
+    back to waiting for the copy as above.
+  - The calendar read (§12) does the same: a row that is a copy of a create with no answer, or one
+    waiting for Try again, is adopted rather than taken in. A copy of one found not added is still
+    adopted for 24 hours after the create was sent (VRChat may show it late); after that a row like
+    it is somebody else's. Its sent title is held as well as the current one (§12.2).
   - **Why** (2026-10-01): the old look ran once, only before an automatic retry 15 minutes on; it
     compared titles exactly and read one page. VRChat changes titles (it dropped an en dash and
     turned "." into a look-alike dot), so neither the look nor §12.2's title guard recognised the

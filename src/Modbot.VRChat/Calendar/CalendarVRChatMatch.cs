@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
 using CalendarEvent = Modbot.Core.Data.Entities.CalendarEvent;
@@ -19,6 +20,12 @@ namespace Modbot.VRChat.Calendar;
 /// <para>
 /// <strong>VRChat changes the title it is sent.</strong> On the same day it dropped an en dash and
 /// turned "." into a look-alike dot, so titles are compared by their letters and digits only.
+/// </para>
+/// <para>
+/// <strong>What was sent, not what the event says now.</strong> A title or time fixed while the
+/// copy is looked for is not on VRChat's copy, so the create's own title, times and repeat are kept
+/// on the place (<see cref="Remember"/>, <see cref="AsSent"/>), and the fix goes out as an update
+/// once the copy is found (review of 2026-10-01).
 /// </para>
 /// <para>
 /// A copy must also have the same times, and have been made no earlier than the create was sent
@@ -93,6 +100,66 @@ public static class CalendarVRChatMatch
     }
 
     /// <summary>
+    /// What a create of <paramref name="calendarEvent"/> sends, as far as finding its copy needs:
+    /// kept on the place as <see cref="CalendarEventPlace.CreateSent"/> when the create gets no answer.
+    /// </summary>
+    public static string Remember(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return JsonSerializer.Serialize(new SentCreate(
+            calendarEvent.Title,
+            calendarEvent.StartsAt,
+            calendarEvent.EndsAt,
+            calendarEvent.OccurrenceStartsAt,
+            calendarEvent.TimeZone,
+            calendarEvent.Repeat,
+            [.. calendarEvent.RepeatDays],
+            calendarEvent.RepeatUntil));
+    }
+
+    /// <summary>
+    /// The event as the create with no answer sent it, for finding its copy: an edit made since is
+    /// not what VRChat holds. The event as it is now when nothing was kept (a place from before
+    /// 2026-10-01).
+    /// </summary>
+    public static CalendarEvent AsSent(CalendarEventPlace place, CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(place);
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        SentCreate? sent = null;
+
+        if (place.CreateSent is { Length: > 0 } json)
+        {
+            try
+            {
+                sent = JsonSerializer.Deserialize<SentCreate>(json);
+            }
+            catch (JsonException)
+            {
+                sent = null;
+            }
+        }
+
+        if (sent is null)
+            return calendarEvent;
+
+        return new CalendarEvent
+        {
+            Id = calendarEvent.Id,
+            Title = sent.Title,
+            StartsAt = sent.StartsAt,
+            EndsAt = sent.EndsAt,
+            OccurrenceStartsAt = sent.OccurrenceStartsAt,
+            TimeZone = sent.TimeZone,
+            Repeat = sent.Repeat,
+            RepeatDays = [.. sent.RepeatDays ?? []],
+            RepeatUntil = sent.RepeatUntil,
+        };
+    }
+
+    /// <summary>
     /// The copy found, taken as the event's VRChat place: published, with VRChat's id. When the
     /// event was not changed after the create was sent, VRChat has what Modbot sent and nothing goes
     /// out; otherwise the next pass sends the change as an update.
@@ -119,8 +186,20 @@ public static class CalendarVRChatMatch
         place.Error = null;
         place.ErrorAt = null;
         place.MissingGroupPermission = null;
+        place.CreateSent = null;
         place.UpdatedAt = now;
     }
+
+    /// <summary>What a create sent, as <see cref="Remember"/> keeps it.</summary>
+    private sealed record SentCreate(
+        string Title,
+        DateTimeOffset StartsAt,
+        DateTimeOffset EndsAt,
+        DateTimeOffset? OccurrenceStartsAt,
+        string TimeZone,
+        string Repeat,
+        List<string>? RepeatDays,
+        DateOnly? RepeatUntil);
 
     private static bool Far(DateTimeOffset a, DateTimeOffset b) => (a - b).Duration() >= SameTime;
 

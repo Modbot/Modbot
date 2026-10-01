@@ -336,6 +336,13 @@ public class CalendarEventPlace
     /// </summary>
     public string? MissingGroupPermission { get; set; }
 
+    /// <summary>
+    /// For VRChat, what a create that got no answer sent: the title, times and repeat, as JSON.
+    /// VRChat may have made the event anyway, and its copy says what was sent, not what the event
+    /// says after an edit, so the copy is looked for by this (calendar design §3.1). Null otherwise.
+    /// </summary>
+    public string? CreateSent { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
 }
 

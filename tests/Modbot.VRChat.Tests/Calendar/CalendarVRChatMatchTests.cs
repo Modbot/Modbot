@@ -106,6 +106,28 @@ public class CalendarVRChatMatchTests
     }
 
     [Fact]
+    public void TheCopyIsMatchedAgainstWhatTheCreateSent_NotTheEventAsEditedSince()
+    {
+        var e = Event();
+        var place = new CalendarEventPlace { EventId = e.Id, Place = CalendarPlaces.VRChat, ErrorAt = SentAt };
+        place.CreateSent = CalendarVRChatMatch.Remember(e);
+
+        e.Title = "Quiz night";
+        e.StartsAt = Start.AddHours(1);
+        e.EndsAt = Start.AddHours(3);
+
+        Assert.False(CalendarVRChatMatch.IsCopyOf(Row(), e, SentAt));
+
+        var sent = CalendarVRChatMatch.AsSent(place, e);
+        Assert.Equal("Movie night – Alien.", sent.Title);
+        Assert.Equal(Start, sent.StartsAt);
+        Assert.True(CalendarVRChatMatch.IsCopyOf(Row(), sent, SentAt));
+
+        // Nothing kept (a place from before 2026-10-01): the event as it is now.
+        Assert.Same(e, CalendarVRChatMatch.AsSent(new CalendarEventPlace(), e));
+    }
+
+    [Fact]
     public void AdoptingKeepsWhatWasSentAsSent_UnlessTheEventChangedSince()
     {
         var e = Event();
@@ -125,6 +147,7 @@ public class CalendarVRChatMatchTests
         Assert.Equal(CalendarPlaceStates.Published, place.State);
         Assert.Equal(CalendarVRChatRequests.Fingerprint(e), place.SentFingerprint);
         Assert.Null(place.ErrorAt);
+        Assert.Null(place.CreateSent);
 
         // Edited after the create was sent: what VRChat has is older, so an update goes out.
         var edited = new CalendarEventPlace { EventId = e.Id, Place = CalendarPlaces.VRChat, ErrorAt = SentAt };
