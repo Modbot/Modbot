@@ -20,13 +20,17 @@ It needs the **See the operational log** permission, the same one Health needs.
 ## Needs a decision
 
 Three counts across the top of the card, each opening the page it counts, and under them the newest
-rows of each.
+rows of each. When a follow-up is due, a fourth count says how many.
 
 | Row | Shows | Comes from | Needs |
 |---|---|---|---|
+| **Follow-up** | The person, the reason they are [watched](/moderation/notes#watching-a-person), and how long the check-back day has been due | Watches whose **Check back on** day has come. All of them. | **See the audit log** |
 | **Flag** | The person, the rule and what matched, and how long ago | The [Flags](/moderation/flags) page, open flags only. The newest five. | **See profiles** |
 | **Review** | The moderator and the pattern that opened it | [Reviews](/moderation/reviews), open ones only. The newest three. | **Review tickets** |
 | **Request** | The person, their trust rank and any history with the group | [Join requests](/moderation/join-requests). The newest three. | **See join requests** |
+
+A follow-up row has **Followed up** for whoever started the watch and anyone with **Write notes**.
+It clears the check-back day and the row leaves; the watch carries on.
 
 A request row has **Approve** and **Reject** buttons for someone who holds **Answer join requests**.
 Each asks you to confirm, exactly as on the Join requests page. A row you answer leaves the list

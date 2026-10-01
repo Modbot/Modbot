@@ -34,7 +34,8 @@ records; none of them calls VRChat when a person joins.
 
 | Rule | Matches when | Setting | Default | Reason text |
 |---|---|---|---|---|
-| Kicks and bans | at least 1 `MemberKicked` or `MemberBanned` about them | on/off | on | "1 kick or ban" / "3 kicks or bans" |
+| Watched (added 2026-10-01, watching a person design §4) | a standing watch on them, or on a Discord account linked to them | none, always on | on | "Watched: {reason}", listed first |
+| Kicks and bans | at least 1 `MemberKicked` or `MemberBanned` about them; since 2026-10-01 a lifted ban can stop counting a set number of days after the unban (watching a person design §7) | on/off; lifted bans: always, or 1–3650 days | on, always | "1 kick or ban" / "3 kicks or bans" |
 | Warns | at least N `GroupInstanceWarn` about them | on/off, N (1–99) | on, N = 5 | "5 warns" (the real count) |
 | Nuisance | their stored trust rank is `Nuisance` | on/off | on | "Nuisance" |
 | AutoMod | they, or a Discord account linked to them, have an AutoMod flag that is open or confirmed, not dismissed, not from a trial rule, from a rule that counts | on/off; which rules count: every rule, or the rules picked | on, every rule | "AutoMod: {rule name}" (several: "AutoMod: A, B") |

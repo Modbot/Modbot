@@ -1,6 +1,6 @@
 ---
 title: Notes
-description: Write down something about a person so the rest of the team sees it, read what others wrote, and take a note back without erasing that it was written.
+description: Write down something about a person so the rest of the team sees it, take a note back without erasing that it was written, and watch somebody so Modbot tells you when they turn up.
 ---
 
 A **note** is your own words about somebody, kept where every other moderator will see them.
@@ -72,6 +72,75 @@ the history records about them, and it cannot be undone.
 There is no way to edit a note. If one is wrong, take it back and write another. The log is
 append-only, exactly as it is for bans: nothing that was recorded is ever rewritten.
 
+## Watching a person
+
+A **watch** is for somebody you want the team to keep an eye on: "Said they would come back on an
+alt." "Check on them after the event." A note waits for somebody to open the person. A watch tells
+you.
+
+While somebody is watched:
+
+- They are **Flagged** everywhere Flagged is shown: the red row on the [companion
+  overlay](/companion/overlay) and the **Flagged user joined** card when they walk in, [Live](/moderation/live),
+  and **In the group's instances** on [Now](/now). What it says is `Watched:` and your reason. See
+  [Who is flagged](/moderation/live#who-is-flagged).
+- When they walk into one of the group's instances, Modbot raises a **notification** to everybody
+  who can see live instances and the audit log, with the person's name, where they are and your
+  reason. It goes wherever each person gets warnings; see [Notifications](/accounts/notifications).
+  Somebody who leaves and comes back is told about once per instance.
+- The row under their name in the popup says **Watched**.
+
+A watch never does anything to the person. Nothing changes on VRChat or Discord.
+
+### Starting one
+
+<Steps>
+
+<Step>
+
+### Open the person's **Notes** tab and press **Watch**
+
+You need **Write notes**.
+
+</Step>
+
+<Step>
+
+### Give a reason
+
+Up to 200 characters. It is what the roster and the join card show, so keep the start of it
+telling: a chip shows the first 60 characters.
+
+</Step>
+
+<Step>
+
+### Pick the days, if you want them, and press **Watch**
+
+- **Ends**: the watch stops on its own at the end of that day. Leave it empty to watch until
+  somebody stops it.
+- **Check back on**: from that day the person is listed on [Now](/now) under **Needs a decision** as
+  a **Follow-up**, and you get a notification saying it is time to check on them.
+
+</Step>
+
+</Steps>
+
+One watch at a time per account. A watch is put on the person's VRChat account when Modbot knows it,
+otherwise on their Discord account. A watch on a Discord account linked to a VRChat one flags the
+VRChat person too.
+
+### Following up and stopping
+
+- **Followed up** clears the check-back day once you have looked at the person. The watch carries
+  on. It is on the watch in the **Notes** tab and on the row on Now.
+- **Stop watching** ends the watch. A confirmation names the person and the reason.
+
+Whoever started the watch can do both, and so can anyone with **Write notes**. Starting, stopping
+and following up are each an entry in the [audit log](/moderation/audit-log): **Watch started**,
+**Watch stopped** and **Followed up**. A watch that reached its end day is closed in the log on its
+own, with nobody's name on it.
+
 ## Notes in the audit log
 
 Every note is an entry in the audit log — **Note added** — and every take back is another one,
@@ -92,6 +161,9 @@ date order, because they are the same kind of record.
 | Read a person's notes | **See the audit log** |
 | Write one | **Write notes** |
 | Take one back | **Write notes**, or you wrote it |
+| See a watch, and follow-ups on Now | **See the audit log** |
+| Start a watch | **Write notes** |
+| Stop one, or follow up | **Write notes**, or you started it |
 
 **See the audit log** is what opens notes because a note is an entry in that log. Somebody who can
 see profiles but not the log does not get a Notes tab.
