@@ -347,16 +347,45 @@ public sealed class MeCommand
 
         var now = _clock.UtcNow;
 
-        // The VRChat account linked now, so a list that names them by it finds the choice too.
+        // The VRChat account linked now, kept for the record and for a purge by VRChat id. Inviting
+        // matches a VRChat id through the link as it stands then, not through this.
         var vrchat = await _db.DiscordAccountLinks.AsNoTracking()
             .Where(l => l.DiscordUserId == discordUserId && l.UnlinkedAt == null)
             .Select(l => l.VRChatUserId)
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
+        await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
+
+        // Twice at most: a double press can make two first choices at once, and the second then
+        // finds the row the first one wrote and is an ordinary update.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await SaveChoiceAsync(discordUserId, vrchat, wants, now, ct).ConfigureAwait(false);
+                break;
+            }
+            catch (DbUpdateException e) when (attempt == 0
+                && e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+            {
+                _db.ChangeTracker.Clear();
+            }
+        }
+
+        return DiscordReply.Say(wants ? InvitesOnMessage : InvitesOffMessage);
+    }
+
+    /// <summary>The choice and its fact, in one transaction. A press that changes nothing records nothing.</summary>
+    private async Task SaveChoiceAsync(string discordUserId, string? vrchat, bool wants, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
         var choice = await _db.EventInviteChoices
             .FirstOrDefaultAsync(c => c.DiscordUserId == discordUserId, ct)
             .ConfigureAwait(false);
+
+        var changed = choice is null || choice.Wants != wants;
 
         if (choice is null)
         {
@@ -364,37 +393,27 @@ public sealed class MeCommand
             _db.EventInviteChoices.Add(choice);
         }
 
-        var changed = choice.Wants != wants || _db.Entry(choice).State == EntityState.Added;
-
         choice.Wants = wants;
         choice.VRChatUserId = vrchat;
         choice.ChangedAt = now;
 
-        await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await using (var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false))
+        if (changed)
         {
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-
-            // Pressed twice: the second press changes nothing and records nothing.
-            if (changed)
-            {
-                await _facts.WriteAsync(new FactRecord
-                    {
-                        Type = wants ? FactType.EventInvitesWanted : FactType.EventInvitesStopped,
-                        OccurredAt = now,
-                        SubjectPlatform = FactPlatform.Discord,
-                        SubjectId = discordUserId,
-                        Source = FactSource.Discord,
-                        Data = new JsonObject { ["via"] = "me" },
-                    }, ct)
-                    .ConfigureAwait(false);
-            }
-
-            await transaction.CommitAsync(ct).ConfigureAwait(false);
+            await _facts.WriteAsync(new FactRecord
+                {
+                    Type = wants ? FactType.EventInvitesWanted : FactType.EventInvitesStopped,
+                    OccurredAt = now,
+                    SubjectPlatform = FactPlatform.Discord,
+                    SubjectId = discordUserId,
+                    Source = FactSource.Discord,
+                    Data = new JsonObject { ["via"] = "me" },
+                }, ct)
+                .ConfigureAwait(false);
         }
 
-        return DiscordReply.Say(wants ? InvitesOnMessage : InvitesOffMessage);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>

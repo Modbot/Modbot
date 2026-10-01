@@ -71,8 +71,17 @@ member to ask, and an invite list there reaches staff only. That is the intent, 
 Somebody who did not ask gets a row marked **Didn't ask for invites**: counted in "Invited N of M"
 so the organiser sees the list was larger, never sent anything. The choice is checked again just
 before each VRChat invite and each direct message, so "Stop event invites" stops one already
-queued. Each change is a fact (`modbot.calendar.invites.on` / `.off`) about the person, with no
-name in it; a purge deletes the choice.
+queued. Each change is a fact (`modbot.calendar.invites.on` / `.off`) about the person. A member's
+(from `/me`) carries no name; a staff account's carries its username, as every account fact does
+(the actor is named in the audit log). A purge deletes the choice.
+
+**While `/me` is switched off, no member counts as having asked**, whatever they chose before: they
+would have no way to stop it. An invite list then reaches its staff only. **Stop event invites**
+still works from an old `/me` reply while the switch is off; stopping is always allowed.
+
+A member is found by their Discord id, or by a VRChat id only through the Discord account linked to
+it **now**. The VRChat id stored with the choice is kept for the record and for a purge, never for
+matching: a link that ended must not carry the choice to whoever holds that VRChat account.
 
 ## 3. How each person is reached
 

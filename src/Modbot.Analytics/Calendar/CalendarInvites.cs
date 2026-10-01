@@ -151,7 +151,8 @@ public sealed class CalendarInvites
 
     /// <summary>
     /// Of these people, the ones who asked for event invites with <c>/me</c> and have not stopped
-    /// them, by whichever id their choice was made under (calendar auto-invite design §2.1).
+    /// them: by their Discord id, or by a VRChat id linked to that Discord account now (calendar
+    /// auto-invite design §2.1). Nobody while <c>/me</c> is switched off.
     /// </summary>
     public async Task<(HashSet<string> VRChat, HashSet<string> Discord)> AskedAsync(
         IReadOnlyCollection<string> vrchatIds, IReadOnlyCollection<string> discordIds, CancellationToken ct = default)
@@ -162,15 +163,36 @@ public sealed class CalendarInvites
         if (vrchatIds.Count == 0 && discordIds.Count == 0)
             return ([], []);
 
-        var asked = await _db.EventInviteChoices.AsNoTracking()
-            .Where(c => c.Wants
-                && (discordIds.Contains(c.DiscordUserId) || (c.VRChatUserId != null && vrchatIds.Contains(c.VRChatUserId))))
-            .Select(c => new { c.DiscordUserId, c.VRChatUserId })
+        // While /me is off, a member has no way to stop invites they asked for earlier, so no
+        // member counts as having asked: an invite list then reaches its staff only.
+        var meOn = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordMeCommand)
+            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        if (!meOn)
+            return ([], []);
+
+        var byDiscord = await _db.EventInviteChoices.AsNoTracking()
+            .Where(c => c.Wants && discordIds.Contains(c.DiscordUserId))
+            .Select(c => c.DiscordUserId)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        return (
-            [.. asked.Where(c => c.VRChatUserId != null).Select(c => c.VRChatUserId!)],
-            [.. asked.Select(c => c.DiscordUserId)]);
+        // A VRChat id counts only through the Discord account linked to it now: the one stored
+        // when the choice was made may have been unlinked since, and the choice is the Discord
+        // account's, not the VRChat one's.
+        var byVRChat = vrchatIds.Count == 0
+            ? []
+            : await _db.EventInviteChoices.AsNoTracking()
+                .Where(c => c.Wants)
+                .Join(
+                    _db.DiscordAccountLinks.AsNoTracking().Where(l => l.UnlinkedAt == null && vrchatIds.Contains(l.VRChatUserId)),
+                    c => c.DiscordUserId,
+                    l => l.DiscordUserId,
+                    (c, l) => l.VRChatUserId)
+                .ToListAsync(ct).ConfigureAwait(false);
+
+        return ([.. byVRChat], [.. byDiscord]);
     }
 
     /// <summary>

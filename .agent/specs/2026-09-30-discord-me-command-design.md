@@ -110,8 +110,9 @@ invited to the group's events: an event that invites a saved list sends nothing 
 did not ask (calendar auto-invite design §2.1). The choice is kept in `event_invite_choice` with the
 VRChat account linked at the time and when it was made; each change is a
 `modbot.calendar.invites.on` / `.off` fact about the member, with no name in it; a second press of
-the same choice records nothing. The button follows the same switch and the same per-person limit
-as the other two.
+the same choice records nothing, and two presses at once make one row. "Get event invites" follows
+the same switch as the other two; "Stop event invites" works even while the switch is off, and
+while it is off no member's earlier "yes" counts. Both have the same per-person limit.
 
 ## 7. Risks and guards
 

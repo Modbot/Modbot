@@ -95,6 +95,60 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
     }
 
     [Fact]
+    public async Task WhileMeIsOff_NoMemberCountsAsAsked_StaffStillDo()
+    {
+        var ann = await AddStaffAsync("ann", "usr_ann");
+        var list = await AddEverybodyListAsync("usr_a", "usr_b");
+        VRChat.Invites.FriendsWith("usr_ann", "usr_a", "usr_b");
+
+        // The operator switched /me off after the members asked.
+        await using (var context = Database.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.DiscordMeCommand = false;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var e = await OpenedEventAsync(x =>
+        {
+            x.InviteStaffUserIds = [ann.Id];
+            x.InviteListId = list.Id;
+        });
+
+        for (var i = 0; i < 4; i++)
+        {
+            await InviteAsync();
+            Clock.Advance(Turn);
+        }
+
+        Assert.Equal(["usr_ann"], VRChat.Invites.Sent.Select(s => s.UserId));
+        Assert.All(
+            (await InviteRowsAsync(e.Id)).Where(r => r.Role == CalendarInviteRoles.List),
+            r => Assert.Equal(CalendarInviteStates.NotAsked, r.State));
+    }
+
+    [Fact]
+    public async Task AChoiceCountsForAVRChatAccountOnlyThroughTheLinkAsItIsNow()
+    {
+        var list = await AddEverybodyListAsync("usr_a");
+        VRChat.Invites.FriendsWith("usr_a");
+
+        // The Discord account that asked is no longer linked to usr_a.
+        await using (var context = Database.NewContext())
+        {
+            var link = await context.DiscordAccountLinks.SingleAsync(l => l.VRChatUserId == "usr_a", Ct);
+            link.UnlinkedAt = Clock.UtcNow;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var e = await OpenedEventAsync(x => x.InviteListId = list.Id);
+        await InviteAsync();
+
+        Assert.Empty(VRChat.Invites.Sent);
+        Assert.Equal(CalendarInviteStates.NotAsked, Assert.Single(await InviteRowsAsync(e.Id)).State);
+    }
+
+    [Fact]
     public async Task StaffWithEventInvitesOff_AreNotInvited()
     {
         var host = await AddStaffAsync("host", "usr_host", getsEventInvites: false);
@@ -226,8 +280,9 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
         // usr_a was asked once, and never again; usr_b is still waiting for the class to open.
         Assert.Equal(["usr_a"], VRChat.Invites.Sent.Select(s => s.UserId));
 
+        // VRChat certainly did not deliver it, and their linked Discord account is the way left.
         var rows = await InviteRowsAsync(e.Id);
-        Assert.Equal(CalendarInviteStates.CouldNotReach, rows[0].State);
+        Assert.Equal(CalendarInviteStates.ToMessage, rows[0].State);
         Assert.Equal(CalendarInviteStates.Waiting, rows[1].State);
     }
 

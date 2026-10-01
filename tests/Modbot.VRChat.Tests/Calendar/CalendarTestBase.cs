@@ -95,9 +95,26 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
     {
         await using var context = Database.NewContext();
 
+        // /me on: while it is off, nobody's choice counts.
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.DiscordMeCommand = true;
+
         foreach (var id in vrchatUserIds)
         {
             var discord = $"discord-of-{id}";
+
+            // A VRChat id counts only through the Discord account linked to it now.
+            if (!await context.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == discord && l.UnlinkedAt == null, Ct))
+            {
+                context.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = discord,
+                    DiscordUsername = discord,
+                    VRChatUserId = id,
+                    LinkedAt = Clock.UtcNow,
+                });
+            }
+
             var choice = await context.EventInviteChoices.FirstOrDefaultAsync(c => c.DiscordUserId == discord, Ct);
 
             if (choice is null)

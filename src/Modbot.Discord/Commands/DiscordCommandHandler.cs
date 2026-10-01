@@ -169,7 +169,11 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say("Modbot does not know that button.");
         }
 
-        if (_me is null || !await _me.IsOnAsync(ct).ConfigureAwait(false))
+        // Stopping event invites always works, even from an old /me reply after the switch went
+        // off: nobody should be left unable to stop something they asked for.
+        var stopping = press.ButtonId == MeCommand.InvitesOffButton;
+
+        if (_me is null || (!stopping && !await _me.IsOnAsync(ct).ConfigureAwait(false)))
             return DiscordReply.Say(MeCommand.OffMessage);
 
         if (!_me.TryUse(press.DiscordUserId))

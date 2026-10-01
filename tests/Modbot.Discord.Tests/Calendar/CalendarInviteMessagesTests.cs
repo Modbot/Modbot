@@ -43,6 +43,9 @@ public class CalendarInviteMessagesTests(PostgresFixture db)
     private static async Task<(CalendarEvent Event, Guid InstanceId)> OpenEventAsync(
         TestServices services, Action<CalendarEvent>? shape = null, params CalendarInvite[] rows)
     {
+        // /me on: while it is off, no member's "Get event invites" counts.
+        await services.ConfigureAsync(s => s.DiscordMeCommand = true, Ct);
+
         var now = services.Clock.UtcNow;
         var e = new CalendarEvent
         {
@@ -178,6 +181,21 @@ public class CalendarInviteMessagesTests(PostgresFixture db)
             choice.Wants = false;
             await context.SaveChangesAsync(Ct);
         }
+
+        await MessageAsync(services, gateway);
+
+        Assert.Empty(gateway.DirectMessages);
+        Assert.Equal(CalendarInviteStates.NotAsked, Assert.Single(await RowsAsync(services)).State);
+    }
+
+    [Fact]
+    public async Task WhileMeIsOff_NoMemberIsMessaged()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await OpenEventAsync(services, null, ToMessage(0, "100"));
+        await services.ConfigureAsync(s => s.DiscordMeCommand = false, Ct);
 
         await MessageAsync(services, gateway);
 

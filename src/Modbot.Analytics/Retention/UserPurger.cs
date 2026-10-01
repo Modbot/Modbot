@@ -235,10 +235,18 @@ public sealed class UserPurger : IUserPurger
 
             // Their own "Get event invites" choice names them too (calendar auto-invite design §2.1).
             // Gone with the rest: a purged person is invited again only once they ask again.
+            // For a VRChat account: the choice stored with it, and the one of the Discord account
+            // linked to it now, since that is what makes it count for this VRChat account.
             await ExecuteAsync(
                 platform == FactPlatform.Discord
                     ? "DELETE FROM event_invite_choice WHERE discord_user_id = @subject"
-                    : "DELETE FROM event_invite_choice WHERE vrchat_user_id = @subject",
+                    : """
+                      DELETE FROM event_invite_choice
+                      WHERE vrchat_user_id = @subject
+                         OR discord_user_id IN (
+                             SELECT discord_user_id FROM discord_account_link
+                             WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 

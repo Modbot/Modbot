@@ -608,7 +608,8 @@ public static class FactType
     // Asking for event invites, or stopping them (calendar auto-invite design §2.1). A member does it
     // with /me: the subject is their Discord account and the source Discord. A staff account does it
     // on its account page: the subject and the actor are that account. Payload: how it was changed
-    // (`via`: me or account). Never a name.
+    // (`via`: me or account). A member's carries no name; a staff account's carries its username,
+    // as every account fact does.
 
     /// <summary>Somebody asked for event invites.</summary>
     public const string EventInvitesWanted = "modbot.calendar.invites.on";

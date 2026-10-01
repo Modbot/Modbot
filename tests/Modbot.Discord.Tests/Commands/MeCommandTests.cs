@@ -721,7 +721,7 @@ public class MeCommandTests
     }
 
     [Fact]
-    public async Task TheEventInviteButtons_FollowTheSwitch()
+    public async Task GetEventInvites_FollowsTheSwitch()
     {
         await using var services = await ServicesAsync(on: false);
 
@@ -729,6 +729,36 @@ public class MeCommandTests
 
         await using var db = services.Database.NewContext();
         Assert.Empty(await db.EventInviteChoices.AsNoTracking().ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task StopEventInvites_WorksEvenWithMeSwitchedOff()
+    {
+        await using var services = await ServicesAsync();
+        await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton));
+
+        // The operator switches /me off; the member still has the old reply's button.
+        await services.ConfigureAsync(s => s.DiscordMeCommand = false, Ct);
+
+        Assert.Equal(MeCommand.InvitesOffMessage, (await PressAsync(services, Press(Caller, MeCommand.InvitesOffButton))).Text);
+
+        await using var db = services.Database.NewContext();
+        Assert.False((await db.EventInviteChoices.AsNoTracking().SingleAsync(c => c.DiscordUserId == Caller, Ct)).Wants);
+    }
+
+    [Fact]
+    public async Task TwoFirstPressesAtOnce_MakeOneChoice()
+    {
+        await using var services = await ServicesAsync();
+
+        // Two scopes, as two interactions arriving together would have.
+        await Task.WhenAll(
+            PressAsync(services, Press(Caller, MeCommand.InvitesOnButton)),
+            PressAsync(services, Press(Caller, MeCommand.InvitesOnButton)));
+
+        await using var db = services.Database.NewContext();
+        Assert.True(Assert.Single(await db.EventInviteChoices.AsNoTracking().ToListAsync(Ct)).Wants);
+        Assert.Single(await services.FactsOfTypeAsync(FactType.EventInvitesWanted, Ct));
     }
 
     [Fact]
