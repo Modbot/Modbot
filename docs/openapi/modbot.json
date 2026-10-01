@@ -17796,6 +17796,618 @@
         ]
       }
     },
+    "/api/world-lists": {
+      "get": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "List world lists",
+        "description": "Every world list by name, with its worlds, their players, and the events that pick from it.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "ListWorldLists",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldListsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Add world list",
+        "description": "Save a world list: a name and its worlds, each with the fewest and most players it is for.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "CreateWorldList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorldListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldListView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/world-lists/worlds": {
+      "get": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Search known worlds",
+        "description": "Worlds Modbot knows whose name holds the search, or whose id is it, most recently seen first, at most 50. Asks VRChat nothing.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "SearchWorldListWorlds",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarWorldView"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/world-lists/worlds/find": {
+      "post": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Find a world by link or id",
+        "description": "Takes a world's link or id. A world Modbot has never read is read from VRChat once (worlds.read). When VRChat cannot be asked right now, the world comes back by its id with no name, and Modbot names it later.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "FindWorldListWorld",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorldFindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarWorldView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/world-lists/{id}": {
+      "put": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Update world list",
+        "description": "Rename a world list or change its worlds and their players. A world taken out is never picked again; a world added joins the current round of each event's shuffle.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "UpdateWorldList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorldListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldListView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "World lists"
+        ],
+        "summary": "Delete world list",
+        "description": "Delete a world list. Refused while a draft, scheduled or open event picks from it. Finished and cancelled events keep their last world.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "DeleteWorldList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events/{id}/pick-again": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Pick the date's world again",
+        "description": "For an event that picks its world from a world list: puts the current date's world back and takes the next one in the list's shuffle. Only before the date opens.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "PickCalendarWorldAgain",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events/{id}/next-game": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get next game",
+        "description": "During an open event that picks from a world list: the world picked last as the next game, and how many people are in the event's instance now.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetNextGame",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "instanceId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextGameView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Pick next game",
+        "description": "Picks the next world from the event's world list: the first not played this round whose players fit the people in the event's instance now, ignoring players when that count is unknown. With instead, that world is put back and the one after it is picked. noneFits says nothing fitted; nothing is recorded then. Never opens an instance.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "PickNextGame",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NextGameRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextGameView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/next-game": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get next game for an instance",
+        "description": "Next game for the open event that picks from a world list and that this instance belongs to: the instance Modbot opened for the event's date, or a group instance opened during it in a world picked for it. No content when it belongs to none.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetNextGameForInstance",
+        "parameters": [
+          {
+            "name": "instanceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NextGameView"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/giveaways": {
       "get": {
         "tags": [
@@ -23089,6 +23701,13 @@
           },
           "draft": {
             "type": "boolean"
+          },
+          "worldListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -23332,6 +23951,19 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "worldListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "worldListName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -35172,6 +35804,144 @@
           }
         }
       },
+      "NextGameRequest": {
+        "required": [
+          "instanceId",
+          "instead"
+        ],
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "instead": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "NextGameView": {
+        "required": [
+          "eventId",
+          "eventTitle",
+          "listId",
+          "listName",
+          "instanceId",
+          "people",
+          "peopleUnsure",
+          "game",
+          "noneFits",
+          "canPick"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "eventTitle": {
+            "type": "string"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "peopleUnsure": {
+            "type": "boolean"
+          },
+          "game": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NextGameWorldView"
+              }
+            ]
+          },
+          "noneFits": {
+            "type": "boolean"
+          },
+          "canPick": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NextGameWorldView": {
+        "required": [
+          "worldId",
+          "name",
+          "thumbnailUrl",
+          "minPlayers",
+          "maxPlayers",
+          "pickedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pickedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "NoteListResponse": {
         "required": [
           "notes",
@@ -41997,6 +42767,192 @@
           }
         }
       },
+      "WorldFindRequest": {
+        "required": [
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "WorldListRequest": {
+        "required": [
+          "name",
+          "worlds"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "worlds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/WorldListWorldRequest"
+            }
+          }
+        }
+      },
+      "WorldListUseView": {
+        "required": [
+          "eventId",
+          "title",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "WorldListView": {
+        "required": [
+          "id",
+          "name",
+          "worlds",
+          "usedBy",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "worlds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorldListWorldView"
+            }
+          },
+          "usedBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorldListUseView"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorldListWorldRequest": {
+        "required": [
+          "worldId",
+          "minPlayers",
+          "maxPlayers"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "minPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "WorldListWorldView": {
+        "required": [
+          "worldId",
+          "name",
+          "thumbnailUrl",
+          "minPlayers",
+          "maxPlayers"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxPlayers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "WorldListsView": {
+        "required": [
+          "lists",
+          "canManage"
+        ],
+        "type": "object",
+        "properties": {
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorldListView"
+            }
+          },
+          "canManage": {
+            "type": "boolean"
+          }
+        }
+      },
       "WorldReading": {
         "required": [
           "at",
@@ -42726,6 +43682,10 @@
     {
       "name": "Watches",
       "x-displayName": "Watches"
+    },
+    {
+      "name": "World lists",
+      "x-displayName": "World lists"
     }
   ]
 }
