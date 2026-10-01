@@ -118,9 +118,11 @@ public sealed class CalendarDiscordPublisher
                     || (p.State == CalendarPlaceStates.Failed && p.FailedFingerprint == null)))
             .ToListAsync(ct).ConfigureAwait(false);
 
-        // What each place said before this pass, so a change of state can be told from an edit.
+        // What each place said before this pass, and whether Discord held a copy of it, so a first
+        // publish or a take-down can be told from an edit.
         var was = places.Concat(cancelPosts)
-            .ToDictionary<CalendarEventPlace, CalendarEventPlace, string>(p => p, p => p.State, ReferenceEqualityComparer.Instance);
+            .ToDictionary<CalendarEventPlace, CalendarEventPlace, (string State, bool InDiscord)>(
+                p => p, p => (p.State, p.ExternalId is not null), ReferenceEqualityComparer.Instance);
 
         var withPlaces = places.Select(p => p.EventId).Distinct().ToList();
 
@@ -187,12 +189,15 @@ public sealed class CalendarDiscordPublisher
 
         foreach (var place in places.Concat(cancelPosts).Concat(_added))
         {
-            var before = was.TryGetValue(place, out var state) ? state : null;
+            var (before, inDiscord) = was.TryGetValue(place, out var seen) ? seen : (null, false);
 
             if (place.State == before || !byId.TryGetValue(place.EventId, out var calendarEvent))
                 continue;
 
-            if (place.State == CalendarPlaceStates.Published)
+            // Written when a place gets onto Discord for the first time or comes off it, not for
+            // every edit: an edit that goes through waiting or a failure and back is not "published"
+            // again, and a place Discord never held has nothing to be taken down from.
+            if (place.State == CalendarPlaceStates.Published && !inDiscord)
             {
                 await WriteFactAsync(
                     FactType.PlannedEventPublished,
@@ -201,7 +206,7 @@ public sealed class CalendarDiscordPublisher
                     now,
                     ct).ConfigureAwait(false);
             }
-            else if (place.State == CalendarPlaceStates.Removed && before is not null)
+            else if (place.State == CalendarPlaceStates.Removed && inDiscord)
             {
                 await WriteFactAsync(
                     FactType.PlannedEventTakenDown,

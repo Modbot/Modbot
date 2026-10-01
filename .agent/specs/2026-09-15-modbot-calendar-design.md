@@ -221,8 +221,8 @@ the operational log:
 | `modbot.calendar.instance.open` | Modbot opened the instance; carries the world and instance ids |
 | `modbot.calendar.instance.fail` | Opening the instance failed; carries VRChat's words |
 | `modbot.calendar.publish.fail` | A place failed; carries which place and the error |
-| `modbot.calendar.publish.done` | A place's state turned to published (added 2026-10-01, §14.1); carries which place |
-| `modbot.calendar.publish.remove` | A place's state turned to removed (added 2026-10-01, §14.1); carries which place and what it was before |
+| `modbot.calendar.publish.done` | A place got the event for the first time, not for each edit after (added 2026-10-01, §14.1); carries which place |
+| `modbot.calendar.publish.remove` | A place that held the event no longer does (added 2026-10-01, §14.1); carries which place and what it was before |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
 
 `modbot.calendar.event.cancel` carries `postInChannel` (added 2026-10-01, §14.4).
@@ -412,13 +412,16 @@ The live stream carries facts and nothing else (live updates design §2), and a 
 changing wrote none unless it failed. So the page never heard that a place went from Waiting to
 Published, although the docs said it did.
 
-- **A place whose state turns to `published` writes `modbot.calendar.publish.done`; one that turns
-  to `removed` writes `modbot.calendar.publish.remove`**, both with the place. A failure already
-  wrote `modbot.calendar.publish.fail`. Each publisher remembers every place's state at the start of
-  its pass and compares after saving, so **an edit sent to a place that is already published writes
-  nothing**: the facts follow changes of state, not writes. A repeating event's Discord places move
-  on each occurrence (published, then waiting, then published within one pass), which is no change
-  and writes nothing.
+- **A place that gets onto Discord or VRChat for the first time writes
+  `modbot.calendar.publish.done`; one that comes off writes `modbot.calendar.publish.remove`**, both
+  with the place. A failure already wrote `modbot.calendar.publish.fail`. Each publisher remembers,
+  for every place, its state and whether the other side held a copy of it (an id) at the start of its
+  pass, and compares after saving. So **an edit writes nothing**: an edit that goes through waiting
+  or a failure and back to published is not "published" again, and neither is a repeating event's
+  Discord place moving on to its next time. **A place the other side never held writes no
+  `remove`**: a ticked place that was never set up, or a create that never went through, has
+  nothing to be taken down from. (Changed 2026-10-01 after the first build: it wrote `done` for
+  every edit that passed through waiting, and `remove` for places that were never published.)
 - The calendar page already reads again on any `modbot.calendar.*` fact (live updates design §6.1),
   so the grid and the open event both redraw. No new kind and no new rule were needed.
 - **Not changed:** a `fact` on the stream follows the audit log's rules, and calendar facts are in

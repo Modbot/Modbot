@@ -300,8 +300,8 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
     // ── Live updates (2026-10-01) ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// A place turning published writes one fact, which the live stream carries to the calendar
-    /// page; an edit sent to a place already published writes none.
+    /// A place getting onto Discord for the first time writes one fact, which the live stream
+    /// carries to the calendar page; an edit sent to a place Discord already holds writes none.
     /// </summary>
     [Fact]
     public async Task APlaceTurningPublishedWritesOneFact_AndAnEditAfterwardsWritesNone()

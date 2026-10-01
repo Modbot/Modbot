@@ -1,10 +1,12 @@
 import { SET_UP_LINK, type CalendarSwitchable } from '@/lib/calendarPlaces'
+import { useCanManageSettings } from '@/lib/manageSettings'
 import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
 /**
  * "Not set up", linking to where the place is set up (calendar design §14.3). In the form it opens
- * in a new tab, so what was typed stays; elsewhere it moves in place.
+ * in a new tab, so what was typed stays; elsewhere it moves in place. Somebody who cannot manage
+ * settings sees the words without a link: the settings tab it leads to is not theirs to open.
  */
 export function NotSetUp({
   place,
@@ -16,6 +18,15 @@ export function NotSetUp({
   className?: string
 }) {
   const to = SET_UP_LINK[place]
+  const mayFollow = useCanManageSettings()
+
+  if (!mayFollow) {
+    return (
+      <span className={cn('text-destructive', className)} style={{ fontSize: 'var(--text-small)' }}>
+        Not set up
+      </span>
+    )
+  }
 
   return (
     <a

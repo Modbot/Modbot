@@ -37,9 +37,10 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
     }
 
     /// <summary>
-    /// Live updates (2026-10-01): the place turning published writes one fact for the live stream to
-    /// carry, so the calendar page shows it without a reload. The update after an edit, to a place
-    /// already published, writes none; taking it off VRChat writes one of its own.
+    /// Live updates (2026-10-01): the place getting onto VRChat's calendar writes one fact for the
+    /// live stream to carry, so the calendar page shows it without a reload. An edit afterwards
+    /// writes none, however many passes it takes to settle (the place waits between them);
+    /// taking it off VRChat writes one of its own.
     /// </summary>
     [Fact]
     public async Task PublishingAndTakingDownEachWriteOneFact_AnUpdateWritesNone()
@@ -52,7 +53,9 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(e.Id.ToString(), published.SubjectId);
         Assert.Contains(CalendarPlaces.VRChat, published.Data, StringComparison.Ordinal);
 
+        // The edit is still settling: the place waits (and that pass is saved), then goes out.
         await EditAsync(e.Id, x => x.Title = "Movie night: Alien");
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
         Clock.Advance(Settle);
         Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));

@@ -110,8 +110,9 @@ public sealed class CalendarVRChatPublisher
 
         var placeIds = places.Keys.ToList();
 
-        // What each place said before this pass, so a change of state writes its fact (below).
-        var was = places.ToDictionary(p => p.Key, p => p.Value.State);
+        // What each place said before this pass, and whether VRChat held a copy of it, so a change
+        // of state writes its fact (below).
+        var was = places.ToDictionary(p => p.Key, p => (State: p.Value.State, OnVRChat: p.Value.ExternalId is not null));
 
         var events = await _db.CalendarEvents
             .Where(e => placeIds.Contains(e.Id)
@@ -221,14 +222,16 @@ public sealed class CalendarVRChatPublisher
     }
 
     /// <summary>
-    /// A fact for each VRChat place whose state turned to published or removed in this pass, so the
-    /// live stream tells the calendar page (added 2026-10-01). A failure already wrote its own, and
-    /// an update to a place that was published already writes none.
+    /// A fact for each VRChat place that got onto VRChat's calendar for the first time or came off
+    /// it in this pass, so the live stream tells the calendar page (added 2026-10-01). A failure
+    /// already wrote its own. An edit writes none: a place that VRChat already held goes through
+    /// waiting and back to published on every edit, and that is not "published" again. A place
+    /// that VRChat never held has nothing to be taken down from.
     /// </summary>
     private async Task RecordChangesAsync(
         List<CalendarEvent> events,
         Dictionary<Guid, CalendarEventPlace> places,
-        Dictionary<Guid, string> was,
+        Dictionary<Guid, (string State, bool OnVRChat)> was,
         CancellationToken ct)
     {
         foreach (var calendarEvent in events)
@@ -236,11 +239,11 @@ public sealed class CalendarVRChatPublisher
             if (!places.TryGetValue(calendarEvent.Id, out var place))
                 continue;
 
-            var before = was.TryGetValue(calendarEvent.Id, out var state) ? state : null;
+            var (before, onVRChat) = was.TryGetValue(calendarEvent.Id, out var seen) ? seen : (null, false);
             if (place.State == before)
                 continue;
 
-            if (place.State == CalendarPlaceStates.Published)
+            if (place.State == CalendarPlaceStates.Published && !onVRChat)
             {
                 await _facts.RecordAsync(
                     FactType.PlannedEventPublished,
@@ -248,7 +251,7 @@ public sealed class CalendarVRChatPublisher
                     new JsonObject { ["place"] = CalendarPlaces.VRChat },
                     ct: ct).ConfigureAwait(false);
             }
-            else if (place.State == CalendarPlaceStates.Removed && before is not null)
+            else if (place.State == CalendarPlaceStates.Removed && onVRChat)
             {
                 await _facts.RecordAsync(
                     FactType.PlannedEventTakenDown,

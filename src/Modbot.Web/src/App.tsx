@@ -10,6 +10,7 @@ import { TitleOnTap } from '@/components/TitleOnTap'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
 import { DemoContext } from '@/lib/demo'
+import { ManageSettingsContext } from '@/lib/manageSettings'
 import { changesFlags } from '@/lib/liveRules'
 import { ISSUES_LABEL, ISSUES_URL } from '@/lib/issues'
 import { INSTANCE_KINDS, PRESENCE_KINDS, REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
@@ -332,15 +333,17 @@ export default function App() {
 
   return (
     <DemoContext value={demo}>
-      <Shell
-        status={status}
-        me={me}
-        prefs={prefs}
-        route={route}
-        navigate={navigate}
-        refresh={refresh}
-        demo={demo}
-      />
+      <ManageSettingsContext value={can(me, 'ManageSettings')}>
+        <Shell
+          status={status}
+          me={me}
+          prefs={prefs}
+          route={route}
+          navigate={navigate}
+          refresh={refresh}
+          demo={demo}
+        />
+      </ManageSettingsContext>
     </DemoContext>
   )
 }
