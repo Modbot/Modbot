@@ -69,8 +69,11 @@ said either way.
 - **Modbot account.** Only for people allowed to know who holds one: the username, **Disabled** if
   it is, its roles, when it was made and when it last signed in.
 - **Membership.** Whether they are in your group now and since when, whether they are
-  representing the group, their group roles, the group's manager notes about them, and whether
-  they are on the ban list, or when a ban was lifted. The last line, **Checked**, says how long ago
+  representing the group, who invited them (**Invited by**), who let them in from a join request
+  (**Approved by**), how many times they asked to join and how many of those were rejected and by
+  whom, **Blocked from asking** if they were, their group roles, the group's manager notes about
+  them, and whether they are on the ban list, or when a ban was lifted. The invite and join request
+  lines come from the audit log, so they need **See the audit log**. The last line, **Checked**, says how long ago
   the older of the member list and the ban list was last read. If the member list has never been read, it says **Member list not read yet.** Below
   that, **Kick**, **Ban** or **Unban**, for whoever holds those permissions — see
   [Kicking, banning and unbanning](/moderation/members-and-bans#kicking-banning-and-unbanning).
@@ -79,13 +82,13 @@ said either way.
 
 | Tab | What it shows |
 |---|---|
-| **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **Past actions** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#past-actions-on-a-persons-popup)), their time in world (**Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**), a table of the instances they were seen in (newest 25), and the newest 8 audit log entries about them, with **All activity** to open the **Activity** tab. |
-| **Activity** | **Everything recorded about this person**: the newest 50 audit log entries about any of their accounts or done by them, newest first. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. |
+| **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **Past actions** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#past-actions-on-a-persons-popup)), their time in world (**Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**), a table of the instances they were seen in (newest 25), **Visits** (see below), and the newest 8 audit log entries about any of their accounts, with **All activity** to open the **Activity** tab. |
+| **Activity** | **Recorded about this person**: every audit log entry about any of their accounts or done by any of them, newest first, 50 at a time with **Load more** at the bottom. It is the [audit log](/moderation/audit-log)'s own list with its filters, narrowed to this person, and new entries arrive while it is open. **Show** starts on **Everything**; pick **Moderation only** for bans, kicks, warnings, rejected join requests, notes, case files, AutoMod and copied bans, **Presence** for arrivals, leaves and avatar changes, or **Discord** for their Discord history and everything Modbot copied between the two. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. Click a row to see everything the entry holds. |
 | **Notes** | What moderators have written down about them, newest first, and a box to add another. Notes that were taken back are still listed and marked. See [Notes](/moderation/notes). |
 | **Profile changes** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile changes](#profile-changes). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
 | **Flags** | What [AutoMod rules](/moderation/automod) flagged about any of their accounts, switched between **Open**, **Dismissed** and **Confirmed**. **Flags page** opens the [Flags](/moderation/flags) page, where flags are dismissed or taken to a review. |
-| **Discord** | Their Discord details, their activity in the server (messages and voice), and their own comings and goings there. See [Discord members](/discord/members). |
+| **Discord** | Their Discord details, their activity in the server (messages and voice), and their own history there: comings and goings, renames, roles, timeouts, bans, and the bans and roles Modbot copied over from VRChat. See [Discord members](/discord/members). |
 | **Messages** | Everything they wrote in Discord that Modbot has stored. Needs **Read Discord messages**. |
 | **Account** | Everything their Modbot account did and everything done to it: sign-ins, role changes, settings they changed, and every kick, ban and unban they pressed in Modbot. |
 | **Raw data** | The stored records as Modbot's API answers them, as **one document with one copy button**. Its named parts are the profile, the membership and ban standing, the two bodies VRChat last sent (the public profile and the user object), the Discord member row, their Discord activity and the Modbot account. A part you do not hold the permission for is left out rather than shown empty; if you hold none of them the tab says so. Open it from **⋯** in the popup's header; it shows as a tab while it is open. |
@@ -99,6 +102,17 @@ audit log entry with the old and new values, and the Profile changes tab replays
 from the profile as stored now. A version's time is the window between the two reads that noticed
 the change. Clicking **VRChat profile** in a *profile changed* entry on the audit log opens the
 person on this tab at that version.
+
+#### Visits
+
+**Visits** on **Overview** lists where the person was seen, one row per visit, newest first, 10 at
+a time with **Load more**: the instance (click it to open the instance), when they arrived and left
+and how long that was, **Already there** when a moderator's companion arrived after they did, **Not
+seen leaving** when nobody saw them go (the visit then runs to the last thing reported from that
+instance), the name they had if it was not the one they have now, the avatars they were seen
+changing into, and **Seen by** with the moderators whose companions saw them. Visits are made the
+same way as the time-in-world figures, so the two always agree. It needs **See the audit log**, the
+permission that reads the same arrivals and leaves in the audit log.
 
 The time-in-world figures on **Overview** only count time a moderator's companion shared an
 instance with the person. When no client has seen them they are left out, which does not mean the
