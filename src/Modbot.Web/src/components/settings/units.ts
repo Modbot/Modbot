@@ -5,7 +5,9 @@
  * a module that exports both components and helpers reloads the whole page on every edit.
  */
 
-import { duration } from '@/lib/format'
+// Relative, not '@/lib/format': the tests load this file under plain node, which knows nothing of
+// the '@/' alias Vite and tsc resolve. A type-only import may use the alias; it is erased first.
+import { duration } from '../../lib/format.ts'
 
 /** Binary, because that is how disks are sized and how most providers bill. */
 export const GB = 1024 * 1024 * 1024
