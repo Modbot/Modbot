@@ -58,6 +58,27 @@ public class DeleteUserTests
     }
 
     /// <summary>
+    /// DELETE /api/users/{id} is the same deletion at the address the rest of the API would give it
+    /// (API conventions design §4), with the same typed-out username.
+    /// </summary>
+    [Fact]
+    public async Task DeleteAtTheAccountsAddress_IsTheSameDeletion()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var (user, _) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var wrong = await host.SendJsonAsync(HttpMethod.Delete, $"/api/users/{user.Id}", new { username = "somebody else" }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
+
+        var response = await host.SendJsonAsync(HttpMethod.Delete, $"/api/users/{user.Id}", new { username = user.Username }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True((await ApiTestHost.BodyOf(response, Ct)).GetProperty("isDeleted").GetBoolean());
+        Assert.Single(await host.FactsAsync(FactType.UserDeleted, user.Id.ToString(), Ct));
+    }
+
+    /// <summary>
     /// The row stays, so everything that named the account still finds it. The copies other tables
     /// took of the username at the time stay too: they say what was true then, and rewriting them
     /// would make Modbot's history disagree with what actually happened.

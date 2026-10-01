@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
@@ -265,7 +266,9 @@ public static class UserEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapPost("/{id:guid}/delete", async (
+        // Mapped twice: DELETE /{id} is the address the rest of the API would give it (API
+        // conventions design §4), and POST /{id}/delete stays for the clients that use it.
+        var deleteUser = async (
                 Guid id,
                 [FromBody] DeleteUserRequest body,
                 [FromServices] ModbotContext db,
@@ -322,17 +325,31 @@ public static class UserEndpoints
                 contact.Invalidate();
 
                 return Results.Ok(UserSummary.From(user));
-            })
-            .WithName("DeleteUser")
+            };
+
+        const string DeleteUserDescription =
+            "Deletes an account while keeping everything it did. "
+            + "The account's username, email, password, Discord id, VRChat link and roles are "
+            + "replaced or cleared, and it is left under a deleted_user_ name. Facts, case "
+            + "files, notes and moderation actions keep pointing at it. The request must carry "
+            + "the account's username, typed out. Refused for your own account, for the "
+            + "last enabled administrator, and for an account whose highest role is not "
+            + "below yours.";
+
+        group.MapDelete("/{id:guid}", deleteUser)
+            .WithName("DeleteUserById")
             .WithSummary("Delete user")
-            .WithDescription(
-                "Deletes an account while keeping everything it did. "
-                + "The account's username, email, password, Discord id, VRChat link and roles are "
-                + "replaced or cleared, and it is left under a deleted_user_ name. Facts, case "
-                + "files, notes and moderation actions keep pointing at it. The request must carry "
-                + "the account's username, typed out. Refused for your own account, for the "
-                + "last enabled administrator, and for an account whose highest role is not "
-                + "below yours.")
+            .WithDescription(DeleteUserDescription)
+            .Produces<UserSummary>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/delete", deleteUser)
+            .WithName("DeleteUser")
+            .WithMetadata(new ReplacedBy("DELETE /api/users/{id}"))
+            .WithSummary("Delete user")
+            .WithDescription(DeleteUserDescription)
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

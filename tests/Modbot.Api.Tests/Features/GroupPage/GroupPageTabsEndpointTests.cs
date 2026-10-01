@@ -251,6 +251,63 @@ public class GroupPageTabsEndpointTests
         Assert.DoesNotContain((await SnapshotAsync(host, ct))!.Roles, r => r.Id == "grol_mod");
     }
 
+    /// <summary>DELETE /api/group/roles/{id}: the same deletion, with the role in the address (API conventions design §4).</summary>
+    [Fact]
+    public async Task DeletingARoleAtItsAddress_IsTheSameDeletion()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = new FakeVRChatGate().Returns("DeleteGroupRole", VRChatResult<List<GroupRole>>.Ok(
+            [Stored().Roles[1]], 200, """[{"id":"grol_member","name":"Member","defaultRole":true,"permissions":[]}]"""));
+        await using var host = await StartAsync(gate, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageGroupRoles, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/group/roles/grol_mod?name=Moderator");
+        request.Headers.Add("Cookie", cookie);
+        var response = await host.Client.SendAsync(request, ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var fact = Assert.Single(await FactsAsync(host, FactType.GroupRoleRemoved, ct));
+        Assert.Equal("grol_mod", JsonDocument.Parse(fact.Data).RootElement.GetProperty("roleId").GetString());
+        Assert.Equal("Moderator", JsonDocument.Parse(fact.Data).RootElement.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task ChangingARoleAtItsAddress_RefusesABodyNamingAnother()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = new FakeVRChatGate();
+        await using var host = await StartAsync(gate, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageGroupRoles, ct);
+        var response = await host.PutJsonAsync("/api/group/roles/grol_mod", new { id = "grol_member", name = "Mods" }, cookie, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(gate.Calls);
+    }
+
+    /// <summary>A VRChat refusal says so in its code, beside the missing permission the page reads.</summary>
+    [Fact]
+    public async Task AVRChatRefusal_HasItsOwnCode()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = new FakeVRChatGate().Returns("DeleteGroupRole", Forbidden<List<GroupRole>>("DeleteGroupRole"));
+        await using var host = await StartAsync(gate, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageGroupRoles, ct);
+        using var request = new HttpRequestMessage(HttpMethod.Delete, "/api/group/roles/grol_mod");
+        request.Headers.Add("Cookie", cookie);
+        var response = await host.Client.SendAsync(request, ct);
+
+        Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        Assert.Equal("vrchat-refused", body.RootElement.GetProperty("code").GetString());
+        Assert.Equal("group-roles-manage", body.RootElement.GetProperty("missingGroupPermission").GetProperty("permission").GetString());
+        Assert.False(string.IsNullOrEmpty(body.RootElement.GetProperty("error").GetString()));
+    }
+
     // ── Invites ────────────────────────────────────────────────────────────────────────────
 
     [Fact]

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -28,8 +29,9 @@ namespace Modbot.Api.Features.GroupPage;
 /// <para>
 /// <strong>A write is one request, and nothing is recorded unless VRChat accepted it.</strong> Then
 /// one fact names who posted, changed or deleted, beside VRChat's own audit entry, which can only
-/// name Modbot's account. The post's id travels in the body, as a join request's does: an id in
-/// a route invites a format check, and VRChat ids get none (foundation §3.1.1).
+/// name Modbot's account. The post's id travels in the body, as a join request's does, or in the
+/// address on <c>PUT</c> and <c>DELETE /{id}</c> (API conventions design §4); the route has no
+/// constraint, so its format is checked in neither place (foundation §3.1.1).
 /// </para>
 /// </remarks>
 public static class GroupPostEndpoints
@@ -139,6 +141,7 @@ public static class GroupPostEndpoints
                 new Writes(db, clock, vrchat, facts, partitions).SaveAsync(http, body, creating: false, ct))
             .RequiresFlag(ModbotPermissions.ManageGroupPosts)
             .WithName("UpdateGroupPost")
+            .WithMetadata(new ReplacedBy("PUT /api/group/posts/{id}"))
             .WithSummary("Update group post")
             .WithDescription(
                 "Change a post: `id` names it, and the title, text, `visibility` and `roleIds` "
@@ -165,11 +168,75 @@ public static class GroupPostEndpoints
                 new Writes(db, clock, vrchat, facts, partitions).DeleteAsync(http, body, ct))
             .RequiresFlag(ModbotPermissions.ManageGroupPosts)
             .WithName("DeleteGroupPost")
+            .WithMetadata(new ReplacedBy("DELETE /api/group/posts/{id}"))
             .WithSummary("Delete group post")
             .WithDescription(
                 "Delete a post on VRChat. `id` names it; `title` is kept in the audit log with the "
                 + "deletion, as the page showed it. One request, never retried. A post VRChat no "
                 + "longer has answers 404.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        // The same change and deletion with the post in the address (API conventions design §4).
+        group.MapPut("/{id}", async (
+                string id,
+                HttpContext http,
+                [FromBody] GroupPostBody body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] GroupPosts? vrchat,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (body.Id is { Length: > 0 } named && !string.Equals(named, id, StringComparison.Ordinal))
+                    return GroupPageAnswers.Invalid("The address and the body name different posts.");
+
+                return await new Writes(db, clock, vrchat, facts, partitions)
+                    .SaveAsync(http, body with { Id = id }, creating: false, ct);
+            })
+            .RequiresFlag(ModbotPermissions.ManageGroupPosts)
+            .WithName("UpdateGroupPostById")
+            .WithSummary("Update group post")
+            .WithDescription(
+                "Change the post named in the address: the title, text, `visibility` and `roleIds` "
+                + "replace what it had. VRChat replaces the whole post, so send `imageId` back to "
+                + "keep its picture. Members are not notified again. One request, never retried. "
+                + "Once VRChat accepts, the audit log records who changed it.")
+            .Produces<GroupPostSaved>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapDelete("/{id}", (
+                string id,
+                [FromQuery] string? title,
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] GroupPosts? vrchat,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+                new Writes(db, clock, vrchat, facts, partitions).DeleteAsync(http, new GroupPostDelete(id, title), ct))
+            .RequiresFlag(ModbotPermissions.ManageGroupPosts)
+            .WithName("DeleteGroupPostById")
+            .WithSummary("Delete group post")
+            .WithDescription(
+                "Delete the post named in the address on VRChat. `title`, when given, is kept in the "
+                + "audit log with the deletion, as the page showed it. One request, never retried. A "
+                + "post VRChat no longer has answers 404.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

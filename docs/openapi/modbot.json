@@ -2207,13 +2207,104 @@
         ]
       }
     },
+    "/api/users/{id}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete user",
+        "description": "Deletes an account while keeping everything it did. The account's username, email, password, Discord id, VRChat link and roles are replaced or cleared, and it is left under a deleted_user_ name. Facts, case files, notes and moderation actions keep pointing at it. The request must carry the account's username, typed out. Refused for your own account, for the last enabled administrator, and for an account whose highest role is not below yours.\n\nNeeds the `ManageUsers` permission.",
+        "operationId": "DeleteUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/users/{id}/delete": {
       "post": {
         "tags": [
           "Users"
         ],
         "summary": "Delete user",
-        "description": "Deletes an account while keeping everything it did. The account's username, email, password, Discord id, VRChat link and roles are replaced or cleared, and it is left under a deleted_user_ name. Facts, case files, notes and moderation actions keep pointing at it. The request must carry the account's username, typed out. Refused for your own account, for the last enabled administrator, and for an account whose highest role is not below yours.\n\nNeeds the `ManageUsers` permission.",
+        "description": "Deletes an account while keeping everything it did. The account's username, email, password, Discord id, VRChat link and roles are replaced or cleared, and it is left under a deleted_user_ name. Facts, case files, notes and moderation actions keep pointing at it. The request must carry the account's username, typed out. Refused for your own account, for the last enabled administrator, and for an account whose highest role is not below yours.\n\nNeeds the `ManageUsers` permission.\n\nKept for older clients: use `DELETE /api/users/{id}`.",
         "operationId": "DeleteUser",
         "parameters": [
           {
@@ -2288,6 +2379,7 @@
             }
           }
         },
+        "deprecated": true,
         "security": [
           {
             "apiKey": [ ]
@@ -19664,8 +19756,243 @@
           "Group page"
         ],
         "summary": "Update group post",
-        "description": "Change a post: `id` names it, and the title, text, `visibility` and `roleIds` replace what it had. VRChat replaces the whole post, so send `imageId` back to keep its picture. Members are not notified again. One request, never retried. Once VRChat accepts, the audit log records who changed it.\n\nNeeds the `ManageGroupPosts` permission.",
+        "description": "Change a post: `id` names it, and the title, text, `visibility` and `roleIds` replace what it had. VRChat replaces the whole post, so send `imageId` back to keep its picture. Members are not notified again. One request, never retried. Once VRChat accepts, the audit log records who changed it.\n\nNeeds the `ManageGroupPosts` permission.\n\nKept for older clients: use `PUT /api/group/posts/{id}`.",
         "operationId": "UpdateGroupPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPostBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPostSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/posts/delete": {
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Delete group post",
+        "description": "Delete a post on VRChat. `id` names it; `title` is kept in the audit log with the deletion, as the page showed it. One request, never retried. A post VRChat no longer has answers 404.\n\nNeeds the `ManageGroupPosts` permission.\n\nKept for older clients: use `DELETE /api/group/posts/{id}`.",
+        "operationId": "DeleteGroupPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPostDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/posts/{id}": {
+      "put": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Update group post",
+        "description": "Change the post named in the address: the title, text, `visibility` and `roleIds` replace what it had. VRChat replaces the whole post, so send `imageId` back to keep its picture. Members are not notified again. One request, never retried. Once VRChat accepts, the audit log records who changed it.\n\nNeeds the `ManageGroupPosts` permission.",
+        "operationId": "UpdateGroupPostById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -19766,26 +20093,31 @@
             "session": [ ]
           }
         ]
-      }
-    },
-    "/api/group/posts/delete": {
-      "post": {
+      },
+      "delete": {
         "tags": [
           "Group page"
         ],
         "summary": "Delete group post",
-        "description": "Delete a post on VRChat. `id` names it; `title` is kept in the audit log with the deletion, as the page showed it. One request, never retried. A post VRChat no longer has answers 404.\n\nNeeds the `ManageGroupPosts` permission.",
-        "operationId": "DeleteGroupPost",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GroupPostDelete"
-              }
+        "description": "Delete the post named in the address on VRChat. `title`, when given, is kept in the audit log with the deletion, as the page showed it. One request, never retried. A post VRChat no longer has answers 404.\n\nNeeds the `ManageGroupPosts` permission.",
+        "operationId": "DeleteGroupPostById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
-          "required": true
-        },
+          {
+            "name": "title",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "No Content"
@@ -20083,8 +20415,243 @@
           "Group page"
         ],
         "summary": "Update group role",
-        "description": "Change a role: `id` names it. Leave `name`, `description` or `permissions` out to keep them; `permissions` is the whole list, which VRChat replaces. Only the fields that differ from what Modbot last recorded are sent. One request, never retried. Once VRChat accepts, the audit log records who changed it and each field's old and new value.\n\nNeeds the `ManageGroupRoles` permission.",
+        "description": "Change a role: `id` names it. Leave `name`, `description` or `permissions` out to keep them; `permissions` is the whole list, which VRChat replaces. Only the fields that differ from what Modbot last recorded are sent. One request, never retried. Once VRChat accepts, the audit log records who changed it and each field's old and new value.\n\nNeeds the `ManageGroupRoles` permission.\n\nKept for older clients: use `PUT /api/group/roles/{id}`.",
         "operationId": "UpdateGroupRole",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupRoleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupRoleSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/roles/delete": {
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Delete group role",
+        "description": "Delete a role on VRChat. `id` names it; `name` is kept in the audit log with the deletion, as the page showed it. Members who had the role lose it. One request, never retried. A role VRChat no longer has answers 404.\n\nNeeds the `ManageGroupRoles` permission.\n\nKept for older clients: use `DELETE /api/group/roles/{id}`.",
+        "operationId": "DeleteGroupRole",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupRoleDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/roles/{id}": {
+      "put": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Update group role",
+        "description": "Change the role named in the address. Leave `name`, `description` or `permissions` out to keep them; `permissions` is the whole list, which VRChat replaces. Only the fields that differ from what Modbot last recorded are sent. One request, never retried. Once VRChat accepts, the audit log records who changed it and each field's old and new value.\n\nNeeds the `ManageGroupRoles` permission.",
+        "operationId": "UpdateGroupRoleById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -20185,26 +20752,31 @@
             "session": [ ]
           }
         ]
-      }
-    },
-    "/api/group/roles/delete": {
-      "post": {
+      },
+      "delete": {
         "tags": [
           "Group page"
         ],
         "summary": "Delete group role",
-        "description": "Delete a role on VRChat. `id` names it; `name` is kept in the audit log with the deletion, as the page showed it. Members who had the role lose it. One request, never retried. A role VRChat no longer has answers 404.\n\nNeeds the `ManageGroupRoles` permission.",
-        "operationId": "DeleteGroupRole",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GroupRoleDelete"
-              }
+        "description": "Delete the role named in the address on VRChat. `name`, when given, is kept in the audit log with the deletion, as the page showed it. Members who had the role lose it. One request, never retried. A role VRChat no longer has answers 404.\n\nNeeds the `ManageGroupRoles` permission.",
+        "operationId": "DeleteGroupRoleById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           },
-          "required": true
-        },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "204": {
             "description": "No Content"

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -29,7 +30,8 @@ namespace Modbot.Api.Features.GroupPage;
 /// <strong>A write is one request, and nothing is recorded unless VRChat accepted it.</strong> Then
 /// one fact names who made the change, and the stored group snapshot takes the roles VRChat answered
 /// with, so the next group poll does not record the same change again without a name on it. The
-/// role's id travels in the body: an id in a route invites a format check, and VRChat ids get none
+/// role's id travels in the body, or in the address on <c>PUT</c> and <c>DELETE /{id}</c> (API
+/// conventions design §4); the route has no constraint, so its format is checked in neither place
 /// (foundation §3.1.1).
 /// </para>
 /// <para>
@@ -128,6 +130,7 @@ public static class GroupRoleEndpoints
                 new Writes(db, clock, vrchat, facts, partitions).SaveAsync(http, body, creating: false, ct))
             .RequiresFlag(ModbotPermissions.ManageGroupRoles)
             .WithName("UpdateGroupRole")
+            .WithMetadata(new ReplacedBy("PUT /api/group/roles/{id}"))
             .WithSummary("Update group role")
             .WithDescription(
                 "Change a role: `id` names it. Leave `name`, `description` or `permissions` out to "
@@ -155,11 +158,78 @@ public static class GroupRoleEndpoints
                 new Writes(db, clock, vrchat, facts, partitions).DeleteAsync(http, body, ct))
             .RequiresFlag(ModbotPermissions.ManageGroupRoles)
             .WithName("DeleteGroupRole")
+            .WithMetadata(new ReplacedBy("DELETE /api/group/roles/{id}"))
             .WithSummary("Delete group role")
             .WithDescription(
                 "Delete a role on VRChat. `id` names it; `name` is kept in the audit log with the "
                 + "deletion, as the page showed it. Members who had the role lose it. One request, "
                 + "never retried. A role VRChat no longer has answers 404.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        // The same change and deletion with the role in the address, as the rest of the API names
+        // what it acts on (API conventions design §4). A route with no constraint checks nothing
+        // about the id's format, so §3.1.1 holds here as it does in a body.
+        group.MapPut("/{id}", async (
+                string id,
+                HttpContext http,
+                [FromBody] GroupRoleBody body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] GroupRoleManager? vrchat,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (body.Id is { Length: > 0 } named && !string.Equals(named, id, StringComparison.Ordinal))
+                    return GroupPageAnswers.Invalid("The address and the body name different roles.");
+
+                return await new Writes(db, clock, vrchat, facts, partitions)
+                    .SaveAsync(http, body with { Id = id }, creating: false, ct);
+            })
+            .RequiresFlag(ModbotPermissions.ManageGroupRoles)
+            .WithName("UpdateGroupRoleById")
+            .WithSummary("Update group role")
+            .WithDescription(
+                "Change the role named in the address. Leave `name`, `description` or `permissions` "
+                + "out to keep them; `permissions` is the whole list, which VRChat replaces. Only the "
+                + "fields that differ from what Modbot last recorded are sent. One request, never "
+                + "retried. Once VRChat accepts, the audit log records who changed it and each "
+                + "field's old and new value.")
+            .Produces<GroupRoleSaved>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        group.MapDelete("/{id}", (
+                string id,
+                [FromQuery] string? name,
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] GroupRoleManager? vrchat,
+                [FromServices] IFactWriter? facts,
+                [FromServices] EventPartitionMaintainer? partitions,
+                CancellationToken ct) =>
+                new Writes(db, clock, vrchat, facts, partitions).DeleteAsync(http, new GroupRoleDelete(id, name), ct))
+            .RequiresFlag(ModbotPermissions.ManageGroupRoles)
+            .WithName("DeleteGroupRoleById")
+            .WithSummary("Delete group role")
+            .WithDescription(
+                "Delete the role named in the address on VRChat. `name`, when given, is kept in the "
+                + "audit log with the deletion, as the page showed it. Members who had the role lose "
+                + "it. One request, never retried. A role VRChat no longer has answers 404.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

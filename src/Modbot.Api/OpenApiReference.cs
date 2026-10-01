@@ -309,6 +309,15 @@ internal static class OpenApiReference
             AddResponse(operation, StatusCodes.Status403Forbidden, "Signed in, but without a permission this needs.");
         }
 
+        if (metadata.OfType<Conventions.ReplacedBy>().FirstOrDefault() is { } replaced)
+        {
+            operation.Deprecated = true;
+            var sentence = $"Kept for older clients: use `{replaced.Route}`.";
+            operation.Description = string.IsNullOrWhiteSpace(operation.Description)
+                ? sentence
+                : operation.Description + "\n\n" + sentence;
+        }
+
         NameQueryParameters(operation, context);
 
         if (operation.Responses is null)
