@@ -24,8 +24,10 @@ export function PersonVisits({ userId, currentName }: { userId: string; currentN
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Read once per person. The Overview that holds this is remounted, not re-rendered, when what it
-  // shows changes, so there is no second read to start here.
+  // Read once per person, and again when a failed first read is tried again. The Overview that
+  // holds this is remounted, not re-rendered, when what it shows changes.
+  const [tries, setTries] = useState(0)
+
   useEffect(() => {
     let cancelled = false
     api
@@ -44,12 +46,19 @@ export function PersonVisits({ userId, currentName }: { userId: string; currentN
     return () => {
       cancelled = true
     }
-  }, [userId])
+  }, [userId, tries])
+
+  const first = useCallback(() => {
+    setError(null)
+    setLoading(true)
+    setTries((n) => n + 1)
+  }, [])
 
   const next = pages[pages.length - 1]?.next ?? null
 
   const more = useCallback(() => {
     if (!next) return
+    setError(null)
     setLoading(true)
     api
       .personVisits(userId, next, PAGE)
@@ -65,7 +74,7 @@ export function PersonVisits({ userId, currentName }: { userId: string; currentN
 
   return (
     <Panel title="Visits" flush>
-      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger" onTryAgain={pages.length > 0 ? more : first}>{error}</EmptyRow>}
       {visits.length > 0 && (
         <ol className="flex flex-col">
           {visits.map((visit) => (
