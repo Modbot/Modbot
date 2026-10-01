@@ -177,6 +177,10 @@ public class RoleOrderTests
         var (lead, cookie) = await host.SignedInAsync(Lead, Ct);
         var below = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.ViewMembers, Ct);
 
+        // Setting roles refuses when no administrator would remain, and the database is shared: this
+        // test passed only if an earlier one had left an administrator behind. It brings its own.
+        await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.Administrator, Ct);
+
         // Holds nothing the lead lacks, so it is only the order that stops this.
         var equal = await RoleAtAsync(ModbotPermissions.ViewMembers, TestAccounts.PositionFor(Lead));
         var lower = await RoleAtAsync(ModbotPermissions.ViewMembers, TestAccounts.PositionFor(Lead) + 1);
