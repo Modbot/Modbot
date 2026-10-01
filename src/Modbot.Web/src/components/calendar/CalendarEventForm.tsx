@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Check } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
-import { Checkbox, Field, LongField, Outcome } from '@/components/settings/fields'
+import { Checkbox, Field, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Chip } from '@/components/ui/chip'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Tabs } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api'
 import {
   blankEvent,
@@ -18,15 +22,41 @@ import {
   type CalendarRepeat,
   type CalendarWorld,
 } from '@/lib/calendar'
+import {
+  counted,
+  DESCRIPTION_LIMIT,
+  DESTINATION_LABEL,
+  DESTINATION_SWITCH,
+  DESTINATIONS,
+  isSetUp,
+  missingChannel,
+  TITLE_LIMIT,
+  type CalendarDestination,
+  type CalendarReady,
+} from '@/lib/calendarPlaces'
+import { cn } from '@/lib/utils'
+import { EventPreview } from './EventPreview'
+import { NotSetUp } from './NotSetUp'
 
 const OTHER_WORLD = '__other__'
 
-/** The create and edit form for one event (calendar design §2). */
+type Tab = 'details' | 'preview'
+
+/**
+ * The create and edit form for one event (calendar design §2, §14).
+ *
+ * Where the event goes comes first, as one row of chips: each place it can go, on or off, the
+ * calendar feed shown and always on. A place's own settings are in its section below and only while
+ * its chip is on. A ticked place that cannot work as things are set up says "Not set up" beside its
+ * chip, linking to where it is set up. Preview draws the event the way each place that is on would
+ * show it. The buttons are pinned under the form, so a phone never scrolls them away.
+ */
 export function CalendarEventForm({
   event,
   initial,
   categories,
   platforms,
+  ready,
   onClose,
   onSaved,
 }: {
@@ -35,6 +65,8 @@ export function CalendarEventForm({
   initial?: CalendarEventInput
   categories: string[]
   platforms: string[]
+  /** Which places are set up, from the calendar's own read. */
+  ready?: CalendarReady | null
   onClose: () => void
   onSaved: (saved: CalendarEvent) => void
 }) {
@@ -46,6 +78,9 @@ export function CalendarEventForm({
   const [tags, setTags] = useState(() => input.tags.join(', '))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('details')
+  // What Preview draws: the form as it was when Preview was opened.
+  const [shown, setShown] = useState<CalendarEventInput | null>(null)
 
   useEffect(() => {
     calendarApi
@@ -74,12 +109,18 @@ export function CalendarEventForm({
   const knownWorld = input.worldId !== null && worlds.some((w) => w.worldId === input.worldId)
   const worldChoice = typedWorld || (input.worldId !== null && !knownWorld) ? OTHER_WORLD : (input.worldId ?? '')
 
+  const body = (draft: boolean): CalendarEventInput => ({
+    ...input,
+    languages: splitList(languages),
+    tags: splitList(tags),
+    draft,
+  })
+
   const save = (draft: boolean) => {
     setBusy(true)
     setError(null)
 
-    const body = { ...input, languages: splitList(languages), tags: splitList(tags), draft }
-    const request = event ? calendarApi.update(event.id, body) : calendarApi.create(body)
+    const request = event ? calendarApi.update(event.id, body(draft)) : calendarApi.create(body(draft))
 
     request
       .then(onSaved)
@@ -87,199 +128,28 @@ export function CalendarEventForm({
       .finally(() => setBusy(false))
   }
 
+  const pickTab = (next: Tab) => {
+    if (next === 'preview') setShown(body(false))
+    setTab(next)
+  }
+
   const isDraft = !event || event.state === 'draft'
+  const on = (place: CalendarDestination) => place === 'feed' || input[DESTINATION_SWITCH[place]]
+  const title = counted(input.title, TITLE_LIMIT)
+  const description = counted(input.description, DESCRIPTION_LIMIT)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         title={event ? 'Edit event' : 'New event'}
         className="max-w-[720px]"
-        bodyClassName="max-h-[75vh] overflow-y-auto"
-      >
-        <div className="flex flex-col gap-4">
-          <Field label="Title" value={input.title} placeholder="" onChange={(v) => set('title', v)} />
-          <LongField label="Description" value={input.description} placeholder="" onChange={(v) => set('description', v)} />
-
-          <Section title="When">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Labelled label="Starts">
-                <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
-              </Labelled>
-              <Labelled label="Ends">
-                <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
-              </Labelled>
-              <Labelled label="Time zone">
-                <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
-                  {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
-                  {zones.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                </Select>
-              </Labelled>
-              <Labelled label="Repeat">
-                <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
-                  <option value="none">Does not repeat</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </Select>
-              </Labelled>
-            </div>
-
-            {input.repeat === 'weekly' && (
-              <div className="flex flex-wrap gap-3">
-                {DAYS.map((d) => (
-                  <Checkbox key={d.value} checked={input.repeatDays.includes(d.value)} onChange={() => toggle('repeatDays', d.value)}>
-                    {d.label}
-                  </Checkbox>
-                ))}
-              </div>
+        foot={
+          <DialogFoot>
+            {error && (
+              <span className="mr-auto min-w-0 basis-full sm:basis-auto">
+                <Outcome tone="problem">{error}</Outcome>
+              </span>
             )}
-
-            {input.repeat !== 'none' && (
-              <Labelled label="Last date">
-                <Input
-                  type="date"
-                  value={input.repeatUntil ?? ''}
-                  onChange={(e) => set('repeatUntil', e.target.value || null)}
-                />
-              </Labelled>
-            )}
-          </Section>
-
-          <Section title="Where">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Labelled label="World">
-                <Select
-                  aria-label="World"
-                  value={worldChoice}
-                  onChange={(v) => {
-                    if (v === OTHER_WORLD) {
-                      setTypedWorld(true)
-                      return
-                    }
-
-                    setTypedWorld(false)
-                    set('worldId', v || null)
-                  }}
-                >
-                  <option value="">None</option>
-                  {worlds.map((w) => (
-                    <option key={w.worldId} value={w.worldId}>
-                      {w.name ?? w.worldId}
-                    </option>
-                  ))}
-                  <option value={OTHER_WORLD}>World id</option>
-                </Select>
-              </Labelled>
-              {worldChoice === OTHER_WORLD && (
-                <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
-              )}
-              <Labelled label="Who can join">
-                <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
-                  <option value="members">Group members</option>
-                  <option value="plus">Members and their friends</option>
-                  <option value="public">Anyone</option>
-                </Select>
-              </Labelled>
-              <Labelled label="Region">
-                <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
-                  <option value="us">US West</option>
-                  <option value="use">US East</option>
-                  <option value="eu">Europe</option>
-                  <option value="jp">Japan</option>
-                </Select>
-              </Labelled>
-            </div>
-            <Field label="Picture link" value={input.imageUrl ?? ''} placeholder="https://" onChange={(v) => set('imageUrl', v.trim() || null)} />
-          </Section>
-
-          <Section title="VRChat calendar">
-            <Checkbox checked={input.publishToVRChat} onChange={(v) => set('publishToVRChat', v)}>
-              Publish to VRChat calendar
-            </Checkbox>
-            {input.publishToVRChat && (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Labelled label="Category">
-                    <Select value={input.category} onChange={(v) => set('category', v)} aria-label="Category">
-                      {categories.map((c) => (
-                        <option key={c} value={c}>
-                          {CATEGORY_LABEL[c] ?? c}
-                        </option>
-                      ))}
-                    </Select>
-                  </Labelled>
-                  <Labelled label="Visible to">
-                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
-                      <option value="group">Group</option>
-                      <option value="public">Everyone</option>
-                    </Select>
-                  </Labelled>
-                  <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
-                  <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
-                  <Field
-                    label="VRChat image id"
-                    value={input.vrChatImageId ?? ''}
-                    placeholder="file_…"
-                    onChange={(v) => set('vrChatImageId', v.trim() || null)}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {platforms.map((p) => (
-                    <Checkbox key={p} checked={input.platforms.includes(p)} onChange={() => toggle('platforms', p)}>
-                      {PLATFORM_LABEL[p] ?? p}
-                    </Checkbox>
-                  ))}
-                </div>
-                <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
-                  Notify group members
-                </Checkbox>
-              </>
-            )}
-          </Section>
-
-          <Section title="Discord">
-            <Checkbox checked={input.publishToDiscord} onChange={(v) => set('publishToDiscord', v)}>
-              Discord event
-            </Checkbox>
-            <Checkbox checked={input.postToChannel} onChange={(v) => set('postToChannel', v)}>
-              Post to channel
-            </Checkbox>
-            {input.postToChannel && (
-              <ChannelPicker
-                label="Channel"
-                value={input.channelId ?? ''}
-                onChange={(id) => set('channelId', id || null)}
-                needs={['viewChannel', 'sendMessages', 'embedLinks']}
-                allowNone={false}
-              />
-            )}
-          </Section>
-
-          <Section title="Instance">
-            <Checkbox checked={input.autoOpen} onChange={(v) => set('autoOpen', v)}>
-              Open the instance automatically
-            </Checkbox>
-            {input.autoOpen && (
-              <Labelled label="Minutes early">
-                <Input
-                  type="number"
-                  min={0}
-                  max={120}
-                  className="w-28"
-                  value={input.openMinutesBefore}
-                  onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
-                />
-              </Labelled>
-            )}
-          </Section>
-
-          <Outcome tone="problem">{error}</Outcome>
-
-          <div className="flex flex-wrap justify-end gap-2">
             <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
@@ -291,10 +161,247 @@ export function CalendarEventForm({
             <Button size="sm" disabled={busy} onClick={() => save(false)}>
               {isDraft ? 'Schedule' : 'Save'}
             </Button>
+          </DialogFoot>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div role="group" aria-label="Where it goes" className="flex flex-wrap gap-2">
+            {DESTINATIONS.map((place) => (
+              <span key={place} className="inline-flex items-center gap-1.5">
+                <Chip
+                  on={on(place)}
+                  disabled={place === 'feed'}
+                  onClick={() => {
+                    if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
+                  }}
+                >
+                  {on(place) && <Check className="size-3.5" />}
+                  {DESTINATION_LABEL[place]}
+                </Chip>
+                {place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
+                  <NotSetUp place={place} newTab />
+                ) : (
+                  // The channel is picked in its own section, just below.
+                  place === 'channelPost' &&
+                  missingChannel(input) && (
+                    <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+                      Not set up
+                    </span>
+                  )
+                )}
+              </span>
+            ))}
           </div>
+
+          <Tabs
+            value={tab}
+            onChange={pickTab}
+            tabs={[
+              { value: 'details', label: 'Details' },
+              { value: 'preview', label: 'Preview' },
+            ]}
+            panelClassName="overflow-visible pt-4"
+          >
+            {tab === 'preview' && shown ? (
+              <EventPreview eventId={event?.id ?? null} input={shown} places={DESTINATIONS.filter(on)} />
+            ) : (
+              <div className="flex flex-col gap-4">
+                <Counted label="Title" count={title}>
+                  <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
+                </Counted>
+                <Counted label="Description" count={description}>
+                  <Textarea rows={3} value={input.description} onChange={(e) => set('description', e.target.value)} />
+                </Counted>
+
+                <Section title="When">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Labelled label="Starts">
+                      <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
+                    </Labelled>
+                    <Labelled label="Ends">
+                      <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
+                    </Labelled>
+                    <Labelled label="Time zone">
+                      <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
+                        {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
+                        {zones.map((z) => (
+                          <option key={z} value={z}>
+                            {z}
+                          </option>
+                        ))}
+                      </Select>
+                    </Labelled>
+                    <Labelled label="Repeat">
+                      <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
+                        <option value="none">Does not repeat</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </Select>
+                    </Labelled>
+                  </div>
+
+                  {input.repeat === 'weekly' && (
+                    <div className="flex flex-wrap gap-3">
+                      {DAYS.map((d) => (
+                        <Checkbox key={d.value} checked={input.repeatDays.includes(d.value)} onChange={() => toggle('repeatDays', d.value)}>
+                          {d.label}
+                        </Checkbox>
+                      ))}
+                    </div>
+                  )}
+
+                  {input.repeat !== 'none' && (
+                    <Labelled label="Last date">
+                      <Input
+                        type="date"
+                        value={input.repeatUntil ?? ''}
+                        onChange={(e) => set('repeatUntil', e.target.value || null)}
+                      />
+                    </Labelled>
+                  )}
+                </Section>
+
+                <Section title="Where">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Labelled label="World">
+                      <Select
+                        aria-label="World"
+                        value={worldChoice}
+                        onChange={(v) => {
+                          if (v === OTHER_WORLD) {
+                            setTypedWorld(true)
+                            return
+                          }
+
+                          setTypedWorld(false)
+                          set('worldId', v || null)
+                        }}
+                      >
+                        <option value="">None</option>
+                        {worlds.map((w) => (
+                          <option key={w.worldId} value={w.worldId}>
+                            {w.name ?? w.worldId}
+                          </option>
+                        ))}
+                        <option value={OTHER_WORLD}>World id</option>
+                      </Select>
+                    </Labelled>
+                    {worldChoice === OTHER_WORLD && (
+                      <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
+                    )}
+                    <Labelled label="Who can join">
+                      <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
+                        <option value="members">Group members</option>
+                        <option value="plus">Members and their friends</option>
+                        <option value="public">Anyone</option>
+                      </Select>
+                    </Labelled>
+                    <Labelled label="Region">
+                      <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
+                        <option value="us">US West</option>
+                        <option value="use">US East</option>
+                        <option value="eu">Europe</option>
+                        <option value="jp">Japan</option>
+                      </Select>
+                    </Labelled>
+                  </div>
+                  <Field label="Picture link" value={input.imageUrl ?? ''} placeholder="https://" onChange={(v) => set('imageUrl', v.trim() || null)} />
+                </Section>
+
+                {input.publishToVRChat && (
+                  <Section title={DESTINATION_LABEL.vrchat}>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Labelled label="Category">
+                        <Select value={input.category} onChange={(v) => set('category', v)} aria-label="Category">
+                          {categories.map((c) => (
+                            <option key={c} value={c}>
+                              {CATEGORY_LABEL[c] ?? c}
+                            </option>
+                          ))}
+                        </Select>
+                      </Labelled>
+                      <Labelled label="Visible to">
+                        <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
+                          <option value="group">Group</option>
+                          <option value="public">Everyone</option>
+                        </Select>
+                      </Labelled>
+                      <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
+                      <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
+                      <Field
+                        label="VRChat image id"
+                        value={input.vrChatImageId ?? ''}
+                        placeholder="file_…"
+                        onChange={(v) => set('vrChatImageId', v.trim() || null)}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {platforms.map((p) => (
+                        <Checkbox key={p} checked={input.platforms.includes(p)} onChange={() => toggle('platforms', p)}>
+                          {PLATFORM_LABEL[p] ?? p}
+                        </Checkbox>
+                      ))}
+                    </div>
+                    <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
+                      Notify group members
+                    </Checkbox>
+                  </Section>
+                )}
+
+                {input.postToChannel && (
+                  <Section title={DESTINATION_LABEL.channelPost}>
+                    <ChannelPicker
+                      label="Channel"
+                      value={input.channelId ?? ''}
+                      onChange={(id) => set('channelId', id || null)}
+                      needs={['viewChannel', 'sendMessages', 'embedLinks']}
+                      allowNone={false}
+                    />
+                  </Section>
+                )}
+
+                {input.autoOpen && (
+                  <Section title={DESTINATION_LABEL.instance}>
+                    <Labelled label="Minutes early">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={120}
+                        className="w-28"
+                        value={input.openMinutesBefore}
+                        onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
+                      />
+                    </Labelled>
+                  </Section>
+                )}
+              </div>
+            )}
+          </Tabs>
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** A field with its count beside the label: "12 / 100", red once it is over. */
+function Counted({
+  label,
+  count,
+  children,
+}: {
+  label: string
+  count: { label: string; over: boolean }
+  children: React.ReactNode
+}) {
+  return (
+    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={cn('font-mono', count.over ? 'text-destructive' : 'text-muted-foreground')}>{count.label}</span>
+      </span>
+      {children}
+    </label>
   )
 }
 

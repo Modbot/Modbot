@@ -342,7 +342,16 @@ public sealed record PausedRule(
     string? Reason);
 
 /// <param name="MissingManageEvents">An event wants a Discord event and the bot does not hold Manage Events.</param>
-public sealed record CalendarHealth(bool MissingManageEvents, IReadOnlyList<CalendarProblem> Problems);
+/// <param name="NotSetUp">
+/// Places a scheduled or open event wants that are not set up, so nothing is sent there:
+/// <c>vrchat</c> and <c>instance</c> without a managed group or a VRChat account,
+/// <c>discordEvent</c> and <c>channelPost</c> without a server id or a connected bot (calendar
+/// design §14.3).
+/// </param>
+public sealed record CalendarHealth(
+    bool MissingManageEvents,
+    IReadOnlyList<CalendarProblem> Problems,
+    IReadOnlyList<string>? NotSetUp = null);
 
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
 /// <param name="MissingGroupPermission">Set when VRChat refused because Modbot's VRChat account lacks a group permission.</param>

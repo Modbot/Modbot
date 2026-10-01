@@ -2754,6 +2754,8 @@ export type CalendarHealth = {
     at: string | null
     missingGroupPermission?: MissingGroupPermission | null
   }[]
+  /** Places scheduled or open events want that are not set up: `vrchat`, `instance`, `discordEvent`, `channelPost`. */
+  notSetUp?: string[] | null
 }
 
 /** The VRChat group permissions Modbot uses that its own VRChat account lacks. */

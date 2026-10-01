@@ -297,6 +297,234 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         Assert.Equal("Finished", Assert.Single(gateway.Edits).Embeds[0].Footer);
     }
 
+    // ── Live updates (2026-10-01) ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A place turning published writes one fact, which the live stream carries to the calendar
+    /// page; an edit sent to a place already published writes none.
+    /// </summary>
+    [Fact]
+    public async Task APlaceTurningPublishedWritesOneFact_AndAnEditAfterwardsWritesNone()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+
+        await using (var context = services.Database.NewContext())
+        {
+            var facts = await context.Events.AsNoTracking()
+                .Where(f => f.Type == FactType.PlannedEventPublished && f.SubjectId == e.Id.ToString())
+                .ToListAsync(Ct);
+
+            Assert.Equal(2, facts.Count);
+            Assert.Contains(facts, f => f.Data!.Contains("discordEvent", StringComparison.Ordinal));
+            Assert.Contains(facts, f => f.Data!.Contains("channelPost", StringComparison.Ordinal));
+        }
+
+        await ChangeAsync(services, e.Id, x => x.Title = "Movie night: Alien");
+        await RunAsync(services, gateway);
+
+        Assert.NotEmpty(gateway.Edits);
+
+        await using (var context = services.Database.NewContext())
+        {
+            Assert.Equal(2, await context.Events.CountAsync(
+                f => f.Type == FactType.PlannedEventPublished && f.SubjectId == e.Id.ToString(), Ct));
+        }
+    }
+
+    [Fact]
+    public async Task ACancelTakesBothPlacesDown_WithAFactForEach()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.State = CalendarEventStates.Cancelled;
+            x.CancelledAt = services.Clock.UtcNow;
+        });
+
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        await using var context = services.Database.NewContext();
+        Assert.Equal(2, await context.Events.CountAsync(
+            f => f.Type == FactType.PlannedEventTakenDown && f.SubjectId == e.Id.ToString(), Ct));
+    }
+
+    // ── The cancel post (2026-10-01) ────────────────────────────────────────────────────
+
+    private static async Task CancelAsync(TestServices services, CalendarEvent e, bool post)
+    {
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.State = CalendarEventStates.Cancelled;
+            x.CancelledAt = services.Clock.UtcNow;
+        });
+
+        if (!post)
+            return;
+
+        // What the cancel endpoint leaves when the moderator ticked it.
+        await using var context = services.Database.NewContext();
+        context.CalendarEventPlaces.Add(new CalendarEventPlace
+        {
+            EventId = e.Id,
+            Place = CalendarPlaces.CancelPost,
+            State = CalendarPlaceStates.Waiting,
+            ChannelId = Channel,
+            OccurrenceStartsAt = e.OccurrenceStartsAt ?? e.StartsAt,
+            UpdatedAt = services.Clock.UtcNow,
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task ATickedCancelPostsOnceInTheChannel_WithTheTitleTimeAndWord()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+        var before = gateway.Messages.Count;
+
+        await CancelAsync(services, e, post: true);
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        var notice = Assert.Single(gateway.Messages.Skip(before));
+        Assert.Equal(Channel, notice.ChannelId);
+        Assert.Empty(notice.Embeds);
+        Assert.Contains("Movie night", notice.Text, StringComparison.Ordinal);
+        Assert.Contains($"<t:{(e.OccurrenceStartsAt ?? e.StartsAt).ToUnixTimeSeconds()}:F>", notice.Text, StringComparison.Ordinal);
+        Assert.EndsWith("Cancelled", notice.Text, StringComparison.Ordinal);
+
+        // The card still turns red, as before.
+        Assert.Contains(gateway.Edits, edit => edit.Embeds.Count > 0 && edit.Embeds[0].Footer == "Cancelled");
+
+        await using var context = services.Database.NewContext();
+        var place = await context.CalendarEventPlaces.AsNoTracking()
+            .SingleAsync(p => p.EventId == e.Id && p.Place == CalendarPlaces.CancelPost, Ct);
+
+        Assert.Equal(CalendarPlaceStates.Published, place.State);
+        Assert.Equal(notice.MessageId, place.ExternalId);
+        var published = await context.Events.AsNoTracking()
+            .Where(f => f.Type == FactType.PlannedEventPublished && f.SubjectId == e.Id.ToString())
+            .ToListAsync(Ct);
+        Assert.Single(published, f => f.Data!.Contains("cancelPost", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AnUntickedCancelPostsNothing()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+        var before = gateway.Messages.Count;
+
+        await CancelAsync(services, e, post: false);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(before, gateway.Messages.Count);
+    }
+
+    // ── The form's preview (2026-10-01) ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// The preview is drawn by the publisher's own builders, so what the form shows is what
+    /// Discord is sent: name, description, times, location and cover; the card's title, fields and
+    /// footer.
+    /// </summary>
+    [Fact]
+    public async Task ThePreviewIsWhatThePublisherSends()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGuildId = Guild;
+            s.PublicAddress = "https://modbot.example";
+            s.ManagedGroupName = "Night Owls";
+        }, Ct);
+        await AddWorldAsync(services, "The Black Cat");
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1), x =>
+        {
+            x.Title = new string('t', 100);
+            x.Description = new string('d', 1000);
+            x.ImageUrl = "https://pictures.example/movie.png";
+        });
+
+        await RunAsync(services, gateway);
+
+        VRChatWorld world;
+        await using (var context = services.Database.NewContext())
+            world = await context.VRChatWorlds.AsNoTracking().SingleAsync(w => w.WorldId == World, Ct);
+
+        var preview = new CalendarDiscordPreviewer().Preview(
+            e, world, new Core.Calendar.CalendarPreviewContext("https://modbot.example", "Night Owls", null, services.Clock.UtcNow));
+
+        var sent = Assert.Single(gateway.ServerEvents.Values).Details;
+        Assert.Equal(sent.Name, preview.DiscordEvent.Name);
+        Assert.Equal(sent.Description, preview.DiscordEvent.Description);
+        Assert.Equal(sent.StartsAt, preview.DiscordEvent.StartsAt);
+        Assert.Equal(sent.EndsAt, preview.DiscordEvent.EndsAt);
+        Assert.Equal(sent.Location, preview.DiscordEvent.Location);
+        Assert.Equal("The Black Cat", preview.DiscordEvent.Location);
+        Assert.Equal(sent.CoverImageUrl, preview.DiscordEvent.CoverUrl);
+
+        var card = Assert.Single(gateway.Messages).Embeds[0];
+        Assert.Equal(card.Title, preview.ChannelPost.Title);
+        Assert.Equal(card.Description, preview.ChannelPost.Description);
+        Assert.Equal(card.Color, (uint)preview.ChannelPost.Colour);
+        Assert.Equal(card.Footer, preview.ChannelPost.Footer);
+        Assert.Equal(card.AuthorName, preview.ChannelPost.GroupName);
+        Assert.Equal(card.ImageUrl, preview.ChannelPost.PictureUrl);
+        Assert.Equal(
+            card.Fields.Select(f => (f.Name, f.Value, f.Inline)),
+            preview.ChannelPost.Fields.Select(f => (f.Name, f.Value, f.Inline)));
+    }
+
+    [Fact]
+    public void ThePreviewCutsTheNameAt100_AndTheDescriptionAt1000_AsDiscordIsSent()
+    {
+        var now = DateTimeOffset.Parse("2026-10-01T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var e = new CalendarEvent
+        {
+            Id = Guid.CreateVersion7(),
+            Title = new string('t', 120),
+            Description = new string('d', 1200),
+            StartsAt = now.AddDays(1),
+            EndsAt = now.AddDays(1).AddHours(2),
+            TimeZone = "UTC",
+            State = CalendarEventStates.Scheduled,
+            OccurrenceStartsAt = now.AddDays(1),
+        };
+
+        var preview = new CalendarDiscordPreviewer().Preview(e, null, new Core.Calendar.CalendarPreviewContext(null, null, null, now));
+
+        Assert.Equal(CalendarCard.DiscordEventNameLimit, preview.DiscordEvent.Name.Length);
+        Assert.EndsWith("…", preview.DiscordEvent.Name, StringComparison.Ordinal);
+        Assert.Equal(CalendarCard.DiscordEventDescriptionLimit, preview.DiscordEvent.Description!.Length);
+
+        // No world: the location is "VRChat", and there is no join address without an opened instance.
+        Assert.Equal("VRChat", preview.DiscordEvent.Location);
+    }
+
     [Fact]
     public async Task WithoutManageEvents_TheFailureIsKeptAndNotRepeatedEveryPass()
     {

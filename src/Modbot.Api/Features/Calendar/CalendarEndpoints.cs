@@ -13,6 +13,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Net;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
@@ -67,6 +68,8 @@ public static class CalendarEndpoints
                 [FromQuery] DateTimeOffset? to,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                // Optional: the bot is wired by the host, not by the API. Without it Discord is not set up.
+                [FromServices] IDiscordBotStatus? discordBot,
                 CancellationToken ct) =>
             {
                 var now = clock.UtcNow;
@@ -83,6 +86,7 @@ public static class CalendarEndpoints
 
                 var views = await ViewsAsync(db, events, start, end, ct);
                 var held = ModbotAuth.PermissionsOf(http.User);
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
                 return Results.Ok(new CalendarView(
                     views,
@@ -90,14 +94,16 @@ public static class CalendarEndpoints
                     CalendarVRChatRequests.Categories,
                     CalendarVRChatRequests.Platforms,
                     now,
-                    ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics)));
+                    ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics),
+                    CalendarReadiness.Of(settings, discordBot)));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")
             .WithSummary("Get calendar")
             .WithDescription(
                 "Every event, with its occurrences in the range, where it is published and how that "
-                + "went.")
+                + "went, and which places are set up: VRChat needs a managed group and a VRChat "
+                + "account, Discord a server id and a connected bot.")
             .Produces<CalendarView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -288,6 +294,7 @@ public static class CalendarEndpoints
         group.MapPost("/events/{id:guid}/cancel", async (
                 HttpContext http,
                 [FromRoute] Guid id,
+                [FromBody] CalendarCancelRequest? body,
                 [FromServices] ModbotContext db,
                 [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
@@ -297,20 +304,43 @@ public static class CalendarEndpoints
                 if (calendarEvent is null)
                     return Results.NotFound();
 
+                // Already cancelled: nothing changes, and a second cancel post is never made.
                 if (calendarEvent.State == CalendarEventStates.Cancelled)
                     return Results.NoContent();
 
+                var post = body?.PostInChannel ?? false;
+                var channelId = calendarEvent.ChannelId?.Trim();
+
+                if (post && string.IsNullOrEmpty(channelId))
+                    return Results.BadRequest(new { error = "The event has no channel to post in." });
+
                 var now = clock.UtcNow;
+                var occurrence = calendarEvent.OccurrenceStartsAt ?? calendarEvent.StartsAt;
                 calendarEvent.State = CalendarEventStates.Cancelled;
                 calendarEvent.CancelledAt = now;
                 calendarEvent.UpdatedAt = now;
                 calendarEvent.Version++;
 
+                // The calendar's Discord loop posts it, once, and marks the row published.
+                if (post && await db.CalendarEventPlaces.AllAsync(
+                        p => p.EventId != calendarEvent.Id || p.Place != CalendarPlaces.CancelPost, ct))
+                {
+                    db.CalendarEventPlaces.Add(new CalendarEventPlace
+                    {
+                        EventId = calendarEvent.Id,
+                        Place = CalendarPlaces.CancelPost,
+                        State = CalendarPlaceStates.Waiting,
+                        ChannelId = channelId,
+                        OccurrenceStartsAt = occurrence,
+                        UpdatedAt = now,
+                    });
+                }
+
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
                 await db.SaveChangesAsync(ct);
                 await facts.RecordAsync(
                     FactType.PlannedEventCancelled, calendarEvent.Id.ToString(), Actor.Of(http),
-                    new JsonObject { ["title"] = calendarEvent.Title }, ct);
+                    new JsonObject { ["title"] = calendarEvent.Title, ["postInChannel"] = post }, ct);
                 await transaction.CommitAsync(ct);
 
                 return Results.NoContent();
@@ -318,8 +348,12 @@ public static class CalendarEndpoints
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CancelCalendarEvent")
             .WithSummary("Cancel calendar event")
-            .WithDescription("Cancel an event. It is taken off VRChat's calendar and ended in Discord.")
+            .WithDescription(
+                "Cancel an event. It is taken off VRChat's calendar and ended in Discord, and its "
+                + "channel post is marked cancelled. With postInChannel, a short message that it is "
+                + "cancelled is also posted in the event's channel, once. The body may be left out.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -363,6 +397,42 @@ public static class CalendarEndpoints
             .WithSummary("Delete calendar event")
             .WithDescription("Delete an event. It is taken off everywhere it was published.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/preview", async (
+                [FromBody] CalendarPreviewRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                // Optional: the bot is wired by the host, not by the API. Without it there is no
+                // Discord preview.
+                [FromServices] Modbot.Core.Calendar.ICalendarDiscordPreview? discord,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (body.Event is null)
+                    return Results.BadRequest(new { error = "Send the event to preview." });
+
+                var result = await CalendarPreviews.BuildAsync(db, discord, clock.UtcNow, body, ct);
+
+                if (result.Missing)
+                    return Results.NotFound();
+
+                return result.View is { } view ? Results.Ok(view) : Results.BadRequest(new { error = result.Problem });
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("PreviewCalendarEvent")
+            .WithSummary("Preview calendar event")
+            .WithDescription(
+                "The event as it is filled in, drawn the way each place would show it: the Discord "
+                + "event and the channel post as Discord is sent them, what VRChat's calendar is sent, "
+                + "and what a calendar program reads from the calendar feed. Drawn by the code that "
+                + "sends each one. Saves nothing and asks VRChat and Discord nothing. A title, "
+                + "description, channel or world not filled in yet is let through; anything a save "
+                + "would refuse for its shape or length is refused.")
+            .Produces<CalendarPreviewView>()
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -547,13 +617,18 @@ public static class CalendarEndpoints
             : null;
 
     /// <summary>Checks a request and copies it onto the event. Returns what is wrong, or null.</summary>
-    public static string? Apply(CalendarEventRequest body, CalendarEvent target)
+    /// <param name="preview">
+    /// For the form's preview: a piece not filled in yet -- the title, the description VRChat needs,
+    /// the channel, the world to open -- is let through, so the rest can still be drawn. Everything
+    /// that would be refused for its shape or its length is still refused.
+    /// </param>
+    public static string? Apply(CalendarEventRequest body, CalendarEvent target, bool preview = false)
     {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(target);
 
         var title = body.Title?.Trim() ?? string.Empty;
-        if (title.Length == 0)
+        if (title.Length == 0 && !preview)
             return "An event needs a title.";
 
         if (title.Length > CalendarEvent.MaxTitleLength)
@@ -565,7 +640,7 @@ public static class CalendarEndpoints
 
         // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
         // never sent, so it may stay empty until it is published.
-        if (body.PublishToVRChat && !body.Draft && description.Length == 0)
+        if (body.PublishToVRChat && !body.Draft && description.Length == 0 && !preview)
             return "VRChat's calendar needs a description.";
 
         if (CalendarRepeat.FindZone(body.TimeZone) is not { } zone)
@@ -649,10 +724,10 @@ public static class CalendarEndpoints
         var worldId = string.IsNullOrWhiteSpace(body.WorldId) ? null : body.WorldId.Trim();
         var channelId = string.IsNullOrWhiteSpace(body.ChannelId) ? null : body.ChannelId.Trim();
 
-        if (body.PostToChannel && channelId is null)
+        if (body.PostToChannel && channelId is null && !preview)
             return "Pick a channel to post to.";
 
-        if (body.AutoOpen && worldId is null)
+        if (body.AutoOpen && worldId is null && !preview)
             return "Pick a world to open the instance in.";
 
         var openBefore = body.OpenMinutesBefore ?? 10;

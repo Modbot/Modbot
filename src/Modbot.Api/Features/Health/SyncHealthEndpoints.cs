@@ -158,7 +158,7 @@ public static class SyncHealthEndpoints
                             w.PartUnknown))],
                     await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
-                    await CalendarHealthAsync(db, settings, ct),
+                    await CalendarHealthAsync(db, settings, discordBot, ct),
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
                     UserReads(diagnostics),
@@ -335,11 +335,15 @@ public static class SyncHealthEndpoints
             : null;
 
     /// <summary>
-    /// Calendar places that failed, instances that did not open for the current occurrence, and a
-    /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4).
+    /// Calendar places that failed, instances that did not open for the current occurrence, a
+    /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4), and
+    /// places events want that are not set up (§14.3).
     /// </summary>
     private static async Task<CalendarHealth?> CalendarHealthAsync(
-        ModbotContext db, Modbot.Core.Data.Entities.Settings? settings, CancellationToken ct)
+        ModbotContext db,
+        Modbot.Core.Data.Entities.Settings? settings,
+        Modbot.Core.Discord.IDiscordBotStatus? discordBot,
+        CancellationToken ct)
     {
         var guildId = settings?.DiscordGuildId;
 
@@ -347,7 +351,7 @@ public static class SyncHealthEndpoints
             .Where(e => e.DeletedAt == null
                 && (e.State == Modbot.Core.Data.Entities.CalendarEventStates.Scheduled
                     || e.State == Modbot.Core.Data.Entities.CalendarEventStates.Open))
-            .Select(e => new { e.Id, e.Title, e.PublishToDiscord, e.OccurrenceStartsAt })
+            .Select(e => new { e.Id, e.Title, e.PublishToDiscord, e.PublishToVRChat, e.PostToChannel, e.AutoOpen, e.OccurrenceStartsAt })
             .ToListAsync(ct);
 
         if (live.Count == 0)
@@ -392,7 +396,16 @@ public static class SyncHealthEndpoints
             missingManageEvents = server is { BotCanManageEvents: false };
         }
 
-        return problems.Count == 0 && !missingManageEvents ? null : new CalendarHealth(missingManageEvents, problems);
+        var notSetUp = Modbot.Api.Features.Calendar.CalendarReadiness.NotSetUp(
+            Modbot.Api.Features.Calendar.CalendarReadiness.Of(settings, discordBot),
+            wantsVRChat: live.Any(e => e.PublishToVRChat),
+            wantsInstance: live.Any(e => e.AutoOpen),
+            wantsDiscordEvent: live.Any(e => e.PublishToDiscord),
+            wantsChannelPost: live.Any(e => e.PostToChannel));
+
+        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0
+            ? null
+            : new CalendarHealth(missingManageEvents, problems, notSetUp);
     }
 
     /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>

@@ -16964,7 +16964,7 @@
           "Calendar"
         ],
         "summary": "Get calendar",
-        "description": "Every event, with its occurrences in the range, where it is published and how that went.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "Every event, with its occurrences in the range, where it is published and how that went, and which places are set up: VRChat needs a managed group and a VRChat account, Discord a server id and a connected bot.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "GetCalendar",
         "parameters": [
           {
@@ -17336,7 +17336,7 @@
           "Calendar"
         ],
         "summary": "Cancel calendar event",
-        "description": "Cancel an event. It is taken off VRChat's calendar and ended in Discord.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Cancel an event. It is taken off VRChat's calendar and ended in Discord, and its channel post is marked cancelled. With postInChannel, a short message that it is cancelled is also posted in the event's channel, once. The body may be left out.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CancelCalendarEvent",
         "parameters": [
           {
@@ -17349,9 +17349,101 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarCancelRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/preview": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Preview calendar event",
+        "description": "The event as it is filled in, drawn the way each place would show it: the Discord event and the channel post as Discord is sent them, what VRChat's calendar is sent, and what a calendar program reads from the calendar feed. Drawn by the code that sends each one. Saves nothing and asks VRChat and Discord nothing. A title, description, channel or world not filled in yet is let through; anything a save would refuse for its shape or length is refused.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "PreviewCalendarEvent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarPreviewView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden"
@@ -22707,6 +22799,125 @@
           }
         }
       },
+      "CalendarCancelRequest": {
+        "required": [
+          "postInChannel"
+        ],
+        "type": "object",
+        "properties": {
+          "postInChannel": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarChannelPostPreview": {
+        "required": [
+          "groupName",
+          "title",
+          "titleLink",
+          "description",
+          "colour",
+          "fields",
+          "footer",
+          "pictureUrl",
+          "buttons"
+        ],
+        "type": "object",
+        "properties": {
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "titleLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "colour": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarPreviewField"
+            }
+          },
+          "footer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "buttons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarPreviewButton"
+            }
+          }
+        }
+      },
+      "CalendarDiscordEventPreview": {
+        "required": [
+          "name",
+          "description",
+          "startsAt",
+          "endsAt",
+          "location",
+          "coverUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "location": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CalendarEventRequest": {
         "required": [
           "title",
@@ -23124,6 +23335,56 @@
           }
         }
       },
+      "CalendarFeedPreviewView": {
+        "required": [
+          "calendarName",
+          "title",
+          "notes",
+          "location",
+          "startsAt",
+          "endsAt",
+          "timeZone",
+          "repeat"
+        ],
+        "type": "object",
+        "properties": {
+          "calendarName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "notes": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "location": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "repeat": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CalendarFeedView": {
         "required": [
           "path",
@@ -23344,6 +23605,111 @@
           }
         }
       },
+      "CalendarPreviewButton": {
+        "required": [
+          "label",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "CalendarPreviewField": {
+        "required": [
+          "name",
+          "value",
+          "inline"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "inline": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarPreviewRequest": {
+        "required": [
+          "eventId",
+          "event"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "event": {
+            "$ref": "#/components/schemas/CalendarEventRequest"
+          }
+        }
+      },
+      "CalendarPreviewView": {
+        "required": [
+          "discordEvent",
+          "channelPost",
+          "vrChat",
+          "feed"
+        ],
+        "type": "object",
+        "properties": {
+          "discordEvent": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarDiscordEventPreview"
+              }
+            ]
+          },
+          "channelPost": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarChannelPostPreview"
+              }
+            ]
+          },
+          "vrChat": {
+            "$ref": "#/components/schemas/CalendarVRChatPreviewView"
+          },
+          "feed": {
+            "$ref": "#/components/schemas/CalendarFeedPreviewView"
+          }
+        }
+      },
+      "CalendarReadyView": {
+        "required": [
+          "vrChat",
+          "discord"
+        ],
+        "type": "object",
+        "properties": {
+          "vrChat": {
+            "type": "boolean"
+          },
+          "discord": {
+            "type": "boolean"
+          }
+        }
+      },
       "CalendarResultsView": {
         "required": [
           "occurrence",
@@ -23456,6 +23822,92 @@
           }
         }
       },
+      "CalendarVRChatPreviewView": {
+        "required": [
+          "update",
+          "title",
+          "description",
+          "startsAt",
+          "endsAt",
+          "category",
+          "visibility",
+          "languages",
+          "platforms",
+          "tags",
+          "imageId",
+          "repeat",
+          "notify"
+        ],
+        "type": "object",
+        "properties": {
+          "update": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "imageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "repeat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarVRChatRepeatView"
+              }
+            ]
+          },
+          "notify": {
+            "type": "boolean"
+          }
+        }
+      },
       "CalendarVRChatReadRequest": {
         "required": [
           "from",
@@ -23505,6 +23957,38 @@
           }
         }
       },
+      "CalendarVRChatRepeatView": {
+        "required": [
+          "frequency",
+          "days",
+          "until",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "type": "string"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CalendarView": {
         "required": [
           "events",
@@ -23543,6 +24027,16 @@
           "canSeeResults": {
             "type": "boolean",
             "default": false
+          },
+          "ready": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarReadyView"
+              }
+            ]
           }
         }
       },

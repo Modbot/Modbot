@@ -444,6 +444,7 @@ export function Calendar() {
           spot={detail.spot}
           results={!!data.view.canSeeResults && hasRun(opened, detail.start, now)}
           live={live}
+          ready={data.view.ready}
           canManage={canManage}
           onClose={() => setDetail(null)}
           onEdit={() => {
@@ -533,6 +534,7 @@ export function Calendar() {
           initial={'initial' in form ? form.initial : undefined}
           categories={data.view.categories}
           platforms={data.view.platforms}
+          ready={data.view.ready}
           onClose={closeForm}
           onSaved={(saved) => {
             closeForm()

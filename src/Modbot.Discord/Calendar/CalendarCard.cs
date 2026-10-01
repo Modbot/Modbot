@@ -168,6 +168,18 @@ public static class CalendarCard
             HttpsOnly(calendarEvent.ImageUrl) ?? HttpsOnly(world?.ImageUrl));
     }
 
+    /// <summary>
+    /// The short message a cancel posts in the event's channel when the moderator ticks it: the
+    /// title, the time as a Discord timestamp, and the word. A message of its own rather than only
+    /// the card turning red, because an edit to an old card notifies nobody.
+    /// </summary>
+    public static string CancelNotice(CalendarEvent calendarEvent, DateTimeOffset startsAt)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        // Escaped, because it sits inside the bold: a title with a star in it would end it early.
+        return $"**{CardText.EscapeName(calendarEvent.Title)}** · {Stamp(startsAt, "F")} · Cancelled";
+    }
+
     private static string? WorldName(CalendarEvent calendarEvent, VRChatWorld? world) =>
         world?.Name is { Length: > 0 } name ? name : calendarEvent.WorldId;
 

@@ -1,9 +1,11 @@
+import type { CalendarReady } from './calendarPlaces.ts'
 import { http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from '@/lib/api'
 
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
 
-export type CalendarPlaceName = 'vrchat' | 'discordEvent' | 'channelPost'
+/** `cancelPost` is the message a cancel posts in the channel when it was ticked. */
+export type CalendarPlaceName = 'vrchat' | 'discordEvent' | 'channelPost' | 'cancelPost'
 
 export type CalendarPlaceState = 'waiting' | 'published' | 'failed' | 'removed'
 
@@ -93,6 +95,58 @@ export type CalendarView = {
   now: string
   /** See analytics as well: what each time an event ran did, and Past events. */
   canSeeResults?: boolean
+  /** Which places are set up (calendar design §14.3). Missing from an older server: taken as set up. */
+  ready?: CalendarReady | null
+}
+
+/** The event as each place would show it, drawn by the server from the code that sends it (§14.2). */
+export type CalendarPreview = {
+  /** Null on a server without the Discord bot built in. */
+  discordEvent: {
+    name: string
+    description: string | null
+    startsAt: string
+    endsAt: string
+    location: string
+    coverUrl: string | null
+  } | null
+  channelPost: {
+    groupName: string | null
+    title: string
+    titleLink: string | null
+    description: string | null
+    colour: number
+    /** Discord's own text: `<t:…:F>` times and `[name](address)` links. */
+    fields: { name: string; value: string; inline: boolean }[]
+    footer: string | null
+    pictureUrl: string | null
+    buttons: { label: string; url: string }[]
+  } | null
+  vrChat: {
+    update: boolean
+    title: string
+    description: string
+    startsAt: string
+    endsAt: string
+    category: string | null
+    visibility: string | null
+    languages: string[]
+    platforms: string[]
+    tags: string[]
+    imageId: string | null
+    repeat: { frequency: string; days: string[]; until: string | null; timeZone: string | null } | null
+    notify: boolean
+  }
+  feed: {
+    calendarName: string
+    title: string
+    notes: string | null
+    location: string | null
+    startsAt: string
+    endsAt: string
+    timeZone: string
+    repeat: string | null
+  }
 }
 
 /** One time an event ran, and what it did. */
@@ -187,7 +241,11 @@ export const calendarApi = {
   event: (id: string) => http.request<CalendarEvent>(`${base}/events/${encodeURIComponent(id)}`),
   create: (body: CalendarEventInput) => http.post<CalendarEvent>(`${base}/events`, body),
   update: (id: string, body: CalendarEventInput) => http.put<CalendarEvent>(`${base}/events/${id}`, body),
-  cancel: (id: string) => http.post<void>(`${base}/events/${id}/cancel`),
+  /** `postInChannel`: also post in the event's channel that it is cancelled, once. */
+  cancel: (id: string, postInChannel = false) => http.post<void>(`${base}/events/${id}/cancel`, { postInChannel }),
+  /** The form's input drawn the way each place would show it. Saves nothing. */
+  preview: (eventId: string | null, input: CalendarEventInput) =>
+    http.post<CalendarPreview>(`${base}/preview`, { eventId, event: input }),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
@@ -232,6 +290,7 @@ export const PLACE_LABEL: Record<CalendarPlaceName, string> = {
   vrchat: 'VRChat calendar',
   discordEvent: 'Discord event',
   channelPost: 'Channel post',
+  cancelPost: 'Cancelled post',
 }
 
 export const PLACE_STATE_LABEL: Record<CalendarPlaceState, string> = {

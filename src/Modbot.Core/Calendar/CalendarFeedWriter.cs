@@ -88,19 +88,39 @@ public static class CalendarFeedWriter
         if (Rule(calendarEvent, zone) is { } rule)
             Line(output, "RRULE:" + rule);
 
-        Line(output, "SUMMARY:" + Escape(calendarEvent.Title));
+        var entry = Entry(calendarEvent, worldNames);
 
-        if (!string.IsNullOrWhiteSpace(calendarEvent.Description))
-            Line(output, "DESCRIPTION:" + Escape(calendarEvent.Description));
+        Line(output, "SUMMARY:" + Escape(entry.Title));
 
-        if (calendarEvent.WorldId is { Length: > 0 } worldId)
-        {
-            var place = worldNames.TryGetValue(worldId, out var name) && !string.IsNullOrWhiteSpace(name) ? name : worldId;
-            Line(output, "LOCATION:" + Escape(place));
-        }
+        if (entry.Notes is { } notes)
+            Line(output, "DESCRIPTION:" + Escape(notes));
+
+        if (entry.Location is { } location)
+            Line(output, "LOCATION:" + Escape(location));
 
         Line(output, "STATUS:CONFIRMED");
         Line(output, "END:VEVENT");
+    }
+
+    /// <summary>
+    /// What a calendar program shows for an event, before it is escaped into the feed: the event
+    /// form's preview of the phone calendar is drawn from this (calendar design §14).
+    /// </summary>
+    public static CalendarFeedEntry Entry(CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        ArgumentNullException.ThrowIfNull(worldNames);
+
+        string? location = null;
+
+        if (calendarEvent.WorldId is { Length: > 0 } worldId)
+            location = worldNames.TryGetValue(worldId, out var name) && !string.IsNullOrWhiteSpace(name) ? name : worldId;
+
+        return new CalendarFeedEntry(
+            calendarEvent.Title,
+            string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : calendarEvent.Description,
+            location,
+            Rule(calendarEvent, CalendarRepeat.ZoneOf(calendarEvent)));
     }
 
     /// <summary>The <c>RRULE</c> value, or null for an event that does not repeat.</summary>
@@ -276,3 +296,10 @@ public static class CalendarFeedWriter
         output.Append(Crlf);
     }
 }
+
+/// <summary>One event as the calendar feed carries it, before escaping.</summary>
+/// <param name="Title">The <c>SUMMARY</c>.</param>
+/// <param name="Notes">The <c>DESCRIPTION</c>; null when there is none.</param>
+/// <param name="Location">The <c>LOCATION</c>: the world's name, or its id when Modbot has no name for it.</param>
+/// <param name="Repeat">The <c>RRULE</c> value; null for an event that does not repeat.</param>
+public sealed record CalendarFeedEntry(string Title, string? Notes, string? Location, string? Repeat);

@@ -61,6 +61,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Calendar.CalendarDiscordPublisher>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 
+        // The event form's preview of the Discord event and the channel post, from the same
+        // builders (calendar design §14).
+        services.AddSingleton<Core.Calendar.ICalendarDiscordPreview, Calendar.CalendarDiscordPreviewer>();
+
         // Giveaway posts and winner announcements (giveaways design §7). Its own loop as well; the
         // closing and drawing themselves are not Discord's business and live in Modbot.Analytics.
         services.AddScoped<Giveaways.GiveawayReactions>();

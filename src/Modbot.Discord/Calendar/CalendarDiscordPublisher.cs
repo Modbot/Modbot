@@ -42,6 +42,17 @@ public sealed record CalendarDiscordPass(int Calls, string? Error = null);
 /// A refusal that will not change on its own -- the bot lacks Manage Events, the channel is gone --
 /// is not repeated until the event changes. Anything else is tried again on the next pass.
 /// </para>
+/// <para>
+/// <strong>A place whose state turns to published or removed writes a fact</strong>, and only
+/// then: an edit sent to a place that is already published writes none. The fact is what the live
+/// stream carries, so the calendar page shows "Published" without a reload (added 2026-10-01; the
+/// docs had promised it and nothing sent it). A failure already wrote one.
+/// </para>
+/// <para>
+/// <strong>The cancel post</strong> (<see cref="CalendarPlaces.CancelPost"/>) is a row the cancel
+/// itself makes, only when the moderator ticked it. It is posted once: the row then holds the
+/// message's id, and nothing edits or posts it again.
+/// </para>
 /// </remarks>
 public sealed class CalendarDiscordPublisher
 {
@@ -58,6 +69,9 @@ public sealed class CalendarDiscordPublisher
     private readonly EventPartitionMaintainer _partitions;
     private readonly CardPictures _pictures;
     private readonly ILogger _log;
+
+    /// <summary>Places this pass made, for the state-change facts.</summary>
+    private readonly List<CalendarEventPlace> _added = [];
 
     public CalendarDiscordPublisher(
         ModbotContext db,
@@ -97,6 +111,17 @@ public sealed class CalendarDiscordPublisher
                 && p.State != CalendarPlaceStates.Removed)
             .ToListAsync(ct).ConfigureAwait(false);
 
+        // Waiting, or a failure that was not a refusal: a refusal is not sent again.
+        var cancelPosts = await _db.CalendarEventPlaces
+            .Where(p => p.Place == CalendarPlaces.CancelPost
+                && (p.State == CalendarPlaceStates.Waiting
+                    || (p.State == CalendarPlaceStates.Failed && p.FailedFingerprint == null)))
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        // What each place said before this pass, so a change of state can be told from an edit.
+        var was = places.Concat(cancelPosts)
+            .ToDictionary<CalendarEventPlace, CalendarEventPlace, string>(p => p, p => p.State, ReferenceEqualityComparer.Instance);
+
         var withPlaces = places.Select(p => p.EventId).Distinct().ToList();
 
         var events = await _db.CalendarEvents
@@ -107,7 +132,7 @@ public sealed class CalendarDiscordPublisher
             .OrderBy(e => e.UpdatedAt)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        if (events.Count == 0)
+        if (events.Count == 0 && cancelPosts.Count == 0)
             return new CalendarDiscordPass(0);
 
         var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
@@ -125,6 +150,9 @@ public sealed class CalendarDiscordPublisher
             settings.VRChatImagesProxied,
             _pictures,
             ct);
+
+        // First: a cancel post is news, and there are few of them.
+        await SyncCancelPostsAsync(pass, cancelPosts).ConfigureAwait(false);
 
         foreach (var calendarEvent in events)
         {
@@ -147,18 +175,41 @@ public sealed class CalendarDiscordPublisher
 
         foreach (var (calendarEvent, place, error) in pass.Failures)
         {
-            await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
-            await _facts.WriteAsync(
-                new FactRecord
-                {
-                    Type = FactType.PlannedEventPublishFailed,
-                    OccurredAt = now,
-                    SubjectPlatform = FactPlatform.Modbot,
-                    SubjectId = calendarEvent.Id.ToString(),
-                    Source = FactSource.Modbot,
-                    Data = new JsonObject { ["title"] = calendarEvent.Title, ["place"] = place, ["error"] = error },
-                },
+            await WriteFactAsync(
+                FactType.PlannedEventPublishFailed,
+                calendarEvent,
+                new JsonObject { ["title"] = calendarEvent.Title, ["place"] = place, ["error"] = error },
+                now,
                 ct).ConfigureAwait(false);
+        }
+
+        var byId = events.Concat(pass.CancelledEvents).DistinctBy(e => e.Id).ToDictionary(e => e.Id);
+
+        foreach (var place in places.Concat(cancelPosts).Concat(_added))
+        {
+            var before = was.TryGetValue(place, out var state) ? state : null;
+
+            if (place.State == before || !byId.TryGetValue(place.EventId, out var calendarEvent))
+                continue;
+
+            if (place.State == CalendarPlaceStates.Published)
+            {
+                await WriteFactAsync(
+                    FactType.PlannedEventPublished,
+                    calendarEvent,
+                    new JsonObject { ["title"] = calendarEvent.Title, ["place"] = place.Place },
+                    now,
+                    ct).ConfigureAwait(false);
+            }
+            else if (place.State == CalendarPlaceStates.Removed && before is not null)
+            {
+                await WriteFactAsync(
+                    FactType.PlannedEventTakenDown,
+                    calendarEvent,
+                    new JsonObject { ["title"] = calendarEvent.Title, ["place"] = place.Place, ["was"] = before },
+                    now,
+                    ct).ConfigureAwait(false);
+            }
         }
 
         if (pass.Written > 0)
@@ -224,7 +275,7 @@ public sealed class CalendarDiscordPublisher
         // automatically turned off, or the opening refused -- showed a link that answered 404.
         // Without a join link the location stays the world's name, the same rule the description's
         // "Join:" line and the post's Join button already follow.
-        var location = joinLink is not null ? ShortJoinAddress(pass.PublicAddress, e) ?? joinLink : null;
+        var location = Location(pass.PublicAddress, e, joinLink);
 
         var fingerprint = CalendarFingerprint.Of(
             "discordEvent", e.Title, e.Description, occurrence.StartsAt, occurrence.EndsAt,
@@ -236,8 +287,7 @@ public sealed class CalendarDiscordPublisher
         if (place.State == CalendarPlaceStates.Failed && place.FailedFingerprint == fingerprint)
             return;
 
-        var startsAt = occurrence.StartsAt > pass.Now ? occurrence.StartsAt : pass.Now + LateStartAhead;
-        var details = CalendarCard.EventDetails(e, world, startsAt, occurrence.EndsAt, location, open ? joinLink : null);
+        var details = ServerEventDetails(e, world, pass.PublicAddress, joinLink, pass.Now);
         var guildId = pass.GuildId!;
 
         DiscordPostOutcome outcome;
@@ -282,6 +332,50 @@ public sealed class CalendarDiscordPublisher
         Published(place, fingerprint, pass.Now);
         pass.Written++;
     }
+
+    /// <summary>
+    /// The server event as Discord is sent it, for the event's current occurrence. The form's
+    /// preview is drawn from this too, so the two cannot disagree.
+    /// </summary>
+    /// <param name="joinLink">The open instance's join link, or null; only used while the event is open.</param>
+    /// <param name="now">From <c>IModbotClock</c>. Discord refuses a start in the past, so a late one starts a minute from now.</param>
+    public static DiscordScheduledEventDetails ServerEventDetails(
+        CalendarEvent calendarEvent, VRChatWorld? world, string? publicAddress, string? joinLink, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var occurrence = Occurrence(calendarEvent);
+        var open = calendarEvent.State == CalendarEventStates.Open;
+        var link = open ? joinLink : null;
+        var startsAt = occurrence.StartsAt > now ? occurrence.StartsAt : now + LateStartAhead;
+
+        return CalendarCard.EventDetails(
+            calendarEvent, world, startsAt, occurrence.EndsAt, Location(publicAddress, calendarEvent, link), link);
+    }
+
+    /// <summary>
+    /// The channel post's card and buttons for the event's current occurrence, with the picture the
+    /// caller worked out. The form's preview is drawn from this too.
+    /// </summary>
+    public static (DiscordEmbedContent Card, IReadOnlyList<DiscordLinkButton> Links) Post(
+        CalendarEvent calendarEvent, VRChatWorld? world, string? joinLink, CardStyle style, string? picture)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var state = calendarEvent.State == CalendarEventStates.Open ? CalendarCardState.Open : CalendarCardState.Scheduled;
+        var card = CalendarCard.For(
+            calendarEvent, Occurrence(calendarEvent), world, state, joinLink, style, new CardPicture(Image: picture));
+
+        return (card, CalendarCard.Links(state, joinLink));
+    }
+
+    /// <summary>
+    /// What goes in the server event's location field, before <see cref="CalendarCard.EventDetails"/>
+    /// falls back to the world's name: the short address while there is a join link behind it, or
+    /// the join link itself; null without one. The preview in the form uses this too.
+    /// </summary>
+    public static string? Location(string? publicAddress, CalendarEvent calendarEvent, string? joinLink) =>
+        joinLink is not null ? ShortJoinAddress(publicAddress, calendarEvent) ?? joinLink : null;
 
     /// <summary>
     /// Modbot's own short address that sends a person on to the join link, when the public address is
@@ -383,9 +477,6 @@ public sealed class CalendarDiscordPublisher
 
         place ??= AddPlace(e, CalendarPlaces.ChannelPost);
 
-        var current = Occurrence(e);
-        var open = e.State == CalendarEventStates.Open;
-        var cardState = open ? CalendarCardState.Open : CalendarCardState.Scheduled;
         var world = pass.WorldOf(e);
         var first = place.ExternalId is null;
 
@@ -398,10 +489,7 @@ public sealed class CalendarDiscordPublisher
                 ? await pictures.AddAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false)
                 : await pictures.ReferenceAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false));
 
-        var embed = CalendarCard.For(
-            e, current, world, cardState, joinLink, pass.Style, new CardPicture(Image: image));
-
-        var links = CalendarCard.Links(cardState, joinLink);
+        var (embed, links) = Post(e, world, joinLink, pass.Style, image);
 
         var fingerprint = CalendarFingerprint.Of(
             "channelPost", channelId, embed.Title, embed.Description, embed.Color, embed.Url, embed.Footer, embed.ImageUrl,
@@ -455,7 +543,73 @@ public sealed class CalendarDiscordPublisher
         pass.Written++;
     }
 
+    // ── The cancel post ──────────────────────────────────────────────────────────────────
+
+    /// <summary>The fingerprint a refused cancel post is kept under, so it is not sent again.</summary>
+    private const string CancelPostFingerprint = "cancelPost";
+
+    private async Task SyncCancelPostsAsync(Pass pass, List<CalendarEventPlace> cancelPosts)
+    {
+        if (cancelPosts.Count == 0)
+            return;
+
+        var ids = cancelPosts.Select(p => p.EventId).ToList();
+        var cancelled = await _db.CalendarEvents
+            .Where(e => ids.Contains(e.Id))
+            .ToDictionaryAsync(e => e.Id, pass.Ct).ConfigureAwait(false);
+
+        foreach (var place in cancelPosts)
+        {
+            if (pass.Calls >= CallsPerPass)
+                return;
+
+            // A row that holds a message id has been posted: never twice, whatever its state says.
+            if (place.ExternalId is not null || !cancelled.TryGetValue(place.EventId, out var e))
+                continue;
+
+            pass.CancelledEvents.Add(e);
+
+            if (place.ChannelId is not { Length: > 0 } channelId)
+            {
+                place.State = CalendarPlaceStates.Removed;
+                place.UpdatedAt = pass.Now;
+                continue;
+            }
+
+            var startsAt = place.OccurrenceStartsAt ?? e.OccurrenceStartsAt ?? e.StartsAt;
+            var outcome = await pass
+                .Call(g => g.PostAsync(channelId, CalendarCard.CancelNotice(e, startsAt), [], null, pass.Ct))
+                .ConfigureAwait(false);
+
+            if (!outcome.Sent)
+            {
+                Fail(pass, e, place, outcome, CancelPostFingerprint);
+                continue;
+            }
+
+            place.ExternalId = outcome.MessageId ?? string.Empty;
+            Published(place, CancelPostFingerprint, pass.Now);
+            pass.Written++;
+        }
+    }
+
     // ── Shared ───────────────────────────────────────────────────────────────────────────
+
+    private async Task WriteFactAsync(string type, CalendarEvent e, JsonObject data, DateTimeOffset now, CancellationToken ct)
+    {
+        await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
+        await _facts.WriteAsync(
+            new FactRecord
+            {
+                Type = type,
+                OccurredAt = now,
+                SubjectPlatform = FactPlatform.Modbot,
+                SubjectId = e.Id.ToString(),
+                Source = FactSource.Modbot,
+                Data = data,
+            },
+            ct).ConfigureAwait(false);
+    }
 
     /// <summary>The instance's join link, while the occurrence Modbot opened is still open.</summary>
     private async Task<string?> JoinLinkAsync(CalendarEvent e, CancellationToken ct)
@@ -496,6 +650,7 @@ public sealed class CalendarDiscordPublisher
         };
 
         _db.CalendarEventPlaces.Add(row);
+        _added.Add(row);
         return row;
     }
 
@@ -567,6 +722,9 @@ public sealed class CalendarDiscordPublisher
         public int Written { get; set; }
 
         public List<(CalendarEvent Event, string Place, string Error)> Failures { get; } = [];
+
+        /// <summary>Events whose cancel post this pass dealt with, for the facts.</summary>
+        public List<CalendarEvent> CancelledEvents { get; } = [];
 
         public VRChatWorld? WorldOf(CalendarEvent e) =>
             e.WorldId is { } id && worlds.TryGetValue(id, out var world) ? world : null;

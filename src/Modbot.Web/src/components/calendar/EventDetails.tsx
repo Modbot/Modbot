@@ -7,12 +7,16 @@ import { WorldLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
+import { Checkbox, Outcome } from '@/components/settings/fields'
+import { ApiError } from '@/lib/api'
 import { calendarApi, PLACE_LABEL, PLACE_STATE_LABEL, STATE_LABEL, type CalendarEvent } from '@/lib/calendar'
 import { sameDay } from '@/lib/calendarGrid'
+import { DESTINATION_LABEL, notSetUp, type CalendarReady } from '@/lib/calendarPlaces'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
 import { EventResults } from './EventResults'
+import { NotSetUp } from './NotSetUp'
 import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -68,15 +72,21 @@ function EventBody({
   event,
   start,
   end,
+  ready,
   results,
   children,
 }: {
   event: CalendarEvent
   start: Date
   end: Date
+  ready?: CalendarReady | null
   results?: ReactNode
   children?: ReactNode
 }) {
+  // A ticked place that cannot work as things are set up, while the event can still go anywhere.
+  const pending = event.state === 'draft' || event.state === 'scheduled' || event.state === 'open'
+  const missing = pending ? notSetUp(event, ready) : []
+
   return (
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
       <div className="font-mono">{when(start, end)}</div>
@@ -117,16 +127,24 @@ function EventBody({
         </div>
       )}
 
-      {event.places.length > 0 && (
+      {(event.places.length > 0 || missing.length > 0) && (
         <div className="flex flex-col gap-1">
-          {event.places.map((p) => (
-            <div key={p.place} className="flex flex-wrap items-center gap-2">
-              <PlaceBadge place={p.place} state={p.state} />
-              {p.missingGroupPermission ? (
-                <VRChatPermissionMissing missing={p.missingGroupPermission} className="text-destructive" />
-              ) : (
-                p.error && <span className="text-destructive">{p.error}</span>
-              )}
+          {event.places
+            .filter((p) => !missing.some((m) => m === p.place))
+            .map((p) => (
+              <div key={p.place} className="flex flex-wrap items-center gap-2">
+                <PlaceBadge place={p.place} state={p.state} />
+                {p.missingGroupPermission ? (
+                  <VRChatPermissionMissing missing={p.missingGroupPermission} className="text-destructive" />
+                ) : (
+                  p.error && <span className="text-destructive">{p.error}</span>
+                )}
+              </div>
+            ))}
+          {missing.map((place) => (
+            <div key={place} className="flex flex-wrap items-center gap-2">
+              <Badge variant="destructive">{place === 'instance' ? DESTINATION_LABEL.instance : PLACE_LABEL[place]}</Badge>
+              <NotSetUp place={place} />
             </div>
           ))}
         </div>
@@ -170,6 +188,60 @@ function EventButtons({
   )
 }
 
+/**
+ * The cancel's confirmation. With a channel on the event it offers to post in that channel that the
+ * event is cancelled, ticked when the event has a channel post (calendar design §14.4): an edit to
+ * the old card notifies nobody. Closes only once the server has said yes, like `ConfirmDialog`.
+ */
+function CancelBody({ event, onClose, onDone }: { event: CalendarEvent; onClose: () => void; onDone: () => void }) {
+  const channel = !!event.channelId
+  const [post, setPost] = useState(channel && event.postToChannel)
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const send = () => {
+    setSending(true)
+    setProblem(null)
+
+    calendarApi
+      .cancel(event.id, channel && post)
+      .then(() => {
+        onClose()
+        onDone()
+      })
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not cancel the event.'))
+      .finally(() => setSending(false))
+  }
+
+  return (
+    <DialogContent
+      title={`Cancel “${event.title}”?`}
+      className="max-w-[460px]"
+      foot={
+        <DialogFoot>
+          <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
+            Cancel
+          </Button>
+          <Button size="sm" variant="destructive" onClick={send} disabled={sending}>
+            {sending ? 'Sending…' : 'Cancel event'}
+          </Button>
+        </DialogFoot>
+      }
+    >
+      {channel || problem ? (
+        <div className="flex flex-col gap-3">
+          {channel && (
+            <Checkbox checked={post} onChange={setPost}>
+              Post that it&apos;s cancelled in the channel
+            </Checkbox>
+          )}
+          {problem && <Outcome tone="problem">{problem}</Outcome>}
+        </div>
+      ) : null}
+    </DialogContent>
+  )
+}
+
 function Heading({ event, children }: { event: CalendarEvent; children?: ReactNode }) {
   return (
     <div className="flex items-start gap-2">
@@ -201,6 +273,7 @@ export function EventDetails({
   spot,
   results,
   live,
+  ready,
   ...actions
 }: Actions & {
   event: CalendarEvent
@@ -210,6 +283,8 @@ export function EventDetails({
   /** Show what this time did: it has started, and the account may see analytics. */
   results: boolean
   live: number
+  /** Which places are set up, from the calendar's own read. */
+  ready?: CalendarReady | null
 }) {
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null)
   const sheet = useMedia(SHEET)
@@ -218,26 +293,33 @@ export function EventDetails({
   )
   const shown = results ? <EventResults event={event} start={start} live={live} /> : undefined
   const body = (
-    <EventBody event={event} start={start} end={end} results={shown}>
+    <EventBody event={event} start={start} end={end} ready={ready} results={shown}>
       {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
     </EventBody>
   )
 
+  const done = () => {
+    actions.onChanged()
+    actions.onClose()
+  }
+
   // Beside the popover rather than inside it, so the confirmation is not taken for a click outside
   // the popover that closes both.
   const confirmation = (
-    <ConfirmDialog
-      open={confirm !== null}
-      onOpenChange={(open) => !open && setConfirm(null)}
-      title={confirm === 'cancel' ? `Cancel “${event.title}”?` : `Delete “${event.title}”?`}
-      action={confirm === 'cancel' ? 'Cancel event' : 'Delete'}
-      failed={confirm === 'cancel' ? 'Could not cancel the event.' : 'Could not delete the event.'}
-      onConfirm={() => (confirm === 'cancel' ? calendarApi.cancel(event.id) : calendarApi.remove(event.id))}
-      onDone={() => {
-        actions.onChanged()
-        actions.onClose()
-      }}
-    />
+    <>
+      <ConfirmDialog
+        open={confirm === 'delete'}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={`Delete “${event.title}”?`}
+        action="Delete"
+        failed="Could not delete the event."
+        onConfirm={() => calendarApi.remove(event.id)}
+        onDone={done}
+      />
+      <Dialog open={confirm === 'cancel'} onOpenChange={(open) => !open && setConfirm(null)}>
+        {confirm === 'cancel' && <CancelBody event={event} onClose={() => setConfirm(null)} onDone={done} />}
+      </Dialog>
+    </>
   )
 
   if (sheet)
@@ -249,7 +331,7 @@ export function EventDetails({
             subtitle={<StateBadge event={event} />}
             foot={buttons && <DialogFoot>{buttons}</DialogFoot>}
           >
-            <EventBody event={event} start={start} end={end} results={shown} />
+            <EventBody event={event} start={start} end={end} ready={ready} results={shown} />
           </DialogContent>
         </Dialog>
         {confirmation}

@@ -176,6 +176,12 @@ public static class CalendarPlaces
     public const string VRChat = "vrchat";
     public const string DiscordEvent = "discordEvent";
     public const string ChannelPost = "channelPost";
+
+    /// <summary>
+    /// The short message in the event's channel that says it is cancelled. Made by the cancel, only
+    /// when the moderator ticked it, and posted once (added 2026-10-01).
+    /// </summary>
+    public const string CancelPost = "cancelPost";
 }
 
 /// <summary>The words stored in <see cref="CalendarEventPlace.State"/>.</summary>

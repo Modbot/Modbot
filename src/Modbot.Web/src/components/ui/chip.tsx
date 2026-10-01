@@ -10,10 +10,13 @@ import { cn } from "@/lib/utils"
 function Chip({
   on,
   onClick,
+  disabled = false,
   children,
 }: {
   on: boolean
   onClick: () => void
+  /** Shown as it is and not switchable: a choice that is always on. */
+  disabled?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -21,9 +24,10 @@ function Chip({
       type="button"
       data-slot="chip"
       aria-pressed={on}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+        "inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring disabled:cursor-default",
         on ? "bg-accent text-accent-foreground" : "bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
       style={{ fontSize: "var(--text-small)", height: "var(--control-h)" }}
