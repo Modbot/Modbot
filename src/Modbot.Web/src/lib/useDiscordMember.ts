@@ -8,8 +8,8 @@ import { useLoad } from '@/lib/useLoad'
 export type DiscordMemberRead = {
   data: { member: DiscordMember | null; timedOut: boolean } | null
   error: string | null
-  /** Reads it again, for the failed row's "Try again". */
-  reload: () => void
+  /** Reads it again, for the failed row's "Try again". Null after a refusal. */
+  reload: (() => void) | null
 }
 
 /** The member row as the stored list has it, read again when a fact about this account lands. */

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * The date range every Analytics page offers, and the hook that loads a page for it.
@@ -34,6 +35,7 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
   const [error, setError] = useState<string | null>(null)
   const readFor = useRef<string | null>(null)
   const [tries, setTries] = useState(0)
+  const [final, setFinal] = useState(false)
 
   useEffect(() => {
     const query = rangeQuery(range)
@@ -50,6 +52,7 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to read analytics.'
@@ -69,5 +72,6 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
     setTries((n) => n + 1)
   }, [])
 
-  return { data, error, reload }
+  // Null after a refusal: reading again cannot give permission.
+  return { data, error, reload: error && final ? null : reload }
 }

@@ -61,7 +61,7 @@ export function Giveaways() {
   useShortcuts(data?.canRun ? [{ label: 'New giveaway', group: 'Page', page: true, run: () => setEditing('new') }] : [])
 
   const load = useCallback(() => {
-    giveawayApi
+    return giveawayApi
       .list()
       .then((list) => {
         setData(list)
@@ -89,7 +89,7 @@ export function Giveaways() {
 
   const opened = data?.giveaways.find((g) => g.id === openId) ?? null
 
-  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'}>{error}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'} onTryAgain={load}>{error}</PageMessage>
 
   return (
     <div className="flex flex-col gap-3">

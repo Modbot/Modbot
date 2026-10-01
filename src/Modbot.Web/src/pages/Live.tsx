@@ -66,7 +66,7 @@ export function Live() {
   }, [])
 
   const load = useCallback(() => {
-    api
+    return api
       .live()
       .then((view) => {
         setData(view)
@@ -128,7 +128,7 @@ export function Live() {
     }
   }, [load, voiceChanged])
 
-  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'}>{error}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'} onTryAgain={load}>{error}</PageMessage>
 
   // The server's time now: when it answered, moved on by how long ago that was here. Arrival
   // times are the server's, so a browser whose clock is wrong still marks the right people New.

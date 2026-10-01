@@ -175,7 +175,7 @@ function Part<T>({
   children,
 }: {
   title: string
-  read: { data: T | null; error: string | null; reload?: () => void }
+  read: { data: T | null; error: string | null; reload?: (() => void) | null }
   coverage?: (data: T) => React.ReactNode
   children: (data: T) => React.ReactNode
 }) {

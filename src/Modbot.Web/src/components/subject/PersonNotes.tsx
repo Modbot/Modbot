@@ -206,7 +206,7 @@ export function NotesBeforeActing({ userId }: { userId: string }) {
     return (
       <p className="flex flex-wrap items-center gap-2 text-warn" style={{ fontSize: 'var(--text-small)' }}>
         Could not read the notes
-        <TryAgainButton onClick={reload} />
+        {reload && <TryAgainButton onClick={reload} />}
       </p>
     )
   }

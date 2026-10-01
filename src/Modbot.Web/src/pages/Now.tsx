@@ -220,7 +220,7 @@ function HealthLine({ onOpen }: { onOpen: (section: StatusRowId | null) => void 
   )
 }
 
-type Loaded<T> = { data: T | null; error: string | null; reload: () => void }
+type Loaded<T> = { data: T | null; error: string | null; reload: (() => void) | null }
 
 /** Open flags, reviews and join requests, a count each and the newest rows. */
 function Decisions({
@@ -288,9 +288,13 @@ function Decisions({
       {failed.length > 0 && (
         <EmptyRow
           tone="danger"
-          onTryAgain={() => {
-            for (const part of [flags, reviews, requests]) if (part?.error && !part.data) part.reload()
-          }}
+          onTryAgain={
+            [flags, reviews, requests].some((part) => part?.error && !part.data && part.reload)
+              ? () => {
+                  for (const part of [flags, reviews, requests]) if (part?.error && !part.data) part.reload?.()
+                }
+              : null
+          }
         >
           Could not load the {failed.join(' or the ')}.
         </EmptyRow>

@@ -59,7 +59,7 @@ export function Users({ me }: { me: CurrentUser }) {
 
   const current = useMemo(() => users?.find((u) => u.id === selected) ?? null, [users, selected])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) return <Empty tone="danger" onTryAgain={refresh}>{error}</Empty>
   if (!users) return <Empty tone="loading" />
 
   return (

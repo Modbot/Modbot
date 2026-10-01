@@ -36,6 +36,7 @@ import { caseFileFact } from '@/lib/rowFacts'
 import { trustRank } from '@/lib/trustRank'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * The ban lists: the group's, everyone VRChat says is banned right now, whenever the ban was issued,
@@ -123,6 +124,8 @@ function GroupBans({
   const { page, restart } = at
   const [list, setList] = useState<GroupBanList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A refusal (no permission) is not offered Try again: reading again cannot change it.
+  const [errorFinal, setErrorFinal] = useState(false)
 
   // Bumped after an unban. The server has already marked the ban as lifted, so this re-reads the
   // list rather than editing the row in place and hoping the two agree.
@@ -156,6 +159,7 @@ function GroupBans({
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setErrorFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to read moderation history.'
@@ -172,11 +176,67 @@ function GroupBans({
 
   const demo = useDemo()
 
-  if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty tone="loading" />
+  const showCases = can(me, 'ViewProfile')
+
+  const bar = (
+    <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
+      <Input
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder="Search by name or id"
+        className="w-56"
+        aria-label="Search bans"
+      />
+      <Select
+        value={status}
+        onChange={(next) => {
+          setStatus(next as typeof status)
+          restart()
+        }}
+        aria-label="Status"
+      >
+        <option value="current">Still banned</option>
+        <option value="lifted">Bans that were lifted</option>
+        <option value="all">Both</option>
+      </Select>
+      {showCases && (
+        <Select
+          value={caseFile}
+          onChange={(next) => {
+            setCaseFile(next as typeof caseFile)
+            restart()
+          }}
+          aria-label="Case file"
+        >
+          <option value="any">Case file: any</option>
+          <option value="written">Case file written</option>
+          <option value="none">No case file</option>
+        </Select>
+      )}
+    </div>
+  )
+
+  const tryAgain = errorFinal
+    ? null
+    : () => {
+        setError(null)
+        setLifted((n) => n + 1)
+      }
+
+  // The bar stays while the list loads or fails, so what was typed and picked is still there
+  // when Try again reads it again.
+  if (error || !list) {
+    return (
+      <>
+        {bar}
+        <Empty tone={error ? 'danger' : 'loading'} onTryAgain={tryAgain}>
+          {error}
+        </Empty>
+      </>
+    )
+  }
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
-  const showCases = can(me, 'ViewProfile')
   // Lifting a ban, and re-banning somebody whose ban was lifted, both live in this column.
   const canAct = canAny(me, ['Ban', 'Unban'])
 
@@ -184,41 +244,7 @@ function GroupBans({
     <>
       {/* The same row as the filter bar's right end: below `md` the search box gives up its fixed
           width and fills what the status leaves, so a phone keeps the two on one line. */}
-      <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
-        <Input
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Search by name or id"
-          className="w-56"
-          aria-label="Search bans"
-        />
-        <Select
-          value={status}
-          onChange={(next) => {
-            setStatus(next as typeof status)
-            restart()
-          }}
-          aria-label="Status"
-        >
-          <option value="current">Still banned</option>
-          <option value="lifted">Bans that were lifted</option>
-          <option value="all">Both</option>
-        </Select>
-        {showCases && (
-          <Select
-            value={caseFile}
-            onChange={(next) => {
-              setCaseFile(next as typeof caseFile)
-              restart()
-            }}
-            aria-label="Case file"
-          >
-            <option value="any">Case file: any</option>
-            <option value="written">Case file written</option>
-            <option value="none">No case file</option>
-          </Select>
-        )}
-      </div>
+      {bar}
 
       <Card>
         <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
@@ -369,6 +395,10 @@ function DiscordBans() {
   const { page, restart } = at
   const [list, setList] = useState<DiscordBanList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A refusal (no permission) is not offered Try again: reading again cannot change it.
+  const [errorFinal, setErrorFinal] = useState(false)
+  // Bumped by Try again, which reads the same page with the same search again.
+  const [tries, setTries] = useState(0)
 
   const live = useLiveVersion(changesDiscordBans)
 
@@ -395,6 +425,7 @@ function DiscordBans() {
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setErrorFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to read moderation history.'
@@ -405,10 +436,51 @@ function DiscordBans() {
     return () => {
       cancelled = true
     }
-  }, [search, status, page, live])
+  }, [search, status, page, live, tries])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty tone="loading" />
+  const bar = (
+    <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
+      <Input
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder="Search by name or id"
+        className="w-56"
+        aria-label="Search Discord bans"
+      />
+      <Select
+        value={status}
+        onChange={(next) => {
+          setStatus(next as typeof status)
+          restart()
+        }}
+        aria-label="Status"
+      >
+        <option value="current">Still banned</option>
+        <option value="lifted">Bans that were lifted</option>
+        <option value="all">Both</option>
+      </Select>
+    </div>
+  )
+
+  const tryAgain = errorFinal
+    ? null
+    : () => {
+        setError(null)
+        setTries((n) => n + 1)
+      }
+
+  // The bar stays while the list loads or fails, so what was typed and picked is still there
+  // when Try again reads it again.
+  if (error || !list) {
+    return (
+      <>
+        {bar}
+        <Empty tone={error ? 'danger' : 'loading'} onTryAgain={tryAgain}>
+          {error}
+        </Empty>
+      </>
+    )
+  }
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const { coverage } = list
@@ -416,27 +488,7 @@ function DiscordBans() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
-        <Input
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Search by name or id"
-          className="w-56"
-          aria-label="Search Discord bans"
-        />
-        <Select
-          value={status}
-          onChange={(next) => {
-            setStatus(next as typeof status)
-            restart()
-          }}
-          aria-label="Status"
-        >
-          <option value="current">Still banned</option>
-          <option value="lifted">Bans that were lifted</option>
-          <option value="all">Both</option>
-        </Select>
-      </div>
+      {bar}
 
       <Card>
         <CardHeader className={cn(unread && 'bg-warn/10')}>

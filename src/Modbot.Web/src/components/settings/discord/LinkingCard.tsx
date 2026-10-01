@@ -26,7 +26,10 @@ export function LinkingCard() {
     () =>
       api
         .discordLinkingSettings()
-        .then(setData)
+        .then((next) => {
+          setData(next)
+          setError(null)
+        })
         .catch((e: unknown) =>
           setError(e instanceof ApiError ? e.message : 'Could not load account linking settings.'),
         ),

@@ -157,6 +157,7 @@ function LoadingBars({
       data-slot="empty-row"
       data-loading=""
       role="status"
+      aria-busy="true"
       className={cn('flex flex-col justify-center gap-2 px-(--panel-pad)', className)}
       style={{ minHeight, fontSize: 'var(--text-small)' }}
     >

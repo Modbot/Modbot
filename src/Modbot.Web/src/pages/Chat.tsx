@@ -18,6 +18,7 @@ import {
 import { spentText, tokensText, tokensTitle } from '@/lib/aiSpend'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
+import { isFinal } from '@/lib/tryAgain'
 
 /** How far from the bottom still counts as "at the bottom" while a reply streams in. */
 const NEAR_BOTTOM = 80
@@ -48,6 +49,7 @@ export function Chat({
   const [available, setAvailable] = useState<boolean | null>(null)
   const [conversations, setConversations] = useState<ChatConversationSummary[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [errorFinal, setErrorFinal] = useState(false)
 
   // Kept with the conversation it belongs to, so opening another one shows nothing of the last.
   const [thread, setThread] = useState<Thread>({ id: null, messages: [], full: false })
@@ -88,13 +90,14 @@ export function Chat({
           setConversations(home.conversations)
           setError(null)
         })
-        .catch((e: unknown) =>
+        .catch((e: unknown) => {
+          setErrorFinal(isFinal(e))
           setError(
             e instanceof ApiError && e.status === 403
               ? 'You do not have permission to use Chat.'
               : 'Could not load Chat.',
-          ),
-        ),
+          )
+        }),
     [],
   )
 
@@ -315,7 +318,25 @@ export function Chat({
     return () => window.clearTimeout(timer)
   }, [streamed])
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  // Its own read again, never a redraw of the page: that would drop the draft being written and
+  // the conversation that is open.
+  if (error) {
+    return (
+      <PageMessage
+        tone="danger"
+        onTryAgain={
+          errorFinal
+            ? null
+            : () => {
+                setError(null)
+                return loadHome()
+              }
+        }
+      >
+        {error}
+      </PageMessage>
+    )
+  }
   if (available === null) return <PageMessage tone="loading" />
   if (!available && conversations.length === 0) return <PageMessage>Chat is off.</PageMessage>
 

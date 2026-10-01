@@ -30,6 +30,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { Select } from '@/components/ui/select'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * Everyone Modbot has a record of, and the group's member list.
@@ -83,6 +84,8 @@ export function People({ me }: { me: CurrentUser }) {
   const { page, restart } = at
   const [list, setList] = useState<PeopleList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A refusal (no permission) is not offered Try again: reading again cannot change it.
+  const [errorFinal, setErrorFinal] = useState(false)
 
   // The chips: in the address (lib/filters.ts). Nothing narrowed by default; every link to
   // "Members" carries its chip in the address.
@@ -168,6 +171,7 @@ export function People({ me }: { me: CurrentUser }) {
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setErrorFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to view this list.'
@@ -275,8 +279,64 @@ export function People({ me }: { me: CurrentUser }) {
     if (person) openPerson(person.userId)
   })
 
-  if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty tone="loading" />
+  const bar = (
+    <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips}>
+      {joined && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setJoinedFrom(null)
+            setJoinedTo(null)
+            restart()
+          }}
+        >
+          {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
+        </Button>
+      )}
+
+      <Input
+        ref={searchBox}
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder="Search by name or id"
+        className="w-56"
+        aria-label="Search people"
+      />
+
+      <Select
+        value={sort}
+        onChange={(v) => sortBy(v as typeof sort)}
+        aria-label="Sort"
+      >
+        {SORTS.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </Select>
+    </FilterBar>
+  )
+
+  const tryAgain = errorFinal
+    ? null
+    : () => {
+        setError(null)
+        setActed((n) => n + 1)
+      }
+
+  // The bar stays while the list loads or fails, so what was typed and picked is still there
+  // when Try again reads it again.
+  if (error || !list) {
+    return (
+      <div className="flex flex-col gap-3">
+        {bar}
+        <Empty tone={error ? 'danger' : 'loading'} onTryAgain={tryAgain}>
+          {error}
+        </Empty>
+      </div>
+    )
+  }
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const now = list.coverage.now
@@ -284,42 +344,7 @@ export function People({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips}>
-        {joined && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setJoinedFrom(null)
-              setJoinedTo(null)
-              restart()
-            }}
-          >
-            {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
-          </Button>
-        )}
-
-        <Input
-          ref={searchBox}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Search by name or id"
-          className="w-56"
-          aria-label="Search people"
-        />
-
-        <Select
-          value={sort}
-          onChange={(v) => sortBy(v as typeof sort)}
-          aria-label="Sort"
-        >
-          {SORTS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
-      </FilterBar>
+      {bar}
 
       <Card>
         <CardHeader className={cn(view && !members.firstSweepComplete && !demo && 'bg-warn/10')}>

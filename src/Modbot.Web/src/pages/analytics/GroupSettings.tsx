@@ -38,9 +38,9 @@ import { PageMessage } from './shared'
  * and banner are not here: changing them means VRChat's file upload, which Modbot does not do yet.
  */
 export function GroupSettings({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const { info, error, setInfo } = useGroupInfo()
+  const { info, error, setInfo, reload } = useGroupInfo()
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  if (error) return <PageMessage tone="danger" onTryAgain={reload}>{error}</PageMessage>
   if (!info) return <PageMessage tone="loading" />
 
   return (

@@ -46,6 +46,8 @@ export function Health() {
   const [health, setHealth] = useState<SyncHealth | null>(null)
   const [databaseReachable, setDatabaseReachable] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Bumped by Try again, which reads at once rather than at the next poll.
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -84,7 +86,7 @@ export function Health() {
       cancelled = true
       clearInterval(timer)
     }
-  }, [])
+  }, [tries])
 
   const loaded = health !== null
 
@@ -108,7 +110,19 @@ export function Health() {
     }
   }, [loaded])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) {
+    return (
+      <Empty
+        tone="danger"
+        onTryAgain={() => {
+          setError(null)
+          setTries((n) => n + 1)
+        }}
+      >
+        {error}
+      </Empty>
+    )
+  }
   if (!health) return <Empty tone="loading" />
 
   const status = statusOf(health.gate.status)

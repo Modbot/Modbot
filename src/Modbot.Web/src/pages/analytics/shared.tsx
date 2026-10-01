@@ -254,6 +254,7 @@ export function Nothing({ height, ...row }: RowState & { height: number }) {
     return (
       <div
         role="status"
+        aria-busy="true"
         className="animate-pulse rounded-sm bg-muted motion-reduce:animate-none"
         style={{ height }}
       >

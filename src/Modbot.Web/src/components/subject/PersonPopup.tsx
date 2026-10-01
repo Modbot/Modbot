@@ -316,7 +316,7 @@ function Resolved({
           <>
             {vrchatId &&
               (stored.error ? (
-                <Empty tone="danger">{stored.error}</Empty>
+                <Empty tone="danger" onTryAgain={stored.reload}>{stored.error}</Empty>
               ) : !stored.profile ? (
                 <Empty tone="loading" />
               ) : (
@@ -482,7 +482,7 @@ function Overview({
 
       {phone && vrchatId ? (
         stored.error ? (
-          <Empty tone="danger">{stored.error}</Empty>
+          <Empty tone="danger" onTryAgain={stored.reload}>{stored.error}</Empty>
         ) : !stored.profile ? (
           <Empty tone="loading" />
         ) : (
@@ -638,7 +638,7 @@ function MembershipCard({
   subjectId: string
   view: MembershipView | null
   error: string | null
-  onTryAgain: () => void
+  onTryAgain: (() => void) | null
   me: CurrentUser
   onActed: () => void
 }) {

@@ -17,9 +17,12 @@ export function useGroupInfo(): {
   info: GroupInfo | null
   error: string | null
   setInfo: (info: GroupInfo) => void
+  /** The failed read's "Try again". */
+  reload: () => void
 } {
   const [info, setShown] = useState<GroupInfo | null>(lastRead)
   const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
 
   const setInfo = useCallback((next: GroupInfo) => {
     lastRead = next
@@ -32,7 +35,9 @@ export function useGroupInfo(): {
     api
       .groupInfo()
       .then((i) => {
-        if (!cancelled) setInfo(i)
+        if (cancelled) return
+        setInfo(i)
+        setError(null)
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load the group.')
@@ -41,7 +46,12 @@ export function useGroupInfo(): {
     return () => {
       cancelled = true
     }
-  }, [setInfo])
+  }, [setInfo, tries])
 
-  return { info, error, setInfo }
+  const reload = useCallback(() => {
+    setError(null)
+    setTries((n) => n + 1)
+  }, [])
+
+  return { info, error, setInfo, reload }
 }

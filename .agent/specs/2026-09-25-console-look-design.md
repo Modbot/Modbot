@@ -425,15 +425,19 @@ thing, so it can tell a failed read from one still loading.
 
 Every failed row ends in a "Try again" button (`outline`, `xs`, at the row's right end). The words
 stay what they were: what failed ("Could not load the flags."), nothing more. The row is handed the
-read that failed as `onTryAgain`: `useLoad`'s `reload`, `useAnalytics`'s `reload`, or a section's
-own `load`. When that returns a promise, the row shows the loading bars until it settles. A row
-that is not handed one falls back on the area it sits in (`TryAgainArea`, `lib/tryAgain.ts`): the
-page, or the popup, drawn afresh, which reads everything in it again the way opening it does.
-That suits a page whose only read failed; anything that keeps typed work beside a failed read
-(every settings section, a dialog, a page whose filters are not in the address) passes its own
-reload so pressing it redraws nothing else. Outside every area the fallback reloads the app.
-`onTryAgain={null}` leaves the button out, for a row that states a fact rather than a read that
-failed ("You do not have permission to view evidence.", worked out from the signed-in account).
+read that failed as `onTryAgain`: `useLoad`'s, `useAnalytics`'s, `useStoredProfile`'s or
+`useGroupInfo`'s `reload`, or a page's or section's own `load`. Every failed row passes one, so
+pressing it reads that one thing again and redraws nothing else: a draft in Chat, a note or a ban
+reason half written in a popup, a search typed into a list and the sort picked beside it all
+survive. When it returns a promise, the row shows the loading bars until it settles. A list page
+keeps its search and filter bar on screen while its list loads or fails, with the page message
+under it, so what was typed is still there to read again. The area a row sits in
+(`TryAgainArea`, `lib/tryAgain.ts`: the page, or the popup, drawn afresh) is only what a row left
+without one falls back on, and outside every area that is a reload of the app.
+`onTryAgain={null}` leaves the button out: for a row that states a fact rather than a read that
+failed ("You do not have permission to view evidence.", worked out from the signed-in account),
+and for a refusal (403) or a "no record" (404) answer, which reading again cannot change
+(`isFinal`; the hooks above hand back a null `reload` after one).
 A failure said inside a line rather than as a row (the person popup's Standing line, the notes
 beside a ban) puts `TryAgainButton` after its words. Nothing that can fail draws nothing: a card
 whose read failed says so (Machine usage, the email queue) rather than leaving its place empty.

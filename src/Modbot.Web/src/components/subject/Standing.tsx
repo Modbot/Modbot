@@ -38,7 +38,7 @@ export function StandingBar({
   person: PersonView
   me: CurrentUser
   /** Read once by the popup and shared with the Membership card and the phone's action row. */
-  membership: { data: MembershipView | null; error: string | null; reload: () => void } | null
+  membership: { data: MembershipView | null; error: string | null; reload: (() => void) | null } | null
   /** Changes after a kick, ban or unban, or a live fact about the person, and reads everything again. */
   version: number
   notesId: string | null
@@ -151,11 +151,13 @@ export function StandingBar({
       {failed.length > 0 && (
         <>
           <span className="text-destructive">Could not load {failed.join(', ')}.</span>
-          <TryAgainButton
-            onClick={() => {
-              for (const read of [membership, history, notes, flags, cases]) if (read?.error) read.reload()
-            }}
-          />
+          {[membership, history, notes, flags, cases].some((read) => read?.error && read.reload) && (
+            <TryAgainButton
+              onClick={() => {
+                for (const read of [membership, history, notes, flags, cases]) if (read?.error) read.reload?.()
+              }}
+            />
+          )}
         </>
       )}
 

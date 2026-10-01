@@ -46,7 +46,7 @@ export function Roles({ me }: { me: CurrentUser }) {
     void refresh()
   }, [refresh])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) return <Empty tone="danger" onTryAgain={refresh}>{error}</Empty>
   if (!roles) return <Empty tone="loading" />
 
   // A role can go up or down only when it, and the role it changes places with, are below your

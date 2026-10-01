@@ -44,9 +44,9 @@ import { PageMessage } from './shared'
  * request. The card then shows the group as VRChat answered, with no second read.
  */
 export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const { info, error, setInfo } = useGroupInfo()
+  const { info, error, setInfo, reload } = useGroupInfo()
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  if (error) return <PageMessage tone="danger" onTryAgain={reload}>{error}</PageMessage>
   if (!info) return <PageMessage tone="loading" />
 
   const editable = can(me, 'EditGroupProfile')

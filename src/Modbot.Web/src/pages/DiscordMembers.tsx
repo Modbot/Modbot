@@ -33,6 +33,7 @@ import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { Empty, Marks } from '@/components/ListParts'
 import { ServerHeader } from '@/pages/analytics/ServerHeader'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * The Discord server's members, as the bot keeps them.
@@ -103,6 +104,10 @@ function MemberList({ me }: { me: CurrentUser }) {
   const { page, restart } = at
   const [list, setList] = useState<DiscordMemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A refusal (no permission) is not offered Try again: reading again cannot change it.
+  const [errorFinal, setErrorFinal] = useState(false)
+  // Bumped by Try again, which reads the same page with the same filters again.
+  const [tries, setTries] = useState(0)
 
   // The chips: in the address (lib/filters.ts). People in the server by default.
   const [chips, setChipsOnly] = useFilters(DISCORD_MEMBER_DEFAULTS)
@@ -141,6 +146,7 @@ function MemberList({ me }: { me: CurrentUser }) {
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setErrorFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to view members.'
@@ -151,7 +157,7 @@ function MemberList({ me }: { me: CurrentUser }) {
     return () => {
       cancelled = true
     }
-  }, [search, filter, sort, page, live])
+  }, [search, filter, sort, page, live, tries])
 
   const properties = useMemo<FilterProperty[]>(
     () => [
@@ -216,8 +222,50 @@ function MemberList({ me }: { me: CurrentUser }) {
     if (m) openDiscordPerson(m.userId)
   })
 
-  if (error) return <Empty tone="danger">{error}</Empty>
-  if (!list) return <Empty tone="loading" />
+  const bar = (
+    <FilterBar properties={properties} chips={chips} starts={DISCORD_MEMBER_STARTS} onChange={setChips}>
+      <Input
+        ref={searchBox}
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+        placeholder="Search by name or id"
+        className="w-56"
+        aria-label="Search Discord members"
+      />
+
+      <Select
+        value={sort}
+        onChange={(v) => sortBy(v as typeof sort)}
+        aria-label="Sort"
+      >
+        {SORTS.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </Select>
+    </FilterBar>
+  )
+
+  const tryAgain = errorFinal
+    ? null
+    : () => {
+        setError(null)
+        setTries((n) => n + 1)
+      }
+
+  // The bar stays while the list loads or fails, so what was typed and picked is still there
+  // when Try again reads it again.
+  if (error || !list) {
+    return (
+      <div className="flex flex-col gap-3">
+        {bar}
+        <Empty tone={error ? 'danger' : 'loading'} onTryAgain={tryAgain}>
+          {error}
+        </Empty>
+      </div>
+    )
+  }
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showLeft = filter.state !== 'in-server'
@@ -226,28 +274,7 @@ function MemberList({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterBar properties={properties} chips={chips} starts={DISCORD_MEMBER_STARTS} onChange={setChips}>
-        <Input
-          ref={searchBox}
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Search by name or id"
-          className="w-56"
-          aria-label="Search Discord members"
-        />
-
-        <Select
-          value={sort}
-          onChange={(v) => sortBy(v as typeof sort)}
-          aria-label="Sort"
-        >
-          {SORTS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
-      </FilterBar>
+      {bar}
 
       <Card>
         <CardHeader className={cn(unread && 'bg-warn/10')}>

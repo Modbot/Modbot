@@ -38,6 +38,8 @@ const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
 export function Integrations({ me }: { me: CurrentUser }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Bumped by Try again.
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -48,9 +50,21 @@ export function Integrations({ me }: { me: CurrentUser }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [tries])
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) {
+    return (
+      <Empty
+        tone="danger"
+        onTryAgain={() => {
+          setError(null)
+          setTries((n) => n + 1)
+        }}
+      >
+        {error}
+      </Empty>
+    )
+  }
   if (!status) return <Empty tone="loading" />
 
   // The Discord bot's state comes from its own small read, which needs Change settings like the page

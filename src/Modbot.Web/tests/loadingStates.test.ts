@@ -43,6 +43,26 @@ test('the analytics page message and the settings placeholder are the list pages
   assert.match(settings, /<Empty className="col-span-12" \{\.\.\.row\} \/>/)
 })
 
+test('every failed row is handed its own read to run again, not the page redraw', () => {
+  // A row with no `onTryAgain` falls back on redrawing the page or popup, which drops whatever is
+  // kept only in memory: a typed search, a sort, a draft, a half-written ban reason. So every
+  // `danger` row says what its "Try again" runs, or `null` for none.
+  const tag = new RegExp(`<(${ROW_PARTS})\\b`, 'g')
+  const missing: string[] = []
+
+  for (const { file, text } of files) {
+    for (const match of text.matchAll(tag)) {
+      let chunk = text.slice(match.index, match.index + 400)
+      const close = chunk.indexOf('</')
+      if (close !== -1) chunk = chunk.slice(0, close)
+      if (!chunk.split('>')[0].includes('danger')) continue
+      if (!chunk.includes('onTryAgain')) missing.push(`${file}:${text.slice(0, match.index).split('\n').length}`)
+    }
+  }
+
+  assert.deepEqual(missing, [])
+})
+
 test('a failed row has "Try again", and only a row that states a fact leaves it out', () => {
   const panelGrid = files.find(({ file }) => file === path.join('components', 'PanelGrid.tsx'))!.text
   assert.match(panelGrid, /Try again/)

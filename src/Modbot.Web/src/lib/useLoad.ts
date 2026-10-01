@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '@/lib/api'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * Loads one thing when the popup opens, and says plainly when it cannot.
@@ -15,13 +16,16 @@ import { ApiError } from '@/lib/api'
  * the row turns back into the loading bars while the read runs again, and keeps anything already
  * shown, the same as a `version` change. An answer that lands clears an earlier failure too, so a
  * read that failed once and then worked never leaves the failure on screen beside the answer.
+ * After a refusal (403) or a "no record" (404) `reload` is null: reading again cannot change
+ * either, so the row is left without the button.
  */
 export function useLoad<T>(
   load: (() => Promise<T>) | null,
   version: number | string = 0,
-): { data: T | null; error: string | null; reload: () => void } {
+): { data: T | null; error: string | null; reload: (() => void) | null } {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [final, setFinal] = useState(false)
   const [tries, setTries] = useState(0)
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export function useLoad<T>(
       })
       .catch((e: unknown) => {
         if (cancelled) return
+        setFinal(isFinal(e))
         setError(
           e instanceof ApiError && e.status === 403
             ? 'You do not have permission to see this.'
@@ -55,5 +60,5 @@ export function useLoad<T>(
     setTries((n) => n + 1)
   }, [])
 
-  return { data, error, reload }
+  return { data, error, reload: error && final ? null : reload }
 }

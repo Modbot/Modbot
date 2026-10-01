@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError, type VRChatUserProfile } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
+import { isFinal } from '@/lib/tryAgain'
 
 /**
  * One person's stored VRChat profile, brought up to date once on open.
@@ -35,6 +36,12 @@ export type StoredProfile = {
   note: string | null
   /** For a part that changed the profile itself (the 18+ mark) and has the server's answer. */
   setProfile: (next: VRChatUserProfile) => void
+  /**
+   * The failed read's "Try again": the whole read again, as a `version` change runs it. Its own,
+   * so a failure does not redraw the popup and lose a note or a ban reason half written beside
+   * it. Null after a refusal, which reading again cannot change.
+   */
+  reload: (() => void) | null
 }
 
 /** `version` re-runs the whole read when it changes, which is how a live fact about the person reaches the profile. */
@@ -45,6 +52,8 @@ export function useStoredProfile(subjectId: string, version = 0): StoredProfile 
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [final, setFinal] = useState(false)
+  const [tries, setTries] = useState(0)
 
   // The lastRefreshedAt the refresh was asked against. The poll ends when the server's differs.
   const baseline = useRef<string | null>(null)
@@ -63,6 +72,7 @@ export function useStoredProfile(subjectId: string, version = 0): StoredProfile 
 
     const fail = (e: unknown) => {
       if (cancelled.current) return
+      setFinal(isFinal(e))
       setError(
         e instanceof ApiError && e.status === 403
           ? 'You do not have permission to view profiles.'
@@ -154,7 +164,12 @@ export function useStoredProfile(subjectId: string, version = 0): StoredProfile 
       cancelled.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [subjectId, load, demo, version])
+  }, [subjectId, load, demo, version, tries])
 
-  return { profile, error, refreshing, note, setProfile }
+  const reload = useCallback(() => {
+    setError(null)
+    setTries((n) => n + 1)
+  }, [])
+
+  return { profile, error, refreshing, note, setProfile, reload: error && final ? null : reload }
 }

@@ -59,7 +59,7 @@ export function ProfileIdentity({
 }) {
   const { profile, error, refreshing, note } = stored
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) return <Empty tone="danger" onTryAgain={stored.reload}>{error}</Empty>
 
   if (!profile) return <Empty tone="loading" />
 

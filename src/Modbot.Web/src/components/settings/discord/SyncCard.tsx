@@ -29,7 +29,10 @@ export function SyncCard() {
     () =>
       api
         .discordSync()
-        .then(setData)
+        .then((next) => {
+          setData(next)
+          setError(null)
+        })
         .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load the sync settings.')),
     [],
   )
