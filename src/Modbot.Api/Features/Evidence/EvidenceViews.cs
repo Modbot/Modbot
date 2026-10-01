@@ -44,6 +44,11 @@ internal static class EvidenceViews
         Clip: ClipOf(blob));
 
     /// <summary>Where and when the file was saved as a clip, or null when it was not.</summary>
+    /// <remarks>
+    /// Shown for a destroyed file too. Destroying erases the bytes and keeps the record that they
+    /// existed — the name, the size, the type, who sent it — and where and when a clip was saved,
+    /// and by whose device, is part of that record, not of the bytes (evidence spec §12.4).
+    /// </remarks>
     private static EvidenceClipView? ClipOf(EvidenceBlob blob) => blob.ClipSavedAt is { } savedAt
         ? new EvidenceClipView(savedAt, blob.ClipWorldId, blob.ClipInstanceId, blob.ClipSavedById, blob.ClipSavedByName)
         : null;

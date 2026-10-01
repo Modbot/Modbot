@@ -32,6 +32,7 @@ public class AuditShowTests
                 FactType.AvatarChanged,
                 FactType.InstanceJoined,
                 FactType.InstanceLeft,
+                FactType.InstanceClipSaved,
                 FactType.InstanceLogStopped,
                 FactType.InstancePresenceObserved,
             }.Order(),

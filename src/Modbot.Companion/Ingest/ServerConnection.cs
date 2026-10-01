@@ -353,8 +353,18 @@ public sealed class ServerConnection : IIngestTarget
                 DeduplicatedTotal += result.Deduplicated;
 
                 // Written before the buffer is cleared, so the record of a disclosure cannot be
-                // lost by a crash between the two.
-                _journal?.RecordSent(Name, sent);
+                // lost by a crash between the two. The events the server named as refused are
+                // written as failed, with its reason, rather than as sent: it was told them and
+                // kept none of them, and the screen has to say so.
+                var refused = RefusedIn(result, sent);
+                _journal?.RecordSent(Name, sent.Where((_, index) => !refused.ContainsKey(index)));
+                if (refused.Count > 0)
+                {
+                    _journal?.RecordFailed(Name, refused.Values.Select(r => r.Event));
+                    foreach (var reason in refused.Values.Select(r => r.Reason).Distinct(StringComparer.Ordinal))
+                        _journal?.RecordNote(Name, $"The server refused an event: {Explain(reason)}.");
+                }
+
                 _buffer.Remove(sent.Select(e => e.CompanionEventId));
                 Succeeded();
                 NoteWaitingChanges();
@@ -424,6 +434,28 @@ public sealed class ServerConnection : IIngestTarget
                 break;
         }
     }
+
+    /// <summary>The events of this batch the server listed as refused, by their place in it.</summary>
+    private static Dictionary<int, (CompanionEvent Event, string Reason)> RefusedIn(
+        IngestResult result, IReadOnlyList<CompanionEvent> sent)
+    {
+        var refused = new Dictionary<int, (CompanionEvent, string)>();
+        foreach (var item in result.Refused ?? [])
+        {
+            if (item.Index >= 0 && item.Index < sent.Count)
+                refused[item.Index] = (sent[item.Index], item.Reason);
+        }
+
+        return refused;
+    }
+
+    /// <summary>A refusal reason, as the Events page says it.</summary>
+    public static string Explain(string reason) => reason switch
+    {
+        "not_the_device_owner" => "it is not about the VRChat account linked to your Modbot account",
+        "unknown_group" => "it is for an instance of another group",
+        _ => "it is not something this server keeps",
+    };
 
     /// <summary>
     /// Looks at what is still in the buffer after a send and starts the short wait again if any of

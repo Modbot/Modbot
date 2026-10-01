@@ -1153,7 +1153,7 @@ internal sealed class CompanionHost : IOverlayListener
     /// fingerprint is what lets the server recognise the same file if the moderator attaches it to
     /// a case later, in a browser, signed in as themselves (clips design spec §16).</para>
     /// <para>The file is read once, on a worker thread, to work out the fingerprint; the event is
-    /// queued back on this thread, where the reading loop that sends it runs. A file that cannot be
+    /// queued on the UI thread, explicitly, where the reading loop that sends it runs. A file that cannot be
     /// read is still a saved clip, and the server is simply not told.</para>
     /// </remarks>
     private async Task TellServerAboutClipAsync(ClipToTell tell, string fileName)
@@ -1171,7 +1171,11 @@ internal sealed class CompanionHost : IOverlayListener
             tell.ModeratorId, tell.ModeratorName, tell.WorldId, tell.InstanceId, tell.GroupId,
             tell.SavedAt, found.Hash, found.Bytes);
 
-        var told = _engine?.Connections.Count(c => c.AcceptClipSaved(clip)) ?? 0;
+        // Put on the UI thread by name rather than trusted to come back there: the connections
+        // and their buffers belong to the reading loop, which the window's timer runs on that
+        // thread, and the line above may have finished on a worker.
+        var told = await Dispatcher.UIThread.InvokeAsync(
+            () => _engine?.Connections.Count(c => c.AcceptClipSaved(clip)) ?? 0);
         Log.Information(
             told > 0 ? "Told the group's server a clip was saved" : "No paired server took the saved clip");
     }

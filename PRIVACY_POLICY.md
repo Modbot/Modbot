@@ -250,7 +250,9 @@ draws.
 
 - Records where that person was the one acting, such as a moderator's bans. They are somebody else's
   moderation history.
-- Their case files and the evidence attached to them.
+- Their case files and the evidence attached to them. A clip attached as one a moderator's client
+  saved keeps that moderator's VRChat id and Modbot username with it, and a purge of that moderator
+  does not remove them.
 - The rows Modbot holds about who someone currently is: their VRChat profile, group membership, ban
   list entry, Discord member row and account link. Modbot's next sync can also write a current
   member's profile again.

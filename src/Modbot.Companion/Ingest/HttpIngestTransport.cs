@@ -128,8 +128,8 @@ public sealed class HttpIngestTransport : IIngestTransport
 
         if (response.IsSuccessStatusCode)
         {
-            var (accepted, deduplicated, rejected) = ReadCounts(body);
-            return new IngestResult(IngestOutcome.Accepted, accepted, deduplicated, rejected, Code: code);
+            var (accepted, deduplicated, refused) = ReadCounts(body);
+            return new IngestResult(IngestOutcome.Accepted, accepted, deduplicated, refused.Count, Code: code, Refused: refused);
         }
 
         var outcome = response.StatusCode switch
@@ -160,7 +160,12 @@ public sealed class HttpIngestTransport : IIngestTransport
         }
     }
 
-    private static (int Accepted, int Deduplicated, int Rejected) ReadCounts(string body)
+    /// <summary>
+    /// The counts in a 200, and which events the server refused and why — so the Events page can
+    /// say an event was refused rather than sent. A refusal with no readable place in the batch is
+    /// still counted, and cannot be pinned on any one event.
+    /// </summary>
+    private static (int Accepted, int Deduplicated, IReadOnlyList<RefusedEvent> Refused) ReadCounts(string body)
     {
         try
         {
@@ -169,15 +174,28 @@ public sealed class HttpIngestTransport : IIngestTransport
 
             var accepted = root.TryGetProperty("accepted", out var a) ? a.GetInt32() : 0;
             var deduplicated = root.TryGetProperty("deduplicated", out var d) ? d.GetInt32() : 0;
-            var rejected = root.TryGetProperty("rejected", out var r) && r.ValueKind == JsonValueKind.Array
-                ? r.GetArrayLength()
-                : 0;
 
-            return (accepted, deduplicated, rejected);
+            var refused = new List<RefusedEvent>();
+            if (root.TryGetProperty("rejected", out var r) && r.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in r.EnumerateArray())
+                {
+                    var index = item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("index", out var i) && i.TryGetInt32(out var at) ? at : -1;
+                    var reason = item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("reason", out var why) && why.ValueKind == JsonValueKind.String
+                            ? why.GetString() ?? ""
+                            : "";
+
+                    refused.Add(new RefusedEvent(index, reason));
+                }
+            }
+
+            return (accepted, deduplicated, refused);
         }
-        catch (JsonException)
+        catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException)
         {
-            return (0, 0, 0);
+            return (0, 0, []);
         }
     }
 }

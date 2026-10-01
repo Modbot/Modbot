@@ -1280,7 +1280,9 @@ or attach evidence (§6 point 1 and 2 still hold).
 
 **A clip is credited to the device's owner, by the server.** The event's subject must be the VRChat
 account linked to the Modbot account the device was paired to, or it is refused
-(`not_the_device_owner`); the fact gets that account's id and username from the pairing, and the
+(`not_the_device_owner`), and the companion writes the refused event on its Events page as failed,
+with the reason, by reading the 200's `rejected` list; the fact gets that account's id and username
+from the pairing, and the
 case file says "saved on <that username>'s PC". Without this, any paired device could announce a
 fingerprint as somebody else's clip, and whoever held the file could attach it credited to them
 (review, 2026-10-01). What is left, stated plainly: a stolen token can announce clips credited to

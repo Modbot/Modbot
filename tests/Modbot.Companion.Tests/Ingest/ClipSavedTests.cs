@@ -112,12 +112,54 @@ public sealed class ClipSavedTests : IDisposable
     }
 
     [Fact]
-    public void TheEventsPageSaysTheClipStayedOnThisPc()
+    public void TheEventsPageNamesASavedClip()
     {
         var mapper = new PresenceEventMapper(new LogTimestampConverter(Utc), new ServerClock(_clock));
 
-        Assert.Equal(SentJournal.ClipSavedSentence, SentJournal.Describe(mapper.MapClipSaved(Clip())));
-        Assert.Contains("stays on this PC", SentJournal.ClipSavedSentence, StringComparison.Ordinal);
+        Assert.Equal("You saved a clip here", SentJournal.Describe(mapper.MapClipSaved(Clip())));
+    }
+
+    /// <summary>
+    /// A clip the server refuses — here, because the device's owner has no VRChat account linked —
+    /// is written on the Events page as failed, with the reason, not as sent.
+    /// </summary>
+    [Fact]
+    public async Task AnEventTheServerRefusesIsWrittenAsFailedWithTheReason()
+    {
+        var journal = new SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
+        var refusing = new RefusingTransport();
+        var pairing = new ServerPairing("cats", new Uri("https://modbot.example"), "token", "grp_cats");
+        var serverClock = new ServerClock(_clock);
+        var connection = new ServerConnection(
+            pairing,
+            new FileEventBuffer(Path.Combine(_directory, "refused.jsonl"), _clock),
+            new PresenceEventMapper(new LogTimestampConverter(Utc), serverClock),
+            serverClock,
+            refusing,
+            _clock,
+            companionVersion: "2026.10.0",
+            journal: journal);
+
+        Assert.True(connection.AcceptClipSaved(Clip()));
+        _clock.Advance(ServerConnection.DefaultBatchInterval);
+        await connection.PumpAsync(Ct);
+
+        var row = Assert.Single(journal.Events(), r => !r.IsNote);
+        Assert.Equal(JournalEntryKind.Failed, row.State);
+        Assert.Contains(
+            journal.Recent(),
+            e => e.Kind == JournalEntryKind.Note
+                && e.Summary.Contains(ServerConnection.Explain("not_the_device_owner"), StringComparison.Ordinal));
+        Assert.Equal(0, connection.Pending);
+    }
+
+    private sealed class RefusingTransport : IIngestTransport
+    {
+        public Task<IngestResult> SendAsync(ServerPairing pairing, EventBatch batch, CancellationToken ct)
+            => Task.FromResult(new IngestResult(
+                IngestOutcome.Accepted,
+                Rejected: 1,
+                Refused: [new RefusedEvent(0, "not_the_device_owner")]));
     }
 
     [Fact]

@@ -924,7 +924,11 @@ Alex's PC"). On a match the blob row gains `clip_saved_at`, `clip_world_id`, `cl
 `clip_saved_by_id` (VRChat), `clip_saved_by_user_id` and `clip_saved_by_name` (the Modbot account the
 reporting device was paired to — the server's attribution, never the device's) and
 `clip_device_id`, set once by the first matched attach, in the same transaction as the hold, and
-never changed; the `modbot.evidence.attach` fact carries the same under `clip`. They are kept on the blob rather
+never changed; the `modbot.evidence.attach` fact carries the same under `clip`. Destroying the file
+keeps them, the way it keeps the file name, size, type and uploader (§6): they describe where the
+bytes came from, which is part of the record that the file existed. A purge of the moderator who
+saved the clip erases their clip-saved fact, which is history about them, and keeps these columns
+with the evidence, the way it keeps case files and evidence (§15). They are kept on the blob rather
 than read back from the clip-saved fact because that fact is presence and ages out; where a piece of
 evidence was recorded has to stay answerable for as long as the evidence does (§15).
 

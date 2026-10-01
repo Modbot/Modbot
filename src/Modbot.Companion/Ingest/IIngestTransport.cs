@@ -44,13 +44,23 @@ public enum IngestOutcome
 /// one instance all observe the same join and all report it.
 /// </param>
 /// <param name="RetryAfter">Honoured when the server sends it. Modbot does, even though VRChat does not.</param>
+/// <param name="Refused">
+/// Which events of an accepted batch the server refused, by their place in the batch, and its
+/// reason for each. Null when the answer did not list them; then every event counts as sent.
+/// </param>
 public sealed record IngestResult(
     IngestOutcome Outcome,
     int Accepted = 0,
     int Deduplicated = 0,
     int Rejected = 0,
     TimeSpan? RetryAfter = null,
-    string? Code = null);
+    string? Code = null,
+    IReadOnlyList<RefusedEvent>? Refused = null);
+
+/// <summary>One event of a batch the server took but would not keep, protocol §7.1.</summary>
+/// <param name="Index">Its place in the batch as it was sent.</param>
+/// <param name="Reason">The server's machine-readable reason: <c>malformed_event</c>, <c>unknown_group</c>, <c>not_the_device_owner</c>.</param>
+public sealed record RefusedEvent(int Index, string Reason);
 
 /// <summary>
 /// The one thing in the client that makes an outbound request carrying observations.

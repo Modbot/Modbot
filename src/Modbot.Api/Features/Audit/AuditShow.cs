@@ -89,6 +89,10 @@ public static class AuditShow
         FactType.InstancePresenceObserved,
         FactType.AvatarChanged,
         FactType.InstanceLogStopped,
+
+        // A moderator saving a clip in an instance, by their own companion's report: presence
+        // class by prefix, kept and aged out with the rest, so it is shown with them.
+        FactType.InstanceClipSaved,
     };
 
     /// <summary>

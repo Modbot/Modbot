@@ -274,7 +274,9 @@ whole over one event, because `type` is read as a string rather than an enum.
 The client treats a `200` as the server's final word on every event in the batch — accepted,
 already known or refused — and removes all of them from its buffer. So a new client talking to an
 old server loses exactly the `LogStopped` lines, retries nothing, and reports everything else as
-before. An old client talking to a new server simply never sends the event: its moderators' watches
+before. *(2026-10-01: the client now reads `rejected` — each entry's `index` and `reason` — and
+writes those events on its Events page as failed, with a note giving the reason in words, instead of
+as sent. It still retries none of them.)* An old client talking to a new server simply never sends the event: its moderators' watches
 end on their own leave, on the room closing, or on their presence showing up somewhere else.
 
 ### 4.3 Idempotency is the client's job, deduplication is the server's
