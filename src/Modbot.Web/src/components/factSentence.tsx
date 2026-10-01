@@ -1362,11 +1362,17 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
-  'modbot.calendar.instance.open': (p) => (
-    <>
-      Modbot opened {p.place ?? 'an instance'} for the event<Quoted value={p.text('title')} />.
-    </>
-  ),
+  // `byHand`: somebody pressed Open now, and is the actor.
+  'modbot.calendar.instance.open': (p) =>
+    p.entry.data?.['byHand'] === true ? (
+      <>
+        {p.actor} opened {p.place ?? 'an instance'} for the event<Quoted value={p.text('title')} />.
+      </>
+    ) : (
+      <>
+        Modbot opened {p.place ?? 'an instance'} for the event<Quoted value={p.text('title')} />.
+      </>
+    ),
 
   'modbot.calendar.instance.fail': (p) => (
     <>

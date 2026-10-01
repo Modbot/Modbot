@@ -11,6 +11,7 @@ import { Checkbox, Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
 import {
   calendarApi,
+  canOpenNow,
   PLACE_LABEL,
   PLACE_STATE_LABEL,
   STATE_LABEL,
@@ -323,13 +324,44 @@ function InviteCounts({ invites }: { invites: CalendarInvites }) {
   )
 }
 
-/** Edit, Duplicate, Cancel event and Delete, for somebody who may change the event. */
+/** Opens the instance for the event's current or next time, once. */
+function OpenNowButton({ event, onChanged }: { event: CalendarEvent; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const open = () => {
+    setBusy(true)
+    setError(null)
+    calendarApi
+      .openNow(event.id)
+      .then(onChanged)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not open the instance.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <>
+      <Button size="sm" variant="outline" disabled={busy} onClick={open}>
+        Open now
+      </Button>
+      {error && <span className="basis-full text-destructive">{error}</span>}
+    </>
+  )
+}
+
+/** Edit, Open now, Duplicate, Cancel event and Delete, for somebody who may change the event. */
 function EventButtons({
   event,
+  now,
   onEdit,
   onDuplicate,
+  onChanged,
   onAsk,
-}: Pick<Actions, 'onEdit' | 'onDuplicate'> & { event: CalendarEvent; onAsk: (what: 'cancel' | 'delete') => void }) {
+}: Pick<Actions, 'onEdit' | 'onDuplicate' | 'onChanged'> & {
+  event: CalendarEvent
+  now: Date
+  onAsk: (what: 'cancel' | 'delete') => void
+}) {
   const live = event.state === 'scheduled' || event.state === 'open'
 
   return (
@@ -339,6 +371,7 @@ function EventButtons({
           Edit
         </Button>
       )}
+      {canOpenNow(event, now) && <OpenNowButton event={event} onChanged={onChanged} />}
       <Button size="sm" variant="outline" onClick={onDuplicate}>
         Duplicate
       </Button>
@@ -462,7 +495,7 @@ export function EventDetails({
   live: number
   /** Which places are set up, from the calendar's own read. */
   ready?: CalendarReady | null
-  /** The page's clock: a date still to come can be changed on its own. */
+  /** The page's clock: a date still to come can be changed on its own, and Open now is offered by it. */
   now: Date
 }) {
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null)
@@ -485,8 +518,10 @@ export function EventDetails({
   const buttons = actions.canManage && (
     <EventButtons
       event={event}
+      now={now}
       onEdit={() => (ownDate ? setChoosing('edit') : actions.onEdit())}
       onDuplicate={actions.onDuplicate}
+      onChanged={actions.onChanged}
       onAsk={(what) => (what === 'cancel' && ownDate ? setChoosing('cancel') : setConfirm(what))}
     />
   )

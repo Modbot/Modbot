@@ -7,7 +7,8 @@ namespace Modbot.VRChat.Calendar;
 
 /// <summary>
 /// Writes the facts the calendar's own loops record (calendar design §8): an occurrence opening,
-/// an event finishing, an instance opened or not, a place failing. No actor -- Modbot did these.
+/// an event finishing, an instance opened or not, a place failing. No actor -- Modbot did these --
+/// except an instance somebody opened with Open now.
 /// </summary>
 public sealed class CalendarFacts
 {
@@ -32,7 +33,8 @@ public sealed class CalendarFacts
         JsonObject? data = null,
         string? worldId = null,
         string? instanceId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Guid? actorUserId = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
@@ -49,6 +51,10 @@ public sealed class CalendarFacts
                 OccurredAt = now,
                 SubjectPlatform = FactPlatform.Modbot,
                 SubjectId = calendarEvent.Id.ToString(),
+
+                // Somebody pressed Open now; otherwise Modbot did it on its own and there is no actor.
+                ActorPlatform = actorUserId is null ? null : FactPlatform.Modbot,
+                ActorId = actorUserId?.ToString(),
                 WorldId = worldId,
                 InstanceId = instanceId,
                 Source = FactSource.Modbot,

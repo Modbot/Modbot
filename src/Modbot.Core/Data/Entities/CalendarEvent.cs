@@ -430,6 +430,17 @@ public class CalendarOpening
     public string? Error { get; set; }
 
     /// <summary>
+    /// True when the last attempt did not get VRChat's answer to it -- nothing was sent, VRChat asked
+    /// Modbot to slow down, or VRChat failed on its side -- so a later pass may try again while the
+    /// time has not ended. False once VRChat really refused (a 4xx other than 429), which is final
+    /// for that time (calendar design §4, added 2026-10-01).
+    /// </summary>
+    public bool TryAgain { get; set; }
+
+    /// <summary>The staff account that pressed Open now, or null when Modbot opened it on time.</summary>
+    public Guid? OpenedByUserId { get; set; }
+
+    /// <summary>
     /// When the invites for this occurrence were put in <c>calendar_invite</c>. Written once; null
     /// until then, and for an event that invites nobody.
     /// </summary>

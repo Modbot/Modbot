@@ -312,6 +312,10 @@ test('the colour follows what a moderator acts on', () => {
   assert.equal(eventTone({ state: 'open', places: [] }), 'open')
   assert.equal(eventTone({ state: 'draft', places: [] }), 'draft')
   assert.equal(eventTone({ state: 'finished', places: [{ state: 'failed' }] }), 'finished')
+  // An instance that did not open is red like a place that failed, while the event is still on.
+  assert.equal(eventTone({ state: 'open', places: [], opening: { error: 'VRChat answered 400.' } }), 'failed')
+  assert.equal(eventTone({ state: 'open', places: [], opening: { error: null } }), 'open')
+  assert.equal(eventTone({ state: 'finished', places: [], opening: { error: 'VRChat answered 400.' } }), 'finished')
 })
 
 // ── Saving a drag in the event's own zone ─────────────────────────────────────────────────

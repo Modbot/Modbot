@@ -434,12 +434,18 @@ export function movedInput(
 export type EventTone = 'draft' | 'scheduled' | 'open' | 'finished' | 'failed'
 
 /**
- * What an event's colour says: a place failed (red), it is open now (green), it is a draft
- * (outlined), it is over (faded), or it is simply planned (the accent). Publish state, which the
- * moderator acts on, rather than a colour per event, which nobody can read.
+ * What an event's colour says: a place failed or its instance did not open (red), it is open now
+ * (green), it is a draft (outlined), it is over (faded), or it is simply planned (the accent).
+ * Publish state, which the moderator acts on, rather than a colour per event, which nobody can read.
  */
-export function eventTone(event: { state: string; places: { state: string }[] }): EventTone {
-  if (event.places.some((p) => p.state === 'failed') && (event.state === 'scheduled' || event.state === 'open')) return 'failed'
+export function eventTone(event: {
+  state: string
+  places: { state: string }[]
+  opening?: { error: string | null } | null
+}): EventTone {
+  const live = event.state === 'scheduled' || event.state === 'open'
+  const failed = event.places.some((p) => p.state === 'failed') || !!event.opening?.error
+  if (failed && live) return 'failed'
   if (event.state === 'open') return 'open'
   if (event.state === 'draft') return 'draft'
   if (event.state === 'finished' || event.state === 'cancelled') return 'finished'

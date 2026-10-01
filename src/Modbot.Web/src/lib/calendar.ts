@@ -165,6 +165,28 @@ export function hasRun(event: CalendarEvent, start: Date, now: Date): boolean {
   return true
 }
 
+/** How long before a time's start Open now is offered: the most an event may open early. */
+export const OPEN_NOW_EARLIEST_MINUTES = 120
+
+/**
+ * Whether Open now is offered: the event is on, has a world, its current or next time is near or
+ * running, and no instance of that time is open or opening.
+ */
+export function canOpenNow(event: CalendarEvent, now: Date): boolean {
+  if (event.state !== 'scheduled' && event.state !== 'open') return false
+  if (!event.worldId || !event.occurrenceStartsAt || !event.occurrenceEndsAt) return false
+
+  const start = Date.parse(event.occurrenceStartsAt)
+  const end = Date.parse(event.occurrenceEndsAt)
+  if (now.getTime() < start - OPEN_NOW_EARLIEST_MINUTES * 60_000 || now.getTime() >= end) return false
+
+  const opening = event.opening
+  if (!opening) return true
+  if (opening.instanceId) return opening.closed
+  // A failed attempt, or one with no answer for a minute.
+  return !!opening.error || now.getTime() - Date.parse(opening.attemptedAt) >= 60_000
+}
+
 export type CalendarView = {
   events: CalendarEvent[]
   canManage: boolean
@@ -357,6 +379,8 @@ export const calendarApi = {
   /** Cancels one date of a repeating event; the other dates stay. `postInChannel` as for `cancel`. */
   cancelDate: (id: string, plannedStartsAt: string, postInChannel = false) =>
     http.post<void>(`${base}/events/${id}/dates/cancel`, { plannedStartsAt, postInChannel }),
+  /** Opens the instance for the event's current or next time now. Answers with the event. */
+  openNow: (id: string) => http.post<CalendarEvent>(`${base}/events/${id}/open`),
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   /**

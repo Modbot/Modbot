@@ -84,7 +84,7 @@ An event's colour says where it stands:
 |---|---|
 | The accent colour | **Scheduled**, and nothing has failed. |
 | Green | **Open** right now. |
-| Red edge | **Scheduled** or **Open**, and at least one place it is published has **Failed**. Open the event to see the error. |
+| Red edge | **Scheduled** or **Open**, and at least one place it is published has **Failed**, or its instance did not open. Open the event to see the error. |
 | Dashed outline | A **Draft**. |
 | Faded | **Finished**. |
 
@@ -131,7 +131,9 @@ Click an event in any view. It opens in a small box beside it, showing:
 - one line per place it is published, with its state and, if it failed, VRChat's or Discord's error;
 - **How it went**, once the time you clicked has started. See [What an event did](#what-an-event-did).
 
-With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** and **Delete**.
+With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** and **Delete**, and
+**Open now** from two hours before a time starts until it ends, while no instance of it is open. See
+[Opening the instance](#opening-the-instance).
 **Duplicate** opens the form for a new event filled in with this one's details; nothing is saved
 until you save it.
 
@@ -655,8 +657,22 @@ Once the instance is open, its join link goes onto the Discord event and the cha
 event shows it under **Instance**. When the instance closes, the link is taken off.
 
 **If VRChat refuses, Modbot does not try again** for that time. The error shows on the event under
-**Instance** and on [Health](#on-health). The next time the event happens gets its own
-attempt. If you need the instance now, open it yourself in VRChat.
+**Instance** and on [Health](#on-health), and the event turns red. The next time the event happens
+gets its own attempt.
+
+**If VRChat did not answer**, Modbot tries again while the time has not ended: when nothing could be
+sent yet (Modbot was waiting out a VRChat request limit or signing in), when VRChat asked Modbot to
+slow down (only once the limit allows), or when VRChat failed on its side (a minute later). The event
+shows **Opening** meanwhile, or VRChat's error when there was one.
+
+### Open now
+
+**Open now**, on the event, opens the instance straight away, through the same path and the same
+limit. It appears for people with **Manage calendar** from two hours before a time starts until it
+ends, while no instance of that time is open: before the opening time, after VRChat refused, or after
+the instance closed. It works whether or not **Open the instance automatically** is ticked. The audit
+log names who pressed it. Invites and the posts for the first person then follow as usual; after a
+closed instance, the people not invited yet are invited to the new one.
 
 Modbot opens at most one instance every 5 seconds, which is well within what an event needs.
 

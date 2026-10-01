@@ -328,6 +328,51 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
+        group.MapPost("/events/{id:guid}/open", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] CalendarOpener opener,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                if (ModbotAuth.UserIdOf(http.User) is not { } actor)
+                    return Results.Forbid();
+
+                var result = await opener.OpenNowAsync(id, actor, ct);
+
+                var refusal = result.Outcome switch
+                {
+                    CalendarOpenNowOutcome.NoSuchEvent => Results.NotFound(),
+                    CalendarOpenNowOutcome.NotConfigured => Results.Conflict(new { error = "Pick a managed group first." }),
+                    CalendarOpenNowOutcome.NoWorld => Results.Conflict(new { error = "The event has no world." }),
+                    CalendarOpenNowOutcome.TooEarly => Results.Conflict(new { error = "It is too early to open the instance." }),
+                    CalendarOpenNowOutcome.Over => Results.Conflict(new { error = "That event has already ended." }),
+                    CalendarOpenNowOutcome.AlreadyOpen => Results.Conflict(new { error = "The instance is already open." }),
+                    _ => null,
+                };
+
+                if (refusal is not null)
+                    return refusal;
+
+                // How it went is on the event: the instance, or VRChat's words under Instance.
+                var calendarEvent = await db.CalendarEvents.AsNoTracking().FirstAsync(e => e.Id == id, ct);
+                var now = clock.UtcNow;
+                var views = await ViewsAsync(db, [calendarEvent], now, now.AddDays(42), ct);
+                return Results.Ok(views[0]);
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("OpenCalendarEventNow")
+            .WithSummary("Open an event's instance now")
+            .WithDescription(
+                "Opens the group instance for the event's current or next time, from two hours before "
+                + "its start until its end, when none is open. One request to VRChat, recorded with who "
+                + "asked; the invites and the first-person posts follow as usual. Answers with the event.")
+            .Produces<CalendarEventView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
+
         group.MapPost("/events/{id:guid}/cancel", async (
                 HttpContext http,
                 [FromRoute] Guid id,

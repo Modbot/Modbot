@@ -314,9 +314,20 @@ weekly event filled with old cards and "Cancelled" lines, a card per date and a 
 - **Once per occurrence, across restarts.** A row in `calendar_opening`, keyed by event and
   occurrence start, is written **before** the request is sent — the same rule sign-ins follow
   (foundation §4.1.2). A crash between the two cannot open a second instance.
-- **A failure is not tried again for that occurrence.** It is shown on the event and on Health, and
-  the next occurrence gets its own attempt. An automatic retry loop against a write VRChat just
-  refused is the thing §4.3 exists to prevent.
+- **A refusal is not tried again for that occurrence.** It is shown on the event, on Health and as
+  a red event block, and the next occurrence gets its own attempt. An automatic retry loop against a
+  write VRChat just refused is the thing §4.3 exists to prevent.
+- **Only a real refusal is final** (changed 2026-10-01). Until then any failure gave up on the time,
+  even one where nothing was sent (the gate waiting out a rate limit or a sign-in), and the event
+  went without its instance. Now a 4xx other than 429 is final. Anything else marks the row
+  `try_again` and a later pass tries once more while the time has not ended: nothing sent, at once
+  on the next pass the gate allows; a 429, only once the limiter's cold stop is over (never in the
+  same pass); VRChat's 5xx or no answer, a minute later. The row is marked before each try, as before.
+- **Open now** (added 2026-10-01): somebody with Manage calendar can open the instance for the current
+  or next time, from two hours before its start until its end, while none is open. Same path, same
+  `instances.create` budget, at interactive priority; the row records who pressed it
+  (`opened_by_user_id`) and so does the fact. Replacing a closed instance puts the people still to be
+  invited back on the queue, and the first-person posts may go again for the new instance.
 - An occurrence is still opened if Modbot comes up late, as long as the occurrence has not ended.
 - A date cancelled on its own is never opened, and a moved one opens before its new start (§2.2):
   the opener asks the same list of dates as everything else.

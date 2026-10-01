@@ -22604,6 +22604,73 @@
         ]
       }
     },
+    "/api/calendar/events/{id}/open": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Open an event's instance now",
+        "description": "Opens the group instance for the event's current or next time, from two hours before its start until its end, when none is open. One request to VRChat, recorded with who asked; the invites and the first-person posts follow as usual. Answers with the event.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "OpenCalendarEventNow",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/events/{id}/cancel": {
       "post": {
         "tags": [

@@ -136,6 +136,20 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
         return list;
     }
 
+    /// <summary>Somebody pressing Open now on an event, in its own scope the way a request has one.</summary>
+    protected async Task<CalendarOpenNowResult> OpenNowAsync(Guid eventId, Guid actor)
+    {
+        await using var context = Database.NewContext();
+        return await new CalendarOpener(Gate, context, new PlaceStore(context, Clock), Clock, Facts(context))
+            .OpenNowAsync(eventId, actor, Ct);
+    }
+
+    protected async Task<CalendarOpening> OpeningAsync(Guid eventId)
+    {
+        await using var context = Database.NewContext();
+        return await context.CalendarOpenings.AsNoTracking().SingleAsync(o => o.EventId == eventId, Ct);
+    }
+
     protected async Task<int> ScheduleAsync()
     {
         await using var context = Database.NewContext();
