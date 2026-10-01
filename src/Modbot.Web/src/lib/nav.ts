@@ -78,9 +78,10 @@ export const NAV = [
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
   // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
-  // design). After Giveaways, whose rules they are. Seeing one shows nobody See members does not
-  // already show, so it needs that and nothing of its own; making one is the page's own check.
-  { id: 'lists', label: 'Lists', group: 'Community', needs: 'ViewMembers', words: ['segments', 'regulars', 'export'] },
+  // design). After Giveaways, whose rules they are. Needs See members and See profiles both: a
+  // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is
+  // moderation history, not only membership (decided 2026-10-01). Making one is the page's own check.
+  { id: 'lists', label: 'Lists', group: 'Community', needsAll: ['ViewMembers', 'ViewProfile'], words: ['segments', 'regulars', 'export'] },
   // The "Integrations" heading itself (2026-09-30): a card for each outside service Modbot is
   // connected to, its status, and a Set up button into the part of Settings where it is set up.
   // Not a row of its own: the heading is its link (`heads`, `sidebarRows`), and on a phone its tile
@@ -354,6 +355,7 @@ export function offered(me: CurrentUser, item: NavItem): boolean {
 export function mayOpen(me: CurrentUser, id: PageId): boolean {
   const item = NAV.find((n) => n.id === id)
   if (!item) return true
+  if ('needsAll' in item) return item.needsAll.every((p) => can(me, p))
   if ('needsAny' in item) return canAny(me, item.needsAny)
   if ('needs' in item) return can(me, item.needs)
   return true

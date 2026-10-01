@@ -17,10 +17,12 @@ function person(...permissionNames: string[]): CurrentUser {
   return { permissionNames } as CurrentUser
 }
 
-test('Lists opens for anybody who may see members, and making one is not enough', () => {
+test('Lists needs See members and See profiles both, and making one is not enough', () => {
   assert.equal(mayOpen(person(), 'lists'), false)
   assert.equal(mayOpen(person('ManageLists'), 'lists'), false)
-  assert.equal(mayOpen(person('ViewMembers'), 'lists'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'lists'), false)
+  assert.equal(mayOpen(person('ViewProfile'), 'lists'), false)
+  assert.equal(mayOpen(person('ViewMembers', 'ViewProfile'), 'lists'), true)
   assert.equal(mayOpen(person('Administrator'), 'lists'), true)
 })
 

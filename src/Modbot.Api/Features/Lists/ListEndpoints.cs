@@ -35,9 +35,17 @@ namespace Modbot.Api.Features.Lists;
 /// exclusions and no weighting, so a list and a giveaway with the same rules name the same people
 /// (giveaways design §2.6).
 /// </para>
+/// <para>
+/// <strong>Seeing a list needs See members and See profiles both</strong> (<see cref="ToSee"/>,
+/// lists design §6). A list's rules can ask about bans, flags and 18+ verification, so who is in
+/// "banned twice" is moderation history and profile data, not only membership.
+/// </para>
 /// </remarks>
 public static class ListEndpoints
 {
+    /// <summary>What seeing a list, who is in it, or an export of it needs.</summary>
+    public const ModbotPermissions ToSee = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
+
     public const int DefaultPageSize = 50;
 
     public const int MaxPageSize = 200;
@@ -58,14 +66,11 @@ public static class ListEndpoints
                     .OrderBy(l => l.Name)
                     .ToListAsync(ct);
 
-                var held = ModbotAuth.PermissionsOf(http.User);
-
                 return Results.Ok(new ListsView(
                     await ViewsAsync(db, lists, ct),
-                    ModbotAuth.Allows(held, ModbotPermissions.ManageLists),
-                    ModbotAuth.Allows(held, ModbotPermissions.ViewProfile)));
+                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageLists)));
             })
-            .RequiresFlag(ModbotPermissions.ViewMembers)
+            .RequiresFlag(ToSee)
             .WithName("ListLists")
             .WithSummary("List saved lists")
             .WithDescription("Every saved list by name, with its rules and what uses it.")
@@ -123,10 +128,9 @@ public static class ListEndpoints
                 var people = await checker.PeopleAsync(rules, ct);
                 return Results.Ok(Page(people, 1, Size(pageSize), clock.UtcNow));
             })
-            // Manage lists rather than See members: a rule can ask about bans, flags and presence,
-            // which See members alone does not show. Somebody who may make lists decides which
-            // questions the saved ones ask; the preview is the builder's, not a way round that.
-            .RequiresFlag(ModbotPermissions.ManageLists)
+            // The builder's, so Manage lists; and it shows people the way a saved list does, so
+            // whatever seeing a list needs as well. A preview must not be a way round either.
+            .RequiresFlag(ModbotPermissions.ManageLists | ToSee)
             .WithName("PreviewList")
             .WithSummary("Preview list rules")
             .WithDescription(
@@ -156,7 +160,7 @@ public static class ListEndpoints
                 var people = await checker.PeopleAsync(GiveawayRules.ReadStored(list.Rules), ct);
                 return Results.Ok(Page(people, Math.Max(page ?? 1, 1), Size(pageSize), clock.UtcNow));
             })
-            .RequiresFlag(ModbotPermissions.ViewMembers)
+            .RequiresFlag(ToSee)
             .WithName("ListListPeople")
             .WithSummary("List the people in a list")
             .WithDescription(
@@ -340,7 +344,7 @@ public static class ListEndpoints
                 if (people.Unanswerable is { } why)
                     return Results.Conflict(new { error = why });
 
-                var columns = ExportColumns.For(ModbotAuth.PermissionsOf(http.User));
+                var columns = ExportColumns.All;
                 var now = clock.UtcNow;
 
                 // Recorded before the file is handed over and in the same request, so there is no
@@ -364,15 +368,13 @@ public static class ListEndpoints
                     ? Results.File(Encoding.UTF8.GetBytes(Csv(people, columns)), "text/csv; charset=utf-8", file)
                     : Results.File(Encoding.UTF8.GetBytes(Json(list, people, columns, now)), "application/json; charset=utf-8", file);
             })
-            .RequiresFlag(ModbotPermissions.ViewMembers)
+            .RequiresFlag(ToSee)
             .WithName("ExportList")
             .WithSummary("Export list")
             .WithDescription(
                 "Everybody in a list right now, as a CSV or JSON file. The file leaves Modbot: once "
                 + "downloaded, retention and purge no longer reach it. Every export is recorded with "
-                + "who asked, the format, how many people and which columns. The profile columns "
-                + "(trust rank, 18+ verified, account age, first seen) are included only for a "
-                + "caller with See profiles.")
+                + "who asked, the format, how many people and which columns.")
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .Produces(StatusCodes.Status200OK, contentType: "application/json")
             .Produces(StatusCodes.Status400BadRequest)
@@ -569,29 +571,19 @@ public static class ListEndpoints
     }
 
     /// <summary>
-    /// The columns an export carries, by what the person asking may see (lists design §7).
+    /// The columns an export carries (lists design §7): who they are, whether and since when they
+    /// are in the group and the server, and the profile fields -- trust rank, 18+ verified, the
+    /// account's age, when Modbot first saw them. Every one of them is something See members and
+    /// See profiles already show, which an export needs.
     /// </summary>
-    /// <remarks>
-    /// Membership is what See members already shows: who they are, and whether and since when
-    /// they are in the group and the server. The profile columns -- trust rank, 18+ verified, the
-    /// account's age, when Modbot first saw them -- are what See profiles shows, and go out only
-    /// with it.
-    /// </remarks>
     internal static class ExportColumns
     {
-        public static readonly IReadOnlyList<string> Membership =
+        public static readonly IReadOnlyList<string> All =
         [
             "name", "vrchatUserId", "discordUserId", "linked",
             "inGroup", "joinedGroupAt", "inDiscord", "joinedDiscordAt",
-        ];
-
-        public static readonly IReadOnlyList<string> Profile =
-        [
             "trustRank", "is18PlusVerified", "vrchatAccountCreated", "firstSeenAt",
         ];
-
-        public static IReadOnlyList<string> For(ModbotPermissions held)
-            => ModbotAuth.Allows(held, ModbotPermissions.ViewProfile) ? [.. Membership, .. Profile] : Membership;
     }
 
     private static string? Cell(GiveawayCandidate p, string column) => column switch

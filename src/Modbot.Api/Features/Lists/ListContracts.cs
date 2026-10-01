@@ -31,11 +31,9 @@ public sealed record ListView(
     ListUseView UsedBy);
 
 /// <param name="CanManage">Whether the person asking may make, change and delete lists.</param>
-/// <param name="CanSeeProfiles">Whether an export they make carries the profile columns.</param>
 public sealed record ListsView(
     IReadOnlyList<ListView> Lists,
-    bool CanManage,
-    bool CanSeeProfiles);
+    bool CanManage);
 
 /// <summary>One person in a list.</summary>
 /// <param name="Key">How Modbot names them: <c>vrchat:usr_…</c>, or <c>discord:…</c> with no VRChat account.</param>

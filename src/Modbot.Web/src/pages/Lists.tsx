@@ -25,9 +25,21 @@ import { PageMessage } from '@/pages/analytics/shared'
 
 const PAGE_SIZE = 50
 
-/** The columns an export carries, as the export dialog names them. Profile columns need See profiles. */
-const MEMBERSHIP_COLUMNS = ['Name', 'VRChat id', 'Discord id', 'Linked', 'In the group', 'Joined the group', 'In Discord', 'Joined Discord']
-const PROFILE_COLUMNS = ['Trust rank', '18+ verified', 'VRChat account made', 'First seen']
+/** The columns an export carries, as the export dialog names them. */
+const EXPORT_COLUMNS = [
+  'Name',
+  'VRChat id',
+  'Discord id',
+  'Linked',
+  'In the group',
+  'Joined the group',
+  'In Discord',
+  'Joined Discord',
+  'Trust rank',
+  '18+ verified',
+  'VRChat account made',
+  'First seen',
+]
 
 /**
  * Lists (lists design): saved lists of people, each a name and the giveaway rules, asked again
@@ -100,7 +112,6 @@ export function Lists() {
         <ListDialog
           list={opened}
           canManage={data.canManage}
-          canSeeProfiles={data.canSeeProfiles}
           onClose={() => setOpenId(null)}
           onEdit={() => {
             setEditing(opened)
@@ -183,14 +194,12 @@ function UseBadges({ use }: { use: SavedList['usedBy'] }) {
 function ListDialog({
   list,
   canManage,
-  canSeeProfiles,
   onClose,
   onEdit,
   onDeleted,
 }: {
   list: SavedList
   canManage: boolean
-  canSeeProfiles: boolean
   onClose: () => void
   onEdit: () => void
   onDeleted: () => void
@@ -310,7 +319,6 @@ function ListDialog({
         <ExportDialog
           list={list}
           count={people}
-          canSeeProfiles={canSeeProfiles}
           onClose={() => setExporting(false)}
         />
       )}
@@ -371,12 +379,10 @@ function PeopleTable({ people }: { people: ListPerson[] }) {
 function ExportDialog({
   list,
   count,
-  canSeeProfiles,
   onClose,
 }: {
   list: SavedList
   count: ListPeople
-  canSeeProfiles: boolean
   onClose: () => void
 }) {
   const [format, setFormat] = useState<ExportFormat>('csv')
@@ -392,8 +398,6 @@ function ExportDialog({
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not export the list.'))
       .finally(() => setBusy(false))
   }
-
-  const columns = canSeeProfiles ? [...MEMBERSHIP_COLUMNS, ...PROFILE_COLUMNS] : MEMBERSHIP_COLUMNS
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -419,7 +423,7 @@ function ExportDialog({
           />
           <div className="text-foreground">
             <Row label="People" value={<span className="font-mono">{countWords(count)}</span>} />
-            <Row label="Columns" value={columns.join(', ')} />
+            <Row label="Columns" value={EXPORT_COLUMNS.join(', ')} />
           </div>
           {problem && <Outcome tone="problem">{problem}</Outcome>}
         </div>

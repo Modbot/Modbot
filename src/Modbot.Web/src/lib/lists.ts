@@ -20,8 +20,6 @@ export type SavedList = {
 export type SavedLists = {
   lists: SavedList[]
   canManage: boolean
-  /** Whether an export this person makes carries the profile columns. */
-  canSeeProfiles: boolean
 }
 
 export type ListPerson = {

@@ -18108,7 +18108,7 @@
           "Lists"
         ],
         "summary": "List saved lists",
-        "description": "Every saved list by name, with its rules and what uses it.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Every saved list by name, with its rules and what uses it.\n\nNeeds the `ViewMembers` and `ViewProfile` permissions.",
         "operationId": "ListLists",
         "responses": {
           "200": {
@@ -18234,7 +18234,7 @@
           "Lists"
         ],
         "summary": "Preview list rules",
-        "description": "Who a rule tree lets through right now, and the first page of them. Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `ManageLists` permission.",
+        "description": "Who a rule tree lets through right now, and the first page of them. Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `ViewMembers` and `ViewProfile` and `ManageLists` permissions.",
         "operationId": "PreviewList",
         "parameters": [
           {
@@ -18304,7 +18304,7 @@
           "Lists"
         ],
         "summary": "List the people in a list",
-        "description": "Who is in a saved list right now, by name, a page at a time. Worked out again on every request: a list is its rules, not a copy of who matched them once.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Who is in a saved list right now, by name, a page at a time. Worked out again on every request: a list is its rules, not a copy of who matched them once.\n\nNeeds the `ViewMembers` and `ViewProfile` permissions.",
         "operationId": "ListListPeople",
         "parameters": [
           {
@@ -18520,7 +18520,7 @@
           "Lists"
         ],
         "summary": "Export list",
-        "description": "Everybody in a list right now, as a CSV or JSON file. The file leaves Modbot: once downloaded, retention and purge no longer reach it. Every export is recorded with who asked, the format, how many people and which columns. The profile columns (trust rank, 18+ verified, account age, first seen) are included only for a caller with See profiles.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Everybody in a list right now, as a CSV or JSON file. The file leaves Modbot: once downloaded, retention and purge no longer reach it. Every export is recorded with who asked, the format, how many people and which columns.\n\nNeeds the `ViewMembers` and `ViewProfile` permissions.",
         "operationId": "ExportList",
         "parameters": [
           {
@@ -31962,8 +31962,7 @@
       "ListsView": {
         "required": [
           "lists",
-          "canManage",
-          "canSeeProfiles"
+          "canManage"
         ],
         "type": "object",
         "properties": {
@@ -31974,9 +31973,6 @@
             }
           },
           "canManage": {
-            "type": "boolean"
-          },
-          "canSeeProfiles": {
             "type": "boolean"
           }
         }

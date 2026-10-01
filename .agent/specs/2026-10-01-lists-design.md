@@ -167,20 +167,23 @@ order.
 
 | Action | Needs |
 |---|---|
-| See the Lists page, a list's rules, who is in it; export | `ViewMembers` |
-| The export's profile columns | `ViewProfile` as well |
-| Make, change and delete; the builder and its preview | `ManageLists` (new, bit 44) |
+| See the Lists page, a list's rules, who is in it; export | `ViewMembers` and `ViewProfile` |
+| Make, change and delete; the builder | `ManageLists` (new, bit 44) |
+| The builder's preview | `ManageLists`, `ViewMembers` and `ViewProfile` |
 | Change a list a giveaway still being run names | `RunGiveaways` as well |
 | Change a list auto-invites name | `ManageAutoInvites` as well |
 
-**Seeing a list needs only See members**, as the plan for this work set out: the people in a list are
-group and server members, which See members already shows.
+**Seeing a list needs See members and See profiles both** (decided 2026-10-01). The plan for this
+work said See members, since the people in a list are group and server members. But a rule can ask
+about bans, flags, 18+ verification and presence, so who is in "banned twice" is moderation history
+and profile data, not only membership: with See members alone it would show somebody who was banned
+twice without the permission that shows bans. See profiles is what already shows a person's history,
+metrics, repeat-offender counts and flags, so the pair covers everything a rule can ask.
 
-**The preview needs Manage lists.** A rule can ask about bans, flags, 18+ verification and presence,
-which See members alone does not show. Whoever may make lists decides which questions the saved ones
-ask; the preview belongs to the builder and is not a way round that. This leaves one thing worth
-knowing, recorded as an open question (§9.1): a saved list's members are visible to See members
-whatever its rules read.
+**The preview shows people too**, so it needs the same two permissions as well as Manage lists. It is
+the builder's, and must not be a way round seeing a list.
+
+Because seeing a list already needs See profiles, an export always carries the profile columns.
 
 **Changing a list something uses takes that thing's permission.** A list auto-invites names decides
 who gets invited, so Manage lists alone would otherwise be a way to change auto-invites without Set
@@ -199,8 +202,9 @@ up auto-invites.
 - **Recorded before the file is handed over**, as `modbot.list.export`, with the list's name, the
   format, the number of people and the columns. Never the people: the record says a copy was taken,
   and a second copy inside the audit log would be the opposite of what it is for.
-- **The columns depend on what the caller may see.** Membership columns for See members; trust rank,
-  18+ verified, VRChat account date and first seen only with See profiles.
+- **The columns are what See members and See profiles show**, which an export needs: who they are,
+  membership in the group and the server and since when, trust rank, 18+ verified, the VRChat
+  account's date and when Modbot first saw them.
 - **A cell a spreadsheet would run is made inert.** Names are chosen by their owners; a cell starting
   `=`, `+`, `-` or `@` gets a leading apostrophe.
 - **The consequence is said where it belongs.** M7 §3 asks for a warning that an export leaves
@@ -221,8 +225,8 @@ went.
   list's members on Discord is a direct message to each, which giveaways design §9 rules out for the
   same reason here (a bot that DMs people looks like the scams that do), and a channel post cannot
   reach a list. VRChat group posts target roles, not people, and using them for lists would be a new
-  use of a VRChat endpoint, which needs its rate limit asked about first (foundation §4.3.4). Left as
-  a decision for the project.
+  use of a VRChat endpoint, which needs its rate limit asked about first (foundation §4.3.4). Left
+  out on purpose (decided 2026-10-01).
 - **Bulk targeting.** M7 §3 hands a list to M4's bulk actions. There are no bulk actions yet
   (`BulkAction` does nothing). When they exist, `GiveawayRuleChecker.PeopleAsync` is what they take:
   the same people the Lists page shows. M7 §3's safeguard — the preview list viewed in this session
@@ -233,10 +237,7 @@ went.
 
 ---
 
-## 9. Open questions
+## 9. Decided
 
-1. **Should seeing a list need See profiles as well as See members?** A list "banned twice" shows,
-   to anybody with See members, who was banned twice — something they would otherwise need See the
-   audit log to learn. Today the guard is that only Manage lists decides what lists exist.
-2. **Announce** (§8): leave it out, or build one of a channel post naming the list, DMs, or VRChat
-   group posts to a role.
+1. **Seeing a list needs See profiles as well as See members** (2026-10-01, §6).
+2. **Announce is left out** (2026-10-01, §8).

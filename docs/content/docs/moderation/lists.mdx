@@ -18,14 +18,15 @@ they are in one. What you can do with a list is look at it, export it, and name 
 
 | To do this | You need |
 |---|---|
-| See the **Lists** page, every list's rules, who is in each, and export | [**See members**](/accounts/roles-and-permissions#see-members) |
-| Make, change and delete lists, and preview rules | [**Manage lists**](/accounts/roles-and-permissions#manage-lists) and **See members** |
+| See the **Lists** page, every list's rules, who is in each, and export | [**See members**](/accounts/roles-and-permissions#see-members) and [**See profiles**](/accounts/roles-and-permissions#see-profiles) |
+| Make, change and delete lists, and preview rules | [**Manage lists**](/accounts/roles-and-permissions#manage-lists), with **See members** and **See profiles** |
 | Change a list a giveaway still being run uses | **Run giveaways** as well |
 | Change a list auto-invites use | **Set up auto-invites** as well |
-| Export the profile columns | **See profiles** as well |
 
-Without **See members**, **Lists** does not appear in the sidebar. **Manage lists** is not in the
-built-in **Moderator** or **Viewer** roles. **Administrator** holds everything.
+Both **See members** and **See profiles** are needed because a list's rules can ask about bans,
+flags and 18+ verification: who is in "banned twice" is part of those people's history, not only
+their membership. Without both, **Lists** does not appear in the sidebar. **Manage lists** is not in
+the built-in **Moderator** or **Viewer** roles. **Administrator** holds everything.
 
 ## The page
 
@@ -113,7 +114,8 @@ will hold and its columns. Click **Export** and your browser saves the file.
 | **linked** | Their Discord and VRChat accounts are linked. |
 | **inGroup**, **joinedGroupAt** | In the VRChat group now, and since when. |
 | **inDiscord**, **joinedDiscordAt** | In the Discord server now, and since when. |
-| **trustRank**, **is18PlusVerified**, **vrchatAccountCreated**, **firstSeenAt** | Only if you also hold **See profiles**. |
+| **trustRank**, **is18PlusVerified** | Their VRChat trust rank, and whether Modbot has seen them 18+ verified. |
+| **vrchatAccountCreated**, **firstSeenAt** | The day their VRChat account was made, and when Modbot first saw them. |
 
 Times are UTC. A name that starts with `=`, `+`, `-` or `@` is written with an apostrophe in front,
 so a spreadsheet shows it as text instead of running it.
