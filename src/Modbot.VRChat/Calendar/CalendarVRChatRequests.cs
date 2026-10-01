@@ -64,32 +64,44 @@ public static class CalendarVRChatRequests
     /// what VRChat said for an event read from its calendar is sent back as it was, and an edit made
     /// in Modbot does not switch those settings off.
     /// </remarks>
-    public static UpdateCalendarEventRequest Update(CalendarEvent e)
+    public static CalendarUpdateBody Update(CalendarEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
         var (starts, ends) = Times(e);
 
-        return new UpdateCalendarEventRequest(
+        return new CalendarUpdateBody
+        {
+            // Who sees it, as the create sent it: the SDK's update model has no access type, and an
+            // update without one was refused as a change of it (see CalendarUpdateBody).
+            AccessType = AccessWord(e),
+
             // The update body takes the category as text rather than the enum; the stored word is
             // already VRChat's own.
-            category: Categories.Contains(e.Category) ? e.Category : "hangout",
-            closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
-            description: e.Description ?? string.Empty,
-            endsAt: ends,
-            featured: e.VRChatFeatured ?? false,
-            guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
-            hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
-            imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
-            isDraft: false,
-            languages: [.. e.Languages],
-            platforms: [.. e.Platforms],
-            recurrence: Recurrence(e)!,
-            roleIds: e.VRChatRoleIds is { } roles ? [.. roles] : null!,
-            sendCreationNotification: false,
-            startsAt: starts,
-            tags: [.. e.Tags],
-            title: e.Title,
-            usesInstanceOverflow: e.VRChatUsesInstanceOverflow ?? false);
+            Category = Categories.Contains(e.Category) ? e.Category : "hangout",
+            CloseInstanceAfterEndMinutes = e.VRChatCloseInstanceAfterEndMinutes ?? 0,
+            Description = e.Description ?? string.Empty,
+            EndsAt = ends,
+            Featured = e.VRChatFeatured ?? false,
+            GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
+            HostEarlyJoinMinutes = e.VRChatHostEarlyJoinMinutes ?? 0,
+            ImageId = string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
+            Languages = [.. e.Languages],
+            Platforms = [.. e.Platforms],
+            Recurrence = Recurrence(e)!,
+            RoleIds = e.VRChatRoleIds is { } roles ? [.. roles] : null!,
+            SendCreationNotification = false,
+            StartsAt = starts,
+            Tags = [.. e.Tags],
+            Title = e.Title,
+            UsesInstanceOverflow = e.VRChatUsesInstanceOverflow ?? false,
+        };
+    }
+
+    /// <summary>VRChat's word for who sees the event: the same in a create and an update.</summary>
+    public static string AccessWord(CalendarEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return e.Visibility == "public" ? "public" : "group";
     }
 
     /// <summary>
@@ -116,7 +128,7 @@ public static class CalendarVRChatRequests
     /// The update for one date of the series, sent to that date's own id: the series' settings with
     /// the date's times and words, and no repeat, since it is one date.
     /// </summary>
-    public static UpdateCalendarEventRequest UpdateDate(CalendarEvent e, CalendarDateChange change)
+    public static CalendarUpdateBody UpdateDate(CalendarEvent e, CalendarDateChange change)
     {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(change);

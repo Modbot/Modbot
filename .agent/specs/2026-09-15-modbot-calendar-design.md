@@ -159,6 +159,12 @@ event finishing and cancelling: each changes what the place should say.
   the series no longer holds. A finished event's dates are still sent: an event finishes when its
   last date is cancelled, and that date's delete has to go out. Settling (20 s), one write a pass,
   and the rules for refusals and no answers are the series' own.
+- **An update carries `accessType`** (added 2026-10-01). The SDK's `UpdateCalendarEventRequest` has
+  no such field, so until then every update -- on master too -- went without one and VRChat refused
+  it with a 400, "Can't unpublish or change access type once the calendar entry is published".
+  `CalendarUpdateBody` adds the same word the create sent (`group` or `public`, from "Visible to");
+  `isDraft` stays `false`, as in the create. Checked by capturing the SDK's own request body on this
+  machine, not yet against VRChat.
 - Cancelling, deleting, or unticking VRChat deletes the event on VRChat. A finished event is left
   there: it is history on VRChat's side as well.
 - A write VRChat refuses is not sent again until the event changes. A write that got no answer
