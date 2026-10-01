@@ -986,6 +986,74 @@ public class ChatTests
         Assert.DoesNotContain("not-theirs", result.GetRawText(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task PersonHistoryTool_ReadsTheLinkedDiscordAccount_AndNarrowsToModeration()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var discord = $"d_{Guid.NewGuid():N}";
+        var somebodyElse = $"usr_{Guid.NewGuid():N}";
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "get_person_history", JsonSerializer.Serialize(new { userId = person, show = "moderation" }))))
+            .Then(Stream(Text("Banned on both.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordAccountLinks.Add(new DiscordAccountLink
+            {
+                DiscordUserId = discord, DiscordUsername = "linked", VRChatUserId = person, LinkedAt = host.Clock.UtcNow.AddDays(-5),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var at = host.Clock.UtcNow.AddHours(-3);
+        await WriteFactAsync(host, Fact(FactType.InstanceJoined, FactPlatform.VRChat, person, at, FactSource.Companion), Ct);
+        await WriteFactAsync(host, Fact(FactType.MemberBanned, FactPlatform.VRChat, person, at.AddMinutes(1), FactSource.AuditLog), Ct);
+        await WriteFactAsync(host, Fact(FactType.DiscordMemberBanned, FactPlatform.Discord, discord, at.AddMinutes(2), FactSource.Discord), Ct);
+        await WriteFactAsync(host, Fact(FactType.MemberBanned, FactPlatform.VRChat, somebodyElse, at.AddMinutes(3), FactSource.AuditLog), Ct);
+
+        var (_, cookie) = await host.SignedInAsync(
+            ModbotPermissions.UseAiChat | ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewProfile, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Have they been banned?" }, cookie, Ct);
+        var result = ToolResult(ParseEvents(await response.Content.ReadAsStringAsync(Ct)), "get_person_history");
+
+        var types = result.GetProperty("entries").EnumerateArray().Select(e => e.GetProperty("type").GetString()).ToList();
+
+        // Both bans, the Discord one found through the link; no arrival, which is not moderation;
+        // nobody else's ban.
+        Assert.Contains(FactType.MemberBanned, types);
+        Assert.Contains(FactType.DiscordMemberBanned, types);
+        Assert.DoesNotContain(FactType.InstanceJoined, types);
+        Assert.DoesNotContain(somebodyElse, result.GetRawText(), StringComparison.Ordinal);
+        Assert.Equal(discord, result.GetProperty("accounts").GetProperty("discord").GetString());
+    }
+
+    private static Modbot.Analytics.Facts.FactRecord Fact(
+        string type, FactPlatform platform, string subject, DateTimeOffset at, FactSource source) => new()
+    {
+        Type = type,
+        OccurredAt = at,
+        SubjectPlatform = platform,
+        SubjectId = subject,
+        WorldId = type == FactType.InstanceJoined ? "wrld_a" : null,
+        InstanceId = type == FactType.InstanceJoined ? "39047" : null,
+        Source = source,
+        Data = new System.Text.Json.Nodes.JsonObject(),
+    };
+
+    private static async Task WriteFactAsync(ApiTestHost host, Modbot.Analytics.Facts.FactRecord fact, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<Modbot.Analytics.Facts.EventPartitionMaintainer>().EnsureForAsync(fact.OccurredAt, ct);
+        await scope.ServiceProvider.GetRequiredService<Modbot.Analytics.Facts.IFactWriter>().WriteAsync(fact, ct);
+    }
+
     // ── Sources (design §3.2.1) ──────────────────────────────────────────────────────────────
 
     [Fact]

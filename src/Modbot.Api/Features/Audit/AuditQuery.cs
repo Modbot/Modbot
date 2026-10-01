@@ -14,6 +14,10 @@ namespace Modbot.Api.Features.Audit;
 /// <param name="Account">
 /// One Modbot account's whole history: facts about it and facts it did, together.
 /// </param>
+/// <param name="Person">
+/// One person's whole history across every account they have: facts about any of them and facts
+/// any of them did (see <see cref="PersonTimeline"/>).
+/// </param>
 public sealed record AuditRequest(
     IReadOnlyList<string> Types,
     IReadOnlyList<FactSource> Sources,
@@ -30,7 +34,8 @@ public sealed record AuditRequest(
     TimePrecision? Precision = null,
     bool? HasActor = null,
     string? Text = null,
-    string? Account = null);
+    string? Account = null,
+    PersonIds? Person = null);
 
 /// <summary>
 /// Reads the merged timeline out of the fact log.
@@ -409,6 +414,28 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
             query = query.Where(e =>
                 (e.SubjectPlatform == FactPlatform.Modbot && e.SubjectId == account)
                 || (e.ActorPlatform == FactPlatform.Modbot && e.ActorId == account));
+        }
+
+        // A person's history is every one of their accounts, both halves of each, in one query --
+        // which is what lets it be paged by the same cursor as everything else. Each account is
+        // matched on its own platform as well as its id, so a Discord id is never read as somebody's
+        // VRChat id or the other way round.
+        if (request.Person is { } person)
+        {
+            var vrchat = person.VRChat;
+            var discord = person.Discord;
+            var modbot = person.Account;
+
+            query = query.Where(e =>
+                (vrchat != null
+                    && ((e.SubjectPlatform == FactPlatform.VRChat && e.SubjectId == vrchat)
+                        || (e.ActorPlatform == FactPlatform.VRChat && e.ActorId == vrchat)))
+                || (discord != null
+                    && ((e.SubjectPlatform == FactPlatform.Discord && e.SubjectId == discord)
+                        || (e.ActorPlatform == FactPlatform.Discord && e.ActorId == discord)))
+                || (modbot != null
+                    && ((e.SubjectPlatform == FactPlatform.Modbot && e.SubjectId == modbot)
+                        || (e.ActorPlatform == FactPlatform.Modbot && e.ActorId == modbot))));
         }
 
         // Ids are matched, never parsed or normalised (spec 3.1.1). An id that does not look like

@@ -141,7 +141,15 @@ internal sealed class GetPersonTool : ReadTool
     }
 }
 
-/// <summary>The audit log for one subject.</summary>
+/// <summary>
+/// One person's timeline: the person popup's Activity tab, read by the same query.
+/// </summary>
+/// <remarks>
+/// It used to read the VRChat account as a subject only, so a Discord ban, a ban the person pressed
+/// themselves and their Modbot account's own entries were all missing from the answer. It now reads
+/// every account the popup ties to them, with the asker's own permissions deciding what may be tied
+/// (see <see cref="PersonTimeline"/>), and narrows the way the tab does.
+/// </remarks>
 internal sealed class PersonHistoryTool : ReadTool
 {
     public override string Name => "get_person_history";
@@ -149,11 +157,15 @@ internal sealed class PersonHistoryTool : ReadTool
     public override string Label => "Person's history";
 
     public override string Description =>
-        "The most recent audit log entries about one person, newest first: joins, leaves, bans, "
-        + "kicks, role changes, warnings and anything else recorded about them.";
+        "The most recent audit log entries about one person, newest first, across their VRChat "
+        + "account and any Discord or Modbot account tied to it: joins, leaves, bans, kicks, role "
+        + "changes, warnings, notes, what they did themselves, and anything else recorded. Set show "
+        + "to moderation for only the moderation history (bans, kicks, warnings, turned-down "
+        + "requests, notes, case files, AutoMod), presence for where they were seen, or discord for "
+        + "their Discord history. To read further back, pass the before value from the last answer.";
 
     protected override string Schema => """
-        {"type":"object","properties":{"userId":{"type":"string","description":"The VRChat user id."},"limit":{"type":"integer","minimum":1,"maximum":50,"description":"How many entries. Default 25."}},"required":["userId"]}
+        {"type":"object","properties":{"userId":{"type":"string","description":"The VRChat user id."},"show":{"type":"string","enum":["everything","moderation","presence","discord"],"description":"Default everything."},"limit":{"type":"integer","minimum":1,"maximum":50,"description":"How many entries. Default 25."},"before":{"type":"string","description":"The before value from an earlier answer, to read the entries older than it."}},"required":["userId"]}
         """;
 
     public override ModbotPermissions Needs => ModbotPermissions.ViewAuditLog;
@@ -164,9 +176,14 @@ internal sealed class PersonHistoryTool : ReadTool
             return ChatToolResult.Problem("userId is required.");
 
         var limit = ChatArguments.Number(arguments, "limit", 25, 1, 50);
-        var entries = await AuditSearch.RunAsync(context, [], id, null, null, null, limit, ct);
 
-        return entries;
+        return await AuditSearch.PersonAsync(
+            context,
+            id,
+            ChatArguments.Text(arguments, "show"),
+            AuditSearch.CursorOf(ChatArguments.Text(arguments, "before")),
+            limit,
+            ct);
     }
 }
 

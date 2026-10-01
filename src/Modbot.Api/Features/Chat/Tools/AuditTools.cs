@@ -61,6 +61,69 @@ internal static class AuditSearch
     }
 
     /// <summary>
+    /// One person's timeline across every account tied to them, the way the person popup's
+    /// Activity tab reads it, with a cursor to read further back.
+    /// </summary>
+    /// <param name="show">
+    /// <c>moderation</c>, <c>presence</c> or <c>discord</c> (see <see cref="AuditShow"/>);
+    /// anything else is everything.
+    /// </param>
+    public static async Task<ChatToolResult> PersonAsync(
+        ChatToolContext context,
+        string vrchatUserId,
+        string? show,
+        AuditCursor? before,
+        int limit,
+        CancellationToken ct)
+    {
+        var visible = AuditVisibility.Resolve(context.Held, []);
+
+        if (AuditShow.TryParse(show, out var shown))
+            visible = visible.Where(t => AuditShow.Includes(shown, t)).ToList();
+
+        if (visible.Count == 0)
+            return ChatToolResult.Json(new { count = 0, entries = Array.Empty<object>() });
+
+        var db = (ModbotContext)context.Services.GetService(typeof(ModbotContext))!;
+        var clock = (IModbotClock)context.Services.GetService(typeof(IModbotClock))!;
+
+        var person = await PersonTimeline.ResolveAsync(db, context.Held, vrchatUserId, FactPlatform.VRChat, ct);
+        var page = await new AuditQuery(db).PageAsync(
+            new AuditRequest(visible, [], null, null, null, null, null, null, before, limit, Person: person),
+            clock.UtcNow,
+            ct);
+
+        return ChatToolResult.Json(
+            new
+            {
+                count = page.Entries.Count,
+                accounts = new { vrchat = person.VRChat, discord = person.Discord, modbot = person.Account },
+                entries = page.Entries.Select(Summary),
+                before = page.Next is { } next ? CursorText(next) : null,
+            },
+            References(page.Entries));
+    }
+
+    /// <summary>A cursor as one string a model can hand back unchanged.</summary>
+    internal static string CursorText(AuditCursor cursor)
+        => $"{cursor.OccurredAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}|{cursor.Id.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>The cursor <see cref="CursorText"/> wrote, or null for anything else.</summary>
+    internal static AuditCursor? CursorOf(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var parts = text.Split('|');
+
+        return parts.Length == 2
+            && DateTimeOffset.TryParse(parts[0], CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
+            && long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
+                ? new AuditCursor(at, id)
+                : null;
+    }
+
+    /// <summary>
     /// One entry, with the id it is filed under.
     /// </summary>
     /// <remarks>

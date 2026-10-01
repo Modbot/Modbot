@@ -51,6 +51,9 @@ public static class AuditLogEndpoints
                 [FromQuery] string? actor,
                 [FromQuery] string? actorPlatform,
                 [FromQuery] Guid? account,
+                [FromQuery] string? person,
+                [FromQuery] string? personPlatform,
+                [FromQuery] string? show,
                 [FromQuery] DateTimeOffset? from,
                 [FromQuery] DateTimeOffset? to,
                 [FromQuery] string? world,
@@ -82,10 +85,21 @@ public static class AuditLogEndpoints
                 if (unwanted.Count > 0)
                     visible = visible.Where(t => !unwanted.Contains(t)).ToList();
 
+                // "Moderation only", "Presence" or "Discord": a set of types again, so it narrows
+                // the list the permission filter has already cut. Anything else is everything.
+                if (AuditShow.TryParse(show, out var shown))
+                    visible = visible.Where(t => AuditShow.Includes(shown, t)).ToList();
+
                 // A cursor is only a cursor with both halves. Half of one would page from a
                 // timestamp with no tie-break and quietly drop every entry sharing that second.
                 var cursor = beforeOccurredAt is { } at && beforeId is { } id
                     ? new AuditCursor(at, id)
+                    : null;
+
+                // One person, across every account Modbot can tie to the one named, as far as this
+                // caller may be told they are tied.
+                var whose = Trimmed(person) is { } named
+                    ? await PersonTimeline.ResolveAsync(db, held, named, ParsePlatform(personPlatform) ?? FactPlatform.VRChat, ct)
                     : null;
 
                 var request = new AuditRequest(
@@ -104,7 +118,8 @@ public static class AuditLogEndpoints
                     Enum.TryParse<TimePrecision>(precision, ignoreCase: true, out var exactness) ? exactness : null,
                     hasActor,
                     Trimmed(q),
-                    account?.ToString());
+                    account?.ToString(),
+                    whose);
 
                 // Nothing visible left after the intersection: an honest empty page with the
                 // coverage still attached, not a 403 for asking.
@@ -132,6 +147,18 @@ public static class AuditLogEndpoints
                 + "alone is half the story. It narrows what you may already see: a caller with "
                 + "only ViewAuditLog gets the account's moderation actions, one with only "
                 + "ViewOperationalLog gets its sign-ins and role changes.\n\n"
+                + "`person` is one person's whole history across every account Modbot can tie to "
+                + "the one named: facts about any of them and facts any of them did. "
+                + "`personPlatform` says which platform the id is on: `VRChat` (the default), "
+                + "`Discord`, or `Modbot` for a Modbot account id. Accounts are tied the way GET "
+                + "/api/people/lookup ties them, with your permissions: the linked Discord account "
+                + "needs ViewProfile and the Modbot account needs ViewOperationalLog or "
+                + "ManageUsers, and without them only the account you named is read.\n\n"
+                + "`show` narrows to `moderation` (bans, kicks, warnings, turned-down requests, "
+                + "notes, case files, AutoMod and copied bans), `presence` (arrivals, leaves and "
+                + "avatars a companion saw) or `discord` (Discord's own log and every copy between "
+                + "the two platforms). Leave it out, or send `everything`, for all of it. "
+                + "`GET /api/audit/filters` lists which of the three each type is in.\n\n"
                 + "`notType` leaves out the types it names, and can be combined with `type`.\n\n"
                 + "`world` and `instance` narrow to one world or one VRChat instance number; "
                 + "`category` to Moderation or Operational; `precision` to Exact or Window; "
@@ -215,7 +242,8 @@ public static class AuditLogEndpoints
                     visible.Select(t => new AuditTypeOption(
                         t.ToString(),
                         FactLabels.For(t),
-                        AuditVisibility.CategoryOf(t))).ToList(),
+                        AuditVisibility.CategoryOf(t),
+                        AuditShow.Of(t))).ToList(),
                     Enum.GetValues<FactSource>().Select(s => s.ToString()).ToList(),
                     actors,
                     AuditVisibility.CanSee(held, AuditCategory.Moderation),

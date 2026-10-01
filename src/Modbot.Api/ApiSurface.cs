@@ -362,6 +362,7 @@ public static class ApiSurface
         // producers still starts and still answers -- it reports that nothing is syncing here
         // rather than failing to map.
         app.MapAuditLog();
+        app.MapPersonVisits();
         app.MapAnalytics();
         app.MapSyncHealth();
 

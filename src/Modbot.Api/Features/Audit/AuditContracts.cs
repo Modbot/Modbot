@@ -208,7 +208,11 @@ public sealed record AuditPage(
 
 /// <param name="Value">The <c>FactType</c> name, as sent back in <c>type</c>.</param>
 /// <param name="Label">A short human label for the chip.</param>
-public sealed record AuditTypeOption(string Value, string Label, AuditCategory Category);
+/// <param name="Shows">
+/// Which of <c>moderation</c>, <c>presence</c> and <c>discord</c> the type is in, for the
+/// <c>show</c> filter (see <see cref="AuditShow"/>). Can be empty.
+/// </param>
+public sealed record AuditTypeOption(string Value, string Label, AuditCategory Category, IReadOnlyList<string> Shows);
 
 /// <param name="Actors">
 /// Distinct actors seen in the visible facts, newest activity first, with the display name last

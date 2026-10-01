@@ -349,6 +349,93 @@
         ]
       }
     },
+    "/api/audit/visits": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "List a person's visits",
+        "description": "Where one VRChat user has been seen, a visit per row, newest first: the arrival (or \"already here\" when a moderator's companion arrived after them), the leave when one was seen, `until` (when they left, or the last report from that instance when nobody saw them go), the display name they had, the avatars they were seen changing into, and `seenBy`, the moderators whose companions reported them. Visits are made from the companion's presence reports exactly as the time-in-world figures are, so they only cover time a moderator was in the same instance.\n\nNeeds ViewAuditLog, the permission that reads the same arrivals and leaves in the audit log. Paged by keyset: send the returned `next` back as beforeStartedAt and beforeId; both are required.",
+        "operationId": "GetPersonVisits",
+        "parameters": [
+          {
+            "name": "person",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "beforeStartedAt",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "beforeId",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonVisitsPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/cases/{id}/evidence/{hash}/take-off": {
       "post": {
         "tags": [
@@ -8941,7 +9028,7 @@
           "Audit"
         ],
         "summary": "List audit log",
-        "description": "The merged fact timeline: who did what to whom, and when. One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`account` is one Modbot account's whole history: facts about it — sign-ins, role changes, its password being reset — and facts it did, including every kick and ban pressed in Modbot. Both halves at once, because the log records the first against the subject and the second against the actor, and either alone is half the story. It narrows what you may already see: a caller with only ViewAuditLog gets the account's moderation actions, one with only ViewOperationalLog gets its sign-ins and role changes.\n\n`notType` leaves out the types it names, and can be combined with `type`.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
+        "description": "The merged fact timeline: who did what to whom, and when. One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`account` is one Modbot account's whole history: facts about it — sign-ins, role changes, its password being reset — and facts it did, including every kick and ban pressed in Modbot. Both halves at once, because the log records the first against the subject and the second against the actor, and either alone is half the story. It narrows what you may already see: a caller with only ViewAuditLog gets the account's moderation actions, one with only ViewOperationalLog gets its sign-ins and role changes.\n\n`person` is one person's whole history across every account Modbot can tie to the one named: facts about any of them and facts any of them did. `personPlatform` says which platform the id is on: `VRChat` (the default), `Discord`, or `Modbot` for a Modbot account id. Accounts are tied the way GET /api/people/lookup ties them, with your permissions: the linked Discord account needs ViewProfile and the Modbot account needs ViewOperationalLog or ManageUsers, and without them only the account you named is read.\n\n`show` narrows to `moderation` (bans, kicks, warnings, turned-down requests, notes, case files, AutoMod and copied bans), `presence` (arrivals, leaves and avatars a companion saw) or `discord` (Discord's own log and every copy between the two platforms). Leave it out, or send `everything`, for all of it. `GET /api/audit/filters` lists which of the three each type is in.\n\n`notType` leaves out the types it names, and can be combined with `type`.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
         "operationId": "GetAuditLog",
         "parameters": [
           {
@@ -9008,6 +9095,27 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "person",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "personPlatform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "show",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -20497,7 +20605,8 @@
         "required": [
           "value",
           "label",
-          "category"
+          "category",
+          "shows"
         ],
         "type": "object",
         "properties": {
@@ -20509,6 +20618,12 @@
           },
           "category": {
             "$ref": "#/components/schemas/AuditCategory"
+          },
+          "shows": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -33826,6 +33941,84 @@
           },
           "canSeeAccount": {
             "type": "boolean"
+          }
+        }
+      },
+      "PersonVisit": {
+        "required": [
+          "arrived",
+          "left",
+          "until",
+          "name",
+          "avatars",
+          "seenBy"
+        ],
+        "type": "object",
+        "properties": {
+          "arrived": {
+            "$ref": "#/components/schemas/AuditEntry"
+          },
+          "left": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AuditEntry"
+              }
+            ]
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatars": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "seenBy": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditReporter"
+            }
+          }
+        }
+      },
+      "PersonVisitsPage": {
+        "required": [
+          "visits",
+          "next",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "visits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonVisit"
+            }
+          },
+          "next": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AuditCursor"
+              }
+            ]
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

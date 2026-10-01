@@ -43,7 +43,12 @@ public sealed class PresenceCounts(ModbotContext db)
     /// The window bounds are always real instants — all of recorded history is expressed as the
     /// widest pair rather than as nulls, so no parameter here is ever typeless.
     /// </remarks>
-    private static string Sessions(bool byWorld, bool byInstance) => $"""
+    /// <param name="bySubjectsInstances">
+    /// Only the instances <c>@subject</c> was ever reported in. Every other instance's facts can
+    /// change none of that person's sessions, and "the last report from that instance" still counts
+    /// everybody's reports there, so this narrows the read without changing any answer about them.
+    /// </param>
+    private static string Sessions(bool byWorld, bool byInstance, bool bySubjectsInstances = false) => $"""
         WITH p AS (
             SELECT e.world_id, e.instance_id, e.subject_id, e.occurred_at, e.id,
                    CASE WHEN e.type = @leave THEN 0 ELSE 1 END AS here
@@ -53,6 +58,7 @@ public sealed class PresenceCounts(ModbotContext db)
               AND e.world_id IS NOT NULL AND e.instance_id IS NOT NULL
               {(byWorld ? "AND e.world_id = @world" : "")}
               {(byInstance ? "AND e.instance_id = @instance" : "")}
+              {(bySubjectsInstances ? SubjectsInstances : "")}
         ),
         changes AS (
             SELECT p.*,
@@ -67,10 +73,21 @@ public sealed class PresenceCounts(ModbotContext db)
                    occurred_at AS started,
                    COALESCE(LEAD(occurred_at) OVER (
                        PARTITION BY world_id, instance_id, subject_id
-                       ORDER BY occurred_at, id), last_report) AS ended
+                       ORDER BY occurred_at, id), last_report) AS ended,
+                   id AS started_id,
+                   LEAD(id) OVER (
+                       PARTITION BY world_id, instance_id, subject_id
+                       ORDER BY occurred_at, id) AS ended_id
             FROM changes
             WHERE change <> 0
         )
+        """;
+
+    private const string SubjectsInstances = """
+        AND (e.world_id, e.instance_id) IN (
+            SELECT DISTINCT s.world_id, s.instance_id FROM modbot_event s
+            WHERE s.type = ANY(@presence) AND s.subject_id = @subject
+              AND s.world_id IS NOT NULL AND s.instance_id IS NOT NULL)
         """;
 
     private const string Totals = """
@@ -221,6 +238,55 @@ public sealed class PresenceCounts(ModbotContext db)
         return rows.Count > 0 ? rows[0] : PersonCounts.Nothing;
     }
 
+    /// <summary>
+    /// One person's visits, newest first, a page at a time: each stretch they were in one instance,
+    /// from the report that made them present to the one that made them absent.
+    /// </summary>
+    /// <remarks>
+    /// The same sessions everything above adds up, so a visit here and a minute counted in "Time
+    /// seen" can never disagree. Paged by the visit's start and the id of the fact that started it,
+    /// which is unique, so two visits starting in the same second are not skipped at a page edge.
+    /// </remarks>
+    /// <param name="before">The start and first fact of the last visit already shown, or null.</param>
+    public async Task<IReadOnlyList<PresenceVisit>> VisitsOfPersonAsync(
+        string userId,
+        (DateTimeOffset At, long Id)? before,
+        int limit,
+        CancellationToken ct)
+    {
+        var sql = $"""
+            {Sessions(byWorld: false, byInstance: false, bySubjectsInstances: true)}
+            SELECT world_id, instance_id, started, ended, started_id, ended_id
+            FROM sessions
+            WHERE change = 1 AND subject_id = @subject
+              {(before is null ? "" : "AND (started, started_id) < (@beforeAt, @beforeId)")}
+            ORDER BY started DESC, started_id DESC
+            LIMIT @limit
+            """;
+
+        (string, object?)[] parameters =
+        [
+            .. Everything(),
+            ("subject", userId),
+            ("limit", limit),
+            .. before is { } cursor
+                ? new (string, object?)[] { ("beforeAt", cursor.At.ToUniversalTime()), ("beforeId", cursor.Id) }
+                : [],
+        ];
+
+        return await _sql.ReadAsync(
+            sql,
+            r => new PresenceVisit(
+                r.GetString(0),
+                r.GetString(1),
+                AnalyticsSql.InstantOf(r, 2),
+                AnalyticsSql.InstantOf(r, 3),
+                r.GetInt64(4),
+                r.IsDBNull(5) ? null : r.GetInt64(5)),
+            ct,
+            parameters);
+    }
+
     /// <summary>How many presence reports the window holds — below a handful, the figures are thin.</summary>
     public async Task<long> ReportsAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
@@ -275,6 +341,18 @@ public sealed class PresenceCounts(ModbotContext db)
 /// <param name="Number">VRChat's own number for the instance, which is what the fact log carries.</param>
 /// <param name="EndsAt">When it closed, or the last moment it was known to exist.</param>
 public readonly record struct InstanceLife(string WorldId, string Number, DateTimeOffset OpenedAt, DateTimeOffset EndsAt);
+
+/// <summary>One stretch of one person in one instance, with the facts that began and ended it.</summary>
+/// <param name="Ended">When they were seen to leave, or the last report from the instance.</param>
+/// <param name="StartedBy">The arrival, or the "already here" report, that made them present.</param>
+/// <param name="EndedBy">The leave that made them absent. Null when nobody saw them go.</param>
+public readonly record struct PresenceVisit(
+    string WorldId,
+    string InstanceId,
+    DateTimeOffset Started,
+    DateTimeOffset Ended,
+    long StartedBy,
+    long? EndedBy);
 
 /// <summary>One person present in an instance from <paramref name="Started"/> until <paramref name="Ended"/>.</summary>
 /// <param name="Ended">When they were seen to leave, or the companion's last report from the instance.</param>
