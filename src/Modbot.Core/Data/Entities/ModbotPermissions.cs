@@ -386,8 +386,9 @@ public enum ModbotPermissions : long
     /// Make, change and delete saved lists.
     /// </summary>
     /// <remarks>
-    /// Seeing a list and who is in it needs only <see cref="ViewMembers"/>, because it shows nobody
-    /// a person with that permission could not already find. Changing one is its own flag: a list
+    /// Seeing a list and who is in it needs <see cref="ViewMembers"/> and <see cref="ViewProfile"/>
+    /// together (See members and See profiles), because a list shows nobody a person with both
+    /// could not already find. Changing one is its own flag: a list
     /// a giveaway or auto-invites names decides who they reach, so changing such a list also needs
     /// <see cref="RunGiveaways"/> or <see cref="ManageAutoInvites"/>, which the endpoint checks.
     /// Not in the built-in Moderator or Viewer roles; Administrator holds it.

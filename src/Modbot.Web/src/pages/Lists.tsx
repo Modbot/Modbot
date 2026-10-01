@@ -268,13 +268,13 @@ function ListDialog({
                 ))}
               </ul>
             </Section>
-  
+
             {inUse && (
               <Section title="Used by">
                 <UseBadges use={list.usedBy} />
               </Section>
             )}
-  
+
             <Section title="Who is in it">
               {problem ? (
                 <EmptyRow className="px-0" tone="danger" onTryAgain={() => setAttempt((n) => n + 1)}>
@@ -296,7 +296,7 @@ function ListDialog({
                 </>
               )}
             </Section>
-  
+
             <div className="max-w-lg text-foreground">
               <Row label="Made" value={<>{dateTime(list.createdAt)}{list.createdBy && ` by ${list.createdBy}`}</>} />
               <Row label="Changed" value={dateTime(list.updatedAt)} mono />
