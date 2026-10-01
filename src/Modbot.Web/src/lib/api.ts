@@ -2072,7 +2072,7 @@ export type WorldView = {
   now: string
 }
 
-/** One instance, with who was in it and what happened there. */
+/** One instance, with who was in it. What happened there is the audit log, read narrowed to it. */
 export type InstanceView = {
   instance: InstanceRow
   known: boolean
@@ -2089,8 +2089,6 @@ export type InstanceView = {
   /** False without ViewAuditLog: who was in an instance is moderation history, the instance itself is not. */
   canSeeWhoWasThere: boolean
   people: PersonSeen[]
-  log: AuditEntry[]
-  logTruncated: boolean
   now: string
   /** How many were in it each time the count changed, oldest first. The most recent 2000. */
   headCounts: {

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Places;
@@ -62,8 +63,34 @@ public class InstanceTests
         Assert.Equal("usr_a", seen.UserId);
         Assert.Equal("Ada", seen.DisplayName);
         Assert.Equal(30m, seen.MinutesSeen);
+    }
 
-        Assert.Equal(2, view.Log.Count);
+    /// <summary>
+    /// What happened in an instance is the popup's Activity tab, which reads the audit log itself.
+    /// The view no longer carries a list of its own, so opening an instance runs no log query.
+    /// </summary>
+    [Fact]
+    public async Task AnInstance_CarriesNoActivityList()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), t.AddHours(2), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t.AddMinutes(5), "wrld_a", "39047"), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
+
+        var response = await host.GetAsync($"/api/instances/{instance.Id}", cookie, ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        Assert.False(json.RootElement.TryGetProperty("log", out _));
+        Assert.False(json.RootElement.TryGetProperty("logTruncated", out _));
     }
 
     /// <summary>
@@ -180,7 +207,6 @@ public class InstanceTests
         Assert.False(view.CanSeeWhoWasThere);
         Assert.Empty(view.People);
         Assert.Equal(0, view.ReturningMembers);
-        Assert.Empty(view.Log);
     }
 
     /// <summary>

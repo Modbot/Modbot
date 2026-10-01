@@ -190,6 +190,9 @@ internal sealed class GetInstanceTool : ReadTool
         if (instance is null)
             return ChatToolResult.Problem("No instance has that id.");
 
+        var (log, logTruncated) = await PlacesEndpoints.InstanceLogAsync(
+            Get<ModbotContext>(context), context.Held, instance, ct);
+
         return ChatToolResult.Json(
             new
             {
@@ -201,13 +204,13 @@ internal sealed class GetInstanceTool : ReadTool
                 instance.Counts,
                 instance.CanSeeWhoWasThere,
                 people = instance.People,
-                log = instance.Log.Select(AuditSearch.Summary),
-                instance.LogTruncated,
+                log = log.Select(AuditSearch.Summary),
+                logTruncated,
             },
             [
                 .. InstanceReferences(instance.Instance),
                 .. instance.People.Select(p => Person(p.UserId, p.DisplayName)),
-                .. AuditSearch.References(instance.Log),
+                .. AuditSearch.References(log),
             ]);
     }
 }

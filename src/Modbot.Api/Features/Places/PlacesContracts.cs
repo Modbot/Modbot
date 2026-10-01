@@ -112,19 +112,22 @@ public sealed record WorldView(
     DateTimeOffset Now);
 
 /// <summary>
-/// One instance, as it happened: where it was, when, how busy, who was in it and what happened there.
+/// One instance, as it happened: where it was, when, how busy and who was in it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Keyed on Modbot's own id rather than VRChat's number, because VRChat reissues numbers after a
-/// instance closes and two evenings under one number are two instances (<c>VRChatInstance</c>). Both the
-/// people and the log below are bounded to the stretch this instance was open, for the same reason.
+/// instance closes and two evenings under one number are two instances (<c>VRChatInstance</c>). The
+/// people below are bounded to the stretch this instance was open, for the same reason.
 /// </para>
 /// <para>
-/// <paramref name="People"/> and <paramref name="Log"/> are empty, and
-/// <paramref name="CanSeeWhoWasThere"/> false, for a caller without <c>ViewAuditLog</c>: who was
-/// in an instance and what was done to them is moderation history (spec 5.9.4), and the instance's own
-/// shape is not.
+/// <paramref name="People"/> is empty, and <paramref name="CanSeeWhoWasThere"/> false, for a caller
+/// without <c>ViewAuditLog</c>: who was in an instance and what was done to them is moderation
+/// history (spec 5.9.4), and the instance's own shape is not.
+/// </para>
+/// <para>
+/// What happened there is not carried: the popup's Activity tab reads the audit log itself, narrowed
+/// to the instance, so it pages and filters like the Audit log page.
 /// </para>
 /// </remarks>
 /// <param name="Instance">The instance row, the same shape the Instances page lists.</param>
@@ -142,7 +145,6 @@ public sealed record WorldView(
 /// showed it, not as it stood on the night, because that is the question a moderator asks: of the
 /// people who came, how many are ours. Zero, like the people, for a caller without <c>ViewAuditLog</c>.
 /// </param>
-/// <param name="LogTruncated">True when more facts happened here than the list carries.</param>
 /// <param name="HeadCounts">
 /// How many people were in it, each time the count changed, oldest first: the popup's "people over
 /// time". The most recent <see cref="HeadCountPoint.Most"/> changes when there were more. Not
@@ -168,8 +170,6 @@ public sealed record InstanceView(
     int ReturningMembers,
     bool CanSeeWhoWasThere,
     IReadOnlyList<PersonSeen> People,
-    IReadOnlyList<AuditEntry> Log,
-    bool LogTruncated,
     DateTimeOffset Now,
     IReadOnlyList<HeadCountPoint> HeadCounts,
     IReadOnlyList<PeoplePresentPoint> PeoplePresent);

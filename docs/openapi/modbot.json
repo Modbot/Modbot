@@ -11546,7 +11546,7 @@
           "Places"
         ],
         "summary": "Get instance",
-        "description": "One instance: where it was, when, how busy, who was in it and what happened there. The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false, both lists are empty, and so is `peoplePresent`: how many members and how many of each trust rank a companion saw, moment by moment, which is drawn as lines a moderator can turn on over the head count. Each head count reading says whether it went `up`, or down at a `kick` recorded about then, or down because somebody `left`.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "One instance: where it was, when, how busy and who was in it. The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances. What happened there is the audit log, read narrowed to the instance's world and number.\n\nWho was in the instance needs ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false, `people` is empty, and so is `peoplePresent`: how many members and how many of each trust rank a companion saw, moment by moment, which is drawn as lines a moderator can turn on over the head count. Each head count reading says whether it went `up`, or down at a `kick` recorded about then, or down because somebody `left`.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstance",
         "parameters": [
           {
@@ -29298,8 +29298,6 @@
           "returningMembers",
           "canSeeWhoWasThere",
           "people",
-          "log",
-          "logTruncated",
           "now",
           "headCounts",
           "peoplePresent"
@@ -29371,15 +29369,6 @@
             "items": {
               "$ref": "#/components/schemas/PersonSeen"
             }
-          },
-          "log": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditEntry"
-            }
-          },
-          "logTruncated": {
-            "type": "boolean"
           },
           "now": {
             "type": "string",

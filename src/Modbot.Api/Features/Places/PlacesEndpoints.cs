@@ -104,12 +104,13 @@ public static class PlacesEndpoints
             .WithName("GetInstance")
             .WithSummary("Get instance")
             .WithDescription(
-                "One instance: where it was, when, how busy, who was in it and what happened there. "
+                "One instance: where it was, when, how busy and who was in it. "
                 + "The id is Modbot's own, not VRChat's number — VRChat hands the same number out "
-                + "again after an instance closes, so two evenings under one number are two instances.\n\n"
-                + "Who was in the instance and the facts recorded there need ViewAuditLog as well: "
+                + "again after an instance closes, so two evenings under one number are two instances. "
+                + "What happened there is the audit log, read narrowed to the instance's world and number.\n\n"
+                + "Who was in the instance needs ViewAuditLog as well: "
                 + "that is moderation history (spec 5.9.4), while the instance's own shape is not. "
-                + "Without it `canSeeWhoWasThere` is false, both lists are empty, and so is "
+                + "Without it `canSeeWhoWasThere` is false, `people` is empty, and so is "
                 + "`peoplePresent`: how many members and how many of each trust rank a companion saw, "
                 + "moment by moment, which is drawn as lines a moderator can turn on over the head "
                 + "count. Each head count reading says whether it went `up`, or down at a `kick` "
@@ -293,10 +294,8 @@ public static class PlacesEndpoints
         var counts = PlaceCounts.Nothing;
         var returningMembers = 0;
         IReadOnlyList<PersonSeen> people = [];
-        IReadOnlyList<AuditEntry> log = [];
         IReadOnlyList<PeoplePresentPoint> present = [];
         IReadOnlyList<DateTimeOffset> kicks = [];
-        var truncated = false;
 
         if (row.VRChatInstanceId is { Length: > 0 } number)
         {
@@ -313,7 +312,6 @@ public static class PlacesEndpoints
                 counts = await presence.ForInstanceAsync(instance, ct);
                 people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
                 returningMembers = await ReturningMembersAsync(db, people, ct);
-                (log, truncated) = await LogAsync(db, held, instance, ct);
                 present = await PeoplePresentAsync(db, presence, instance, ct);
             }
         }
@@ -348,8 +346,6 @@ public static class PlacesEndpoints
             returningMembers,
             canSee,
             people,
-            log,
-            truncated,
             now,
             HeadCountChanges.Classify(headCounts, kicks),
             present);
@@ -433,19 +429,32 @@ public static class PlacesEndpoints
     }
 
     /// <summary>
-    /// Every fact recorded in this instance while it was open, newest first.
+    /// Every fact recorded in this instance while it was open, newest first, at most
+    /// <see cref="FactsListed"/>; empty without <c>ViewAuditLog</c>, like the people.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// For the chat's <c>get_instance</c> tool only. The instance popup used to carry this list in
+    /// <see cref="InstanceView"/>, but its Activity tab now reads the audit log itself, so the view
+    /// stopped paying for a query nobody read.
+    /// </para>
+    /// <para>
     /// Narrowed by <see cref="AuditVisibility"/> like any other read of the log, and bounded to
     /// the instance's own open and close times so a reissued number cannot drag another evening's
     /// facts in.
+    /// </para>
     /// </remarks>
-    private static async Task<(IReadOnlyList<AuditEntry> Log, bool Truncated)> LogAsync(
+    internal static async Task<(IReadOnlyList<AuditEntry> Log, bool Truncated)> InstanceLogAsync(
         ModbotContext db,
         ModbotPermissions held,
-        InstanceLife instance,
+        InstanceView view,
         CancellationToken ct)
     {
+        var row = view.Instance;
+        if (!view.CanSeeWhoWasThere || row.VRChatInstanceId is not { Length: > 0 } number)
+            return ([], false);
+
+        var instance = new InstanceLife(row.WorldId, number, row.OpenedAt, row.ClosedAt ?? view.LastSeenAt);
         var visible = AuditVisibility.VisibleTypes(held);
         if (visible.Count == 0)
             return ([], false);
