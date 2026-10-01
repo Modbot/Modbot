@@ -152,6 +152,14 @@ event finishing and cancelling: each changes what the place should say.
 - An occurrence is still opened if Modbot comes up late, as long as the occurrence has not ended.
 - The instance is not linked to the VRChat calendar event (`calendarEntryId`): whether VRChat
   wants the series id or an occurrence id there has not been checked against the real API.
+- **`instancePersistenceEnabled` is sent as `false`** (added 2026-10-01). The SDK writes `null` for
+  it when it is left out, and VRChat refuses that with a 400, "instancePersistenceEnabled must be a
+  boolean: 'null'", so until then every opening failed. `playerPersistenceEnabled` still goes as
+  `null`; the refusal named only the instance setting.
+
+**To review (2026-10-01).** The maintainer wants a check of whether a bot opening group instances
+on a timer is within VRChat's Terms of Service before this feature is promoted any further. It
+stays as built until then; nothing in the user docs speaks to it.
 
 ## 5. Rate limits
 
@@ -229,7 +237,8 @@ Two loops, both on `IModbotClock`, never the system clock:
 - Which fields VRChat's calendar requires or rejects, its text lengths, how it reads a monthly
   recurrence, whether `imageId` must belong to the group, and whether an update without
   `recurrence` keeps or removes a series.
-- Whether `CreateInstance` for a group needs anything beyond owner, type, access and region.
+- Whether `CreateInstance` for a group needs anything beyond owner, type, access, region and
+  `instancePersistenceEnabled` (§4; the last was learned from a 400 on 2026-10-01).
 - Discord's handling of external event covers fetched from arbitrary picture links.
 
 ## 11. The page (added 2026-09-27)

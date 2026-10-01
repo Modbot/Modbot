@@ -132,12 +132,7 @@ public sealed class CalendarOpener
     private async Task<bool> OpenAsync(
         CalendarEvent calendarEvent, CalendarOpening attempt, string groupId, DateTimeOffset now, CancellationToken ct)
     {
-        var request = new CreateInstanceRequest(
-            worldId: calendarEvent.WorldId!,
-            type: InstanceType.Group,
-            region: Region(calendarEvent.Region),
-            ownerId: groupId,
-            groupAccessType: Access(calendarEvent.AccessType));
+        var request = Request(calendarEvent, groupId);
 
         var result = await _gate.ExecuteAsync(
             new VRChatEndpoint(VRChatEndpointClass.InstancesCreate, Operation: "CreateInstance"),
@@ -187,6 +182,22 @@ public sealed class CalendarOpener
 
         return true;
     }
+
+    /// <summary>What is sent to VRChat to open an event's instance.</summary>
+    /// <remarks>
+    /// <c>instancePersistenceEnabled</c> is sent as <c>false</c>. The SDK sends it as <c>null</c>
+    /// when it is left out, and VRChat refuses that with a 400, "instancePersistenceEnabled must be
+    /// a boolean: 'null'" (seen 2026-10-01), so every opening failed. False asks for no
+    /// persistence, which Modbot never wanted. <c>playerPersistenceEnabled</c> still goes as
+    /// <c>null</c>; that refusal named only the instance setting.
+    /// </remarks>
+    internal static CreateInstanceRequest Request(CalendarEvent calendarEvent, string groupId) => new(
+        worldId: calendarEvent.WorldId!,
+        type: InstanceType.Group,
+        region: Region(calendarEvent.Region),
+        ownerId: groupId,
+        groupAccessType: Access(calendarEvent.AccessType),
+        instancePersistenceEnabled: false);
 
     internal static InstanceRegion Region(string region) => region switch
     {

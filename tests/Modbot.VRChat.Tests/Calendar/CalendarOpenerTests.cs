@@ -1,7 +1,9 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Modbot.VRChat.Calendar;
 
 namespace Modbot.VRChat.Tests.Calendar;
 
@@ -33,6 +35,7 @@ public class CalendarOpenerTests(PostgresFixture fixture) : CalendarTestBase(fix
         Assert.Equal(global::VRChat.API.Model.InstanceType.Group, request.Type);
         Assert.Equal(global::VRChat.API.Model.GroupAccessType.Plus, request.GroupAccessType);
         Assert.Equal(global::VRChat.API.Model.InstanceRegion.Eu, request.Region);
+        Assert.False(request.InstancePersistenceEnabled);
 
         // Every pass after, and a fresh context -- which is all a restart leaves -- opens nothing more.
         for (var i = 0; i < 4; i++)
@@ -54,6 +57,24 @@ public class CalendarOpenerTests(PostgresFixture fixture) : CalendarTestBase(fix
         Assert.Equal(GroupId, instance.GroupId);
 
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventInstanceOpened));
+    }
+
+    /// <summary>
+    /// VRChat refuses a null <c>instancePersistenceEnabled</c> with a 400 (seen 2026-10-01), and the
+    /// SDK writes null for it unless it is set. Read from the body as the SDK writes it, not from the
+    /// object, because the null on the wire is what VRChat refused.
+    /// </summary>
+    [Fact]
+    public void TheRequestBodySaysInstancePersistenceIsOff_NotNull()
+    {
+        var e = new CalendarEvent { WorldId = WorldId, AccessType = "members", Region = "us" };
+
+        var body = CalendarOpener.Request(e, GroupId).ToJson();
+
+        using var json = JsonDocument.Parse(body);
+        Assert.Equal(JsonValueKind.False, json.RootElement.GetProperty("instancePersistenceEnabled").ValueKind);
+        Assert.Equal(WorldId, json.RootElement.GetProperty("worldId").GetString());
+        Assert.Equal(GroupId, json.RootElement.GetProperty("ownerId").GetString());
     }
 
     [Fact]
