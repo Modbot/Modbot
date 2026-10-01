@@ -263,6 +263,39 @@ public class LiveStreamTests
     }
 
     [Fact]
+    public async Task AJoinBySomebodyWatched_ArrivesAsAFlaggedJoin_WithTheWatchsReason()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var subject = Subject();
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.PersonWatches.Add(new PersonWatch
+            {
+                SubjectPlatform = FactPlatform.VRChat,
+                SubjectId = subject,
+                Reason = "Threatened to raid",
+                SetByUserId = Guid.NewGuid(),
+                SetByUsername = "mira",
+                SetAt = host.Clock.UtcNow.AddHours(-1),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Watched One");
+
+        var @event = await NextEventAsync(socket);
+        Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
+        Assert.Equal("Watched: Threatened to raid", @event.GetProperty("reason").GetString());
+        Assert.Equal(0, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
+    }
+
+    [Fact]
     public async Task AJoinCarriesTheEighteenPlusMarkOffTheStoredProfile()
     {
         await using var host = await StartAsync(_db);

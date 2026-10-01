@@ -56,7 +56,7 @@ public class FlagRulesTests
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
         return await FlagRules.ReadAsync(
-            db, people, ranks ?? new Dictionary<string, TrustRank?>(StringComparer.Ordinal), Ct);
+            db, people, ranks ?? new Dictionary<string, TrustRank?>(StringComparer.Ordinal), host.Clock.UtcNow, Ct);
     }
 
     private static async Task SetRulesAsync(ReadSurfaceTestHost host, FlagRuleSettings rules)
@@ -295,6 +295,146 @@ public class FlagRulesTests
         Assert.Equal("1 kick or ban · 5 warns · Nuisance · AutoMod: Slurs", match.Reason);
     }
 
+    private static async Task<PersonWatch> WatchAsync(
+        ReadSurfaceTestHost host,
+        string subject,
+        string reason,
+        FactPlatform platform = FactPlatform.VRChat,
+        DateTimeOffset? endsAt = null,
+        DateTimeOffset? endedAt = null)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var watch = new PersonWatch
+        {
+            SubjectPlatform = platform,
+            SubjectId = subject,
+            Reason = reason,
+            SetByUserId = Guid.NewGuid(),
+            SetByUsername = "mira",
+            SetAt = host.Clock.UtcNow.AddDays(-1),
+            EndsAt = endsAt,
+            EndedAt = endedAt,
+        };
+
+        db.PersonWatches.Add(watch);
+        await db.SaveChangesAsync(Ct);
+
+        return watch;
+    }
+
+    [Fact]
+    public async Task AWatch_Flags_WithItsReasonFirst()
+    {
+        await using var host = await ReadyAsync();
+
+        var watch = await WatchAsync(host, "usr_p", "Said they would come back with alts");
+        await host.WriteFactAsync(AuditFact(FactType.MemberKicked, "usr_p", host.Clock.UtcNow.AddDays(-3)), Ct);
+
+        var match = (await ReadAsync(host, null, "usr_p"))["usr_p"];
+
+        Assert.True(match.IsFlagged);
+        Assert.Equal(new[] { "Watched: Said they would come back with alts", "1 kick or ban" }, match.Reasons);
+        Assert.Equal(watch.Id, match.Watch?.Id);
+    }
+
+    [Fact]
+    public async Task AWatch_PastItsEndDay_OrStopped_DoesNotFlag()
+    {
+        await using var host = await ReadyAsync();
+
+        await WatchAsync(host, "usr_ran_out", "x", endsAt: host.Clock.UtcNow.AddMinutes(-1));
+        await WatchAsync(host, "usr_stopped", "x", endedAt: host.Clock.UtcNow.AddHours(-1));
+        await WatchAsync(host, "usr_still", "x", endsAt: host.Clock.UtcNow.AddDays(1));
+
+        var matches = await ReadAsync(host, null, "usr_ran_out", "usr_stopped", "usr_still");
+
+        Assert.False(matches["usr_ran_out"].IsFlagged);
+        Assert.Null(matches["usr_ran_out"].Watch);
+        Assert.False(matches["usr_stopped"].IsFlagged);
+        Assert.True(matches["usr_still"].IsFlagged);
+
+        // The same watch, read a day and a minute later, has run out.
+        host.Clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(1));
+        Assert.False((await ReadAsync(host, null, "usr_still"))["usr_still"].IsFlagged);
+    }
+
+    [Fact]
+    public async Task AWatch_OnALinkedDiscordAccount_FlagsTheVRChatPerson()
+    {
+        await using var host = await ReadyAsync();
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordAccountLinks.Add(new DiscordAccountLink
+            {
+                DiscordUserId = "333", DiscordUsername = "linked", VRChatUserId = "usr_linked", LinkedAt = host.Clock.UtcNow.AddDays(-5),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await WatchAsync(host, "333", "Raid in the Discord", FactPlatform.Discord);
+
+        var match = (await ReadAsync(host, null, "usr_linked"))["usr_linked"];
+
+        Assert.Equal("Watched: Raid in the Discord", match.Reason);
+        Assert.Equal(FactPlatform.Discord, match.Watch?.Platform);
+    }
+
+    [Fact]
+    public async Task AWatch_ALongReason_IsShortenedOnTheChip()
+    {
+        await using var host = await ReadyAsync();
+        await WatchAsync(host, "usr_p", new string('a', 150));
+
+        var reason = (await ReadAsync(host, null, "usr_p"))["usr_p"].Reasons.Single();
+
+        Assert.Equal("Watched: ".Length + FlagRules.WatchReasonOnAChip, reason.Length);
+        Assert.EndsWith("…", reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LiftedBans_StopCountingAfterTheDaysSet_AndAStandingBanNeverDoes()
+    {
+        await using var host = await ReadyAsync();
+        var now = host.Clock.UtcNow;
+
+        // Banned and lifted 100 days ago.
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_old", now.AddDays(-200)), Ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberUnbanned, "usr_old", now.AddDays(-100)), Ct);
+
+        // Banned long ago, lifted 10 days ago.
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_recent", now.AddDays(-200)), Ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberUnbanned, "usr_recent", now.AddDays(-10)), Ct);
+
+        // Banned long ago and never lifted.
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_standing", now.AddDays(-400)), Ct);
+
+        // An old lifted ban, then banned again since: only the new one counts.
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_again", now.AddDays(-300)), Ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberUnbanned, "usr_again", now.AddDays(-250)), Ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_again", now.AddDays(-5)), Ct);
+
+        string[] people = ["usr_old", "usr_recent", "usr_standing", "usr_again"];
+
+        // Unset, every ban counts, as before the setting existed.
+        var always = await ReadAsync(host, null, people);
+        Assert.All(people, p => Assert.True(always[p].IsFlagged));
+        Assert.Equal("2 kicks or bans", always["usr_again"].Reason);
+
+        await SetRulesAsync(host, new FlagRuleSettings { LiftedBansForDays = 90 });
+        var windowed = await ReadAsync(host, null, people);
+
+        Assert.False(windowed["usr_old"].IsFlagged);
+        Assert.Equal(1, windowed["usr_old"].PriorActions);
+        Assert.Equal("1 kick or ban", windowed["usr_recent"].Reason);
+        Assert.Equal("1 kick or ban", windowed["usr_standing"].Reason);
+        Assert.Equal("1 kick or ban", windowed["usr_again"].Reason);
+        Assert.Equal(2, windowed["usr_again"].PriorActions);
+    }
+
     [Fact]
     public void AMissingOrBrokenSettingsDocument_IsEveryDefault()
     {
@@ -307,6 +447,40 @@ public class FlagRulesTests
         Assert.Null(sparse.AutoModRules);
 
         Assert.Equal(FlagRuleSettings.MaxWarns, FlagRuleSettings.Read("""{"warnsAtLeast":5000}""").WarnsAtLeast);
+
+        Assert.Null(sparse.LiftedBansForDays);
+        Assert.Equal(FlagRuleSettings.MaxLiftedBanDays, FlagRuleSettings.Read("""{"liftedBansForDays":99999}""").LiftedBansForDays);
+    }
+
+    [Fact]
+    public async Task TheCard_SavesTheLiftedBanDays_AndRefusesThemOutOfRange()
+    {
+        await using var host = await ReadyAsync();
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        Assert.Null((await host.GetJsonAsync<FlagRulesView>(Path, cookie, Ct)).LiftedBansForDays);
+
+        object Body(int? days) => new
+        {
+            kicksAndBans = true,
+            liftedBansForDays = days,
+            warns = true,
+            warnsAtLeast = 5,
+            nuisance = true,
+            autoMod = true,
+            everyAutoModRule = true,
+            autoModRules = Array.Empty<Guid>(),
+        };
+
+        var saved = await host.PutJsonAsync(Path, Body(30), cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal(30, (await saved.Content.ReadFromJsonAsync<FlagRulesView>(Ct))!.LiftedBansForDays);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.PutJsonAsync(Path, Body(0), cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.PutJsonAsync(Path, Body(3651), cookie, Ct)).StatusCode);
+
+        var cleared = await host.PutJsonAsync(Path, Body(null), cookie, Ct);
+        Assert.Null((await cleared.Content.ReadFromJsonAsync<FlagRulesView>(Ct))!.LiftedBansForDays);
     }
 
     [Fact]
