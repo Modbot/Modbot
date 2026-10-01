@@ -1297,6 +1297,44 @@ export type NoteList = {
   canWrite: boolean
 }
 
+/**
+ * One watch on a person (watching a person design): a moderator's "keep an eye on them". A watched
+ * person is Flagged, and their arrival in one of the group's instances raises a notification.
+ */
+export type Watch = {
+  id: string
+  subjectPlatform: 'VRChat' | 'Discord'
+  subjectId: string
+  subjectName: string | null
+  reason: string
+  setByName: string
+  setAt: string
+  /** When it stops on its own. Null: until somebody stops it. */
+  endsAt: string | null
+  /** When somebody should check on the person again. Null: no follow-up. */
+  followUpAt: string | null
+  followUpDue: boolean
+  /** Not stopped, and its end day has not passed. */
+  standing: boolean
+  endedAt: string | null
+  /** Null when it ran out on its own. */
+  endedByName: string | null
+  /** May stop it or follow up on it: started it, or may write notes. */
+  canChange: boolean
+}
+
+export type PersonWatches = { watches: Watch[]; canWrite: boolean; now: string }
+
+export type WatchList = { watches: Watch[]; now: string }
+
+export type StartWatchBody = {
+  userId: string
+  platform: 'VRChat' | 'Discord'
+  reason: string
+  endsAt: string | null
+  followUpAt: string | null
+}
+
 /** One row of the group's ban list, as the ban sweep last read it. */
 export type GroupBanRow = {
   userId: string
@@ -2852,6 +2890,8 @@ export type FlagRuleAutoModOption = { id: string; kind: 'termList' | 'topic'; na
 /** Settings → Moderation → Flagged: which rules make a person Flagged on the companion and Live. */
 export type FlagRules = {
   kicksAndBans: boolean
+  /** How many days a lifted ban still counts. Null means always. */
+  liftedBansForDays: number | null
   warns: boolean
   warnsAtLeast: number
   nuisance: boolean
@@ -5154,6 +5194,27 @@ export const api = {
 
   /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
   takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),
+
+  // ── Watching a person (watching a person design). Modbot's own record; nothing reaches VRChat. ─
+
+  /** The watches on a person's accounts, the standing one first. Needs ViewAuditLog. */
+  personWatches: (ids: { vrchat?: string | null; discord?: string | null }) => {
+    const q = new URLSearchParams()
+    if (ids.vrchat) q.set('vrchat', ids.vrchat)
+    if (ids.discord) q.set('discord', ids.discord)
+    return request<PersonWatches>(`/api/watches/person?${q.toString()}`)
+  },
+
+  /** Every standing watch, or with `due` only those whose follow-up day has come. Needs ViewAuditLog. */
+  watches: (query: { due?: boolean } = {}) => request<WatchList>(`/api/watches${query.due ? '?due=true' : ''}`),
+
+  /** Start watching somebody. Needs WriteNotes. */
+  startWatch: (body: StartWatchBody) => post<Watch>('/api/watches', body),
+
+  stopWatch: (id: string) => post<Watch>(`/api/watches/${id}/stop`),
+
+  /** Somebody has checked on the person: clears the follow-up day. */
+  followedUp: (id: string) => post<Watch>(`/api/watches/${id}/followed-up`),
   // ── Join requests (join requests design). Read live from VRChat every time. ───────────────
 
   joinRequests: (query: JoinRequestQuery = {}) => {

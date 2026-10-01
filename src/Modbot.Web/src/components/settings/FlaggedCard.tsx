@@ -14,6 +14,8 @@ import { SettingsCard } from './SettingsCard'
 export function FlaggedCard() {
   const [rules, setRules] = useState<FlagRules | null>(null)
   const [kicksAndBans, setKicksAndBans] = useState(true)
+  const [liftedStop, setLiftedStop] = useState(false)
+  const [liftedDays, setLiftedDays] = useState('')
   const [warns, setWarns] = useState(true)
   const [warnsAtLeast, setWarnsAtLeast] = useState('')
   const [nuisance, setNuisance] = useState(true)
@@ -27,6 +29,8 @@ export function FlaggedCard() {
   const load = (next: FlagRules) => {
     setRules(next)
     setKicksAndBans(next.kicksAndBans)
+    setLiftedStop(next.liftedBansForDays !== null)
+    setLiftedDays(next.liftedBansForDays !== null ? String(next.liftedBansForDays) : '90')
     setWarns(next.warns)
     setWarnsAtLeast(String(next.warnsAtLeast))
     setNuisance(next.nuisance)
@@ -53,6 +57,7 @@ export function FlaggedCard() {
     api
       .setFlagRules({
         kicksAndBans,
+        liftedBansForDays: liftedStop ? Number(liftedDays) : null,
         warns,
         warnsAtLeast: Number(warnsAtLeast),
         nuisance,
@@ -86,6 +91,18 @@ export function FlaggedCard() {
         <Switch checked={kicksAndBans} onChange={setKicksAndBans}>
           Kicks and bans
         </Switch>
+        {kicksAndBans && (
+          <div className="flex flex-col gap-1 pl-6">
+            <Checkbox checked={liftedStop} onChange={setLiftedStop}>
+              Lifted bans stop counting
+            </Checkbox>
+            {liftedStop && (
+              <div className="max-w-40">
+                <NumberField label="Days after lifting" value={liftedDays} min={1} max={3650} onChange={setLiftedDays} />
+              </div>
+            )}
+          </div>
+        )}
 
         <Switch checked={warns} onChange={setWarns}>
           Warns

@@ -60,6 +60,15 @@ export function StandingBar({
   )
   const notes = useLoad(readsNotes && notesId ? loadNotes : null, version)
 
+  // A watch is read under the notes' permission, for the same reason: it is a moderator's own word
+  // about the person, kept in the moderation log.
+  const loadWatches = useCallback(
+    () => api.personWatches({ vrchat: vrchatId, discord: discordId }),
+    [vrchatId, discordId],
+  )
+  const watches = useLoad(readsNotes && (vrchatId || discordId) ? loadWatches : null, version)
+  const watch = watches.data?.watches.find((w) => w.standing) ?? null
+
   const loadCases = useCallback(() => api.cases({ userId: vrchatId!, limit: 1 }), [vrchatId])
   const cases = useLoad(seesProfile && vrchatId ? loadCases : null, version)
 
@@ -74,6 +83,14 @@ export function StandingBar({
 
   const chips: React.ReactNode[] = []
   const failed: string[] = []
+
+  if (watch) {
+    chips.push(
+      <Chip key="watched" tone="bad" onClick={() => onOpen('notes')}>
+        Watched{watch.followUpDue ? ' · follow-up due' : ''}
+      </Chip>,
+    )
+  }
 
   if (view?.banned) {
     chips.push(
@@ -125,6 +142,7 @@ export function StandingBar({
   if (membership?.error) failed.push('membership')
   if (history.error) failed.push('past actions')
   if (notes.error) failed.push('notes')
+  if (watches.error) failed.push('watches')
   if (flags.error) failed.push('flags')
   if (cases.error) failed.push('case files')
 
@@ -134,6 +152,7 @@ export function StandingBar({
     (membership !== null && !membership.data && !membership.error)
     || (seesProfile && vrchatId !== null && !history.data && !history.error)
     || (readsNotes && notesId !== null && !notes.data && !notes.error)
+    || (readsNotes && (vrchatId !== null || discordId !== null) && !watches.data && !watches.error)
     || (seesProfile && (vrchatId !== null || discordId !== null) && !flags.data && !flags.error)
     || (seesProfile && vrchatId !== null && !cases.data && !cases.error)
 

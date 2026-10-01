@@ -15,6 +15,7 @@ import {
   type NowChange,
   type NowLook,
   type ReviewView,
+  type Watch,
 } from '@/lib/api'
 import { moderationApi, type ModerationFlag } from '@/lib/autoMod'
 import { writeChips } from '@/lib/filters'
@@ -50,11 +51,13 @@ const LOOK_MS = 5 * 60_000
 
 const isReviewEvent = (event: LiveEvent) => REVIEW_KINDS.has(event.kind)
 const isInstanceEvent = (event: LiveEvent) => PRESENCE_KINDS.has(event.kind) || INSTANCE_KINDS.has(event.kind)
+const isWatchEvent = (event: LiveEvent) => event.type.startsWith('modbot.watch.')
 
 const loadFlags = () => moderationApi.flags('open')
 const loadReviews = () => api.reviews('open')
 const loadLive = () => api.live()
 const loadRequests = () => api.joinRequests({ pageSize: JOIN_REQUEST_PAGE_SIZE })
+const loadFollowUps = () => api.watches({ due: true })
 
 /**
  * Now -- the front page (UX review 2026-09-25, finding 3 and big idea 1). It answers "what needs
@@ -91,9 +94,20 @@ export function Now({
   const seesLive = mayOpen(me, 'live')
   const seesHealth = can(me, 'ViewOperationalLog')
 
+  // A watch is a fact in the moderation log, so the log's permission reads them, as notes are read.
+  const seesFollowUps = can(me, 'ViewAuditLog')
+
   const flags = useLoad(seesFlags ? loadFlags : null, useLiveVersion(changesFlags))
   const reviews = useLoad(seesReviews ? loadReviews : null, useLiveVersion(isReviewEvent))
   const requests = useLoad(seesRequests ? loadRequests : null)
+  const followUps = useLoad(seesFollowUps ? loadFollowUps : null, useLiveVersion(isWatchEvent))
+
+  // The follow-ups marked done here, so they leave without waiting for the live stream.
+  const [followedUp, setFollowedUp] = useState<string[]>([])
+  const dueRows = useMemo(
+    () => followUps.data?.watches.filter((w) => !followedUp.includes(w.id)) ?? null,
+    [followUps.data, followedUp],
+  )
 
   // The rows answered here, so they leave without a second read, as on the Requests page.
   const [answered, setAnswered] = useState<string[]>([])
@@ -118,8 +132,10 @@ export function Now({
     <div className="flex flex-col gap-3">
       {seesHealth && <HealthLine onOpen={onOpenHealth} />}
 
-      {(seesFlags || seesReviews || seesRequests) && (
+      {(seesFlags || seesReviews || seesRequests || seesFollowUps) && (
         <Decisions
+          followUps={seesFollowUps ? { data: dueRows, error: followUps.error, reload: followUps.reload } : null}
+          onFollowedUp={(id) => setFollowedUp((ids) => [...ids, id])}
           flags={seesFlags ? flags : null}
           reviews={seesReviews ? reviews : null}
           requests={
@@ -222,8 +238,10 @@ function HealthLine({ onOpen }: { onOpen: (section: StatusRowId | null) => void 
 
 type Loaded<T> = { data: T | null; error: string | null; reload: (() => void) | null }
 
-/** Open flags, reviews and join requests, a count each and the newest rows. */
+/** Follow-ups due, open flags, reviews and join requests, a count each and the newest rows. */
 function Decisions({
+  followUps,
+  onFollowedUp,
   flags,
   reviews,
   requests,
@@ -233,6 +251,9 @@ function Decisions({
   onOpenSubject,
   onGo,
 }: {
+  /** Watches whose check-back day has come, the longest overdue first. Every one is listed. */
+  followUps: Loaded<Watch[]> | null
+  onFollowedUp: (id: string) => void
   flags: Loaded<{ flags: ModerationFlag[]; open: number }> | null
   reviews: Loaded<{ reviews: ReviewView[]; openCount: number }> | null
   /** The first page of the queue, less the rows answered here; `more` when it came back full. */
@@ -256,8 +277,11 @@ function Decisions({
     .sort((a, b) => (b.askedAt ? Date.parse(b.askedAt) : 0) - (a.askedAt ? Date.parse(a.askedAt) : 0))
     .slice(0, REQUEST_ROWS)
 
-  const loading = [flags, reviews, requests].some((part) => part !== null && !part.data && !part.error)
+  const followUpRows = followUps?.data ?? []
+
+  const loading = [followUps, flags, reviews, requests].some((part) => part !== null && !part.data && !part.error)
   const failed = [
+    followUps?.error && !followUps.data ? 'follow-ups' : null,
     flags?.error && !flags.data ? 'flags' : null,
     reviews?.error && !reviews.data ? 'reviews' : null,
     requests?.error && !requests.data ? 'join requests' : null,
@@ -268,6 +292,11 @@ function Decisions({
       <CardHeader>
         <CardTitle>Needs a decision</CardTitle>
         <div className="ml-auto flex flex-wrap items-center gap-x-3" style={{ fontSize: 'var(--text-small)' }}>
+          {followUpRows.length > 0 && (
+            <span>
+              <span className="font-mono">{followUpRows.length}</span> {plural(followUpRows.length, 'follow-up')} due
+            </span>
+          )}
           {flags?.data && (
             <CountLink count={flags.data.open} one="open flag" onClick={() => onGo('flags')} />
           )}
@@ -289,9 +318,9 @@ function Decisions({
         <EmptyRow
           tone="danger"
           onTryAgain={
-            [flags, reviews, requests].some((part) => part?.error && !part.data && part.reload)
+            [followUps, flags, reviews, requests].some((part) => part?.error && !part.data && part.reload)
               ? () => {
-                  for (const part of [flags, reviews, requests]) if (part?.error && !part.data) part.reload?.()
+                  for (const part of [followUps, flags, reviews, requests]) if (part?.error && !part.data) part.reload?.()
                 }
               : null
           }
@@ -300,8 +329,11 @@ function Decisions({
         </EmptyRow>
       )}
 
-      {flagRows.length + reviewRows.length + requestRows.length > 0 ? (
+      {followUpRows.length + flagRows.length + reviewRows.length + requestRows.length > 0 ? (
         <ul className="divide-y-(length:--hairline) divide-border" style={{ fontSize: 'var(--text-small)' }}>
+          {followUpRows.map((watch) => (
+            <FollowUpRow key={watch.id} watch={watch} now={now} onOpenSubject={onOpenSubject} onDone={onFollowedUp} />
+          ))}
           {flagRows.map((flag) => (
             <li key={flag.id} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
               <Badge variant="outline">Flag</Badge>
@@ -382,6 +414,55 @@ function Decisions({
         )}
       </Dialog>
     </Card>
+  )
+}
+
+/** One watched person whose check-back day has come, with the button that says somebody did. */
+function FollowUpRow({
+  watch,
+  now,
+  onOpenSubject,
+  onDone,
+}: {
+  watch: Watch
+  now: string
+  onOpenSubject: (id: string) => void
+  onDone: (id: string) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  const done = () => {
+    setBusy(true)
+    setFailed(false)
+
+    api
+      .followedUp(watch.id)
+      .then(() => onDone(watch.id))
+      .catch(() => setFailed(true))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <li className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
+      <Badge variant="outline">Follow-up</Badge>
+      <span className="shrink-0">
+        {watch.subjectPlatform === 'VRChat' ? (
+          <SubjectLink id={watch.subjectId} name={watch.subjectName} onOpen={onOpenSubject} />
+        ) : (
+          <DiscordPersonLink id={watch.subjectId} name={watch.subjectName} />
+        )}
+      </span>
+      <span className={cn('min-w-0 flex-1 truncate', failed ? 'text-destructive' : 'text-muted-foreground')}>
+        {failed ? 'Could not save that.' : watch.reason}
+      </span>
+      <span className="shrink-0 font-mono text-muted-foreground">{watch.followUpAt ? ago(watch.followUpAt, now) : '—'}</span>
+      {watch.canChange && (
+        <Button size="xs" variant="ghost" disabled={busy} onClick={done} className="shrink-0">
+          Followed up
+        </Button>
+      )}
+    </li>
   )
 }
 

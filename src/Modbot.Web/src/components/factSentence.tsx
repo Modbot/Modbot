@@ -1061,6 +1061,35 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Watches ─────────────────────────────────────────────────────────────────────────────────
+  //
+  // The reason is in each sentence, for the reason a note's text is: it is the whole entry.
+  'modbot.watch.add': (p) => (
+    <>
+      {p.actor} started watching {p.subject}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
+  'modbot.watch.end': (p) =>
+    p.text('ended') === 'expired' ? (
+      <>
+        The watch on {p.subject} ran out{p.text('reason') ? <>: {p.text('reason')}</> : null}.
+      </>
+    ) : (
+      <>
+        {p.actor} stopped watching {p.subject}
+        {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+      </>
+    ),
+
+  'modbot.watch.followed-up': (p) => (
+    <>
+      {p.actor} followed up on {p.subject}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
   // ── Evidence ────────────────────────────────────────────────────────────────────────────────
   //
   // Each of these is about a case file, and the "Case file" link after the sentence opens it. The

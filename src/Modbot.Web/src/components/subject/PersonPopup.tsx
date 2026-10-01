@@ -20,6 +20,7 @@ import { PersonActivity } from '@/components/subject/PersonActivity'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { PersonVisits } from '@/components/subject/PersonVisits'
+import { PersonWatch } from '@/components/subject/PersonWatch'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { PhoneActions, StandingBar } from '@/components/subject/Standing'
 import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame, PopupMenu, PopupTabs } from '@/components/subject/shared'
@@ -353,13 +354,22 @@ function Resolved({
             the reader's filters back. */}
         {tab === 'logs' && <PersonActivity person={person} asked={asked} />}
         {tab === 'notes' && notesId && (
-          <PersonNotes
-            key={`${notesId}-${live}`}
-            subjectId={notesId}
-            name={person.vrChat?.name ?? person.discord?.name}
-            platform={notesPlatform}
-            onChanged={() => setActed((n) => n + 1)}
-          />
+          <div className="flex min-h-0 flex-col">
+            <PersonWatch
+              key={`watch-${live}`}
+              vrchatId={vrchatId}
+              discordId={discordId}
+              name={name}
+              onChanged={() => setActed((n) => n + 1)}
+            />
+            <PersonNotes
+              key={`${notesId}-${live}`}
+              subjectId={notesId}
+              name={person.vrChat?.name ?? person.discord?.name}
+              platform={notesPlatform}
+              onChanged={() => setActed((n) => n + 1)}
+            />
+          </div>
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
