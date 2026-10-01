@@ -95,8 +95,11 @@ typed over five hundred fields "integer or string" with a digits pattern. Answer
 numbers, so a schema transformer describes them as integer or number, keeping `null` where it
 applies. Requests are read exactly as before.
 
-**No id had to become text.** Modbot's numeric ids are row numbers, far below 2^53; the event
-stream's ids are already strings. The one number above 2^53 is the permission bitfield
+**No id had to become text.** Modbot's numeric ids (an audit entry's, a note's, a case file's, a clip's,
+a chat message's) are values of a database sequence, one per row: a program would need to write
+nine quadrillion rows to reach 2^53, so each is safe as a JSON number and no string twin was added.
+Every other kind of id is already text: Discord's and VRChat's, and the accounts', keys' and webhooks'
+(a UUID). The event stream's ids are strings too. The one number above 2^53 is the permission bitfield
 (Administrator is bit 62). Its schema now says `int64` and says to read the names, which every
 answer carrying it already has beside it (`permissionNames`); `PermissionInfo.value` says the same.
 
@@ -147,12 +150,17 @@ a role are `AddGroupMemberRole` and `RemoveGroupMemberRole`, which role sync alr
 interactive priority, through the same class. An invite is `CreateGroupInvite` through
 `GroupInvites`, the code auto-invites use, on `groups.invites` (one per thirty seconds, the
 maintainer's answer of 2026-09-19); the stored one-invite-every-thirty-seconds holds for both
-callers, and asking sooner answers 429 `too-many-requests` with `Retry-After`. Because it writes the
+callers, and asking sooner answers 429 `too-many-requests` with `Retry-After`. When VRChat answers 429, or the gate holds the call back to stay under VRChat's limits, the invite answers 429 `vrchat-rate-limited` instead, the same as every other VRChat call. Because it writes the
 auto-invites' own row, the person counts as invited for auto-invites' own wait, and the invite
 counts in their "Invites sent". The §4.3.4 table's rows for both classes say so.
 
 **Modbot's own account.** Neither VRChat write acts on the account Modbot signs in as, for the reason
 the moderation buttons will not: taking its roles away takes away the access everything depends on.
+
+**VRChat decides which group roles the bot may give.** Modbot keeps no list of its own and checks
+none: it asks VRChat to give or take the role, and VRChat's answer is passed on as it came (a role the
+account may not hand out is a refusal, 502 `vrchat-refused`, naming the missing group permission when
+that is why; a role or member VRChat does not have is 404 `not-found`).
 
 **Discord.** Four new permissions (bits 47 to 50; 45 and 46 are kept for opening and closing
 instances), apart from the VRChat `Kick`, `Ban` and `Unban`, because acting on one platform is not
@@ -162,7 +170,10 @@ new Core interface, `IDiscordMemberActions`, so the API does not depend on the b
 reason reads "Modbot: banned by <account>: <reason>", as a copied ban's does. "Already so" answers
 `changed: false` and writes no fact. A ban made here is a bot's ban to ban sync and is not copied to
 VRChat unless the operator asked for bots' bans to be. Removing a timeout early is left out: the
-gateway has no call for it yet.
+gateway has no call for it yet. Three accounts are never acted on from the
+API, and answer 403 `refused` before Discord is asked: the bot's own account, the server's owner and any
+Discord account stored on a Modbot staff account (proven or typed in). Ids are compared as the
+number they spell, because Discord reads a leading zero away.
 
 **Everyone's notes** are paged by the last note's time and id together, as the audit log is,
 because an imported note carries its original date and so is not in id order.

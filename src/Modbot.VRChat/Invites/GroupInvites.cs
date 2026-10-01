@@ -22,7 +22,11 @@ public enum InviteOutcome
 /// <summary>What happened to one invite.</summary>
 /// <param name="Outcome">Whether it went out, and why not when it did not.</param>
 /// <param name="Problem">A sentence for a person, when something went wrong.</param>
-public readonly record struct InviteResult(InviteOutcome Outcome, string? Problem = null)
+/// <param name="RateLimited">
+/// VRChat answered 429, or the gate held the call back to stay under VRChat's limits or until the
+/// sign-in is back. Nothing was refused as such: asking again later may work.
+/// </param>
+public readonly record struct InviteResult(InviteOutcome Outcome, string? Problem = null, bool RateLimited = false)
 {
     public bool Worked => Outcome == InviteOutcome.Sent;
 }
@@ -173,7 +177,11 @@ public sealed class GroupInvites
 
         return result.Success
             ? new InviteResult(InviteOutcome.Sent)
-            : new InviteResult(InviteOutcome.Refused, row.Problem);
+            : new InviteResult(
+                InviteOutcome.Refused,
+                row.Problem,
+                RateLimited: result.IsRateLimited
+                    || result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting);
     }
 
     private static string Short(string text)

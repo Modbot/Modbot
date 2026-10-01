@@ -345,7 +345,10 @@ Name: `DiscordKick`
 Remove a person from the Discord server without banning them, through the
 [API](/api/conventions) (`POST /api/discord/members/{id}/kick`). **Kick** is for the VRChat group
 only: acting on one platform is not permission to act on the other. The bot needs Discord's **Kick
-Members**. Every removal is written to the audit log with who asked.
+Members**. A removal that took someone out of the server is written to the audit log with who
+asked; when they were not in the server there was nothing to remove, and nothing is written.
+The bot's own account, the server's owner and any Discord account linked to a Modbot staff account
+are turned down.
 
 ### Ban on Discord
 

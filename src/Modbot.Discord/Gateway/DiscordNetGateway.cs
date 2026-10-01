@@ -122,6 +122,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     public string? BotUserId => _client.CurrentUser is { } me ? Text(me.Id) : null;
 
+    public string? GuildOwnerId(string guildId)
+        => ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            && _client.GetGuild(id) is { } guild
+            ? Text(guild.OwnerId)
+            : null;
+
     public event Func<DiscordMemberJoin, Task>? MemberJoined;
 
     public event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
@@ -484,7 +490,10 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            return DiscordPostOutcome.Failed($"Could not time out on Discord: {e.Message}");
+            // What went wrong goes to the log, not to the caller: an exception that is not
+            // Discord's own answer can carry anything, and the API passes the sentence on as is.
+            _log.Warning(e, "Could not time out a member on Discord");
+            return DiscordPostOutcome.Failed("Could not time out on Discord. The reason is in the log.");
         }
     }
 
@@ -602,7 +611,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// setup problem an operator fixes once, and a sync that reported it as an ordinary failure
     /// would try again every minute and never say what to do about it.
     /// </remarks>
-    private static DiscordModerationOutcome Explain(string what, Exception e) => e switch
+    private DiscordModerationOutcome Explain(string what, Exception e) => e switch
     {
         HttpException { DiscordCode: DiscordErrorCode.UnknownBan } => DiscordModerationOutcome.Already,
         HttpException { DiscordCode: DiscordErrorCode.UnknownMember } => DiscordModerationOutcome.MemberNotInServer,
@@ -614,8 +623,19 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 : "The bot may not ban in this server. Give it Ban Members and a role above theirs."),
         HttpException http => DiscordModerationOutcome.Failed($"Could not {what} on Discord: Discord answered {(int)http.HttpCode}."),
         RateLimitedException => DiscordModerationOutcome.Failed("Discord is rate limiting the bot."),
-        _ => DiscordModerationOutcome.Failed($"Could not {what} on Discord: {e.Message}"),
+        _ => Unexpected(what, e),
     };
+
+    /// <summary>
+    /// An exception that is not Discord's own answer. The API passes the sentence on as it is, and
+    /// the message of an exception that did not come from Discord can carry anything, so it goes to
+    /// the log and the caller gets a fixed sentence.
+    /// </summary>
+    private DiscordModerationOutcome Unexpected(string what, Exception e)
+    {
+        _log.Warning(e, "Could not {What} on Discord", what);
+        return DiscordModerationOutcome.Failed($"Could not {what} on Discord. The reason is in the log.");
+    }
 
     // ── Server events (calendar design §3.2) ───────────────────────────────────────────────
 

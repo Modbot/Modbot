@@ -150,6 +150,14 @@ public static class GroupInviteEndpoints
                     case InviteOutcome.TooSoon:
                         return TooSoon(http, await invites.WaitBeforeNextAsync(ct));
 
+                    // A 429 or a cold stop is "ask again later", not a refusal; it answers as every
+                    // other VRChat call does (GroupPageAnswers.StatusFor), and as errors.mdx says.
+                    case InviteOutcome.Refused when sent.RateLimited:
+                        return Problems.Of(
+                            StatusCodes.Status429TooManyRequests,
+                            sent.Problem ?? "VRChat is not taking requests right now. Try again later.",
+                            Problems.VRChatRateLimited);
+
                     case InviteOutcome.Refused:
                         return Problems.Of(
                             StatusCodes.Status502BadGateway,

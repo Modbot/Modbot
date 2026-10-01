@@ -16,6 +16,14 @@ public sealed record DiscordMemberOutcome(bool Done, string? Error, bool BotOffl
     public static DiscordMemberOutcome Failed(string error) => new(false, error);
 }
 
+/// <summary>The two Discord accounts no one may act on through the API: the bot itself and the server's owner.</summary>
+/// <param name="BotUserId">The bot's own account, or null when it is not signed in.</param>
+/// <param name="OwnerId">The owner of the server, or null when it is not known.</param>
+public sealed record DiscordOffLimits(string? BotUserId, string? OwnerId)
+{
+    public static DiscordOffLimits None { get; } = new(null, null);
+}
+
 /// <summary>
 /// Ban, unban, remove and time out one member of the Discord server, because a person asked
 /// through the API (API conventions design §8).
@@ -28,6 +36,12 @@ public sealed record DiscordMemberOutcome(bool Done, string? Error, bool BotOffl
 /// </remarks>
 public interface IDiscordMemberActions
 {
+    /// <summary>
+    /// The bot's own account and the server's owner, for the API to turn down before it asks Discord
+    /// anything. Nothing is known with the bot offline; the action then answers that it is offline.
+    /// </summary>
+    Task<DiscordOffLimits> OffLimitsAsync(string guildId, CancellationToken ct = default);
+
     /// <param name="deleteMessageDays">How many days of their messages Discord deletes too, 0 to 7.</param>
     Task<DiscordMemberOutcome> BanAsync(string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct = default);
 
@@ -41,6 +55,9 @@ public interface IDiscordMemberActions
 /// <summary>A process with no Discord bot. Every action answers that the bot is not connected.</summary>
 public sealed class NoDiscordMemberActions : IDiscordMemberActions
 {
+    public Task<DiscordOffLimits> OffLimitsAsync(string guildId, CancellationToken ct = default)
+        => Task.FromResult(DiscordOffLimits.None);
+
     public Task<DiscordMemberOutcome> BanAsync(string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct = default)
         => Task.FromResult(DiscordMemberOutcome.Offline);
 

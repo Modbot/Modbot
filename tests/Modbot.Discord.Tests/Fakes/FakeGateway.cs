@@ -95,6 +95,11 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>The bot's own Discord account id, as the sync reads it back off its own actions.</summary>
     public string? BotUserId { get; set; } = "999000999";
 
+    /// <summary>Who owns the server, as the session sees it.</summary>
+    public string? OwnerId { get; set; }
+
+    public string? GuildOwnerId(string guildId) => OwnerId;
+
     /// <summary>Every ban, unban and removal asked for, in order.</summary>
     public List<(string Action, string GuildId, string UserId, string Reason)> Moderation { get; } = [];
 

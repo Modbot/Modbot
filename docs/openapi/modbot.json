@@ -431,7 +431,7 @@
           "Discord"
         ],
         "summary": "Ban on Discord",
-        "description": "Ban one person from the Discord server. `userId` is their Discord id; `reason` goes to Discord's audit log with your account's name; `deleteMessageDays` (0 to 7, default 0) has Discord delete that many days of their messages too. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were already banned.\n\nNeeds the `DiscordBan` permission.",
+        "description": "Ban one person from the Discord server. `userId` is their Discord id; `reason` goes to Discord's audit log with your account's name; `deleteMessageDays` (0 to 7, default 0) has Discord delete that many days of their messages too. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were already banned. Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.\n\nNeeds the `DiscordBan` permission.",
         "operationId": "BanDiscordMember",
         "requestBody": {
           "content": {
@@ -9735,7 +9735,7 @@
           "Discord"
         ],
         "summary": "Unban on Discord",
-        "description": "Lift one person's Discord ban. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not banned.\n\nNeeds the `DiscordUnban` permission.",
+        "description": "Lift one person's Discord ban. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not banned. Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.\n\nNeeds the `DiscordUnban` permission.",
         "operationId": "UnbanDiscordMember",
         "parameters": [
           {
@@ -9842,7 +9842,7 @@
           "Discord"
         ],
         "summary": "Remove from Discord",
-        "description": "Remove one person from the Discord server without banning them. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not in the server.\n\nNeeds the `DiscordKick` permission.",
+        "description": "Remove one person from the Discord server without banning them. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not in the server. Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.\n\nNeeds the `DiscordKick` permission.",
         "operationId": "KickDiscordMember",
         "parameters": [
           {
@@ -9958,7 +9958,7 @@
           "Discord"
         ],
         "summary": "Time out on Discord",
-        "description": "Time one member of the Discord server out for `minutes` (1 to 40320, which is 28 days); a member already timed out gets the new length. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked.\n\nNeeds the `DiscordTimeOut` permission.",
+        "description": "Time one member of the Discord server out for `minutes` (1 to 40320, which is 28 days); a member already timed out gets the new length. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.\n\nNeeds the `DiscordTimeOut` permission.",
         "operationId": "TimeOutDiscordMember",
         "parameters": [
           {

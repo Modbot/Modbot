@@ -439,6 +439,13 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </remarks>
     string? BotUserId { get; }
 
+    /// <summary>
+    /// The Discord account id of the owner of the server, as the session last saw it; null when the
+    /// bot is not in that server or the id is not a number.
+    /// </summary>
+    /// <remarks>Read so a person acting through the API cannot ban or remove the owner, whom Discord would refuse anyway.</remarks>
+    string? GuildOwnerId(string guildId);
+
     /// <summary>The session is signed in and the guild list has arrived. May fire again after a reconnect.</summary>
     event Func<Task>? Ready;
 

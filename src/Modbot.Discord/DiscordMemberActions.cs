@@ -24,6 +24,12 @@ public sealed class DiscordMemberActions : IDiscordMemberActions
         _bot = bot;
     }
 
+    public Task<DiscordOffLimits> OffLimitsAsync(string guildId, CancellationToken ct = default)
+        => Task.FromResult(
+            _bot.ReadyGateway is { } gateway
+                ? new DiscordOffLimits(gateway.BotUserId, gateway.GuildOwnerId(guildId))
+                : DiscordOffLimits.None);
+
     public async Task<DiscordMemberOutcome> BanAsync(
         string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct = default)
         => _bot.ReadyGateway is { } gateway

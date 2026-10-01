@@ -32,6 +32,11 @@ public class DiscordMemberActionTests
 
         public DiscordMemberOutcome Answer { get; set; } = DiscordMemberOutcome.Ok;
 
+        public DiscordOffLimits OffLimits { get; set; } = DiscordOffLimits.None;
+
+        public Task<DiscordOffLimits> OffLimitsAsync(string guildId, CancellationToken ct = default)
+            => Task.FromResult(OffLimits);
+
         private Task<DiscordMemberOutcome> Record(string action, string userId, string reason)
         {
             Asked.Add((action, userId, reason));
@@ -190,5 +195,60 @@ public class DiscordMemberActionTests
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Empty(fake.Asked);
+    }
+
+    [Theory]
+    [InlineData("bot")]
+    [InlineData("owner")]
+    public async Task TheBotItself_AndTheServersOwner_AreNeverActedOn(string who)
+    {
+        const string Bot = "300000000000000003";
+        const string Owner = "400000000000000004";
+        var fake = new FakeActions { OffLimits = new DiscordOffLimits(Bot, Owner) };
+        await using var host = await StartAsync(fake);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.DiscordBan | ModbotPermissions.DiscordKick, Ct);
+
+        // The same number with a leading zero is the same account to Discord, so it is refused too.
+        var id = "0" + (who == "bot" ? Bot : Owner);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/discord/bans", new { userId = id }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("refused", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("code").GetString());
+
+        var kick = await host.SendJsonAsync(HttpMethod.Post, $"/api/discord/members/{id}/kick", null, cookie, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, kick.StatusCode);
+
+        Assert.Empty(fake.Asked);
+        Assert.Empty(await FactsAsync(host, FactType.ActionDiscordBan));
+    }
+
+    [Fact]
+    public async Task ADiscordAccountLinkedToAStaffAccount_IsNeverActedOn()
+    {
+        var fake = new FakeActions();
+        await using var host = await StartAsync(fake);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.DiscordTimeOut, Ct);
+        var (colleague, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var row = await db.Users.SingleAsync(u => u.Id == colleague.Id, Ct);
+            row.DiscordUserId = Person;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var refused = await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/discord/members/{Person}/timeout", new { minutes = 10 }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("refused", (await ApiTestHost.BodyOf(refused, Ct)).GetProperty("code").GetString());
+        Assert.Empty(fake.Asked);
+
+        var other = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/discord/members/500000000000000005/timeout", new { minutes = 10 }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, other.StatusCode);
     }
 }

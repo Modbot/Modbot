@@ -67,7 +67,7 @@ public static class DiscordMemberActionEndpoints
                     return Task.FromResult(Problems.Of(StatusCodes.Status400BadRequest, "`deleteMessageDays` is 0 to 7."));
 
                 return ActAsync(
-                    http, db, clock, facts, partitions, body.UserId, body.Reason, "banned", FactType.ActionDiscordBan,
+                    http, db, clock, discord, facts, partitions, body.UserId, body.Reason, "banned", FactType.ActionDiscordBan,
                     (guild, reason) => discord.BanAsync(guild, body.UserId, reason, body.DeleteMessageDays, ct),
                     new JsonObject { ["deleteMessageDays"] = body.DeleteMessageDays },
                     ct);
@@ -80,7 +80,8 @@ public static class DiscordMemberActionEndpoints
                 + "to Discord's audit log with your account's name; `deleteMessageDays` (0 to 7, "
                 + "default 0) has Discord delete that many days of their messages too. One request, "
                 + "never retried. Once Discord accepts, the audit log records who asked. `changed` is "
-                + "false when they were already banned.")
+                + "false when they were already banned."
+                + " Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.")
             .Produces<DiscordActionDone>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -99,7 +100,7 @@ public static class DiscordMemberActionEndpoints
                 [FromServices] EventPartitionMaintainer? partitions,
                 CancellationToken ct) =>
                 ActAsync(
-                    http, db, clock, facts, partitions, id, reason, "unbanned", FactType.ActionDiscordUnban,
+                    http, db, clock, discord, facts, partitions, id, reason, "unbanned", FactType.ActionDiscordUnban,
                     (guild, why) => discord.UnbanAsync(guild, id, why, ct),
                     [],
                     ct))
@@ -110,7 +111,8 @@ public static class DiscordMemberActionEndpoints
                 "Lift one person's Discord ban. The address names their Discord id; `reason` goes to "
                 + "Discord's audit log with your account's name. One request, never retried. Once "
                 + "Discord accepts, the audit log records who asked. `changed` is false when they were "
-                + "not banned.")
+                + "not banned."
+                + " Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.")
             .Produces<DiscordActionDone>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -129,7 +131,7 @@ public static class DiscordMemberActionEndpoints
                 [FromServices] EventPartitionMaintainer? partitions,
                 CancellationToken ct) =>
                 ActAsync(
-                    http, db, clock, facts, partitions, id, body?.Reason, "removed", FactType.ActionDiscordKick,
+                    http, db, clock, discord, facts, partitions, id, body?.Reason, "removed", FactType.ActionDiscordKick,
                     (guild, why) => discord.KickAsync(guild, id, why, ct),
                     [],
                     ct))
@@ -140,7 +142,8 @@ public static class DiscordMemberActionEndpoints
                 "Remove one person from the Discord server without banning them. The address names "
                 + "their Discord id; `reason` goes to Discord's audit log with your account's name. "
                 + "One request, never retried. Once Discord accepts, the audit log records who asked. "
-                + "`changed` is false when they were not in the server.")
+                + "`changed` is false when they were not in the server."
+                + " Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.")
             .Produces<DiscordActionDone>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -170,7 +173,7 @@ public static class DiscordMemberActionEndpoints
                 var duration = TimeSpan.FromMinutes(body.Minutes);
 
                 return ActAsync(
-                    http, db, clock, facts, partitions, id, body.Reason, "timed out", FactType.ActionDiscordTimeOut,
+                    http, db, clock, discord, facts, partitions, id, body.Reason, "timed out", FactType.ActionDiscordTimeOut,
                     (guild, why) => discord.TimeOutAsync(guild, id, duration, why, ct),
                     new JsonObject { ["minutes"] = body.Minutes, ["until"] = clock.UtcNow + duration },
                     ct);
@@ -182,7 +185,8 @@ public static class DiscordMemberActionEndpoints
                 "Time one member of the Discord server out for `minutes` (1 to 40320, which is 28 "
                 + "days); a member already timed out gets the new length. The address names their "
                 + "Discord id; `reason` goes to Discord's audit log with your account's name. One "
-                + "request, never retried. Once Discord accepts, the audit log records who asked.")
+                + "request, never retried. Once Discord accepts, the audit log records who asked."
+                + " Never the bot's own account, the server's owner or a Discord account linked to a Modbot staff account: those answer 403 `refused`.")
             .Produces<DiscordActionDone>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -198,6 +202,7 @@ public static class DiscordMemberActionEndpoints
         HttpContext http,
         ModbotContext db,
         IModbotClock clock,
+        IDiscordMemberActions discord,
         IFactWriter? facts,
         EventPartitionMaintainer? partitions,
         string? userId,
@@ -224,6 +229,16 @@ public static class DiscordMemberActionEndpoints
 
         if (string.IsNullOrWhiteSpace(guildId))
             return Problems.Of(StatusCodes.Status409Conflict, "No Discord server is set up yet.", Problems.NotSetUp);
+
+        // Three accounts are never acted on from here, however the request is worded. Modbot's own
+        // bot (taking it out of the server would end every Discord feature, from inside the thing
+        // doing it, as ModerationActionService refuses for Modbot's VRChat account), the server's
+        // owner (whom Discord refuses anyway, and a refusal here is plainer), and any Discord account
+        // linked to a Modbot staff account (a key that may time people out is not a way to lock
+        // another moderator out of the server).
+        var refusal = await OffLimitsAnswerAsync(db, discord, guildId, userId, ct);
+        if (refusal is not null)
+            return refusal;
 
         var reason = Reason(verb, http.User.Identity?.Name ?? "a Modbot account", why);
 
@@ -260,6 +275,43 @@ public static class DiscordMemberActionEndpoints
 
         return Results.Ok(new DiscordActionDone(!outcome.NothingToDo));
     }
+
+    /// <summary>
+    /// The answer for an account that may not be acted on, or null when it may. Ids are compared as
+    /// the number they spell, because Discord reads "0123" as 123 and a text comparison would let
+    /// that through (the id is otherwise opaque, foundation §3.1.1).
+    /// </summary>
+    private static async Task<IResult?> OffLimitsAnswerAsync(
+        ModbotContext db, IDiscordMemberActions discord, string guildId, string userId, CancellationToken ct)
+    {
+        // Not a number: nothing here can match it, and Discord's side says it is not an id.
+        if (!ulong.TryParse(userId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var target))
+            return null;
+
+        var off = await discord.OffLimitsAsync(guildId, ct);
+
+        if (Spells(off.BotUserId, target))
+            return Problems.Of(StatusCodes.Status403Forbidden, "That is the Discord account Modbot's bot runs as. Modbot will not act on itself.", Problems.Refused);
+
+        if (Spells(off.OwnerId, target))
+            return Problems.Of(StatusCodes.Status403Forbidden, "That is the owner of the Discord server. Modbot will not act on them.", Problems.Refused);
+
+        // A staff account's Discord id, proven or typed in: either way it names a moderator.
+        var staff = await db.Users.AsNoTracking()
+            .Where(u => u.DeletedAt == null && u.DiscordUserId != null && u.DiscordUserId != string.Empty)
+            .Select(u => u.DiscordUserId!)
+            .ToListAsync(ct);
+
+        if (staff.Any(id => Spells(id, target)))
+            return Problems.Of(StatusCodes.Status403Forbidden, "That Discord account belongs to a Modbot staff account. Modbot will not act on staff.", Problems.Refused);
+
+        return null;
+    }
+
+    private static bool Spells(string? id, ulong number)
+        => id is not null
+            && ulong.TryParse(id, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            && parsed == number;
 
     /// <summary>What Discord's audit log shows: who asked, in Modbot, and why.</summary>
     internal static string Reason(string verb, string by, string? why)

@@ -514,13 +514,16 @@ try
     // conventions design §2). Ahead of authentication, so a 401 from sign-in is shaped too.
     app.UseApiProblems();
 
+    // Routes that moved are rewritten to their new address first, so that the next step looks the
+    // request up under the address the endpoint now has: its aliases are listed under that one.
+    app.UseOldApiPaths();
+
     // One name for one kind of query parameter (API conventions design §3): `search`, `status`,
     // `vrchatUserId`, copied to the name each endpoint reads before it reads it.
     app.UseQueryAliases();
 
     // Before authentication, because what it turns away is signing in (demo mode design §3.2).
     app.UseDemoRefusals();
-    app.UseOldApiPaths();
 
     // Other web addresses allowed to call the API with a key, when MODBOT_CORS_ORIGINS names any
     // (API conventions design §6). After routing, before sign-in, so a preflight is answered here.
