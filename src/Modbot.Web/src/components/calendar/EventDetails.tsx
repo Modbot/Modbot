@@ -210,6 +210,7 @@ function WorldLine({
             <span className="text-muted-foreground">World list </span>
             {event.worldListName}
           </span>
+          {event.worldListEmpty && <span className="text-destructive">List is empty</span>}
           {canManage && event.state === 'scheduled' && isCurrent(event, start) && (
             <Button size="sm" variant="outline" disabled={busy} onClick={again}>
               Pick again

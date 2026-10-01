@@ -78,6 +78,8 @@ export type CalendarEvent = {
   /** The world list its world is picked from, date by date; `worldId` is then the current date's. */
   worldListId?: string | null
   worldListName?: string | null
+  /** The list has no worlds, so no world can be picked for the event. */
+  worldListEmpty?: boolean
 }
 
 /**

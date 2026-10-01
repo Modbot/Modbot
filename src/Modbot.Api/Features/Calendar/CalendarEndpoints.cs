@@ -917,6 +917,14 @@ public static class CalendarEndpoints
                 .Where(l => listIds.Contains(l.Id))
                 .ToDictionaryAsync(l => l.Id, l => l.Name, ct);
 
+        var filledLists = listIds.Count == 0
+            ? []
+            : await db.WorldListItems.AsNoTracking()
+                .Where(i => listIds.Contains(i.ListId))
+                .Select(i => i.ListId)
+                .Distinct()
+                .ToListAsync(ct);
+
         return [.. events.Select(e =>
         {
             var zone = CalendarRepeat.ZoneOf(e);
@@ -995,7 +1003,8 @@ public static class CalendarEndpoints
                 occurrences,
                 e.CancelledAt,
                 e.WorldListId,
-                e.WorldListId is { } list ? listNames.GetValueOrDefault(list) : null);
+                e.WorldListId is { } list ? listNames.GetValueOrDefault(list) : null,
+                e.WorldListId is { } emptyCheck && !filledLists.Contains(emptyCheck));
         })];
     }
 

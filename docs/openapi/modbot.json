@@ -23964,6 +23964,10 @@
               "null",
               "string"
             ]
+          },
+          "worldListEmpty": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

@@ -60,7 +60,25 @@ public sealed class CalendarScheduler
 
         // An event that picks its world from a list gets it as soon as a date becomes its current
         // one (world lists design §5), in the same pass that moved it there, before the opener runs.
-        foreach (var calendarEvent in live.Where(WorldPicker.NeedsDatePick))
+        var wanting = live.Where(WorldPicker.NeedsDatePick).ToList();
+
+        // A list with no worlds has nothing to pick, and the date stays unpicked: trying again every
+        // pass would open a transaction and take the event's lock every 15 seconds for nothing. One
+        // read says which lists have a world, and an event whose list is empty waits until it has
+        // one, or until the event is changed to another list.
+        if (wanting.Count > 0)
+        {
+            var listIds = wanting.Select(e => e.WorldListId!.Value).Distinct().ToList();
+            var filled = await _db.WorldListItems.AsNoTracking()
+                .Where(i => listIds.Contains(i.ListId))
+                .Select(i => i.ListId)
+                .Distinct()
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            wanting = [.. wanting.Where(e => filled.Contains(e.WorldListId!.Value))];
+        }
+
+        foreach (var calendarEvent in wanting)
         {
             if (await PickWorldAsync(calendarEvent, ct).ConfigureAwait(false))
                 picked++;

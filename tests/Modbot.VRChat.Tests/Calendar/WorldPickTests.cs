@@ -170,6 +170,29 @@ public class WorldPickTests(PostgresFixture fixture) : CalendarTestBase(fixture)
     }
 
     [Fact]
+    public async Task AnEmptyListIsLeftAloneUntilItGetsAWorld_ThenTheDateIsPicked()
+    {
+        var listId = await AddListAsync();
+        var e = await AddDailyEventAsync(listId);
+
+        Assert.Equal(0, await ScheduleAsync());
+        Assert.Equal(0, await ScheduleAsync());
+        Assert.Null((await EventAsync(e.Id)).WorldId);
+
+        await using (var context = Database.NewContext())
+        {
+            context.WorldListItems.Add(new WorldListItem { ListId = listId, WorldId = "wrld_prop", Position = 0 });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(1, await ScheduleAsync());
+
+        var now = await EventAsync(e.Id);
+        Assert.Equal("wrld_prop", now.WorldId);
+        Assert.Equal(now.OccurrenceStartsAt, now.WorldPickedFor);
+    }
+
+    [Fact]
     public async Task ADraftIsNeverPicked()
     {
         var listId = await AddListAsync(Games);

@@ -77,6 +77,8 @@ export function CalendarEventForm({
   const [typedWorld, setTypedWorld] = useState(false)
   const [lists, setLists] = useState<WorldList[]>([])
   const [pickingList, setPickingList] = useState(false)
+  // Set once Save or Schedule was refused for a list not chosen, so the field says so.
+  const [listMissed, setListMissed] = useState(false)
   // Kept as typed, so a comma can be typed; split when saving.
   const [languages, setLanguages] = useState(() => input.languages.join(', '))
   const [tags, setTags] = useState(() => input.tags.join(', '))
@@ -129,7 +131,16 @@ export function CalendarEventForm({
     draft,
   })
 
+  // "Pick from a list" with no list chosen would save as an event with no world at all.
+  const listMissing = worldChoice === FROM_LIST && !input.worldListId
+
   const save = (draft: boolean) => {
+    if (listMissing) {
+      setListMissed(true)
+      setTab('details')
+      return
+    }
+
     setBusy(true)
     setError(null)
 
@@ -285,6 +296,8 @@ export function CalendarEventForm({
                           if (v === FROM_LIST) {
                             setTypedWorld(false)
                             setPickingList(true)
+                            // A world typed or picked before is not this event's world any more.
+                            set('worldId', null)
                             return
                           }
 
@@ -315,7 +328,10 @@ export function CalendarEventForm({
                         <Select
                           aria-label="World list"
                           value={input.worldListId ?? ''}
-                          onChange={(v) => set('worldListId', v || null)}
+                          onChange={(v) => {
+                            // The list picks the world, date by date: a fixed world left over would be stale.
+                            setInput((current) => ({ ...current, worldListId: v || null, worldId: null }))
+                          }}
                         >
                           <option value="">—</option>
                           {lists.map((l) => (
@@ -324,6 +340,11 @@ export function CalendarEventForm({
                             </option>
                           ))}
                         </Select>
+                        {listMissed && listMissing && (
+                          <span role="alert" className="text-destructive">
+                            Pick a list
+                          </span>
+                        )}
                       </Labelled>
                     )}
                     {worldChoice === OTHER_WORLD && (

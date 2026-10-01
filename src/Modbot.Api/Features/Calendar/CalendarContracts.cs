@@ -75,6 +75,7 @@ public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOff
 /// <param name="WorldId">The world; for an event that picks from a list, the one picked for the current date.</param>
 /// <param name="WorldListId">The world list the world is picked from, or null.</param>
 /// <param name="WorldListName">That list's name.</param>
+/// <param name="WorldListEmpty">The list has no worlds, so there is nothing to pick from.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -118,7 +119,8 @@ public sealed record CalendarEventView(
     IReadOnlyList<CalendarOccurrenceView> Occurrences,
     DateTimeOffset? CancelledAt = null,
     Guid? WorldListId = null,
-    string? WorldListName = null);
+    string? WorldListName = null,
+    bool WorldListEmpty = false);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
