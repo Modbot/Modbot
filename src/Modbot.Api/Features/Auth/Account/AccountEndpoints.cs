@@ -170,7 +170,7 @@ public static class AccountEndpoints
             })
             .WithName("SetOwnContact")
             .WithSummary("Set your contact details")
-            .WithDescription("Set the email address and Discord user id a reset link can reach you at.")
+            .WithDescription("Set the email address a reset link can reach you at.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);

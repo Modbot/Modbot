@@ -41,6 +41,11 @@ namespace Modbot.Api.Features.Users;
 /// Changing your own account passes the account check (see <see cref="RoleOrder"/>).
 /// </para>
 /// <para>
+/// <strong>No Discord id</strong> (design §4.6, 2026-10-01): nobody sets another person's Discord
+/// account. Only its holder puts one on, by proving it from their account page
+/// (<see cref="Auth.Account.DiscordConnectEndpoints"/>); this page shows it.
+/// </para>
+/// <para>
 /// Every change and its fact commit in one transaction (design §6). Every parameter is
 /// explicitly attributed, because minimal APIs infer an unattributed concrete type as the body
 /// and on a GET that throws while the route is mapped.
@@ -104,9 +109,6 @@ public static class UserEndpoints
 
                 var user = await accounts.CreateAsync(
                     body.Username, body.Password, email!, body.RoleIds ?? [], ct);
-
-                user.DiscordUserId = Clean(body.DiscordUserId);
-                await db.SaveChangesAsync(ct);
 
                 await facts.RecordAsync(
                     FactType.UserCreated,
@@ -405,7 +407,7 @@ public static class UserEndpoints
             .WithName("SetUserContact")
             .WithSummary("Set user contact details")
             .WithDescription(
-                "Set the email address and Discord user id a reset link can be sent to. "
+                "Set the email address a reset link can be sent to. "
                 + "Refused for an account whose highest role is not below yours.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -517,16 +519,6 @@ public static class UserEndpoints
             }
         }
 
-        if (body.DiscordUserId is not null)
-        {
-            var discord = Clean(body.DiscordUserId);
-            if (discord != user.DiscordUserId)
-            {
-                user.DiscordUserId = discord;
-                changed.Add("discordUserId");
-            }
-        }
-
         if (changed.Count == 0)
             return null;
 
@@ -594,6 +586,4 @@ public static class UserEndpoints
         return await RoleOrder.MayNotChangeRolesAsync(http, accounts, changed, ct);
     }
 
-    internal static string? Clean(string? value)
-        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

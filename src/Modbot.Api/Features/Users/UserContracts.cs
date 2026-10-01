@@ -13,6 +13,12 @@ public sealed record RoleRef(Guid Id, string Name);
 /// The position of their highest role, first at 0 (design §3.5). Null when they hold no role,
 /// which is below every role. The users page compares it with the signed-in person's own.
 /// </param>
+/// <param name="DiscordUserId">
+/// The Discord account on the account. Only its holder can set it, by proving it (design §4.6);
+/// the users page shows it and cannot change it.
+/// </param>
+/// <param name="DiscordProven">Whether the holder proved it, or it was typed in before proving existed.</param>
+/// <param name="DiscordWorksUntil">For a typed, unproven id: the day it stops counting. Null otherwise.</param>
 public sealed record UserSummary(
     Guid Id,
     string Username,
@@ -25,6 +31,9 @@ public sealed record UserSummary(
     string? VRChatDisplayName,
     string? Email,
     string? DiscordUserId,
+    string? DiscordUsername,
+    bool DiscordProven,
+    DateTimeOffset? DiscordWorksUntil,
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt,
     int? Rank = null)
@@ -45,6 +54,9 @@ public sealed record UserSummary(
             user.VRChatDisplayName,
             user.Email,
             user.DiscordUserId,
+            user.IsDiscordProven ? user.DiscordUsername : null,
+            user.IsDiscordProven,
+            StaffDiscord.TypedIdWorksUntil(user),
             user.CreatedAt,
             user.LastLoginAt,
             user.Roles.Count == 0 ? null : RoleRank.Of(user));
@@ -54,13 +66,16 @@ public sealed record UserSummary(
 /// <summary>Create an account with a temporary password the administrator will pass on.</summary>
 /// <param name="RoleIds">May be empty: an account with no roles can sign in and do nothing.</param>
 /// <param name="Email">Required, and unique across accounts (server info and account email design §4).</param>
+/// <remarks>
+/// No Discord id: only the person can put one on their account, by proving it (accounts and access
+/// design §4.6). The field this had until then is ignored if a caller still sends it.
+/// </remarks>
 public sealed record CreateUserRequest(
     string Username,
     string Password,
     string? ConfirmPassword,
     IReadOnlyList<Guid> RoleIds,
-    string? Email = null,
-    string? DiscordUserId = null);
+    string? Email = null);
 
 public sealed record SetRolesRequest(IReadOnlyList<Guid> RoleIds);
 
@@ -75,10 +90,11 @@ public sealed record SetRolesRequest(IReadOnlyList<Guid> RoleIds);
 public sealed record DeleteUserRequest(string Username);
 
 /// <summary>
-/// Null leaves a field alone; an empty string clears it. The same rule the integrations step
-/// uses, so a form that only shows one field cannot wipe the other.
+/// Null leaves the address alone. The Discord user id this carried until accounts and access
+/// design §4.6 is gone: a Discord account is proven by its holder from their account page, never
+/// typed, and a caller that still sends the field has it ignored.
 /// </summary>
-public sealed record ContactRequest(string? Email = null, string? DiscordUserId = null);
+public sealed record ContactRequest(string? Email = null);
 
 /// <summary>A link that was just made. Shown once; the server keeps only its hash.</summary>
 /// <param name="Path">Relative to wherever Modbot lives. The browser showing it knows its own address.</param>

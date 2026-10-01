@@ -67,6 +67,8 @@ public static class FactSubjects
         [FactType.UsernameChanged] = SubjectKind.Account,
         [FactType.ContactChanged] = SubjectKind.Account,
         [FactType.VRChatLinked] = SubjectKind.Account,
+        [FactType.DiscordConnected] = SubjectKind.Account,
+        [FactType.DiscordDisconnected] = SubjectKind.Account,
         [FactType.UserCreated] = SubjectKind.Account,
         [FactType.UserDisabled] = SubjectKind.Account,
         [FactType.UserEnabled] = SubjectKind.Account,

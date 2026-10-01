@@ -161,6 +161,8 @@ public sealed class UserAccountService
         user.UsernameNormalized = normalized;
         user.Email = null;
         user.DiscordUserId = null;
+        user.DiscordUsername = null;
+        user.DiscordVerifiedAt = null;
         user.PasswordHash = _hasher.HashPassword(user, DeletedAccount.UnguessablePassword());
 
         user.VRChatUserId = null;

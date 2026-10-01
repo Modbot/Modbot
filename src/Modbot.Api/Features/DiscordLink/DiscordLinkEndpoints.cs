@@ -3,7 +3,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Auth;
+using Modbot.Api.Features.Auth.Account;
 using Modbot.Api.Features.Auth.VRChatLink;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -119,6 +122,7 @@ public static class DiscordLinkEndpoints
                 [FromServices] ISecretProtector protector,
                 [FromServices] LinkCookies cookies,
                 [FromServices] DiscordOAuth oauth,
+                [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
                 HttpContext http,
                 CancellationToken ct) =>
@@ -128,24 +132,39 @@ public static class DiscordLinkEndpoints
                 // Taken whatever happens next: a sign-in attempt is good once.
                 var attempt = cookies.TakeSignIn(http, now);
 
+                // One callback address serves both sign-ins, because it is the one the operator
+                // added in Discord's Developer Portal. An attempt started from an account page goes
+                // back there (DiscordConnectEndpoints).
+                Func<string, string> back = attempt?.AccountId is null
+                    ? problem => PagePath + "?error=" + problem
+                    : DiscordConnectEndpoints.Back;
+
                 if (!string.IsNullOrEmpty(error))
-                    return Results.Redirect(PagePath + "?error=cancelled");
+                    return Results.Redirect(back("cancelled"));
 
                 if (attempt is null || string.IsNullOrEmpty(state) || string.IsNullOrEmpty(code)
                     || !LinkCookies.Same(attempt.State, state))
                 {
-                    return Results.Redirect(PagePath + "?error=sign-in-expired");
+                    return Results.Redirect(back("sign-in-expired"));
                 }
+
+                // Before Discord is asked anything: a Connect Discord is finished only by the
+                // browser still signed in as the account that started it.
+                if (attempt.AccountId is { } startedFor && ModbotAuth.UserIdOf(http.User) != startedFor)
+                    return Results.Redirect(back("signed-out"));
 
                 var client = await ClientAsync(db, protector, ct);
                 if (client is null)
-                    return Results.Redirect(PagePath + "?error=not-set-up");
+                    return Results.Redirect(back("not-set-up"));
 
                 var signedIn = await oauth.SignInAsync(
                     client.ClientId, client.ClientSecret, client.RedirectUrl, code, attempt.Verifier, ct);
 
                 if (signedIn.Identity is not { } identity)
-                    return Results.Redirect(PagePath + "?error=discord");
+                    return Results.Redirect(back("discord"));
+
+                if (attempt.AccountId is { } accountId)
+                    return Results.Redirect(await DiscordConnectEndpoints.FinishAsync(http, accountId, identity, db, facts, clock, ct));
 
                 // A VRChat code handed out before sign-in moves to the database now, where its checks
                 // are counted against this Discord account.
@@ -164,7 +183,8 @@ public static class DiscordLinkEndpoints
             .WithDescription(
                 "Where Discord sends the browser back after sign-in. "
                 + "Checks the state value against the page's sign-in cookie, exchanges the code with the "
-                + "PKCE verifier, reads users/@me once and revokes the token. Always redirects to /link.")
+                + "PKCE verifier, reads users/@me once and revokes the token. Redirects to /link, or to "
+                + "/account for a Connect Discord started there.")
             .Produces(StatusCodes.Status302Found);
 
         group.MapPost("/vrchat", async (

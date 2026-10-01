@@ -111,6 +111,8 @@ public static class FactLabels
         [FactType.UsernameChanged] = "Username changed",
         [FactType.ContactChanged] = "Contact details changed",
         [FactType.VRChatLinked] = "VRChat account linked",
+        [FactType.DiscordConnected] = "Discord connected",
+        [FactType.DiscordDisconnected] = "Discord disconnected",
         [FactType.UserCreated] = "Account created",
         [FactType.UserInvited] = "Invite link created",
         [FactType.UserInviteUsed] = "Invite link used",

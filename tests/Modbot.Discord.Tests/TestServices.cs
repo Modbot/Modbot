@@ -6,6 +6,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.ModerationLog;
@@ -233,13 +234,19 @@ public sealed class TestServices : IAsyncDisposable
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>A Modbot account linked to a Discord user id, holding these permissions.</summary>
+    /// <summary>A Modbot account with this Discord account connected, holding these permissions.</summary>
+    /// <param name="proven">
+    /// False for an id typed in before proving existed, which counts only until
+    /// <see cref="StaffDiscord.TypedIdsEnd"/>.
+    /// </param>
     public async Task<ModbotUser> LinkedAccountAsync(
-        string discordUserId, ModbotPermissions permissions, bool disabled = false, CancellationToken ct = default)
+        string discordUserId, ModbotPermissions permissions, bool disabled = false, CancellationToken ct = default, bool proven = true)
     {
         await using var db = Database.NewContext();
         var user = await TestAccounts.CreateAsync(db, "user_" + Guid.NewGuid().ToString("n")[..8], TestAccounts.Password, permissions, linked: true, ct);
         user.DiscordUserId = discordUserId;
+        user.DiscordUsername = proven ? "someone" : null;
+        user.DiscordVerifiedAt = proven ? Clock.UtcNow : null;
         user.IsDisabled = disabled;
         await db.SaveChangesAsync(ct);
         return user;

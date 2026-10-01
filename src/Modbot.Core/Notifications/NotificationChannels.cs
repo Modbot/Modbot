@@ -1,6 +1,8 @@
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
+using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Core.Notifications;
 
@@ -134,17 +136,22 @@ public sealed class EmailNotificationChannel : INotificationChannel
 
 /// <summary>Notifications by Discord direct message, as the deployment's bot.</summary>
 /// <remarks>
-/// Reaches the Discord account on the person's Modbot account. A person with none is unreachable
-/// here, which is one of the ways a critical notification ends up waiting at next sign-in.
+/// Reaches the Discord account on the person's Modbot account, once it counts
+/// (<see cref="StaffDiscord"/>): proven, or typed in and still within the month typed ids are
+/// given. A person with none is unreachable here, which is one of the ways a critical notification
+/// ends up waiting at next sign-in.
 /// </remarks>
 public sealed class DiscordNotificationChannel : INotificationChannel
 {
     private readonly IDiscordMessenger _messenger;
+    private readonly IModbotClock _clock;
 
-    public DiscordNotificationChannel(IDiscordMessenger messenger)
+    public DiscordNotificationChannel(IDiscordMessenger messenger, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(messenger);
+        ArgumentNullException.ThrowIfNull(clock);
         _messenger = messenger;
+        _clock = clock;
     }
 
     public string Name => NotificationChannels.Discord;
@@ -153,7 +160,8 @@ public sealed class DiscordNotificationChannel : INotificationChannel
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        return user is { IsDisabled: false, DiscordUserId: { Length: > 0 } }
+        return !user.IsDisabled
+               && StaffDiscord.IdOf(user, _clock.UtcNow) is not null
                && await _messenger.IsConfiguredAsync(ct).ConfigureAwait(false);
     }
 
@@ -162,8 +170,8 @@ public sealed class DiscordNotificationChannel : INotificationChannel
     {
         ArgumentNullException.ThrowIfNull(user);
 
-        if (user.DiscordUserId is not { Length: > 0 } discordUserId)
-            return SendOutcome.NotConfigured("This account has no Discord account linked, so Discord");
+        if (StaffDiscord.IdOf(user, _clock.UtcNow) is not { } discordUserId)
+            return SendOutcome.NotConfigured("This account has no Discord account connected, so Discord");
 
         return await _messenger
             .SendDirectMessageAsync(discordUserId, $"**{title}**\n{body}", ct)

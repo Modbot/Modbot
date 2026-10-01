@@ -186,21 +186,39 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 |---|---|---|
 | `/lookup user:` | Looks up a VRChat user, by id or display name, in what Modbot has stored. The reply is their profile as VRChat shows it — their name, their picture, their banner, and the group they represent — with whether they have been seen as 18+ verified, when the profile was last refreshed, ban status, how many bans, kicks and warns, and their latest moderation events. Nothing is fetched from VRChat. If several people match, it lists them with their ids so you can run it again with one. | **See profiles** |
 | `/recent count:` | The latest moderation events, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
-| `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone with a linked Modbot account |
+| `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone who connected Discord to their Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **Members can use /me** is on; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 
 ### Letting moderators use the commands
 
 Every command except `/link` and `/me` only answers people Modbot can match to a Modbot account. Each
-moderator enters their **Discord user id** on their own **Your account** page. Someone with
-**Manage users** can also set it for them on the **Users** page. To find your id, turn on Developer
-Mode in Discord, right-click your own name and choose **Copy User ID**.
+moderator opens their own **Your account** page in Modbot and presses **Connect Discord** under
+**Your Discord account**. Discord asks them to sign in and allow Modbot to see who they are, then
+sends them back, and the card says **Connected as** and their Discord name. Nobody can do this for
+somebody else, and nobody can type an id in: Modbot knows the Discord account is theirs because
+Discord told it.
 
-If someone without a linked Modbot account runs a command, the bot replies "Link your Discord
-account in Modbot first." If they lack the permission, the reply names the permission they need.
-Permissions come from the person's Modbot roles, the same as in the web app. See
+**Connect Discord** uses the same Discord application as [Account linking](/discord/account-linking),
+so set that up first: the **Account linking** card's client id, client secret and redirect address.
+Without them, the account page says "Discord sign-in is not set up on this server."
+
+A Discord account can be connected to one Modbot account. If it is already connected to another
+one, the account page says so and nothing changes. **Disconnect** on the same card takes it off;
+the bot then treats that Discord account as nobody.
+
+If someone without a connected Modbot account runs a command, the bot replies "Connect Discord on
+your account page in Modbot first." If they lack the permission, the reply names the permission they
+need. Permissions come from the person's Modbot roles, the same as in the web app. See
 [Roles and permissions](/accounts/roles-and-permissions).
+
+<Callout type="info">
+Before **Connect Discord** existed, moderators typed a **Discord user id** into their account, and
+an administrator could type one for them. Modbot never checked those. An account that still has one
+shows it as **Not proven**, with the day it stops working: the bot answers it, and sends direct
+messages to it, until **1 November 2026**, and then never again. Pressing **Connect Discord** before
+then replaces it. Where two accounts typed the same id, the bot answers neither.
+</Callout>
 
 Every command run, answered or refused, is recorded in the audit log as **Discord command used**.
 

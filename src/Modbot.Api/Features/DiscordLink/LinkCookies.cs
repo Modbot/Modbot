@@ -6,7 +6,11 @@ using Microsoft.AspNetCore.Http;
 namespace Modbot.Api.Features.DiscordLink;
 
 /// <summary>A "Sign in with Discord" on its way: what the callback must see again.</summary>
-public sealed record SignInAttempt(string State, string Verifier, DateTimeOffset CreatedAt);
+/// <param name="AccountId">
+/// The Modbot account a Connect Discord was started for, from its account page (accounts and access
+/// design §4.6). Null for the member link page's own sign-in.
+/// </param>
+public sealed record SignInAttempt(string State, string Verifier, DateTimeOffset CreatedAt, Guid? AccountId = null);
 
 /// <summary>
 /// The link page's own session: who signed in with Discord, and a VRChat code handed out before

@@ -93,6 +93,11 @@ expiry, which comes from the machine clock (foundation §4.4).
 The callback refuses a missing cookie, an old one, or a `state` that does not match (compared in
 fixed time). The sign-in cookie is deleted on every callback, used or refused.
 
+*Added 2026-10-01.* The same sign-in, and the same callback address, serve staff proving their own
+Discord account from the account page (accounts and access design §4.6). The sign-in cookie then
+also holds the Modbot account it was started for, the callback sends the browser back to
+`/account` instead of `/link`, and the link page's own `modbot.link` session is not written.
+
 ### 3.3 One to one
 
 One active link per Discord account and one per VRChat account.

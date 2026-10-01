@@ -28,6 +28,9 @@ namespace Modbot.Api.Features.Auth;
 /// with no role. The SPA greys what the server would refuse by comparing it with a row's own;
 /// enforcement is always server-side.
 /// </param>
+/// <param name="DiscordUsername">The Discord username when the account was proven. Null for a typed id.</param>
+/// <param name="DiscordProven">The person signed in to Discord from the account page to prove the id (design §4.6).</param>
+/// <param name="DiscordWorksUntil">For a typed, unproven id: the day it stops counting. Null otherwise.</param>
 public sealed record SessionUser(
     Guid Id,
     string Username,
@@ -39,6 +42,9 @@ public sealed record SessionUser(
     string? VRChatDisplayName,
     string? Email,
     string? DiscordUserId,
+    string? DiscordUsername,
+    bool DiscordProven,
+    DateTimeOffset? DiscordWorksUntil,
     bool ChatOn,
     int? Rank = null)
 {
@@ -59,6 +65,9 @@ public sealed record SessionUser(
             user.VRChatDisplayName,
             user.Email,
             user.DiscordUserId,
+            user.IsDiscordProven ? user.DiscordUsername : null,
+            user.IsDiscordProven,
+            StaffDiscord.TypedIdWorksUntil(user),
             chatOn,
             user.Roles.Count == 0 ? null : RoleRank.Of(user));
     }

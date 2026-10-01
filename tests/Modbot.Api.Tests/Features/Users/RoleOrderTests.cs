@@ -73,7 +73,7 @@ public class RoleOrderTests
     private static (string What, HttpMethod Method, string Path, object? Body)[] SixChanges(ModbotUser target, Guid[] roleIds) =>
     [
         ("set roles", HttpMethod.Put, Users(target.Id, "roles"), new { roleIds }),
-        ("set contact", HttpMethod.Put, Users(target.Id, "contact"), new { discordUserId = "123456789012345678" }),
+        ("set contact", HttpMethod.Put, Users(target.Id, "contact"), new { email = $"u_{Guid.NewGuid():N}@example.com" }),
         ("make a reset link", HttpMethod.Post, Users(target.Id, "reset-link"), null),
         ("disable", HttpMethod.Post, Users(target.Id, "disable"), null),
         ("enable", HttpMethod.Post, Users(target.Id, "enable"), null),
@@ -150,7 +150,7 @@ public class RoleOrderTests
         Assert.Equal(HttpStatusCode.OK, link.StatusCode);
 
         var contact = await host.SendJsonAsync(
-            HttpMethod.Put, Users(other.Id, "contact"), new { discordUserId = "123456789012345678" }, admin, Ct);
+            HttpMethod.Put, Users(other.Id, "contact"), new { email = $"u_{Guid.NewGuid():N}@example.com" }, admin, Ct);
         Assert.Equal(HttpStatusCode.OK, contact.StatusCode);
 
         // The last-administrator guard is unchanged: another administrator remains, so this goes through.
@@ -165,7 +165,7 @@ public class RoleOrderTests
         var (lead, cookie) = await host.SignedInAsync(Lead, Ct);
 
         var contact = await host.SendJsonAsync(
-            HttpMethod.Put, Users(lead.Id, "contact"), new { discordUserId = "123456789012345678" }, cookie, Ct);
+            HttpMethod.Put, Users(lead.Id, "contact"), new { email = $"u_{Guid.NewGuid():N}@example.com" }, cookie, Ct);
 
         Assert.Equal(HttpStatusCode.OK, contact.StatusCode);
     }

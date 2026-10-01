@@ -161,7 +161,7 @@ public class AccountEmailTests
     }
 
     [Fact]
-    public async Task ChangingOnlyTheDiscordIdLeavesTheAddressAlone()
+    public async Task ASentDiscordIdIsIgnored_AndLeavesTheAddressAlone()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
         var (me, cookie) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);

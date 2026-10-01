@@ -915,6 +915,8 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.user.contact.change': (p) => <>{p.subject}'s contact details changed.</>,
   'modbot.user.vrchat.link': (p) => <>{p.subject} proved which VRChat account is theirs.</>,
+  'modbot.user.discord.link': (p) => <>{p.subject} proved which Discord account is theirs.</>,
+  'modbot.user.discord.unlink': (p) => <>{p.subject}'s Discord account was disconnected.</>,
   'modbot.user.create': (p) => <>{p.actor} created the Modbot account {p.subject}.</>,
 
   'modbot.user.invite.create': (p) => (

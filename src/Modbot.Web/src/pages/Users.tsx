@@ -355,7 +355,6 @@ function UserDrawer({
 }) {
   const [roleIds, setRoleIds] = useState(user.roles.map((r) => r.id))
   const [email, setEmail] = useState(user.email ?? '')
-  const [discord, setDiscord] = useState(user.discordUserId ?? '')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [resetLink, setResetLink] = useState<LinkCreated | null>(null)
@@ -373,7 +372,7 @@ function UserDrawer({
   const rolesChanged =
     roleIds.length !== user.roles.length || roleIds.some((id) => !user.roles.some((r) => r.id === id))
 
-  const contactChanged = email !== (user.email ?? '') || discord !== (user.discordUserId ?? '')
+  const contactChanged = email !== (user.email ?? '')
 
   // The server refuses every change to an account whose highest role is not below yours, your own
   // excepted (accounts and access design §3.5). Administrators are above the rule.
@@ -436,14 +435,30 @@ function UserDrawer({
           <Field label="Email" htmlFor={`email-${user.id}`}>
             <Input id={`email-${user.id}`} type="email" value={email} disabled={outranked} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="Discord user id" htmlFor={`discord-${user.id}`}>
-            <Input id={`discord-${user.id}`} className="font-mono" value={discord} disabled={outranked} onChange={(e) => setDiscord(e.target.value)} />
-          </Field>
+          {/* Shown, never set: only its holder puts a Discord account on, by proving it (design §4.6). */}
+          <div>
+            <div className="text-muted-foreground">Discord</div>
+            <div>
+              {user.discordUserId && user.discordProven ? (
+                <>
+                  {user.discordUsername ?? user.discordUserId}{' '}
+                  <span className="font-mono text-muted-foreground">{user.discordUserId}</span>
+                </>
+              ) : user.discordUserId ? (
+                <>
+                  <span className="font-mono">{user.discordUserId}</span>{' '}
+                  <Badge variant="warn">Not proven</Badge>
+                </>
+              ) : (
+                'Not connected'
+              )}
+            </div>
+          </div>
           <Button
             size="sm"
             disabled={!contactChanged || busy !== null || outranked}
             title={outrankedWhy}
-            onClick={() => run('contact', () => api.setUserContact(user.id, { email, discordUserId: discord }))}
+            onClick={() => run('contact', () => api.setUserContact(user.id, { email }))}
           >
             {busy === 'contact' ? 'Saving…' : 'Save contact details'}
           </Button>

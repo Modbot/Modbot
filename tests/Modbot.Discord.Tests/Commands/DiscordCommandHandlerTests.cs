@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.TestSupport;
@@ -257,6 +258,69 @@ public class DiscordCommandHandlerTests
 
         Assert.Equal("Your Modbot account is disabled.", reply.Text);
         Assert.Equal("disabled", (await LastCommandFactAsync(services, ct)).GetProperty("outcome").GetString());
+    }
+
+    /// <summary>
+    /// A Discord id typed in before proving existed counts for a month (accounts and access design
+    /// §4.6), so nobody's commands stopped without warning.
+    /// </summary>
+    [Fact]
+    public async Task ATypedId_StillCounts_UntilTypedIdsEnd()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        services.Clock.UtcNow = StaffDiscord.TypedIdsEnd.AddDays(-1);
+        var account = await services.LinkedAccountAsync("100", ModbotPermissions.Administrator, ct: ct, proven: false);
+
+        var reply = await HandleAsync(services, Call("100", DiscordCommands.Modbot), ct);
+
+        Assert.NotEqual(DiscordCommandHandler.NotLinkedMessage, reply.Text);
+        Assert.Equal(account.Id.ToString(), (await services.FactsOfTypeAsync(FactType.DiscordCommandRun, ct))[^1].ActorId);
+    }
+
+    /// <summary>After that, only a proven Discord account is anybody: a typed one gets the one sentence.</summary>
+    [Fact]
+    public async Task ATypedId_IsIgnored_OnceTypedIdsEnd()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        services.Clock.UtcNow = StaffDiscord.TypedIdsEnd.AddDays(1);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Administrator, ct: ct, proven: false);
+
+        var reply = await HandleAsync(services, Call("100", DiscordCommands.Modbot), ct);
+
+        Assert.Equal(DiscordCommandHandler.NotLinkedMessage, reply.Text);
+        var fact = (await services.FactsOfTypeAsync(FactType.DiscordCommandRun, ct))[^1];
+        Assert.Null(fact.ActorId);
+        Assert.Equal("not-linked", JsonDocument.Parse(fact.Data).RootElement.GetProperty("outcome").GetString());
+    }
+
+    [Fact]
+    public async Task AProvenId_Counts_OnceTypedIdsEnd()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        services.Clock.UtcNow = StaffDiscord.TypedIdsEnd.AddDays(1);
+        var account = await services.LinkedAccountAsync("100", ModbotPermissions.Administrator, ct: ct);
+
+        var reply = await HandleAsync(services, Call("100", DiscordCommands.Modbot), ct);
+
+        Assert.NotEqual(DiscordCommandHandler.NotLinkedMessage, reply.Text);
+        Assert.Equal(account.Id.ToString(), (await services.FactsOfTypeAsync(FactType.DiscordCommandRun, ct))[^1].ActorId);
+    }
+
+    /// <summary>Two accounts that typed the same id: the bot cannot tell which is meant, so neither.</summary>
+    [Fact]
+    public async Task TwoAccountsThatTypedTheSameId_AreBothRefused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Administrator, ct: ct, proven: false);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Administrator, ct: ct, proven: false);
+
+        var reply = await HandleAsync(services, Call("100", DiscordCommands.Modbot), ct);
+
+        Assert.Equal(DiscordCommandHandler.NotLinkedMessage, reply.Text);
     }
 
     [Fact]

@@ -281,6 +281,7 @@ public static class ApiSurface
         // Accounts and access (design 2026-09-13): the signed-in person's own account, the
         // required VRChat link, staff management, roles, invite and reset links.
         app.MapAccount();
+        app.MapDiscordConnect();
         app.MapVRChatLink();
         app.MapUsers();
         app.MapInvites();

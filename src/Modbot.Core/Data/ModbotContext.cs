@@ -451,6 +451,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatDisplayName).HasMaxLength(128);
             entity.Property(e => e.VRChatLinkCode).HasMaxLength(32);
             entity.HasIndex(e => e.VRChatUserId).IsUnique();
+
+            // One proven Discord account, one Modbot account (accounts and access design §4.6):
+            // the bot acts as whichever account proved it. Filtered to proven ids because ids typed
+            // in before proving existed were never checked, and two accounts may hold the same
+            // one; those count for nobody once typed ids stop counting (StaffDiscord).
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.DiscordUsername).HasMaxLength(64);
+            entity.HasIndex(e => e.DiscordUserId).IsUnique().HasFilter("discord_verified_at IS NOT NULL");
         });
 
         builder.Entity<ModbotRole>(entity =>

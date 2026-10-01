@@ -178,6 +178,8 @@ public static class AuditVisibility
         [FactType.UsernameChanged] = AuditCategory.Operational,
         [FactType.ContactChanged] = AuditCategory.Operational,
         [FactType.VRChatLinked] = AuditCategory.Operational,
+        [FactType.DiscordConnected] = AuditCategory.Operational,
+        [FactType.DiscordDisconnected] = AuditCategory.Operational,
         [FactType.UserCreated] = AuditCategory.Operational,
         [FactType.UserInvited] = AuditCategory.Operational,
         [FactType.UserInviteUsed] = AuditCategory.Operational,

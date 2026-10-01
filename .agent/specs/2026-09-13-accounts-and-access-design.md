@@ -32,7 +32,7 @@ password reset, **a fact for every account event**, and the web pages for all of
 | `ModbotAuth`: permissions travel in the cookie, so a change takes effect at next sign-in | **Reversed.** Every request checks the account once (§5). The trade was made for a dozen staff who change permissions a few times a year; disabling someone who is mid-incident is exactly the case where "next sign-in" is wrong, and the check is one primary-key read. |
 | §5.9.2: auth events are Modbot-side audit entries, moderation retention | Unchanged, and now actually written — the `Login`/`LoginFailed`/`PasswordChanged` constants existed but nothing produced them. |
 | §7.2: a session cookie with a 14-day sliding life | **Extended 2026-09-18.** It was a session cookie in the literal sense — no `IsPersistent`, so closing the browser ended it whatever the 14 days said. A **Keep me signed in** checkbox, unticked by default, now buys a cookie that survives that, for 30 days from sign-in (§5). |
-| §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** A typed-in Discord user id ships, used only to deliver reset links (§4.2). |
+| §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** A typed-in Discord user id ships, used only to deliver reset links (§4.2). **Narrowed 2026-10-01** (§4.6): the id is proven by signing in to Discord, never typed; signing in to Modbot with Discord is still deferred. |
 | §6.3: `ModbotUser` carries an optional email | **Narrowed 2026-09-17.** Required on every account, unique case-insensitively, and accepted by the sign-in form in place of the username (server info and account email design §4, §5). |
 | §7.1: five wizard steps | **Extended.** A sixth step, linking the administrator's own VRChat account, sits after the connection check (§4.3). |
 | §6.3: `ApiKey` | Out of scope here. |
@@ -137,7 +137,7 @@ only disabled and re-enabled.
 | List / revoke pending invites | `GET /api/invites`, `DELETE /api/invites/{id}` |
 | Change roles | `PUT /api/users/{id}/roles` |
 | Disable / re-enable | `POST /api/users/{id}/disable`, `POST /api/users/{id}/enable` |
-| Set the Discord user id | `PUT /api/users/{id}/discord` |
+| ~~Set the Discord user id~~ | Removed 2026-10-01 (§4.6): only the holder proves one. The list shows it. |
 | Create a password reset link | `POST /api/users/{id}/reset-link` |
 
 And for the signed-in person, under any authenticated session:
@@ -146,7 +146,8 @@ And for the signed-in person, under any authenticated session:
 |---|---|
 | Change own password | `PUT /api/auth/password` (requires the current password) |
 | Change own username | `PUT /api/auth/username` (requires the current password; same uniqueness rule) |
-| Set own email and Discord user id | `PUT /api/auth/contact` |
+| Set own email | `PUT /api/auth/contact` |
+| Connect / disconnect own Discord account | `GET /api/auth/discord/connect` (a browser redirect), `DELETE /api/auth/discord` (§4.6) |
 | Sign out everywhere | `POST /api/auth/sign-out-everywhere` |
 | Link a VRChat account | `GET /api/auth/vrchat-link`, `POST …/start`, `POST …/check` (§4.3) |
 
@@ -328,6 +329,36 @@ copied by the administrator and never queued.
 
 Nothing logs a body or a token; the queue's warnings name the message's id and kind only.
 
+### 4.6 Proving a Discord account
+
+*Added 2026-10-01.* The Discord user id on an account was typed in, by the person or by an
+administrator for anybody, and nothing checked it or kept it unique. Then the bot's slash commands
+started treating whoever held that Discord account as the Modbot account, and notifications went to
+it by direct message: a typo, or one person typing another's id, meant the bot answered and messaged
+the wrong person. Anything that lets a person *act* from Discord has to know who they are first.
+
+- **Connect Discord** on the account page signs in to Discord with the link page's OAuth client
+  (Discord account linking design §3.2): `identify` only, `state` and PKCE, the token read once and
+  revoked. It goes through the link page's callback address, so an operator adds nothing in Discord's
+  Developer Portal; the sign-in cookie names the Modbot account it was started for, and the callback
+  sends that attempt back to the account page. The browser coming back must still be signed in as
+  that account, checked before Discord is asked anything.
+- The account keeps the id, the username Discord gave, and `discord_verified_at`. **Unique among
+  proven ids** (a filtered index): one Discord account, one Modbot account. A Discord account another
+  account proved is refused; one that other accounts only typed in comes off them, each with a
+  `modbot.user.discord.unlink` fact (`why: proven-by-another-account`).
+- **Nobody sets another person's Discord account.** The users page shows it; the contact endpoints
+  and account creation no longer take one, and ignore the field if it is sent.
+- **The person can take it off** (`DELETE /api/auth/discord`).
+- **Typed ids that are already there** stay, shown as *Not proven* with the day they stop counting:
+  **1 November 2026**, a fixed date rather than a span from each deployment's upgrade, because
+  Modbot is in its first deployments and one date is one sentence in the docs. Until then they count
+  as before; from then on, nowhere. Where two accounts typed the same id, neither counts, because
+  the bot cannot tell which is meant.
+- `StaffDiscord` (Modbot.Core) is the one place that decides which Discord account an account is:
+  slash commands, notification direct messages and reset links by direct message all go through
+  it, and so must anything that acts from Discord.
+
 ## 5. Sessions
 
 `modbot_user` gains `sessions_valid_after`. Every session cookie carries a `modbot:signed_in_at`
@@ -414,8 +445,10 @@ all moderation retention (the prefix is not a presence prefix), all in the **ope
 | `modbot.user.roles.change` | payload carries before and after role names |
 | `modbot.user.password.change` | own password changed |
 | `modbot.user.username.change` | own username changed; payload carries old and new |
-| `modbot.user.contact.change` | email or Discord user id set; payload says which fields, not the values |
+| `modbot.user.contact.change` | email set (until 2026-10-01 also the typed Discord user id); payload says which fields, not the values |
 | `modbot.user.vrchat.link` | a VRChat account was linked; payload carries the id and display name |
+| `modbot.user.discord.link` | the person proved a Discord account (§4.6); payload carries the id, the username and the id it replaced |
+| `modbot.user.discord.unlink` | the Discord account came off: the person removed it, or another account proved it (`why`) |
 | `modbot.user.password.reset.create` / `.use` | reset link lifecycle; `create` says whether an administrator or the person asked, and how it was sent |
 | `modbot.user.login` / `modbot.user.login.failed` | every attempt |
 | `modbot.user.sign-out-everywhere` | |
@@ -449,13 +482,13 @@ tests can observe it without sleeping. The response for every failure stays a ba
 
 - **Users** page (`ManageUsers`): the list with role badges and a *Disabled* marker; a
   *Add someone* dialog offering "send them a link" or "set a temporary password"; per-user side
-  panel with roles, disable/enable, Discord user id, and *Create a reset link*. Links are shown
+  panel with roles, disable/enable, the Discord account (shown, not set; §4.6), and *Create a reset link*. Links are shown
   once, with a copy button, and never again — the server does not have them.
 - **Roles** page (`ManageRoles`): each role's permissions as a checklist. Every permission has a
   plain label and a one-line description supplied by the server, so the words on the page and the
   words in the API are the same words.
 - **Account** page (anyone signed in): change username, change password, email (required — server
-  info and account email design §4) and Discord user id, the linked VRChat account with a *Link a
+  info and account email design §4), *Your Discord account* with *Connect Discord* (§4.6), the linked VRChat account with a *Link a
   different account* button, and sign out everywhere.
 - `/join/<token>`, `/reset/<token>`, *Forgot password* and *Link your VRChat account* live
   outside the app shell, next to the sign-in page. The link page is the same component the
@@ -469,8 +502,9 @@ tests can observe it without sleeping. The response for every failure stays a ba
 
 - Forcing a password change after a temporary password. Wants a per-request flag and a
   redirect; the invite path already avoids the problem, so it waits.
-- Discord OAuth sign-in and "require Discord login" (§7.2). The Discord user id on an account is
-  typed in, not proven, and is used only to reach the person, never to sign them in.
+- Discord OAuth sign-in and "require Discord login" (§7.2). The Discord account on an account is
+  proven since 2026-10-01 (§4.6) and identifies the person to the bot, but it never signs them in
+  to Modbot.
 - API keys (§6.3, §7.3).
 - Sending *invite* links by email or Discord. Reset links go that way (§4.2); invites are still
   copied by the administrator, because the invitee has no account to hold an address yet.

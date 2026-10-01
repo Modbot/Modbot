@@ -37,6 +37,8 @@ public class DeletingAnAccountTests
         var user = await service.CreateAsync(UniqueName(), "a-long-enough-password", UniqueEmail(), [BuiltInRoles.ViewerId], Ct);
         var id = user.Id;
         user.DiscordUserId = "123456789012345678";
+        user.DiscordUsername = "someone";
+        user.DiscordVerifiedAt = clock.UtcNow;
         user.VRChatUserId = $"usr_{Guid.NewGuid()}";
         user.VRChatDisplayName = "Someone";
         user.VRChatLinkedAt = clock.UtcNow;
@@ -53,6 +55,8 @@ public class DeletingAnAccountTests
         Assert.Equal(UserAccountService.Normalize(name), user.UsernameNormalized);
         Assert.Null(user.Email);
         Assert.Null(user.DiscordUserId);
+        Assert.Null(user.DiscordUsername);
+        Assert.Null(user.DiscordVerifiedAt);
         Assert.Null(user.VRChatUserId);
         Assert.Null(user.VRChatDisplayName);
         Assert.Null(user.VRChatLinkedAt);

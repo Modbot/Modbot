@@ -32,7 +32,7 @@ make a password reset link, disable or enable the account, and delete it.
 
 Everything an account did stays in Modbot for good, whether the account is disabled or deleted.
 Every action Modbot records points at the account that did it, and taking that away would break the
-record. Deleting an account empties it instead: the username, email, password, Discord user id,
+record. Deleting an account empties it instead: the username, email, password, Discord account,
 VRChat link and roles all go, and the case files, notes and actions it is named on stay.
 
 ## Adding somebody
@@ -184,7 +184,7 @@ before the button will work.
 Deleting cannot be undone. The account keeps its place in history and loses everything else:
 
 - its username becomes something like `deleted_user_9fb1c47a`,
-- its email address, password, Discord user id, VRChat link and roles are cleared,
+- its email address, password, Discord account, VRChat link and roles are cleared,
 - every session ends straight away and it can never sign in again,
 - the deletion is recorded in the audit log, naming who did it.
 
@@ -209,11 +209,11 @@ highest role." Only an administrator can change an administrator. See
 [the order of roles](/accounts/roles-and-permissions#the-order-of-roles).
 </Callout>
 
-## Email and Discord user id
+## Email and Discord account
 
-Every account has an **Email** address. A **Discord user id** is optional. You can set them for
-somebody under **Contact details** in their panel (then press **Save contact details**), and each
-person can set their own on their account page.
+Every account has an **Email** address. You can set it for somebody under **Contact details** in
+their panel (then press **Save contact details**), and each person can set their own on their
+account page.
 
 The email address is used for three things:
 
@@ -221,9 +221,12 @@ The email address is used for three things:
 - sending a password reset link the person asked for (see below),
 - naming the person who runs this Modbot (see below).
 
-The Discord user id is used for recognising the person when they use the Modbot Discord bot's
-commands. See [Setting up the bot](/discord/bot-setup). Modbot does not check that it really
-belongs to the person. It is typed in.
+A **Discord account** is optional, and only the person can add one: **Connect Discord** on their
+own account page signs them in to Discord, and Discord tells Modbot which account it is. It is used
+for recognising the person when they use the Modbot Discord bot's commands, for notifications by
+Discord message, and for a password reset link when the account has no email address. See
+[Setting up the bot](/discord/bot-setup#letting-moderators-use-the-commands). Their panel shows it
+under **Contact details**, and nobody else can change it.
 
 The email address of the oldest enabled administrator is also the contact address Modbot gives
 VRChat on every request, and the one shown as this server's owner. See
@@ -257,7 +260,8 @@ The sign-in page has **Forgot password?**. The person types their **Username** a
 1. **by email**, if email is set up under **Settings**, **Email and alerts**, **Email sending**, and the
    account has an email address,
 2. otherwise **by Discord direct message**, if a **Bot token** is saved under **Settings**,
-   **Discord**, and the account has a Discord user id.
+   **Discord**, and the account has a Discord account connected (see
+   [Email and Discord account](#email-and-discord-account)).
 
 The message names the account and says nothing has changed if they did not ask. The link lasts
 **24 hours**.
@@ -270,7 +274,7 @@ is set up, the forgot-password page says so and sends nothing. Use the second wa
 To stop this being used to find out which usernames exist, the page always gives the same answer,
 whether or not the username is real, disabled, or has no contact details. Behind that answer:
 
-- nothing is sent to a disabled account or one with no email and no Discord user id,
+- nothing is sent to a disabled account or one with no email and no Discord account,
 - a person can get at most one link every **10 minutes**,
 - many requests from one address slow down, the same way failed sign-ins do.
 
@@ -334,8 +338,11 @@ is signed in can use it. It has these parts:
   press **Change password**. Every other session you have is signed out. The browser you did it in
   stays signed in.
 - **How you can be reached**: your **Email**, which you can sign in with and which a reset link is
-  sent to, and your **Discord user id**. Press **Save**.
+  sent to. Press **Save**.
 - **Your VRChat account**: which VRChat account you are linked to, and **Link a different account**.
+- **Your Discord account**: **Connect Discord** signs you in to Discord and connects that account,
+  then shows **Connected as** and your Discord name, with **Disconnect** to take it off. See
+  [Letting moderators use the commands](/discord/bot-setup#letting-moderators-use-the-commands).
 - **my.modbot.co**: **Add to my.modbot.co**.
 - **Sign out everywhere**: ends every session you have on every browser and machine, including
   this one.

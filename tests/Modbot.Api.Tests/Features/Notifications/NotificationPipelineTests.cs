@@ -73,7 +73,7 @@ public class NotificationPipelineTests
         ModbotContext Db, MovingClock Clock, StubSender Email, StubMessenger Discord, ModbotUser Person)
     {
         public IEnumerable<INotificationChannel> Channels =>
-            [new EmailNotificationChannel(Email), new DiscordNotificationChannel(Discord)];
+            [new EmailNotificationChannel(Email), new DiscordNotificationChannel(Discord, Clock)];
 
         public INotifier Notifier => new Notifier(Db, Clock, Channels);
 
@@ -116,6 +116,7 @@ public class NotificationPipelineTests
             UsernameNormalized = $"KEEPER_{tag}".ToUpperInvariant(),
             Email = withEmail ? $"keeper_{tag}@example.com" : null,
             DiscordUserId = withDiscord ? $"discord_{tag}" : null,
+            DiscordVerifiedAt = withDiscord ? Start : null,
             PasswordHash = "x",
         };
 

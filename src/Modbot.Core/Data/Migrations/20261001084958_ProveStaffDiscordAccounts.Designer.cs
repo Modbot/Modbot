@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261001084958_ProveStaffDiscordAccounts")]
+    partial class ProveStaffDiscordAccounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -865,10 +868,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<int>("UsedFor")
-                        .HasColumnType("integer")
-                        .HasColumnName("used_for");
-
                     b.HasKey("Id")
                         .HasName("pk_ban_reason");
 
@@ -1246,28 +1245,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("group_id");
 
-                    b.Property<string>("LiftNote")
-                        .HasColumnType("text")
-                        .HasColumnName("lift_note");
-
-                    b.Property<string>("LiftReasonIds")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("lift_reason_ids");
-
-                    b.Property<DateTimeOffset?>("LiftedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("lifted_at");
-
-                    b.Property<Guid?>("LiftedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("lifted_by_user_id");
-
-                    b.Property<string>("LiftedByUsername")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("lifted_by_username");
-
                     b.Property<string>("MembershipAtBan")
                         .HasColumnType("jsonb")
                         .HasColumnName("membership_at_ban");
@@ -1292,10 +1269,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset>("SnapshotTakenAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("snapshot_taken_at");
-
-                    b.Property<long?>("UnbanFactId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("unban_fact_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")

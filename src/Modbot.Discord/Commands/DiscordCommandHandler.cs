@@ -21,11 +21,11 @@ namespace Modbot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The Discord user id is the only key.</strong> Whoever holds the Discord account that a
-/// Modbot account lists as its Discord user id is treated as that Modbot account. That is the
-/// same trust the reset-link sender already places in the field (accounts and access design
-/// §4.2), and it is why the field is set by the account holder or an administrator and never
-/// guessed.
+/// <strong>Only a Discord account the person proved is them.</strong> Whoever holds the Discord
+/// account a Modbot account proved, by signing in to Discord from its account page, is treated as
+/// that Modbot account (<see cref="StaffDiscord"/>, accounts and access design §4.6). An id that was
+/// typed in before proving existed counts until <see cref="StaffDiscord.TypedIdsEnd"/>, and only
+/// while no other account typed the same one.
 /// </para>
 /// <para>
 /// <strong>Unlinked callers learn nothing.</strong> Not whether a name exists, not whether the bot
@@ -41,7 +41,7 @@ public sealed class DiscordCommandHandler
     /// <summary>Modbot's own violet, for a reply that is neither good nor bad news (brand design 2026-09-16).</summary>
     private const uint Violet = CardColour.Violet;
 
-    public const string NotLinkedMessage = "Link your Discord account in Modbot first.";
+    public const string NotLinkedMessage = "Connect Discord on your account page in Modbot first.";
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -89,10 +89,7 @@ public sealed class DiscordCommandHandler
             return linkReply;
         }
 
-        var user = await _db.Users.AsNoTracking()
-            .Include(u => u.Roles).ThenInclude(r => r.Role)
-            .FirstOrDefaultAsync(u => u.DiscordUserId == call.DiscordUserId, ct)
-            .ConfigureAwait(false);
+        var user = await StaffDiscord.AccountForAsync(_db, call.DiscordUserId, _clock.UtcNow, ct).ConfigureAwait(false);
 
         DiscordReply reply;
         string outcome;

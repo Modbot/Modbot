@@ -354,11 +354,26 @@ public static class FactType
     /// <summary>Payload carries the old and new names.</summary>
     public const string UsernameChanged = "modbot.user.username.change";
 
-    /// <summary>Email or Discord user id set. Payload says which fields changed, not the values.</summary>
+    /// <summary>
+    /// Email set. Payload says which fields changed, not the values. Until 2026-10-01 the field
+    /// could also be the typed-in Discord user id; proving one is <see cref="DiscordConnected"/>.
+    /// </summary>
     public const string ContactChanged = "modbot.user.contact.change";
 
     /// <summary>The person proved which VRChat account is theirs (design §4.3).</summary>
     public const string VRChatLinked = "modbot.user.vrchat.link";
+
+    /// <summary>
+    /// The person proved which Discord account is theirs by signing in to Discord (design §4.6).
+    /// Payload carries the id, the username Discord gave, and the id it replaced, if any.
+    /// </summary>
+    public const string DiscordConnected = "modbot.user.discord.link";
+
+    /// <summary>
+    /// The Discord account came off the account: the person removed it, or somebody else proved
+    /// it was theirs and it had only been typed in here (payload <c>why</c>).
+    /// </summary>
+    public const string DiscordDisconnected = "modbot.user.discord.unlink";
 
     public const string UserCreated = "modbot.user.create";
     public const string UserInvited = "modbot.user.invite.create";

@@ -143,6 +143,12 @@ export type CurrentUser = {
   vrChatDisplayName: string | null
   email: string | null
   discordUserId: string | null
+  /** The Discord username when the account was proven; null for a typed id. */
+  discordUsername: string | null
+  /** The person signed in to Discord from their account page to prove `discordUserId`. */
+  discordProven: boolean
+  /** For a typed, unproven id: the day it stops counting. Null otherwise. */
+  discordWorksUntil: string | null
   /**
    * Whether Chat answers: AI is on and Chat is on (Settings → AI). The page list offers Chat
    * only while it is (`offered` in lib/nav.ts); a direct link still opens the page.
@@ -192,6 +198,9 @@ export type UserSummary = {
   vrChatDisplayName: string | null
   email: string | null
   discordUserId: string | null
+  discordUsername: string | null
+  discordProven: boolean
+  discordWorksUntil: string | null
   createdAt: string
   lastLoginAt: string | null
   /** The position of their highest role, first at 0; null with no role. */
@@ -4155,9 +4164,13 @@ export const api = {
   changeUsername: (body: { username: string; currentPassword: string }) =>
     put<CurrentUser>('/api/auth/username', body),
 
-  /** Null leaves a field alone; an empty string clears it. */
-  setOwnContact: (body: { email?: string; discordUserId?: string }) =>
-    put<CurrentUser>('/api/auth/contact', body),
+  /** Null leaves the address alone. */
+  setOwnContact: (body: { email?: string }) => put<CurrentUser>('/api/auth/contact', body),
+
+  /** Where the browser goes to sign in to Discord and prove which account is yours. A page, not a fetch. */
+  connectDiscordUrl: '/api/auth/discord/connect',
+
+  disconnectDiscord: () => del<CurrentUser>('/api/auth/discord'),
 
   signOutEverywhere: () => post<void>('/api/auth/sign-out-everywhere'),
 
@@ -4254,7 +4267,6 @@ export const api = {
     confirmPassword: string
     roleIds: string[]
     email?: string
-    discordUserId?: string
   }) => post<UserSummary>('/api/users', body),
 
   setUserRoles: (id: string, roleIds: string[]) => put<UserSummary>(`/api/users/${id}/roles`, { roleIds }),
@@ -4266,7 +4278,7 @@ export const api = {
   deleteUser: (id: string, username: string) =>
     post<UserSummary>(`/api/users/${id}/delete`, { username }),
 
-  setUserContact: (id: string, body: { email?: string; discordUserId?: string }) =>
+  setUserContact: (id: string, body: { email?: string }) =>
     put<UserSummary>(`/api/users/${id}/contact`, body),
 
   createResetLink: (id: string) => post<LinkCreated>(`/api/users/${id}/reset-link`),

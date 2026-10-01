@@ -31,11 +31,25 @@ public class ModbotUser
     public ICollection<ModbotUserRole> Roles { get; set; } = [];
 
     /// <summary>
-    /// Optional Discord user id (spec 6.3). An opaque snowflake; never parsed. Typed in rather
-    /// than proven, so it is only ever used to reach the person (a reset link by direct message),
-    /// never to sign them in.
+    /// The person's Discord account (spec 6.3). An opaque snowflake; never parsed.
     /// </summary>
+    /// <remarks>
+    /// Proven when <see cref="DiscordVerifiedAt"/> is set: the person signed in to Discord from
+    /// their account page and Discord said which account it was (accounts and access design §4.6).
+    /// Before that change the id was typed in, by the person or an administrator, and an account
+    /// may still hold one of those; it is unproven, and it stops counting on
+    /// <see cref="Users.StaffDiscord.TypedIdsEnd"/>. Go through <see cref="Users.StaffDiscord"/>
+    /// for every use, never this column alone.
+    /// </remarks>
     public string? DiscordUserId { get; set; }
+
+    /// <summary>The Discord username at the time it was proven. Names change; this one is what was seen then.</summary>
+    public string? DiscordUsername { get; set; }
+
+    /// <summary>When the person proved <see cref="DiscordUserId"/> is theirs. Null for an id that was typed in.</summary>
+    public DateTimeOffset? DiscordVerifiedAt { get; set; }
+
+    public bool IsDiscordProven => DiscordVerifiedAt is not null && DiscordUserId is { Length: > 0 };
 
     /// <summary>
     /// Where this person can be reached, and the other thing they can sign in with.

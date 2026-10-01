@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronRight, Rows2, Rows3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser } from '@/lib/api'
+import { formatDay } from '@/lib/format'
 import { registerLink } from '@/lib/myModbot'
+import { useQueryParam } from '@/lib/router'
 import { usernameProblem } from '@/lib/username'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
@@ -17,7 +19,8 @@ import type { Density } from '@/lib/preferences'
 
 /**
  * The signed-in person's own account (accounts and access design §4, §8): username, password,
- * where a reset link can reach them, the linked VRChat account, and the way out of every session.
+ * where a reset link can reach them, the linked VRChat and Discord accounts, and the way out of
+ * every session.
  *
  * Also a desk's spacing, which was a three-way switch in the top bar until the headset became a
  * place of its own (UX review 2026-09-25, finding 17): people set it once, and it is kept per
@@ -106,6 +109,8 @@ export function Account({
           </details>
         </CardContent>
       </Card>
+
+      <YourDiscord me={me} onChanged={onChanged} />
 
       <ChangeUsername me={me} onChanged={onChanged} />
       <Contact me={me} onChanged={onChanged} />
@@ -251,14 +256,96 @@ function ChangePassword() {
   )
 }
 
+/** What the account page says when Discord sends the browser back (`?discord=`), when it is not good news. */
+const DISCORD_PROBLEMS: Record<string, string> = {
+  'not-set-up': 'Discord sign-in is not set up on this server.',
+  taken: 'That Discord account is connected to another Modbot account.',
+  cancelled: 'Discord sign-in was cancelled.',
+  'sign-in-expired': 'The Discord sign-in took too long. Try again.',
+  discord: 'Discord did not say who signed in. Try again.',
+  'signed-out': 'You were signed out of Modbot before Discord sent you back.',
+}
+
 /**
- * Email and Discord id. The email is required now (server info and account email design §4): an
- * account made before that rule lands here with the field empty, which is how such a person is
- * asked for one.
+ * The Discord account the bot treats as this person (accounts and access design §4.6). Proven by
+ * signing in to Discord: the button is a link to the server, which sends the browser to Discord
+ * and back here with `?discord=` saying how it went. An id typed in before proving existed shows
+ * as not proven, with the day it stops counting.
+ */
+function YourDiscord({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
+  const [result, setResult] = useQueryParam('discord')
+  const [problem] = useState(() => (result ? (DISCORD_PROBLEMS[result] ?? null) : null))
+  const [error, setError] = useState<string | null>(problem)
+  const [busy, setBusy] = useState(false)
+
+  // Read once, then off the address, so a reload or a copied link does not say it again.
+  useEffect(() => {
+    if (result !== null) setResult(null)
+  }, [result, setResult])
+
+  const disconnect = () => {
+    setBusy(true)
+    setError(null)
+    api
+      .disconnectDiscord()
+      .then(onChanged)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not disconnect.'))
+      .finally(() => setBusy(false))
+  }
+
+  const typedUntil = !me.discordProven ? me.discordWorksUntil : null
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Your Discord account</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3">
+        <div style={{ fontSize: 'var(--text-small)' }}>
+          {me.discordUserId && me.discordProven ? (
+            <>
+              Connected as <span className="font-medium">{me.discordUsername ?? me.discordUserId}</span>{' '}
+              <span className="font-mono text-muted-foreground">{me.discordUserId}</span>
+            </>
+          ) : me.discordUserId ? (
+            <>
+              <span className="font-mono">{me.discordUserId}</span>{' '}
+              <Badge variant="warn">Not proven</Badge>
+              {typedUntil && (
+                <div className="mt-1 text-muted-foreground">
+                  {new Date(typedUntil) > new Date() ? 'Works until ' : 'Stopped working '}
+                  {formatDay(typedUntil, true)}
+                </div>
+              )}
+            </>
+          ) : (
+            'Not connected.'
+          )}
+        </div>
+        <ErrorText>{error}</ErrorText>
+      </CardContent>
+      <CardFooter className="flex-wrap gap-3">
+        {!me.discordProven && (
+          <a href={api.connectDiscordUrl} className={buttonVariants({ size: 'xs' })}>
+            Connect Discord
+          </a>
+        )}
+        {me.discordUserId && (
+          <Button size="xs" variant="outline" disabled={busy} onClick={disconnect}>
+            {busy ? 'Disconnecting…' : me.discordProven ? 'Disconnect' : 'Remove'}
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  )
+}
+
+/**
+ * Email. Required now (server info and account email design §4): an account made before that rule
+ * lands here with the field empty, which is how such a person is asked for one.
  */
 function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
   const [email, setEmail] = useState(me.email ?? '')
-  const [discord, setDiscord] = useState(me.discordUserId ?? '')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -269,7 +356,7 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
     setDone(false)
     setError(null)
     api
-      .setOwnContact({ email, discordUserId: discord })
+      .setOwnContact({ email })
       .then(() => {
         setDone(true)
         onChanged()
@@ -287,9 +374,6 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
         <CardContent className="flex flex-1 flex-col gap-3">
           <Field label="Email" htmlFor="acct-email">
             <Input id="acct-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Discord user id" htmlFor="acct-discord">
-            <Input id="acct-discord" className="font-mono" autoComplete="off" value={discord} onChange={(e) => setDiscord(e.target.value)} />
           </Field>
           <ErrorText>{error}</ErrorText>
         </CardContent>

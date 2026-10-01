@@ -1330,7 +1330,7 @@
           "Auth"
         ],
         "summary": "Set your contact details",
-        "description": "Set the email address and Discord user id a reset link can reach you at.",
+        "description": "Set the email address a reset link can reach you at.",
         "operationId": "SetOwnContact",
         "requestBody": {
           "content": {
@@ -1385,6 +1385,36 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/auth/discord": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Disconnect Discord",
+        "description": "Take the Discord account off your Modbot account. The bot stops treating that Discord account as you, and direct messages stop.",
+        "operationId": "DisconnectDiscord",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized"
@@ -1914,7 +1944,7 @@
           "Users"
         ],
         "summary": "Set user contact details",
-        "description": "Set the email address and Discord user id a reset link can be sent to. Refused for an account whose highest role is not below yours.\n\nNeeds the `ManageUsers` permission.",
+        "description": "Set the email address a reset link can be sent to. Refused for an account whose highest role is not below yours.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "SetUserContact",
         "parameters": [
           {
@@ -23056,12 +23086,6 @@
               "null",
               "string"
             ]
-          },
-          "discordUserId": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -23271,12 +23295,6 @@
             }
           },
           "email": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "discordUserId": {
             "type": [
               "null",
               "string"
@@ -36162,6 +36180,9 @@
           "vrChatDisplayName",
           "email",
           "discordUserId",
+          "discordUsername",
+          "discordProven",
+          "discordWorksUntil",
           "chatOn"
         ],
         "type": "object",
@@ -36214,6 +36235,22 @@
               "null",
               "string"
             ]
+          },
+          "discordUsername": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordProven": {
+            "type": "boolean"
+          },
+          "discordWorksUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "chatOn": {
             "type": "boolean"
@@ -38171,6 +38208,9 @@
           "vrChatDisplayName",
           "email",
           "discordUserId",
+          "discordUsername",
+          "discordProven",
+          "discordWorksUntil",
           "createdAt",
           "lastLoginAt"
         ],
@@ -38227,6 +38267,22 @@
               "null",
               "string"
             ]
+          },
+          "discordUsername": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordProven": {
+            "type": "boolean"
+          },
+          "discordWorksUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           },
           "createdAt": {
             "type": "string",
