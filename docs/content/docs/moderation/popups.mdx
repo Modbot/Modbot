@@ -83,7 +83,7 @@ said either way.
 | Tab | What it shows |
 |---|---|
 | **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **Past actions** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#past-actions-on-a-persons-popup)), their time in world (**Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**), a table of the instances they were seen in (newest 25), **Visits** (see below), and the newest 8 audit log entries about any of their accounts, with **All activity** to open the **Activity** tab. |
-| **Activity** | **Recorded about this person**: every audit log entry about any of their accounts or done by any of them, newest first, 50 at a time with **Load more** at the bottom. It is the [audit log](/moderation/audit-log)'s own list with its filters, narrowed to this person, and new entries arrive while it is open. **Show** starts on **Everything**; pick **Moderation only** for bans, kicks, warnings, rejected join requests, notes, watches, case files, AutoMod and copied bans, **Presence** for arrivals, leaves, avatar changes and clips a moderator saved, or **Discord** for their Discord history and everything Modbot copied between the two. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. Click a row to see everything the entry holds. |
+| **Activity** | **Recorded about this person**: every audit log entry about any of their accounts or done by any of them, newest first, 50 at a time with **Load more** at the bottom. It is the [audit log](/moderation/audit-log)'s own list with its filters, narrowed to this person, and new entries arrive while it is open. **Show** starts on **Everything**; pick **Moderation only** for bans, kicks, warnings, rejected join requests, notes, watches, case files, AutoMod and copied bans, **Presence** for arrivals, leaves, avatar changes and clips a moderator saved, or **Discord** for their Discord history and everything Modbot copied between the two. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. Click a row to see everything the entry holds. Where [AI briefs](/ai/chat#ai-briefs) are on, **Brief me** is at the top of the tab. |
 | **Notes** | What moderators have written down about them, newest first, and a box to add another. Notes that were taken back are still listed and marked. See [Notes](/moderation/notes). |
 | **Profile changes** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile changes](#profile-changes). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
@@ -191,7 +191,8 @@ hearing nothing for a long time) or **Open now** with when it was last seen.
   and **Last seen** for each person.
 - **Activity**: **What happened in this instance**: the audit log narrowed to this instance, with
   the same filter chips as the [Audit log](/moderation/audit-log) page; **When** starts on the
-  days the instance ran. **Open in Audit log** opens the page with the same chips.
+  days the instance ran. **Open in Audit log** opens the page with the same chips. Where
+  [AI briefs](/ai/chat#ai-briefs) are on, **Summarise what Modbot recorded** sits beside it.
 - **Raw data**: the instance's stored record as the API answers it, with a copy button. Open it
   from **⋯** in the popup's header; it shows as a tab while it is open.
 
@@ -213,6 +214,7 @@ for a person the version too (`?version=`); switching tabs by hand does not chan
 | Person popup: **Account** tab | **See the audit log** for what they did as a moderator, **See the operational log** for their sign-ins and role changes |
 | Person popup: entries in **Activity** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
 | Person popup: **Notes** tab | **See the audit log** to read them, **Write notes** to add one |
+| Person popup: **Brief me**, and instance popup: **Summarise what Modbot recorded** | **Use AI chat**, with AI, Chat and AI briefs on; the instance's also needs what its **Activity** tab needs. **Save as note** needs **Write notes** |
 | World popup | **See analytics** |
 | Instance popup | **See analytics** |
 | Instance popup: **People** and **Activity** tabs, **Seen by a moderator's client**, **Joins**, the **Members** and trust rank lines on **People over time**, and the people seen longest | **See analytics** and **See the audit log** |

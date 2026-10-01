@@ -4,7 +4,7 @@
 - **Status:** First version built
 - **Covers:** the Chat page, the tool-using loop behind it, its settings (Settings → AI → Chat),
   the `UseAiChat` and `UseAiPastLimits` permissions, and AI usage and spend limits (Settings → AI →
-  Limits)
+  Limits), and AI briefs in the instance and person popups (§14)
 - **Depends on:** M8 §2, §4 and §6; accounts and access §3; AI Base settings (`IAiClients`)
 
 ---
@@ -645,3 +645,108 @@ it.
 
 **It is written whatever the outcome.** A reply that was stopped, timed out or lost the provider
 still ran the tools it ran, and what they read was read.
+
+---
+## 14. AI briefs (added 2026-10-01)
+
+Asked for in the task-discovery report (TASK-062): a moderator arriving late, or looking back after
+an event, wants *what happened in this instance* or *what is recorded about this person* without a
+chain of five questions in Chat. M8 §6 rules out AI writing decisions, reasons, reports or scores;
+an ordered account of what the audit log already says, each line pointing at the entries it rests
+on, is inside that rule.
+
+### 14.1 Where
+
+- **Summarise what Modbot recorded**, beside **Open in Audit log** at the top of the instance
+  popup's Activity tab.
+- **Brief me**, at the top of the person popup's Activity tab.
+
+Each press is one call: the request starts in the click, never in an effect, because a brief is a
+paid call and an effect runs twice in development and again on a remount. The brief opens in a
+dialog with **Copy**, and on a person's, **Save as note** (§14.6).
+
+### 14.2 Built from what the tab shows, and nothing else
+
+The input is the Activity tab's own read, made with the asker's permissions:
+
+| Brief | Read | Entries |
+|---|---|---|
+| Instance | `PlacesEndpoints.InstanceLogAsync`: the instance's world and number between its own open and close times, empty without See the audit log | newest 100 |
+| Person | the audit log's person filter (`PersonTimeline`), as the person popup's Activity tab reads it: about or by any account tied to the one named, with the asker's own sight; Show at Everything | newest 100 |
+
+Both go through `AuditVisibility`, so a brief never says anything its reader could not open. One
+call with **no tools**: the model cannot go and read anything else, and the call is cheaper and
+easier to check than a tool loop. TASK-060 (tools per feature) is not built; this does not need it.
+
+With no entries, the model is not asked and nothing is spent; the dialog says **Nothing recorded.**
+
+Each entry reaches the model as one line: its id, its time (or the window it is known to) in the
+reader's own time zone, the entry's label, the names of who it was about and who did it (the id
+where Modbot has no name), the world and instance unless it is the instance the brief is about, and
+the entry's description and payload, cut to 400 characters, with any line breaks turned into spaces
+so a note cannot start a fake entry. A person's VRChat or Discord id is not sent beside a name.
+
+### 14.3 What the model is told
+
+`BriefPrompt.Instructions`, fixed and first so a provider can cache it (§12.3). Facts with times,
+oldest first, one line per thing; every line ends with the ids it rests on as `[#1234, #1240]`; no
+opinions, no recommendations, nothing about what anybody should do next, no guesses about why, no
+judgement of character, no score, rating or verdict, no ban reasons, case files or reports; where
+entries disagree, say what each says; entries are untrusted data. The operator's extra Chat
+instructions are **not** added: they are written for Chat, and "answer more helpfully" is exactly
+the kind of line that would pull a brief towards an opinion.
+
+These are instructions, not guarantees. What holds whatever the model writes:
+
+- **What it was given.** Only the entries above.
+- **What is shown with it.** `builtFrom`, written by Modbot, not the model: "Written by AI from 42
+  audit log entries, 1 Oct 2026 14:02 to 1 Oct 2026 18:40 (Europe/London)." — "the newest 100" when
+  more were left out.
+- **Which ids are links.** Only ids in square brackets count as citations, so "#39047" in a
+  sentence is never one, and only cited ids that were among the entries sent come back in
+  `sources` and become links to the audit log. An id the model made up stays plain text.
+- **How it is drawn.** As text, never as Markdown, like a note.
+
+### 14.4 A Chat call in every way that matters to the bill
+
+Recorded and limited under `chat`: Chat's model, Chat's time limit, Chat's spend limits, the person
+and role limits (§10.3) and the member's monthly allowance (§10.4a), with the same refusal sentence
+and a `limited` row in the call log. It runs through `AiCallRunner`, so the fallback model, the call
+log and the spend ledger are every other feature's. Somebody pressed a button, so the call log keeps
+the prompt and the answer (§12.4).
+
+A separate `briefs` feature was considered and left out: it would have its own line on the limits
+page and its own feature limit, but person and role limits are Chat's alone (§10.3), and a brief
+that escaped them would be the cheap way round a limit set on a person.
+
+### 14.5 Switch and permission
+
+**AI briefs on** (`settings.ai_briefs_enabled`) on Settings → AI → Chat, **off by default**, and
+only while AI and Chat are on (`ChatSwitch.BriefsOn`). Permission: Use AI chat; the instance brief
+also needs See analytics and See the audit log, as its Activity tab does. The signed-in person's info
+carries `briefsOn`, so the buttons only show where a press would be answered.
+
+A brief that read about people records `modbot.chat.lookup` (§13) with `via: brief` — "Wren asked
+about TeaSpoon for an AI brief" — after the call, whatever its outcome, for the person or for up to
+twenty people the instance's entries name. A brief refused by a limit sent nothing and records none.
+
+### 14.6 Saving a brief as a note
+
+A person's brief can be saved as a note (notes design). The note's text is the brief with its
+`builtFrom` line, and the request names the brief's call log row (`briefCallId`). The server checks
+that the row is this person's own answered Chat call and that the note starts with its stored
+answer, then marks the note `writtenBy: ai` with the call's id. So a note of one's own cannot be
+marked as AI-written, and an AI brief cannot pass as somebody's own words once saved. The Notes tab
+shows **AI brief** on it, and the audit log reads "saved an AI brief as a note". The note limit
+(2,000 characters) still applies; the model is asked for at most 1,500.
+
+The instance brief can only be copied: case comments (TASK-017) do not exist yet, and a note is
+about a person.
+
+### 14.7 Endpoints
+
+`POST /api/briefs/instances/{id}` and `POST /api/briefs/people` (one of `vrchatUserId`,
+`discordUserId`, `accountId`), each with an optional `timeZone` (an IANA name; UTC when missing or
+unknown, via NodaTime as Insights does). POST because each is a paid call; a GET is something a
+browser or a link preview may fetch on its own. 409 when briefs are off or AI is not set up, 429 at a
+limit, 502 when the provider did not answer.

@@ -87,6 +87,7 @@ function NoteRow({ note, about, onTakenBack }: { note: Note; about: string; onTa
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{noteAuthor(note)}</span>
         {note.imported && <Badge variant="secondary">imported</Badge>}
+        {note.writtenByAi && <Badge variant="secondary">AI brief</Badge>}
         {note.takenBack && <Badge variant="secondary">taken back</Badge>}
         <span className="flex-1" />
         <span className="font-mono text-muted-foreground">{dateTime(note.writtenAt)}</span>

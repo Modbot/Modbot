@@ -110,10 +110,36 @@ public sealed class NoteService
         if (text.Length > MaxTextLength)
             throw new NoteRefused(400, $"That note is too long (at most {MaxTextLength} characters).");
 
+        // A note saved from an AI brief is marked as one, and only when it is: the call log must
+        // hold that brief, answered for this person, and the note must start with its words
+        // (AI chat design §14). A note cannot claim to be AI-written, and an AI brief cannot pass
+        // as somebody's own words once saved.
+        if (request.BriefCallId is { } briefCallId)
+            await CheckBriefAsync(briefCallId, text, caller, ct);
+
         var (facts, partitions) = Writer();
         var now = _clock.UtcNow;
 
         await partitions.EnsureForAsync(now, ct);
+
+        var data = new JsonObject
+        {
+            ["text"] = text,
+            ["actorDisplayName"] = caller.Username,
+
+            // The same words again, under the key every reader of a timeline already
+            // looks in: the audit-log row, the Discord card and the AI tools all read
+            // `description`, and the Discord card escapes it before it is posted
+            // (CardText.EscapeText), which is how a note reaches a channel as typed
+            // rather than as markup.
+            ["description"] = text,
+        };
+
+        if (request.BriefCallId is { } fromBrief)
+        {
+            data[WrittenByKey] = WrittenByAi;
+            data["aiCallId"] = fromBrief.ToString();
+        }
 
         var written = await facts.WriteAsync(
             new FactRecord
@@ -125,18 +151,7 @@ public sealed class NoteService
                 ActorPlatform = FactPlatform.Modbot,
                 ActorId = caller.UserId.ToString(),
                 Source = FactSource.Manual,
-                Data = new JsonObject
-                {
-                    ["text"] = text,
-                    ["actorDisplayName"] = caller.Username,
-
-                    // The same words again, under the key every reader of a timeline already
-                    // looks in: the audit-log row, the Discord card and the AI tools all read
-                    // `description`, and the Discord card escapes it before it is posted
-                    // (CardText.EscapeText), which is how a note reaches a channel as typed
-                    // rather than as markup.
-                    ["description"] = text,
-                },
+                Data = data,
             },
             ct);
 
@@ -154,7 +169,26 @@ public sealed class NoteService
             TakenBack: false,
             TakenBackAt: null,
             TakenBackByName: null,
-            CanTakeBack: true);
+            CanTakeBack: true,
+            WrittenByAi: request.BriefCallId is not null);
+    }
+
+    /// <summary>
+    /// Refuses a note that names an AI brief it was not saved from: one this person did not ask
+    /// for, one that never answered, or text that does not start with the brief's own words.
+    /// </summary>
+    private async Task CheckBriefAsync(Guid callId, string text, Caller caller, CancellationToken ct)
+    {
+        var answer = await _db.AiCalls.AsNoTracking()
+            .Where(c => c.Id == callId
+                        && c.UserId == caller.UserId
+                        && c.Feature == Modbot.AI.Usage.AiFeatures.Chat
+                        && c.Outcome == AiCallOutcomes.Answered)
+            .Select(c => c.Answer)
+            .FirstOrDefaultAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(answer) || !text.StartsWith(answer.Trim(), StringComparison.Ordinal))
+            throw new NoteRefused(400, "That brief cannot be saved as a note.");
     }
 
     // ── Taking one back ────────────────────────────────────────────────────────────────────
@@ -324,7 +358,8 @@ public sealed class NoteService
             TakenBack: takenBack is not null,
             TakenBackAt: takenBack?.At,
             TakenBackByName: takenBack?.ByName,
-            CanTakeBack: takenBack is null && (caller.Has(ModbotPermissions.WriteNotes) || mine));
+            CanTakeBack: takenBack is null && (caller.Has(ModbotPermissions.WriteNotes) || mine),
+            WrittenByAi: Read(note.Data, WrittenByKey) == WrittenByAi);
     }
 
     /// <summary>
@@ -342,6 +377,11 @@ public sealed class NoteService
     private static string? NameOf(string data) => Read(data, "actorDisplayName");
 
     private static bool ImportedFrom(string data) => Read(data, "importId") is not null;
+
+    /// <summary>The payload key, and its value, that mark a note saved from an AI brief.</summary>
+    public const string WrittenByKey = "writtenBy";
+
+    public const string WrittenByAi = "ai";
 
     private static string? Read(string data, string key)
     {

@@ -16,7 +16,16 @@ import { concernsAny, foundUnder, type PersonAsked } from '@/lib/personTimeline'
  * the Show chip already in the bar, so Moderation only is one click away when arrivals and leaves
  * bury the bans. Chips changed here last until the tab is left.
  */
-export function PersonActivity({ person, asked }: { person: PersonView; asked: PersonAsked }) {
+export function PersonActivity({
+  person,
+  asked,
+  right,
+}: {
+  person: PersonView
+  asked: PersonAsked
+  /** Drawn at the right of the tab's header: the AI brief's button, where briefs are on. */
+  right?: React.ReactNode
+}) {
   const fixed = useMemo<FilterChip[]>(() => [personChip(asked.platform, asked.id)], [asked.platform, asked.id])
 
   // Where the tab starts, and where Clear puts it back. No chips at all is everything as well.
@@ -27,7 +36,7 @@ export function PersonActivity({ person, asked }: { person: PersonView; asked: P
   const under = useCallback((entry: AuditEntry) => foundUnder(person, entry), [person])
 
   return (
-    <Panel title="Recorded about this person" flush>
+    <Panel title="Recorded about this person" right={right} flush>
       <AuditLogList
         chips={chips}
         starts={starts}

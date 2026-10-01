@@ -31,7 +31,7 @@ public static class MeEndpoint
 
                 return user is null
                     ? Results.Unauthorized()
-                    : Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
+                    : Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
             })
             .WithTags("Auth")
             .WithName("GetCurrentUser")

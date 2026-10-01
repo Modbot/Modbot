@@ -155,6 +155,11 @@ export type CurrentUser = {
    */
   chatOn: boolean
   /**
+   * Whether the instance and person popups offer an AI brief: Chat answers and briefs are on
+   * (Settings → AI → Chat). The buttons show only while it is and the person holds Use AI chat.
+   */
+  briefsOn: boolean
+  /**
    * The position of the account's highest role, first at 0; null with no role. Compare it with a
    * row's own through `isBelowMe` — Manage users and Manage roles only reach what is below it.
    */
@@ -909,6 +914,25 @@ export type PersonView = {
 
 export type PersonAsk = { vrchat?: string; discord?: string; account?: string }
 
+/**
+ * An AI brief: a summary of the audit log entries an instance's or a person's Activity tab shows,
+ * written by the Chat model (AI chat design §14).
+ *
+ * `text` is lines, each ending with the entry ids it rests on in square brackets, `[#1234, #1240]`.
+ * Null when nothing was recorded; the model was not asked. `sources` are the cited ids that were
+ * among the entries sent, so only those are links. `builtFrom` says what it was built from, and is
+ * kept with the text when the brief is saved as a note.
+ */
+export type Brief = {
+  text: string | null
+  sources: number[]
+  entries: number
+  newest: boolean
+  builtFrom: string | null
+  callId: string | null
+  model: string | null
+}
+
 export type AuditRequest = {
   type?: string[]
   /** Types to leave out. The type list is the server's, so "is not" cannot be sent as the rest of it. */
@@ -1290,6 +1314,8 @@ export type Note = {
   takenBackAt: string | null
   takenBackByName: string | null
   canTakeBack: boolean
+  /** An AI brief somebody saved, rather than their own words. */
+  writtenByAi: boolean
 }
 
 export type NoteList = {
@@ -3563,10 +3589,13 @@ export type AiChatSettings = {
   timeLimitSeconds: number
   aiEnabled: boolean
   tools: AiChatToolSetting[]
+  /** Whether the instance and person popups offer an AI brief. */
+  briefs: boolean
 }
 
 export type AiChatSettingsInput = {
   enabled: boolean
+  briefs: boolean
   model: string | null
   instructions: string | null
   maxToolCalls: number
@@ -5006,6 +5035,19 @@ export const api = {
   world: (id: string) => request<WorldView>(`/api/worlds?id=${encodeURIComponent(id)}`),
 
   instance: (id: string) => request<InstanceView>(`/api/instances/${encodeURIComponent(id)}`),
+
+  /** An AI brief of what was recorded in one instance. A paid call each time; see `Brief`. */
+  instanceBrief: (id: string, timeZone: string) =>
+    post<Brief>(`/api/briefs/instances/${encodeURIComponent(id)}`, { timeZone }),
+
+  /** An AI brief of what was recorded about one person, from any one of their accounts. */
+  personBrief: (ask: PersonAsk, timeZone: string) =>
+    post<Brief>('/api/briefs/people', {
+      vrchatUserId: ask.vrchat,
+      discordUserId: ask.discord,
+      accountId: ask.account,
+      timeZone,
+    }),
   instanceWorld: (id: string) => request<InstanceWorldView>(`/api/instances/${encodeURIComponent(id)}/world`),
 
   live: () => request<LiveView>('/api/live'),
@@ -5305,7 +5347,8 @@ export const api = {
   },
 
   /** Write a note about somebody. Needs WriteNotes. */
-  writeNote: (body: { userId: string; platform?: string; text: string }) => post<Note>('/api/notes', body),
+  writeNote: (body: { userId: string; platform?: string; text: string; briefCallId?: string }) =>
+    post<Note>('/api/notes', body),
 
   /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
   takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),

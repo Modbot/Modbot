@@ -23,6 +23,11 @@ namespace Modbot.Api.Features.Auth;
 /// offers Chat in its page list only while this is true and the person holds <c>UseAiChat</c>;
 /// the page itself still opens from a direct link and says Chat is off.
 /// </param>
+/// <param name="BriefsOn">
+/// Whether the instance and person popups offer an AI brief: Chat answers and briefs are on
+/// (<see cref="Features.Chat.ChatSwitch.BriefsOn"/>). The SPA shows the buttons only while this is
+/// true and the person holds <c>UseAiChat</c>; the server refuses a brief otherwise either way.
+/// </param>
 /// <param name="Rank">
 /// The position of the account's highest role, first at 0 (accounts and access design §3.5). Null
 /// with no role. The SPA greys what the server would refuse by comparing it with a row's own;
@@ -46,11 +51,13 @@ public sealed record SessionUser(
     bool DiscordProven,
     DateTimeOffset? DiscordWorksUntil,
     bool ChatOn,
-    int? Rank = null)
+    int? Rank = null,
+    bool BriefsOn = false)
 {
-    public static SessionUser From(ModbotUser user, bool chatOn)
+    public static SessionUser From(ModbotUser user, Features.Chat.AiSwitches on)
     {
         ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(on);
 
         var permissions = user.EffectivePermissions;
 
@@ -68,7 +75,8 @@ public sealed record SessionUser(
             user.IsDiscordProven ? user.DiscordUsername : null,
             user.IsDiscordProven,
             StaffDiscord.TypedIdWorksUntil(user),
-            chatOn,
-            user.Roles.Count == 0 ? null : RoleRank.Of(user));
+            on.ChatOn,
+            user.Roles.Count == 0 ? null : RoleRank.Of(user),
+            on.BriefsOn);
     }
 }

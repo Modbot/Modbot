@@ -78,6 +78,6 @@ public static class LoginHandler
         // lengths Modbot set; it never names one.
         await ModbotAuth.SignInAsync(http, user, clock, request.KeepSignedIn);
 
-        return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
+        return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
     }
 }

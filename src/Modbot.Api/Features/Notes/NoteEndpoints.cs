@@ -105,7 +105,10 @@ public static class NoteEndpoints
                 $"The text is stored and shown as text, never as markup, and is at most "
                 + $"{NoteService.MaxTextLength} characters. The note is one fact in the moderation "
                 + "log, so it shows in the person's history and can be read by anyone who may read "
-                + "that log.")
+                + "that log.\n\n"
+                + "To save an AI brief, send its `callId` as `briefCallId`: the note is marked "
+                + "`writtenByAi`. It must be a brief you asked for, and the text must start with "
+                + "its words; otherwise 400.")
             .Produces<NoteView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

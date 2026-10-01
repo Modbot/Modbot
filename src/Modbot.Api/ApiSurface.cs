@@ -442,6 +442,10 @@ public static class ApiSurface
         app.MapChat();
         app.MapModbotMcp();
 
+        // AI briefs: what Modbot recorded about one instance or one person, summarised from the
+        // entries the popup's Activity tab shows the asker, as a Chat call (AI chat design §14).
+        Features.Briefs.BriefEndpoints.MapBriefs(app);
+
         // Every new fact, as it is written, to a connected program (API keys design §5). The host
         // must call UseWebSockets before mapping this.
         app.MapEvents();

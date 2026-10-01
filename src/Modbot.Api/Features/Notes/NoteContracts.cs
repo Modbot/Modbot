@@ -10,7 +10,12 @@ namespace Modbot.Api.Features.Notes;
 /// Defaults to VRChat.
 /// </param>
 /// <param name="Text">The moderator's own words. Stored and shown as text, never as markup.</param>
-public sealed record WriteNoteRequest(string UserId, string? Platform = null, string Text = "");
+/// <param name="BriefCallId">
+/// Set when the note is an AI brief being saved: the call log row the brief came back on
+/// (<c>callId</c> from <c>POST /api/briefs/…</c>). The note is then marked as written by AI. It must
+/// be a brief this person asked for, and the text must start with its words.
+/// </param>
+public sealed record WriteNoteRequest(string UserId, string? Platform = null, string Text = "", Guid? BriefCallId = null);
 
 /// <summary>One note, as it is read back.</summary>
 /// <param name="Id">
@@ -34,6 +39,7 @@ public sealed record WriteNoteRequest(string UserId, string? Platform = null, st
 /// Whether the person reading may take this one back — they wrote it, or they may write notes.
 /// Always false for one already taken back.
 /// </param>
+/// <param name="WrittenByAi">True when it is an AI brief somebody saved, rather than their own words.</param>
 public sealed record NoteView(
     long Id,
     DateTimeOffset WrittenAt,
@@ -46,7 +52,8 @@ public sealed record NoteView(
     bool TakenBack,
     DateTimeOffset? TakenBackAt,
     string? TakenBackByName,
-    bool CanTakeBack);
+    bool CanTakeBack,
+    bool WrittenByAi = false);
 
 /// <summary>A person's notes, newest first.</summary>
 /// <param name="Notes">

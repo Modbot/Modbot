@@ -17,6 +17,9 @@ import {
 import { ModerationActions, ModerationDialog } from '@/components/moderation/ModerationActions'
 import { JoinStory } from '@/components/subject/JoinStory'
 import { PersonActivity } from '@/components/subject/PersonActivity'
+import { BriefDialog, BriefLink } from '@/components/subject/Brief'
+import { useBrief } from '@/components/subject/useBrief'
+import { offersBriefs } from '@/lib/briefs'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { PersonVisits } from '@/components/subject/PersonVisits'
@@ -35,6 +38,7 @@ import {
   api,
   type CurrentUser,
   type MembershipView,
+  type PersonAsk,
   type PersonMetrics,
   type PersonView,
 } from '@/lib/api'
@@ -133,6 +137,10 @@ function Resolved({
   // The account the address named, which the server ties the others to for the merged lists.
   const asked = useMemo(() => askedOf(at), [at])
 
+  // The AI brief. Its dialog is held here, beside the moderation dialog, so nothing the tabs do
+  // while it is open (a live entry, a note saved from it) can close it.
+  const brief = useBrief((timeZone) => api.personBrief(briefAskOf(asked), timeZone))
+
   // Notes are facts in the moderation log, so the log's own permission is what opens them --
   // there is no second, looser door onto the same rows (notes design §4).
   const readsNotes = can(me, 'ViewAuditLog')
@@ -172,6 +180,7 @@ function Resolved({
     ),
   )
   const fresh = `${acted}-${live}`
+
 
   const stored = useStoredProfile(vrchatId ?? '', live)
   const member = useDiscordMember(discordId, seesMembers)
@@ -352,7 +361,13 @@ function Resolved({
         )}
         {/* Not remounted on live events: the list takes them in itself, and a remount would put
             the reader's filters back. */}
-        {tab === 'logs' && <PersonActivity person={person} asked={asked} />}
+        {tab === 'logs' && (
+          <PersonActivity
+            person={person}
+            asked={asked}
+            right={offersBriefs(me) ? <BriefLink label="Brief me" onClick={brief.start} /> : undefined}
+          />
+        )}
         {tab === 'notes' && notesId && (
           <div className="flex min-h-0 flex-col">
             <PersonWatch
@@ -404,6 +419,13 @@ function Resolved({
         name={name ?? vrchatId}
         onClose={putAwayAction}
         onDone={() => setActed((n) => n + 1)}
+      />
+
+      <BriefDialog
+        state={brief}
+        me={me}
+        note={notesId ? { userId: notesId, platform: notesPlatform } : null}
+        onSaved={() => setActed((n) => n + 1)}
       />
     </PopupFrame>
   )
@@ -492,6 +514,16 @@ function Overview({
       </Panel>
     </div>
   )
+}
+
+/**
+ * What an AI brief asks by: the account the address named, as the Activity tab does, so the server
+ * ties together the same accounts the tab reads.
+ */
+function briefAskOf(asked: PersonAsked): PersonAsk {
+  if (asked.platform === 'Discord') return { discord: asked.id }
+  if (asked.platform === 'Modbot') return { account: asked.id }
+  return { vrchat: asked.id }
 }
 
 /**

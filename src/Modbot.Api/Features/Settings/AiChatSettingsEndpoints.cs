@@ -17,6 +17,7 @@ public sealed record AiChatToolView(string Name, string Label, IReadOnlyList<str
 
 /// <param name="Model">Null means the Base model, <paramref name="BaseModel"/>.</param>
 /// <param name="AiEnabled">Whether AI as a whole is on, on Base.</param>
+/// <param name="Briefs">Whether the instance and person popups offer an AI brief (AI chat design §14).</param>
 public sealed record AiChatSettingsResponse(
     bool Enabled,
     string? Model,
@@ -26,9 +27,11 @@ public sealed record AiChatSettingsResponse(
     int MaxReplyTokens,
     int TimeLimitSeconds,
     bool AiEnabled,
-    IReadOnlyList<AiChatToolView> Tools);
+    IReadOnlyList<AiChatToolView> Tools,
+    bool Briefs);
 
 /// <param name="Tools">Tool name to on or off. Tools left out keep their switch.</param>
+/// <param name="Briefs">Whether the popups offer an AI brief. Left out, it keeps its switch.</param>
 public sealed record AiChatSettingsUpdate(
     bool Enabled,
     string? Model,
@@ -36,7 +39,8 @@ public sealed record AiChatSettingsUpdate(
     int MaxToolCalls,
     int MaxReplyTokens,
     int TimeLimitSeconds,
-    IReadOnlyDictionary<string, bool>? Tools);
+    IReadOnlyDictionary<string, bool>? Tools,
+    bool? Briefs = null);
 
 /// <summary>Settings → AI → Chat (AI chat design §5).</summary>
 public static class AiChatSettingsEndpoints
@@ -54,7 +58,7 @@ public static class AiChatSettingsEndpoints
                 Results.Ok(View(await db.GetSettingsAsync(ct), registry)))
             .WithName("GetAiChatSettings")
             .WithSummary("Get AI chat settings")
-            .WithDescription("Chat's on/off switch, model, extra instructions, limits and tools.")
+            .WithDescription("Chat's on/off switch, the AI brief switch, model, extra instructions, limits and tools.")
             .Produces<AiChatSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -98,8 +102,11 @@ public static class AiChatSettingsEndpoints
                 var toolsOn = (IReadOnlyDictionary<string, bool> now) =>
                     registry.All.Where(t => ChatToolRegistry.IsOn(t, now)).Select(t => t.Name).Order(StringComparer.Ordinal);
 
+                var briefs = body.Briefs ?? settings.AiBriefsEnabled;
+
                 var change = new SettingsChange("aiChat")
                     .Field("enabled", settings.AiChatEnabled, body.Enabled)
+                    .Field("briefs", settings.AiBriefsEnabled, briefs)
                     .Field("model", settings.AiChatModel, model)
                     .Field("instructions", settings.AiChatInstructions, instructions)
                     .Field("maxToolCalls", settings.AiChatMaxToolCalls, body.MaxToolCalls)
@@ -110,6 +117,7 @@ public static class AiChatSettingsEndpoints
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 settings.AiChatEnabled = body.Enabled;
+                settings.AiBriefsEnabled = briefs;
                 settings.AiChatModel = model;
                 settings.AiChatInstructions = instructions;
                 settings.AiChatMaxToolCalls = body.MaxToolCalls;
@@ -151,6 +159,7 @@ public static class AiChatSettingsEndpoints
             settings.AiChatTimeLimitSeconds,
             settings.AiEnabled,
             [.. registry.All.Select(t => new AiChatToolView(
-                t.Name, t.Label, NeedsOf(t.Needs), t.OnlyReads, ChatToolRegistry.IsOn(t, switches)))]);
+                t.Name, t.Label, NeedsOf(t.Needs), t.OnlyReads, ChatToolRegistry.IsOn(t, switches)))],
+            settings.AiBriefsEnabled);
     }
 }

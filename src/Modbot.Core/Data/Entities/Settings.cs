@@ -522,6 +522,14 @@ public class Settings
     public int AiChatTimeLimitSeconds { get; set; } = 120;
 
     /// <summary>
+    /// Whether the instance and person popups offer an AI brief: a summary of the audit log
+    /// entries their Activity tab shows (AI chat design §14). Off by default, and needs
+    /// <see cref="AiEnabled"/> and <see cref="AiChatEnabled"/> too, because a brief is a Chat call
+    /// with the Chat model, limits and permission.
+    /// </summary>
+    public bool AiBriefsEnabled { get; set; }
+
+    /// <summary>
     /// How many tokens (input plus output) each team member may use in a UTC month, whatever the
     /// model, unless they have an allowance of their own (<see cref="AiMemberAllowance"/>). Null means
     /// no such limit. Tokens are counted for a model with no price too, which is why this is the

@@ -123,7 +123,7 @@ public static class DiscordConnectEndpoints
                     await transaction.CommitAsync(ct);
                 }
 
-                return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
             })
             .WithName("DisconnectDiscord")
             .WithSummary("Disconnect Discord")

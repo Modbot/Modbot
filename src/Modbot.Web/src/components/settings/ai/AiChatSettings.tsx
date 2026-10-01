@@ -7,7 +7,8 @@ import { ModelField } from './ModelField'
 
 /**
  * Settings → AI → Chat: whether the Chat page answers, with which model, what it is told, how far
- * one reply may go, and which tools it may use (AI chat design §5).
+ * one reply may go, and which tools it may use (AI chat design §5); and whether the instance and
+ * person popups offer AI briefs, which are Chat calls (§14).
  */
 export function AiChatSettings() {
   const [data, setData] = useState<Settings | null>(null)
@@ -50,6 +51,7 @@ export function AiChatSettings() {
 
 function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: Settings) => void }) {
   const [enabled, setEnabled] = useState(settings.enabled)
+  const [briefs, setBriefs] = useState(settings.briefs)
   const [model, setModel] = useState(settings.model ?? '')
   const [instructions, setInstructions] = useState(settings.instructions ?? '')
   const [maxToolCalls, setMaxToolCalls] = useState(String(settings.maxToolCalls))
@@ -71,6 +73,7 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
     api
       .setAiChatSettings({
         enabled,
+        briefs,
         model: model.trim() || null,
         instructions: instructions.trim() || null,
         maxToolCalls: Number(maxToolCalls),
@@ -109,6 +112,9 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
       <SettingsCard title="Chat" footer={footer}>
         <Switch checked={enabled} onChange={setEnabled}>
           Chat on
+        </Switch>
+        <Switch checked={briefs} onChange={setBriefs}>
+          AI briefs on
         </Switch>
         {!settings.aiEnabled && <Outcome tone="problem">AI is off.</Outcome>}
 

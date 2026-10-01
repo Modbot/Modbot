@@ -889,8 +889,14 @@ const SENTENCES: Record<string, Sentence> = {
     const people = p.entry.data?.['people']
     const others = Array.isArray(people) ? people.length - 1 : 0
 
-    // Through the MCP server, the person's own AI app ran the tool; the payload names it.
-    const via = p.text('via') === 'mcp' ? `through ${p.text('client') ?? 'an AI app'}` : 'in chat'
+    // Through the MCP server, the person's own AI app ran the tool; the payload names it. A brief
+    // read the popup's Activity entries for one instance or person (AI chat design §14).
+    const via =
+      p.text('via') === 'mcp'
+        ? `through ${p.text('client') ?? 'an AI app'}`
+        : p.text('via') === 'brief'
+          ? 'for an AI brief'
+          : 'in chat'
 
     return (
       <>
@@ -1057,7 +1063,7 @@ const SENTENCES: Record<string, Sentence> = {
   // imported note carries whatever its file held, so `description` stands in for it.
   'modbot.note.add': (p) => (
     <>
-      {p.actor} wrote a note about {p.subject}
+      {p.actor} {p.text('writtenBy') === 'ai' ? 'saved an AI brief as a note' : 'wrote a note'} about {p.subject}
       {p.text('text') ?? p.text('description') ? <>: {p.text('text') ?? p.text('description')}</> : null}.
     </>
   ),

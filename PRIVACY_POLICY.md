@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated 30 September 2026.
+Last updated 1 October 2026.
 
 Modbot is a moderation tool for VRChat groups. Anyone can run a copy of it on their own server, and
 most copies are run by the moderators of one group, not by us.
@@ -94,7 +94,8 @@ instance warnings, with the place they happened.
   Modbot who did it, to whom and when. That log carries no reason. Modbot has no warning feature of
   its own.
 - Notes a moderator wrote about somebody: the text, who wrote it and when. Taking a note back keeps
-  its text in the history.
+  its text in the history. A moderator can also save an AI brief about somebody as a note; it is
+  marked as written by AI.
 - Case files: a written record of why someone was banned, with a copy of that person's profile,
   group membership and ban entry as they were at the time.
 - Evidence a moderator attached: screenshots, clips, files. Modbot also writes down who attached,
@@ -173,6 +174,13 @@ shows the operator the list below and records who confirmed it. What is sent dep
   ids, bios, history, case files, bans, audit log entries, Discord messages and members, flags, who
   was in an instance and the group's figures. After the first reply, the first question and answer
   are sent once more to name the conversation.
+- **AI briefs, when a moderator asks for one** (off unless the operator switches briefs on). A
+  summary of what Modbot recorded about one instance or one person. The provider is sent up to the
+  100 newest audit log entries that moderator may read about it — **including what was recorded about
+  you, if you were in that instance or the brief is about you**: each entry's time, what happened,
+  the names of who it was about and who did it (or their ids when Modbot has no name), the world and
+  instance, and the entry's own details, which can carry ids and text people wrote, such as a note or
+  a reason. A brief that read about people is recorded in their history, as a Chat question is.
 - **Insights.** Counts for the period and the one before it, and the busiest worlds and instances by
   world name. No person's name, id or message.
 - **Alerts.** What was counted, the period it covered and what is normal, and for the two instance
@@ -593,7 +601,7 @@ encrypted in its own database.
 |---|---|---|
 | **VRChat** | The service account Modbot acts as | API calls as that account. VRChat is told who runs this Modbot: the User-Agent carries Modbot's version and **the email address of the group's oldest enabled administrator account that has one** (the developer's address when there is none), and two headers carry the developer's contact email and a web address for the project |
 | **Discord** | The bot, and account linking | Bot calls to Discord for the server you name, and the sign-in exchange when somebody links their accounts |
-| **An AI provider** | AI moderation, chat, insights and alerts | See [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else) — off until you switch it on, and you choose the endpoint. While AI is on and the provider is OpenRouter, Modbot also asks `openrouter.ai` once a day for its list of model prices, with no data about your group. Picture downloads for AI come from Discord and VRChat addresses, public ones only |
+| **An AI provider** | AI moderation, chat, briefs, insights and alerts | See [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else) — off until you switch it on, and you choose the endpoint. While AI is on and the provider is OpenRouter, Modbot also asks `openrouter.ai` once a day for its list of model prices, with no data about your group. Picture downloads for AI come from Discord and VRChat addresses, public ones only |
 | **An AI app you connect through MCP** | Using Chat's lookups from another app | What the lookups return, for the person who connected it. Off until you switch MCP on |
 | **An SMTP relay** | Sending invitations and reset links | The emails it sends |
 | **S3-compatible storage** | Evidence files, if you choose it over disk | The evidence files themselves |

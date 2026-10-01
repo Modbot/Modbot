@@ -346,7 +346,8 @@ public static class AiSettingsEndpoints
     /// and <c>MessageContext</c> for rules and conversation, <c>ModerationPictures</c> and
     /// <c>ModerationEngine.PictureSourcesAsync</c> for pictures, <c>FlagReviewer</c> for the flag
     /// opinion, <c>AlertFigures</c> and <c>InsightFigures</c> for alerts and insights, and
-    /// <c>ChatPrompt</c>, <c>ChatTitle</c> and the chat tools for Chat. A feature that starts
+    /// <c>ChatPrompt</c>, <c>ChatTitle</c> and the chat tools for Chat, and <c>BriefPrompt</c> and
+    /// <c>BriefWriter</c> for briefs. A feature that starts
     /// sending something new needs its line here, and the privacy policy and the docs page
     /// <c>ai/settings.mdx</c> say the same.
     /// </para>
@@ -360,7 +361,8 @@ public static class AiSettingsEndpoints
         new("Alerts", "What was counted, the time it covered and what is normal, and the world's name for the two instance alerts. No person's name and no messages."),
         new("Insights", "Counts for the period and the one before it, and the busiest worlds and instances by world name."),
         new("Chat", "The conversation so far, and what Modbot's lookups return: people's names, ids and bios, their history, case files and bans, the audit log, Discord messages and members, flags, live instances and figures. After the first reply, the first question and answer go once more to name the conversation."),
-        new("Test and model list", "One short message, and a request for the model list."),
+        new("Briefs, when a moderator asks for one", "The newest audit log entries, up to 100, that an instance's or a person's Activity tab shows the asker: each entry's time, what happened, the names of who it was about and who did it (their ids when Modbot has no name), the world and instance, and the entry's own details, which can carry ids and text people wrote."),
+        new("Test and model list","One short message, and a request for the model list."),
     ];
 
     private static string Endpoint(Core.Data.Entities.Settings settings, string? onTheForm = null)

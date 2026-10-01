@@ -122,7 +122,7 @@ public static class CreateAdminHandler
         if (firstRun)
             await ModbotAuth.SignInAsync(http, user, clock);
 
-        return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
+        return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
     }
 
     private static bool IsAuthorised(HttpContext http)

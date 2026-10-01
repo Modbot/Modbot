@@ -1,6 +1,6 @@
 ---
 title: Chat
-description: Ask questions about your group in plain words. Who can use Chat, what it can look up, what is stored, and its settings.
+description: Ask questions about your group in plain words. Who can use Chat, what it can look up, what is stored, AI briefs of an instance or a person, and its settings.
 ---
 
 The **Chat** page lets a moderator ask questions in plain words, such as "has this person been
@@ -154,7 +154,8 @@ lookup, so asking through Chat is as visible as opening a profile.
 
 One entry per question, however many lookups it made. **Try again** and **Edit** send a question, so
 each records again. Your question is never stored in the entry — only who asked, who was read, which
-lookups read them and which conversation it was.
+lookups read them and which conversation it was. An [AI brief](#ai-briefs) records the same entry,
+reading **for an AI brief**.
 
 ## What leaves Modbot
 
@@ -168,6 +169,63 @@ instance. The asker's Modbot account id is not sent.
 If that data must not leave your own servers, use a model you run yourself. See
 [AI settings](/ai/settings#providers).
 
+## AI briefs
+
+An AI brief is a short summary of what the audit log recorded about one instance or one person,
+for a moderator arriving late or looking back after an event. It is in the
+[popups](/moderation/popups):
+
+- **Summarise what Modbot recorded**, at the top of an instance's **Activity** tab.
+- **Brief me**, at the top of a person's **Activity** tab.
+
+A brief states what happened and when, oldest first, one line per thing. It gives no opinions, no
+recommendations, no guesses about why anybody did anything, no scores or verdicts, and never writes
+ban reasons, case files or reports. The model is told all of that. Each line ends with the audit log
+entries it rests on, such as **[#1234, #1240]**; an id that was among the entries sent opens the
+audit log at that entry, and an id the model made up stays plain text. The line under the title says
+what the brief was written from: **Written by AI from 42 audit log entries, 1 Oct 2026 14:02 to
+1 Oct 2026 18:40 (Europe/London)**. Times are in your own time zone.
+
+### What it is built from
+
+The same entries the **Activity** tab shows you, read with your own permissions, so a brief never
+says anything you could not open yourself:
+
+| Brief | Entries sent |
+|---|---|
+| Instance | The newest 100 audit log entries recorded in that instance between the time it opened and the time it closed |
+| Person | The newest 100 audit log entries about or by any of their VRChat, Discord and Modbot accounts |
+
+With nothing recorded, the brief says **Nothing recorded.** and no call is made.
+
+### What leaves Modbot for a brief
+
+One call to the Chat model, with no tools: Modbot's instructions, and for each entry its id, time,
+what happened, the names of who it was about and who did it (their ids where Modbot has no name),
+the world and instance, and the entry's own details, which can carry ids and text people wrote, such
+as a note or a reason. For an instance, the instance's name and when it ran; for a person, their
+name.
+
+### What it counts as
+
+A brief is a Chat call. It uses Chat's model and time limit, and it is counted and limited as Chat:
+Chat's spend limits, the limits on the person and their roles, and the person's monthly allowance
+all stop it, with the same sentence Chat gives. It is a row in the [call log](/ai/call-log) under
+**Chat**, with the whole prompt and answer kept, because somebody pressed a button for it. A brief
+that read about people records **Wren asked about TeaSpoon for an AI brief** in the audit log, as a
+Chat question does.
+
+### Keeping one
+
+**Copy** copies the brief with its last line. On a person's brief, **Save as note** saves it in
+their [notes](/moderation/notes#ai-briefs-saved-as-notes), marked **AI brief**.
+
+### Who can use it
+
+Briefs need AI on, **Chat on** and **AI briefs on** under **Settings** → **AI** → **Chat** (off when
+Modbot is installed), and **Use AI chat** on the person's role. The instance brief also needs what
+the instance's **Activity** tab needs: **See analytics** and **See the audit log**.
+
 ## Chat settings
 
 **Settings** → **AI** → **Chat** needs **Change settings**. It has three cards; **Save** on any of them
@@ -177,11 +235,14 @@ saves them all.
 
 - **Chat on** switches the Chat page on for everyone with **Use AI chat**. The card shows
   **AI is off on Connection.** when AI itself is off.
+- **AI briefs on** offers [AI briefs](#ai-briefs) in the popups to everyone with **Use AI chat**,
+  while Chat is on too. It starts off.
 - **Model** is the model Chat uses. Left empty, Chat uses the model on **Connection** (shown as the
   placeholder).
 - **Extra instructions** are added to the end of Chat's instructions, under a heading saying they
   come from your group's operator. Use them for things like your group's own words for roles, or
-  how short answers should be. Up to 8,000 characters.
+  how short answers should be. Up to 8,000 characters. They are not sent with an AI brief, which
+  has fixed instructions of its own.
 
 ### Limits
 

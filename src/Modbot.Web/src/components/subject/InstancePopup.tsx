@@ -14,6 +14,8 @@ import {
 import { HeadCount } from '@/components/HeadCount'
 import { AuditLogList } from '@/components/audit/AuditLogList'
 import { InstanceWorld } from '@/components/subject/InstanceWorld'
+import { BriefButton } from '@/components/subject/Brief'
+import { offersBriefs } from '@/lib/briefs'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
@@ -149,7 +151,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
           </Panel>
         )}
         {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
-        {data?.canSeeWhoWasThere && tab === 'logs' && <Activity view={data} />}
+        {data?.canSeeWhoWasThere && tab === 'logs' && <Activity view={data} me={me} />}
         {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
       </PopupTabs>
     </PopupFrame>
@@ -529,8 +531,8 @@ function People({ view }: { view: InstanceView }) {
  * would mix an older instance's facts in. Chips changed here last until the tab is left, and are
  * not written to the address, which belongs to the page under the popup.
  */
-function Activity({ view }: { view: InstanceView }) {
-  const { worldId, vrChatInstanceId, openedAt, closedAt } = view.instance
+function Activity({ view, me }: { view: InstanceView; me: CurrentUser }) {
+  const { id, worldId, vrChatInstanceId, openedAt, closedAt } = view.instance
   const fixed = useMemo(() => instanceChips({ worldId, vrChatInstanceId }), [worldId, vrChatInstanceId])
   // Where this tab starts, and where Clear puts it back: the log's defaults over the instance's run.
   const [starts] = useState<FilterChip[][]>(() => [[...AUDIT_DEFAULTS, instanceRunChip({ openedAt, closedAt })]])
@@ -542,14 +544,23 @@ function Activity({ view }: { view: InstanceView }) {
     <Panel
       title="What happened in this instance"
       right={
-        <a
-          href={href}
-          onClick={followLink(href)}
-          className="rounded-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
-          style={{ fontSize: 'var(--text-small)' }}
-        >
-          Open in Audit log
-        </a>
+        <span className="flex flex-wrap items-center justify-end gap-x-3">
+          {offersBriefs(me) && (
+            <BriefButton
+              label="Summarise what Modbot recorded"
+              ask={(timeZone) => api.instanceBrief(id, timeZone)}
+              me={me}
+            />
+          )}
+          <a
+            href={href}
+            onClick={followLink(href)}
+            className="rounded-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            Open in Audit log
+          </a>
+        </span>
       }
       flush
     >

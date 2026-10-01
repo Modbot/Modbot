@@ -289,7 +289,7 @@ public static class InviteEndpoints
 
                 await ModbotAuth.SignInAsync(http, user, clock);
 
-                return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
             })
             .WithName("AcceptInvite")
             .WithSummary("Accept an invite")
