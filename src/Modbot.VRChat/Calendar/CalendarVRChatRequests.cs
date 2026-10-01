@@ -133,10 +133,17 @@ public static class CalendarVRChatRequests
         return request;
     }
 
+    /// <summary>Where the series sent to VRChat starts: the planned start of the date Modbot is dealing with.</summary>
+    public static DateTimeOffset SeriesStartsAt(CalendarEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return e.OccurrenceStartsAt is not null ? CalendarRepeat.Current(e).PlannedStartsAt : e.StartsAt;
+    }
+
     private static (DateTime Starts, DateTime Ends) Times(CalendarEvent e)
     {
         var length = CalendarRepeat.LengthOf(e);
-        var starts = e.OccurrenceStartsAt is not null ? CalendarRepeat.Current(e).PlannedStartsAt : e.StartsAt;
+        var starts = SeriesStartsAt(e);
         return (starts.UtcDateTime, (starts + length).UtcDateTime);
     }
 

@@ -54,6 +54,7 @@ public static class CalendarDates
             if (starts != change.PlannedStartsAt)
             {
                 change.PlannedStartsAt = starts;
+                change.VRChatId = null;
                 change.VRChatSentFingerprint = null;
                 change.VRChatFailedFingerprint = null;
                 change.VRChatError = null;

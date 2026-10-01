@@ -317,7 +317,12 @@ public sealed class CalendarVRChatPublisher
     {
         foreach (var calendarEvent in events)
         {
-            if (!Wants(calendarEvent) || calendarEvent.Repeat == CalendarRepeats.None || calendarEvent.DateChanges.Count == 0)
+            // A finished event is still on VRChat as history, and may have finished only because its
+            // last date was cancelled: that date's delete still goes out.
+            var kept = Wants(calendarEvent)
+                || (calendarEvent.State == CalendarEventStates.Finished && calendarEvent.PublishToVRChat && calendarEvent.DeletedAt is null);
+
+            if (!kept || calendarEvent.Repeat == CalendarRepeats.None || calendarEvent.DateChanges.Count == 0)
                 continue;
 
             if (!places.TryGetValue(calendarEvent.Id, out var place)
@@ -381,35 +386,52 @@ public sealed class CalendarVRChatPublisher
 
         if (id is null)
         {
-            var look = await _gate.ExecuteAsync(
-                new VRChatEndpoint(VRChatEndpointClass.CalendarRead, groupId, "GetGroupCalendarEvents"),
-                (client, token) => client.Calendar.GetGroupCalendarEventsWithHttpInfoAsync(
-                    groupId, date: change.PlannedStartsAt.UtcDateTime, cancellationToken: token),
-                VRChatCallPriority.Background,
-                ct).ConfigureAwait(false);
+            // Every page of the month the date is planned in, the neighbouring month when it is near
+            // the edge (VRChat's month is not exactly the UTC month), and the month it was moved to:
+            // read the way the calendar page reads them, until the date turns up.
+            var months = CalendarVRChatReader.MonthsListing(change.PlannedStartsAt)
+                .Concat(change.StartsAt is { } movedTo ? CalendarVRChatReader.MonthsListing(movedTo) : [])
+                .Distinct()
+                .ToList();
 
-            if (look.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
-                return CalendarPublishOutcome.RateLimited;
+            var whole = true;
 
-            if (!look.Success)
+            foreach (var month in months)
             {
-                DateFailed(change, "Could not read VRChat's calendar: " + Reason(look.Kind, look.RawResponse, look.ErrorMessage, look.StatusCode), refused: null, now);
-                return CalendarPublishOutcome.Failed;
-            }
+                var look = await CalendarVRChatReader
+                    .ReadMonthPagesAsync(_gate, groupId, month, VRChatCallPriority.Background, ct)
+                    .ConfigureAwait(false);
 
-            id = FindDate(look.Value?.Results ?? [], seriesId, change);
-            foundNow = true;
-
-            if (id is null)
-            {
-                if (change.Cancelled)
+                if (look.Failed is { } failed)
                 {
-                    // Not on VRChat's calendar: nothing to take off.
-                    DateSent(change, fingerprint);
-                    return CalendarPublishOutcome.NothingToDo;
+                    if (failed.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
+                        return CalendarPublishOutcome.RateLimited;
+
+                    DateFailed(change, "Could not read VRChat's calendar: " + Reason(failed.Kind, failed.RawResponse, failed.ErrorMessage, failed.StatusCode), refused: null, now);
+                    return CalendarPublishOutcome.Failed;
                 }
 
-                DateFailed(change, "VRChat's calendar does not list this date on its own.", refused: fingerprint, now);
+                whole &= look.Whole;
+                id = FindDate(look.Rows, seriesId, change);
+
+                if (id is not null)
+                    break;
+            }
+
+            foundNow = true;
+
+            // Not found is never taken as "nothing to do": a cancel would then be marked sent while
+            // the date is still on VRChat. It shows on the date instead, and is not looked for again
+            // until the date changes.
+            if (id is null)
+            {
+                DateFailed(
+                    change,
+                    whole
+                        ? "Could not find this date on VRChat's calendar."
+                        : "Could not find this date on VRChat's calendar: that month has more events than Modbot reads at once.",
+                    refused: fingerprint,
+                    now);
                 return CalendarPublishOutcome.Failed;
             }
         }
@@ -722,11 +744,16 @@ public sealed class CalendarVRChatPublisher
 
                 // A series made or written again may not hold the dates changed on their own any
                 // more, and whether VRChat keeps them through an update is not known: each one still
-                // to come is looked for again and sent again.
+                // to come is looked for again and sent again. A cancelled date before where the
+                // series now starts is not in it, so there is nothing to take off.
+                var seriesStartsAt = CalendarVRChatRequests.SeriesStartsAt(calendarEvent);
+
                 foreach (var change in calendarEvent.DateChanges.Where(c => !IsOver(calendarEvent, c, now)))
                 {
                     change.VRChatId = null;
-                    change.VRChatSentFingerprint = null;
+                    change.VRChatSentFingerprint = change.Cancelled && change.PlannedStartsAt < seriesStartsAt
+                        ? CalendarVRChatRequests.DateFingerprint(calendarEvent, change)
+                        : null;
                     change.VRChatFailedFingerprint = null;
                     change.VRChatError = null;
                     change.VRChatErrorAt = null;

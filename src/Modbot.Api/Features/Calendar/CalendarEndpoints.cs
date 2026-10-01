@@ -719,14 +719,23 @@ public static class CalendarEndpoints
                 // Live events, and finished or cancelled ones for a while after (calendar design §6):
                 // the database narrows it to those states, and the writer's own rule decides.
                 var now = clock.UtcNow;
-                var cancelledSince = now - CalendarFeedWriter.KeepEndedFor;
+                var since = now - CalendarFeedWriter.KeepEndedFor;
+
+                // A finished event's last date can only have ended inside the window when: a one-off
+                // ends in it; a repeat's last day is no earlier than the window's start, less the
+                // longest an event may last and a day for time zones; or one date was moved into it.
+                // Only those are loaded, so the feed does not read every event a group ever ran.
+                var lastDayFrom = DateOnly.FromDateTime((since - MaxLength - TimeSpan.FromDays(1)).UtcDateTime);
 
                 var candidates = await db.CalendarEvents.AsNoTracking()
                     .Where(e => e.DeletedAt == null
                         && (e.State == CalendarEventStates.Scheduled
                             || e.State == CalendarEventStates.Open
-                            || e.State == CalendarEventStates.Finished
-                            || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= cancelledSince)))
+                            || (e.State == CalendarEventStates.Finished
+                                && ((e.Repeat == CalendarRepeats.None && e.EndsAt >= since)
+                                    || (e.Repeat != CalendarRepeats.None && (e.RepeatUntil == null || e.RepeatUntil >= lastDayFrom))
+                                    || e.DateChanges.Any(c => c.EndsAt >= since)))
+                            || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= since)))
                     .ToListAsync(ct);
 
                 var events = candidates.Where(e => CalendarFeedWriter.Belongs(e, now)).ToList();

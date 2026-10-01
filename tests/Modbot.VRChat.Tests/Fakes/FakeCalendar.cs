@@ -35,6 +35,9 @@ public sealed class FakeCalendar
     /// <summary>What the list call answers with.</summary>
     public HttpStatusCode ListStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>When set, the list answers this many rows a page, by offset, saying when more follow.</summary>
+    public int? PageSize { get; set; }
+
     /// <summary>Every create body, in order.</summary>
     public List<CreateCalendarEventRequest> Creates { get; } = [];
 
@@ -126,14 +129,24 @@ public sealed class FakeCalendar
             .GetGroupCalendarEventsWithHttpInfoAsync(
                 Arg.Any<string>(), Arg.Any<DateTime?>(), Arg.Any<int?>(), Arg.Any<int?>(), Arg.Any<int?>(),
                 Arg.Any<DateTime?>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(_ =>
+            .Returns(call =>
             {
                 Lists++;
                 if (ListStatus != HttpStatusCode.OK)
                     return Task.FromResult(Failure<PaginatedCalendarEventList>(ListStatus));
 
                 var page = (PaginatedCalendarEventList)RuntimeHelpers.GetUninitializedObject(typeof(PaginatedCalendarEventList));
-                page.Results = [.. OnVRChat];
+
+                if (PageSize is { } size)
+                {
+                    var offset = call.ArgAt<int?>(3) ?? 0;
+                    page.Results = [.. OnVRChat.Skip(offset).Take(size)];
+                    page.HasNext = offset + size < OnVRChat.Count;
+                }
+                else
+                {
+                    page.Results = [.. OnVRChat];
+                }
                 return Task.FromResult(new ApiResponse<PaginatedCalendarEventList>(HttpStatusCode.OK, new Multimap<string, string>(), page, "{}"));
             });
 

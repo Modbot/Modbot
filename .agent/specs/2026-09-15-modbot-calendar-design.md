@@ -126,15 +126,20 @@ event finishing and cancelling: each changes what the place should say.
   `seriesId` (the SDK's `CalendarEvent`); a cancelled date is deleted by that id and a moved or
   reworded one updated by it (no `recurrence`, the series' other settings, the date's times and
   words). These are the delete and update calls the series already uses, on the same
-  `calendar.write` budget; the id is found with one `GetGroupCalendarEvents` for the date's month on
-  `calendar.read`, and kept. No new endpoint. The id must be a dated row of **this** series and never
-  the series' own id, because deleting that would take every date off VRChat; a date VRChat does not
-  list on its own is marked failed on the date rather than guessed at. A cancelled date VRChat does
-  not list needs nothing taken off. Dates wait for their series: nothing is sent for a date while the
-  series itself has a write waiting, and after every create or update of the series each date still
-  to come is looked for and sent again, since whether VRChat keeps a changed date through a series
-  update is not known. Settling (20 s), one write a pass, and the rules for refusals and no answers
-  are the series' own.
+  `calendar.write` budget; the id is found by reading the date's month with `GetGroupCalendarEvents`
+  on `calendar.read` -- every page, up to the calendar page's own three, by the reader's own paging
+  -- plus the neighbouring month when the date is within 14 hours of the edge and the month it was
+  moved to, and kept. No new endpoint. The id must be a dated row of **this** series and never the
+  series' own id, because deleting that would take every date off VRChat. **A date not found is
+  shown as failed on that date**, cancelled or not, and not looked for again until the date changes:
+  taking "not found" as "nothing to take off" would mark a cancel sent while the date could still be
+  on VRChat (a later page, a month edge). Dates wait for their series: nothing is sent for a date
+  while the series itself has a write waiting, and after every create or update of the series each
+  date still to come is looked for and sent again, since whether VRChat keeps a changed date through
+  a series update is not known -- except a cancelled date before where the series now starts, which
+  the series no longer holds. A finished event's dates are still sent: an event finishes when its
+  last date is cancelled, and that date's delete has to go out. Settling (20 s), one write a pass,
+  and the rules for refusals and no answers are the series' own.
 - Cancelling, deleting, or unticking VRChat deletes the event on VRChat. A finished event is left
   there: it is history on VRChat's side as well.
 - A write VRChat refuses is not sent again until the event changes. A write that got no answer

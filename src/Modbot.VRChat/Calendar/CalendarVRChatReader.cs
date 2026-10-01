@@ -30,6 +30,14 @@ public enum CalendarReadOutcome
     Failed = 5,
 }
 
+/// <summary>One month of VRChat's calendar as read: the rows, whether every page was read, and how.</summary>
+/// <param name="Failed">The answer that stopped the read, when one did.</param>
+internal sealed record CalendarMonthRead(
+    List<VRChatEvent> Rows,
+    bool Whole,
+    int Requests,
+    VRChatResult<PaginatedCalendarEventList>? Failed = null);
+
 /// <param name="Requests">How many requests were sent to VRChat.</param>
 /// <param name="Error">What went wrong, in VRChat's words when it gave any.</param>
 public sealed record CalendarReadResult(CalendarReadOutcome Outcome, int Requests = 0, string? Error = null);
@@ -250,33 +258,69 @@ public sealed class CalendarVRChatReader
     private async Task<(CalendarReadResult? Stopped, List<VRChatEvent> Rows, bool Whole)> ReadMonthAsync(
         string groupId, DateOnly month, CancellationToken ct)
     {
+        var read = await ReadMonthPagesAsync(_gate, groupId, month, VRChatCallPriority.Interactive, ct).ConfigureAwait(false);
+        _requests += read.Requests;
+
+        return read.Failed is { } failed
+            ? (Stopped(failed), read.Rows, false)
+            : (null, read.Rows, read.Whole);
+    }
+
+    /// <summary>
+    /// One month of the group's calendar, page by page, at most <see cref="MaxPagesPerMonth"/> pages:
+    /// the rows, whether the whole month was read, the failed answer when one stopped it, and how
+    /// many requests it took. Shared with the publisher's look for one date's id (§2.2), so both
+    /// read a month the same way.
+    /// </summary>
+    internal static async Task<CalendarMonthRead> ReadMonthPagesAsync(
+        IVRChatGate gate, string groupId, DateOnly month, VRChatCallPriority priority, CancellationToken ct)
+    {
         var rows = new List<VRChatEvent>();
         var date = month.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+        var requests = 0;
 
         for (var page = 0; page < MaxPagesPerMonth; page++)
         {
             var offset = rows.Count;
-            _requests++;
+            requests++;
 
-            var result = await _gate.ExecuteAsync(
+            var result = await gate.ExecuteAsync(
                 new VRChatEndpoint(VRChatEndpointClass.CalendarRead, groupId, "GetGroupCalendarEvents"),
                 (client, token) => client.Calendar.GetGroupCalendarEventsWithHttpInfoAsync(
                     groupId, date: date, offset: offset == 0 ? null : offset, cancellationToken: token),
-                VRChatCallPriority.Interactive,
+                priority,
                 ct).ConfigureAwait(false);
 
             if (!result.Success)
-                return (Stopped(result), rows, false);
+                return new CalendarMonthRead(rows, Whole: false, requests, result);
 
             var found = result.Value?.Results ?? [];
             rows.AddRange(found);
 
             if (result.Value?.HasNext != true || found.Count == 0)
-                return (null, rows, true);
+                return new CalendarMonthRead(rows, Whole: true, requests);
         }
 
         // More pages than are read at once: what was read is used, and nothing counts as missing.
-        return (null, rows, false);
+        return new CalendarMonthRead(rows, Whole: false, requests);
+    }
+
+    /// <summary>
+    /// The UTC months a time may be listed in on VRChat: its own, and the neighbouring one when it is
+    /// within <see cref="MonthEdge"/> of the boundary, since VRChat's month is not exactly the UTC month.
+    /// </summary>
+    internal static IReadOnlyList<DateOnly> MonthsListing(DateTimeOffset at)
+    {
+        var month = MonthOf(at);
+        var months = new List<DateOnly> { month };
+
+        if (MonthOf(at - MonthEdge) != month)
+            months.Add(month.AddMonths(-1));
+
+        if (MonthOf(at + MonthEdge) != month)
+            months.Add(month.AddMonths(1));
+
+        return months;
     }
 
     /// <summary>One event on its own: a series with its rule, or a one-off. Null with a 404.</summary>

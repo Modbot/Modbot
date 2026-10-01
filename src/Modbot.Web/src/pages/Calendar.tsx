@@ -564,6 +564,16 @@ export function Calendar() {
               <DialogFoot>
                 <Button
                   size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setAsking(null)
+                    setMoving(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => {
                     const { entry, change } = asking

@@ -406,9 +406,11 @@ nothing is sent.
 - **A repeating event is one entry on VRChat**, using VRChat's own repeat, in the event's time zone,
   with the last date when there is one. It is not one entry per week.
 - **One date cancelled or changed on its own** is sent to that one date on VRChat. Modbot reads that
-  month of your calendar once to find VRChat's id for the date, then removes it (a cancel) or changes
-  its time, title and description. If VRChat does not list that date on its own, the date shows
-  **VRChat calendar: Failed** when you open it, and the rest of the event is left alone. See
+  month of your calendar once (up to three pages) to find VRChat's id for the date, then removes it
+  (a cancel) or changes its time, title and description. If Modbot cannot find that date on its own,
+  the date shows **VRChat calendar: Failed** when you open it, and the rest of the event is left
+  alone; check the date on VRChat yourself. Cancelling an event's last date finishes the event, and
+  that date is still taken off VRChat. See
   [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event).
 - **Edits are sent as one.** Modbot waits until an event has gone 20 seconds without a change, then
   sends what it says at that moment. Fixing a typo three times in a row costs one change on VRChat.

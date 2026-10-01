@@ -154,7 +154,7 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
     }
 
     [Fact]
-    public async Task ACancelledDateNotOnVRChatNeedsNothingTakenOff()
+    public async Task ACancelledDateNotFoundOnVRChatIsShownAsFailed_NotTakenAsSent()
     {
         var e = await PublishedWeeklyAsync();
         VRChat.Calendar.OnVRChat.RemoveAll(r => r.Id == "occ_2");
@@ -162,9 +162,58 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
         await ChangeDateAsync(e.Id, e.StartsAt + TimeSpan.FromDays(7), c => c.Cancelled = true);
 
         Clock.Advance(Settle);
-        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
 
         Assert.Empty(VRChat.Calendar.Deletes);
-        Assert.NotNull((await DateAsync(e.Id)).VRChatSentFingerprint);
+        var date = await DateAsync(e.Id);
+        Assert.Null(date.VRChatSentFingerprint);
+        Assert.NotNull(date.VRChatError);
+    }
+
+    [Fact]
+    public async Task ADateOnALaterPageOfTheMonthIsFound()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+
+        // Other events fill the first page; the date is on the second.
+        VRChat.Calendar.OnVRChat.InsertRange(0, Enumerable.Range(1, 4)
+            .Select(i => FakeCalendar.Made($"other_{i}", "Something else", e.StartsAt + TimeSpan.FromHours(i), TimeSpan.FromHours(1), Clock.UtcNow)));
+        VRChat.Calendar.PageSize = 3;
+
+        await ChangeDateAsync(e.Id, second, c => c.Cancelled = true);
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal("occ_2", Assert.Single(VRChat.Calendar.Deletes));
+    }
+
+    [Fact]
+    public async Task CancellingTheLastDateStillTakesItOffVRChat_ThoughTheEventIsFinished()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Repeat = CalendarRepeats.Daily;
+            x.RepeatUntil = DateOnly.FromDateTime((x.StartsAt + TimeSpan.FromDays(1)).UtcDateTime);
+        });
+
+        await ScheduleAsync();
+        Clock.Advance(Settle);
+        Assert.Equal("create", (await PublishAsync()).Action);
+
+        var last = e.StartsAt + TimeSpan.FromDays(1);
+        VRChat.Calendar.OnVRChat.Clear();
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("occ_last", e.Title, last, TimeSpan.FromHours(2), Clock.UtcNow, VRChatKind.Occurrence, "cal_1"));
+
+        // The first date has run; the last is cancelled, so nothing is left and the event finishes.
+        Clock.Advance(TimeSpan.FromDays(2) + TimeSpan.FromHours(3));
+        await ChangeDateAsync(e.Id, last, c => c.Cancelled = true);
+        await ScheduleAsync();
+        Assert.Equal(CalendarEventStates.Finished, (await EventsAsync()).Single(x => x.Id == e.Id).State);
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal("occ_last", Assert.Single(VRChat.Calendar.Deletes));
     }
 }

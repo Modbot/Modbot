@@ -154,6 +154,7 @@ public class CalendarDatesTests
         var change = Change(e, Oct4);
         change.Cancelled = true;
         change.VRChatSentFingerprint = "sent";
+        change.VRChatId = "occ_4";
         e.DateChanges.Add(change);
 
         e.StartsAt += TimeSpan.FromHours(1);
@@ -166,6 +167,7 @@ public class CalendarDatesTests
 
         // Moved to another date: VRChat hears about it again.
         Assert.Null(kept.VRChatSentFingerprint);
+        Assert.Null(kept.VRChatId);
         Assert.DoesNotContain(CalendarRepeat.Between(e, Sep20, Oct11), o => o.StartsAt == Oct4 + TimeSpan.FromHours(1));
     }
 
