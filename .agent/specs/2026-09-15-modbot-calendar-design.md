@@ -207,8 +207,9 @@ event finishing and cancelling: each changes what the place should say.
     back to waiting for the copy as above.
   - The calendar read (§12) does the same: a row that is a copy of a create with no answer, or one
     waiting for Try again, is adopted rather than taken in. A copy of one found not added is still
-    adopted for 24 hours after the create was sent (VRChat may show it late); after that a row like
-    it is somebody else's. Its sent title is held as well as the current one (§12.2).
+    adopted for 24 hours after the create was sent (VRChat may show it late). After that a late copy
+    is neither adopted nor taken in as a new event: the title guard (§12.2), which holds the sent
+    title as well as the current one, still keeps it out.
   - **Why** (2026-10-01): the old look ran once, only before an automatic retry 15 minutes on; it
     compared titles exactly and read one page. VRChat changes titles (it dropped an en dash and
     turned "." into a look-alike dot), so neither the look nor §12.2's title guard recognised the

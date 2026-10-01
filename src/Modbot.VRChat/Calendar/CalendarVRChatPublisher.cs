@@ -880,6 +880,8 @@ public sealed class CalendarVRChatPublisher
                     place.ExternalId = null;
                     place.SentFingerprint = null;
                     place.VRChatUpdatedAt = null;
+                    place.ErrorAt = null;
+                    place.CreateSent = null;
                     place.State = CalendarPlaceStates.Waiting;
                     place.UpdatedAt = now;
                     return CalendarPublishOutcome.NothingToDo;
