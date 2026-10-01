@@ -54,6 +54,32 @@ public sealed record GiveawayMatch(
     public static GiveawayMatch CannotAnswer(string why) => new([], 0, 0, 0, 0, false, why);
 }
 
+/// <summary>One person a rule tree lets through, with how sure the answer is.</summary>
+/// <param name="Person">Everything the checker read about them: names, ids, dates, roles.</param>
+/// <param name="FromPolledData">A rule about them was answered from polled presence reports.</param>
+/// <param name="CloseCall">A measurement of theirs sat within a whisker of a threshold.</param>
+public sealed record GiveawayPerson(GiveawayCandidate Person, bool FromPolledData, bool CloseCall);
+
+/// <summary>
+/// Everybody a rule tree lets through, for a saved list (lists design §5).
+/// </summary>
+/// <param name="People">The people who pass, by name.</param>
+/// <param name="Considered">How many people were looked at.</param>
+/// <param name="CloseCalls">How many of those who pass sat within a whisker of a threshold.</param>
+/// <param name="FromPolledData">Any rule here was answered from polled presence reports.</param>
+/// <param name="Unanswerable">Why no answer could be given at all. Everything else is empty when set.</param>
+/// <param name="Stopped">Evaluation gave up: more people than <see cref="GiveawayRuleChecker.MaxPeople"/>.</param>
+public sealed record GiveawayPeople(
+    IReadOnlyList<GiveawayPerson> People,
+    int Considered,
+    int CloseCalls,
+    bool FromPolledData,
+    string? Unanswerable = null,
+    bool Stopped = false)
+{
+    public static GiveawayPeople CannotAnswer(string why) => new([], 0, 0, false, why);
+}
+
 /// <summary>
 /// Reads the rules against the data and says who is in.
 /// </summary>
@@ -132,6 +158,91 @@ public sealed class GiveawayRuleChecker
         => RunAsync(rule, exclusions, weighting, weightCap, entrants, page: int.MaxValue, ct);
 
     /// <summary>
+    /// Everybody who passes the rules, with everything read about them, for a saved list.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same candidates, the same measurements and the same <see cref="Check"/> as a giveaway
+    /// preview with no exclusions, so a list and a giveaway with the same rules name the same
+    /// people (giveaways design §2.6). What differs is only what comes back: every person who
+    /// passes, in full, rather than a page of entrant rows with weights.
+    /// </para>
+    /// <para>
+    /// The people are sorted by name, the way a person reads a list, and then by key so two
+    /// people with one name always come back in the same order.
+    /// </para>
+    /// </remarks>
+    public async Task<GiveawayPeople> PeopleAsync(GiveawayRule rule, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        var (expanded, tooBig) = await WithListsAsync(rule, ct);
+        if (tooBig is not null)
+            return GiveawayPeople.CannotAnswer(tooBig);
+
+        var coverage = await GiveawayCoverage.ReadAsync(_db, ct);
+
+        if (coverage.WhyUnanswerable(expanded) is { } why)
+            return GiveawayPeople.CannotAnswer(why);
+
+        var now = _clock.UtcNow;
+        var people = await CandidatesAsync(entrants: null, GiveawayExclusions.None, ct);
+
+        if (people.Count > MaxPeople)
+        {
+            return new GiveawayPeople(
+                [], people.Count, 0, false,
+                $"That is {people.Count:N0} people, and Modbot looks at {MaxPeople:N0} at a time. Narrow the rules.",
+                Stopped: true);
+        }
+
+        var measures = new GiveawayMeasures();
+        await measures.CountAsync(_db, people, GiveawayMeasures.Needed(expanded, GiveawayWeights.Uniform), now, ct);
+
+        var passed = new List<GiveawayPerson>();
+        var closeCalls = 0;
+        var polled = false;
+
+        foreach (var person in people)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var answer = Check(expanded, person, measures, now);
+            polled |= answer.FromPolledData;
+
+            if (!answer.Met)
+                continue;
+
+            if (answer.CloseCall)
+                closeCalls++;
+
+            passed.Add(new GiveawayPerson(person, answer.FromPolledData, answer.CloseCall));
+        }
+
+        var sorted = passed
+            .OrderBy(p => p.Person.Name ?? p.Person.Key, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(p => p.Person.Key, StringComparer.Ordinal)
+            .ToList();
+
+        return new GiveawayPeople(sorted, people.Count, closeCalls, polled);
+    }
+
+    /// <summary>
+    /// The rule tree with every saved list it names written out (lists design §4), and why it
+    /// cannot be asked when the lists make it too large.
+    /// </summary>
+    public async Task<(GiveawayRule Rule, string? Problem)> WithListsAsync(GiveawayRule rule, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        var expanded = await SavedListRules.ExpandAsync(_db, rule, ct);
+
+        return GiveawayRules.Count(expanded) > SavedListRules.MaxExpandedRules
+            ? (expanded, $"With the lists they use, these rules come to more than {SavedListRules.MaxExpandedRules} rules.")
+            : (expanded, null);
+    }
+
+    /// <summary>
     /// Whether one person passes the rules right now — what a reaction is checked against as it
     /// arrives (giveaways design §4.2).
     /// </summary>
@@ -140,6 +251,10 @@ public sealed class GiveawayRuleChecker
     {
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentException.ThrowIfNullOrEmpty(discordUserId);
+
+        (rule, var tooBig) = await WithListsAsync(rule, ct);
+        if (tooBig is not null)
+            return new GiveawayRuleAnswer(false, false, false, tooBig);
 
         var coverage = await GiveawayCoverage.ReadAsync(_db, ct);
 
@@ -179,6 +294,10 @@ public sealed class GiveawayRuleChecker
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentException.ThrowIfNullOrEmpty(vrchatUserId);
 
+        (rule, var tooBig) = await WithListsAsync(rule, ct);
+        if (tooBig is not null)
+            return new GiveawayRuleAnswer(false, false, false, tooBig);
+
         var coverage = await GiveawayCoverage.ReadAsync(_db, ct);
 
         // A rule that cannot be answered is not a rule that passed. Saying so is the whole point
@@ -211,7 +330,7 @@ public sealed class GiveawayRuleChecker
         {
             var member = await _db.DiscordMembers.AsNoTracking()
                 .Where(m => m.UserId == discordUserId && !m.IsBot)
-                .Select(m => new { m.DisplayName, m.JoinedAt, m.Roles, m.LeftAt })
+                .Select(m => new { m.DisplayName, m.JoinedAt, m.Roles, m.LeftAt, m.FirstSeenAt })
                 .FirstOrDefaultAsync(ct);
 
             if (member is not null)
@@ -220,6 +339,7 @@ public sealed class GiveawayRuleChecker
                 person.InDiscord = member.LeftAt is null;
                 person.DiscordJoinedAt = member.JoinedAt;
                 person.DiscordRoles = Ids(member.Roles);
+                person.SeenFirstAt(member.FirstSeenAt);
             }
         }
 
@@ -237,7 +357,7 @@ public sealed class GiveawayRuleChecker
 
         var user = await _db.VRChatUsers.AsNoTracking()
             .Where(u => u.UserId == vrchatUserId)
-            .Select(u => new { u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified })
+            .Select(u => new { u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified, u.FirstSeenAt })
             .FirstOrDefaultAsync(ct);
 
         if (user is not null)
@@ -245,6 +365,7 @@ public sealed class GiveawayRuleChecker
             person.VRChatJoined = user.DateJoined;
             person.TrustRank = user.TrustRank;
             person.Is18PlusVerified = user.Is18PlusVerified;
+            person.SeenFirstAt(user.FirstSeenAt);
 
             // The VRChat name wins, for the reason FillAsync gives: it is the name the group
             // knows them by.
@@ -266,6 +387,10 @@ public sealed class GiveawayRuleChecker
     {
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentNullException.ThrowIfNull(exclusions);
+
+        (rule, var tooBig) = await WithListsAsync(rule, ct);
+        if (tooBig is not null)
+            return GiveawayMatch.CannotAnswer(tooBig);
 
         var coverage = await GiveawayCoverage.ReadAsync(_db, ct);
 
@@ -500,6 +625,61 @@ public sealed class GiveawayRuleChecker
             case GiveawayRuleKinds.Age18Plus:
                 return Plain(person.Is18PlusVerified, rule);
 
+            case GiveawayRuleKinds.GroupJoinedWithinDays:
+                return Plain(
+                    person.InGroup && person.GroupJoinedAt is { } joinedRecently
+                        && (decimal)(now - joinedRecently).TotalDays <= threshold,
+                    rule);
+
+            case GiveawayRuleKinds.GroupJoinedBefore:
+                return Plain(
+                    person.InGroup && person.GroupJoinedAt is { } joinedBefore && rule.Date is { } before
+                        && joinedBefore < StartOf(before),
+                    rule);
+
+            case GiveawayRuleKinds.GroupJoinedSince:
+                return Plain(
+                    person.InGroup && person.GroupJoinedAt is { } joinedSince && rule.Date is { } sinceDay
+                        && joinedSince >= StartOf(sinceDay),
+                    rule);
+
+            case GiveawayRuleKinds.FirstSeenWithinDays:
+                return Plain(
+                    person.FirstSeenAt is { } first && (decimal)(now - first).TotalDays <= threshold,
+                    rule);
+
+            case GiveawayRuleKinds.DaysSeen:
+            {
+                var days = measures.Of(new GiveawayMeasure(GiveawayWeights.DaysSeen, rule.WithinDays), person);
+
+                return new GiveawayRuleAnswer(
+                    days >= threshold, true, GiveawayMeasures.IsCloseCall(days, threshold),
+                    days >= threshold ? null : Describe(rule));
+            }
+
+            case GiveawayRuleKinds.NotSeenWithinDays:
+            {
+                // Seen at some point, and not lately. Somebody the presence log knows nothing
+                // about has not lapsed: they never came, which is a different list.
+                var lastSeen = measures.Of(new GiveawayMeasure(GiveawayRuleKinds.SeenWithinDays, null), person);
+                var ever = lastSeen > 0m;
+                var met = ever && lastSeen > threshold;
+
+                return new GiveawayRuleAnswer(
+                    met, true, ever && GiveawayMeasures.IsCloseCall(lastSeen, threshold), met ? null : Describe(rule));
+            }
+
+            case GiveawayRuleKinds.ModerationCount:
+            {
+                var times = measures.Of(GiveawayMeasure.Moderation(rule.Id, rule.WithinDays), person);
+                return Plain(times >= threshold, rule);
+            }
+
+            // Still here after the lists were written out: the list is gone. Nobody passes a rule
+            // about a list Modbot cannot read, and the reason says so (lists design §4.3).
+            case GiveawayRuleKinds.InList:
+                return new GiveawayRuleAnswer(false, false, false, "That list does not exist any more.");
+
             case GiveawayRuleKinds.SeenWithinDays:
             {
                 // The measurement is "how many days since they were last seen"; nought means the
@@ -547,6 +727,10 @@ public sealed class GiveawayRuleChecker
     private static decimal DaysSince(DateTimeOffset? at, DateTimeOffset now)
         => at is { } when ? (decimal)(now - when).TotalDays : -1m;
 
+    /// <summary>Midnight UTC at the start of a day: where every day Modbot counts begins.</summary>
+    private static DateTimeOffset StartOf(DateOnly day)
+        => new(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
     // ── Who is even considered ───────────────────────────────────────────────────────────
 
     /// <summary>
@@ -586,7 +770,7 @@ public sealed class GiveawayRuleChecker
 
         var discordMembers = await _db.DiscordMembers.AsNoTracking()
             .Where(m => !m.IsBot && (reacted != null ? reacted.Contains(m.UserId) : m.LeftAt == null))
-            .Select(m => new { m.UserId, m.DisplayName, m.JoinedAt, m.Roles, m.LeftAt })
+            .Select(m => new { m.UserId, m.DisplayName, m.JoinedAt, m.Roles, m.LeftAt, m.FirstSeenAt })
             .Take(MaxPeople + 1)
             .ToListAsync(ct);
 
@@ -602,6 +786,7 @@ public sealed class GiveawayRuleChecker
                 DiscordJoinedAt = member.JoinedAt,
                 DiscordRoles = Ids(member.Roles),
                 Linked = vrchat is not null,
+                FirstSeenAt = member.FirstSeenAt,
             };
 
             byKey[person.Key] = person;
@@ -712,7 +897,7 @@ public sealed class GiveawayRuleChecker
         {
             var users = await _db.VRChatUsers.AsNoTracking()
                 .Where(u => vrchatIds.Contains(u.UserId))
-                .Select(u => new { u.UserId, u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified })
+                .Select(u => new { u.UserId, u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified, u.FirstSeenAt })
                 .ToListAsync(ct);
 
             var byId = users.ToDictionary(u => u.UserId, StringComparer.Ordinal);
@@ -724,6 +909,7 @@ public sealed class GiveawayRuleChecker
                     person.VRChatJoined = user.DateJoined;
                     person.TrustRank = user.TrustRank;
                     person.Is18PlusVerified = user.Is18PlusVerified;
+                    person.SeenFirstAt(user.FirstSeenAt);
 
                     // The VRChat name wins: a giveaway is about the group, and that is the name
                     // the group knows them by.

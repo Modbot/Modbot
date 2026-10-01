@@ -89,7 +89,7 @@ public class GiveawayRuleTests
 
         GiveawayRules.Read(new JsonObject { ["kind"] = "allOf", ["rules"] = groups }, out var error);
 
-        Assert.Equal("A giveaway can have at most 60 rules.", error);
+        Assert.Equal("There can be at most 60 rules.", error);
     }
 
     [Fact]

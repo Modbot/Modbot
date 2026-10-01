@@ -162,6 +162,7 @@ public sealed record GiveawayEntrantsView(
 public sealed record GiveawayRoleView(string Id, string Name);
 
 /// <summary>What the rule builder offers: the rule kinds, the weightings, and the roles.</summary>
+/// <param name="Lists">The saved lists a rule can name, by name (lists design §4).</param>
 public sealed record GiveawayBuilderView(
     IReadOnlyList<string> RuleKinds,
     IReadOnlyList<string> Weightings,
@@ -169,4 +170,5 @@ public sealed record GiveawayBuilderView(
     IReadOnlyList<GiveawayRoleView> GroupRoles,
     IReadOnlyList<GiveawayRoleView> DiscordRoles,
     int ModerationFactRetentionDays,
-    int PresenceFactRetentionDays);
+    int PresenceFactRetentionDays,
+    IReadOnlyList<GiveawayRoleView> Lists);

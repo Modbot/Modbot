@@ -70,6 +70,11 @@ public static class GiveawayCard
     /// (Discord embeds design §3.6). There is no thumbnail and no large picture: Modbot holds no
     /// picture of a prize, and this card is about neither a person nor a world.
     /// </param>
+    /// <param name="rules">
+    /// The rules with every saved list they name written out, when the caller has read the lists.
+    /// A member cannot open a list, so the card says what is in it rather than its name (lists
+    /// design §4.2). Null reads the giveaway's own rules as they are stored.
+    /// </param>
     public static DiscordEmbedContent For(
         Giveaway giveaway,
         GiveawayCardState state,
@@ -79,14 +84,15 @@ public static class GiveawayCard
         string? link = null,
         DateTimeOffset? now = null,
         CardStyle? style = null,
-        CardPicture picture = default)
+        CardPicture picture = default,
+        GiveawayRule? rules = null)
     {
         ArgumentNullException.ThrowIfNull(giveaway);
         ArgumentNullException.ThrowIfNull(winners);
 
         style ??= CardStyle.None;
 
-        var rules = GiveawayRules.ReadStored(giveaway.Rules);
+        rules ??= GiveawayRules.ReadStored(giveaway.Rules);
         var exclusions = GiveawayExclusions.ReadStored(giveaway.Exclusions);
 
         var fields = new List<DiscordEmbedField>();

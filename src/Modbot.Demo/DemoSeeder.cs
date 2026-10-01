@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Giveaways;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
@@ -71,6 +72,7 @@ public sealed class DemoSeeder
         await DiscordAsync(plan, ct);
         await CalendarAsync(plan, ct);
         await KeysAsync(plan, ct);
+        await ListsAsync(plan, ct);
 
         return plan;
     }
@@ -134,6 +136,7 @@ public sealed class DemoSeeder
         await _db.GiveawayEntries.ExecuteDeleteAsync(ct);
         await _db.GiveawayPosts.ExecuteDeleteAsync(ct);
         await _db.Giveaways.ExecuteDeleteAsync(ct);
+        await _db.SavedLists.ExecuteDeleteAsync(ct);
 
         await _db.WebhookDeliveries.ExecuteDeleteAsync(ct);
         await _db.Webhooks.ExecuteDeleteAsync(ct);
@@ -958,6 +961,51 @@ public sealed class DemoSeeder
             CreatedAt = plan.Now.AddDays(-90),
             UpdatedAt = plan.Now.AddDays(-90),
             LastSuccessAt = plan.Now.AddHours(-9),
+        });
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // --- saved lists --------------------------------------------------------------------------
+
+    /// <summary>
+    /// Two lists a group would keep, so the Lists page opens on something: the regulars, and the
+    /// people who joined this month. Their rules are the ones the lists design names as examples.
+    /// </summary>
+    private async Task ListsAsync(DemoPlan plan, CancellationToken ct)
+    {
+        var regulars = new GiveawayRule
+        {
+            Rules =
+            [
+                new GiveawayRule { Kind = GiveawayRuleKinds.InGroup },
+                new GiveawayRule { Kind = GiveawayRuleKinds.DaysSeen, Amount = 4, WithinDays = 30 },
+            ],
+        };
+
+        var newThisMonth = new GiveawayRule
+        {
+            Rules = [new GiveawayRule { Kind = GiveawayRuleKinds.GroupJoinedWithinDays, Amount = 30 }],
+        };
+
+        _db.SavedLists.Add(new SavedList
+        {
+            Id = new Guid(DemoPlan.Fixed(6101)),
+            Name = "Regulars",
+            Rules = GiveawayRules.Store(regulars),
+            CreatedByUserId = DemoMode.AdministratorId,
+            CreatedAt = plan.Now.AddDays(-40),
+            UpdatedAt = plan.Now.AddDays(-40),
+        });
+
+        _db.SavedLists.Add(new SavedList
+        {
+            Id = new Guid(DemoPlan.Fixed(6102)),
+            Name = "New this month",
+            Rules = GiveawayRules.Store(newThisMonth),
+            CreatedByUserId = DemoMode.AdministratorId,
+            CreatedAt = plan.Now.AddDays(-12),
+            UpdatedAt = plan.Now.AddDays(-12),
         });
 
         await _db.SaveChangesAsync(ct);

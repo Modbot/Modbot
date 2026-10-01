@@ -34,6 +34,7 @@ public sealed record AutoInviteRoleView(
 /// <param name="DiscordRoles">The server's roles, for the rule that names one.</param>
 /// <param name="ModerationFactRetentionDays">How long moderation facts are kept. 0 is forever.</param>
 /// <param name="PresenceFactRetentionDays">How long presence facts are kept. 0 is forever.</param>
+/// <param name="Lists">The saved lists a rule can name, by name (lists design §4).</param>
 /// <param name="InvitesSent">How many invites have gone out.</param>
 /// <param name="LastInviteAt">When the last one went out, or null.</param>
 public sealed record AutoInviteView(
@@ -48,6 +49,7 @@ public sealed record AutoInviteView(
     [property: JsonPropertyName("discordRoles")] IReadOnlyList<AutoInviteRoleView> DiscordRoles,
     [property: JsonPropertyName("moderationFactRetentionDays")] int ModerationFactRetentionDays,
     [property: JsonPropertyName("presenceFactRetentionDays")] int PresenceFactRetentionDays,
+    [property: JsonPropertyName("lists")] IReadOnlyList<AutoInviteRoleView> Lists,
     [property: JsonPropertyName("invitesSent")] int InvitesSent,
     [property: JsonPropertyName("lastInviteAt")] DateTimeOffset? LastInviteAt);
 
@@ -122,14 +124,18 @@ public static class AutoInviteSettingsEndpoints
                 if (problem is not null || rule is null)
                     return Results.BadRequest(new { error = problem ?? "Those rules could not be read." });
 
+                if (await SavedListRules.WhyNotUsableAsync(db, rule, ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
+
                 var settings = await db.GetSettingsAsync(ct);
+                var listNames = await SavedListRules.NamesAsync(db, ct);
 
                 var before = new JsonObject
                 {
                     ["enabled"] = settings.GroupAutoInviteEnabled,
                     ["minutesInInstance"] = settings.GroupAutoInviteMinutesInInstance,
                     ["inviteAgainAfterDays"] = settings.GroupAutoInviteAgainAfterDays,
-                    ["rules"] = GiveawayRules.Describe(GiveawayRules.ReadStored(settings.GroupAutoInviteRules)),
+                    ["rules"] = GiveawayRules.Describe(GiveawayRules.ReadStored(settings.GroupAutoInviteRules), listNames),
                 };
 
                 settings.GroupAutoInviteEnabled = body.Enabled;
@@ -142,7 +148,7 @@ public static class AutoInviteSettingsEndpoints
                     ["enabled"] = body.Enabled,
                     ["minutesInInstance"] = body.MinutesInInstance,
                     ["inviteAgainAfterDays"] = body.InviteAgainAfterDays,
-                    ["rules"] = GiveawayRules.Describe(rule),
+                    ["rules"] = GiveawayRules.Describe(rule, listNames),
                 };
 
                 if (!db.ChangeTracker.HasChanges())
@@ -192,6 +198,12 @@ public static class AutoInviteSettingsEndpoints
                 .Select(r => new AutoInviteRoleView(r.RoleId, r.Name))
                 .ToListAsync(ct);
 
+        var lists = await db.SavedLists.AsNoTracking()
+            .Where(l => l.DeletedAt == null)
+            .OrderBy(l => l.Name)
+            .Select(l => new AutoInviteRoleView(l.Id.ToString(), l.Name))
+            .ToListAsync(ct);
+
         var sent = await db.GroupAutoInvites.AsNoTracking().CountAsync(i => i.Worked == true, ct);
 
         var last = await db.GroupAutoInvites.AsNoTracking()
@@ -211,6 +223,7 @@ public static class AutoInviteSettingsEndpoints
             discordRoles,
             settings.ModerationFactRetentionDays,
             settings.PresenceFactRetentionDays,
+            lists,
             sent,
             last);
     }

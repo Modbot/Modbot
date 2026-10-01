@@ -183,7 +183,10 @@ public sealed class GroupAutoInvites
         if (allowed.Count == 0)
             return false;
 
-        var rule = GiveawayRules.ReadStored(settings.GroupAutoInviteRules);
+        // Each saved list the rules name is written out once a pass rather than once a person,
+        // and the fact below records the rules as they were asked, not a list's name.
+        var (rule, _) = await _rules.WithListsAsync(GiveawayRules.ReadStored(settings.GroupAutoInviteRules), ct)
+            .ConfigureAwait(false);
 
         foreach (var person in allowed)
         {

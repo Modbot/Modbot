@@ -329,6 +329,14 @@ public static class AuditVisibility
         [FactType.GiveawayDeleted] = AuditCategory.Operational,
         [FactType.GiveawayWinnerAnnounced] = AuditCategory.Operational,
         [FactType.GiveawayPublishFailed] = AuditCategory.Operational,
+
+        // Saved lists: Modbot's own records about its own feature, the same shape as giveaways.
+        // An export is here too, beside the change that would have mattered as much: it is the
+        // operator's business who took a copy of the group's people (lists design §7).
+        [FactType.ListCreated] = AuditCategory.Operational,
+        [FactType.ListChanged] = AuditCategory.Operational,
+        [FactType.ListDeleted] = AuditCategory.Operational,
+        [FactType.ListExported] = AuditCategory.Operational,
     };
 
     /// <summary>

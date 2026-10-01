@@ -304,6 +304,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each draw's frozen entrant list, with every weight (giveaways design §5.1).</summary>
     public DbSet<GiveawayEntrant> GiveawayEntrants => Set<GiveawayEntrant>();
 
+    /// <summary>Saved lists: a name and a rule tree, asked again whenever one is opened (lists design).</summary>
+    public DbSet<SavedList> SavedLists => Set<SavedList>();
+
     /// <summary>
     /// Modbot's own log, so it can be read in the app without Seq or a disk. Written only by
     /// <c>DatabaseLogSink</c>; outbound API traffic is left out.
@@ -2288,6 +2291,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // "Has this person won before", and the rows a purge has to find again.
             entity.HasIndex(e => e.Key).HasDatabaseName("ix_giveaway_entrant_key");
+        });
+
+        builder.Entity<SavedList>(entity =>
+        {
+            entity.ToTable("saved_list");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(SavedList.MaxNameLength);
         });
 
         builder.Entity<HealthWatch>(entity =>

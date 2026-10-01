@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 
@@ -94,6 +95,44 @@ public static class GiveawayRuleKinds
     /// </remarks>
     public const string Age18Plus = "age18Plus";
 
+    // ── Added with saved lists (lists design §3) ─────────────────────────────────────────
+
+    /// <summary>In the VRChat group, and joined it in the last <c>Amount</c> days: "new this month".</summary>
+    public const string GroupJoinedWithinDays = "groupJoinedWithinDays";
+
+    /// <summary>In the VRChat group, and joined it before the day in <c>Date</c>.</summary>
+    public const string GroupJoinedBefore = "groupJoinedBefore";
+
+    /// <summary>In the VRChat group, and joined it on or after the day in <c>Date</c>.</summary>
+    public const string GroupJoinedSince = "groupJoinedSince";
+
+    /// <summary>Modbot first saw them in the last <c>Amount</c> days, on either side.</summary>
+    public const string FirstSeenWithinDays = "firstSeenWithinDays";
+
+    /// <summary>
+    /// Seen in our instances on at least <c>Amount</c> different days.
+    /// </summary>
+    /// <remarks>
+    /// The same word, and the same count, as the "days seen" weighting: a rule and a weight asking
+    /// the same question must not answer it twice (giveaways design §2.6).
+    /// </remarks>
+    public const string DaysSeen = "daysSeen";
+
+    /// <summary>Seen in our instances before, and not in the last <c>Amount</c> days: lapsed.</summary>
+    public const string NotSeenWithinDays = "notSeenWithinDays";
+
+    /// <summary>
+    /// Banned, removed, kicked from an instance, warned or turned down at least <c>Amount</c>
+    /// times. <c>Id</c> says which, from <see cref="ModerationKinds"/>.
+    /// </summary>
+    public const string ModerationCount = "moderationCount";
+
+    /// <summary>
+    /// In the saved list <c>Id</c>. Read by putting that list's own rules in its place, so a list
+    /// is never a second answer to anything (lists design §4).
+    /// </summary>
+    public const string InList = "inList";
+
     public static readonly IReadOnlyList<string> Combining = [AllOf, AnyOf, NoneOf];
 
     /// <summary>Every kind that asks a question, in the order the builder lists them.</summary>
@@ -114,6 +153,14 @@ public static class GiveawayRuleKinds
         VRChatAccountDays,
         TrustRankAtLeast,
         Age18Plus,
+        GroupJoinedWithinDays,
+        GroupJoinedBefore,
+        GroupJoinedSince,
+        FirstSeenWithinDays,
+        DaysSeen,
+        NotSeenWithinDays,
+        ModerationCount,
+        InList,
     ];
 
     public static bool IsCombining(string kind) => Combining.Contains(kind, StringComparer.Ordinal);
@@ -122,11 +169,21 @@ public static class GiveawayRuleKinds
 
     /// <summary>Kinds that take a number of hours, days or messages.</summary>
     public static bool TakesAmount(string kind) => kind is DiscordMemberDays or GroupMemberDays
-        or InstanceHours or OneInstanceHours or VoiceHours or Messages or SeenWithinDays or VRChatAccountDays;
+        or InstanceHours or OneInstanceHours or VoiceHours or Messages or SeenWithinDays or VRChatAccountDays
+        or GroupJoinedWithinDays or FirstSeenWithinDays or DaysSeen or NotSeenWithinDays or ModerationCount;
 
     /// <summary>Kinds that may be narrowed to the last so many days.</summary>
     public static bool TakesWindow(string kind) => kind is InstanceHours or OneInstanceHours
-        or VoiceHours or Messages or NoTrouble;
+        or VoiceHours or Messages or NoTrouble or DaysSeen or ModerationCount;
+
+    /// <summary>Kinds that name a day, in <c>Date</c>.</summary>
+    public static bool TakesDate(string kind) => kind is GroupJoinedBefore or GroupJoinedSince;
+
+    /// <summary>Kinds that name a saved list, in <c>Id</c>.</summary>
+    public static bool TakesList(string kind) => kind is InList;
+
+    /// <summary>Kinds that name a kind of moderation, in <c>Id</c>.</summary>
+    public static bool TakesModerationKind(string kind) => kind is ModerationCount;
 
     /// <summary>Kinds that name a role.</summary>
     public static bool TakesId(string kind) => kind is GroupRole or DiscordRole;
@@ -138,6 +195,56 @@ public static class GiveawayRuleKinds
     /// controls for them.
     /// </remarks>
     public static bool TakesRank(string kind) => kind is TrustRankAtLeast;
+}
+
+/// <summary>
+/// The kinds of moderation a <see cref="GiveawayRuleKinds.ModerationCount"/> rule may count, and
+/// the facts each one is counted from.
+/// </summary>
+/// <remarks>
+/// The same five, from the same fact types, as the repeat-offender counts a profile shows
+/// (<c>ActionsOnPeople</c>). A list saying "banned twice" about somebody whose profile says once
+/// would be the kind of disagreement giveaways design §2.6 exists to prevent.
+/// </remarks>
+public static class ModerationKinds
+{
+    public const string Ban = "ban";
+
+    /// <summary>Removed from the group: VRChat's own word for a kick from the group.</summary>
+    public const string Removal = "removal";
+
+    public const string InstanceKick = "instanceKick";
+
+    public const string Warn = "warn";
+
+    /// <summary>A join request turned down or blocked.</summary>
+    public const string Rejection = "rejection";
+
+    public static readonly IReadOnlyList<string> All = [Ban, Removal, InstanceKick, Warn, Rejection];
+
+    public static bool IsKnown(string? kind) => kind is not null && All.Contains(kind, StringComparer.Ordinal);
+
+    /// <summary>The fact types one kind is counted from.</summary>
+    public static IReadOnlyList<string> FactTypes(string kind) => kind switch
+    {
+        Ban => [FactType.MemberBanned],
+        Removal => [FactType.MemberKicked],
+        InstanceKick => [FactType.GroupInstanceKick],
+        Warn => [FactType.GroupInstanceWarn],
+        Rejection => [FactType.JoinRequestRejected, FactType.JoinRequestBlocked],
+        _ => [],
+    };
+
+    /// <summary>The kind as a rule line says it: "banned", "join request turned down".</summary>
+    public static string Words(string? kind) => kind switch
+    {
+        Ban => "banned",
+        Removal => "removed from the group",
+        InstanceKick => "kicked from an instance",
+        Warn => "warned",
+        Rejection => "join request turned down",
+        _ => "(none picked)",
+    };
 }
 
 /// <summary>
@@ -186,6 +293,13 @@ public sealed record GiveawayRule
     /// </summary>
     public string? Id { get; init; }
 
+    /// <summary>
+    /// A day, for the kinds that ask about one (<see cref="GiveawayRuleKinds.TakesDate"/>). A whole
+    /// day rather than an instant: "joined before June" is a question about a calendar, and the
+    /// day starts at midnight UTC, the way every daily total does.
+    /// </summary>
+    public DateOnly? Date { get; init; }
+
     /// <summary>A rule that lets everybody through: all of nothing.</summary>
     public static GiveawayRule Everyone { get; } = new();
 
@@ -211,11 +325,18 @@ public static class GiveawayRules
             return GiveawayRule.Everyone;
 
         var total = 0;
-        var rule = Read(node, depth: 1, ref total, ref error);
+        var rule = Read(node, depth: 1, ref total, ref error, limited: true);
         return error is null ? rule : null;
     }
 
     /// <summary>Reads a rule tree from stored text. Unreadable text is treated as "everyone".</summary>
+    /// <remarks>
+    /// The size limits are not applied here. They stop a submitted tree from being a denial of
+    /// service; a stored one was checked on its way in, and the one kind of stored tree that is
+    /// larger -- a draw's copy, with each saved list it used written out in full (lists design
+    /// §4.2) -- was written by Modbot itself. Reading that copy as "everyone" because it is deep
+    /// would be the worst answer available.
+    /// </remarks>
     public static GiveawayRule ReadStored(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -223,7 +344,9 @@ public static class GiveawayRules
 
         try
         {
-            var rule = Read(JsonNode.Parse(json), out var error);
+            string? error = null;
+            var total = 0;
+            var rule = Read(JsonNode.Parse(json), depth: 1, ref total, ref error, limited: false);
             return error is null && rule is not null ? rule : GiveawayRule.Everyone;
         }
         catch (JsonException)
@@ -257,6 +380,9 @@ public static class GiveawayRules
 
         if (rule.Id is { } id)
             node["id"] = id;
+
+        if (rule.Date is { } date)
+            node["date"] = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         return node;
     }
@@ -332,9 +458,46 @@ public static class GiveawayRules
             GiveawayRuleKinds.VRChatAccountDays => $"VRChat account {Days(amount)} old or more",
             GiveawayRuleKinds.TrustRankAtLeast => $"trust rank {RankName(rule.Id)} or better",
             GiveawayRuleKinds.Age18Plus => "18+ verified",
+            GiveawayRuleKinds.GroupJoinedWithinDays => $"joined the group in the last {Days(amount)}",
+            GiveawayRuleKinds.GroupJoinedBefore => $"joined the group before {Day(rule.Date)}",
+            GiveawayRuleKinds.GroupJoinedSince => $"joined the group on or after {Day(rule.Date)}",
+            GiveawayRuleKinds.FirstSeenWithinDays => $"first seen by Modbot in the last {Days(amount)}",
+            GiveawayRuleKinds.DaysSeen => $"seen on {Plain(amount)} different days or more{within}",
+            GiveawayRuleKinds.NotSeenWithinDays => $"seen before, but not in the last {Days(amount)}",
+            GiveawayRuleKinds.ModerationCount =>
+                $"{ModerationKinds.Words(rule.Id)} {Times(amount)} or more{within}",
+            GiveawayRuleKinds.InList => InListLine(rule.Id, roleNames),
             _ => rule.Kind,
         };
     }
+
+    /// <summary>
+    /// A saved list as a rule line names it: by its name in quotes when the names were given,
+    /// as gone when they were given and it is not among them, and as "a saved list" when the line
+    /// is written where nothing looked the names up.
+    /// </summary>
+    /// <remarks>
+    /// The names come in the same dictionary as role names. Both are keyed by id, and a list's id
+    /// is a Modbot id that no VRChat or Discord role id can ever be.
+    /// </remarks>
+    private static string InListLine(string? id, IReadOnlyDictionary<string, string>? names)
+    {
+        if (id is null)
+            return "in a list (none picked)";
+
+        if (names is null)
+            return "in a saved list";
+
+        return names.TryGetValue(id, out var name) && name.Length > 0
+            ? $"in the list “{name}”"
+            : "in a list that no longer exists";
+    }
+
+    /// <summary>A day as a rule line says it: "1 Jun 2026".</summary>
+    private static string Day(DateOnly? date)
+        => date is { } day ? day.ToString("d MMM yyyy", CultureInfo.InvariantCulture) : "(no day picked)";
+
+    private static string Times(decimal amount) => amount == 1 ? "once" : $"{Plain(amount)} times";
 
     /// <summary>The rank a rule names, in the words a nameplate shows.</summary>
     private static string RankName(string? id)
@@ -363,7 +526,7 @@ public static class GiveawayRules
             : rounded.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
-    private static GiveawayRule? Read(JsonNode? node, int depth, ref int total, ref string? error)
+    private static GiveawayRule? Read(JsonNode? node, int depth, ref int total, ref string? error, bool limited)
     {
         if (node is not JsonObject body)
         {
@@ -379,15 +542,15 @@ public static class GiveawayRules
             return null;
         }
 
-        if (++total > GiveawayRule.MaxTotalRules)
+        if (++total > GiveawayRule.MaxTotalRules && limited)
         {
-            error = $"A giveaway can have at most {GiveawayRule.MaxTotalRules} rules.";
+            error = $"There can be at most {GiveawayRule.MaxTotalRules} rules.";
             return null;
         }
 
         if (GiveawayRuleKinds.IsCombining(kind))
         {
-            if (depth > GiveawayRule.MaxDepth)
+            if (depth > GiveawayRule.MaxDepth && limited)
             {
                 error = $"Rules can be grouped at most {GiveawayRule.MaxDepth} deep.";
                 return null;
@@ -397,7 +560,7 @@ public static class GiveawayRules
 
             if (body["rules"] is JsonArray array)
             {
-                if (array.Count > GiveawayRule.MaxRules)
+                if (array.Count > GiveawayRule.MaxRules && limited)
                 {
                     error = $"A group can hold at most {GiveawayRule.MaxRules} rules.";
                     return null;
@@ -405,7 +568,7 @@ public static class GiveawayRules
 
                 foreach (var child in array)
                 {
-                    var read = Read(child, depth + 1, ref total, ref error);
+                    var read = Read(child, depth + 1, ref total, ref error, limited);
                     if (error is not null)
                         return null;
 
@@ -493,8 +656,75 @@ public static class GiveawayRules
                 return null;
             }
         }
+        else if (GiveawayRuleKinds.TakesList(kind))
+        {
+            // A list's id is Modbot's own, so unlike a VRChat or Discord id it is checked: it is
+            // always a Guid, written one way, which is what lets a stored tree be searched for it.
+            var text = body["id"]?.GetValue<string>()?.Trim();
 
-        return new GiveawayRule { Kind = kind, Amount = amount, WithinDays = withinDays, Id = id };
+            if (string.IsNullOrEmpty(text) || !Guid.TryParse(text, out var list))
+            {
+                error = "Pick a list.";
+                return null;
+            }
+
+            id = list.ToString("D");
+        }
+        else if (GiveawayRuleKinds.TakesModerationKind(kind))
+        {
+            id = body["id"]?.GetValue<string>()?.Trim();
+
+            if (!ModerationKinds.IsKnown(id))
+            {
+                error = $"'{kind}' needs a kind of moderation.";
+                return null;
+            }
+        }
+
+        DateOnly? date = null;
+        if (GiveawayRuleKinds.TakesDate(kind))
+        {
+            var text = body["date"]?.GetValueKind() is JsonValueKind.String
+                ? body["date"]!.GetValue<string>().Trim()
+                : null;
+
+            if (text is null
+                || !DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+            {
+                error = $"'{kind}' needs a day.";
+                return null;
+            }
+
+            date = day;
+        }
+
+        return new GiveawayRule { Kind = kind, Amount = amount, WithinDays = withinDays, Id = id, Date = date };
+    }
+
+    /// <summary>Every saved list a tree names, each once.</summary>
+    public static IReadOnlyList<string> ListsIn(GiveawayRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        var found = new List<string>();
+        Collect(rule);
+        return found;
+
+        void Collect(GiveawayRule r)
+        {
+            if (r.Kind == GiveawayRuleKinds.InList && r.Id is { } id && !found.Contains(id, StringComparer.Ordinal))
+                found.Add(id);
+
+            foreach (var inner in r.Rules)
+                Collect(inner);
+        }
+    }
+
+    /// <summary>How many rules a tree holds, the groups included.</summary>
+    public static int Count(GiveawayRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        return 1 + rule.Rules.Sum(Count);
     }
 
     private static decimal? Number(JsonNode? node)

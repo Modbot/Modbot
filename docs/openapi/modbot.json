@@ -17779,7 +17779,7 @@
           "Giveaways"
         ],
         "summary": "Get giveaway builder",
-        "description": "The rule kinds, the weightings and the roles a rule can name.\n\nNeeds the `RunGiveaways` permission.",
+        "description": "The rule kinds, the weightings, and the roles and saved lists a rule can name.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "GetGiveawayBuilder",
         "responses": {
           "200": {
@@ -18080,6 +18080,498 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "List saved lists",
+        "description": "Every saved list by name, with its rules and what uses it.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "ListLists",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Add list",
+        "description": "Save a list: a name and the rules that decide who is in it.\n\nNeeds the `ManageLists` permission.",
+        "operationId": "CreateList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists/builder": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Get list builder",
+        "description": "The rule kinds and the roles a list's rules can name.\n\nNeeds the `ManageLists` permission.",
+        "operationId": "GetListBuilder",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListBuilderView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists/preview": {
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Preview list rules",
+        "description": "Who a rule tree lets through right now, and the first page of them. Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "PreviewList",
+        "parameters": [
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPeopleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists/{id}/people": {
+      "get": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "List the people in a list",
+        "description": "Who is in a saved list right now, by name, a page at a time. Worked out again on every request: a list is its rules, not a copy of who matched them once.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "ListListPeople",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPeopleView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists/{id}": {
+      "put": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Update list",
+        "description": "Change a list's name or rules. A list a giveaway still being run names needs Run giveaways as well; one auto-invites names needs Set up auto-invites.\n\nNeeds the `ManageLists` permission.",
+        "operationId": "UpdateList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Delete list",
+        "description": "Delete a list. Refused while a giveaway still being run, or auto-invites, names it.\n\nNeeds the `ManageLists` permission.",
+        "operationId": "DeleteList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/lists/{id}/export": {
+      "post": {
+        "tags": [
+          "Lists"
+        ],
+        "summary": "Export list",
+        "description": "Everybody in a list right now, as a CSV or JSON file. The file leaves Modbot: once downloaded, retention and purge no longer reach it. Every export is recorded with who asked, the format, how many people and which columns. The profile columns (trust rank, 18+ verified, account age, first seen) are included only for a caller with See profiles.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "ExportList",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -20990,6 +21482,7 @@
           "discordRoles",
           "moderationFactRetentionDays",
           "presenceFactRetentionDays",
+          "lists",
           "invitesSent",
           "lastInviteAt"
         ],
@@ -21064,6 +21557,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoInviteRoleView"
+            }
           },
           "invitesSent": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -27258,7 +27757,8 @@
           "groupRoles",
           "discordRoles",
           "moderationFactRetentionDays",
-          "presenceFactRetentionDays"
+          "presenceFactRetentionDays",
+          "lists"
         ],
         "type": "object",
         "properties": {
@@ -27307,6 +27807,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayRoleView"
+            }
           }
         }
       },
@@ -31117,6 +31623,361 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ListBuilderView": {
+        "required": [
+          "ruleKinds",
+          "weightings",
+          "trustRanks",
+          "groupRoles",
+          "discordRoles",
+          "moderationFactRetentionDays",
+          "presenceFactRetentionDays"
+        ],
+        "type": "object",
+        "properties": {
+          "ruleKinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weightings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trustRanks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListRoleView"
+            }
+          },
+          "discordRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListRoleView"
+            }
+          },
+          "moderationFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "presenceFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ListExportRequest": {
+        "required": [
+          "format"
+        ],
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ListPeopleView": {
+        "required": [
+          "count",
+          "considered",
+          "closeCalls",
+          "fromPolledData",
+          "unanswerable",
+          "stopped",
+          "countedAt",
+          "people",
+          "page",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "considered": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "closeCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "fromPolledData": {
+            "type": "boolean"
+          },
+          "unanswerable": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stopped": {
+            "type": "boolean"
+          },
+          "countedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListPersonView"
+            }
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ListPersonView": {
+        "required": [
+          "key",
+          "vrChatUserId",
+          "discordUserId",
+          "name",
+          "inGroup",
+          "inDiscord",
+          "linked",
+          "fromPolledData",
+          "closeCall"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inGroup": {
+            "type": "boolean"
+          },
+          "inDiscord": {
+            "type": "boolean"
+          },
+          "linked": {
+            "type": "boolean"
+          },
+          "fromPolledData": {
+            "type": "boolean"
+          },
+          "closeCall": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListPreviewRequest": {
+        "required": [
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          }
+        }
+      },
+      "ListRequest": {
+        "required": [
+          "name",
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          }
+        }
+      },
+      "ListRoleView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ListUseView": {
+        "required": [
+          "giveaways",
+          "autoInvites"
+        ],
+        "type": "object",
+        "properties": {
+          "giveaways": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "autoInvites": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListView": {
+        "required": [
+          "id",
+          "name",
+          "rules",
+          "ruleLines",
+          "createdBy",
+          "createdAt",
+          "updatedAt",
+          "usedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "ruleLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "usedBy": {
+            "$ref": "#/components/schemas/ListUseView"
+          }
+        }
+      },
+      "ListsView": {
+        "required": [
+          "lists",
+          "canManage",
+          "canSeeProfiles"
+        ],
+        "type": "object",
+        "properties": {
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListView"
+            }
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "canSeeProfiles": {
+            "type": "boolean"
           }
         }
       },
@@ -40401,6 +41262,10 @@
     {
       "name": "Watches",
       "x-displayName": "Watches"
+    },
+    {
+      "name": "Lists",
+      "x-displayName": "Lists"
     }
   ]
 }

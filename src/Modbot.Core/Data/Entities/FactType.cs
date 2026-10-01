@@ -574,6 +574,22 @@ public static class FactType
     /// <summary>The Discord post could not be written.</summary>
     public const string GiveawayPublishFailed = "modbot.giveaway.publish.fail";
 
+    // ── Saved lists (lists design §7) ──────────────────────────────────────────────────────
+    //
+    // The subject is the list's id on the Modbot platform. Moderation retention, kept forever by
+    // default: "who took a copy of this list of people, and when" is the question an export leaves
+    // behind, and it has to be answerable long after the file has gone wherever it went.
+
+    public const string ListCreated = "modbot.list.create";
+    public const string ListChanged = "modbot.list.change";
+    public const string ListDeleted = "modbot.list.delete";
+
+    /// <summary>
+    /// Somebody downloaded the people in a list. Carries the list's name, the file's format, how
+    /// many people were in it and which columns -- never the people themselves.
+    /// </summary>
+    public const string ListExported = "modbot.list.export";
+
     // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────
     //
     // The subject is the moderator being reviewed, on the VRChat platform, because the review is

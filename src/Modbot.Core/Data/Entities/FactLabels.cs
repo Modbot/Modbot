@@ -174,6 +174,11 @@ public static class FactLabels
         [FactType.GiveawayWinnerAnnounced] = "Giveaway winner announced",
         [FactType.GiveawayPublishFailed] = "Giveaway failed to publish",
 
+        [FactType.ListCreated] = "List made",
+        [FactType.ListChanged] = "List changed",
+        [FactType.ListDeleted] = "List deleted",
+        [FactType.ListExported] = "List exported",
+
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
         [FactType.ReviewOpened] = "Review opened",
         [FactType.ReviewClosed] = "Review closed",

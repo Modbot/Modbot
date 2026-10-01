@@ -67,6 +67,19 @@ public sealed class GiveawayCandidate
     /// <summary>Modbot has seen them as 18+ verified at least once. The sticky flag.</summary>
     public bool Is18PlusVerified { get; set; }
 
+    /// <summary>
+    /// The first time Modbot saw either of their accounts: the earlier of the VRChat user's and
+    /// the Discord member's first sighting. Null when it knows neither row.
+    /// </summary>
+    public DateTimeOffset? FirstSeenAt { get; set; }
+
+    /// <summary>Keeps the earlier of the sighting already held and <paramref name="at"/>.</summary>
+    public void SeenFirstAt(DateTimeOffset at)
+    {
+        if (FirstSeenAt is not { } held || at < held)
+            FirstSeenAt = at;
+    }
+
     /// <summary>They hold a Modbot account: one of the people running the giveaway.</summary>
     public bool Staff { get; set; }
 

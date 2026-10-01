@@ -71,28 +71,30 @@ public sealed record GiveawayCoverage(int ModerationDays, int PresenceDays)
         var kept = rule.Kind switch
         {
             GiveawayRuleKinds.InstanceHours or GiveawayRuleKinds.OneInstanceHours
-                or GiveawayRuleKinds.SeenWithinDays => PresenceDays,
-            GiveawayRuleKinds.NoTrouble => ModerationDays,
+                or GiveawayRuleKinds.SeenWithinDays or GiveawayRuleKinds.DaysSeen
+                or GiveawayRuleKinds.NotSeenWithinDays => PresenceDays,
+            GiveawayRuleKinds.NoTrouble or GiveawayRuleKinds.ModerationCount => ModerationDays,
             _ => 0,
         };
 
         if (kept <= 0)
             return null;
 
-        // "Seen in the last N days" carries its window in the amount, not in WithinDays.
-        var asked = rule.Kind == GiveawayRuleKinds.SeenWithinDays
-            ? (int?)(rule.Amount is { } amount ? (int)Math.Ceiling(amount) : 0)
-            : rule.WithinDays;
-
-        var what = GiveawayRules.Describe(new GiveawayRule
+        // "Seen in the last N days" carries its window in the amount, not in WithinDays. "Seen
+        // before, but not in the last N days" asks about all of it: "before" has no start, so
+        // somebody last seen past the kept facts would read as never seen at all.
+        var asked = rule.Kind switch
         {
-            Kind = rule.Kind,
-            Amount = rule.Amount,
-            WithinDays = rule.WithinDays,
-            Id = rule.Id,
-        });
+            GiveawayRuleKinds.SeenWithinDays => (int?)(rule.Amount is { } amount ? (int)Math.Ceiling(amount) : 0),
+            GiveawayRuleKinds.NotSeenWithinDays => null,
+            _ => rule.WithinDays,
+        };
 
-        var history = rule.Kind == GiveawayRuleKinds.NoTrouble ? "Moderation history" : "Presence history";
+        var what = GiveawayRules.Describe(rule with { Rules = [] });
+
+        var history = rule.Kind is GiveawayRuleKinds.NoTrouble or GiveawayRuleKinds.ModerationCount
+            ? "Moderation history"
+            : "Presence history";
 
         var keptFor = TimeWords.Length(TimeSpan.FromDays((double)kept));
 

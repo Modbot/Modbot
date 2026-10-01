@@ -127,6 +127,12 @@ public static class FactSubjects
         [FactType.GiveawayWinnerAnnounced] = SubjectKind.Other,
         [FactType.GiveawayPublishFailed] = SubjectKind.Other,
 
+        // The subject is the list's id: a list is about nobody in particular.
+        [FactType.ListCreated] = SubjectKind.Other,
+        [FactType.ListChanged] = SubjectKind.Other,
+        [FactType.ListDeleted] = SubjectKind.Other,
+        [FactType.ListExported] = SubjectKind.Other,
+
         // A rule that paused itself, and a watcher that saw something unusual. Neither is anybody.
         [FactType.AutoModRulePaused] = SubjectKind.Other,
         [FactType.InsightAlert] = SubjectKind.Other,

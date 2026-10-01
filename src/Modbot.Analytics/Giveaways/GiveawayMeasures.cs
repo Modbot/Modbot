@@ -12,11 +12,23 @@ namespace Modbot.Analytics.Giveaways;
 /// <param name="WithinDays">The last so many days, or null for all of recorded history.</param>
 public readonly record struct GiveawayMeasure(string Kind, int? WithinDays)
 {
+    /// <summary>
+    /// What a moderation count's measurement is called: <c>moderationCount:ban</c>. One per kind of
+    /// moderation, so two rules about bans share one query and a rule about warnings has its own.
+    /// </summary>
+    public const string ModerationPrefix = GiveawayRuleKinds.ModerationCount + ":";
+
+    /// <summary>The measurement a moderation count of this kind reads.</summary>
+    public static GiveawayMeasure Moderation(string? kind, int? withinDays) => new(ModerationPrefix + kind, withinDays);
+
     /// <summary>True when this number comes from polled presence reports rather than exact facts.</summary>
     public bool FromPolledData => Kind is GiveawayRuleKinds.InstanceHours
         or GiveawayRuleKinds.OneInstanceHours
         or GiveawayRuleKinds.SeenWithinDays
         or GiveawayWeights.DaysSeen;
+
+    /// <summary>True for a count of one kind of moderation.</summary>
+    public bool IsModeration => Kind.StartsWith(ModerationPrefix, StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -68,6 +80,12 @@ public sealed class GiveawayMeasures
         // Presence is recorded about a VRChat account; voice and messages about a Discord one.
         // A person who has only the wrong half of the pair reads as nought, which is the honest
         // answer and is why `linkedAccounts` exists as a rule.
+        //
+        // Moderation is recorded about the VRChat account too: every kind a moderation count asks
+        // about is something done in the group (ModerationKinds).
+        if (measure.IsModeration)
+            return vrchat is not null && byPerson.TryGetValue(vrchat, out var actedOn) ? actedOn : 0m;
+
         return measure.Kind switch
         {
             GiveawayRuleKinds.InstanceHours or GiveawayRuleKinds.OneInstanceHours
@@ -120,6 +138,12 @@ public sealed class GiveawayMeasures
         {
             ct.ThrowIfCancellationRequested();
 
+            if (measure.IsModeration)
+            {
+                _counted[measure] = await ModerationAsync(db, vrchatIds, measure, now, ct);
+                continue;
+            }
+
             _counted[measure] = measure.Kind switch
             {
                 GiveawayRuleKinds.InstanceHours => await PresenceAsync(db, vrchatIds, measure, now, Presence.TotalHours, ct),
@@ -157,9 +181,20 @@ public sealed class GiveawayMeasures
                 break;
 
             // Its window is the amount, so every "seen in the last N days" rule is answered from
-            // one reading: how many days it has been since they were last seen.
+            // one reading: how many days it has been since they were last seen. "Not seen in the
+            // last N days" is the same reading asked the other way round.
             case GiveawayRuleKinds.SeenWithinDays:
-                Add(needs, new GiveawayMeasure(rule.Kind, null));
+            case GiveawayRuleKinds.NotSeenWithinDays:
+                Add(needs, new GiveawayMeasure(GiveawayRuleKinds.SeenWithinDays, null));
+                break;
+
+            // The same count the "days seen" weighting reads, narrowed to the rule's window.
+            case GiveawayRuleKinds.DaysSeen:
+                Add(needs, new GiveawayMeasure(GiveawayWeights.DaysSeen, rule.WithinDays));
+                break;
+
+            case GiveawayRuleKinds.ModerationCount:
+                Add(needs, GiveawayMeasure.Moderation(rule.Id, rule.WithinDays));
                 break;
         }
     }
@@ -345,6 +380,48 @@ public sealed class GiveawayMeasures
             counted[flag.Id] = counted.GetValueOrDefault(flag.Id) + flag.Count;
 
         return counted;
+    }
+
+    /// <summary>
+    /// How many times each person was acted on in one way, from the facts.
+    /// </summary>
+    /// <remarks>
+    /// Counted from the same fact types as the repeat-offender numbers on a profile
+    /// (<see cref="ModerationKinds.FactTypes"/>), so a list and a profile agree. From the facts
+    /// rather than from <c>modbot_repeat_offender</c>, because that table only knows all time, 30
+    /// and 90 days, and a rule may ask about any window.
+    /// </remarks>
+    private static async Task<Dictionary<string, decimal>> ModerationAsync(
+        ModbotContext db,
+        string[] vrchatIds,
+        GiveawayMeasure measure,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var types = ModerationKinds.FactTypes(measure.Kind[GiveawayMeasure.ModerationPrefix.Length..]).ToArray();
+
+        if (vrchatIds.Length == 0 || types.Length == 0)
+            return new Dictionary<string, decimal>(StringComparer.Ordinal);
+
+        var from = measure.WithinDays is { } days ? now.AddDays(-days) : DateTimeOffset.MinValue;
+
+        const string Sql = """
+            SELECT e.subject_id, COUNT(*)::numeric
+            FROM modbot_event e
+            WHERE e.type = ANY(@types) AND e.subject_id = ANY(@subjects) AND e.occurred_at >= @from
+            GROUP BY e.subject_id
+            """;
+
+        var rows = await ReviewSql.ReadAsync(
+            db,
+            Sql,
+            r => (Id: r.GetString(0), Count: r.GetDecimal(1)),
+            ct,
+            ("types", types),
+            ("subjects", vrchatIds),
+            ("from", from));
+
+        return rows.ToDictionary(r => r.Id, r => r.Count, StringComparer.Ordinal);
     }
 
     /// <summary>

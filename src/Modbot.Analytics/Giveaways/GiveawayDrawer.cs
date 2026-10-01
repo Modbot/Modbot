@@ -98,7 +98,10 @@ public sealed class GiveawayDrawer
         if (giveaway.State is GiveawayStates.Draft or GiveawayStates.Cancelled || giveaway.DeletedAt is not null)
             return GiveawayDrawResult.Cannot("That giveaway is not open.");
 
-        var rules = GiveawayRules.ReadStored(giveaway.Rules);
+        // Each saved list the rules name is written out here, and the draw keeps that copy rather
+        // than the giveaway's own: the list may change next week, and what this draw was drawn
+        // from must not change with it (lists design §4.2).
+        var (rules, _) = await _checker.WithListsAsync(GiveawayRules.ReadStored(giveaway.Rules), ct);
         var exclusions = GiveawayExclusions.ReadStored(giveaway.Exclusions);
 
         // Re-checked here and not trusted from when somebody reacted: a person can qualify on
@@ -136,7 +139,7 @@ public sealed class GiveawayDrawer
             Seed = seed,
             SeedPromise = promise,
             WinnerCount = giveaway.WinnerCount,
-            Rules = giveaway.Rules,
+            Rules = GiveawayRules.Store(rules),
             Exclusions = giveaway.Exclusions,
             Weighting = giveaway.Weighting,
             WeightCap = giveaway.WeightCap,

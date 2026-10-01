@@ -117,6 +117,10 @@ public sealed class GiveawayDiscordPublisher
 
         var roleNames = await RoleNamesAsync(settings.DiscordGuildId, ct).ConfigureAwait(false);
 
+        // Read once a pass. A list changing moves its giveaways' cards through the fingerprint
+        // below like any other edit: the card says what the list holds today.
+        var lists = await SavedListRules.RulesAsync(_db, ids: null, ct).ConfigureAwait(false);
+
         // The group's name sits above the giveaway's, so a member reading the channel can see whose
         // giveaway it is, and the winners link into this Modbot when it has an address to link to.
         var style = new CardStyle(
@@ -139,7 +143,7 @@ public sealed class GiveawayDiscordPublisher
                 : winners.Where(w => w.DrawId == draw.Id).ToList();
 
             post = await SyncPostAsync(
-                pass, giveaway, post, entryCounts.GetValueOrDefault(giveaway.Id), theirs, roleNames).ConfigureAwait(false);
+                pass, giveaway, post, entryCounts.GetValueOrDefault(giveaway.Id), theirs, roleNames, lists).ConfigureAwait(false);
 
             if (post is not null && draw is not null && pass.Calls < CallsPerPass)
                 await AnnounceAsync(pass, giveaway, post, draw, theirs).ConfigureAwait(false);
@@ -175,7 +179,8 @@ public sealed class GiveawayDiscordPublisher
         GiveawayPost? post,
         int entryCount,
         IReadOnlyList<GiveawayEntrant> winners,
-        IReadOnlyDictionary<string, string> roleNames)
+        IReadOnlyDictionary<string, string> roleNames,
+        IReadOnlyDictionary<string, GiveawayRule> lists)
     {
         var channelId = giveaway.ChannelId?.Trim();
         var gone = giveaway.DeletedAt is not null;
@@ -233,7 +238,8 @@ public sealed class GiveawayDiscordPublisher
 
         var embed = GiveawayCard.For(
             giveaway, state, entryCount, winners, roleNames, link, pass.Now, pass.Style,
-            new CardPicture(AuthorIcon: icon));
+            new CardPicture(AuthorIcon: icon),
+            SavedListRules.Expand(GiveawayRules.ReadStored(giveaway.Rules), lists));
 
         var links = GiveawayCard.Links(link);
 

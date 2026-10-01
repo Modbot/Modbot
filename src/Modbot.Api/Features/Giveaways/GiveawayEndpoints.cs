@@ -157,6 +157,12 @@ public static class GiveawayEndpoints
                         .Select(r => new GiveawayRoleView(r.RoleId, r.Name))
                         .ToListAsync(ct);
 
+                var lists = await db.SavedLists.AsNoTracking()
+                    .Where(l => l.DeletedAt == null)
+                    .OrderBy(l => l.Name)
+                    .Select(l => new GiveawayRoleView(l.Id.ToString(), l.Name))
+                    .ToListAsync(ct);
+
                 return Results.Ok(new GiveawayBuilderView(
                     GiveawayRuleKinds.Asking,
                     GiveawayWeights.All,
@@ -164,18 +170,20 @@ public static class GiveawayEndpoints
                     groupRoles,
                     discordRoles,
                     settings?.ModerationFactRetentionDays ?? 0,
-                    settings?.PresenceFactRetentionDays ?? 0));
+                    settings?.PresenceFactRetentionDays ?? 0,
+                    lists));
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("GetGiveawayBuilder")
             .WithSummary("Get giveaway builder")
-            .WithDescription("The rule kinds, the weightings and the roles a rule can name.")
+            .WithDescription("The rule kinds, the weightings, and the roles and saved lists a rule can name.")
             .Produces<GiveawayBuilderView>()
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPost("/preview", async (
                 [FromBody] GiveawayPreviewRequest body,
                 [FromServices] GiveawayRuleChecker checker,
+                [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -183,6 +191,9 @@ public static class GiveawayEndpoints
                 var rules = GiveawayRules.Read(body.Rules, out var ruleProblem);
                 if (ruleProblem is not null || rules is null)
                     return Results.BadRequest(new { error = ruleProblem ?? "Those rules cannot be read." });
+
+                if (await SavedListRules.WhyNotUsableAsync(db, rules, ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
 
                 var exclusions = GiveawayExclusions.Read(body.Exclusions, out var exclusionProblem);
                 if (exclusionProblem is not null)
@@ -244,6 +255,9 @@ public static class GiveawayEndpoints
 
                 if (Apply(body, giveaway) is { } problem)
                     return Results.BadRequest(new { error = problem });
+
+                if (await SavedListRules.WhyNotUsableAsync(db, GiveawayRules.ReadStored(giveaway.Rules), ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
 
                 giveaway.State = body.Draft ? GiveawayStates.Draft : GiveawayStates.Open;
 
@@ -307,6 +321,9 @@ public static class GiveawayEndpoints
 
                 if (Apply(body, giveaway) is { } problem)
                     return Results.BadRequest(new { error = problem });
+
+                if (await SavedListRules.WhyNotUsableAsync(db, GiveawayRules.ReadStored(giveaway.Rules), ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
 
                 if (!body.Draft && giveaway.State == GiveawayStates.Draft)
                 {
@@ -666,6 +683,9 @@ public static class GiveawayEndpoints
             .Select(g => new { Id = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.Id, g => g.Count, ct);
 
+        // So a rule naming a saved list says which one (lists design §4).
+        var listNames = await SavedListRules.NamesAsync(db, ct);
+
         return [.. giveaways.Select(giveaway =>
         {
             var rules = GiveawayRules.ReadStored(giveaway.Rules);
@@ -683,7 +703,7 @@ public static class GiveawayEndpoints
                 giveaway.EntryWay,
                 giveaway.Emoji,
                 GiveawayRules.Write(rules),
-                GiveawayRules.DescribeLines(rules),
+                GiveawayRules.DescribeLines(rules, listNames),
                 exclusions.Write(),
                 exclusions.Describe(),
                 giveaway.Weighting,

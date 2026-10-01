@@ -511,6 +511,11 @@ public static class ApiSurface
         // giveaway's own loop, through the same drawer.
         Features.Giveaways.GiveawayEndpoints.MapGiveaways(app);
 
+        // Saved lists: a name and the giveaway rules, who is in each right now, and the export
+        // (lists design). A list never does anything by itself; a giveaway or auto-invites can
+        // name one among their rules.
+        Features.Lists.ListEndpoints.MapLists(app);
+
         // Whether this deployment is a demo, and the control that puts its data back (demo mode
         // design §6). Mapped everywhere; on anything but a demo it answers "no" and refuses the
         // reset, because the web app asks it on every load to decide whether to show the marker.
