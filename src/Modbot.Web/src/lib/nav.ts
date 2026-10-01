@@ -180,7 +180,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   live: 'l',
   calendar: 'e',
   giveaways: 'p',
-  lists: '',
+  lists: 'u',
   chat: 'c',
   bans: 'b',
   flags: 'f',

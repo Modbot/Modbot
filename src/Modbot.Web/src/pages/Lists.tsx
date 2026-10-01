@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Pager } from '@/components/Pager'
+import { EmptyRow } from '@/components/PanelGrid'
 import { SubjectLink } from '@/components/facts'
 import { RuleBuilder } from '@/components/giveaways/RuleBuilder'
 import { Field, Outcome } from '@/components/settings/fields'
@@ -66,7 +67,7 @@ export function Lists() {
     load()
   }, [load])
 
-  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : 'loading'} onTryAgain={load}>{error}</PageMessage>
 
   const opened = data.lists.find((l) => l.id === openId) ?? null
 
@@ -199,6 +200,8 @@ function ListDialog({
   const [problem, setProblem] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  // Bumped by Try again, so a failed read is asked again without redrawing the rest of the dialog.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -215,7 +218,7 @@ function ListDialog({
     return () => {
       cancelled = true
     }
-  }, [list.id, list.updatedAt, at.page])
+  }, [list.id, list.updatedAt, at.page, attempt])
 
   const inUse = list.usedBy.giveaways.length > 0 || list.usedBy.autoInvites
 
@@ -265,9 +268,11 @@ function ListDialog({
   
             <Section title="Who is in it">
               {problem ? (
-                <span className="text-destructive">{problem}</span>
+                <EmptyRow className="px-0" tone="danger" onTryAgain={() => setAttempt((n) => n + 1)}>
+                  {problem}
+                </EmptyRow>
               ) : !people ? (
-                <span className="text-muted-foreground">Working it out…</span>
+                <EmptyRow className="px-0" tone="loading" />
               ) : people.unanswerable ? (
                 <span className="text-destructive">{people.unanswerable}</span>
               ) : (
