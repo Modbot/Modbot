@@ -91,8 +91,11 @@ public sealed class EvidenceAttachments
     /// </summary>
     /// <param name="clip">
     /// The saved clip this file was matched to, when it was attached as one. The caller has already
-    /// made the commit check the bytes against the clip's SHA-256; here the file is marked as
-    /// captured, with where and when the clip was saved, and the fact says so.
+    /// made the commit check the bytes against the clip's SHA-256. Here, in the same transaction as
+    /// the hold and its fact, the file is marked as captured with where and when the clip was saved
+    /// and whose device reported it, and the <see cref="FactType.EvidenceAttached"/> fact carries the
+    /// same. A file the case file already holds is left as it is: the case file never offers a clip
+    /// it already holds.
     /// </param>
     /// <returns>Whether it was newly put on.</returns>
     public async Task<bool> AttachAsync(
@@ -104,17 +107,17 @@ public sealed class EvidenceAttachments
         var caseId = caseFile.Id.ToString();
         var hash = committed.Hash.Hex;
 
-        // Before the "already on" check: a file put on earlier by choosing it plainly, and now
-        // attached again as the clip it is, still learns where it came from.
-        if (clip is not null)
-            await MarkAsClipAsync(hash, clip, ct);
-
         if (await IsOnAsync(caseId, hash, ct))
             return false;
 
         var name = Cleaned(committed.FileName);
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+        // Saved with the hold below, so the file is never marked as a clip without the fact that
+        // says who attached it as one, nor the other way round.
+        if (clip is not null)
+            await MarkAsClipAsync(hash, clip, ct);
 
         _db.EvidenceAttachments.Add(new EvidenceAttachment
         {
@@ -154,7 +157,7 @@ public sealed class EvidenceAttachments
                 ["contentType"] = committed.ContentType,
                 ["description"] = clip is null
                     ? $"{actor.Username} attached {name ?? "a file"} to a case file"
-                    : $"{actor.Username} attached a clip saved on {clip.SavedBy ?? clip.SavedById}'s PC to a case file",
+                    : $"{actor.Username} attached a clip saved on {clip.SavedBy}'s PC to a case file",
                 ["clip"] = clip is null ? null : new JsonObject
                 {
                     ["clipId"] = clip.Id,
@@ -162,7 +165,9 @@ public sealed class EvidenceAttachments
                     ["worldId"] = clip.WorldId,
                     ["instanceId"] = clip.InstanceId,
                     ["savedById"] = clip.SavedById,
+                    ["savedByUserId"] = clip.SavedByUserId.ToString(),
                     ["savedBy"] = clip.SavedBy,
+                    ["deviceId"] = clip.DeviceId?.ToString(),
                 },
             }),
             ct);
@@ -172,8 +177,9 @@ public sealed class EvidenceAttachments
     }
 
     /// <summary>
-    /// Writes onto the file's own record that it is this saved clip: captured, and where, when and
-    /// by whose companion. Once: a file already marked keeps what it was first marked with.
+    /// Marks the file's own record as this saved clip — captured, and where, when and by whose
+    /// device — for the caller's next save. Once: a file already marked keeps what it was first
+    /// marked with.
     /// </summary>
     private async Task MarkAsClipAsync(string hash, SavedClip clip, CancellationToken ct)
     {
@@ -186,9 +192,9 @@ public sealed class EvidenceAttachments
         blob.ClipWorldId = Cut(clip.WorldId, 128);
         blob.ClipInstanceId = Cut(clip.InstanceId, 256);
         blob.ClipSavedById = Cut(clip.SavedById, 128);
+        blob.ClipSavedByUserId = clip.SavedByUserId;
         blob.ClipSavedByName = Cut(clip.SavedBy, 128);
-
-        await _db.SaveChangesAsync(ct);
+        blob.ClipDeviceId = clip.DeviceId;
     }
 
     private static string? Cut(string? text, int length)

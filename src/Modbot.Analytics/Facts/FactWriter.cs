@@ -271,15 +271,48 @@ public sealed class FactWriter : IFactWriter
         if (fact.InstanceId is { } instance)
             candidates = candidates.Where(e => e.InstanceId == null || e.InstanceId == instance);
 
-        var match = await candidates
+        var ordered = candidates
             // Earliest wins: spec 5.7 says whichever report arrives first sets the window, and
             // ordering by time rather than id keeps that stable if ids are ever filled in later.
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Id)
-            .Select(e => new { e.Id, e.OccurredAt, e.Data })
-            .FirstOrDefaultAsync(ct);
+            .Select(e => new { e.Id, e.OccurredAt, e.Data });
+
+        // A saved clip is one file, not one moment: two clips saved by one moderator within the
+        // window are two clips, and only the same file reported again (a retried batch) is the
+        // same one. The file's fingerprint is its identity, so it is compared too. Few rows: one
+        // moderator's clips inside a few seconds.
+        if (fact.Type == FactType.InstanceClipSaved)
+        {
+            var hash = Text(fact.Data?[ClipKeys.Hash]);
+            var same = (await ordered.ToListAsync(ct))
+                .FirstOrDefault(e => hash is not null && StoredClipHash(e.Data) == hash);
+
+            return same is null ? null : new RecordedFact(same.Id, same.OccurredAt, same.Data);
+        }
+
+        var match = await ordered.FirstOrDefaultAsync(ct);
 
         return match is null ? null : new RecordedFact(match.Id, match.OccurredAt, match.Data);
+    }
+
+    private static string? Text(System.Text.Json.Nodes.JsonNode? node)
+        => node is System.Text.Json.Nodes.JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>The fingerprint a stored clip-saved fact carries, or null.</summary>
+    private static string? StoredClipHash(string? data)
+    {
+        if (string.IsNullOrWhiteSpace(data))
+            return null;
+
+        try
+        {
+            return Text(System.Text.Json.Nodes.JsonNode.Parse(data)?[ClipKeys.Hash]);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

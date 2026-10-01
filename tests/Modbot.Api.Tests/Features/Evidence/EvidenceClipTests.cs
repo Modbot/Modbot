@@ -23,6 +23,11 @@ public class EvidenceClipTests(PostgresFixture db)
     private const ModbotPermissions Moderator =
         ModbotPermissions.ManageSettings | ModbotPermissions.UploadEvidence | ModbotPermissions.ViewEvidence;
 
+    /// <summary>The account the reporting device was paired to, as the ingest endpoint writes it onto the fact.</summary>
+    private static readonly Guid Owner = Guid.Parse("0192d4a0-0000-7000-8000-00000000a1e5");
+
+    private static readonly Guid Device = Guid.Parse("0192d4a0-0000-7000-8000-0000000de71c");
+
     private static async Task<long> WriteAsync(EvidenceApiTestHost host, FactRecord fact)
     {
         using var scope = host.Services.CreateScope();
@@ -44,7 +49,10 @@ public class EvidenceClipTests(PostgresFixture db)
             {
                 [ClipKeys.Hash] = Convert.ToHexStringLower(SHA256.HashData(bytes)),
                 [ClipKeys.Bytes] = bytes.LongLength,
-                ["displayName"] = "Alex",
+                ["displayName"] = "Somebody Else",
+                [ClientReport.DeviceIdKey] = Device.ToString(),
+                [ClipKeys.SavedByUserId] = Owner.ToString(),
+                [ClipKeys.SavedByUsername] = "alex",
             },
         });
 
@@ -55,19 +63,20 @@ public class EvidenceClipTests(PostgresFixture db)
     }
 
     private static async Task<HttpResponseMessage> SendAsClipAsync(
-        EvidenceApiTestHost host, string cookie, byte[] bytes, string caseId, long clipId)
+        EvidenceApiTestHost host, string cookie, byte[] bytes, string caseId, long clipId, bool caseAtBegin = true)
     {
         var ticket = await host.ReadAsync<EvidenceUploadTicketView>(
             await host.PostAsync(
                 "/api/evidence/uploads",
                 cookie,
-                new { fileName = "The Black Cat_98874.mp4", contentType = "image/png", length = bytes.Length, reportId = caseId },
+                new { fileName = "The Black Cat_98874.mp4", contentType = "image/png", length = bytes.Length, reportId = caseAtBegin ? caseId : null },
                 Ct),
             Ct);
 
         (await host.PutBytesAsync(ticket.TransferUrl, cookie, bytes, Ct)).EnsureSuccessStatusCode();
 
-        return await host.PostAsync($"/api/evidence/uploads/{ticket.UploadId}/commit", cookie, new { clipId }, Ct);
+        return await host.PostAsync(
+            $"/api/evidence/uploads/{ticket.UploadId}/commit", cookie, new { clipId, reportId = caseAtBegin ? null : caseId }, Ct);
     }
 
     [Fact]
@@ -97,7 +106,12 @@ public class EvidenceClipTests(PostgresFixture db)
         Assert.Equal("wrld_cat", blob.ClipWorldId);
         Assert.Equal("98874", blob.ClipInstanceId);
         Assert.Equal("usr_mod", blob.ClipSavedById);
-        Assert.Equal("Alex", blob.ClipSavedByName);
+
+        // Credited to the device's owner, as the server wrote it from the pairing, never to the
+        // display name the companion's event carried.
+        Assert.Equal(Owner, blob.ClipSavedByUserId);
+        Assert.Equal("alex", blob.ClipSavedByName);
+        Assert.Equal(Device, blob.ClipDeviceId);
 
         var attached = await context.Events.AsNoTracking()
             .SingleAsync(e => e.Type == FactType.EvidenceAttached && e.SubjectId == caseId, Ct);
@@ -122,7 +136,7 @@ public class EvidenceClipTests(PostgresFixture db)
         var response = await SendAsClipAsync(host, cookie, EvidenceUploads.Png("some-other-file"), caseId, clipId);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("not the clip saved on Alex's PC", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Contains("not the clip saved on alex's PC", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
 
         await using var context = db.NewContext();
         Assert.Equal(0, await context.EvidenceAttachments.CountAsync(a => a.CaseId == caseId, Ct));
@@ -142,6 +156,32 @@ public class EvidenceClipTests(PostgresFixture db)
         var response = await SendAsClipAsync(host, cookie, EvidenceUploads.Png("no-such-clip"), caseId, clipId: 987_654_321);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Whether a clip exists is not told to somebody who may not attach to the case file: the case
+    /// file is checked first, and they get the case file's refusal whatever the clip id.
+    /// </summary>
+    [Fact]
+    public async Task TheCaseFileIsCheckedBeforeTheClip()
+    {
+        await EvidenceApiTestHost.ResetAsync(db, Ct);
+        await using var host = await EvidenceApiTestHost.StartAsync(db);
+
+        var author = await host.SignedInAsync(Moderator, Ct);
+        await EvidenceUploads.ConfigureAsync(host, author, Ct);
+        var caseId = await host.NewCaseAsync(author, Ct);
+
+        // May upload, did not write this case file, and may not ban.
+        var stranger = await host.SignedInAsync(ModbotPermissions.UploadEvidence | ModbotPermissions.ViewEvidence, Ct);
+        var clipId = await ClipSavedAsync(host, EvidenceUploads.Png("not-yours"), host.Clock.UtcNow.AddMinutes(-30));
+
+        // Begun with no case file, so the case file is first named, and checked, at commit.
+        var missing = await SendAsClipAsync(host, stranger, EvidenceUploads.Png("not-yours-a"), caseId, clipId: 987_654_321, caseAtBegin: false);
+        var real = await SendAsClipAsync(host, stranger, EvidenceUploads.Png("not-yours-b"), caseId, clipId, caseAtBegin: false);
+
+        Assert.Equal(HttpStatusCode.Forbidden, missing.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, real.StatusCode);
     }
 
     /// <summary>

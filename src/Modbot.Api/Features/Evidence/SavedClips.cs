@@ -13,6 +13,10 @@ namespace Modbot.Api.Features.Evidence;
 /// <param name="Id">The fact's id.</param>
 /// <param name="Hash">The file's SHA-256, as the companion worked it out when the clip was saved.</param>
 /// <param name="Bytes">The file's size.</param>
+/// <param name="SavedById">The moderator's VRChat id: the fact's subject, checked against the device's owner when it arrived.</param>
+/// <param name="SavedByUserId">The Modbot account the reporting device was paired to.</param>
+/// <param name="SavedBy">That account's username when the clip was reported.</param>
+/// <param name="DeviceId">The device that reported it.</param>
 public sealed record SavedClip(
     long Id,
     string Hash,
@@ -21,7 +25,9 @@ public sealed record SavedClip(
     string InstanceId,
     DateTimeOffset SavedAt,
     string SavedById,
-    string? SavedBy);
+    Guid SavedByUserId,
+    string SavedBy,
+    Guid? DeviceId);
 
 /// <summary>
 /// The clips moderators' companions said they saved: one by its id, and the ones a case file's
@@ -29,12 +35,14 @@ public sealed record SavedClip(
 /// </summary>
 /// <remarks>
 /// <para>Read from <see cref="FactType.InstanceClipSaved"/> facts and nothing else. The server never
-/// has the clip until a moderator attaches it; what it has is when and where it was saved, by whom,
-/// and the file's fingerprint (clips design spec §16).</para>
+/// has the clip until a moderator attaches it; what it has is when and where it was saved, by whose
+/// device, and the file's fingerprint (clips design spec §16).</para>
+/// <para>A clip is credited to the account its device was paired to, written onto the fact by the
+/// server when it arrived, never to a name the event carried. A fact without that is not offered.</para>
 /// </remarks>
 public sealed class SavedClips
 {
-    /// <summary>At most this many clips are looked at for one case file.</summary>
+    /// <summary>At most this many clips are looked at for one case file, the newest kept.</summary>
     private const int MaxClips = 200;
 
     private readonly ModbotContext _db;
@@ -45,7 +53,7 @@ public sealed class SavedClips
         _db = db;
     }
 
-    /// <summary>The clip with this fact id, or null when there is none or the fact is not a saved clip.</summary>
+    /// <summary>The clip with this fact id, or null when there is none or the fact is not a usable saved clip.</summary>
     public async Task<SavedClip?> FindAsync(long id, CancellationToken ct)
     {
         var fact = await _db.Events.AsNoTracking()
@@ -68,10 +76,35 @@ public sealed class SavedClips
         var anchor = caseFile.BannedAt ?? caseFile.CreatedAt;
         var from = anchor - ClipsNearAPerson.LookBack;
         var to = anchor + ClipsNearAPerson.LookAhead;
+        var types = ClipsNearAPerson.PresenceTypes.ToList();
 
+        // The person first: only the instances they were in can hold a clip of them, so the clips
+        // are looked for there and nowhere else. A busy group saving many clips elsewhere in the
+        // week cannot push this person's clip out of the limit below.
+        var marks = await _db.Events.AsNoTracking()
+            .Where(e => e.SubjectPlatform == FactPlatform.VRChat
+                && e.SubjectId == caseFile.UserId
+                && types.Contains(e.Type)
+                && e.InstanceId != null
+                && e.OccurredAt >= from - TimeInInstance.LongestStay
+                && e.OccurredAt <= to)
+            .Select(e => new PersonMark(e.Type, e.WorldId, e.InstanceId!, e.OccurredAt))
+            .ToListAsync(ct);
+
+        if (marks.Count == 0)
+            return [];
+
+        var instances = marks.Select(m => m.InstanceId).Distinct(StringComparer.Ordinal).ToList();
+
+        // Newest first under the limit, so the ones nearest the ban are the ones kept.
         var facts = await _db.Events.AsNoTracking()
-            .Where(e => e.Type == FactType.InstanceClipSaved && e.OccurredAt >= from && e.OccurredAt <= to)
-            .OrderBy(e => e.OccurredAt)
+            .Where(e => e.Type == FactType.InstanceClipSaved
+                && e.InstanceId != null
+                && instances.Contains(e.InstanceId)
+                && e.OccurredAt >= from
+                && e.OccurredAt <= to)
+            .OrderByDescending(e => e.OccurredAt)
+            .ThenByDescending(e => e.Id)
             .Take(MaxClips)
             .ToListAsync(ct);
 
@@ -79,27 +112,12 @@ public sealed class SavedClips
         if (clips.Count == 0)
             return [];
 
-        var instances = clips.Select(c => c.InstanceId).Distinct(StringComparer.Ordinal).ToList();
-        var types = ClipsNearAPerson.PresenceTypes.ToList();
-        var earliest = from - TimeInInstance.LongestStay;
-
-        var marks = await _db.Events.AsNoTracking()
-            .Where(e => e.SubjectPlatform == FactPlatform.VRChat
-                && e.SubjectId == caseFile.UserId
-                && types.Contains(e.Type)
-                && e.InstanceId != null
-                && instances.Contains(e.InstanceId)
-                && e.OccurredAt >= earliest
-                && e.OccurredAt <= to)
-            .Select(e => new PersonMark(e.Type, e.WorldId, e.InstanceId!, e.OccurredAt))
-            .ToListAsync(ct);
-
         var picked = ClipsNearAPerson.Pick(
                 clips.Select(c => new ClipMark(c.Id, c.WorldId, c.InstanceId, c.SavedAt)),
                 marks)
             .ToHashSet();
 
-        var chosen = clips.Where(c => picked.Contains(c.Id)).ToList();
+        var chosen = clips.Where(c => picked.Contains(c.Id)).OrderBy(c => c.SavedAt).ThenBy(c => c.Id).ToList();
         var names = await WorldNamesAsync(chosen.Select(c => c.WorldId), ct);
 
         return [.. chosen.Select(c => new SavedClipView(
@@ -122,7 +140,10 @@ public sealed class SavedClips
         return rows.ToDictionary(r => r.WorldId, r => r.Name!, StringComparer.Ordinal);
     }
 
-    /// <summary>A fact as a clip, or null when it does not carry a usable fingerprint.</summary>
+    /// <summary>
+    /// A fact as a clip, or null when it does not carry a usable fingerprint or was not credited to
+    /// a device's owner when it arrived.
+    /// </summary>
     private static SavedClip? Read(ModbotEvent fact)
     {
         if (fact.WorldId is not { Length: > 0 } worldId || fact.InstanceId is not { Length: > 0 } instanceId)
@@ -130,14 +151,16 @@ public sealed class SavedClips
 
         var data = AuditJson.Parse(fact.Data);
         if (AuditJson.Text(data, ClipKeys.Hash) is not { Length: > 0 } hash
-            || Bytes(data?[ClipKeys.Bytes]) is not { } bytes)
+            || Bytes(data?[ClipKeys.Bytes]) is not { } bytes
+            || !Guid.TryParse(AuditJson.Text(data, ClipKeys.SavedByUserId), out var ownerId)
+            || AuditJson.Text(data, ClipKeys.SavedByUsername) is not { Length: > 0 } owner)
         {
             return null;
         }
 
         return new SavedClip(
             fact.Id, hash, bytes, worldId, instanceId, fact.OccurredAt, fact.SubjectId,
-            AuditJson.Text(data, "displayName"));
+            ownerId, owner, ClientReport.DeviceIdOf(fact.Data));
     }
 
     private static long? Bytes(JsonNode? node)

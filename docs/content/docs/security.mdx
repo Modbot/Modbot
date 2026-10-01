@@ -225,10 +225,19 @@ The companion pairs with your server through the pairing page. See
   The sound in a clip is VRChat's own, with Discord's on a switch of its own that is off; nothing
   else the PC plays can be recorded by anybody, including whoever holds the token. If the moderator
   ticks **Tell the group's Modbot when I save a clip**, the token sends one more kind of event: that
-  a clip was saved in the group's instance, with the file's SHA-256 and size. That describes a file
-  and cannot put one anywhere. A file is attached as that clip only by a signed-in person with
-  **Upload evidence**, and only if its bytes hash to that fingerprint, so a stolen token that sends
-  made-up clips gets a line in the audit log and a case file entry nobody can attach a file to.
+  a clip was saved in the group's instance, with the file's SHA-256 and size. The server only takes
+  it when it names the VRChat account linked to the person the device was paired to, and credits it
+  to that person's Modbot account from the pairing, never from the event; a device whose owner has
+  no VRChat account linked cannot report a clip at all. So a stolen device token **can** announce
+  "clips" credited to that one moderator, in that group's instances, with any fingerprint — including
+  the fingerprint of a file the thief holds. Those show on the case files of people who were in
+  those instances, as clips saved on that moderator's PC. It **cannot** credit a clip to anybody
+  else, upload or attach anything, or read any evidence: a file is attached only by a signed-in
+  person with **Upload evidence** who may change that case file, and only if its bytes match the
+  fingerprint. A thief who also holds such an account could attach their own file and have it shown
+  as that moderator's clip, which is why [revoking](/companion/pairing#when-a-token-is-revoked) a
+  stolen token matters here as it does for presence, and why the audit log records both the device
+  and the account that attached it.
 - The companion can open that person's microphone if they switch
   [Listening](/companion/listening) on, and **a device token reaches none of that either**. Nothing
   the microphone hears is recorded, kept or sent anywhere by anybody: the sound is checked against

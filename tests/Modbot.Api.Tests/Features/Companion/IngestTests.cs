@@ -498,8 +498,10 @@ public class IngestTests
     }
 
     private const string ClipHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+    private const string OtherHash = "60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752";
 
-    private static CompanionEventDto ClipSaved(string? hash = ClipHash, string? bytes = "52428800", string subject = "usr_mod")
+    private static CompanionEventDto ClipSaved(
+        string subject, string? hash = ClipHash, string? bytes = "52428800", DateTimeOffset? at = null)
     {
         var data = new Dictionary<string, string> { ["displayName"] = "Alex", ["fileName"] = "The Black Cat.mp4" };
         if (hash is not null)
@@ -507,35 +509,95 @@ public class IngestTests
         if (bytes is not null)
             data["clipBytes"] = bytes;
 
-        return Event(type: "ClipSaved", subject: subject) with { Data = data };
+        return Event(type: "ClipSaved", subject: subject, at: at) with { Data = data };
+    }
+
+    /// <summary>A host with the group set up and a device paired to a staff account linked to VRChat.</summary>
+    private async Task<(CompanionApiTestHost Host, string Token, Guid DeviceId, string Moderator)> ModeratorAsync(CancellationToken ct)
+    {
+        await CompanionApiTestHost.ResetAsync(_db, ct);
+        var host = await CompanionApiTestHost.StartAsync(_db);
+        await host.ConfigureGroupAsync(_db, Group, ct);
+
+        var (token, deviceId, moderator) = await host.PairModeratorAsync(ct);
+        return (host, token, deviceId, moderator);
     }
 
     /// <summary>
-    /// A saved clip is a fact about the moderator with the file's fingerprint, and nothing else
-    /// about the file: a field the protocol does not declare, like a file name, is dropped.
+    /// A saved clip is a fact about the moderator with the file's fingerprint, credited to the
+    /// account the device was paired to, and nothing else about the file: a field the protocol does
+    /// not declare, like a file name, is dropped.
     /// </summary>
     [Fact]
-    public async Task ASavedClipIsRecordedWithItsFingerprintOnly()
+    public async Task ASavedClipIsRecordedWithItsFingerprintAndTheDevicesOwner()
     {
         var ct = TestContext.Current.CancellationToken;
-        var (host, token) = await ReadyAsync(ct);
+        var (host, token, deviceId, moderator) = await ModeratorAsync(ct);
         await using var _ = host;
 
-        var result = await PostAsync(host, token, Batch(ClipSaved()), ct);
+        var result = await PostAsync(host, token, Batch(ClipSaved(moderator)), ct);
 
         Assert.Equal(1, result.Accepted);
         Assert.Empty(result.Rejected);
 
         await using var context = _db.NewContext();
-        var fact = context.Events.Single(e => e.SubjectId == "usr_mod");
+        var owner = context.Users.Single(u => u.VRChatUserId == moderator);
+        var fact = context.Events.Single(e => e.SubjectId == moderator);
         Assert.Equal(Core.Data.Entities.FactType.InstanceClipSaved, fact.Type);
         Assert.Equal("39911", fact.InstanceId);
 
         using var data = JsonDocument.Parse(fact.Data);
         Assert.Equal(ClipHash, data.RootElement.GetProperty("clipHash").GetString());
         Assert.Equal(52428800, data.RootElement.GetProperty("clipBytes").GetInt64());
-        Assert.Equal("Alex", data.RootElement.GetProperty("displayName").GetString());
+        Assert.Equal(deviceId.ToString(), data.RootElement.GetProperty("deviceId").GetString());
+
+        // Credited from the pairing: the owner's account and username, not the name the event carried.
+        Assert.Equal(owner.Id.ToString(), data.RootElement.GetProperty("savedByUserId").GetString());
+        Assert.Equal(owner.Username, data.RootElement.GetProperty("savedByUsername").GetString());
         Assert.False(data.RootElement.TryGetProperty("fileName", out var _));
+    }
+
+    /// <summary>
+    /// A device can only report its own owner's clips. Otherwise any paired device could announce a
+    /// file "saved on" another moderator's PC, and whoever holds that file could attach it credited
+    /// to them.
+    /// </summary>
+    [Fact]
+    public async Task ADeviceReportingAClipForSomebodyElseIsRefused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token, _, moderator) = await ModeratorAsync(ct);
+        await using var __ = host;
+
+        var result = await PostAsync(host, token, Batch(Event(), ClipSaved("usr_somebody_else")), ct);
+
+        Assert.Equal(1, result.Accepted);
+        var refused = Assert.Single(result.Rejected);
+        Assert.Equal(1, refused.Index);
+        Assert.Equal("not_the_device_owner", refused.Reason);
+
+        await using var context = _db.NewContext();
+        Assert.False(context.Events.Any(e => e.Type == Core.Data.Entities.FactType.InstanceClipSaved));
+        Assert.NotEqual("usr_somebody_else", moderator);
+    }
+
+    /// <summary>A device whose owner has no VRChat account linked cannot say whose clip it is, so it reports none.</summary>
+    [Fact]
+    public async Task ADeviceWhoseOwnerIsNotLinkedToVRChatReportsNoClips()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await CompanionApiTestHost.ResetAsync(_db, ct);
+        await using var host = await CompanionApiTestHost.StartAsync(_db);
+        await host.ConfigureGroupAsync(_db, Group, ct);
+
+        var owner = await TestAccounts.CreateAsync(
+            host.Database, $"owner_{Guid.NewGuid():N}", TestAccounts.Password,
+            Core.Data.Entities.ModbotPermissions.PairCompanion, linked: false, ct);
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, ct);
+
+        var result = await PostAsync(host, token, Batch(ClipSaved("usr_mod")), ct);
+
+        Assert.Equal("not_the_device_owner", Assert.Single(result.Rejected).Reason);
     }
 
     /// <summary>The fingerprint is what a later upload is matched against, so one that is not a SHA-256 is refused.</summary>
@@ -549,15 +611,38 @@ public class IngestTests
     public async Task ASavedClipWithoutAUsableFingerprintIsRefused(string? hash, string? bytes)
     {
         var ct = TestContext.Current.CancellationToken;
-        var (host, token) = await ReadyAsync(ct);
-        await using var _ = host;
+        var (host, token, _, moderator) = await ModeratorAsync(ct);
+        await using var __ = host;
 
-        var result = await PostAsync(host, token, Batch(Event(), ClipSaved(hash, bytes)), ct);
+        var result = await PostAsync(host, token, Batch(Event(), ClipSaved(moderator, hash, bytes)), ct);
 
         Assert.Equal(1, result.Accepted);
         var refused = Assert.Single(result.Rejected);
         Assert.Equal(1, refused.Index);
         Assert.Equal("malformed_event", refused.Reason);
+    }
+
+    /// <summary>
+    /// Two clips saved seconds apart are two clips, not one moment reported twice; the same clip
+    /// sent again, as a retried batch would, is still one.
+    /// </summary>
+    [Fact]
+    public async Task TwoClipsSecondsApartAreTwoAndTheSameClipAgainIsOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token, _, moderator) = await ModeratorAsync(ct);
+        await using var _ = host;
+
+        var first = await PostAsync(host, token, Batch(ClipSaved(moderator, ClipHash, at: Noon)), ct);
+        var second = await PostAsync(host, token, Batch(ClipSaved(moderator, OtherHash, at: Noon.AddSeconds(2))), ct);
+        var again = await PostAsync(host, token, Batch(ClipSaved(moderator, ClipHash, at: Noon.AddSeconds(1))), ct);
+
+        Assert.Equal(1, first.Accepted);
+        Assert.Equal(1, second.Accepted);
+        Assert.Equal(1, again.Deduplicated);
+
+        await using var context = _db.NewContext();
+        Assert.Equal(2, context.Events.Count(e => e.Type == Core.Data.Entities.FactType.InstanceClipSaved));
     }
 
     /// <summary>

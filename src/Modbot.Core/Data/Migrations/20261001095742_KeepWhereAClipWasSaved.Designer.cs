@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001094147_KeepWhereAClipWasSaved")]
+    [Migration("20261001095742_KeepWhereAClipWasSaved")]
     partial class KeepWhereAClipWasSaved
     {
         /// <inheritdoc />
@@ -2657,6 +2657,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("byte_size");
 
+                    b.Property<Guid?>("ClipDeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_device_id");
+
                     b.Property<string>("ClipInstanceId")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -2675,6 +2679,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("clip_saved_by_name");
+
+                    b.Property<Guid?>("ClipSavedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_saved_by_user_id");
 
                     b.Property<string>("ClipWorldId")
                         .HasMaxLength(128)

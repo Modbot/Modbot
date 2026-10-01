@@ -176,7 +176,10 @@ public sealed record CaseLiftView(
 /// <param name="WorldId">The world. Opaque.</param>
 /// <param name="InstanceId">The instance, as VRChat named it. Display only.</param>
 /// <param name="SavedById">The moderator's VRChat id.</param>
-/// <param name="SavedBy">Their display name, as their companion reported it.</param>
+/// <param name="SavedBy">
+/// The username of the Modbot account the reporting device was paired to: whose PC saved it. Taken
+/// from the pairing, never from the report.
+/// </param>
 /// <param name="ByteSize">How big the file is, so the right one can be picked out of a folder.</param>
 /// <param name="WorldName">The world's name, when Modbot has read the world's page.</param>
 public sealed record SavedClipView(
@@ -185,7 +188,7 @@ public sealed record SavedClipView(
     string WorldId,
     string InstanceId,
     string SavedById,
-    string? SavedBy,
+    string SavedBy,
     long ByteSize,
     string? WorldName);
 

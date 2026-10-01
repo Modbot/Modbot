@@ -1276,9 +1276,18 @@ in an updated one. It is the third box on the Clips card and the only thing on t
 anything. Paused servers hear nothing, as with every event.
 
 **The device token is still ingest-only.** It submits one more kind of fact. It cannot upload, read
-or attach evidence (§6 point 1 and 2 still hold), and a stolen token that invents clip facts gets
-case file entries nobody can attach a file to, because no file hashes to an invented fingerprint by
-accident.
+or attach evidence (§6 point 1 and 2 still hold).
+
+**A clip is credited to the device's owner, by the server.** The event's subject must be the VRChat
+account linked to the Modbot account the device was paired to, or it is refused
+(`not_the_device_owner`); the fact gets that account's id and username from the pairing, and the
+case file says "saved on <that username>'s PC". Without this, any paired device could announce a
+fingerprint as somebody else's clip, and whoever held the file could attach it credited to them
+(review, 2026-10-01). What is left, stated plainly: a stolen token can announce clips credited to
+its own owner, with any fingerprint — a file the thief holds included — and a thief who can also
+sign in with **Upload evidence** could attach that file as the owner's clip. That is the same
+standing a stolen token already has over presence, and revoking the device ends it; the attach fact
+names the device and the attaching account.
 
 **Why the hash and not a ticket the companion hands the browser.** The task suggested a signed,
 single-use upload ticket passed from the companion to the browser. The only thing the companion can
@@ -1298,19 +1307,25 @@ it does not know which case file a clip belongs to, and no ban reaches it (§6).
 
 ### 16.2 On the server
 
-- **Fact:** `vrchat.instance.clip-saved`, subject the moderator, payload `clipHash`, `clipBytes`,
-  `displayName`. Presence class by prefix, so it ages out with presence. In the audit log (Moderation)
+- **Fact:** `vrchat.instance.clip-saved`, subject the moderator (checked against the device's
+  owner), payload `clipHash`, `clipBytes`, `displayName`, and from the pairing `savedByUserId`,
+  `savedByUsername` and `deviceId`. Deduplicated by fingerprint, not by the ±5 s window alone, so two
+  clips seconds apart stay two. Presence class by prefix, so it ages out with presence. In the audit log (Moderation)
   as *"Alex saved a clip in The Black Cat #98874 on their PC. It was not uploaded."* — which is the
   instance popup's Activity tab, the instance's timeline. Counts as a sighting of the moderator.
 - **Case file:** `clips` lists clip-saved facts from a week before the ban (or the case file's
-  writing) to a day after, in instances where the companions' presence reports put the person —
+  writing) to a day after, looked for only in the instances the person's own presence facts name
+  (newest 200 kept), in instances where the companions' presence reports put the person —
   a presence fact inside the clip's minutes, or a last known fact before Save that is not a leave,
   within 24 hours (`ClipsNearAPerson`). A clip the case file already holds is left out. It is a list
   to choose from, not a verdict.
 - **Attach:** the commit carries `clipId`; the clip's hash becomes the expected hash, so any other
   file is refused before anything is kept (409, *"That file is not the clip saved on Alex's PC"*).
-  A match marks the blob `Captured` with `clip_*` columns and puts the same in the attach fact
-  (evidence spec §12.4).
+  The case file is checked before the clip is looked up, so a caller who may not attach learns
+  nothing about which clips exist. A match marks the blob `Captured` with `clip_*` columns — including
+  the crediting account and the device — in the same transaction as the hold and the attach fact,
+  which carries the same (evidence spec §12.4). A file the case file already holds is left as it is;
+  the case file never offers a clip it holds.
 
 ### 16.3 Copy crash details
 

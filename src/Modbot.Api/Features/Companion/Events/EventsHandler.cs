@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
@@ -126,12 +127,18 @@ public static class EventsHandler
         var rejected = new List<RejectedEvent>();
         var candidates = new List<FactRecord>(events.Count);
 
+        // Who a saved clip is credited to is the device's owner, never what the event says: only
+        // asked for when a batch carries one, because every other event is about who was seen.
+        var owner = events.Any(e => e.Type == ClipSavedType)
+            ? await ClipOwnerAsync(database, authentication.Device!.IssuedToUserId, ct)
+            : null;
+
         for (var index = 0; index < events.Count; index++)
         {
-            if (ToFact(events[index], managedGroupId, authentication.Device!.Id, clock.UtcNow) is { } fact)
+            if (ToFact(events[index], managedGroupId, authentication.Device!.Id, clock.UtcNow, owner) is { } fact)
                 candidates.Add(fact);
             else
-                rejected.Add(new RejectedEvent(index, Reason(events[index], managedGroupId)));
+                rejected.Add(new RejectedEvent(index, Reason(events[index], managedGroupId, owner)));
         }
 
         if (candidates.Count == 0)
@@ -271,10 +278,40 @@ public static class EventsHandler
         return newest;
     }
 
-    private static string Reason(CompanionEventDto submitted, string managedGroupId)
+    private static string Reason(CompanionEventDto submitted, string managedGroupId, ClipOwner? owner)
         => submitted.GroupId is { Length: > 0 } group && !string.Equals(group, managedGroupId, StringComparison.Ordinal)
             ? "unknown_group"
-            : "malformed_event";
+            : submitted.Type == ClipSavedType && !IsOwnersOwn(submitted, owner)
+                ? "not_the_device_owner"
+                : "malformed_event";
+
+    private const string ClipSavedType = "ClipSaved";
+
+    /// <summary>
+    /// The account a device was paired to, as a saved clip is credited: its Modbot id and username,
+    /// and the VRChat account linked to it.
+    /// </summary>
+    internal sealed record ClipOwner(Guid UserId, string Username, string? VRChatUserId);
+
+    private static Task<ClipOwner?> ClipOwnerAsync(ModbotContext database, Guid userId, CancellationToken ct)
+        => database.Users.AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new ClipOwner(u.Id, u.Username, u.VRChatUserId))
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// Whether a saved clip is reported by the moderator it names: the subject has to be the
+    /// VRChat account linked to the account the device was paired to.
+    /// </summary>
+    /// <remarks>
+    /// Without this, any paired device could announce a fingerprint "saved on" somebody else's PC,
+    /// and whoever holds that file could attach it stamped as that person's clip. A device whose
+    /// owner has no VRChat account linked cannot report clips at all: there is no way to tell which
+    /// subject is the moderator, the same rule <c>InstanceWatching</c> applies to a watch.
+    /// </remarks>
+    private static bool IsOwnersOwn(CompanionEventDto submitted, ClipOwner? owner)
+        => owner is { VRChatUserId: { Length: > 0 } linked }
+           && string.Equals(submitted.SubjectId, linked, StringComparison.Ordinal);
 
     /// <summary>
     /// Turns one submitted event into a fact, or returns null when it is not one this server will
@@ -288,7 +325,8 @@ public static class EventsHandler
         CompanionEventDto submitted,
         string managedGroupId,
         Guid deviceId,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        ClipOwner? owner = null)
     {
         if (submitted is not { SubjectId.Length: > 0, WorldId.Length: > 0, InstanceId.Length: > 0 })
             return null;
@@ -334,11 +372,16 @@ public static class EventsHandler
         // malformed event, and a size that is not a whole number of bytes is not a size.
         if (type == FactType.InstanceClipSaved)
         {
-            if (ClipFingerprint(submitted.Data) is not { } clip)
+            if (!IsOwnersOwn(submitted, owner) || ClipFingerprint(submitted.Data) is not { } clip)
                 return null;
 
             data[ClipKeys.Hash] = clip.Hash;
             data[ClipKeys.Bytes] = clip.Bytes;
+
+            // Credited from the pairing, not from the event: the account the device was issued to,
+            // which is the name a case file shows as "saved on …'s PC".
+            data[ClipKeys.SavedByUserId] = owner!.UserId.ToString();
+            data[ClipKeys.SavedByUsername] = owner.Username;
         }
 
         return new FactRecord

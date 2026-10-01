@@ -3356,7 +3356,8 @@ export type SavedClip = {
   worldId: string
   instanceId: string
   savedById: string
-  savedBy: string | null
+  /** The username of the account the reporting device was paired to: whose PC saved it. */
+  savedBy: string
   byteSize: number
   worldName: string | null
 }

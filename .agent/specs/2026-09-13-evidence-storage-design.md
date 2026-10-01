@@ -921,8 +921,10 @@ a file whose hash matches is that clip and nothing else can pass for it.
 The commit carries `clipId`; the clip's hash becomes the commit's expected hash, so a different
 file is refused before anything is promoted or attached (409, "That file is not the clip saved on
 Alex's PC"). On a match the blob row gains `clip_saved_at`, `clip_world_id`, `clip_instance_id`,
-`clip_saved_by_id` and `clip_saved_by_name`, set once by the first matched attach and never changed,
-and the `modbot.evidence.attach` fact carries the same under `clip`. They are kept on the blob rather
+`clip_saved_by_id` (VRChat), `clip_saved_by_user_id` and `clip_saved_by_name` (the Modbot account the
+reporting device was paired to — the server's attribution, never the device's) and
+`clip_device_id`, set once by the first matched attach, in the same transaction as the hold, and
+never changed; the `modbot.evidence.attach` fact carries the same under `clip`. They are kept on the blob rather
 than read back from the clip-saved fact because that fact is presence and ages out; where a piece of
 evidence was recorded has to stay answerable for as long as the evidence does (§15).
 

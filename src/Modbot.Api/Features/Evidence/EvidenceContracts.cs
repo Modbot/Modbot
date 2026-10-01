@@ -216,7 +216,9 @@ public sealed record EvidenceCommitRequest(string? ExpectedHash = null, string? 
 /// <param name="WorldId">The world. Opaque.</param>
 /// <param name="InstanceId">The instance, as VRChat named it. Display only.</param>
 /// <param name="SavedById">The moderator's VRChat id.</param>
-/// <param name="SavedBy">Their display name, as their companion reported it.</param>
+/// <param name="SavedBy">
+/// The username of the Modbot account the reporting device was paired to: whose PC saved it.
+/// </param>
 /// <param name="WorldName">The world's name, when Modbot has read the world's page.</param>
 public sealed record EvidenceClipView(
     DateTimeOffset SavedAt,

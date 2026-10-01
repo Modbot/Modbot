@@ -122,6 +122,15 @@ public class EvidenceBlob
     /// <summary>The VRChat id of the moderator whose companion saved it. Opaque.</summary>
     public string? ClipSavedById { get; set; }
 
-    /// <summary>Their display name at the time, as their companion reported it. Display only.</summary>
+    /// <summary>
+    /// The Modbot account the reporting device was paired to: who the clip is credited to. Taken
+    /// from the pairing when the clip was reported, never from the report itself.
+    /// </summary>
+    public Guid? ClipSavedByUserId { get; set; }
+
+    /// <summary>That account's username when the clip was reported, for "saved on …'s PC". Display only.</summary>
     public string? ClipSavedByName { get; set; }
+
+    /// <summary>The companion device that reported the clip.</summary>
+    public Guid? ClipDeviceId { get; set; }
 }

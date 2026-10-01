@@ -11,6 +11,12 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<Guid>(
+                name: "clip_device_id",
+                table: "modbot_evidence_blob",
+                type: "uuid",
+                nullable: true);
+
             migrationBuilder.AddColumn<string>(
                 name: "clip_instance_id",
                 table: "modbot_evidence_blob",
@@ -38,6 +44,12 @@ namespace Modbot.Core.Data.Migrations
                 maxLength: 128,
                 nullable: true);
 
+            migrationBuilder.AddColumn<Guid>(
+                name: "clip_saved_by_user_id",
+                table: "modbot_evidence_blob",
+                type: "uuid",
+                nullable: true);
+
             migrationBuilder.AddColumn<string>(
                 name: "clip_world_id",
                 table: "modbot_evidence_blob",
@@ -49,6 +61,10 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "clip_device_id",
+                table: "modbot_evidence_blob");
+
             migrationBuilder.DropColumn(
                 name: "clip_instance_id",
                 table: "modbot_evidence_blob");
@@ -63,6 +79,10 @@ namespace Modbot.Core.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "clip_saved_by_name",
+                table: "modbot_evidence_blob");
+
+            migrationBuilder.DropColumn(
+                name: "clip_saved_by_user_id",
                 table: "modbot_evidence_blob");
 
             migrationBuilder.DropColumn(

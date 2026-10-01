@@ -37541,10 +37541,7 @@
             "type": "string"
           },
           "savedBy": {
-            "type": [
-              "null",
-              "string"
-            ]
+            "type": "string"
           },
           "byteSize": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",

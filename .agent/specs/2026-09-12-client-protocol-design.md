@@ -249,6 +249,14 @@ name, no path, no frame. The server stores it as `vrchat.instance.clip-saved` an
 (`malformed_event`) when either field is missing or is not what it says it is, because the hash is
 what a later evidence upload is matched against (clips design spec §16, evidence spec §12.4).
 
+- **Only the device owner's own clips.** `subjectId` must be the VRChat account linked to the Modbot
+  account the device was paired to; anything else is refused as `not_the_device_owner`, and so is
+  every clip from a device whose owner has no VRChat account linked. The server credits the clip to
+  that account from the pairing (`savedByUserId`, `savedByUsername` in the fact), never from
+  `displayName`.
+- **Deduplicated by file, not by moment.** Two clips from one moderator inside the ±5 s window are
+  two facts; only the same `clipHash` again (a retried batch) is the same one.
+
 - **Only with the box ticked.** The companion sends it only when the moderator ticked *Tell the
   group's Modbot when I save a clip*, which is off by default.
 - **Only to the instance's own group's server**, like every other event, and **never to Modbot

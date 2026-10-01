@@ -161,17 +161,6 @@ public static class EvidenceUploadEndpoints
                 if (CaseFileEndpoints.CallerOf(http) is not { } caller || Actor.Of(http) is not { } actor)
                     return Results.Forbid();
 
-                // A file sent as a saved clip must be that clip: the bytes have to hash to what the
-                // moderator's companion reported when it was saved. The check is the commit's own
-                // expected-hash check, so a different file is refused before anything is kept.
-                SavedClip? clip = null;
-                if (body.ClipId is { } clipId)
-                {
-                    clip = await clips.FindAsync(clipId, ct);
-                    if (clip is null)
-                        return Results.NotFound(new { error = "No such clip." });
-                }
-
                 EvidenceHash? expected = null;
                 if (body.ExpectedHash is { Length: > 0 } claimed)
                 {
@@ -186,17 +175,6 @@ public static class EvidenceUploadEndpoints
                     expected = parsed;
                 }
 
-                if (clip is not null)
-                {
-                    if (!EvidenceHash.TryParse(clip.Hash, out var clipHash))
-                        return Results.NotFound(new { error = "No such clip." });
-
-                    if (expected is { } claimedHash && claimedHash != clipHash)
-                        return Results.Conflict(new { error = NotTheClip(clip) });
-
-                    expected = clipHash;
-                }
-
                 try
                 {
                     // The case file is checked before anything is promoted or recorded: it has to
@@ -208,6 +186,24 @@ public static class EvidenceUploadEndpoints
                         body.ReportId is { Length: > 0 } ? body.ReportId.Trim() : begunFor,
                         caller,
                         ct);
+
+                    // A file sent as a saved clip must be that clip: the bytes have to hash to what
+                    // the moderator's companion reported when it was saved. Looked up only once the
+                    // caller is known to be allowed this case file, so whether a clip exists is not
+                    // told to somebody who may not attach anything. The check is the commit's own
+                    // expected-hash check, so a different file is refused before anything is kept.
+                    SavedClip? clip = null;
+                    if (body.ClipId is { } clipId)
+                    {
+                        clip = await clips.FindAsync(clipId, ct);
+                        if (clip is null || !EvidenceHash.TryParse(clip.Hash, out var clipHash))
+                            return Results.NotFound(new { error = "No such clip." });
+
+                        if (expected is { } claimedHash && claimedHash != clipHash)
+                            return Results.Conflict(new { error = NotTheClip(clip) });
+
+                        expected = clipHash;
+                    }
 
                     CommitResult result;
                     try
@@ -272,7 +268,7 @@ public static class EvidenceUploadEndpoints
     private static string? ModbotAuthActor(HttpContext http) => http.User.Identity?.Name;
 
     private static string NotTheClip(SavedClip clip)
-        => $"That file is not the clip saved on {clip.SavedBy ?? clip.SavedById}'s PC.";
+        => $"That file is not the clip saved on {clip.SavedBy}'s PC.";
 
     /// <summary>
     /// Turns the pipeline's exceptions into answers a moderator can act on.

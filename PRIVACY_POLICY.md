@@ -73,8 +73,10 @@ It depends on what the group has set up. At most:
 - When you changed avatar, and the avatar's name.
 - Which instance you were in when something happened, and who else was there at the time.
 - If you moderate with the Windows client and ticked **Tell the group's Modbot when I save a clip**:
-  each time you saved a clip in one of the group's instances, when and where, and the clip's
-  fingerprint (its SHA-256 and size). Never the clip itself.
+  each time you saved a clip in one of the group's instances, when and where, the clip's
+  fingerprint (its SHA-256 and size), and which device and Modbot account it came from. Never the
+  clip itself. Other moderators see it, with your Modbot username, in the audit log and listed as
+  "Clip saved on your PC" on the case files of people who were in that instance.
 
 This comes from the Windows client some moderators run, which reads the VRChat log file on their PC
 (and from old records a moderator imports). That log names everyone in the instance with them, which
