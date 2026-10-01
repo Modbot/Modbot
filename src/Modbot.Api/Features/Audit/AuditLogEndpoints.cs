@@ -99,7 +99,7 @@ public static class AuditLogEndpoints
                 // One person, across every account Modbot can tie to the one named, as far as this
                 // caller may be told they are tied.
                 var whose = Trimmed(person) is { } named
-                    ? await PersonTimeline.ResolveAsync(db, held, named, ParsePlatform(personPlatform) ?? FactPlatform.VRChat, ct)
+                    ? await PersonTimeline.ResolveAsync(db, clock, held, named, ParsePlatform(personPlatform) ?? FactPlatform.VRChat, ct)
                     : null;
 
                 var request = new AuditRequest(

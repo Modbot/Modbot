@@ -1,6 +1,7 @@
 using Modbot.Api.Features.People;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Audit;
 
@@ -36,6 +37,7 @@ public static class PersonTimeline
 {
     public static async Task<PersonIds> ResolveAsync(
         ModbotContext db,
+        IModbotClock clock,
         ModbotPermissions held,
         string id,
         FactPlatform platform,
@@ -55,7 +57,7 @@ public static class PersonTimeline
         // tie it to; it is still searched for as given, the way `account` would be.
         var view = ask == default
             ? new PersonView(null, null, null, false)
-            : await new PersonLookup(db).ResolveAsync(ask, PersonSight.Of(held), ct);
+            : await new PersonLookup(db, clock).ResolveAsync(ask, PersonSight.Of(held), ct);
 
         return new PersonIds(
             view.VRChat?.Id ?? (platform == FactPlatform.VRChat ? id : null),
