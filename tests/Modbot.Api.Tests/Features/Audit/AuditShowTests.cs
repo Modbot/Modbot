@@ -39,6 +39,14 @@ public class AuditShowTests
     }
 
     [Fact]
+    public void Watches_AreModeration_LikeNotes()
+    {
+        Assert.True(AuditShow.Includes(AuditShow.Moderation, FactType.WatchStarted));
+        Assert.True(AuditShow.Includes(AuditShow.Moderation, FactType.WatchEnded));
+        Assert.True(AuditShow.Includes(AuditShow.Moderation, FactType.WatchFollowedUp));
+    }
+
+    [Fact]
     public void ArrivalsAreNeverModeration()
     {
         Assert.False(AuditShow.Includes(AuditShow.Moderation, FactType.InstanceJoined));

@@ -33,7 +33,7 @@ public static class AuditShow
 
     /// <summary>
     /// What was done to somebody, or what they did to somebody, as a moderation decision: bans,
-    /// kicks, warnings, turned-down requests, notes, case files, AutoMod and the bans Modbot copied.
+    /// kicks, warnings, turned-down requests, notes, watches, case files, AutoMod and the bans Modbot copied.
     /// </summary>
     private static readonly HashSet<string> ModerationTypes = new(StringComparer.Ordinal)
     {
@@ -51,6 +51,9 @@ public static class AuditShow
         FactType.ActionJoinRequestRejected,
         FactType.NoteAdded,
         FactType.NoteTakenBack,
+        FactType.WatchStarted,
+        FactType.WatchEnded,
+        FactType.WatchFollowedUp,
         FactType.ReportCreated,
         FactType.ReportUpdated,
         FactType.ReportWithdrawn,

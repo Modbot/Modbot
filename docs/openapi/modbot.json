@@ -34751,6 +34751,7 @@
           "giveawayEntries",
           "giveawayPlaces",
           "importRecords",
+          "watches",
           "caseFilesKept",
           "evidenceFilesKept",
           "linkedAccount"
@@ -34830,6 +34831,14 @@
             "format": "int32"
           },
           "importRecords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "watches": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -39310,7 +39319,10 @@
             ]
           },
           "reason": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "setByName": {
             "type": "string"

@@ -24,7 +24,7 @@ A watch is one moderator's "keep an eye on this person", on one account (VRChat 
 
 | Field | Required | Meaning |
 |---|---|---|
-| Reason | yes, at most 200 characters | Why, in their own words. Shown on the roster chip and the join card. |
+| Reason | yes, at most 200 characters | Why, in their own words. Shown only to *See the audit log*: the Notes tab, the watch endpoints, Now's follow-ups and the audit log. The roster chip and the join card say "Watched" alone (§4). |
 | Ends | no | The day it stops on its own. Without one it stands until somebody stops it. |
 | Check back on | no | The day somebody should look at the person again (§5). |
 
@@ -49,8 +49,11 @@ pass (§6) writes its end into the log within a minute.
   a person, and a separate permission would be one more box to tick for the same people. *The owner
   may object; a permission of its own is a small change.*
 - **Stopping and following up** are open to whoever started it, and to anyone with `WriteNotes`, as
-  taking back a note is.
-- A purge of a person deletes their watches with their facts.
+  taking back a note is. Somebody who may change a watch but not read the audit log (they started
+  it with only *Write notes*, or lost the audit log since) is answered with the reason left out.
+- A purge of a person deletes their watches with their facts, and the purge preview counts them
+  under **Removed** as **Watches**.
+- The three watch facts are in the audit log's **Moderation** show filter, beside notes.
 
 Endpoints: `GET /api/watches` (`?due=true` for follow-ups due), `GET /api/watches/person?vrchat=&discord=`,
 `POST /api/watches`, `POST /api/watches/{id}/stop`, `POST /api/watches/{id}/followed-up`.

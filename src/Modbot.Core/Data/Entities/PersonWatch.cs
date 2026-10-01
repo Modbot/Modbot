@@ -24,7 +24,10 @@ namespace Modbot.Core.Data.Entities;
 /// </remarks>
 public class PersonWatch
 {
-    /// <summary>The longest a reason may be. A reason is a line on a roster chip, not a note.</summary>
+    /// <summary>
+    /// The longest a reason may be. A reason is a line, not a note: the write-up of what happened
+    /// belongs in a note or a case file.
+    /// </summary>
     public const int MaxReasonLength = 200;
 
     public Guid Id { get; set; } = Guid.CreateVersion7();
@@ -35,7 +38,10 @@ public class PersonWatch
     /// <summary>The account's id. Opaque, never checked for shape (foundation §3.1.1).</summary>
     public string SubjectId { get; set; } = string.Empty;
 
-    /// <summary>Why, in the moderator's words. Required.</summary>
+    /// <summary>
+    /// Why, in the moderator's words. Required. Read only under the audit log's permission: the
+    /// roster, the join card and Live say "Watched" and never this.
+    /// </summary>
     public string Reason { get; set; } = string.Empty;
 
     /// <summary>The Modbot account that started it.</summary>

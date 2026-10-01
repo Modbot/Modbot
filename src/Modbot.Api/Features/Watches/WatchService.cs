@@ -422,7 +422,11 @@ public sealed class WatchService
             watch.SubjectPlatform.ToString(),
             watch.SubjectId,
             name,
-            watch.Reason,
+
+            // The reason is a moderator's words about the person, which only the audit log's
+            // permission may read. Somebody who started a watch and has since lost it can still
+            // stop it or follow up, and is answered without the reason.
+            caller.Has(ModbotPermissions.ViewAuditLog) ? watch.Reason : null,
             watch.SetByUsername,
             watch.SetAt,
             watch.EndsAt,

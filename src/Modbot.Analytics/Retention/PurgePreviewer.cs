@@ -32,6 +32,7 @@ public sealed record LinkedAccount(FactPlatform Platform, string SubjectId, stri
 /// <param name="GiveawayEntries">Standing giveaway entries.</param>
 /// <param name="GiveawayPlaces">Places in a past draw's entrant list that would lose their name and ids.</param>
 /// <param name="ImportRecords">Rows saying a record about them came from an uploaded file.</param>
+/// <param name="Watches">Watches on this account, standing or ended (watching a person design §3).</param>
 /// <param name="CaseFilesKept">Case files about them, which a purge keeps (evidence storage design §15.1).</param>
 /// <param name="EvidenceFilesKept">Undestroyed evidence files hanging off those case files, which a purge keeps.</param>
 /// <param name="LinkedAccount">Their other account, when a link proves one. A purge does not follow it.</param>
@@ -48,6 +49,7 @@ public sealed record PurgePreview(
     int GiveawayEntries,
     int GiveawayPlaces,
     int ImportRecords,
+    int Watches,
     int CaseFilesKept,
     int EvidenceFilesKept,
     LinkedAccount? LinkedAccount);
@@ -124,6 +126,9 @@ public sealed class PurgePreviewer
         var importRecords = await _db.ImportRecords.AsNoTracking()
             .CountAsync(r => r.SubjectPlatform == platform && r.SubjectId == subjectId, ct);
 
+        var watches = await _db.PersonWatches.AsNoTracking()
+            .CountAsync(w => w.SubjectPlatform == platform && w.SubjectId == subjectId, ct);
+
         var (caseFiles, evidenceFiles) = await KeptAsync(platform, subjectId, ct);
 
         return new PurgePreview(
@@ -142,6 +147,7 @@ public sealed class PurgePreviewer
             giveawayEntries,
             giveawayPlaces,
             importRecords,
+            watches,
             caseFiles,
             evidenceFiles,
             await LinkedAsync(platform, subjectId, ct));

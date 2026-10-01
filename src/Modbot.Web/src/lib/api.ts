@@ -712,6 +712,8 @@ export type PurgePreview = {
   giveawayEntries: number
   giveawayPlaces: number
   importRecords: number
+  /** Watches on this account, standing or ended. */
+  watches: number
   caseFilesKept: number
   evidenceFilesKept: number
   linkedAccount: PurgeLinkedAccount | null
@@ -1306,7 +1308,8 @@ export type Watch = {
   subjectPlatform: 'VRChat' | 'Discord'
   subjectId: string
   subjectName: string | null
-  reason: string
+  /** Null when the reader may not read the audit log. */
+  reason: string | null
   setByName: string
   setAt: string
   /** When it stops on its own. Null: until somebody stops it. */

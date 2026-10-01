@@ -19,6 +19,7 @@ public sealed record StartWatchRequest(
 /// <summary>One watch, as it is read back.</summary>
 /// <param name="SubjectPlatform"><c>VRChat</c> or <c>Discord</c>.</param>
 /// <param name="SubjectName">The person's name as Modbot last stored it, when it has one.</param>
+/// <param name="Reason">Why. Null when the reader may not read the audit log.</param>
 /// <param name="SetByName">The username of whoever started it, as it was then.</param>
 /// <param name="FollowUpDue">The follow-up day has come and nobody has followed up yet.</param>
 /// <param name="Standing">It still stands: not stopped, and its end day has not passed.</param>
@@ -33,7 +34,7 @@ public sealed record WatchView(
     string SubjectPlatform,
     string SubjectId,
     string? SubjectName,
-    string Reason,
+    string? Reason,
     string SetByName,
     DateTimeOffset SetAt,
     DateTimeOffset? EndsAt,

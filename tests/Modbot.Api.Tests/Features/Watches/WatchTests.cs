@@ -243,6 +243,25 @@ public class WatchTests
     }
 
     [Fact]
+    public async Task AWriterWithoutTheAuditLog_IsAnsweredWithoutTheReason()
+    {
+        var (host, _) = await ReadyAsync();
+        await using var hosting = host;
+        var writer = await host.SignedInAsync(ModbotPermissions.WriteNotes, Ct);
+
+        var started = await StartAsync(host, writer);
+        Assert.Equal(HttpStatusCode.OK, started.StatusCode);
+
+        var watch = await ReadAsync<WatchView>(started);
+        Assert.Null(watch.Reason);
+
+        var stopped = await host.PostJsonAsync($"/api/watches/{watch.Id}/stop", null, writer, Ct);
+        Assert.Equal(HttpStatusCode.OK, stopped.StatusCode);
+        Assert.Null((await ReadAsync<WatchView>(stopped)).Reason);
+        Assert.DoesNotContain("Came back on an alt", await stopped.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task AReaderWithoutTheAuditLog_CannotReadAWatchOrItsReason()
     {
         var (host, _) = await ReadyAsync();
@@ -281,7 +300,7 @@ public class WatchTests
         var reminder = Assert.Single(notifier.Raised);
         Assert.Equal(NotificationKinds.WatchFollowUpDue, reminder.Kind);
         Assert.Contains(watch.Id.ToString(), reminder.SameAsKey, StringComparison.Ordinal);
-        AssertSaysNothingAboutThePerson(reminder, Person, "Came back on an alt");
+        AssertSaysNothingAboutThePerson(reminder, Person, "Came back on an alt", name: null);
 
         // To whoever set it, and nobody else.
         using (var scope = host.Services.CreateScope())
@@ -356,7 +375,7 @@ public class WatchTests
             context.VRChatUsers.Add(new VRChatUser
             {
                 UserId = Person,
-                DisplayName = "Ada",
+                DisplayName = "Quinn",
                 FirstSeenAt = Day,
                 LastSeenAt = Day,
                 LastRefreshedAt = Day,
@@ -399,24 +418,36 @@ public class WatchTests
 
         // The instance id here carries the person's own id, as a VRChat instance id can; the key
         // is a hash of it, so it does not.
-        AssertSaysNothingAboutThePerson(notification, Person, "Came back on an alt", "Ada");
+        AssertSaysNothingAboutThePerson(notification, Person, "Came back on an alt", name: "Quinn");
 
         // The same instance is the same key, so an evening of coming and going is said once.
         Assert.Equal(WatchAlerts.InstanceKey($"12345~hidden({Person})"), notification.SameAsKey.Split(':')[^1]);
     }
 
     /// <summary>
-    /// Every field a notification is stored with and sent in, checked for the person: their id,
-    /// their name, and the watch's reason. A notification row outlives a purge of the person.
+    /// Every field a notification is stored with and sent in, checked for the person: their id and
+    /// the watch's reason everywhere, and their name in the words and the link. A notification row
+    /// outlives a purge of the person.
     /// </summary>
-    private static void AssertSaysNothingAboutThePerson(Notification notification, params string[] about)
+    /// <remarks>
+    /// The name is not looked for in the key, which holds a watch id and a hash in hex: a short name
+    /// could turn up there by chance. The test's name has no hex letters in it as well.
+    /// </remarks>
+    private static void AssertSaysNothingAboutThePerson(Notification notification, string id, string reason, string? name)
     {
-        string?[] fields = [notification.Title, notification.Body, notification.Link, notification.SameAsKey];
+        string?[] everywhere = [notification.Title, notification.Body, notification.Link, notification.SameAsKey];
+        string?[] words = [notification.Title, notification.Body, notification.Link];
 
-        foreach (var field in fields)
+        foreach (var field in everywhere)
         {
-            foreach (var word in about)
-                Assert.DoesNotContain(word, field ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(id, field ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(reason, field ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         }
+
+        if (name is null)
+            return;
+
+        foreach (var field in words)
+            Assert.DoesNotContain(name, field ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 }
