@@ -395,6 +395,24 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManageLists = 1L << 44,
 
+    // 45 and 46 are kept for opening and closing group instances.
+
+    /// <summary>
+    /// Remove somebody from the Discord server from Modbot (API conventions design §8). Its own
+    /// flag, apart from <see cref="Kick"/>: acting on one platform is not permission to act on the
+    /// other, and Discord keeps its own permissions apart the same way.
+    /// </summary>
+    DiscordKick = 1L << 47,
+
+    /// <summary>Ban somebody from the Discord server from Modbot. Apart from <see cref="Ban"/>, as above.</summary>
+    DiscordBan = 1L << 48,
+
+    /// <summary>Lift a Discord ban from Modbot. Apart from <see cref="DiscordBan"/>, as Unban is from Ban.</summary>
+    DiscordUnban = 1L << 49,
+
+    /// <summary>Time a member of the Discord server out from Modbot.</summary>
+    DiscordTimeOut = 1L << 50,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

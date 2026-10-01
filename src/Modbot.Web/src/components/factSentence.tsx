@@ -1049,6 +1049,34 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.action.discord.ban': (p) => (
+    <>
+      {p.actor} banned {p.subject} from the Discord server
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
+  'modbot.action.discord.unban': (p) => (
+    <>
+      {p.actor} lifted {p.subject}'s Discord ban
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
+  'modbot.action.discord.kick': (p) => (
+    <>
+      {p.actor} removed {p.subject} from the Discord server
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
+  'modbot.action.discord.timeout': (p) => (
+    <>
+      {p.actor} timed {p.subject} out on Discord
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+
   'modbot.action.failed': (p) => (
     <>
       {p.actor} tried to {p.text('action') ?? 'act on'} {p.subject} and VRChat refused

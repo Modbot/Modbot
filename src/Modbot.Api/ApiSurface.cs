@@ -103,6 +103,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
         services.TryAddSingleton<IDiscordOnlineCount, NoDiscordOnlineCount>();
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
+        services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
@@ -387,6 +388,10 @@ public static class ApiSurface
 
         // The Discord server's bans, standing and lifted, as the bot keeps them.
         app.MapDiscordBans();
+
+        // Banning, unbanning, removing and timing out one member, for a group's own tools (API
+        // conventions design §8). One permission each, one request each, a fact each.
+        app.MapDiscordMemberActions();
 
         // AI insights: reading them, and when they are written (AI insights design).
         app.MapInsights();

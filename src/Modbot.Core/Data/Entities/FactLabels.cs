@@ -208,6 +208,10 @@ public static class FactLabels
         [FactType.ActionBan] = "Banned from Modbot",
         [FactType.ActionUnban] = "Unbanned from Modbot",
         [FactType.ActionFailed] = "Action failed",
+        [FactType.ActionDiscordBan] = "Banned on Discord from Modbot",
+        [FactType.ActionDiscordUnban] = "Unbanned on Discord from Modbot",
+        [FactType.ActionDiscordKick] = "Removed from Discord from Modbot",
+        [FactType.ActionDiscordTimeOut] = "Timed out on Discord from Modbot",
         [FactType.ActionJoinRequestApproved] = "Let into the group from Modbot",
         [FactType.ActionJoinRequestRejected] = "Join request turned down from Modbot",
 

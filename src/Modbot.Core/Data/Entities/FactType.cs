@@ -730,6 +730,26 @@ public static class FactType
     /// </remarks>
     public const string ActionFailed = "modbot.action.failed";
 
+    /// <summary>
+    /// Somebody banned a person from the Discord server through Modbot, and Discord accepted (API
+    /// conventions design §8). The subject is the Discord account. Payload: the reason, the server
+    /// and how many days of messages Discord was asked to delete. Discord's own
+    /// <see cref="DiscordMemberBanned"/> arrives beside it, naming only the bot.
+    /// </summary>
+    public const string ActionDiscordBan = "modbot.action.discord.ban";
+
+    /// <summary>Somebody lifted a Discord ban through Modbot. As <see cref="ActionDiscordBan"/>.</summary>
+    public const string ActionDiscordUnban = "modbot.action.discord.unban";
+
+    /// <summary>Somebody removed a person from the Discord server through Modbot. As <see cref="ActionDiscordBan"/>.</summary>
+    public const string ActionDiscordKick = "modbot.action.discord.kick";
+
+    /// <summary>
+    /// Somebody timed a member of the Discord server out through Modbot. Payload: the reason, the
+    /// minutes and <c>until</c>.
+    /// </summary>
+    public const string ActionDiscordTimeOut = "modbot.action.discord.timeout";
+
     /// <summary>A moderator let somebody into the group from Modbot, and VRChat accepted.</summary>
     /// <remarks>
     /// Separate from <see cref="JoinRequestCreated"/> and the rest of the <c>vrchat.group.request.*</c>

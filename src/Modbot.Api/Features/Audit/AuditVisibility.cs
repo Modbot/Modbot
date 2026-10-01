@@ -275,6 +275,10 @@ public static class AuditVisibility
         [FactType.ActionBan] = AuditCategory.Moderation,
         [FactType.ActionUnban] = AuditCategory.Moderation,
         [FactType.ActionFailed] = AuditCategory.Moderation,
+        [FactType.ActionDiscordBan] = AuditCategory.Moderation,
+        [FactType.ActionDiscordUnban] = AuditCategory.Moderation,
+        [FactType.ActionDiscordKick] = AuditCategory.Moderation,
+        [FactType.ActionDiscordTimeOut] = AuditCategory.Moderation,
 
         // Letting somebody into the group, or turning them down, is a decision about a person and
         // belongs in their timeline beside VRChat's own record of the same event (join requests

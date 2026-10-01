@@ -425,6 +425,104 @@
             "session": [ ]
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Ban on Discord",
+        "description": "Ban one person from the Discord server. `userId` is their Discord id; `reason` goes to Discord's audit log with your account's name; `deleteMessageDays` (0 to 7, default 0) has Discord delete that many days of their messages too. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were already banned.\n\nNeeds the `DiscordBan` permission.",
+        "operationId": "BanDiscordMember",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordBanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordActionDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
       }
     },
     "/api/audit/visits": {
@@ -9602,6 +9700,339 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/bans/{id}": {
+      "delete": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Unban on Discord",
+        "description": "Lift one person's Discord ban. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not banned.\n\nNeeds the `DiscordUnban` permission.",
+        "operationId": "UnbanDiscordMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordActionDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/members/{id}/kick": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Remove from Discord",
+        "description": "Remove one person from the Discord server without banning them. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked. `changed` is false when they were not in the server.\n\nNeeds the `DiscordKick` permission.",
+        "operationId": "KickDiscordMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DiscordActionRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordActionDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/members/{id}/timeout": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Time out on Discord",
+        "description": "Time one member of the Discord server out for `minutes` (1 to 40320, which is 28 days); a member already timed out gets the new length. The address names their Discord id; `reason` goes to Discord's audit log with your account's name. One request, never retried. Once Discord accepts, the audit log records who asked.\n\nNeeds the `DiscordTimeOut` permission.",
+        "operationId": "TimeOutDiscordMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordTimeoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordActionDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -20800,7 +21231,7 @@
           "Group page"
         ],
         "summary": "Invite to the group",
-        "description": "Invite one person to the group on VRChat. `userId` names them; `displayName` is kept in the audit log. At most one invite goes out every thirty seconds across the deployment, auto-invites included: sooner answers 429 with `Retry-After`. One request, never retried; a refusal answers with what VRChat said. Once VRChat accepts, the audit log records who sent it, on the invited person's history, and auto-invites will not invite them again.\n\nNeeds the `ManageGroupInvites` permission.",
+        "description": "Invite one person to the group on VRChat. `userId` names them; `displayName` is kept in the audit log. At most one invite goes out every thirty seconds across the deployment, auto-invites included: sooner answers 429 with `Retry-After`. One request, never retried; a refusal answers with what VRChat said. Once VRChat accepts, the audit log records who sent it, on the invited person's history. It counts as an invite Modbot sent, so auto-invites wait as long before inviting the same person as they would after one of their own.\n\nNeeds the `ManageGroupInvites` permission.",
         "operationId": "SendGroupInvite",
         "requestBody": {
           "content": {
@@ -30794,6 +31225,28 @@
           }
         }
       },
+      "DiscordActionDone": {
+        "required": [
+          "changed"
+        ],
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordActionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DiscordAttachmentView": {
         "required": [
           "name",
@@ -30893,6 +31346,28 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/DiscordBanListCoverage"
+          }
+        }
+      },
+      "DiscordBanRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deleteMessageDays": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -32285,6 +32760,24 @@
             "items": {
               "$ref": "#/components/schemas/GroupRoleView"
             }
+          }
+        }
+      },
+      "DiscordTimeoutRequest": {
+        "required": [
+          "minutes"
+        ],
+        "type": "object",
+        "properties": {
+          "minutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

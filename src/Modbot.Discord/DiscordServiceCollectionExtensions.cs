@@ -117,6 +117,10 @@ public static class DiscordServiceCollectionExtensions
         // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
         services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();
 
+        // Ban, unban, remove and time out one member because somebody asked through the API (API
+        // conventions design §8), through the same live session.
+        services.AddSingleton<IDiscordMemberActions, DiscordMemberActions>();
+
         // Discord's online count for the server header, asked on page open and kept five minutes.
         services.AddSingleton<IDiscordOnlineCount, DiscordOnlineCount>();
 
