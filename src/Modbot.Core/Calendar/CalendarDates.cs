@@ -42,6 +42,9 @@ public static class CalendarDates
                 continue;
             }
 
+            // Asked before anything below clears it: whether VRChat may hold this date as changed.
+            var sentToVRChat = MayBeOnVRChat(change);
+
             var day = Instant.FromDateTimeOffset(change.PlannedStartsAt).InZone(zoneBefore).Date;
             var planned = calendarEvent.Repeat == CalendarRepeats.None ? null : DateOn(calendarEvent, zone, day);
 
@@ -61,10 +64,27 @@ public static class CalendarDates
                 change.VRChatErrorAt = null;
             }
 
-            if (IsPlain(change, length))
+            if (IsPlain(change, length) && !sentToVRChat)
                 calendarEvent.DateChanges.Remove(change);
         }
     }
+
+    /// <summary>
+    /// Whether VRChat may still hold this date as it was changed: something was sent for it, or its
+    /// VRChat id was found. A date put back as planned keeps its row until VRChat has been sent the
+    /// planned time and words; the publisher removes it then (calendar design §2.2).
+    /// </summary>
+    public static bool MayBeOnVRChat(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        return change.VRChatSentFingerprint is not null || change.VRChatId is not null;
+    }
+
+    /// <summary>
+    /// A change that can be forgotten: it changes nothing, and VRChat was never told of it.
+    /// </summary>
+    public static bool CanForget(CalendarDateChange change, TimeSpan length) =>
+        IsPlain(change, length) && !MayBeOnVRChat(change);
 
     /// <summary>A change that changes nothing: the planned time and the event's own words.</summary>
     public static bool IsPlain(CalendarDateChange change, TimeSpan length)

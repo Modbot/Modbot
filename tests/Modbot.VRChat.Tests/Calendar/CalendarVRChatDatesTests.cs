@@ -124,6 +124,45 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
     }
 
     [Fact]
+    public async Task ADatePutBackAsPlannedIsSentBackToVRChat_ThenForgotten()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        var moved = second + TimeSpan.FromHours(1);
+
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.StartsAt = moved;
+            c.EndsAt = moved + TimeSpan.FromHours(2);
+        });
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        // Undo: the date is put back as planned. The row stays, because VRChat still has the move.
+        await using (var context = Database.NewContext())
+        {
+            var row = await context.CalendarDateChanges.SingleAsync(c => c.EventId == e.Id, Ct);
+            row.StartsAt = null;
+            row.EndsAt = null;
+            row.UpdatedAt = Clock.UtcNow;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        var (id, body) = VRChat.Calendar.Updates[^1];
+        Assert.Equal("occ_2", id);
+        Assert.Equal(second.UtcDateTime, body.StartsAt);
+        Assert.Equal("Movie night", body.Title);
+
+        // Sent back: nothing of its own is left.
+        await using var after = Database.NewContext();
+        Assert.False(await after.CalendarDateChanges.AnyAsync(c => c.EventId == e.Id, Ct));
+    }
+
+    [Fact]
     public async Task ADateVRChatDoesNotListOnItsOwnIsShownAsFailed_AndTheSeriesIsLeftAlone()
     {
         var e = await PublishedWeeklyAsync();

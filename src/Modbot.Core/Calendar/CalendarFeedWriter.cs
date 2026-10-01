@@ -154,7 +154,7 @@ public static class CalendarFeedWriter
         // A date moved, or given its own title or description, is its own VEVENT with the same UID,
         // naming the date it replaces in RECURRENCE-ID: how a calendar program learns that one date
         // of a series differs from the rest.
-        foreach (var change in calendarEvent.DateChanges.Where(c => !c.Cancelled).OrderBy(c => c.PlannedStartsAt))
+        foreach (var change in calendarEvent.DateChanges.Where(c => !c.Cancelled && !CalendarDates.IsPlain(c, CalendarRepeat.LengthOf(calendarEvent))).OrderBy(c => c.PlannedStartsAt))
         {
             var occurrence = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent));
             var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence);

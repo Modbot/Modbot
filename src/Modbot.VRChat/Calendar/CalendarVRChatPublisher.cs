@@ -484,6 +484,10 @@ public sealed class CalendarVRChatPublisher
             change.VRChatId = dateId;
             DateSent(change, fingerprint);
 
+            // A date put back as planned was kept only until VRChat had the planned date back.
+            if (CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)))
+                calendarEvent.DateChanges.Remove(change);
+
             // The series' dates carry this write's time now; a read of the calendar should not take
             // it for a change made on VRChat.
             if (answeredUpdatedAt is { } updatedAt && (place.VRChatUpdatedAt is null || updatedAt > place.VRChatUpdatedAt))
@@ -750,7 +754,11 @@ public sealed class CalendarVRChatPublisher
 
                 foreach (var change in calendarEvent.DateChanges.Where(c => !IsOver(calendarEvent, c, now)))
                 {
-                    change.VRChatId = null;
+                    // A cancelled date is looked for again: a delete by a stale id answers 404, which reads as
+                    // done. A changed one keeps its id; an update by a stale one answers 404 and looks again.
+                    if (change.Cancelled)
+                        change.VRChatId = null;
+
                     change.VRChatSentFingerprint = change.Cancelled && change.PlannedStartsAt < seriesStartsAt
                         ? CalendarVRChatRequests.DateFingerprint(calendarEvent, change)
                         : null;

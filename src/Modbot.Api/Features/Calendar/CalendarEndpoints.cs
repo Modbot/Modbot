@@ -426,8 +426,10 @@ public static class CalendarEndpoints
                 change.Description = description;
                 change.UpdatedAt = now;
 
-                // Put back exactly as planned: nothing of its own is left to keep.
-                if (CalendarDates.IsPlain(change, length))
+                // Put back exactly as planned: nothing of its own is left to keep -- unless VRChat
+                // was sent the change, which it keeps until it is sent the planned date back; the
+                // publisher removes the row once it has been (calendar design §2.2).
+                if (CalendarDates.CanForget(change, length))
                     calendarEvent.DateChanges.Remove(change);
 
                 var after = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
@@ -919,7 +921,46 @@ public static class CalendarEndpoints
         var clash = CalendarRepeat.Between(calendarEvent, body.StartsAt - TimeSpan.FromTicks(1), body.StartsAt + TimeSpan.FromTicks(1))
             .Any(o => o.StartsAt == body.StartsAt && o.PlannedStartsAt != was.PlannedStartsAt);
 
-        return clash ? "Another date of this event starts then." : null;
+        if (clash)
+            return "Another date of this event starts then.";
+
+        // Modbot keeps dates in order however far one moves, but whether VRChat takes one of its
+        // dates moved past another is not known (calendar design §10). An event on VRChat's
+        // calendar keeps each date between its neighbours, by their planned starts.
+        if (calendarEvent.PublishToVRChat && PastANeighbour(calendarEvent, was, body.StartsAt) is { } past)
+            return past;
+
+        return null;
+    }
+
+    /// <summary>What is wrong when a date would start at or past the date before or after it, or null.</summary>
+    private static string? PastANeighbour(CalendarEvent calendarEvent, CalendarOccurrence was, DateTimeOffset startsAt)
+    {
+        var planned = was.PlannedStartsAt;
+        var length = CalendarRepeat.LengthOf(calendarEvent);
+
+        // The planned dates either side: the one just before, and the one just after.
+        DateTimeOffset? before = null;
+        DateTimeOffset? after = null;
+
+        foreach (var date in CalendarRepeat.PlannedBetween(calendarEvent, planned - TimeSpan.FromDays(400) - length, planned + TimeSpan.FromDays(400)))
+        {
+            if (date.StartsAt < planned)
+                before = date.StartsAt;
+            else if (date.StartsAt > planned)
+            {
+                after = date.StartsAt;
+                break;
+            }
+        }
+
+        if (after is { } next && startsAt >= next)
+            return "Can't move a date past the next date on VRChat.";
+
+        if (before is { } previous && startsAt <= previous)
+            return "Can't move a date past the date before it on VRChat.";
+
+        return null;
     }
 
     /// <summary>A date's own words: null when empty or the same as the event's.</summary>

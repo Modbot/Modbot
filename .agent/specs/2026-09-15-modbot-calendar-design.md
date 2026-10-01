@@ -91,7 +91,14 @@ the rule is still stored, plus **the dates changed on their own**.
   finished, only a date the rule has, only one that has not ended, and never onto another date's
   start (two dates starting together could not be told apart by an opening or the page). A date
   that has opened keeps its start (its Discord event has started, and Discord cannot move a started
-  event); its end can still change. A date put back exactly as planned loses its row. Facts `modbot.calendar.date.change` (before and after)
+  event); its end can still change. A date put back exactly as planned loses its row -- once VRChat
+  has it back: while VRChat may still hold the change (something was sent, or its id was found) the
+  row stays with nothing of its own, the publisher sends the planned time and the event's words to
+  that date, and removes the row after. Removing it at once left VRChat showing the move for good.
+  **On an event that goes to VRChat, a date cannot move to or past its neighbours' planned
+  starts** ("Can't move a date past the next date on VRChat"): Modbot keeps the dates in order
+  either way, but whether VRChat takes one of a series' dates moved past another is not known, and
+  refusing is the honest answer until it is. Facts `modbot.calendar.date.change` (before and after)
   and `modbot.calendar.date.cancel` (§8).
 - **A cancelled date cannot be brought back from the page.** Not asked for; it can be added later.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A

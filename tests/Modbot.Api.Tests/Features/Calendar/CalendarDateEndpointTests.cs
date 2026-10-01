@@ -121,6 +121,57 @@ public class CalendarDateEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task PuttingBackADateVRChatWasSentKeepsItsRow_SoThePlannedDateIsSentBack()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var (id, dates) = await CreateAsync(host, manager, Body(host));
+
+        var second = At(dates[1], "plannedStartsAt");
+        var path = $"/api/calendar/events/{id}/dates";
+
+        await host.SendJsonAsync(HttpMethod.Put, path, new { plannedStartsAt = second, startsAt = second.AddHours(1), endsAt = second.AddHours(3), title = (string?)null, description = (string?)null }, manager, Ct);
+
+        // What the publisher leaves once VRChat has the move.
+        await using (var context = db.NewContext())
+        {
+            var row = await context.CalendarDateChanges.SingleAsync(c => c.EventId == id, Ct);
+            row.VRChatId = "occ_2";
+            row.VRChatSentFingerprint = "sent";
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await host.SendJsonAsync(HttpMethod.Put, path, new { plannedStartsAt = second, startsAt = second, endsAt = second.AddHours(2), title = (string?)null, description = (string?)null }, manager, Ct);
+
+        await using var check = db.NewContext();
+        var kept = await check.CalendarDateChanges.SingleAsync(c => c.EventId == id, Ct);
+        Assert.Null(kept.StartsAt);
+        Assert.Null(kept.EndsAt);
+        Assert.Equal("sent", kept.VRChatSentFingerprint);
+    }
+
+    [Fact]
+    public async Task ADateOnVRChatCannotMovePastTheNextDate()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var (id, dates) = await CreateAsync(host, manager, Body(host));
+
+        var second = At(dates[1], "plannedStartsAt");
+        var pastThird = At(dates[2], "startsAt").AddHours(1);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Put,
+            $"/api/calendar/events/{id}/dates",
+            new { plannedStartsAt = second, startsAt = pastThird, endsAt = pastThird.AddHours(2), title = (string?)null, description = (string?)null },
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("past the next date", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CancellingOneDateLeavesTheOthers_AndListsItAsCancelled()
     {
         await using var host = await StartAsync();
