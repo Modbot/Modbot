@@ -19,8 +19,8 @@ namespace Modbot.Api.Features.Analytics.Team;
 /// person joining, let in by somebody else) or the rejection or block. A decision is matched to the
 /// latest request from the same person in the thirty days before it, and only when no other decision
 /// came between the two. That keeps out joins by invite, which no request came before, and a join by
-/// invite after a rejection, whose request was already answered. A request somebody withdrew, or answered in a way the audit
-/// log does not record, has no decision and is not counted.
+/// invite after a rejection, whose request was already answered. A request somebody withdrew, or
+/// answered in a way the audit log does not record, has no decision and is not counted.
 /// </para>
 /// <para>
 /// <strong>Flags</strong> are AutoMod's, from when the rule matched to when a moderator dismissed it

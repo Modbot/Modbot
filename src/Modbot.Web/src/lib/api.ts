@@ -1733,7 +1733,7 @@ export type ModeratorSummary = {
   lastActiveDay: string | null
 }
 
-/** The middle moderator for each number; null below three active moderators. */
+/** The middle moderator for each number; null below four active moderators. */
 export type TeamMiddle = {
   moderators: number
   onPeople: number
