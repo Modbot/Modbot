@@ -468,11 +468,13 @@ Added here:
   a fact walk — faster, and answerable past the presence retention window, which would lift §6.2's
   refusal for the rule people are most likely to want. It is the single largest improvement
   available here and it is a daily totals job change, not a giveaways one.
-- **The segment builder and saved segments** (M7 §2). §2.6 is the reuse plan.
+- ~~**The segment builder and saved segments** (M7 §2). §2.6 is the reuse plan.~~ Built as lists,
+  on this tree and this checker; see [`2026-10-01-lists-design.md`](2026-10-01-lists-design.md).
+  The `Giveaway*` names were kept (lists design §2).
 - **Bulk targeting** (M7 §3) and its safeguards.
 - **Exporting an entrant list.** M7 §3's export warning applies and would have to come with it.
-- **Predicates on derived series** — active streak, lapsed, new this month — which M7 §2.1 lists and
-  which a giveaway has not needed yet.
+- ~~**Predicates on derived series** — active streak, lapsed, new this month~~ — lapsed and new this
+  month are built with lists (lists design §3); an active streak is not.
 - **Choosing the emoji from the server's own list.** It is typed today, and Discord decides what it
   accepts; a picker needs the emoji list, which the server index does not hold.
 

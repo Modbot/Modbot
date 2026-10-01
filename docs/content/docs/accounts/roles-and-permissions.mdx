@@ -126,6 +126,8 @@ Name: `ViewMembers`
 - Opens the **Members** view of the [People](/moderation/people) page (the group's member list) and the **Discord members** page. Without **See profiles**, that view is all of People it opens.
 - Shows whether somebody is a member now, and with which roles, in the person popup.
 - Lets [Chat](/ai/chat) look up group membership.
+- Opens the [Lists](/moderation/lists) page: every saved list, who is in each, and **Export**. An export
+  carries the profile columns only with **See profiles** as well.
 
 Seeing which Discord and VRChat accounts are linked, and filtering the member lists by link, also
 needs **See profiles**.
@@ -486,6 +488,18 @@ Name: `RunGiveaways`
   in your group's name and a draw decides who gets something. See [Giveaways](/moderation/giveaways).
 
 Needs **See giveaways** as well, to open the page.
+
+Not in the built-in Moderator or Viewer roles.
+
+### Manage lists
+
+Name: `ManageLists`
+
+- Make, change and delete [lists](/moderation/lists) on the **Lists** page.
+- Changing a list a giveaway still being run uses needs **Run giveaways** as well; changing one
+  auto-invites uses needs **Set up auto-invites** as well. A list in use cannot be deleted.
+
+Needs **See members** as well, to open the page.
 
 Not in the built-in Moderator or Viewer roles.
 

@@ -9,9 +9,14 @@
 > [`2026-09-17-giveaways-design.md`](2026-09-17-giveaways-design.md); §2.6 there records how a
 > segment feature reuses the rule model rather than growing a second one.
 >
-> **Not built:** §2.2 (saved, named, live segments), §3 (export, announce, bulk target), and the
-> predicate families in §2.1 that a giveaway had no use for — active streak, lapsed, new this month.
-> §7's non-goals stand unchanged.
+> **Since 2026-10-01, §2.2 and part of §3 are built as lists**: saved, named, live definitions over
+> the same rule tree, the predicate families §2.1 lists (new this month, absolute join dates, first
+> seen, days seen, lapsed, per-kind moderation counts), export with a fact for every copy, and a list
+> as one rule of a giveaway or auto-invites. The design as built is
+> [`2026-10-01-lists-design.md`](2026-10-01-lists-design.md).
+>
+> **Not built:** §3's announce and bulk target, and an active-streak rule (lists design §8). §7's
+> non-goals stand unchanged.
 
 - **Date:** 2026-09-11
 - **Status:** Draft, awaiting review; §4 built (see the note above)

@@ -101,12 +101,25 @@ These are the rules:
 | **VRChat account at least** N days old | The join date on their VRChat profile. |
 | **Trust rank at least** | Their VRChat trust rank, from Visitor up to Legend. Nuisance and VRChat Team are not on that ladder, so neither ever counts as "or better". |
 | **18+ verified** | Modbot has seen them 18+ verified at least once. See [Profiles](/moderation/profiles). |
+| **Joined the group in the last** N days | The join date VRChat states. "New this month". |
+| **Joined the group before** a day | The join date VRChat states, before that day (UTC). |
+| **Joined the group on or after** a day | The join date VRChat states, on or after that day (UTC). |
+| **First seen by Modbot in the last** N days | The first time Modbot saw their VRChat or Discord account. |
+| **Days seen, at least** N | How many different days they have been seen in your instances. |
+| **Seen before, but not in the last** N days | They have been seen in your instances, but not lately. Somebody never seen is not counted. |
+| **Times moderated, at least** N | How many times they were banned, removed from the group, kicked from an instance, warned, or had a join request turned down. You pick which. The same counts a [profile](/moderation/profiles) shows. |
+| **In the list** | Everybody in one of your [lists](/moderation/lists), by that list's own rules. |
 
 **Hours in our instances** and **hours in one single instance** are different questions. The first
 finds your regulars; the second finds the people who stayed all evening.
 
-Five of them — instance hours, one instance's hours, voice hours, messages and no trouble — can be
-either **All time** or **In the last** so many days.
+Seven of them — instance hours, one instance's hours, voice hours, messages, no trouble, days seen
+and times moderated — can be either **All time** or **In the last** so many days.
+
+**In the list** asks the list's rules at the moment the giveaway asks its own, so a change to the list
+changes who is in the giveaway. The card in Discord lists the list's rules rather than its name,
+because members cannot open your lists. A draw keeps a copy of the rules with each list written out,
+so changing the list afterwards does not change what the draw says it was drawn from.
 
 There is no "does not hold". Put the rule inside a **None of** group instead.
 
@@ -120,7 +133,7 @@ send while they are there. That is a good figure, not an exact one, so a count t
 shown as **about**, and people whose hours sit within a whisker of a threshold are counted as **near
 the line**. For a rule that asks for 10 hours, anyone between about 9 and 11 is near the line.
 
-Voice hours and message counts are exact.
+Voice hours, message counts and everything else that is not counted from presence are exact.
 
 #### When Modbot cannot answer
 

@@ -1,0 +1,145 @@
+---
+title: Lists
+description: Save "our regulars", "new this month" or "linked and 18+" as a list you can come back to. A list is a name and a set of rules, asked again every time you open it; export who is in it, or use it in a giveaway or auto-invites.
+---
+
+A **list** is a name and a set of rules: "in the group, and seen on at least four different days in
+the last month". It is not a copy of who matched once. Every time you open it, Modbot asks the rules
+again, so **Regulars** next month is next month's regulars.
+
+The rules are the [giveaway rules](/moderation/giveaways#rules), and Modbot answers them the same
+way. A list and a giveaway with the same rules name the same people.
+
+A list never does anything by itself. Nobody is messaged, invited, banned or given a role because
+they are in one. What you can do with a list is look at it, export it, and name it as a rule in a
+[giveaway](/moderation/giveaways) or in [auto-invites](/moderation/auto-invites).
+
+## Who can use it
+
+| To do this | You need |
+|---|---|
+| See the **Lists** page, every list's rules, who is in each, and export | [**See members**](/accounts/roles-and-permissions#see-members) |
+| Make, change and delete lists, and preview rules | [**Manage lists**](/accounts/roles-and-permissions#manage-lists) and **See members** |
+| Change a list a giveaway still being run uses | **Run giveaways** as well |
+| Change a list auto-invites use | **Set up auto-invites** as well |
+| Export the profile columns | **See profiles** as well |
+
+Without **See members**, **Lists** does not appear in the sidebar. **Manage lists** is not in the
+built-in **Moderator** or **Viewer** roles. **Administrator** holds everything.
+
+## The page
+
+**Lists** is in the sidebar, under **Community**, after **Giveaways**. Each row shows the list's name,
+how many people are in it right now, and what uses it: a giveaway, or auto-invites.
+
+Click a list to open it. You see its rules in words, what uses it, and **Who is in it**: everybody the
+rules let through, by name, fifty to a page. A name with a VRChat account opens their
+[person popup](/moderation/popups#person-popup).
+
+Above the names: how many people are in the list, out of how many Modbot looked at, how many are
+near the line, and when that was worked out.
+
+Who Modbot looks at is everybody in your VRChat group and everybody in your Discord server, joined
+up where their accounts are [linked](/discord/account-linking). Somebody who has left both is not in
+any list.
+
+### About, and near the line
+
+A list whose rules count presence (hours in your instances, seen in the last so many days, days
+seen, or seen before but not lately) says **about 312** rather than **312**. Presence comes from the
+reports your moderators' companions send while they are in an instance, which is a good figure but
+not an exact one. People whose figure sits within a whisker of a rule's threshold are counted as
+**near the line** and shown in amber. [Giveaways](/moderation/giveaways#preview) explains the
+threshold.
+
+### When Modbot cannot answer
+
+If you have set a retention window, a rule reaching further back than the facts Modbot still keeps
+cannot be answered. The list says so instead of showing a number that looks complete and is not; see
+[When Modbot cannot answer](/moderation/giveaways#when-modbot-cannot-answer). **Seen before, but not
+in the last** N days asks about all of your presence history, so it cannot be answered at all while a
+presence retention window is set.
+
+## Making a list
+
+Click **New list**. Give it a **Name**, up to 100 characters; two lists cannot share a name. Build the
+rules in the rule builder, which works exactly as it does in a giveaway. **Preview** shows how many
+people the rules let through and the first fifty of them, before you save anything.
+
+A list cannot use another list.
+
+The rules that suit a list best, beside the giveaway ones:
+
+| Rule | Asks |
+|---|---|
+| **Joined the group in the last** N days | "New this month". |
+| **Joined the group before** a day / **on or after** a day | The join date VRChat states, against a day (UTC). |
+| **First seen by Modbot in the last** N days | The first time Modbot saw their VRChat or Discord account. |
+| **Days seen, at least** N | Different days they were seen in your instances. "Regulars". |
+| **Seen before, but not in the last** N days | They used to come and have stopped. Somebody never seen is not counted. |
+| **Times moderated, at least** N | Banned, removed from the group, kicked from an instance, warned, or join request turned down, as many times as you say. You pick which. "Turned down twice". |
+
+## Changing and deleting a list
+
+Open the list and click **Edit**. If a giveaway that is still being run, or auto-invites, uses the
+list, changing it changes who that giveaway or auto-invites reaches. So it needs their permission as
+well as **Manage lists**.
+
+**Delete** is greyed out while anything uses the list. Take the list out of the giveaway's or
+auto-invites' rules first. A drawn or cancelled giveaway does not count: a draw keeps its own copy of
+the rules.
+
+## Using a list in a giveaway or auto-invites
+
+In the rule builder of a giveaway or of auto-invites, pick **In the list** and the list. The list's
+rules are asked at the moment the giveaway or auto-invites would ask their own, so the list as it is
+then decides.
+
+- The giveaway's Discord card shows the list's rules, not its name: your members cannot open your
+  lists, and the point of the card is that they can see the rules.
+- A draw keeps a copy of the rules with the list written out, so changing the list later does not
+  change what an old draw says it was drawn from.
+
+## Exporting
+
+Open a list and click **Export**. Pick **CSV** or **JSON**; the dialog shows how many people the file
+will hold and its columns. Click **Export** and your browser saves the file.
+
+| Column | In the file |
+|---|---|
+| **name** | Their VRChat name, or their Discord name if Modbot knows no VRChat account. |
+| **vrchatUserId**, **discordUserId** | Their ids, where Modbot knows them. |
+| **linked** | Their Discord and VRChat accounts are linked. |
+| **inGroup**, **joinedGroupAt** | In the VRChat group now, and since when. |
+| **inDiscord**, **joinedDiscordAt** | In the Discord server now, and since when. |
+| **trustRank**, **is18PlusVerified**, **vrchatAccountCreated**, **firstSeenAt** | Only if you also hold **See profiles**. |
+
+Times are UTC. A name that starts with `=`, `+`, `-` or `@` is written with an apostrophe in front,
+so a spreadsheet shows it as text instead of running it.
+
+<Callout type="warn" title="An exported file leaves Modbot">
+Once the file is on your computer, nothing Modbot does reaches it. Your retention window does not
+delete it, and [erasing somebody](/moderation/purge) does not take them out of it. Whoever holds the
+file is responsible for it.
+</Callout>
+
+Every export is recorded in the audit log: who exported which list, as which file, how many people,
+and which columns. The people themselves are not in the record.
+
+## In the audit log
+
+| Entry | When |
+|---|---|
+| **List made** | Somebody made a list. Carries its name and rules. |
+| **List changed** | Somebody changed one. Shows before and after. |
+| **List deleted** | Somebody deleted one. |
+| **List exported** | Somebody exported one. Carries the format, the number of people and the columns. |
+
+They are **Operational** entries in the [audit log](/moderation/audit-log), beside the giveaway
+entries, so reading them needs
+[**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log).
+
+## What a list cannot do
+
+A list cannot be messaged, in Discord or in a group post, and cannot be handed to a ban, kick or role
+change. See [Not built yet](/not-built-yet).
