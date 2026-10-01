@@ -181,7 +181,6 @@ function Resolved({
   )
   const fresh = `${acted}-${live}`
 
-
   const stored = useStoredProfile(vrchatId ?? '', live)
   const member = useDiscordMember(discordId, seesMembers)
 
