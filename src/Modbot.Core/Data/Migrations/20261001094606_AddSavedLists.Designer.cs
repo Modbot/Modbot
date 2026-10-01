@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001093219_AddSavedLists")]
+    [Migration("20261001094606_AddSavedLists")]
     partial class AddSavedLists
     {
         /// <inheritdoc />
@@ -4164,6 +4164,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_user_id");
 
+                    b.Property<string>("DiscordUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("discord_username");
+
+                    b.Property<DateTimeOffset?>("DiscordVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_verified_at");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -4242,6 +4251,11 @@ namespace Modbot.Core.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_modbot_user");
+
+                    b.HasIndex("DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modbot_user_discord_user_id")
+                        .HasFilter("discord_verified_at IS NOT NULL");
 
                     b.HasIndex("Email")
                         .IsUnique()
