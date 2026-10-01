@@ -82,11 +82,13 @@ While somebody is watched:
 
 - They are **Flagged** everywhere Flagged is shown: the red row on the [companion
   overlay](/companion/overlay) and the **Flagged user joined** card when they walk in, [Live](/moderation/live),
-  and **In the group's instances** on [Now](/now). What it says is `Watched:` and your reason. See
+  and **In the group's instances** on [Now](/now). They say **Watched** and nothing more: your
+  reason is only on the **Notes** tab, for anyone who can see the audit log. See
   [Who is flagged](/moderation/live#who-is-flagged).
 - When they walk into one of the group's instances, Modbot raises a **notification** to everybody
-  who can see live instances and the audit log, with the person's name, where they are and your
-  reason. It goes wherever each person gets warnings; see [Notifications](/accounts/notifications).
+  who can see live instances and the audit log, saying that a watched person joined a group
+  instance. It names nobody and gives no reason; it opens [Live](/moderation/live), where you see
+  who. It goes wherever each person gets warnings; see [Notifications](/accounts/notifications).
   Somebody who leaves and comes back is told about once per instance.
 - The row under their name in the popup says **Watched**.
 
@@ -108,8 +110,8 @@ You need **Write notes**.
 
 ### Give a reason
 
-Up to 200 characters. It is what the roster and the join card show, so keep the start of it
-telling: a chip shows the first 60 characters.
+Up to 200 characters. It is shown on the **Notes** tab and in the audit log, to anyone who can see
+the audit log.
 
 </Step>
 
@@ -120,7 +122,8 @@ telling: a chip shows the first 60 characters.
 - **Ends**: the watch stops on its own at the end of that day. Leave it empty to watch until
   somebody stops it.
 - **Check back on**: from that day the person is listed on [Now](/now) under **Needs a decision** as
-  a **Follow-up**, and you get a notification saying it is time to check on them.
+  a **Follow-up**, and you get a notification saying a follow-up is due. Like the one above, it names
+  nobody.
 
 </Step>
 

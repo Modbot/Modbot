@@ -59,8 +59,13 @@ Endpoints: `GET /api/watches` (`?due=true` for follow-ups due), `GET /api/watche
 
 - **A new Flagged rule, always on.** A standing watch on the person's VRChat account, or on a Discord
   account linked to it (the way AutoMod flags are followed), makes them Flagged. Reason text:
-  `Watched: {reason}`, the reason cut to 60 characters on a chip. It is listed **first**, before the
-  automatic rules, because a moderator chose to say it and a chip cut short must still show it. It
+  `Watched`, **the word alone**. The Flagged reasons reach readers who may not read the moderation
+  log: a paired companion (its token comes from *Pair a companion*), the Live page, the live stream
+  and Now's instance rows (*See live instances*), and the chat and MCP place tool. A watch's reason is
+  a moderator's words about a person, which only *See the audit log* may read, so it is shown only
+  where the caller holds that: the person's **Notes** tab, the watch endpoints and Now's follow-ups.
+  (Changed in review, 2026-10-01; the first build put the reason on the chip.) It is listed
+  **first**, before the automatic rules, because a moderator chose to say it. It
   has no switch on the settings card: a switch that silently ignored every watch would be a second
   way of stopping them that nobody could see from the person.
 - Because it is a Flagged rule, everything that shows Flagged follows with no code of its own: the
@@ -70,8 +75,11 @@ Endpoints: `GET /api/watches` (`?due=true` for follow-ups due), `GET /api/watche
 - **A notification when they arrive.** The companion's ingest already picks out genuine arrivals
   (first report of a join, never a presence-observed). For each one who is watched it raises
   `modbot.watch.joined` through the notification pipeline: severity **Warning**, to everybody who
-  holds both *See live instances* and *See the audit log* (where somebody is, and why they are
-  watched), linking to Live with the person open. The key is the watch and the instance, so somebody
+  holds both *See live instances* and *See the audit log*. **It says nothing about the person**:
+  "A watched person joined a group instance.", linking to `/live`. No name, no id, no reason,
+  because a notification row is kept after a purge has erased the person and goes out by email and
+  Discord message; whoever opens Live sees who under their own permissions. The key is the watch
+  and a hash of the instance's id (a VRChat instance id can carry its owner's user id), so somebody
   who leaves and comes back all evening is said once inside the quiet time, and the same person in
   another instance is said again.
 - Discord instance cards are left as they are: they mark nobody Flagged today, and a "who is here"
@@ -85,7 +93,8 @@ A watch may carry a day to check back. From that day:
   long it has been due, and **Followed up** for anyone who may change the watch. The card's header
   says how many are due.
 - The person's popup shows **Follow-up due** on the watch and **Watched · follow-up due** on the chip.
-- The background pass raises `modbot.watch.follow-up-due` once, severity **Warning**, to whoever set
+- The background pass raises `modbot.watch.follow-up-due` once, severity **Warning**, saying only
+  "A follow-up on a watched person is due." and linking to Now (`/`), for the same reason, to whoever set
   the watch. Everybody else sees it on Now.
 
 **Followed up** clears the day and writes `modbot.watch.followed-up`; the watch carries on. To be
@@ -126,11 +135,14 @@ no migration.
 
 ## 9. Tests (written, not run)
 
-- `FlagRulesTests`: a watch flags with its reason first; a watch past its end day or stopped does
-  not; a watch on a linked Discord account flags the VRChat person; a long reason is cut on the chip;
-  lifted bans stop counting after the days set and a standing ban never does; the card saves and
-  refuses the days.
+- `FlagRulesTests`: a watch flags first as the word alone, never with its reason; a watch past its
+  end day or stopped does not; a watch on a linked Discord account flags the VRChat person; lifted
+  bans stop counting after the days set and a standing ban never does; the card saves and refuses
+  the days.
 - `WatchTests`: start, the permission, refusals (no reason, past days, twice), replacing one that ran
-  out, stop, someone else's watch, the follow-up being due, said once, and cleared, the pass closing
-  an expired watch, and the arrival notification.
-- `LiveStreamTests`: a watched person's join is a `flagged_join` with the watch's reason.
+  out, stop, someone else's watch (403 also for an id that does not exist), a reader without the
+  audit log refused, the follow-up being due, said once, and cleared, the pass closing an expired
+  watch, and the arrival notification; neither notification holds the person's id, name or the
+  reason in any field.
+- `LiveStreamTests`: a watched person's join is a `flagged_join` reading "Watched", with the reason
+  nowhere in what a See-live-instances reader is sent.
