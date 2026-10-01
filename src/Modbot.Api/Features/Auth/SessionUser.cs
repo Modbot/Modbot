@@ -36,6 +36,11 @@ namespace Modbot.Api.Features.Auth;
 /// <param name="DiscordUsername">The Discord username when the account was proven. Null for a typed id.</param>
 /// <param name="DiscordProven">The person signed in to Discord from the account page to prove the id (design §4.6).</param>
 /// <param name="DiscordWorksUntil">For a typed, unproven id: the day it stops counting. Null otherwise.</param>
+/// <param name="ApiKey">
+/// The key the request was made with, and what it may do now; null for a session. Only
+/// <c>/api/auth/me</c> fills it in (API conventions design §7): a program holding a key had no
+/// other way to learn its own permissions over REST.
+/// </param>
 public sealed record SessionUser(
     Guid Id,
     string Username,
@@ -52,7 +57,8 @@ public sealed record SessionUser(
     DateTimeOffset? DiscordWorksUntil,
     bool ChatOn,
     int? Rank = null,
-    bool BriefsOn = false)
+    bool BriefsOn = false,
+    KeyInUse? ApiKey = null)
 {
     public static SessionUser From(ModbotUser user, Features.Chat.AiSwitches on)
     {
@@ -80,3 +86,20 @@ public sealed record SessionUser(
             on.BriefsOn);
     }
 }
+
+/// <summary>The API key a request was made with, as <c>/api/auth/me</c> describes it.</summary>
+/// <param name="Id">The key's id, as the API keys list shows it.</param>
+/// <param name="Name">The name it was given.</param>
+/// <param name="Start">Its first characters, to tell keys apart. Never the whole key.</param>
+/// <param name="PermissionNames">
+/// What the key may do right now: its own permissions, never more than the account holds now (API
+/// keys design §3.2). This, not the account's <c>permissionNames</c>, is what a request with the
+/// key is checked against.
+/// </param>
+/// <param name="ExpiresAt">When it stops working, or null for never.</param>
+public sealed record KeyInUse(
+    Guid Id,
+    string Name,
+    string Start,
+    IReadOnlyList<string> PermissionNames,
+    DateTimeOffset? ExpiresAt);

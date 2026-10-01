@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Chat;
 using Modbot.Core.Data;
@@ -29,9 +30,31 @@ public static class MeEndpoint
                 // is in the cookie. The session check already proved the account exists.
                 var user = await accounts.FindAsync(id.Value, ct);
 
-                return user is null
-                    ? Results.Unauthorized()
-                    : Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
+                if (user is null)
+                    return Results.Unauthorized();
+
+                var me = SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct));
+
+                // Called with a key: which key, and what it may do now. The permissions on the
+                // principal are already the key's, capped by the account (API keys design §3.2).
+                if (ApiKeyAuthentication.KeyIdOf(http.User) is { } keyId)
+                {
+                    var key = await db.ApiKeys.AsNoTracking().FirstOrDefaultAsync(k => k.Id == keyId, ct);
+                    if (key is null)
+                        return Results.Unauthorized();
+
+                    me = me with
+                    {
+                        ApiKey = new KeyInUse(
+                            key.Id,
+                            key.Name,
+                            key.Start,
+                            PermissionCatalog.NamesOf(ModbotAuth.PermissionsOf(http.User)),
+                            key.ExpiresAt),
+                    };
+                }
+
+                return Results.Ok(me);
             })
             .WithTags("Auth")
             .WithName("GetCurrentUser")
@@ -40,7 +63,11 @@ public static class MeEndpoint
                 "Who the session belongs to. "
                 + "The SPA calls this on load to decide what to show: the sign-in form, the "
                 + "link-your-VRChat-account page, or the app. Reachable before the VRChat link "
-                + "is done, because it is how the SPA finds out the link is not done.")
+                + "is done, because it is how the SPA finds out the link is not done.\n\n"
+                + "Called with an API key, `apiKey` names the key and lists what it may do right "
+                + "now, which is what every request with it is checked against: its own "
+                + "permissions, never more than the account holds. `permissionNames` beside it "
+                + "are the account's. Null for a session.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status401Unauthorized)
             .RequireAuthorization(ModbotAuth.SignedInPolicy);

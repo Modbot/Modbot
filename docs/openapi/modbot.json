@@ -110,7 +110,7 @@
           "Auth"
         ],
         "summary": "Get current user",
-        "description": "Who the session belongs to. The SPA calls this on load to decide what to show: the sign-in form, the link-your-VRChat-account page, or the app. Reachable before the VRChat link is done, because it is how the SPA finds out the link is not done.",
+        "description": "Who the session belongs to. The SPA calls this on load to decide what to show: the sign-in form, the link-your-VRChat-account page, or the app. Reachable before the VRChat link is done, because it is how the SPA finds out the link is not done.\n\nCalled with an API key, `apiKey` names the key and lists what it may do right now, which is what every request with it is checked against: its own permissions, never more than the account holds. `permissionNames` beside it are the account's. Null for a session.",
         "operationId": "GetCurrentUser",
         "responses": {
           "200": {
@@ -37011,6 +37011,41 @@
       "JsonObject": {
         "type": "object"
       },
+      "KeyInUse": {
+        "required": [
+          "id",
+          "name",
+          "start",
+          "permissionNames",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          },
+          "permissionNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "KindSeries": {
         "required": [
           "metric",
@@ -42986,6 +43021,16 @@
           "briefsOn": {
             "type": "boolean",
             "default": false
+          },
+          "apiKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KeyInUse"
+              }
+            ]
           }
         }
       },

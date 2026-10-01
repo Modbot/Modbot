@@ -228,6 +228,32 @@ public class ApiKeyTests
         await host.LoginAsync(user.Username, TestAccounts.Password, Ct);
     }
 
+    /// <summary>
+    /// A key learns which key it is and what it may do now, capped by the account (API conventions
+    /// design §7); a session is told it is no key.
+    /// </summary>
+    [Fact]
+    public async Task AKey_LearnsItsOwnPermissions_FromMe()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewMembers, Ct);
+        var (id, key) = await CreateKeyAsync(host, cookie, ["ViewAuditLog"]);
+
+        var me = await ApiTestHost.BodyOf(await WithKeyAsync(host, HttpMethod.Get, "/api/auth/me", key), Ct);
+
+        var apiKey = me.GetProperty("apiKey");
+        Assert.Equal(id, apiKey.GetProperty("id").GetGuid());
+        Assert.Equal("Bot", apiKey.GetProperty("name").GetString());
+        Assert.StartsWith(apiKey.GetProperty("start").GetString()!, key, StringComparison.Ordinal);
+        Assert.Equal(["ViewAuditLog"], apiKey.GetProperty("permissionNames").EnumerateArray().Select(p => p.GetString()));
+
+        // The account's own, beside it, are more.
+        Assert.Contains("ViewMembers", me.GetProperty("permissionNames").EnumerateArray().Select(p => p.GetString()));
+
+        var session = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/auth/me", null, cookie, Ct), Ct);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, session.GetProperty("apiKey").ValueKind);
+    }
+
     [Theory]
     [InlineData("GET", "/api/auth/me", false)]
     [InlineData("PUT", "/api/auth/me", true)]
