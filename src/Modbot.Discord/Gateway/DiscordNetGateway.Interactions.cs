@@ -145,9 +145,11 @@ public sealed partial class DiscordNetGateway
             if (string.IsNullOrEmpty(field.CustomId))
                 continue;
 
-            values[field.CustomId] = field.Values is { Count: > 0 } picked
-                ? [.. picked]
-                : [field.Value ?? string.Empty];
+            // A list left empty arrives with no values, or with one empty one: either way it is
+            // nothing picked, never a pick of "".
+            values[field.CustomId] = field.Type == ComponentType.TextInput
+                ? [field.Value ?? string.Empty]
+                : [.. (field.Values ?? []).Where(v => !string.IsNullOrEmpty(v))];
         }
 
         var submit = new DiscordFormSubmit(

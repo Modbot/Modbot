@@ -466,7 +466,8 @@ public class StaffInteractionHandlerTests
 
         await handler.HandleButtonAsync(Press("100", confirmation.Actions![0].Id, recorder), gateway, ct);
 
-        Assert.Equal("Your Modbot account is disabled.", recorder.Updates.Single().Text);
+        Assert.Equal(2, recorder.Updates.Count);
+        Assert.Equal("Your Modbot account is disabled.", recorder.Updates[^1].Text);
         Assert.Empty(services.Staff.Sent);
         Assert.Empty(gateway.Handled);
     }
@@ -535,6 +536,86 @@ public class StaffInteractionHandlerTests
         await handler.HandleButtonAsync(Press("100", confirmation.Actions[0].Id, recorder), null, ct);
         Assert.Equal(StaffInteractionHandler.RunOutMessage, recorder.Updates[^1].Text);
         Assert.Empty(services.Staff.Sent);
+    }
+
+    [Fact]
+    public async Task AKickWithTheReasonListLeftEmpty_GoesToTheConfirmation_WhenNoneIsRequired()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Kick, ct: ct);
+        services.Staff.ReasonRequired = false;
+        var recorder = new Recorder();
+
+        using var scope = services.Scope();
+        var handler = Handler(scope);
+
+        await handler.HandleButtonAsync(Press("100", StaffMenus.ActButtonFor(StaffActionWords.Kick, Target), recorder), null, ct);
+        var form = recorder.Forms.Single();
+        Assert.False(form.Fields.Single(f => f.Id == StaffInteractionHandler.ReasonsField).Required);
+
+        // Discord can send an empty list as one empty value.
+        var confirmation = await handler.HandleFormAsync(Submit("100", form.Id, ("reasons", [""]), ("note", [""])), null, ct);
+
+        Assert.StartsWith("Kick **", confirmation.Text, StringComparison.Ordinal);
+        Assert.NotNull(confirmation.Actions);
+        Assert.Empty(services.Staff.Checks.Single().ReasonIds);
+    }
+
+    [Fact]
+    public async Task AFormWithNoReasonListAtAll_IsNoReasonsPicked()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.AnswerJoinRequests, ct: ct);
+        services.Staff.ReasonRequired = false;
+        var recorder = new Recorder();
+
+        using var scope = services.Scope();
+        var handler = Handler(scope);
+
+        await handler.HandleButtonAsync(Press("100", StaffMenus.ActButtonFor(StaffActionWords.Reject, Target), recorder), null, ct);
+
+        // Only the note came back: no "reasons" key at all.
+        var confirmation = await handler.HandleFormAsync(Submit("100", recorder.Forms.Single().Id, ("note", ["Not in the region."])), null, ct);
+
+        Assert.NotNull(confirmation.Actions);
+        Assert.Empty(services.Staff.Checks.Single().ReasonIds);
+        Assert.Equal("Not in the region.", services.Staff.Checks.Single().Note);
+    }
+
+    [Fact]
+    public async Task AYesWithATokenNothingIsWaitingFor_SendsNothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Ban, ct: ct);
+        var recorder = new Recorder();
+
+        using var scope = services.Scope();
+        var handler = Handler(scope);
+
+        // A token nobody made.
+        await handler.HandleButtonAsync(Press("100", StaffMenus.YesButton + PendingStaffActions.NewToken(), recorder), new FakeGateway(), ct);
+        Assert.Equal(StaffInteractionHandler.RunOutMessage, recorder.Updates[^1].Text);
+
+        // The token of a ban whose form was never sent: held, but not ready to confirm.
+        await handler.HandleButtonAsync(Press("100", StaffMenus.ActButtonFor(StaffActionWords.Ban, Target), recorder), null, ct);
+        var token = StaffMenus.TokenAfter(recorder.Forms.Single().Id, StaffMenus.ActForm)!;
+        await handler.HandleButtonAsync(Press("100", StaffMenus.YesButton + token, recorder), new FakeGateway(), ct);
+        Assert.Equal(StaffInteractionHandler.RunOutMessage, recorder.Updates[^1].Text);
+
+        Assert.Equal(0, services.Staff.Runs);
+    }
+
+    [Fact]
+    public void ACut_NeverSplitsACharacterWrittenAsTwoHalves()
+    {
+        var text = new string('a', 3) + "\U0001F600" + "b";
+
+        Assert.Equal("aaa", StaffInteractionHandler.Cut(text, 4));
+        Assert.Equal("aaa\U0001F600", StaffInteractionHandler.Cut(text, 5));
+        Assert.Equal(text, StaffInteractionHandler.Cut(text, 50));
     }
 
     [Fact]

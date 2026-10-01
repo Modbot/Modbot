@@ -68,6 +68,9 @@ public sealed class StaffInteractionHandler
     /// <summary>The longest note on an action, as the moderation service allows and a Discord text box takes.</summary>
     public const int ActionNoteLength = 4000;
 
+    /// <summary>The most of a reported message's words kept as data beside the note. Discord allows 4,000.</summary>
+    public const int ReportedTextLength = 4000;
+
     /// <summary>A Discord list offers at most this many.</summary>
     public const int MaxReasonsOffered = 25;
 
@@ -435,6 +438,14 @@ public sealed class StaffInteractionHandler
         if (pending.DiscordUserId != press.DiscordUserId)
             return DiscordReply.Say(NotYoursMessage);
 
+        // The confirmation is rewritten first, before anything that reads the database: that is
+        // the press's first answer, well inside Discord's time, so its buttons are gone at once
+        // and every later answer edits the same message. Left until after the checks, a slow
+        // database would make the gateway acknowledge it as "thinking…" instead, and the answer
+        // would arrive as a new message under a confirmation that still has its buttons.
+        var name = CardText.EscapeName(pending.SubjectName);
+        await press.UpdateAsync(DiscordReply.Say(StaffActionWords.Doing(pending.Action, name)), ct).ConfigureAwait(false);
+
         var (user, refusal, outcome) = await StaffAsync(press.DiscordUserId, StaffActionWords.Requires(pending.Action), writes: true, ct)
             .ConfigureAwait(false);
 
@@ -450,9 +461,6 @@ public sealed class StaffInteractionHandler
             await press.UpdateAsync(DiscordReply.Say(NotSetUpMessage), ct).ConfigureAwait(false);
             return null;
         }
-
-        var name = CardText.EscapeName(pending.SubjectName);
-        await press.UpdateAsync(DiscordReply.Say(StaffActionWords.Doing(pending.Action, name)), ct).ConfigureAwait(false);
 
         var answer = await _staff.RunAsync(
                 pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, Member(user!), ct)
@@ -581,7 +589,7 @@ public sealed class StaffInteractionHandler
 
         typed = (typed ?? string.Empty).Trim();
         if (typed.Length > ReportNoteLength)
-            typed = typed[..ReportNoteLength];
+            typed = Cut(typed, ReportNoteLength);
 
         var where = message.ChannelName is { Length: > 0 } channel ? $" in #{channel}" : string.Empty;
         var when = message.SentAt.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC";
@@ -602,7 +610,7 @@ public sealed class StaffInteractionHandler
 
         var text = sb.ToString();
         if (text.Length > NoteLength)
-            text = text[..NoteLength];
+            text = Cut(text, NoteLength);
 
         var context = new JsonObject
         {
@@ -614,12 +622,28 @@ public sealed class StaffInteractionHandler
                 ["authorId"] = message.AuthorId,
                 ["authorName"] = message.AuthorName,
                 ["sentAt"] = message.SentAt.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
-                ["text"] = message.Text.Length > 4000 ? message.Text[..4000] : message.Text,
+                ["text"] = Cut(message.Text, ReportedTextLength),
                 ["url"] = message.Url,
             },
         };
 
         return (text, context);
+    }
+
+    /// <summary>
+    /// The first <paramref name="max"/> characters, one fewer when the cut would split an emoji or
+    /// any other character written as two halves: half of one is not a character, and JSON and
+    /// Postgres both refuse it.
+    /// </summary>
+    public static string Cut(string text, int max)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (text.Length <= max)
+            return text;
+
+        var end = max > 0 && char.IsHighSurrogate(text[max - 1]) ? max - 1 : max;
+        return text[..end];
     }
 
     /// <summary>The reasons form for an action was sent: check it all, then ask for the confirmation.</summary>
@@ -643,9 +667,14 @@ public sealed class StaffInteractionHandler
         if (_staff is null)
             return DiscordReply.Say(NotSetUpMessage);
 
+        // No list on the form (the action has no reasons), or a list left empty, is no reasons
+        // picked; the service then decides whether one was needed.
         var picked = new List<Guid>();
         foreach (var value in submit.Picked(ReasonsField))
         {
+            if (string.IsNullOrWhiteSpace(value))
+                continue;
+
             if (!Guid.TryParseExact(value, "N", out var reasonId))
                 return DiscordReply.Say(UnknownReasonMessage);
 

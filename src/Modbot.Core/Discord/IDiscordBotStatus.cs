@@ -33,7 +33,7 @@ public enum DiscordBotState
 /// </summary>
 /// <param name="ConnectedSince">When the current gateway session became ready. Null unless connected.</param>
 /// <param name="LastError">The most recent thing that went wrong, as a sentence. Never the token.</param>
-/// <param name="CommandsRegistered">How many slash commands the bot registered on the guild this session.</param>
+/// <param name="CommandsRegistered">How many commands the bot registered on the guild this session: slash commands and right-click menus.</param>
 /// <param name="LogChannelConfigured">Whether a moderation log channel is set.</param>
 /// <param name="LastPostedAt">When the bot last posted to that channel, in this process.</param>
 /// <param name="PostedInThisProcess">Events posted since this process started.</param>

@@ -427,9 +427,9 @@ public sealed class DiscordFormSubmit
     public string Text(string fieldId)
         => Values.TryGetValue(fieldId, out var value) && value.Count > 0 ? (value[0] ?? string.Empty).Trim() : string.Empty;
 
-    /// <summary>A list field's picks; empty when none were.</summary>
+    /// <summary>A list field's picks; empty when none were, or when the field is not there at all.</summary>
     public IReadOnlyList<string> Picked(string fieldId)
-        => Values.TryGetValue(fieldId, out var value) ? value : [];
+        => Values.TryGetValue(fieldId, out var value) ? [.. value.Where(v => !string.IsNullOrWhiteSpace(v))] : [];
 
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
 }

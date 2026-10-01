@@ -10,6 +10,9 @@
   design (2026-09-23 §5, buttons allowed on a message that is one card), the own-server guard that
   `/me` brought (`IsForThisServer`, the `modbot:` button prefix)
 - **Narrows:** nothing. Every rule the web app applies to these actions applies here unchanged.
+  Who sees `/lookup` and `/recent` in Discord (their `default_member_permissions`) is left to the
+  cards-and-commands work (TASK-039) running beside this; only the new right-click menus are set
+  here (§10).
 
 ---
 
