@@ -107,7 +107,7 @@ Live figures: 18 moderators, 845 actions, 1 coverage gap.
 | **Actions on people** and **Door and admin**, never summed | The reviews' own list (accountability signals 3.4). Unbans are door work: relief, no strike. The insight figures split the same way |
 | The reader's own row first, with their usual (the reviews' baseline) and the **team middle** (a median) | A moderator's question is "am I doing what I usually do", not "where am I in the table" |
 | Each moderator's row, and who left an instance last, only with **See the audit log** | The audit log already says who did what; everybody else sees the team and themselves. This answers the task's "own row only, or everyone named?" without a new setting |
-| No team middle below three active moderators | With two, your own number and the middle give the other's away |
+| No team middle below four active moderators | With three or fewer, the middle is one person's own figure or gives it away beside your own |
 | A week grid of busy hours with nobody on, inside **Left without a moderator** | Busy by head counts, nobody on by the gaps, **not seen** striped apart so it never reads as blame. The gap logic is unchanged |
 | The people buttons are saved (`ReviewThresholds.CoverPeople`, default 3), by **Change settings** only | A threshold chosen fresh on every visit is no goal. Kept in the review thresholds document so it needed no migration |
 | **How long things wait**: middle waits of join requests, flags and reviews, with a daily line | Middles, not averages: one weekend request must not outweigh a hundred |

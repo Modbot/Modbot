@@ -70,8 +70,10 @@ export function Stats({
   const loadServer = useCallback((q: string) => api.serverAnalytics(q), [])
   const loadInstances = useCallback((q: string) => api.instancesAnalytics(q), [])
   const loadWorlds = useCallback((q: string) => api.worldsAnalytics(q), [])
-  // The Moderation tab's people bar: null for the group's saved one, a number once somebody picks
-  // another. Picking reads the tab again with it, and saves it for a reader who may change settings.
+  // The Moderation tab's people bar. Until the reader picks one this session the tab reads the
+  // group's saved bar, so a change another administrator saved shows on the next read. A reader who
+  // may change settings saves their pick and reads the saved bar again; anybody else's pick is their
+  // own view only, sent with the read (`people`).
   const [people, setPeople] = useState<number | null>(null)
   const canSavePeople = can(me, 'ManageSettings')
   const loadTeam = useCallback(
@@ -79,21 +81,35 @@ export function Stats({
     [people],
   )
   const [peopleError, setPeopleError] = useState<string | null>(null)
-  const choosePeople = useCallback(
-    (next: number) => {
-      setPeople(next)
-      setPeopleError(null)
-      if (canSavePeople)
-        api.setCoverPeople(next).catch(() => setPeopleError(`Could not save ${next}+ people as the group's setting.`))
-    },
-    [canSavePeople],
-  )
+  // A pick being saved, shown on the buttons until the read after the save replaces `over`.
+  const [saving, setSaving] = useState<{ people: number; over: unknown } | null>(null)
 
   const group = useAnalytics(loadGroup, range, tab !== 'stats-moderation')
   const server = useAnalytics(loadServer, range)
   const instances = useAnalytics(loadInstances, range, tab === 'stats-activity')
   const worlds = useAnalytics(loadWorlds, range, tab === 'stats-activity')
   const team = useAnalytics(loadTeam, range, tab === 'stats-moderation')
+
+  const { data: teamData, reload: reloadTeam } = team
+  const choosePeople = useCallback(
+    (next: number) => {
+      setPeopleError(null)
+      if (!canSavePeople) {
+        setPeople(next)
+        return
+      }
+      setSaving({ people: next, over: teamData })
+      api
+        .setCoverPeople(next)
+        .then(() => reloadTeam?.())
+        .catch(() => {
+          setSaving(null)
+          setPeopleError(`Could not save ${next}+ people as the group's setting.`)
+        })
+    },
+    [canSavePeople, teamData, reloadTeam],
+  )
+  const picked = saving && saving.over === teamData ? saving.people : (people ?? undefined)
 
   // The days the picker names: the first VRChat part's, which every part of the tab shares.
   const shown = tab === 'stats-moderation' ? team.data : tab === 'stats-activity' ? instances.data : group.data
@@ -144,7 +160,13 @@ export function Stats({
               {(data) => (
                 <>
                   {peopleError && <PageMessage tone="danger">{peopleError}</PageMessage>}
-                  <TeamStats data={data} onOpenSubject={onOpenSubject} onOpenReviews={onOpenReviews} onPeople={choosePeople} />
+                  <TeamStats
+                    data={data}
+                    onOpenSubject={onOpenSubject}
+                    onOpenReviews={onOpenReviews}
+                    picked={picked}
+                    onPeople={choosePeople}
+                  />
                 </>
               )}
             </Part>

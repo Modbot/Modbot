@@ -493,8 +493,8 @@ Your own numbers come first: **Actions on people**, **Door and admin**, **Days a
 took any action) and **Actions on people per active day**. Beside each is the **team middle**: half
 the moderators active in the range are at or below it. Beside the last is also **your usual**: the
 same number over the 90 days up to yesterday, the one Reviews compare a busy day against. The team
-middle is left out when fewer than three moderators were active, because with two it would give the
-other person's numbers away. Your numbers are found by the VRChat account linked to your Modbot
+middle is left out when fewer than four moderators were active, because on a team that small it
+would be one person's own number or give it away. Your numbers are found by the VRChat account linked to your Modbot
 account.
 
 ##### The stats along the top
@@ -546,7 +546,7 @@ The middle wait of everything decided in the range, so one request left over a w
 outweigh the rest:
 
 - **Join requests**: from the request to its approval or rejection, from VRChat's audit log. A join
-  by invite has no request before it and is not counted.
+  by invite is not counted: either no request came before it, or the request was already answered.
 - **Flags**: from when an [AutoMod](/moderation/automod) rule flagged something to when a moderator
   dismissed it or confirmed it.
 - **Reviews**: from when a [review](/moderation/reviews) opened to when it was closed.
@@ -559,8 +559,10 @@ something was decided.
 - **People acted on**: people with an action on them in the range, of the kinds the
   [repeat offender rule](/moderation/reviews) counts. **Acted on again within 30 days**: how many of
   them had another such action in the 30 days before one of those.
-- **Bans**: bans in the range. **Lifted within 30 days**: how many of those bans were lifted within
-  30 days, however they were lifted.
+- **Bans**: bans in the range. **Lifted within 30 days**: of the bans in the range that are at
+  least 30 days old, how many were lifted within 30 days, however they were lifted; under it, that
+  as a share and how many bans it is out of. A newer ban has not had its 30 days yet, so it is
+  left out rather than counted as one that stood.
 - Under them, the reasons picked when a ban was lifted from Modbot in the range, most used first,
   and **No reason given** for lifts without one. A ban lifted in VRChat itself has no reason.
 

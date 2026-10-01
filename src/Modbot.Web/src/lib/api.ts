@@ -1769,6 +1769,8 @@ export type ActedOnAgain = { people: number; again: number; days: number }
 
 export type BansLifted = {
   bans: number
+  /** The bans in the range at least `days` days old: the only ones `liftedWithin` is out of. */
+  oldEnough: number
   liftedWithin: number
   days: number
   reasons: { label: string; count: number }[]

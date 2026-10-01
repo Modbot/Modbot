@@ -72,8 +72,11 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         Kind(DailyTotalMetrics.ModeratorRoleChanges, "Role changes"),
     ];
 
-    /// <summary>The fewest moderators active in the window for the team's middle to be shown.</summary>
-    public const int LeastForMiddle = 3;
+    /// <summary>
+    /// The fewest moderators active in the window for the team's middle to be shown. Four, so the
+    /// middle of a small team is never simply one moderator's own figure.
+    /// </summary>
+    public const int LeastForMiddle = 4;
 
     private static ActionKind Kind(string metric, string label) => new(
         metric,
@@ -180,7 +183,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
             cover,
             await new TeamQueues(_sql).RunAsync(from, to, ct),
             await outcomes.ActedOnAgainAsync(from, to, thresholds.CountedTypes, ct),
-            await outcomes.BansLiftedAsync(from, to, ct),
+            await outcomes.BansLiftedAsync(from, to, now, ct),
             roster.Count,
             watched,
             unwatched,

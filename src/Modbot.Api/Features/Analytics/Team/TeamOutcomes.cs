@@ -70,39 +70,53 @@ public sealed class TeamOutcomes(AnalyticsSql sql)
     /// audit log; and the reasons given on the case files lifted from Modbot in the window.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The reasons are counted by what each one says, not sorted into "overturned" and "not": a
     /// group writes its own reason list, and whether "Time served" is an overturn is theirs to read.
     /// A ban lifted in VRChat itself carries no reason and is in the first number only.
+    /// </para>
+    /// <para>
+    /// The lifted share is out of the bans at least <see cref="Days"/> days old only. A ban from
+    /// last week has not had its thirty days; counted as one that stood, it would make the share
+    /// smaller the closer the range ends to today.
+    /// </para>
     /// </remarks>
-    public async Task<BansLifted> BansLiftedAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    public async Task<BansLifted> BansLiftedAsync(DateOnly from, DateOnly to, DateTimeOffset now, CancellationToken ct)
     {
         var start = AnalyticsSql.DayStart(from);
         var end = AnalyticsSql.DayEnd(to);
+        var reach = TimeSpan.FromDays(Days);
 
         const string Sql = """
             SELECT COUNT(*)::int,
-                   COUNT(*) FILTER (WHERE EXISTS (
-                       SELECT 1 FROM modbot_event u
-                       WHERE u.type = @unbanned
-                         AND u.subject_platform = b.subject_platform
-                         AND u.subject_id = b.subject_id
-                         AND u.occurred_at > b.occurred_at
-                         AND u.occurred_at <= b.occurred_at + @reach))::int
-            FROM modbot_event b
-            WHERE b.type = @banned
-              AND b.subject_platform = @vrchat
-              AND b.subject_id IS NOT NULL
-              AND b.occurred_at >= @from AND b.occurred_at < @to
+                   COUNT(*) FILTER (WHERE old_enough)::int,
+                   COUNT(*) FILTER (WHERE old_enough AND lifted)::int
+            FROM (
+                SELECT b.occurred_at <= @oldest AS old_enough,
+                       EXISTS (
+                           SELECT 1 FROM modbot_event u
+                           WHERE u.type = @unbanned
+                             AND u.subject_platform = b.subject_platform
+                             AND u.subject_id = b.subject_id
+                             AND u.occurred_at > b.occurred_at
+                             AND u.occurred_at <= b.occurred_at + @reach) AS lifted
+                FROM modbot_event b
+                WHERE b.type = @banned
+                  AND b.subject_platform = @vrchat
+                  AND b.subject_id IS NOT NULL
+                  AND b.occurred_at >= @from AND b.occurred_at < @to
+            ) bans
             """;
 
         var counts = await sql.ReadAsync(
             Sql,
-            r => (Bans: r.GetInt32(0), Lifted: r.GetInt32(1)),
+            r => (Bans: r.GetInt32(0), OldEnough: r.GetInt32(1), Lifted: r.GetInt32(2)),
             ct,
             ("banned", FactType.MemberBanned),
             ("unbanned", FactType.MemberUnbanned),
             ("vrchat", (short)FactPlatform.VRChat),
-            ("reach", TimeSpan.FromDays(Days)),
+            ("reach", reach),
+            ("oldest", now - reach),
             ("from", start),
             ("to", end));
 
@@ -128,9 +142,9 @@ public sealed class TeamOutcomes(AnalyticsSql sql)
             .ThenBy(r => r.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var (bans, lifted) = counts.Count > 0 ? counts[0] : (0, 0);
+        var (bans, oldEnough, lifted) = counts.Count > 0 ? counts[0] : (0, 0, 0);
 
-        return new BansLifted(bans, lifted, Days, reasons, picked.Count(p => p.Count == 0));
+        return new BansLifted(bans, oldEnough, lifted, Days, reasons, picked.Count(p => p.Count == 0));
     }
 
     /// <summary>The reason ids on a lift. A malformed list reads as none rather than failing the page.</summary>

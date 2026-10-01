@@ -17,8 +17,9 @@ namespace Modbot.Api.Features.Analytics.Team;
 /// <para>
 /// <strong>Join requests</strong> come from VRChat's audit log: the request, then the approval (the
 /// person joining, let in by somebody else) or the rejection or block. A decision is matched to the
-/// latest request from the same person in the thirty days before it, which also keeps out joins by
-/// invite, which no request came before. A request somebody withdrew, or answered in a way the audit
+/// latest request from the same person in the thirty days before it, and only when no other decision
+/// came between the two. That keeps out joins by invite, which no request came before, and a join by
+/// invite after a rejection, whose request was already answered. A request somebody withdrew, or answered in a way the audit
 /// log does not record, has no decision and is not counted.
 /// </para>
 /// <para>
@@ -72,9 +73,20 @@ public sealed class TeamQueues(AnalyticsSql sql)
         DateTimeOffset end,
         CancellationToken ct)
     {
+        // A decision answers the latest request before it only when nothing decided that request
+        // first. Without that, somebody rejected and invited in a week later read as a request that
+        // waited a week.
         const string Sql = """
+            WITH decisions AS (
+                SELECT e.id, e.subject_id, e.occurred_at
+                FROM modbot_event e
+                WHERE e.subject_id IS NOT NULL
+                  AND e.occurred_at >= @from - @reach AND e.occurred_at < @to
+                  AND (e.type = ANY(@turnedAway)
+                       OR (e.type = @joined AND e.actor_id IS NOT NULL AND e.actor_id <> e.subject_id))
+            )
             SELECT r.asked_at, d.occurred_at
-            FROM modbot_event d
+            FROM decisions d
             CROSS JOIN LATERAL (
                 SELECT MAX(q.occurred_at) AS asked_at
                 FROM modbot_event q
@@ -84,10 +96,12 @@ public sealed class TeamQueues(AnalyticsSql sql)
                   AND q.occurred_at > d.occurred_at - @reach
             ) r
             WHERE d.occurred_at >= @from AND d.occurred_at < @to
-              AND d.subject_id IS NOT NULL
-              AND (d.type = ANY(@turnedAway)
-                   OR (d.type = @joined AND d.actor_id IS NOT NULL AND d.actor_id <> d.subject_id))
               AND r.asked_at IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM decisions p
+                  WHERE p.subject_id = d.subject_id
+                    AND p.occurred_at >= r.asked_at
+                    AND (p.occurred_at < d.occurred_at OR (p.occurred_at = d.occurred_at AND p.id < d.id)))
             """;
 
         return await sql.ReadAsync(

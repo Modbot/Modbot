@@ -9721,7 +9721,7 @@
           "Analytics"
         ],
         "summary": "Get team analytics",
-        "description": "The Stats page's Moderation tab: is moderation keeping up, and is the team OK? Actions on people (instance kicks, warns, bans, removals, join requests turned away) and door work and admin (invites, approvals, unbans, role changes), counted apart and never added together, from daily totals. The caller's own numbers (`you`, by their linked VRChat account) beside the team's middle (`middle`, left out below three active moderators). Each moderator's own numbers (`moderators`) and who left an instance last (`coverageGaps[].lastModerator`) need ViewAuditLog as well; without it `canSeeEachModerator` is false, `moderators` is empty and `lastModerator` is null.\n\nCoverage gaps are stretches when people were in a group instance and no moderator was, from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all. `cover` lays them over the hours of the week (168 buckets, Monday 00:00 UTC first): hours when a group instance held at least `people` people by VRChat's head count, those a gap overlapped, and those no companion reported from. `people` defaults to the saved setting.\n\n`waits` gives the middle wait of join requests (request to approval or rejection), AutoMod flags (flagged to dismissed or confirmed) and reviews (opened to closed), over the decisions made in the range. `actedOnAgain` counts people acted on who had been acted on within 30 days before; `bansLifted` counts bans lifted within 30 days, and the reasons given on case files lifted in the range.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The Stats page's Moderation tab: is moderation keeping up, and is the team OK? Actions on people (instance kicks, warns, bans, removals, join requests turned away) and door work and admin (invites, approvals, unbans, role changes), counted apart and never added together, from daily totals. The caller's own numbers (`you`, by their linked VRChat account) beside the team's middle (`middle`, left out below four active moderators). Each moderator's own numbers (`moderators`) and who left an instance last (`coverageGaps[].lastModerator`) need ViewAuditLog as well; without it `canSeeEachModerator` is false, `moderators` is empty and `lastModerator` is null.\n\nCoverage gaps are stretches when people were in a group instance and no moderator was, from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all. `cover` lays them over the hours of the week (168 buckets, Monday 00:00 UTC first): hours when a group instance held at least `people` people by VRChat's head count, those a gap overlapped, and those no companion reported from. `people` defaults to the saved setting.\n\n`waits` gives the middle wait of join requests (request to approval or rejection), AutoMod flags (flagged to dismissed or confirmed) and reviews (opened to closed), over the decisions made in the range. `actedOnAgain` counts people acted on who had been acted on within 30 days before; `bansLifted` counts the bans in the range, those at least 30 days old (`oldEnough`) and how many of those were lifted within 30 days, and the reasons given on case files lifted in the range.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetTeamAnalytics",
         "parameters": [
           {
@@ -22207,6 +22207,7 @@
       "BansLifted": {
         "required": [
           "bans",
+          "oldEnough",
           "liftedWithin",
           "days",
           "reasons",
@@ -22215,6 +22216,14 @@
         "type": "object",
         "properties": {
           "bans": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "oldEnough": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

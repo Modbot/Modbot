@@ -198,7 +198,7 @@ public static class AnalyticsEndpoints
                 + "Actions on people (instance kicks, warns, bans, removals, join requests turned away) "
                 + "and door work and admin (invites, approvals, unbans, role changes), counted apart and "
                 + "never added together, from daily totals. The caller's own numbers (`you`, by their "
-                + "linked VRChat account) beside the team's middle (`middle`, left out below three "
+                + "linked VRChat account) beside the team's middle (`middle`, left out below four "
                 + "active moderators). Each moderator's own numbers (`moderators`) and who left an "
                 + "instance last (`coverageGaps[].lastModerator`) need ViewAuditLog as well; without it "
                 + "`canSeeEachModerator` is false, `moderators` is empty and `lastModerator` is null.\n\n"
@@ -213,8 +213,9 @@ public static class AnalyticsEndpoints
                 + "`waits` gives the middle wait of join requests (request to approval or rejection), "
                 + "AutoMod flags (flagged to dismissed or confirmed) and reviews (opened to closed), "
                 + "over the decisions made in the range. `actedOnAgain` counts people acted on who had "
-                + "been acted on within 30 days before; `bansLifted` counts bans lifted within 30 "
-                + "days, and the reasons given on case files lifted in the range.")
+                + "been acted on within 30 days before; `bansLifted` counts the bans in the range, "
+                + "those at least 30 days old (`oldEnough`) and how many of those were lifted within "
+                + "30 days, and the reasons given on case files lifted in the range.")
             .Produces<TeamAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

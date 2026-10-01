@@ -99,6 +99,9 @@ public class TeamAnalyticsTests
         await host.WriteFactAsync(AuditFact(FactType.GroupInstanceWarn, "usr_6", day.AddMinutes(1), actor: "usr_cat", actorName: "Cat"), ct);
         await host.WriteFactAsync(AuditFact(FactType.GroupInstanceWarn, "usr_7", day.AddMinutes(2), actor: "usr_cat", actorName: "Cat"), ct);
 
+        for (var i = 0; i < 5; i++)
+            await host.WriteFactAsync(AuditFact(FactType.GroupInstanceWarn, $"usr_d{i}", day.AddMinutes(10 + i), actor: "usr_dan", actorName: "Dan"), ct);
+
         // A gap, so there is a last moderator out to leave unnamed.
         var t = host.Clock.UtcNow.AddHours(-6);
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_bob", t, World, Instance, name: "Bob"), ct);
@@ -111,7 +114,7 @@ public class TeamAnalyticsTests
 
         Assert.False(page.CanSeeEachModerator);
         Assert.Empty(page.Moderators);
-        Assert.Equal(3, page.ModeratorsActive);
+        Assert.Equal(4, page.ModeratorsActive);
 
         Assert.NotNull(page.You);
         Assert.Equal(me, page.You.Who.Id);
@@ -120,11 +123,12 @@ public class TeamAnalyticsTests
         Assert.Equal(2, page.You.DaysActive);
         Assert.Equal(1m, page.You.OnPeoplePerDay);
 
-        // Me 2, Bob 1, Cat 3 actions on people: the middle is 2. Per day: 1, 1, 3 -> 1.
+        // Me 2, Bob 1, Cat 3, Dan 5 actions on people: the middle is halfway between 2 and 3.
+        // Per day: 1, 1, 3, 5 -> halfway between 1 and 3.
         Assert.NotNull(page.Middle);
-        Assert.Equal(3, page.Middle.Moderators);
-        Assert.Equal(2m, page.Middle.OnPeople);
-        Assert.Equal(1m, page.Middle.OnPeoplePerDay);
+        Assert.Equal(4, page.Middle.Moderators);
+        Assert.Equal(2.5m, page.Middle.OnPeople);
+        Assert.Equal(2m, page.Middle.OnPeoplePerDay);
 
         var gap = Assert.Single(page.CoverageGaps);
         Assert.Null(gap.LastModerator);
@@ -249,6 +253,10 @@ public class TeamAnalyticsTests
         await host.WriteFactAsync(AuditFact(FactType.JoinRequestRejected, "usr_r2", t.AddHours(3), actor: "usr_mod"), ct);
         await host.WriteFactAsync(AuditFact(FactType.MemberJoined, "usr_invited", t.AddHours(4), actor: "usr_mod"), ct);
 
+        // Rejected above, then let in by invite days later: the request was already answered, so
+        // the invite is not a second, days-long answer to it.
+        await host.WriteFactAsync(AuditFact(FactType.MemberJoined, "usr_r2", t.AddDays(1), actor: "usr_mod"), ct);
+
         using (var scope = host.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
@@ -298,8 +306,11 @@ public class TeamAnalyticsTests
         await host.WriteFactAsync(AuditFact(FactType.GroupInstanceKick, "usr_a", now.AddDays(-10), actor: "usr_mod"), ct);
         await host.WriteFactAsync(AuditFact(FactType.GroupInstanceKick, "usr_a", now.AddDays(-5), actor: "usr_mod"), ct);
         await host.WriteFactAsync(AuditFact(FactType.GroupInstanceWarn, "usr_b", now.AddDays(-3), actor: "usr_mod"), ct);
-        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_c", now.AddDays(-20), actor: "usr_mod"), ct);
-        await host.WriteFactAsync(AuditFact(FactType.MemberUnbanned, "usr_c", now.AddDays(-15), actor: "usr_mod"), ct);
+        // Two bans old enough to have had their thirty days, one lifted within them; and one from
+        // two days ago, which has not had them yet and so is in neither side of the share.
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_c", now.AddDays(-50), actor: "usr_mod"), ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberUnbanned, "usr_c", now.AddDays(-45), actor: "usr_mod"), ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_f", now.AddDays(-40), actor: "usr_mod"), ct);
         await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_d", now.AddDays(-2), actor: "usr_mod"), ct);
 
         using (var scope = host.Services.CreateScope())
@@ -315,19 +326,21 @@ public class TeamAnalyticsTests
             };
             db.BanReasons.Add(mistake);
 
-            db.CaseFiles.Add(LiftedCaseFile("usr_c", now.AddDays(-15), $"[\"{mistake.Id}\"]", now));
+            db.CaseFiles.Add(LiftedCaseFile("usr_c", now.AddDays(-45), $"[\"{mistake.Id}\"]", now));
             db.CaseFiles.Add(LiftedCaseFile("usr_e", now.AddDays(-4), "[]", now));
             await db.SaveChangesAsync(ct);
         }
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
-        var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=30", cookie, ct);
+        var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=90", cookie, ct);
 
-        Assert.Equal(4, page.ActedOnAgain.People);
+        // a (kicked twice), b, c, f, d; only a was acted on again within thirty days.
+        Assert.Equal(5, page.ActedOnAgain.People);
         Assert.Equal(1, page.ActedOnAgain.Again);
         Assert.Equal(30, page.ActedOnAgain.Days);
 
-        Assert.Equal(2, page.BansLifted.Bans);
+        Assert.Equal(3, page.BansLifted.Bans);
+        Assert.Equal(2, page.BansLifted.OldEnough);
         Assert.Equal(1, page.BansLifted.LiftedWithin);
         var reason = Assert.Single(page.BansLifted.Reasons);
         Assert.Equal("Mistake", reason.Label);

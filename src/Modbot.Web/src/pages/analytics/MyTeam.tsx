@@ -51,12 +51,15 @@ export function TeamStats({
   data,
   onOpenSubject,
   onOpenReviews,
+  picked,
   onPeople,
 }: {
   data: TeamAnalytics
   onOpenSubject?: (subjectId: string) => void
   /** Opens the Reviews page. Passed only when the signed-in person may review. */
   onOpenReviews?: () => void
+  /** The bar the reader picked and is waiting on; otherwise the buttons show the one `data` was read with. */
+  picked?: number
   /** Chooses another people bar: read again with it, and saved when the reader may change settings. */
   onPeople?: (people: number) => void
 }) {
@@ -72,7 +75,9 @@ export function TeamStats({
   const moderatorKey = (m: ModeratorSummary) => `${m.who.platform}:${m.who.id}`
   const named = data.canSeeEachModerator
 
-  const peopleBars = [...new Set([...PEOPLE_BARS, people])].sort((a, b) => a - b)
+  // Read with the saved bar unless the reader picked another this session.
+  const chosen = picked ?? data.cover.people
+  const peopleBars = [...new Set([...PEOPLE_BARS, chosen, data.cover.savedPeople])].sort((a, b) => a - b)
   const reviews = onOpenReviews && (
     <Button variant="outline" size="xs" onClick={onOpenReviews}>
       Reviews of unusual patterns →
@@ -106,7 +111,7 @@ export function TeamStats({
         right={
           onPeople && (
             <Toggle
-              value={String(people)}
+              value={String(chosen)}
               onChange={(v) => onPeople(Number(v))}
               options={peopleBars.map((n, i) => ({ value: String(n), label: i === 0 ? `${n}+ people` : `${n}+` }))}
             />
@@ -114,7 +119,7 @@ export function TeamStats({
         }
       >
         <div className="border-b border-(length:--hairline) p-(--panel-pad)">
-          <CoverGrid cover={data.cover} />
+          <CoverGrid cover={data.cover} to={data.to} />
         </div>
 
         {data.coverageGaps.length === 0 ? (
@@ -358,10 +363,10 @@ function You({ you, middle }: { you: ModeratorSummary; middle: TeamMiddle | null
  * Hours Modbot could not see into are striped rather than left blank, so "not known" never reads
  * as "covered".
  */
-function CoverGrid({ cover }: { cover: CoverWeek }) {
-  const busy = toLocalWeek(cover.busy)
-  const nobodyOn = toLocalWeek(cover.nobodyOn)
-  const notSeen = toLocalWeek(cover.notSeen)
+function CoverGrid({ cover, to }: { cover: CoverWeek; to: string }) {
+  const busy = toLocalWeek(cover.busy, to)
+  const nobodyOn = toLocalWeek(cover.nobodyOn, to)
+  const notSeen = toLocalWeek(cover.notSeen, to)
 
   if (cover.busy.every((v) => v === 0))
     return <p className="text-muted-foreground">No busy hours in this range.</p>
@@ -392,16 +397,20 @@ function CoverGrid({ cover }: { cover: CoverWeek }) {
 }
 
 /**
- * 168 hour-of-week buckets, Monday 00:00 UTC first, moved to the viewer's clock and cut into days,
- * as the Activity tab's heatmap does it.
+ * 168 hour-of-week buckets, Monday 00:00 UTC first, moved to the viewer's clock and cut into days.
+ *
+ * Each bucket is placed by the viewer's own clock at that hour of the week the range ends in, read
+ * from the browser for that very hour rather than from today's offset: a range ending in summer
+ * gets summer time, and a zone half an hour off UTC puts an hour on the local hour it starts in.
  */
-function toLocalWeek(buckets: number[]): number[][] {
-  const shift = Math.round(-new Date().getTimezoneOffset() / 60)
+function toLocalWeek(buckets: number[], anchorDay: string): number[][] {
+  const anchor = Date.parse(`${anchorDay}T00:00:00Z`)
+  const monday = anchor - ((new Date(anchor).getUTCDay() + 6) % 7) * 86_400_000
   const grid = DAYS.map(() => new Array<number>(24).fill(0))
 
   buckets.forEach((value, utcIndex) => {
-    const local = (((utcIndex + shift) % 168) + 168) % 168
-    grid[Math.floor(local / 24)][local % 24] += value
+    const at = new Date(monday + utcIndex * 3_600_000)
+    grid[(at.getDay() + 6) % 7][at.getHours()] += value
   })
 
   return grid
@@ -460,8 +469,12 @@ function BansLiftedPanel({ data }: { data: TeamAnalytics }) {
           <Stat label="Bans" value={compactNumber(lifted.bans)} />
           <Stat
             label={`Lifted within ${lifted.days} days`}
-            value={compactNumber(lifted.liftedWithin)}
-            note={lifted.bans > 0 ? percent(lifted.liftedWithin, lifted.bans) : undefined}
+            value={lifted.oldEnough > 0 ? compactNumber(lifted.liftedWithin) : '—'}
+            note={
+              lifted.oldEnough > 0
+                ? `${percent(lifted.liftedWithin, lifted.oldEnough)} of ${compactNumber(lifted.oldEnough)} ${plural(lifted.oldEnough, 'ban')} ${lifted.days}+ days old`
+                : undefined
+            }
           />
         </StatStrip>
         {reasons.length > 0 && <RankedList slot={2} rows={reasons} />}

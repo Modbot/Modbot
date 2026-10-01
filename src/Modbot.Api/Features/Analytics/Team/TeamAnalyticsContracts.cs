@@ -109,10 +109,18 @@ public sealed record ActedOnAgain(int People, int Again, int Days);
 /// Bans in the window, and how many of them were lifted within <paramref name="Days"/> days;
 /// and, for the case files whose ban was lifted from Modbot in the window, the reasons given.
 /// </summary>
+/// <param name="Bans">Every ban in the window.</param>
+/// <param name="OldEnough">
+/// The bans in the window at least <paramref name="Days"/> days old: the ones that have had their
+/// whole chance to be lifted, so the only ones <paramref name="LiftedWithin"/> is out of. A ban from
+/// last week counted as "not lifted" would make the share look smaller than it is.
+/// </param>
+/// <param name="LiftedWithin">Of <paramref name="OldEnough"/>, those lifted within <paramref name="Days"/> days.</param>
 /// <param name="Reasons">Each reason picked on a lift, most used first.</param>
 /// <param name="LiftedWithoutReason">Case files lifted in the window with no reason picked.</param>
 public sealed record BansLifted(
     int Bans,
+    int OldEnough,
     int LiftedWithin,
     int Days,
     IReadOnlyList<LiftReason> Reasons,
@@ -177,7 +185,8 @@ public sealed record CoverageGap(
 /// <param name="ModeratorsActive">How many moderators took any action in the window.</param>
 /// <param name="Middle">
 /// The team's middle; null when fewer than <see cref="TeamAnalyticsQuery.LeastForMiddle"/>
-/// moderators were active, because with two the middle and your own number give the other's away.
+/// moderators were active: with an odd count of three or fewer the middle is one person's own
+/// figure, and with two, the middle and your own number give the other's away.
 /// </param>
 /// <param name="OnPeoplePerDay">Actions on people per day.</param>
 /// <param name="DoorAndAdminPerDay">Door work and admin per day.</param>
