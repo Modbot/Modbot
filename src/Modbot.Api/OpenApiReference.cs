@@ -94,6 +94,12 @@ internal static class OpenApiReference
             return Task.CompletedTask;
         });
 
+        options.AddSchemaTransformer((schema, context, _) =>
+        {
+            DescribeNumbers(schema, context.JsonTypeInfo.Type);
+            return Task.CompletedTask;
+        });
+
         options.AddOperationTransformer((operation, context, _) =>
         {
             DescribeOperation(operation, context);
@@ -234,6 +240,52 @@ internal static class OpenApiReference
 
         ordered.AddRange(used.Order(StringComparer.Ordinal).Select(name => Tag(name, null)));
         document.Tags = new HashSet<OpenApiTag>(ordered);
+    }
+
+    /// <summary>
+    /// Says that a number is a number (API conventions design §5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The server reads a number sent as text as well as a number, so the generator types every
+    /// one as "integer or string" with a digits pattern. It always <em>writes</em> a number, and a
+    /// client generated from "integer or string" has to handle text that never comes. The document
+    /// says integer (or number), which is what every answer holds; a request that sends text is
+    /// still read as it always was.
+    /// </para>
+    /// <para>
+    /// The permission bitfield is the one number above 2^53, where JavaScript rounds: Administrator
+    /// is bit 62. It is described as such, and every place that answers with it answers with the
+    /// names beside it.
+    /// </para>
+    /// </remarks>
+    private static void DescribeNumbers(OpenApiSchema schema, Type type)
+    {
+        if (schema.Type is { } kinds
+            && (kinds.HasFlag(JsonSchemaType.Integer) || kinds.HasFlag(JsonSchemaType.Number))
+            && kinds.HasFlag(JsonSchemaType.String)
+            && schema.Pattern?.StartsWith("^-?(?:0|[1-9]", StringComparison.Ordinal) == true)
+        {
+            schema.Type = kinds & ~JsonSchemaType.String;
+            schema.Pattern = null;
+        }
+
+        if (type == typeof(ModbotPermissions))
+        {
+            schema.Format = "int64";
+            schema.Description =
+                "Permissions as a bitfield. Administrator is bit 62, above the 2^53 a JavaScript "
+                + "number holds exactly, so read the names that come beside it instead.";
+        }
+
+        if (type == typeof(PermissionInfo)
+            && schema.Properties?.TryGetValue("value", out var value) == true
+            && value is OpenApiSchema bit)
+        {
+            bit.Description =
+                "The bit, for composing a bitfield. Administrator's is above 2^53, where a JavaScript "
+                + "number rounds; `name` is how the API refers to a permission.";
+        }
     }
 
     /// <remarks>
