@@ -31035,6 +31035,26 @@
               "null",
               "string"
             ]
+          },
+          "repeatEvery": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "repeatTimes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "featured": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -31350,6 +31370,22 @@
               "null",
               "string"
             ]
+          },
+          "repeatEvery": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          },
+          "repeatTimes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "featured": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -32074,6 +32110,10 @@
           },
           "notify": {
             "type": "boolean"
+          },
+          "featured": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -32155,6 +32195,18 @@
               "null",
               "string"
             ]
+          },
+          "every": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          },
+          "times": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
