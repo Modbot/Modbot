@@ -132,6 +132,29 @@ public static class EventCard
         return card with { Title = CardText.Plain(card.Title, 256 - suffix.Length) + suffix };
     }
 
+    /// <summary>
+    /// The names of the fields a change touched, lower-cased, in one fixed order and joined: what
+    /// <see cref="Repeated"/> needs to know about two changes before it may stand for both.
+    /// </summary>
+    /// <remarks>
+    /// A card draws the latest change's fields only, so a run of changes that touched different
+    /// fields would show the last one and hide the rest: a rules change among online-count readings
+    /// would vanish into "12 times". Only the same fields fold. The fields a group card leaves out
+    /// as bookkeeping are left out here too, since they are not on the card to be hidden.
+    /// </remarks>
+    public static string ChangedFields(ModbotEvent fact)
+    {
+        ArgumentNullException.ThrowIfNull(fact);
+
+        var view = ModerationEventView.From(fact, new Dictionary<string, string?>());
+        var names = view.What.Changes.Select(c => c.Name);
+
+        if (fact.Type == FactType.GroupInfoChanged)
+            names = names.Where(n => !GroupBookkeeping.Contains(n));
+
+        return string.Join(',', names.Select(n => n.ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal));
+    }
+
     // ── The cards ────────────────────────────────────────────────────────────────────────────
 
     /// <summary>A card about a person that says nothing today's card did not, but says it better.</summary>

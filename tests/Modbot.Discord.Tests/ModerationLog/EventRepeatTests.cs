@@ -49,34 +49,49 @@ public class EventRepeatTests
 
     /// <summary>The group-info poll's reading: the group changed, nobody named.</summary>
     private static Task<long> GroupUpdateAsync(TestServices services, int before, int after, CancellationToken ct)
-        => services.WriteFactAsync(new FactRecord
+        => GroupFieldsAsync(services, ct, ("OnlineMemberCount", before, after));
+
+    /// <summary>A group reading that found these fields different, each as a name and its old and new number.</summary>
+    private static Task<long> GroupFieldsAsync(
+        TestServices services, CancellationToken ct, params (string Name, int Before, int After)[] fields)
+    {
+        var changed = new JsonObject();
+        foreach (var (name, before, after) in fields)
+        {
+            changed[name] = new JsonObject
+            {
+                ["old"] = JsonSerializer.SerializeToNode(before),
+                ["new"] = JsonSerializer.SerializeToNode(after),
+            };
+        }
+
+        return services.WriteFactAsync(new FactRecord
         {
             Type = FactType.GroupInfoChanged,
             OccurredAt = services.Clock.UtcNow,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = Group,
             Source = FactSource.SyncDiff,
-            Data = new JsonObject
-            {
-                ["changed"] = new JsonObject
-                {
-                    ["OnlineMemberCount"] = new JsonObject
-                    {
-                        ["old"] = JsonSerializer.SerializeToNode(before),
-                        ["new"] = JsonSerializer.SerializeToNode(after),
-                    },
-                },
-            },
+            Data = new JsonObject { ["changed"] = changed },
         }, ct);
+    }
 
     /// <summary>A profile refresh that found a new status.</summary>
-    private static Task<long> ProfileChangedAsync(TestServices services, string person, string status, CancellationToken ct)
+    private static Task<long> ProfileChangedAsync(
+        TestServices services,
+        string person,
+        string status,
+        CancellationToken ct,
+        FactPlatform subjectPlatform = FactPlatform.VRChat,
+        FactPlatform? actorPlatform = null)
         => services.WriteFactAsync(new FactRecord
         {
             Type = FactType.UserProfileChanged,
             OccurredAt = services.Clock.UtcNow,
-            SubjectPlatform = FactPlatform.VRChat,
+            SubjectPlatform = subjectPlatform,
             SubjectId = person,
+            ActorPlatform = actorPlatform,
+            ActorId = actorPlatform is null ? null : Actor,
             Source = FactSource.SyncDiff,
             Data = new JsonObject
             {
@@ -197,6 +212,129 @@ public class EventRepeatTests
 
         services.Clock.Advance(TimeSpan.FromMinutes(1));
         await services.WriteAuditFactAsync(FactType.RoleUpdated, "grol_staff", OtherActor, "Nova", ct: ct);
+        await RunAsync(services, gateway, ct);
+
+        Assert.Equal(2, gateway.Messages.Count);
+        Assert.Empty(gateway.Edits);
+    }
+
+    [Fact]
+    public async Task ADifferentSetOfChangedFields_StartsANewPost_SoAnEditIsNeverHiddenInTheCount()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.GroupInfoChanged], ct);
+
+        await GroupUpdateAsync(services, 260, 263, ct);
+        await RunAsync(services, gateway, ct);
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await GroupUpdateAsync(services, 263, 270, ct);
+        await RunAsync(services, gateway, ct);
+
+        Assert.Single(gateway.Messages);
+        Assert.Equal("Group details changed · 2 times in 5m", Assert.Single(Assert.Single(gateway.Edits).Embeds).Title);
+
+        // The rules changed in the same reading as the count: another set of fields, so another post.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await GroupFieldsAsync(services, ct, ("OnlineMemberCount", 270, 271), ("Rules", 1, 2));
+        await RunAsync(services, gateway, ct);
+
+        Assert.Equal(2, gateway.Messages.Count);
+        Assert.Single(gateway.Edits);
+        var rules = Assert.Single(gateway.Messages[1].Embeds);
+        Assert.Equal("Group details changed", rules.Title);
+        Assert.Contains("Rules", Field(rules, "Changed"), StringComparison.Ordinal);
+
+        // And a count after it does not go into the rules post either.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await GroupUpdateAsync(services, 271, 275, ct);
+        await RunAsync(services, gateway, ct);
+
+        Assert.Equal(3, gateway.Messages.Count);
+        Assert.Single(gateway.Edits);
+        Assert.Equal(1, (await services.ChannelPlaceAsync(Channel, ct))!.RepeatCount);
+    }
+
+    [Fact]
+    public async Task ADifferentSetOfChangedFields_InOnePass_IsNotOneCard()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.GroupInfoChanged], ct);
+
+        await GroupUpdateAsync(services, 260, 263, ct);
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await GroupFieldsAsync(services, ct, ("Rules", 1, 2));
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await GroupUpdateAsync(services, 263, 270, ct);
+        await RunAsync(services, gateway, ct);
+
+        // Three events, three cards, in one message: nothing is counted into another's title.
+        var embeds = Assert.Single(gateway.Messages).Embeds;
+        Assert.Equal(3, embeds.Count);
+        Assert.All(embeds, e => Assert.DoesNotContain("times", e.Title, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TheSameFieldsInAnotherCase_AndTheBookkeepingFieldsAlongside_StillFold()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.GroupInfoChanged], ct);
+
+        await GroupUpdateAsync(services, 260, 263, ct);
+        await RunAsync(services, gateway, ct);
+
+        // The source's own bookkeeping fields are not on the card, so they cannot hide anything.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await GroupFieldsAsync(services, ct, ("onlineMemberCount", 263, 270), ("updatedAt", 1, 2));
+        await RunAsync(services, gateway, ct);
+
+        Assert.Single(gateway.Messages);
+        Assert.Equal("Group details changed · 2 times in 5m", Assert.Single(Assert.Single(gateway.Edits).Embeds).Title);
+    }
+
+    [Fact]
+    public async Task TheSameIdInAnotherSystem_StartsANewPost()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.UserProfileChanged], ct);
+
+        await ProfileChangedAsync(services, Person, "online", ct);
+        await RunAsync(services, gateway, ct);
+
+        // The same text id, but a Discord subject: not the same thing.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await ProfileChangedAsync(services, Person, "online", ct, FactPlatform.Discord);
+        await RunAsync(services, gateway, ct);
+
+        Assert.Equal(2, gateway.Messages.Count);
+        Assert.Empty(gateway.Edits);
+    }
+
+    [Fact]
+    public async Task TheSameActorIdInAnotherSystem_StartsANewPost()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.UserProfileChanged], ct);
+
+        await ProfileChangedAsync(services, Person, "online", ct, actorPlatform: FactPlatform.VRChat);
+        await RunAsync(services, gateway, ct);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await ProfileChangedAsync(services, Person, "online", ct, actorPlatform: FactPlatform.Discord);
         await RunAsync(services, gateway, ct);
 
         Assert.Equal(2, gateway.Messages.Count);

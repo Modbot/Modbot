@@ -17,12 +17,24 @@ namespace Modbot.Core.Data.Migrations
                 type: "text",
                 nullable: true);
 
+            migrationBuilder.AddColumn<short>(
+                name: "repeat_actor_platform",
+                table: "discord_event_channel",
+                type: "smallint",
+                nullable: true);
+
             migrationBuilder.AddColumn<int>(
                 name: "repeat_count",
                 table: "discord_event_channel",
                 type: "integer",
                 nullable: false,
                 defaultValue: 0);
+
+            migrationBuilder.AddColumn<string>(
+                name: "repeat_fields",
+                table: "discord_event_channel",
+                type: "text",
+                nullable: true);
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "repeat_first_at",
@@ -46,6 +58,12 @@ namespace Modbot.Core.Data.Migrations
                 name: "repeat_subject_id",
                 table: "discord_event_channel",
                 type: "text",
+                nullable: true);
+
+            migrationBuilder.AddColumn<short>(
+                name: "repeat_subject_platform",
+                table: "discord_event_channel",
+                type: "smallint",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
@@ -63,7 +81,15 @@ namespace Modbot.Core.Data.Migrations
                 table: "discord_event_channel");
 
             migrationBuilder.DropColumn(
+                name: "repeat_actor_platform",
+                table: "discord_event_channel");
+
+            migrationBuilder.DropColumn(
                 name: "repeat_count",
+                table: "discord_event_channel");
+
+            migrationBuilder.DropColumn(
+                name: "repeat_fields",
                 table: "discord_event_channel");
 
             migrationBuilder.DropColumn(
@@ -80,6 +106,10 @@ namespace Modbot.Core.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "repeat_subject_id",
+                table: "discord_event_channel");
+
+            migrationBuilder.DropColumn(
+                name: "repeat_subject_platform",
                 table: "discord_event_channel");
 
             migrationBuilder.DropColumn(

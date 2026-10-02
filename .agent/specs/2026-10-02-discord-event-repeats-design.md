@@ -22,8 +22,15 @@ An event is a repeat of the post before it when all of these hold:
    subject *is* that thing: group details (`vrchat.group.update`), the group profile edited in
    Modbot, a VRChat role's settings, a group instance, a recurring calendar entry, a person's
    profile, a person's avatar, a Discord nickname, a Discord channel and a Discord role.
-2. **Same type, same subject, same person who did it.** Two moderators editing the same role are two
-   posts, so `By` on the card is never wrong. Two events nobody did (the poll's readings) match.
+2. **Same type, same subject, same person who did it, same fields.** Two moderators editing the same
+   role are two posts, so `By` on the card is never wrong. Two events nobody did (the poll's readings)
+   match. The subject and the person each count with their platform, since an id is opaque text and
+   two systems' ids may read alike.
+   The **fields** are the names the change touched (`EventCard.ChangedFields`: lower-cased, in one
+   fixed order, without the bookkeeping fields a group card leaves out). The card draws the latest
+   change only, so a run that mixed different fields would show the last and hide the rest: a Rules
+   or description change must never vanish into "12 times" of online-count readings. A reading that
+   touched other fields is a post of its own, and what follows it goes into that one, not the earlier.
 3. **The post would cover no more than the window**, from the first event in it to the latest
    (§3).
 4. **The post is still the newest message in the channel** (§4).
@@ -89,7 +96,7 @@ On `discord_event_channel`, so a restart carries on editing the same post:
 | Column | Holds |
 |---|---|
 | `repeat_post_id` | The message repeats may go into, or null |
-| `repeat_type`, `repeat_subject_id`, `repeat_actor_id` | What it is about, to match the next event against |
+| `repeat_type`, `repeat_subject_platform`, `repeat_subject_id`, `repeat_actor_platform`, `repeat_actor_id`, `repeat_fields` | What it is about and which fields it touched, to match the next event against |
 | `repeat_count` | How many events it stands for |
 | `repeat_first_at`, `repeat_last_at` | When the first and latest happened, for the window and the title |
 

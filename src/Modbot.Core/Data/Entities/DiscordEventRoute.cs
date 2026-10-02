@@ -118,11 +118,24 @@ public class DiscordEventChannel
     /// <summary>The fact type the post is about.</summary>
     public string? RepeatType { get; set; }
 
+    /// <summary>Which system the subject's id belongs to; ids of two systems may read alike.</summary>
+    public FactPlatform? RepeatSubjectPlatform { get; set; }
+
     /// <summary>Who or what the post is about: the fact's subject.</summary>
     public string? RepeatSubjectId { get; set; }
 
+    /// <summary>Which system the actor's id belongs to, or null with no actor.</summary>
+    public FactPlatform? RepeatActorPlatform { get; set; }
+
     /// <summary>Who did it, or null for events nobody did. A repeat must have the same one.</summary>
     public string? RepeatActorId { get; set; }
+
+    /// <summary>
+    /// The names of the fields the post's change touched, in one fixed order (<c>EventCard.ChangedFields</c>).
+    /// A repeat must have touched the same ones: the card shows the latest change only, so a repeat
+    /// that touched others would hide them. Empty when the type carries no field list.
+    /// </summary>
+    public string? RepeatFields { get; set; }
 
     /// <summary>How many events the post stands for.</summary>
     public int RepeatCount { get; set; }

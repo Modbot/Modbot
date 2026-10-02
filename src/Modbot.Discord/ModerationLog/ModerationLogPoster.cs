@@ -521,12 +521,16 @@ public sealed class ModerationLogPoster
     {
         public Repeats(ModbotEvent first, OpenPost? earlier)
         {
+            Key = RepeatKey.Of(first);
             Latest = first;
             Count = 1;
             FirstAt = first.OccurredAt;
             LastAt = first.OccurredAt;
             Earlier = earlier;
         }
+
+        /// <summary>What every event in the card has in common.</summary>
+        private RepeatKey Key { get; }
 
         /// <summary>The newest event, which the card is drawn from.</summary>
         public ModbotEvent Latest { get; private set; }
@@ -550,11 +554,12 @@ public sealed class ModerationLogPoster
 
         /// <summary>
         /// Whether the event is a repeat of these: the same change to the same thing by the same
-        /// person, and the card would still cover no more than the window.
+        /// person, touching the same fields, and the card would still cover no more than the window.
         /// </summary>
         public bool Takes(ModbotEvent fact, TimeSpan window)
-            => OpenPost.Same(fact, Latest.Type, Latest.SubjectId, Latest.ActorId)
-               && OpenPost.Within(fact, TotalFirstAt, TotalLastAt, window);
+            => DiscordEventTypes.FoldsRepeats(fact.Type)
+               && OpenPost.Within(fact, TotalFirstAt, TotalLastAt, window)
+               && RepeatKey.Of(fact) == Key;
 
         public void Add(ModbotEvent fact)
         {
@@ -570,14 +575,39 @@ public sealed class ModerationLogPoster
     }
 
     /// <summary>
+    /// What two events share when one is a repeat of the other: the same change, to the same thing
+    /// in the same system, by the same person in the same system, touching the same fields.
+    /// </summary>
+    /// <remarks>
+    /// The platform goes with each id because ids are opaque text and two systems' ids may read
+    /// alike. The fields go with the change because a card shows only the latest change's, so a run
+    /// that mixed different fields would hide the earlier ones.
+    /// </remarks>
+    private readonly record struct RepeatKey(
+        string Type,
+        FactPlatform SubjectPlatform,
+        string SubjectId,
+        FactPlatform? ActorPlatform,
+        string? ActorId,
+        string Fields)
+    {
+        public static RepeatKey Of(ModbotEvent fact)
+            => new(
+                fact.Type,
+                fact.SubjectPlatform,
+                fact.SubjectId,
+                fact.ActorPlatform,
+                fact.ActorId,
+                EventCard.ChangedFields(fact));
+    }
+
+    /// <summary>
     /// The post at the bottom of a channel that repeats can still go into, as the channel's row
     /// remembers it across restarts.
     /// </summary>
     private sealed record OpenPost(
         string MessageId,
-        string Type,
-        string SubjectId,
-        string? ActorId,
+        RepeatKey Key,
         int Count,
         DateTimeOffset FirstAt,
         DateTimeOffset LastAt)
@@ -587,22 +617,25 @@ public sealed class ModerationLogPoster
             {
                 RepeatPostId: { Length: > 0 } id,
                 RepeatType: { Length: > 0 } type,
+                RepeatSubjectPlatform: { } subjectPlatform,
                 RepeatSubjectId: { } subject,
+                RepeatFields: { } fields,
                 RepeatCount: > 0,
                 RepeatFirstAt: { } first,
                 RepeatLastAt: { } last,
             }
-                ? new OpenPost(id, type, subject, place.RepeatActorId, place.RepeatCount, first, last)
+                ? new OpenPost(
+                    id,
+                    new RepeatKey(type, subjectPlatform, subject, place.RepeatActorPlatform, place.RepeatActorId, fields),
+                    place.RepeatCount,
+                    first,
+                    last)
                 : null;
 
         public bool Takes(ModbotEvent fact, TimeSpan window)
-            => Same(fact, Type, SubjectId, ActorId) && Within(fact, FirstAt, LastAt, window);
-
-        public static bool Same(ModbotEvent fact, string type, string subjectId, string? actorId)
             => DiscordEventTypes.FoldsRepeats(fact.Type)
-               && string.Equals(fact.Type, type, StringComparison.Ordinal)
-               && string.Equals(fact.SubjectId, subjectId, StringComparison.Ordinal)
-               && string.Equals(fact.ActorId, actorId, StringComparison.Ordinal);
+               && Within(fact, FirstAt, LastAt, window)
+               && RepeatKey.Of(fact) == Key;
 
         /// <summary>Whether the post would still cover no more than the window with this event in it.</summary>
         public static bool Within(ModbotEvent fact, DateTimeOffset firstAt, DateTimeOffset lastAt, TimeSpan window)
@@ -616,8 +649,11 @@ public sealed class ModerationLogPoster
         {
             place.RepeatPostId = messageId;
             place.RepeatType = card.Latest.Type;
+            place.RepeatSubjectPlatform = card.Latest.SubjectPlatform;
             place.RepeatSubjectId = card.Latest.SubjectId;
+            place.RepeatActorPlatform = card.Latest.ActorPlatform;
             place.RepeatActorId = card.Latest.ActorId;
+            place.RepeatFields = EventCard.ChangedFields(card.Latest);
             place.RepeatCount = card.Total;
             place.RepeatFirstAt = card.TotalFirstAt;
             place.RepeatLastAt = card.TotalLastAt;
@@ -627,8 +663,11 @@ public sealed class ModerationLogPoster
         {
             place.RepeatPostId = null;
             place.RepeatType = null;
+            place.RepeatSubjectPlatform = null;
             place.RepeatSubjectId = null;
+            place.RepeatActorPlatform = null;
             place.RepeatActorId = null;
+            place.RepeatFields = null;
             place.RepeatCount = 0;
             place.RepeatFirstAt = null;
             place.RepeatLastAt = null;
