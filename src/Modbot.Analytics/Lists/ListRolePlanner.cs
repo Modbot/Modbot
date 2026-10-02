@@ -537,6 +537,15 @@ public sealed class ListRolePlanner
         if (await _db.DiscordRolePairs.AsNoTracking().AnyAsync(p => p.DiscordRoleId == roleId, ct).ConfigureAwait(false))
             return "That role is paired with a group role in role sync.";
 
+        // A role a linked Modbot role gives and takes both ways is that sync's to write; two syncs
+        // writing one role would undo each other (staff roles from Discord design §3.1).
+        if (await _db.DiscordStaffRoles.AsNoTracking()
+                .AnyAsync(m => m.DiscordRoleId == roleId && m.Direction == StaffRoleDirections.Both, ct)
+                .ConfigureAwait(false))
+        {
+            return "That role is linked to a Modbot role both ways.";
+        }
+
         if (string.Equals(settings?.DiscordLinkedRoleId?.Trim(), roleId, StringComparison.Ordinal))
             return "Modbot already gives that role to members who link their accounts.";
 

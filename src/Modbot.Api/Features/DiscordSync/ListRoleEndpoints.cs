@@ -10,6 +10,7 @@ using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.DiscordSync;
 
@@ -216,6 +217,11 @@ public static class ListRoleEndpoints
 
                 var roleId = body.DiscordRoleId.Trim();
 
+                // The lock linked roles and role pairs take, so a list and a both-ways link saved at
+                // once cannot both pass the check that keeps them off one Discord role.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await StaffRoles.LockSavesAsync(db, ct);
+
                 if (await planner.WhyNotAsync(roleId, null, ct) is { } refused)
                     return Results.BadRequest(new { error = refused });
 
@@ -229,8 +235,6 @@ public static class ListRoleEndpoints
                     CreatedAt = now,
                     UpdatedAt = now,
                 };
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.DiscordListRoles.Add(pairing);
                 await db.SaveChangesAsync(ct);

@@ -294,6 +294,31 @@ public class ListRoleEndpointTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.BadRequest, pair.StatusCode);
     }
 
+    /// <summary>A role a linked Modbot role gives and takes both ways is that sync's to write; a list cannot give it.</summary>
+    [Fact]
+    public async Task ARoleLinkedBothWaysCannotBeGivenByAList()
+    {
+        var started = await StartAsync();
+        await using var host = started.Host;
+        var listId = started.ListId;
+        var (_, cookie) = await host.SignedInAsync(Everything, Ct);
+
+        await using (var context = db.NewContext())
+        {
+            context.DiscordStaffRoles.Add(new DiscordStaffRole
+            {
+                DiscordRoleId = Regular,
+                RoleId = BuiltInRoles.ModeratorId,
+                Direction = StaffRoleDirections.Both,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var response = await AddAsync(host, cookie, listId, Regular);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("That role is linked to a Modbot role both ways.", await ErrorOf(response));
+    }
+
     /// <summary>Lists design §6: the preview names people in a list, so it is not a way round seeing one.</summary>
     [Fact]
     public async Task ThePreviewNeedsSeeMembersAndSeeProfiles()

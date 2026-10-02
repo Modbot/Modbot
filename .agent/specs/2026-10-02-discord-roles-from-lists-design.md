@@ -106,9 +106,10 @@ after it was paired; the pass then changes nothing and says why):
   members or the server — post as anybody (webhooks), rename people, hide threads, move or silence
   people in voice, read the moderation log — which is a staff power by any reading.
 - **a role something else already decides**: a role paired with a group role (role sync), the
-  linked-member role and the 18+ role (account linking), or a role another list gives. Two things
-  deciding one role would undo each other every minute. Pairing a group role with a role a list
-  gives is refused the same way.
+  linked-member role and the 18+ role (account linking), a role linked to a Modbot role both ways
+  (staff roles), or a role another list gives. Two things
+  deciding one role would undo each other every minute. Pairing a group role, or linking a Modbot
+  role both ways, with a role a list gives is refused the same way.
 
 Only roles somebody pairs here are ever touched. There is no "every role except".
 
@@ -243,4 +244,5 @@ stopped.
 - **Waiting out close calls.** Somebody near a presence threshold can fall in and out of a list; the
   role follows. A grace period is a later choice.
 - **Staff role mappings.** The staff roles feature (built alongside) maps Discord roles to Modbot
-  roles. A role it maps is not yet refused here; whichever lands second adds the check both ways.
+  roles. A role mapped both ways is refused here, and a role a list gives cannot be mapped both ways
+  (one way, Discord to Modbot, only reads the role and is left alone).

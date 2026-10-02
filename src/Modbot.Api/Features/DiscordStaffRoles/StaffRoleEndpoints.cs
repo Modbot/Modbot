@@ -419,6 +419,8 @@ public static class StaffRoleEndpoints
 
     internal const string PairedElsewhere = "That Discord role is paired with a group role, so it cannot work both ways.";
 
+    internal const string GivenByList = "A list already gives that Discord role, so it cannot work both ways.";
+
     internal const string PowerfulRole =
         "A Discord role that can ban, kick, manage the server or manage roles cannot work both ways.";
 
@@ -473,6 +475,10 @@ public static class StaffRoleEndpoints
             // Two syncs writing the same Discord role would undo each other.
             if (await db.DiscordRolePairs.AsNoTracking().AnyAsync(p => p.DiscordRoleId == discordRoleId, ct))
                 return Refuse(PairedElsewhere);
+
+            // A list giving the role would undo what this decides every minute (roles from lists design §4).
+            if (await db.DiscordListRoles.AsNoTracking().AnyAsync(p => p.DiscordRoleId == discordRoleId, ct))
+                return Refuse(GivenByList);
 
             // Both ways hands the Discord role out from Modbot: never one that carries power over
             // the server. A role whose permissions are not read yet counts as one that might.
