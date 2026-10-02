@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
@@ -46,6 +45,12 @@ public sealed class StaffRoleSync
 
     private const string Reason = "Modbot: staff role set in Modbot";
 
+    /// <summary>
+    /// One pass at a time in this process: the minute loop and the Apply button both come through
+    /// <see cref="RunAsync"/>, and two passes over the same plan would each give and take.
+    /// </summary>
+    private static readonly SemaphoreSlim OnePass = new(1, 1);
+
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly IFactWriter _facts;
@@ -73,6 +78,21 @@ public sealed class StaffRoleSync
     /// </param>
     public async Task<StaffRolePass> RunAsync(
         IDiscordGateway? gateway, bool membersRead, bool pastBrake, CancellationToken ct, StaffRolePlan? checkedPlan = null)
+    {
+        await OnePass.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            return await RunOnceAsync(gateway, membersRead, pastBrake, checkedPlan, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            OnePass.Release();
+        }
+    }
+
+    private async Task<StaffRolePass> RunOnceAsync(
+        IDiscordGateway? gateway, bool membersRead, bool pastBrake, StaffRolePlan? checkedPlan, CancellationToken ct)
     {
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -173,6 +193,10 @@ public sealed class StaffRoleSync
 
         var give = change.What == StaffRoleChangeKinds.Give;
 
+        // Each change reads the account afresh: nothing an earlier change in this pass left in the
+        // tracker stands in for what the database says now.
+        _db.ChangeTracker.Clear();
+
         await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         var user = await _db.Users
@@ -188,6 +212,11 @@ public sealed class StaffRoleSync
         // A give is checked again too: still the Discord account the plan read, still proven, the
         // mapping still there, and the switch still on.
         if (give && !await MayStillGiveAsync(user, change, ct).ConfigureAwait(false))
+            return (false, null);
+
+        // A take is checked again as well: the role is still linked (a link removed or changed
+        // while the pass ran takes nothing), and the switch still on.
+        if (!give && !await MayStillTakeAsync(change, ct).ConfigureAwait(false))
             return (false, null);
 
         var held = user.Roles.FirstOrDefault(r => r.RoleId == change.RoleId);
@@ -296,11 +325,11 @@ public sealed class StaffRoleSync
             return (false, null);
 
         // Never anything in a server the person is not in.
-        var member = await _db.DiscordMembers
-            .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == discordUserId && m.LeftAt == null, ct)
+        var inServer = await _db.DiscordMembers.AsNoTracking()
+            .AnyAsync(m => m.GuildId == guildId && m.UserId == discordUserId && m.LeftAt == null, ct)
             .ConfigureAwait(false);
 
-        if (member is null)
+        if (!inServer)
             return (false, null);
 
         var outcome = await gateway.ChangeRoleAsync(guildId, discordUserId, discordRoleId, give, Reason, ct).ConfigureAwait(false);
@@ -329,10 +358,7 @@ public sealed class StaffRoleSync
             // The bot's own change goes into the stored member row now, before Discord's update
             // for it arrives, so the row already agrees and the next pass cannot read the old roles
             // as Discord changing its mind (StaffRoles.BothWays compares held roles, not times).
-            var heldNow = Ids(member.Roles);
-            if (give) heldNow.Add(discordRoleId); else heldNow.Remove(discordRoleId);
-            member.Roles = JsonSerializer.Serialize(heldNow.Order(StringComparer.Ordinal).ToArray());
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await WriteBackAsync(_db, guildId, discordUserId, discordRoleId, give, ct).ConfigureAwait(false);
 
             await AgreeAsync(mappingId, userId, discordUserId, give, ct).ConfigureAwait(false);
             await SetProblemAsync(mappingId, null, refusedAt: null, ct).ConfigureAwait(false);
@@ -383,31 +409,64 @@ public sealed class StaffRoleSync
             }
         }
 
-        var updated = await _db.DiscordStaffRoleStates
-            .Where(s => s.MappingId == mappingId && s.UserId == userId)
-            .ExecuteUpdateAsync(
-                u => u.SetProperty(s => s.Held, held).SetProperty(s => s.AgreedAt, now).SetProperty(s => s.DiscordUserId, discordUserId),
+        // One statement, so two writers for the same account and mapping cannot both insert.
+        await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                INSERT INTO discord_staff_role_state (mapping_id, user_id, discord_user_id, held, agreed_at)
+                VALUES ({mappingId}, {userId}, {discordUserId}, {held}, {now})
+                ON CONFLICT (mapping_id, user_id)
+                DO UPDATE SET discord_user_id = EXCLUDED.discord_user_id, held = EXCLUDED.held, agreed_at = EXCLUDED.agreed_at
+                """,
                 ct)
             .ConfigureAwait(false);
+    }
 
-        if (updated > 0)
-            return;
+    /// <summary>
+    /// Adds or removes one role id in a member's stored roles, and nothing else, in one statement.
+    /// </summary>
+    /// <remarks>
+    /// The member list is written by the gateway's recorder at the same time as the pass runs.
+    /// Reading the array, changing it and writing it back would overwrite whatever the recorder
+    /// wrote in between; adding or removing the single element inside the database leaves every
+    /// other role id as the row holds it at that moment.
+    /// </remarks>
+    public static Task<int> WriteBackAsync(
+        ModbotContext db, string guildId, string discordUserId, string roleId, bool give, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
 
-        _db.DiscordStaffRoleStates.Add(new DiscordStaffRoleState
-        {
-            MappingId = mappingId,
-            UserId = userId,
-            DiscordUserId = discordUserId,
-            Held = held,
-            AgreedAt = now,
-        });
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return give
+            ? db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE discord_member
+                SET roles = roles || jsonb_build_array({roleId}::text)
+                WHERE guild_id = {guildId} AND user_id = {discordUserId}
+                  AND NOT roles @> jsonb_build_array({roleId}::text)
+                """,
+                ct)
+            : db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE discord_member
+                SET roles = roles - {roleId}::text
+                WHERE guild_id = {guildId} AND user_id = {discordUserId}
+                """,
+                ct);
     }
 
     private Task SetProblemAsync(Guid mappingId, string? problem, DateTimeOffset? refusedAt, CancellationToken ct)
         => _db.DiscordStaffRoles
             .Where(m => m.Id == mappingId)
             .ExecuteUpdateAsync(u => u.SetProperty(m => m.Problem, problem).SetProperty(m => m.RefusedAt, refusedAt), ct);
+
+    /// <summary>Whether a Modbot role the plan takes is still linked, and the switch still on.</summary>
+    private async Task<bool> MayStillTakeAsync(StaffRoleChange change, CancellationToken ct)
+    {
+        var linked = change.MappingId is { } mappingId
+            ? await _db.DiscordStaffRoles.AsNoTracking().AnyAsync(m => m.Id == mappingId && m.RoleId == change.RoleId, ct).ConfigureAwait(false)
+            : await _db.DiscordStaffRoles.AsNoTracking().AnyAsync(m => m.RoleId == change.RoleId, ct).ConfigureAwait(false);
+
+        return linked && await SwitchOnAsync(ct).ConfigureAwait(false);
+    }
 
     private Task<bool> SwitchOnAsync(CancellationToken ct)
         => _db.Settings.AsNoTracking().AnyAsync(s => s.Id == 1 && s.DiscordStaffRolesOn, ct);
@@ -479,18 +538,6 @@ public sealed class StaffRoleSync
         }
 
         return state;
-    }
-
-    private static HashSet<string> Ids(string json)
-    {
-        try
-        {
-            return (JsonSerializer.Deserialize<string[]>(json) ?? []).ToHashSet(StringComparer.Ordinal);
-        }
-        catch (JsonException)
-        {
-            return new HashSet<string>(StringComparer.Ordinal);
-        }
     }
 
     private static string Stopped(int losing)

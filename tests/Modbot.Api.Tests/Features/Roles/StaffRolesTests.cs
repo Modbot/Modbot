@@ -354,6 +354,32 @@ public class StaffRolesTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>Apply gives as well as takes: a role allowing what the presser cannot do is refused.</summary>
+    [Fact]
+    public async Task ApplyIsRefusedWhenItWouldGiveAPermissionThePresserLacks()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        await ServerAsync(host, on: true);
+
+        // Below the presser (fewer permissions), but allowing Change settings, which they lack.
+        Guid settingsRole;
+        using (var scope = host.Services.CreateScope())
+        {
+            settingsRole = await TestAccounts.RoleForAsync(
+                scope.ServiceProvider.GetRequiredService<ModbotContext>(), ModbotPermissions.ManageSettings | ModbotPermissions.ViewMembers, Ct);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, settingsRole), admin, Ct)).StatusCode);
+        await StaffMemberAsync(host, Member, Staff);
+
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path + "/apply", null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task ThePreviewListsWhoWouldChangeAndChangesNothing()
     {
@@ -439,10 +465,14 @@ public class StaffRolesTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("follows a Discord role", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
 
-        // Viewer is not mapped, so it is still the users page's to give.
-        Assert.Equal(
-            HttpStatusCode.OK,
-            (await host.SendJsonAsync(HttpMethod.Put, $"/api/users/{staff.Id}/roles", new { roleIds = new[] { BuiltInRoles.ViewerId } }, cookie, Ct)).StatusCode);
+        // Viewer is not mapped, so it is still the users page's to give, and the answer says
+        // which roles still follow Discord on the account.
+        var viewer = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/users/{staff.Id}/roles", new { roleIds = new[] { BuiltInRoles.ViewerId } }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, viewer.StatusCode);
+        Assert.Contains(
+            (await ApiTestHost.BodyOf(viewer, Ct)).GetProperty("rolesFromDiscord").EnumerateArray(),
+            r => r.GetGuid() == BuiltInRoles.ModeratorId);
     }
 
     [Fact]

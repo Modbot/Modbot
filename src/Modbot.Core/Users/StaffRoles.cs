@@ -169,6 +169,21 @@ public static class StaffRoles
         ArgumentNullException.ThrowIfNull(role);
         return role.Permissions is not { } permissions || (permissions & PowerfulDiscordPermissions) != 0;
     }
+    /// <summary>The advisory lock every save of a linked role or a VRChat role pair takes.</summary>
+    public const string SaveLock = "modbot.staff-roles.save";
+
+    /// <summary>
+    /// One save at a time of a linked role or a VRChat role pair, until the transaction ends. The
+    /// checks between them -- a both-ways row alone for its Modbot role, beside no one-way row, and
+    /// never on a Discord role a pair writes -- read other rows, so two saves at once could each
+    /// pass them; under this lock the second one reads what the first wrote.
+    /// </summary>
+    public static Task LockSavesAsync(ModbotContext db, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({SaveLock}))", ct);
+    }
+
     /// <summary>The saved mappings, as the planner reads them.</summary>
     public static async Task<IReadOnlyList<StaffRoleRule>> RulesAsync(ModbotContext db, CancellationToken ct)
     {
@@ -370,7 +385,7 @@ public static class StaffRoles
 
             var member = memberById.GetValueOrDefault(user.DiscordUserId);
             var inServer = member is { LeftAt: null };
-            var discordHeldIds = inServer ? Ids(member!.Roles) : [];
+            var discordHeldIds = inServer ? Live(Ids(member!.Roles), discordRoles) : [];
 
             foreach (var (role, roleRules, both, bothWorks) in byRole)
             {
@@ -561,7 +576,7 @@ public static class StaffRoles
 
         foreach (var member in members.Where(m => m.LeftAt is null && !proven.Contains(m.UserId)).OrderBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase))
         {
-            var held = Ids(member.Roles);
+            var held = Live(Ids(member.Roles), discordRoles);
             var rule = rules.FirstOrDefault(r => held.Contains(r.DiscordRoleId));
             if (rule is null || !roles.TryGetValue(rule.RoleId, out var role))
                 continue;
@@ -597,6 +612,18 @@ public static class StaffRoles
 
     private static string DiscordName(string roleId, IReadOnlyDictionary<string, DiscordRole> roles)
         => roles.TryGetValue(roleId, out var role) && role.Name.Length > 0 ? role.Name : roleId;
+
+    /// <summary>
+    /// The held role ids less those the server index has found gone from Discord. A member row
+    /// keeps a deleted role's id until that member's next update, and a role that no longer exists
+    /// gives nobody anything: deleting a linked Discord role takes its Modbot role from everybody who
+    /// held it, on the next pass (brake permitting).
+    /// </summary>
+    private static HashSet<string> Live(HashSet<string> ids, IReadOnlyDictionary<string, DiscordRole> roles)
+    {
+        ids.RemoveWhere(id => roles.TryGetValue(id, out var role) && role.RemovedAt is not null);
+        return ids;
+    }
 
     private static HashSet<string> Ids(string json)
     {

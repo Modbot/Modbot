@@ -9,6 +9,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.DiscordSync;
@@ -196,6 +197,11 @@ public static class DiscordSyncEndpoints
                 var vrchatRoleId = body.VRChatRoleId.Trim();
                 var discordRoleId = body.DiscordRoleId.Trim();
 
+                // The same lock linked roles take, so a pair and a both-ways link saved at once
+                // cannot both pass the check that keeps them off one Discord role.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await StaffRoles.LockSavesAsync(db, ct);
+
                 var taken = await db.DiscordRolePairs.AsNoTracking()
                     .AnyAsync(p => p.VRChatRoleId == vrchatRoleId || p.DiscordRoleId == discordRoleId, ct);
 
@@ -221,8 +227,6 @@ public static class DiscordSyncEndpoints
                     CreatedAt = now,
                     UpdatedAt = now,
                 };
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.DiscordRolePairs.Add(pair);
                 await NameRolesAsync(db, pair, ct);
@@ -265,6 +269,9 @@ public static class DiscordSyncEndpoints
                 var vrchatRoleId = body.VRChatRoleId.Trim();
                 var discordRoleId = body.DiscordRoleId.Trim();
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await StaffRoles.LockSavesAsync(db, ct);
+
                 var taken = await db.DiscordRolePairs.AsNoTracking()
                     .AnyAsync(p => p.Id != id && (p.VRChatRoleId == vrchatRoleId || p.DiscordRoleId == discordRoleId), ct);
 
@@ -280,8 +287,6 @@ public static class DiscordSyncEndpoints
                 }
 
                 var pairBefore = Describe(pair);
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 pair.VRChatRoleId = vrchatRoleId;
                 pair.DiscordRoleId = discordRoleId;

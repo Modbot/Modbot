@@ -60,7 +60,8 @@ Each mapping has a **direction**, chosen when it is saved:
   which Discord role to give. Saving one that breaks this is refused with 400, and a partial unique
   index (`ux_discord_staff_role_both_ways`, `role_id` where `direction = 'both'`) holds the database
   to two both-ways rows never sharing a Modbot role. A both-ways row beside a one-way row is beyond
-  an index; saves take an advisory lock, so two at once cannot both pass that check.
+  an index; saves take an advisory lock (`StaffRoles.LockSavesAsync`), and so do VRChat role pair
+  saves, so two at once cannot both pass these checks.
 - **Never a powerful Discord role, never a paired one.** Saving both ways is refused for a Discord
   role that carries Administrator, Manage Server, Manage Roles, Ban Members or Kick Members, or whose
   permissions the bot has not read yet: Modbot must never hand those out. It is refused too for a
@@ -100,8 +101,10 @@ Each mapping has a **direction**, chosen when it is saved:
   After every change the agreed state is written in the same transaction as the fact. **That is
   what keeps it from bouncing:** when the bot gives or takes a Discord role, the pass writes that
   change into the stored member row as it makes it, so the row agrees before Discord's own update
-  arrives, and that update then changes nothing. A Modbot role the pass gave matches the agreement
-  on the Modbot side the same way. No change travels back to where it came from. (Written through,
+  arrives, and that update then changes nothing. The write adds or removes that one role id inside
+  the database in a single statement, never a read-change-write of the whole list, so a roles
+  update the gateway's recorder makes at the same moment survives it. A Modbot role the pass gave
+  matches the agreement on the Modbot side the same way. No change travels back to where it came from. (Written through,
   the member update that follows carries no role change, so the role fact for it is the pass's own
   `modbot.copy.role.give`/`.take`.)
 - **Not in the server is holding no Discord role**, always, agreement or not: Discord decides, the
@@ -156,7 +159,10 @@ For each covered account and each Modbot role that has a mapping:
 | no | yes, from Discord | takes it away |
 | no | yes, given by hand | takes it away (decision 2: Discord fully decides) |
 
-Leaving the server counts as holding no Discord role. **Unlinking Discord** (or proving a different
+Leaving the server counts as holding no Discord role, and so does holding a Discord role the server
+index has found deleted: a member row keeps a deleted role's id until that member's next update, so
+deleting a linked Discord role takes its Modbot role from everybody who held it on the next pass
+(brake permitting). **Unlinking Discord** (or proving a different
 account) takes away every role the mapping gave, so removing the link is not a way to keep them.
 
 `modbot_user_role` gains `from_discord` (bool). Removing a mapping takes nothing away; the roles it
@@ -179,7 +185,8 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
 - **Only after this connection's catch-up has compared the member list.** Between connecting and
   the catch-up, `discord_member` holds roles from before the bot went away; acting on them would
   take roles from people who were given them meanwhile.
-- **At most 50 account changes a pass**; the next pass carries on.
+- **At most 50 account changes a pass**; the next pass carries on. **One pass at a time**: the
+  minute loop and Apply go through the same gate.
 - **A brake on taking away.** If one pass would take roles from at least 3 covered accounts and
   either more than 5 or more than half of them, on either side, it takes nothing (it still gives), puts a problem on the Discord health row, records one
   `modbot.role.discord.held` fact, and waits for somebody to press **Apply** on the staff roles screen
@@ -189,8 +196,9 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
   out, and Apply records `modbot.role.discord.apply` naming them.
 - **Each change is checked again as it is made**: the account is still enabled, holds no
   Administrator role, and for a give still proves the same Discord account, the mapping still exists
-  with the same Discord role, and the switch is still on. A change in Discord also needs the person
-  still in the server and the Discord role still one the bot may give with no power over the server. This catches a Discord role deleted by mistake, a
+  with the same Discord role, and the switch is still on; for a take, the role is still linked and
+  the switch still on. A change in Discord also needs the person still in the server and the
+  Discord role still one the bot may give with no power over the server. This catches a Discord role deleted by mistake, a
   server swapped in settings, or the bot losing sight of members.
 - Each pass re-checks §2's Administrator rule: a mapped role later edited to carry Administrator is
   skipped, with a health problem, until the mapping is removed.

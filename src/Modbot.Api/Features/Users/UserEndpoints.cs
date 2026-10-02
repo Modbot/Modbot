@@ -218,7 +218,11 @@ public static class UserEndpoints
 
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(UserSummary.From(user));
+                // The roles the account now holds decide whether linked roles still reach it.
+                var followingNow = await StaffRoles.FollowingDiscordAsync(
+                    db, [user], http.RequestServices.GetRequiredService<IModbotClock>().UtcNow, ct);
+
+                return Results.Ok(UserSummary.From(user, followingNow.GetValueOrDefault(user.Id)));
             })
             .WithName("SetUserRoles")
             .WithSummary("Set user roles")

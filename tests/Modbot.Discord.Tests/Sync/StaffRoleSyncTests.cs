@@ -868,6 +868,73 @@ public class StaffRoleSyncTests
         Assert.Empty(gateway.RoleChanges);
     }
 
+    // ── Deleted Discord roles and the member row ──────────────────────────────────────────
+
+    /// <summary>
+    /// A deleted Discord role gives nobody anything: the member rows still carry its id until each
+    /// member's next update, but the server index has marked it gone.
+    /// </summary>
+    [Fact]
+    public async Task DeletingALinkedDiscordRoleTakesTheModbotRoleFromItsHolders()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+        var account = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+        await PassAsync(services);
+        Assert.NotNull(await HeldAsync(services, account.Id, Moderator));
+
+        await using (var db = services.Database.NewContext())
+        {
+            var at = services.Clock.UtcNow;
+            await db.DiscordRoles.Where(r => r.RoleId == SyncSetUp.DiscordRole)
+                .ExecuteUpdateAsync(u => u.SetProperty(r => r.RemovedAt, at), Ct);
+        }
+
+        await PassAsync(services);
+
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+    }
+
+    /// <summary>
+    /// The write-back adds or removes the one role inside the database: a roles update the
+    /// recorder made after the pass read the row, and before the write-back, survives it.
+    /// </summary>
+    [Fact]
+    public async Task TheWriteBackKeepsARecorderUpdateMadeInBetween()
+    {
+        await using var services = await OnAsync(_db);
+        await InServerAsync(services, Member, "A");
+
+        // The pass has read ["A"]; the recorder now writes ["A", "B"].
+        await DiscordSaysAsync(services, Member, "A", "B");
+
+        await using (var db = services.Database.NewContext())
+            await StaffRoleSync.WriteBackAsync(db, SyncSetUp.Guild, Member, "C", give: true, Ct);
+
+        Assert.Equal(new[] { "A", "B", "C" }, (await RolesOfAsync(services, Member)).Order(StringComparer.Ordinal));
+
+        // And taking one away: the recorder adds "D" in between; only "C" goes.
+        await DiscordSaysAsync(services, Member, "A", "B", "C", "D");
+
+        await using (var db = services.Database.NewContext())
+        {
+            await StaffRoleSync.WriteBackAsync(db, SyncSetUp.Guild, Member, "C", give: false, Ct);
+
+            // Giving one the row already holds adds no second copy.
+            await StaffRoleSync.WriteBackAsync(db, SyncSetUp.Guild, Member, "A", give: true, Ct);
+        }
+
+        Assert.Equal(new[] { "A", "B", "D" }, (await RolesOfAsync(services, Member)).Order(StringComparer.Ordinal));
+    }
+
+    private static async Task<string[]> RolesOfAsync(TestServices services, string discordUserId)
+    {
+        await using var db = services.Database.NewContext();
+        var row = await db.DiscordMembers.AsNoTracking().FirstAsync(m => m.UserId == discordUserId, Ct);
+        return JsonSerializer.Deserialize<string[]>(row.Roles)!;
+    }
+
     // ── The preview's notes ────────────────────────────────────────────────────────────────
 
     [Fact]

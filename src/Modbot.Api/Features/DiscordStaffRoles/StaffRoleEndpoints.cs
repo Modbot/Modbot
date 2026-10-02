@@ -360,6 +360,12 @@ public static class StaffRoleEndpoints
                 if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, changedRoles, ct) is { } outranked)
                     return outranked;
 
+                // And nothing it gives allows what the presser cannot do themselves.
+                var givenRoleIds = plan.Changes.Where(c => !StaffRoleChangeKinds.TakesAway(c.What)).Select(c => c.RoleId).ToHashSet();
+                var heldPermissions = ModbotAuth.PermissionsOf(http.User);
+                if (changedRoles.Any(r => givenRoleIds.Contains(r.Id) && !ModbotAuth.Allows(heldPermissions, r.Permissions)))
+                    return Results.BadRequest(new { error = "You can only give people permissions you have yourself." });
+
                 var userIds = plan.Changes.Where(c => c.UserId is not null).Select(c => c.UserId!.Value).Distinct().ToList();
                 var affected = await accounts.UsersWithRoles().AsNoTracking().Where(u => userIds.Contains(u.Id)).ToListAsync(ct);
                 foreach (var account in affected)
@@ -474,15 +480,8 @@ public static class StaffRoleEndpoints
         return new Checked(null, role, discordRole);
     }
 
-    /// <summary>
-    /// One save of a linked role at a time. The checks that only the code can make -- a both-ways
-    /// row alone for its Modbot role, beside no one-way row -- read other rows, so two saves at once
-    /// could each pass them; under this lock the second one reads what the first wrote.
-    /// </summary>
-    private static Task LockAsync(ModbotContext db, CancellationToken ct)
-        => db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({SaveLock}))", ct);
-
-    private const string SaveLock = "modbot.staff-roles.save";
+    /// <summary>One save at a time, shared with VRChat role pairs (<see cref="StaffRoles.LockSavesAsync"/>).</summary>
+    private static Task LockAsync(ModbotContext db, CancellationToken ct) => StaffRoles.LockSavesAsync(db, ct);
 
     private static Checked Refuse(string sentence) => new(Results.BadRequest(new { error = sentence }), null, null);
 
