@@ -424,6 +424,13 @@ public static class FactType
     public const string RoleChanged = "modbot.role.change";
     public const string RoleDeleted = "modbot.role.delete";
 
+    // Staff roles from Discord (design 2026-10-02 §7). A mapping saved, changed or removed; and the
+    // pass stopping itself because it would take roles from too many accounts at once. The role
+    // changes the pass makes are ordinary UserRolesChanged facts with no actor.
+    public const string StaffRoleMapped = "modbot.role.discord.map";
+    public const string StaffRoleUnmapped = "modbot.role.discord.unmap";
+    public const string StaffRolesHeld = "modbot.role.discord.held";
+
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
 

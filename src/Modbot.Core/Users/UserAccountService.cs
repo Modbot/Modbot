@@ -227,9 +227,13 @@ public sealed class UserAccountService
 
         var before = user.Roles.Select(r => r.Role.Name).Order().ToList();
 
+        // A role a Discord role gave stays marked as such when it is kept, so it still goes with
+        // the Discord role (staff roles from Discord design §5).
+        var fromDiscord = user.Roles.Where(r => r.FromDiscord).Select(r => r.RoleId).ToHashSet();
+
         user.Roles.Clear();
         foreach (var role in roles)
-            user.Roles.Add(new ModbotUserRole { User = user, UserId = user.Id, Role = role, RoleId = role.Id });
+            user.Roles.Add(new ModbotUserRole { User = user, UserId = user.Id, Role = role, RoleId = role.Id, FromDiscord = fromDiscord.Contains(role.Id) });
 
         await _db.SaveChangesAsync(ct);
 

@@ -83,6 +83,17 @@ When Modbot was updated to have this order, it put the roles in a first one: Adm
 Moderator and every custom role, the one that allows the most permissions first, and Viewer last.
 Change it on the Roles page if that isn't the order you want.
 
+## Roles from Discord
+
+A Discord role can give a Modbot role, so somebody given a staff role in Discord gets the Modbot role
+too, and loses it when the Discord role goes. Open a role and its **Discord roles** are listed under
+its permissions, with a way to add one; the same list is on **Settings → Discord → Modbot roles
+from Discord**, with the switch that turns it on. It reaches only accounts that proved their
+Discord account, never administrators, and never makes accounts. A Discord role can't give
+Administrator. See [Modbot roles from Discord](/discord/staff-roles).
+
+On the **Users** page, a role that follows a Discord role is greyed out for the people it reaches.
+
 ## Administrator covers everything
 
 A person holding **Administrator** passes every permission check in Modbot, including checks for
@@ -579,6 +590,9 @@ Name: `ManageRoles`
 
 A person with this only reaches roles **below their own highest role**: they can't edit, delete or
 move a role that sits at their own place or above it. A role they make starts at the bottom.
+
+With **Manage users** as well, they can let a Discord role give a role below their own highest role
+(see [Modbot roles from Discord](/discord/staff-roles)).
 
 Separate from **Manage users**: handing somebody a role is a smaller decision than deciding what a
 role means.

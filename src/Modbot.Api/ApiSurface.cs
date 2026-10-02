@@ -17,6 +17,7 @@ using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordSync;
+using Modbot.Api.Features.DiscordStaffRoles;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.DiscordReports;
@@ -102,6 +103,7 @@ public static class ApiSurface
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
+        services.TryAddSingleton<IStaffRoleRunner, NoStaffRoleRunner>();
         services.TryAddSingleton<IDiscordOnlineCount, NoDiscordOnlineCount>();
         services.TryAddSingleton<IDiscordServerEvents, NoDiscordServerEvents>();
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
@@ -416,6 +418,9 @@ public static class ApiSurface
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).
         app.MapDiscordSync();
+
+        // Which Discord roles give which Modbot roles (staff roles from Discord design).
+        app.MapStaffRoles();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

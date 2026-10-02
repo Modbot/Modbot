@@ -297,21 +297,26 @@ function RolePicker({
   value,
   onChange,
   locked = false,
+  fromDiscord = [],
 }: {
   roles: RoleView[]
   me: CurrentUser
   value: string[]
   onChange: (next: string[]) => void
   locked?: boolean
+  /** Roles a Discord role gives and takes on this account (staff roles from Discord). */
+  fromDiscord?: string[]
 }) {
   const isAdmin = me.permissionNames.includes('Administrator')
   const hasPermissions = (r: RoleView) => isAdmin || r.permissionNames.every((p) => me.permissionNames.includes(p))
   const why = (r: RoleView) =>
-    !isBelowMe(me, r.position)
-      ? 'You can only change roles below your highest role.'
-      : !hasPermissions(r)
-        ? 'You can only give people permissions you have yourself.'
-        : undefined
+    fromDiscord.includes(r.id)
+      ? 'This role follows a Discord role.'
+      : !isBelowMe(me, r.position)
+        ? 'You can only change roles below your highest role.'
+        : !hasPermissions(r)
+          ? 'You can only give people permissions you have yourself.'
+          : undefined
 
   return (
     <div>
@@ -419,7 +424,14 @@ function UserDrawer({
 
       <div className="flex flex-col gap-5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
         <section className="space-y-2">
-          <RolePicker roles={roles} me={me} value={roleIds} onChange={setRoleIds} locked={outranked} />
+          <RolePicker
+            roles={roles}
+            me={me}
+            value={roleIds}
+            onChange={setRoleIds}
+            locked={outranked}
+            fromDiscord={user.rolesFromDiscord}
+          />
           <Button
             size="sm"
             disabled={!rolesChanged || busy !== null || outranked}

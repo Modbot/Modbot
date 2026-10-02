@@ -63,6 +63,7 @@ public static class UserEndpoints
             .RequiresFlag(ModbotPermissions.ManageUsers);
 
         group.MapGet("/", async (
+                [FromServices] ModbotContext db,
                 [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
@@ -71,7 +72,9 @@ public static class UserEndpoints
                     .OrderBy(u => u.UsernameNormalized)
                     .ToListAsync(ct);
 
-                return Results.Ok(users.Select(UserSummary.From).ToList());
+                var following = await StaffRoles.FollowingDiscordAsync(db, users, ct);
+
+                return Results.Ok(users.Select(u => UserSummary.From(u, following.GetValueOrDefault(u.Id))).ToList());
             })
             .WithName("ListUsers")
             .WithSummary("List users")
@@ -161,6 +164,19 @@ public static class UserEndpoints
 
                 if (await MayNotAssignAsync(accounts, http, body.RoleIds ?? [], ct, user) is { } refused)
                     return refused;
+
+                // A role that follows a Discord role is the Discord role's to give and take on this
+                // account: the next pass would undo a change made here (staff roles from Discord
+                // design §5).
+                var following = await StaffRoles.FollowingDiscordAsync(db, [user], ct);
+                if (following.TryGetValue(user.Id, out var locked))
+                {
+                    var asked = (body.RoleIds ?? []).ToHashSet();
+                    var holds = user.Roles.Select(r => r.RoleId).ToHashSet();
+
+                    if (locked.Any(id => asked.Contains(id) != holds.Contains(id)))
+                        return Results.BadRequest(new { error = FollowsDiscord });
+                }
 
                 IReadOnlyList<ModbotRole> roles;
                 try
@@ -492,6 +508,8 @@ public static class UserEndpoints
 
         return app;
     }
+
+    internal const string FollowsDiscord = "This role follows a Discord role.";
 
     internal const string LastAdministrator =
         "That would leave nobody who can administer Modbot.";

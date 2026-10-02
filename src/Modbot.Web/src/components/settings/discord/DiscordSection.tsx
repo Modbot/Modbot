@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type DiscordChannelPermission, type OnboardingStatus } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type DiscordChannelPermission, type OnboardingStatus } from '@/lib/api'
+import { can } from '@/lib/permissions'
+import { StaffRolesCard } from '@/components/staffRoles/StaffRoles'
 import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
@@ -23,10 +25,12 @@ const ANNOUNCE_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages
  * own endpoints.
  */
 export function DiscordSection({
+  me,
   status,
   statusError,
   refresh,
 }: {
+  me: CurrentUser
   status: OnboardingStatus | null
   /** Why `status` could not be read, while it is null because the read failed. */
   statusError?: string | null
@@ -42,6 +46,7 @@ export function DiscordSection({
           <ChannelsCard />
           <LinkingCard />
           <SyncCard />
+          {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}
         </>
       ) : (
         <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>

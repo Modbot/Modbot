@@ -78,6 +78,13 @@ public class ModbotUserRole
     public Guid RoleId { get; set; }
 
     public ModbotRole Role { get; set; } = null!;
+
+    /// <summary>
+    /// Given because the account holds a Discord role that gives it (staff roles from Discord
+    /// design §5). Such a role goes when the Discord role goes, and when the account's Discord
+    /// account is no longer proven. Removing the mapping turns it into an ordinary role.
+    /// </summary>
+    public bool FromDiscord { get; set; }
 }
 
 /// <summary>

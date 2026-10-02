@@ -259,6 +259,7 @@ public sealed class ApiTestHost : IAsyncDisposable
         // is the one the next test reads back.
         await context.CopiedActions.ExecuteDeleteAsync(ct);
         await context.DiscordRolePairs.ExecuteDeleteAsync(ct);
+        await context.DiscordStaffRoles.ExecuteDeleteAsync(ct);
         await context.DiscordSyncState.ExecuteDeleteAsync(ct);
         await context.DiscordRoles.ExecuteDeleteAsync(ct);
         await context.DiscordChannels.ExecuteDeleteAsync(ct);

@@ -259,7 +259,7 @@ function Panel({
     case 'integrations':
       return <IntegrationsSection status={status} statusError={statusError} refresh={refresh} />
     case 'discord':
-      return <DiscordSection status={status} statusError={statusError} refresh={refresh} />
+      return <DiscordSection me={me} status={status} statusError={statusError} refresh={refresh} />
     case 'moderation':
       return <ModerationSection />
     case 'automod':

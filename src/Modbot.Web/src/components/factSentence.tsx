@@ -945,12 +945,18 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.user.disable': (p) => <>{p.actor} disabled the Modbot account {p.subject}.</>,
   'modbot.user.enable': (p) => <>{p.actor} enabled the Modbot account {p.subject}.</>,
 
-  'modbot.user.roles.change': (p) => (
-    <>
-      {p.actor} changed {p.subject}'s roles
-      {p.text('before') !== null ? <>, from {p.text('before') || 'none'} to {p.text('after') || 'none'}</> : null}.
-    </>
-  ),
+  'modbot.user.roles.change': (p) =>
+    p.text('why') === 'discord-role' ? (
+      <>
+        Modbot changed {p.subject}'s roles to match Discord, from {p.text('before') || 'none'} to{' '}
+        {p.text('after') || 'none'}.
+      </>
+    ) : (
+      <>
+        {p.actor} changed {p.subject}'s roles
+        {p.text('before') !== null ? <>, from {p.text('before') || 'none'} to {p.text('after') || 'none'}</> : null}.
+      </>
+    ),
 
   'modbot.user.password.reset.create': (p) => <>{p.actor} made a password reset link for {p.subject}.</>,
   'modbot.user.password.reset.use': (p) => <>{p.subject} used a password reset link.</>,
@@ -971,6 +977,23 @@ const SENTENCES: Record<string, Sentence> = {
       </>
     ),
   'modbot.role.delete': (p) => <>{p.actor} deleted {named(p.text('name'), 'Modbot role')}.</>,
+  'modbot.role.discord.map': (p) => (
+    <>
+      {p.actor} let {named(p.text('discordRoleName'), 'Discord role')} give {named(p.text('name'), 'Modbot role')}
+      {p.text('direction') === 'both' ? ', both ways' : ''}.
+    </>
+  ),
+  'modbot.role.discord.unmap': (p) => (
+    <>
+      {p.actor} stopped {named(p.text('discordRoleName'), 'Discord role')} giving {named(p.text('name'), 'Modbot role')}.
+    </>
+  ),
+  'modbot.role.discord.held': (p) => (
+    <>
+      Modbot stopped giving Modbot roles from Discord roles: it would have taken roles from{' '}
+      {typeof p.entry.data?.accounts === 'number' ? p.entry.data.accounts : 'several'} accounts at once.
+    </>
+  ),
 
   'modbot.apikey.create': (p) => <>{p.actor} created an API key.</>,
   'modbot.apikey.revoke': (p) => <>{p.actor} revoked an API key.</>,
@@ -1812,7 +1835,12 @@ const SENTENCES: Record<string, Sentence> = {
   ),
 
   'modbot.copy.role.give': (p) =>
-    p.entry.subjectPlatform === 'Discord' ? (
+    p.text('why') === 'staff-role' ? (
+      <>
+        Modbot gave {p.subject} {named(p.text('roleName'), 'Discord role')}, to match their Modbot role{' '}
+        {p.text('modbotRoleName') ?? ''}.
+      </>
+    ) : p.entry.subjectPlatform === 'Discord' ? (
       <>
         Modbot gave {p.subject} {named(p.text('roleName'), 'Discord role')}, to match their role in the group.
       </>
@@ -1823,7 +1851,11 @@ const SENTENCES: Record<string, Sentence> = {
     ),
 
   'modbot.copy.role.take': (p) =>
-    p.text('because') === 'unlinked' ? (
+    p.text('why') === 'staff-role' ? (
+      <>
+        Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject}, to match their Modbot roles.
+      </>
+    ) : p.text('because') === 'unlinked' ? (
       <>
         Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject}, because their accounts were
         unlinked.

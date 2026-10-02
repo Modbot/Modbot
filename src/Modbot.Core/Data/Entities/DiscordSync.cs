@@ -210,4 +210,19 @@ public class DiscordSyncState
 
     /// <summary>The last thing role sync could not do, as a sentence.</summary>
     public string? RolesProblem { get; set; }
+
+    /// <summary>When the staff role pass last ran.</summary>
+    public DateTimeOffset? StaffRolesRanAt { get; set; }
+
+    /// <summary>The last thing the staff role pass could not do, as a sentence.</summary>
+    public string? StaffRolesProblem { get; set; }
+
+    /// <summary>
+    /// Since when the staff role pass has been stopped because it would take roles from too many
+    /// accounts at once, or null while it is not (staff roles from Discord design §6).
+    /// </summary>
+    public DateTimeOffset? StaffRolesHeldAt { get; set; }
+
+    /// <summary>How many accounts the held pass would have taken roles from.</summary>
+    public int? StaffRolesHeldCount { get; set; }
 }

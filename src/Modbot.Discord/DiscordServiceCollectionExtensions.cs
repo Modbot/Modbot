@@ -99,6 +99,11 @@ public static class DiscordServiceCollectionExtensions
         services.AddHostedService<Sync.DiscordSyncService>();
         services.AddSingleton<IDiscordSyncRunner, Sync.DiscordSyncRunner>();
 
+        // Staff roles from Discord (design 2026-10-02). Runs in the same loop, after role and ban
+        // sync, and does nothing until somebody maps a role and turns the switch on.
+        services.AddScoped<Sync.StaffRoleSync>();
+        services.AddSingleton<IStaffRoleRunner, Sync.StaffRoleRunner>();
+
         // A ban or unban made through Modbot reaches the person's linked Discord account too,
         // whatever the ban sync switches say. Registered after the API's and the AutoMod engine's
         // stand-ins, so it is the one they get where the bot exists.

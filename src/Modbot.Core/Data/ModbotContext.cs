@@ -271,6 +271,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>VRChat group roles paired with Discord roles, and which side decides each (M5 §3.1).</summary>
     public DbSet<DiscordRolePair> DiscordRolePairs => Set<DiscordRolePair>();
 
+    public DbSet<DiscordStaffRole> DiscordStaffRoles => Set<DiscordStaffRole>();
+
+    public DbSet<DiscordStaffRoleState> DiscordStaffRoleStates => Set<DiscordStaffRoleState>();
+
     /// <summary>What Modbot copied from one platform to the other, and how the loop is broken (M5 §4.2).</summary>
     public DbSet<CopiedAction> CopiedActions => Set<CopiedAction>();
 
@@ -1446,6 +1450,44 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_role_pair_discord");
         });
 
+        builder.Entity<DiscordStaffRole>(entity =>
+        {
+            entity.ToTable("discord_staff_role");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.DiscordRoleName).HasColumnType("text");
+            entity.Property(e => e.Direction).HasMaxLength(16);
+            entity.Property(e => e.Problem).HasMaxLength(1000);
+
+            // One Discord role gives one Modbot role (staff roles from Discord design §2).
+            entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_staff_role_discord");
+            entity.HasIndex(e => e.RoleId).HasDatabaseName("ix_discord_staff_role_role");
+
+            // A Modbot role can only be deleted once nobody holds it; its mappings go with it.
+            entity.HasOne(e => e.Role)
+                .WithMany()
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DiscordStaffRoleState>(entity =>
+        {
+            entity.ToTable("discord_staff_role_state");
+            entity.HasKey(e => new { e.MappingId, e.UserId });
+
+            entity.HasOne<DiscordStaffRole>()
+                .WithMany()
+                .HasForeignKey(e => e.MappingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<ModbotUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<CopiedAction>(entity =>
         {
             entity.ToTable("discord_copied_action");
@@ -1480,6 +1522,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.BansProblem).HasMaxLength(1000);
             entity.Property(e => e.RolesProblem).HasMaxLength(1000);
+            entity.Property(e => e.StaffRolesProblem).HasMaxLength(1000);
         });
 
         builder.Entity<Insight>(entity =>

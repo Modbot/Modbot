@@ -215,6 +215,8 @@ export type UserSummary = {
   lastLoginAt: string | null
   /** The position of their highest role, first at 0; null with no role. */
   rank: number | null
+  /** Roles that follow a Discord role on this account, so they cannot be given or taken here. */
+  rolesFromDiscord: string[]
 }
 
 /**
@@ -364,6 +366,70 @@ export type RolePairInput = {
   discordRoleId: string
   decides: string
   enabled: boolean
+}
+
+/** One Discord role that gives one Modbot role (staff roles from Discord). */
+export type StaffRoleMapping = {
+  id: string
+  discordRoleId: string
+  discordRoleName: string | null
+  roleId: string
+  roleName: string
+  /** discord (Discord decides) or both (both ways). */
+  direction: string
+  /** A both-ways mapping the bot cannot give the Discord role for. */
+  notSetUp: boolean
+  /** Whether you may change or remove it. */
+  canChange: boolean
+  problem: string | null
+}
+
+/** A Modbot role, for the picker. */
+export type StaffRoleTarget = { id: string; name: string; position: number; canMap: boolean }
+
+export type StaffRolesSettings = {
+  on: boolean
+  ranAt: string | null
+  problem: string | null
+  /** Since when the pass has been stopped because it would take roles from many accounts. */
+  heldAt: string | null
+  heldCount: number | null
+  mappings: StaffRoleMapping[]
+  roles: StaffRoleTarget[]
+}
+
+export type StaffRoleInput = { discordRoleId: string; roleId: string; direction: string }
+
+/** One mapping as it would be after a change, for the preview. */
+export type StaffRolePreviewMapping = StaffRoleInput & { id: string | null }
+
+export type StaffRoleChange = {
+  /** give, take, give-discord, take-discord, no-account or not-proven. */
+  what: string
+  userId: string | null
+  name: string | null
+  discordUserId: string | null
+  roleName: string
+  discordRoleName: string | null
+  byHand: boolean
+  why: string
+}
+
+export type StaffRolesPreview = {
+  covered: number
+  /** The pass would stop and wait for Apply. */
+  wouldStop: boolean
+  changes: StaffRoleChange[]
+  notes: StaffRoleChange[]
+  problems: string[]
+}
+
+export type StaffRolesApplied = {
+  given: number
+  taken: number
+  left: number
+  problem: string | null
+  settings: StaffRolesSettings
 }
 
 /** One change a sync would make, or has made. */
@@ -4512,6 +4578,24 @@ export const api = {
 
   /** Copies the roles and bans that are already different. */
   runDiscordSync: () => post<SyncPreview>('/api/discord-sync/run'),
+
+  staffRoles: () => request<StaffRolesSettings>('/api/staff-roles'),
+
+  /** Who would gain or lose a role if the mappings were these. Changes nothing. */
+  previewStaffRoles: (mappings: StaffRolePreviewMapping[]) =>
+    post<StaffRolesPreview>('/api/staff-roles/preview', { mappings }),
+
+  addStaffRole: (body: StaffRoleInput) => post<StaffRolesSettings>('/api/staff-roles', body),
+
+  setStaffRole: (id: string, body: StaffRoleInput) =>
+    put<StaffRolesSettings>(`/api/staff-roles/${encodeURIComponent(id)}`, body),
+
+  deleteStaffRole: (id: string) => del<StaffRolesSettings>(`/api/staff-roles/${encodeURIComponent(id)}`),
+
+  setStaffRolesOn: (on: boolean) => put<StaffRolesSettings>('/api/staff-roles/on', { on }),
+
+  /** Runs the pass now, even when it would take roles from many accounts at once. */
+  applyStaffRoles: () => post<StaffRolesApplied>('/api/staff-roles/apply'),
 
 
   /** Reports what the deployment can do. Nothing about any account. */

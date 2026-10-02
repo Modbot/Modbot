@@ -11753,6 +11753,454 @@
         ]
       }
     },
+    "/api/staff-roles": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Get staff roles from Discord",
+        "description": "Which Discord roles give which Modbot roles, the switch, and when the pass last ran.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "GetStaffRoles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Add staff role from Discord",
+        "description": "Let a Discord role give a Modbot role.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "AddStaffRole",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/staff-roles/preview": {
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Preview staff roles from Discord",
+        "description": "Who would gain or lose a role if the mappings were these. Changes nothing.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "PreviewStaffRoles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffRolesPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesPreviewView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/staff-roles/{id}": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update staff role from Discord",
+        "description": "Change which Discord role gives which Modbot role, or which way it works.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "SetStaffRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Delete staff role from Discord",
+        "description": "Stop a Discord role giving a Modbot role. Nobody's roles change.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "DeleteStaffRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/staff-roles/on": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Switch staff roles from Discord",
+        "description": "Turn giving and taking Modbot roles from Discord roles on or off.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "SetStaffRolesOn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffRolesSwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/staff-roles/apply": {
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Apply staff roles from Discord",
+        "description": "Run the pass now, even when it would take roles from many accounts at once.\n\nNeeds the `ManageUsers` and `ManageRoles` permissions.",
+        "operationId": "ApplyStaffRoles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffRolesApplyView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/audit": {
       "get": {
         "tags": [
@@ -45776,6 +46224,333 @@
           "SignInLimitReached"
         ]
       },
+      "StaffRoleChangeView": {
+        "required": [
+          "what",
+          "userId",
+          "name",
+          "discordUserId",
+          "roleName",
+          "discordRoleName",
+          "byHand",
+          "why"
+        ],
+        "type": "object",
+        "properties": {
+          "what": {
+            "type": "string"
+          },
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "discordRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "byHand": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      },
+      "StaffRolePreviewMapping": {
+        "required": [
+          "id",
+          "discordRoleId",
+          "roleId",
+          "direction"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "direction": {
+            "type": "string"
+          }
+        }
+      },
+      "StaffRoleRequest": {
+        "required": [
+          "discordRoleId",
+          "roleId",
+          "direction"
+        ],
+        "type": "object",
+        "properties": {
+          "discordRoleId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "direction": {
+            "type": "string"
+          }
+        }
+      },
+      "StaffRoleTarget": {
+        "required": [
+          "id",
+          "name",
+          "position",
+          "canMap"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canMap": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffRoleView": {
+        "required": [
+          "id",
+          "discordRoleId",
+          "discordRoleName",
+          "roleId",
+          "roleName",
+          "direction",
+          "notSetUp",
+          "canChange",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "discordRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "notSetUp": {
+            "type": "boolean"
+          },
+          "canChange": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "StaffRolesApplyView": {
+        "required": [
+          "given",
+          "taken",
+          "left",
+          "problem",
+          "settings"
+        ],
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taken": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "left": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "settings": {
+            "$ref": "#/components/schemas/StaffRolesView"
+          }
+        }
+      },
+      "StaffRolesPreviewRequest": {
+        "required": [
+          "mappings"
+        ],
+        "type": "object",
+        "properties": {
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRolePreviewMapping"
+            }
+          }
+        }
+      },
+      "StaffRolesPreviewView": {
+        "required": [
+          "covered",
+          "wouldStop",
+          "changes",
+          "notes",
+          "problems"
+        ],
+        "type": "object",
+        "properties": {
+          "covered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wouldStop": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRoleChangeView"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRoleChangeView"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "StaffRolesSwitchRequest": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StaffRolesView": {
+        "required": [
+          "on",
+          "ranAt",
+          "problem",
+          "heldAt",
+          "heldCount",
+          "mappings",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "ranAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "heldAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "heldCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRoleView"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StaffRoleTarget"
+            }
+          }
+        }
+      },
       "StartLinkRequest": {
         "required": [
           "userIdOrUrl"
@@ -47480,6 +48255,16 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "rolesFromDiscord": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

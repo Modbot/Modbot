@@ -19,6 +19,10 @@ public sealed record RoleRef(Guid Id, string Name);
 /// </param>
 /// <param name="DiscordProven">Whether the holder proved it, or it was typed in before proving existed.</param>
 /// <param name="DiscordWorksUntil">For a typed, unproven id: the day it stops counting. Null otherwise.</param>
+/// <param name="RolesFromDiscord">
+/// Roles that follow a Discord role on this account and so cannot be given or taken here (staff
+/// roles from Discord design §5). Filled by the list; empty elsewhere.
+/// </param>
 public sealed record UserSummary(
     Guid Id,
     string Username,
@@ -36,9 +40,12 @@ public sealed record UserSummary(
     DateTimeOffset? DiscordWorksUntil,
     DateTimeOffset CreatedAt,
     DateTimeOffset? LastLoginAt,
-    int? Rank = null)
+    int? Rank = null,
+    IReadOnlyList<Guid>? RolesFromDiscord = null)
 {
-    public static UserSummary From(ModbotUser user)
+    public static UserSummary From(ModbotUser user) => From(user, null);
+
+    public static UserSummary From(ModbotUser user, IReadOnlySet<Guid>? rolesFromDiscord)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -59,7 +66,8 @@ public sealed record UserSummary(
             StaffDiscord.TypedIdWorksUntil(user),
             user.CreatedAt,
             user.LastLoginAt,
-            user.Roles.Count == 0 ? null : RoleRank.Of(user));
+            user.Roles.Count == 0 ? null : RoleRank.Of(user),
+            rolesFromDiscord?.Order().ToList() ?? []);
     }
 }
 

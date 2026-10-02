@@ -409,6 +409,13 @@ public class Settings
     /// </summary>
     public bool DiscordRoleSyncOn { get; set; }
 
+    /// <summary>
+    /// Whether Discord roles give Modbot roles through the staff role mappings (staff roles from
+    /// Discord design §9). Off by default: off gives and takes nothing, while the preview still
+    /// answers, because seeing what would happen is how somebody decides to turn it on.
+    /// </summary>
+    public bool DiscordStaffRolesOn { get; set; }
+
     /// <summary>Whether a ban or unban in the VRChat group is copied into Discord.</summary>
     public bool DiscordBanSyncToDiscord { get; set; }
 

@@ -8,11 +8,12 @@ import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { FIRST_POSITION, isBelowMe } from '@/lib/permissions'
+import { can, FIRST_POSITION, isBelowMe } from '@/lib/permissions'
 import { Empty } from '@/components/ListParts'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 import { ConfirmButton } from '@/components/settings/fields'
+import { RoleDiscordRoles } from '@/components/staffRoles/StaffRoles'
 
 /**
  * Roles: a name and a checklist of what it allows (accounts and access design §3, §8).
@@ -309,6 +310,8 @@ function RoleEditor({
                     </div>
                   ))}
                 </div>
+
+                {role && can(me, 'ManageUsers') && <RoleDiscordRoles roleId={role.id} />}
 
                 <ErrorText>{error}</ErrorText>
 

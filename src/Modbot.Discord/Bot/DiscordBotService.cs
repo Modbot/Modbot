@@ -108,6 +108,12 @@ public sealed class DiscordBotService : BackgroundService
     /// </summary>
     private volatile bool _gapRead;
 
+    /// <summary>
+    /// Whether this session has compared the server's member list with the stored one. Until it
+    /// has, the stored roles are from before the bot went away (staff roles from Discord design §6).
+    /// </summary>
+    private volatile bool _membersRead;
+
     private DateTimeOffset _seenWrittenAt;
 
     /// <summary>One read of the whole ban list at a time: the sign-in read and the daily one must not overlap.</summary>
@@ -150,6 +156,9 @@ public sealed class DiscordBotService : BackgroundService
     /// <summary>The session, when it can answer and post. Null otherwise.</summary>
     public IDiscordGateway? ReadyGateway
         => _gateway is { State: DiscordGatewayState.Ready } gateway ? gateway : null;
+
+    /// <summary>Whether the session is ready and has compared the member list since it connected.</summary>
+    public bool MembersRead => _membersRead && ReadyGateway is not null;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -503,8 +512,14 @@ public sealed class DiscordBotService : BackgroundService
         // Members first, so the audit log's facts can name the people in them.
         if (await gateway.ReadMembersAsync(guildId, ct).ConfigureAwait(false) is { } members)
         {
-            await RecordAsync("compare the member list", (recorder, token) =>
-                recorder.MembersListedAsync(guildId, members, seenThrough, token)).ConfigureAwait(false);
+            var compared = false;
+            await RecordAsync("compare the member list", async (recorder, token) =>
+            {
+                await recorder.MembersListedAsync(guildId, members, seenThrough, token).ConfigureAwait(false);
+                compared = true;
+            }).ConfigureAwait(false);
+
+            _membersRead = compared;
         }
 
         await ReadAuditLogAsync(gateway, guildId, ct).ConfigureAwait(false);
@@ -871,6 +886,7 @@ public sealed class DiscordBotService : BackgroundService
         }
 
         _gapRead = false;
+        _membersRead = false;
         _status.Disconnected(disconnect.Reason, now);
         _log.Warning("Discord bot lost its connection: {Reason}. Reconnecting", disconnect.Reason);
     }
@@ -942,6 +958,7 @@ public sealed class DiscordBotService : BackgroundService
 
         StopReading();
         _gapRead = false;
+        _membersRead = false;
 
         if (gateway is null)
             return;

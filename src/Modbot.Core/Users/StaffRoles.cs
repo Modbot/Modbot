@@ -1,0 +1,522 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
+
+namespace Modbot.Core.Users;
+
+/// <summary>One mapping as the planner reads it: saved, or proposed by a preview.</summary>
+/// <param name="Id">The saved row's id; a fresh id for one only proposed.</param>
+/// <param name="Direction">One of <see cref="StaffRoleDirections"/>.</param>
+public sealed record StaffRoleRule(Guid Id, string DiscordRoleId, Guid RoleId, string Direction);
+
+/// <summary>What a planned change does. Text, so the API and the web app read the same word.</summary>
+public static class StaffRoleChangeKinds
+{
+    /// <summary>Give the Modbot role.</summary>
+    public const string Give = "give";
+
+    /// <summary>Take the Modbot role away.</summary>
+    public const string Take = "take";
+
+    /// <summary>Give the Discord role (both-ways mappings only).</summary>
+    public const string GiveDiscord = "give-discord";
+
+    /// <summary>Take the Discord role away (both-ways mappings only).</summary>
+    public const string TakeDiscord = "take-discord";
+
+    /// <summary>A member holds a mapped Discord role and has no Modbot account. Nothing is done.</summary>
+    public const string NoAccount = "no-account";
+
+    /// <summary>A member holds a mapped Discord role and their Modbot account has not proven it. Nothing is done.</summary>
+    public const string NotProven = "not-proven";
+
+    public static bool TakesAway(string what) => what is Take or TakeDiscord;
+}
+
+/// <summary>One change the staff role pass would make, or a person it leaves alone and why.</summary>
+/// <param name="Name">The account's username, or the Discord member's name for the notes.</param>
+/// <param name="ByHand">For a <see cref="StaffRoleChangeKinds.Take"/>: the role was given by hand, not by a mapping.</param>
+/// <param name="Why">One plain sentence saying what made the change necessary.</param>
+public sealed record StaffRoleChange(
+    string What,
+    Guid? UserId,
+    string? Name,
+    string? DiscordUserId,
+    Guid RoleId,
+    string RoleName,
+    string? DiscordRoleId,
+    string? DiscordRoleName,
+    Guid? MappingId,
+    bool ByHand,
+    string Why);
+
+/// <summary>Both sides of a both-ways mapping already agree for this account: write it down.</summary>
+public sealed record StaffRoleAgreement(Guid MappingId, Guid UserId, bool Held);
+
+/// <summary>What one staff role pass would do.</summary>
+/// <param name="Changes">Roles to give and take, on either side.</param>
+/// <param name="Notes">Members holding a mapped Discord role whom the pass cannot reach. Only filled for a preview.</param>
+/// <param name="Adopt">Roles given by hand that a held Discord role now gives: marked as from Discord, nothing else changes.</param>
+/// <param name="Agree">Both-ways states to write where the two sides already agree.</param>
+/// <param name="Covered">How many accounts the mappings reach.</param>
+/// <param name="Problems">Mappings that cannot work as they are, as sentences.</param>
+public sealed record StaffRolePlan(
+    IReadOnlyList<StaffRoleChange> Changes,
+    IReadOnlyList<StaffRoleChange> Notes,
+    IReadOnlyList<(Guid UserId, Guid RoleId)> Adopt,
+    IReadOnlyList<StaffRoleAgreement> Agree,
+    int Covered,
+    IReadOnlyList<string> Problems)
+{
+    public static StaffRolePlan Empty(string? problem = null)
+        => new([], [], [], [], 0, problem is null ? [] : [problem]);
+
+    /// <summary>How many different accounts would lose a role, on either side.</summary>
+    public int AccountsLosing
+        => Changes.Where(c => StaffRoleChangeKinds.TakesAway(c.What) && c.UserId is not null).Select(c => c.UserId).Distinct().Count();
+}
+
+/// <summary>
+/// Works out what the staff role mappings ask for (staff roles from Discord design §4, §5, §3.1).
+/// Reads, never writes: the Discord bot's pass applies the plan, and the preview shows it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Who is reached.</strong> Only enabled accounts with a proven Discord account
+/// (<see cref="ModbotUser.DiscordVerifiedAt"/>) that hold no role carrying the Administrator
+/// permission. Typed-in Discord ids never count here, even before <see cref="StaffDiscord.TypedIdsEnd"/>:
+/// elsewhere a wrong typed id sends a message to the wrong person, here it would hand somebody
+/// permissions. Administrators, and so the owner, are never given or taken anything on either side.
+/// </para>
+/// <para>
+/// <strong>An account that no longer proves a Discord account</strong> loses every role a mapping
+/// gave it, so removing the link is not a way to keep them.
+/// </para>
+/// <para>
+/// The preview and the pass are the same code, so what the screen lists before a mapping is saved
+/// is what the pass will do.
+/// </para>
+/// </remarks>
+public static class StaffRoles
+{
+    /// <summary>The brake: a pass taking roles from more than this many accounts at once stops.</summary>
+    public const int BrakeAccounts = 5;
+
+    /// <summary>The brake never stops a pass taking roles from fewer than this many accounts.</summary>
+    public const int BrakeFloor = 3;
+
+    /// <summary>
+    /// Whether a pass that would take roles from <paramref name="losing"/> of <paramref name="covered"/>
+    /// accounts stops and waits for somebody to press Apply (design §6).
+    /// </summary>
+    public static bool Brakes(int losing, int covered)
+        => losing >= BrakeFloor && (losing > BrakeAccounts || losing * 2 > covered);
+
+    /// <summary>Whether a Discord role can be mapped at all: not @everyone, not owned by a bot, not gone.</summary>
+    public static bool CanMap(DiscordRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        return !role.Everyone && !role.Managed && role.RemovedAt is null;
+    }
+
+    /// <summary>Whether a both-ways mapping can give its Discord role: the bot may assign it.</summary>
+    public static bool BotCanGive(DiscordRole? role)
+        => role is { BotCanAssign: true, RemovedAt: null };
+
+    /// <summary>The saved mappings, as the planner reads them.</summary>
+    public static async Task<IReadOnlyList<StaffRoleRule>> RulesAsync(ModbotContext db, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        return await db.DiscordStaffRoles.AsNoTracking()
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new StaffRoleRule(m.Id, m.DiscordRoleId, m.RoleId, m.Direction))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// For each account the mappings reach, the roles that follow Discord and so cannot be given or
+    /// taken by hand: every mapped role except those behind a both-ways mapping the bot can give.
+    /// Empty while the switch is off, because then nothing would undo a change by hand.
+    /// </summary>
+    public static async Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> FollowingDiscordAsync(
+        ModbotContext db, IReadOnlyCollection<ModbotUser> users, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(users);
+
+        var none = new Dictionary<Guid, IReadOnlySet<Guid>>();
+
+        var settings = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.DiscordStaffRolesOn, s.DiscordGuildId })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (settings is not { DiscordStaffRolesOn: true } || string.IsNullOrWhiteSpace(settings.DiscordGuildId))
+            return none;
+
+        var rules = await RulesAsync(db, ct).ConfigureAwait(false);
+        if (rules.Count == 0)
+            return none;
+
+        var discordRoles = await DiscordRolesAsync(db, settings.DiscordGuildId, ct).ConfigureAwait(false);
+
+        var locked = rules
+            .GroupBy(r => r.RoleId)
+            .Where(g => !g.Any(r => r.Direction == StaffRoleDirections.Both && BotCanGive(discordRoles.GetValueOrDefault(r.DiscordRoleId))))
+            .Select(g => g.Key)
+            .ToHashSet();
+
+        if (locked.Count == 0)
+            return none;
+
+        var result = new Dictionary<Guid, IReadOnlySet<Guid>>();
+        foreach (var user in users)
+        {
+            if (IsCovered(user))
+                result[user.Id] = locked;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Whether the mappings reach this account: enabled, not deleted, a proven Discord account, and
+    /// no role carrying the Administrator permission. Its roles must be loaded.
+    /// </summary>
+    public static bool IsCovered(ModbotUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        return user.DeletedAt is null
+               && !user.IsDisabled
+               && user.DiscordVerifiedAt is not null
+               && !string.IsNullOrEmpty(user.DiscordUserId)
+               && !user.Roles.Any(r => RoleRank.IsAdministrator(r.Role));
+    }
+
+    /// <summary>
+    /// What the mappings ask for right now.
+    /// </summary>
+    /// <param name="proposed">The mappings as they would be after a save, for a preview; null reads the saved ones.</param>
+    /// <param name="withNotes">Also list the Discord members the pass cannot reach. Reads every member, so the preview only.</param>
+    public static async Task<StaffRolePlan> PlanAsync(
+        ModbotContext db, IReadOnlyList<StaffRoleRule>? proposed, bool withNotes, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        var guildId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordGuildId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(guildId))
+            return StaffRolePlan.Empty("No Discord server is set.");
+
+        var rules = proposed ?? await RulesAsync(db, ct).ConfigureAwait(false);
+        if (rules.Count == 0)
+            return StaffRolePlan.Empty();
+
+        var roleIds = rules.Select(r => r.RoleId).Distinct().ToList();
+        var roles = await db.Roles.AsNoTracking()
+            .Where(r => roleIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, ct)
+            .ConfigureAwait(false);
+
+        var discordRoles = await DiscordRolesAsync(db, guildId, ct).ConfigureAwait(false);
+        var problems = new List<string>();
+
+        // Each Modbot role with the mappings that give it. A role that has come to carry the
+        // Administrator permission since it was mapped is skipped and named, never given.
+        var byRole = new List<(ModbotRole Role, List<StaffRoleRule> Rules, StaffRoleRule? Both, bool BothWorks)>();
+        foreach (var group in rules.GroupBy(r => r.RoleId))
+        {
+            if (!roles.TryGetValue(group.Key, out var role))
+                continue;
+
+            if (RoleRank.IsAdministrator(role))
+            {
+                problems.Add($"{role.Name} carries the Administrator permission, so no Discord role can give it.");
+                continue;
+            }
+
+            var usable = group
+                .Where(r => !discordRoles.TryGetValue(r.DiscordRoleId, out var d) || (!d.Everyone && !d.Managed))
+                .ToList();
+
+            if (usable.Count == 0)
+                continue;
+
+            var both = usable.FirstOrDefault(r => r.Direction == StaffRoleDirections.Both);
+            var works = both is not null && BotCanGive(discordRoles.GetValueOrDefault(both.DiscordRoleId));
+
+            if (both is not null && !works)
+                problems.Add($"Not set up: the bot cannot give {DiscordName(both.DiscordRoleId, discordRoles)}. Give it Manage Roles and keep its own role above that one.");
+
+            byRole.Add((role, usable, both, works));
+        }
+
+        if (byRole.Count == 0)
+            return new StaffRolePlan([], [], [], [], 0, problems);
+
+        var accounts = await db.Users.AsNoTracking()
+            .Include(u => u.Roles).ThenInclude(r => r.Role)
+            .Where(u => u.DeletedAt == null && !u.IsDisabled)
+            .OrderBy(u => u.Username)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var provenIds = accounts
+            .Where(u => u.DiscordVerifiedAt is not null && !string.IsNullOrEmpty(u.DiscordUserId))
+            .Select(u => u.DiscordUserId!)
+            .ToList();
+
+        var members = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.GuildId == guildId && (withNotes ? m.LeftAt == null || provenIds.Contains(m.UserId) : provenIds.Contains(m.UserId)))
+            .Select(m => new Member(m.UserId, m.DisplayName, m.Roles, m.LeftAt, m.UpdatedAt))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var memberById = members.ToDictionary(m => m.UserId, StringComparer.Ordinal);
+
+        var bothIds = byRole.Where(r => r.BothWorks).Select(r => r.Both!.Id).ToList();
+        var states = bothIds.Count == 0
+            ? []
+            : await db.DiscordStaffRoleStates.AsNoTracking()
+                .Where(s => bothIds.Contains(s.MappingId))
+                .ToDictionaryAsync(s => (s.MappingId, s.UserId), ct)
+                .ConfigureAwait(false);
+
+        var changes = new List<StaffRoleChange>();
+        var adopt = new List<(Guid, Guid)>();
+        var agree = new List<StaffRoleAgreement>();
+        var covered = 0;
+
+        foreach (var user in accounts)
+        {
+            if (user.Roles.Any(r => RoleRank.IsAdministrator(r.Role)))
+                continue;
+
+            var heldRoles = user.Roles.ToDictionary(r => r.RoleId);
+
+            if (user.DiscordVerifiedAt is null || string.IsNullOrEmpty(user.DiscordUserId))
+            {
+                // No proven Discord account: what a mapping gave goes with the link.
+                foreach (var (role, _, _, _) in byRole)
+                {
+                    if (heldRoles.TryGetValue(role.Id, out var held) && held.FromDiscord)
+                    {
+                        changes.Add(new StaffRoleChange(
+                            StaffRoleChangeKinds.Take, user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                            null, null, null, false, "Their Discord account is no longer connected."));
+                    }
+                }
+
+                continue;
+            }
+
+            covered++;
+
+            var member = memberById.GetValueOrDefault(user.DiscordUserId);
+            var inServer = member is { LeftAt: null };
+            var discordHeldIds = inServer ? Ids(member!.Roles) : [];
+
+            foreach (var (role, roleRules, both, bothWorks) in byRole)
+            {
+                var holding = roleRules.Where(r => discordHeldIds.Contains(r.DiscordRoleId)).ToList();
+                var discordHeld = holding.Count > 0;
+                heldRoles.TryGetValue(role.Id, out var heldRole);
+                var modbotHeld = heldRole is not null;
+
+                if (bothWorks)
+                {
+                    var discordRoleName = DiscordName(both!.DiscordRoleId, discordRoles);
+
+                    var plan = BothWays(
+                        states.GetValueOrDefault((both.Id, user.Id)),
+                        discordHeld,
+                        modbotHeld,
+                        DiscordChangedAt(member));
+
+                    switch (plan)
+                    {
+                        case BothWaysStep.Agree:
+                            agree.Add(new StaffRoleAgreement(both.Id, user.Id, discordHeld));
+                            break;
+
+                        case BothWaysStep.FollowDiscord:
+                            changes.Add(new StaffRoleChange(
+                                discordHeld ? StaffRoleChangeKinds.Give : StaffRoleChangeKinds.Take,
+                                user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                                both.DiscordRoleId, discordRoleName, both.Id, false,
+                                discordHeld
+                                    ? $"They hold {discordRoleName} in Discord."
+                                    : inServer ? $"{discordRoleName} was taken away in Discord." : "They are not in the Discord server."));
+                            break;
+
+                        case BothWaysStep.FollowModbot:
+                            changes.Add(new StaffRoleChange(
+                                modbotHeld ? StaffRoleChangeKinds.GiveDiscord : StaffRoleChangeKinds.TakeDiscord,
+                                user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                                both.DiscordRoleId, discordRoleName, both.Id, false,
+                                modbotHeld ? $"They hold {role.Name} in Modbot." : $"{role.Name} was taken away in Modbot."));
+                            break;
+                    }
+
+                    continue;
+                }
+
+                if (discordHeld && !modbotHeld)
+                {
+                    changes.Add(new StaffRoleChange(
+                        StaffRoleChangeKinds.Give, user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                        holding[0].DiscordRoleId, DiscordName(holding[0].DiscordRoleId, discordRoles), holding[0].Id, false,
+                        $"They hold {DiscordName(holding[0].DiscordRoleId, discordRoles)} in Discord."));
+                }
+                else if (discordHeld && !heldRole!.FromDiscord)
+                {
+                    adopt.Add((user.Id, role.Id));
+                }
+                else if (!discordHeld && modbotHeld)
+                {
+                    var names = string.Join(" or ", roleRules.Select(r => DiscordName(r.DiscordRoleId, discordRoles)));
+                    var byHand = !heldRole!.FromDiscord;
+
+                    changes.Add(new StaffRoleChange(
+                        StaffRoleChangeKinds.Take, user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                        null, null, null, byHand,
+                        !inServer
+                            ? "They are not in the Discord server."
+                            : byHand ? $"Given by hand, and they do not hold {names} in Discord." : $"They no longer hold {names} in Discord."));
+                }
+            }
+        }
+
+        var notes = withNotes ? Notes(byRole.SelectMany(r => r.Rules).ToList(), roles, discordRoles, accounts, members) : [];
+
+        return new StaffRolePlan(changes, notes, adopt, agree, covered, problems);
+    }
+
+    // ── Both ways ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>What a both-ways mapping does for one account.</summary>
+    public enum BothWaysStep
+    {
+        Nothing,
+        Agree,
+        FollowDiscord,
+        FollowModbot,
+    }
+
+    /// <summary>
+    /// Which side a both-ways mapping copies for one account (design §3.1).
+    /// </summary>
+    /// <param name="state">What the two sides last agreed on, or null when nothing has been agreed yet.</param>
+    /// <param name="discordChangedAt">
+    /// When the member's row last changed. Discord's side counts as changed only when the row has
+    /// changed since the agreement: until the update for the bot's own change comes back, the row
+    /// still shows the old roles, and reading that as a change would bounce the role back.
+    /// </param>
+    /// <remarks>Pure, so the table in the design is tested as a table.</remarks>
+    public static BothWaysStep BothWays(DiscordStaffRoleState? state, bool discordHeld, bool modbotHeld, DateTimeOffset? discordChangedAt)
+    {
+        if (state is null)
+        {
+            // The first time: both agree, or whichever side holds it gives it to the other.
+            if (discordHeld == modbotHeld)
+                return BothWaysStep.Agree;
+
+            return discordHeld ? BothWaysStep.FollowDiscord : BothWaysStep.FollowModbot;
+        }
+
+        var discordChanged = discordHeld != state.Held && (discordChangedAt is null || discordChangedAt > state.AgreedAt);
+        var modbotChanged = modbotHeld != state.Held;
+
+        if (!discordChanged && !modbotChanged)
+            return BothWaysStep.Nothing;
+
+        // Both moved away from the agreement: with one yes-or-no each, they now say the same.
+        if (discordChanged && modbotChanged)
+            return BothWaysStep.Agree;
+
+        return discordChanged ? BothWaysStep.FollowDiscord : BothWaysStep.FollowModbot;
+    }
+
+    // ── Pieces ─────────────────────────────────────────────────────────────────────────────
+
+    private static List<StaffRoleChange> Notes(
+        IReadOnlyList<StaffRoleRule> rules,
+        IReadOnlyDictionary<Guid, ModbotRole> roles,
+        IReadOnlyDictionary<string, DiscordRole> discordRoles,
+        IReadOnlyList<ModbotUser> accounts,
+        IReadOnlyList<Member> members)
+    {
+        var proven = accounts
+            .Where(u => u.DiscordVerifiedAt is not null && !string.IsNullOrEmpty(u.DiscordUserId))
+            .Select(u => u.DiscordUserId!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var typed = accounts
+            .Where(u => u.DiscordVerifiedAt is null && !string.IsNullOrEmpty(u.DiscordUserId))
+            .GroupBy(u => u.DiscordUserId!, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+        var notes = new List<StaffRoleChange>();
+
+        foreach (var member in members.Where(m => m.LeftAt is null && !proven.Contains(m.UserId)).OrderBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase))
+        {
+            var held = Ids(member.Roles);
+            var rule = rules.FirstOrDefault(r => held.Contains(r.DiscordRoleId));
+            if (rule is null || !roles.TryGetValue(rule.RoleId, out var role))
+                continue;
+
+            var discordRoleName = DiscordName(rule.DiscordRoleId, discordRoles);
+
+            if (typed.TryGetValue(member.UserId, out var account))
+            {
+                notes.Add(new StaffRoleChange(
+                    StaffRoleChangeKinds.NotProven, account.Id, account.Username, member.UserId, role.Id, role.Name,
+                    rule.DiscordRoleId, discordRoleName, rule.Id, false,
+                    $"Holds {discordRoleName}, and their Modbot account has not connected Discord."));
+            }
+            else
+            {
+                notes.Add(new StaffRoleChange(
+                    StaffRoleChangeKinds.NoAccount, null, member.DisplayName, member.UserId, role.Id, role.Name,
+                    rule.DiscordRoleId, discordRoleName, rule.Id, false,
+                    $"Holds {discordRoleName}, and has no Modbot account."));
+            }
+        }
+
+        return notes;
+    }
+
+    private static DateTimeOffset? DiscordChangedAt(Member? member)
+        => member is null ? null : member.LeftAt is { } left && left > member.UpdatedAt ? left : member.UpdatedAt;
+
+    private static Task<Dictionary<string, DiscordRole>> DiscordRolesAsync(ModbotContext db, string guildId, CancellationToken ct)
+        => db.DiscordRoles.AsNoTracking()
+            .Where(r => r.GuildId == guildId)
+            .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct);
+
+    private static string DiscordName(string roleId, IReadOnlyDictionary<string, DiscordRole> roles)
+        => roles.TryGetValue(roleId, out var role) && role.Name.Length > 0 ? role.Name : roleId;
+
+    private static HashSet<string> Ids(string json)
+    {
+        try
+        {
+            return (JsonSerializer.Deserialize<string[]>(json) ?? []).ToHashSet(StringComparer.Ordinal);
+        }
+        catch (JsonException)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+    }
+
+    private sealed record Member(string UserId, string DisplayName, string Roles, DateTimeOffset? LeftAt, DateTimeOffset UpdatedAt);
+}

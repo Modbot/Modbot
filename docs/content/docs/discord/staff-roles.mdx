@@ -1,0 +1,148 @@
+---
+title: Modbot roles from Discord
+description: Let a Discord role give a Modbot role, so staff get and lose their Modbot permissions when they get and lose their Discord staff roles.
+---
+
+If your team already decides who is staff with Discord roles, Modbot can follow them. You say which
+Discord role gives which Modbot role, and from then on somebody given that Discord role gets the
+Modbot role within about a minute, and loses it within about a minute of losing the Discord role.
+
+Nothing happens until you set it up. There are no mappings until you make one, and every mapping
+names one Discord role, one Modbot role and which way it works. A role you have not mapped is never
+looked at.
+
+## Before you start
+
+You need both **Manage roles** and **Manage users**. A mapping changes who holds a role, so it asks
+for what changing somebody's roles by hand asks for.
+
+The [Discord bot](/discord/bot-setup) must be in your server. It only needs to read the member list,
+which it already does, unless you use **Both ways** (below).
+
+## Who it reaches
+
+Only staff accounts that already exist and have **proven their Discord account** from their account
+page (**Connect Discord**, see [Staff accounts](/accounts/staff-accounts#email-and-discord-account)).
+Everybody else is left alone:
+
+- A Discord account that was only typed in, not proven, never counts here, not even before
+  1 November 2026.
+- **Administrators are never touched**, and nor is the owner. A Discord role can't give
+  Administrator, or any role that includes it.
+- Disabled accounts are left as they are.
+- **Modbot never makes accounts.** Somebody who holds a mapped Discord role and has no Modbot account
+  shows up in the preview under **Left alone**, so you know whom to [invite](/accounts/staff-accounts).
+
+## Where to set it up
+
+The same list, in two places. A mapping made in one shows in the other.
+
+- **Settings → Discord → Modbot roles from Discord**: every mapping, the switch, and **Apply**.
+- **Settings → People and roles → Roles**: open a role, and its **Discord roles** are listed under
+  its permissions.
+
+## Add a mapping
+
+<Steps>
+
+<Step>
+
+### Pick the roles
+
+Pick a **Discord role** and, on the Settings card, a **Modbot role**. @everyone and roles that
+belong to bots can't be used. One Discord role gives one Modbot role, but several Discord roles can
+give the same Modbot role, and holding any of them is enough. Fourteen department roles can all give
+**Moderator**.
+
+You can only map a Modbot role that is below your own highest role and allows nothing you can't do
+yourself: the same rule as [giving somebody a role by hand](/accounts/roles-and-permissions#who-can-give-what).
+
+</Step>
+
+<Step>
+
+### Choose which way it works
+
+| Which way | What happens |
+| --- | --- |
+| **Discord decides** | The Discord role is the answer. Modbot gives and takes the Modbot role to match, and never changes anything in Discord. |
+| **Both ways** | As above, and giving or taking the Modbot role in Modbot gives or takes the Discord role too. |
+
+</Step>
+
+<Step>
+
+### Look at who would change, then save
+
+**Add** shows **Who would change** before anything is saved: who would get the role, who would lose
+it, and whether they had it from Discord or were given it by hand. Press **Save**, or **Cancel** to
+back out. Changing which way a mapping works shows the same list.
+
+</Step>
+
+<Step>
+
+### Switch it on
+
+**Give Modbot roles from Discord roles** is off to begin with. Turning it on shows the list once
+more, for every mapping, then **Turn on**. While it is off nothing is given or taken, and on the
+Roles page the mappings show **Off**.
+
+</Step>
+
+</Steps>
+
+## What happens
+
+| They… | Modbot… |
+| --- | --- |
+| get a mapped Discord role | gives the Modbot role |
+| lose it (and hold no other Discord role that gives the same Modbot role) | takes the Modbot role away; the account stays, even with no role left |
+| leave the Discord server | takes the Modbot role away |
+| take their Discord account off their Modbot account | takes away every role a mapping gave them |
+| hold the Modbot role from before, given by hand, but not the Discord role | takes it away: Discord decides |
+
+On an account a mapping reaches, a role that follows Discord can't be given or taken by hand on the
+**Users** page: its box is greyed out. A **Both ways** role can, and the change goes to Discord.
+
+**Removing a mapping takes nothing away.** The roles it gave stay as ordinary roles.
+
+A change shows on the person's next click; they don't need to sign in again.
+
+## Both ways
+
+The bot needs **Manage roles** in your server, and its own role must be above the Discord role.
+When it can't give the role, the mapping says **Not set up**, and until you fix that it works as
+**Discord decides**: changes in Discord still reach Modbot, and the role can't be changed by hand in
+Modbot.
+
+A **Both ways** Modbot role can have only one Discord role, so Modbot knows which one to give.
+
+Whichever side changed is copied to the other, and a change Modbot made itself never bounces back.
+The first time a mapping is checked, whichever side holds the role gives it to the other.
+
+## Stopped: too many at once
+
+If one check would take roles away from more than five accounts at once, or from more than half of
+the accounts it reaches (and at least three), Modbot takes nothing, the card says **Stopped**, and
+**Apply** appears. This catches a Discord role deleted by mistake, or the bot losing sight of the
+member list. Press **Apply** to see the list, then **Apply** again to carry it out.
+
+Giving roles is never stopped this way.
+
+Modbot also waits after the bot reconnects until it has read the member list again, so it never acts
+on roles from before the bot went away.
+
+## What goes in the audit log
+
+In the operational log:
+
+- **Roles changed**, with no person as the one who did it, saying Modbot changed the roles to match
+  Discord.
+- **Discord role given a Modbot role** and **Discord role no longer gives a Modbot role**, saying
+  who made or removed the mapping.
+- **Roles from Discord stopped**, once, when too many would have lost a role at once.
+- Turning the switch on or off, like any other setting.
+
+For **Both ways**, a Discord role Modbot gives or takes is recorded against the person like a
+[role sync](/discord/role-and-ban-sync) copy, and a refusal from Discord as a failed copy.
