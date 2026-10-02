@@ -34,18 +34,22 @@ public class CalendarSendingTests(PostgresFixture db)
             await context.CalendarEvents.ExecuteDeleteAsync(Ct);
         }
 
-        await AccountAsync(groupId: null, permissions: null);
         return await ApiTestHost.StartAsync(db);
     }
 
-    /// <summary>The managed group and Modbot's own permissions in it, as the group poll last read them.</summary>
-    private async Task AccountAsync(string? groupId, List<string>? permissions)
+    /// <summary>
+    /// The managed group and Modbot's own permissions in it, as the group poll last read them.
+    /// Returns what was there, for the test to put back: the API tests share one database.
+    /// </summary>
+    private async Task<(string? GroupId, List<string>? Permissions)> AccountAsync(string? groupId, List<string>? permissions)
     {
         await using var context = db.NewContext();
         var settings = await context.GetSettingsAsync(Ct);
+        var was = (settings.ManagedGroupId, settings.VRChatAccountPermissions);
         settings.ManagedGroupId = groupId;
         settings.VRChatAccountPermissions = permissions;
         await context.SaveChangesAsync(Ct);
+        return was;
     }
 
     private static Dictionary<string, object?> Event(ApiTestHost host, string repeat = "none")
@@ -253,79 +257,98 @@ public class CalendarSendingTests(PostgresFixture db)
     public async Task ARefusedSave_NamesEveryProblemAtOnce_TheMissingPermissionFirst()
     {
         await using var host = await StartAsync();
-        await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
-        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var was = await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
 
-        var body = Event(host);
-        body["title"] = "";
-        body["description"] = "";
-        body["vrChatImageId"] = "https://example.com/a picture.png";
-        body["channelId"] = null;
+        try
+        {
+            var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
 
-        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", body, manager, Ct);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = Event(host);
+            body["title"] = "";
+            body["description"] = "";
+            body["vrChatImageId"] = "https://example.com/a picture.png";
+            body["channelId"] = null;
 
-        var answer = await ApiTestHost.BodyOf(response, Ct);
-        var problems = answer.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList();
+            var response = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", body, manager, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
-        Assert.Equal(
-            new List<string?>
-            {
-                PermissionSentence,
-                CalendarVRChatChecks.NoTitle,
-                CalendarVRChatChecks.NoDescription,
-                CalendarVRChatChecks.NotAPictureId,
-                "Pick a channel to post to.",
-            },
-            problems);
-        Assert.Equal(string.Join(" ", problems), answer.GetProperty("error").GetString());
+            var answer = await ApiTestHost.BodyOf(response, Ct);
+            var problems = answer.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList();
 
-        await AccountAsync(groupId: null, permissions: null);
+            Assert.Equal(
+                new List<string?>
+                {
+                    PermissionSentence,
+                    CalendarVRChatChecks.NoTitle,
+                    CalendarVRChatChecks.NoDescription,
+                    CalendarVRChatChecks.NotAPictureId,
+                    "Pick a channel to post to.",
+                },
+                problems);
+            Assert.Equal(string.Join(" ", problems), answer.GetProperty("error").GetString());
+        }
+        finally
+        {
+            await AccountAsync(was.GroupId, was.Permissions);
+        }
     }
 
     [Fact]
     public async Task TheMissingPermissionAlone_DoesNotRefuseASave_AndAPictureAddressIsKeptAsItsId()
     {
         await using var host = await StartAsync();
-        await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
-        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var was = await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
 
-        var body = Event(host);
-        body["vrChatImageId"] = "https://api.vrchat.cloud/api/1/file/file_0a1b2c/1/file";
+        try
+        {
+            var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
 
-        var id = await CreateAsync(host, manager, body);
+            var body = Event(host);
+            body["vrChatImageId"] = "https://api.vrchat.cloud/api/1/file/file_0a1b2c/1/file";
 
-        await using (var context = db.NewContext())
+            var id = await CreateAsync(host, manager, body);
+
+            await using var context = db.NewContext();
             Assert.Equal("file_0a1b2c", (await context.CalendarEvents.AsNoTracking().SingleAsync(e => e.Id == id, Ct)).VRChatImageId);
-
-        await AccountAsync(groupId: null, permissions: null);
+        }
+        finally
+        {
+            await AccountAsync(was.GroupId, was.Permissions);
+        }
     }
 
     [Fact]
     public async Task AFailureFoundBeforeSending_ShowsEveryProblem_AndTheMissingPermission_NotVRChatsWords()
     {
         await using var host = await StartAsync();
-        await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
-        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
-        var id = await CreateAsync(host, manager, Event(host));
+        var was = await AccountAsync("grp_1", [VRChatGroupPermissions.ViewAuditLog]);
 
-        await AddPlaceAsync(id, CalendarPlaces.VRChat, p =>
+        try
         {
-            p.FailedFingerprint = "checked";
-            p.MissingGroupPermission = VRChatGroupPermissions.ManageCalendar;
-            p.Problems = [CalendarVRChatChecks.NotAPictureId];
-            p.Error = PermissionSentence + " " + CalendarVRChatChecks.NotAPictureId;
-        });
+            var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+            var id = await CreateAsync(host, manager, Event(host));
 
-        var vrchat = await PlaceViewAsync(host, manager, id, CalendarPlaces.VRChat);
+            await AddPlaceAsync(id, CalendarPlaces.VRChat, p =>
+            {
+                p.FailedFingerprint = "checked";
+                p.MissingGroupPermission = VRChatGroupPermissions.ManageCalendar;
+                p.Problems = [CalendarVRChatChecks.NotAPictureId];
+                p.Error = PermissionSentence + " " + CalendarVRChatChecks.NotAPictureId;
+            });
 
-        Assert.Equal(
-            new List<string?> { CalendarVRChatChecks.NotAPictureId },
-            vrchat.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList());
-        var missing = vrchat.GetProperty("missingGroupPermission");
-        Assert.Equal(VRChatGroupPermissions.ManageCalendar, missing.GetProperty("permission").GetString());
-        Assert.Equal(JsonValueKind.Null, missing.GetProperty("said").ValueKind);
+            var vrchat = await PlaceViewAsync(host, manager, id, CalendarPlaces.VRChat);
 
-        await AccountAsync(groupId: null, permissions: null);
+            Assert.Equal(
+                new List<string?> { CalendarVRChatChecks.NotAPictureId },
+                vrchat.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList());
+
+            var missing = vrchat.GetProperty("missingGroupPermission");
+            Assert.Equal(VRChatGroupPermissions.ManageCalendar, missing.GetProperty("permission").GetString());
+            Assert.Equal(JsonValueKind.Null, missing.GetProperty("said").ValueKind);
+        }
+        finally
+        {
+            await AccountAsync(was.GroupId, was.Permissions);
+        }
     }
 }
