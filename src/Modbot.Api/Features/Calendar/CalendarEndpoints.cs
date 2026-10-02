@@ -932,7 +932,7 @@ public static class CalendarEndpoints
         // The picture cropped in the form for Discord (§15.4): kept by Modbot, because Discord is
         // sent a cover's bytes each time the event is made or changed and the crop exists nowhere
         // else. Its own request, like VRChat's picture, so saving stays plain JSON. A cover nobody
-        // saved is cleared out here, a day later.
+        // saved is deleted by CalendarCoverSweep once it is a day old.
         group.MapPost("/cover", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
@@ -963,20 +963,12 @@ public static class CalendarEndpoints
                 if (!Core.Files.PictureFormats.DiscordTakes(type))
                     return Results.BadRequest(new { error = "The picture must be a PNG, JPEG, GIF or WebP." });
 
-                var now = clock.UtcNow;
-                var unsavedBefore = now.AddDays(-1);
-
-                await db.CalendarCoverPictures
-                    .Where(c => c.CreatedAt < unsavedBefore
-                        && !db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null))
-                    .ExecuteDeleteAsync(ct);
-
                 var cover = new CalendarCoverPicture
                 {
                     Id = Guid.CreateVersion7(),
                     Bytes = bytes,
                     ContentType = type!,
-                    CreatedAt = now,
+                    CreatedAt = clock.UtcNow,
                     CreatedByUserId = ModbotAuth.UserIdOf(http.User),
                 };
 
@@ -994,7 +986,7 @@ public static class CalendarEndpoints
                 + "picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first "
                 + "bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps "
                 + "it until the event is deleted or given another; one no event was saved with is "
-                + "deleted after a day.")
+                + "deleted once it is a day old, within the hour after.")
             .Produces<CalendarCoverView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

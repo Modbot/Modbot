@@ -14,7 +14,7 @@ namespace Modbot.Core.Data.Entities;
 /// <para>
 /// One row per upload, never changed. An event points at one (<see cref="CalendarEvent.CoverPictureId"/>);
 /// a row no live event points at is deleted when its event is deleted or given another cover, and
-/// one uploaded but never saved is deleted a day later.
+/// one uploaded but never saved is deleted once it is a day old (<see cref="Calendar.CalendarCoverSweep"/>).
 /// </para>
 /// </remarks>
 public class CalendarCoverPicture

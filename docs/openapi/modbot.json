@@ -24446,7 +24446,7 @@
           "Calendar"
         ],
         "summary": "Upload Discord picture",
-        "description": "Keeps a picture for an event's Discord cover and channel post. The body is the picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps it until the event is deleted or given another; one no event was saved with is deleted after a day.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Keeps a picture for an event's Discord cover and channel post. The body is the picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps it until the event is deleted or given another; one no event was saved with is deleted once it is a day old, within the hour after.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UploadCalendarCover",
         "responses": {
           "200": {

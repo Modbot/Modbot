@@ -393,6 +393,7 @@ public static class VRChatServiceCollectionExtensions
         // instances, and VRChat calendar writes, each on its own budget.
         services.AddScoped<Calendar.CalendarFacts>();
         services.AddScoped<Calendar.CalendarScheduler>();
+        services.AddScoped<Core.Calendar.CalendarCoverSweep>();
         services.AddScoped<Calendar.CalendarOpener>(provider => new Calendar.CalendarOpener(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),

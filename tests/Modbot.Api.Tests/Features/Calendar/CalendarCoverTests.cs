@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Calendar;
+using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -203,17 +204,46 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.True(await KeptAsync(cover));
     }
 
-    /// <summary>A picture kept and never saved on an event is deleted a day later, by the next upload.</summary>
+    /// <summary>
+    /// The calendar's hourly sweep deletes a picture no event was saved with once it is a day old,
+    /// whether or not anybody uploads again, and keeps a younger one and one an event uses.
+    /// </summary>
     [Fact]
-    public async Task APictureNeverSavedIsDeletedADayLater()
+    public async Task TheSweepDeletesAPictureNeverSaved_OnceItIsADayOld()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var unsaved = await UploadedAsync(host, manager);
+        var saved = await UploadedAsync(host, manager);
+        await CreateAsync(host, manager, saved);
+
+        host.Clock.Advance(TimeSpan.FromHours(23));
+        await using (var context = db.NewContext())
+            await new CalendarCoverSweep(context, host.Clock).RunOnceAsync(Ct);
+
+        Assert.True(await KeptAsync(unsaved));
+
+        host.Clock.Advance(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(1));
+        var young = await UploadedAsync(host, manager);
+        await using (var context = db.NewContext())
+            await new CalendarCoverSweep(context, host.Clock).RunOnceAsync(Ct);
+
+        Assert.False(await KeptAsync(unsaved));
+        Assert.True(await KeptAsync(saved));
+        Assert.True(await KeptAsync(young));
+    }
+
+    /// <summary>Uploading deletes nothing: the sweep alone does.</summary>
+    [Fact]
+    public async Task UploadingDeletesNoOtherPicture()
     {
         await using var host = await StartAsync();
         var manager = await ManagerAsync(host);
         var unsaved = await UploadedAsync(host, manager);
 
-        host.Clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(1));
+        host.Clock.Advance(TimeSpan.FromDays(2));
         await UploadedAsync(host, manager);
 
-        Assert.False(await KeptAsync(unsaved));
+        Assert.True(await KeptAsync(unsaved));
     }
 }

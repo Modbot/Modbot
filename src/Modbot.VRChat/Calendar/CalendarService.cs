@@ -43,7 +43,13 @@ public sealed class CalendarService : BackgroundService
         Task.WhenAll(
             LoopAsync("calendar schedule", RunScheduleAsync, stoppingToken),
             LoopAsync("VRChat calendar publish", RunPublishAsync, stoppingToken),
-            LoopAsync("calendar invites", RunInvitesAsync, stoppingToken));
+            LoopAsync("calendar invites", RunInvitesAsync, stoppingToken),
+            // Pictures cropped for Discord that no event was saved with (calendar design §15.4).
+            // Asks VRChat nothing; its own loop, once an hour, since a day-old picture can wait.
+            LoopAsync("calendar picture sweep", RunCoverSweepAsync, stoppingToken, Core.Calendar.CalendarCoverSweep.Every));
+
+    private static Task RunCoverSweepAsync(IServiceProvider scope, CancellationToken ct) =>
+        scope.GetRequiredService<Core.Calendar.CalendarCoverSweep>().RunOnceAsync(ct);
 
     // Its own loop: working out a long list, or waiting for an invite's turn, must never hold up an
     // instance that is due to open (calendar auto-invite design §4).
@@ -64,13 +70,13 @@ public sealed class CalendarService : BackgroundService
         scope.GetRequiredService<CalendarVRChatPublisher>().RunOnceAsync(ct);
 
     private async Task LoopAsync(
-        string what, Func<IServiceProvider, CancellationToken, Task> pass, CancellationToken ct)
+        string what, Func<IServiceProvider, CancellationToken, Task> pass, CancellationToken ct, TimeSpan? every = null)
     {
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                await _delays.DelayAsync(Interval, ct).ConfigureAwait(false);
+                await _delays.DelayAsync(every ?? Interval, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

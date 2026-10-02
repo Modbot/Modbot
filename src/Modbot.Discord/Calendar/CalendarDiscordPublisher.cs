@@ -463,6 +463,63 @@ public sealed class CalendarDiscordPublisher
             CalendarRepeat.DescriptionOf(calendarEvent, occurrence));
     }
 
+    /// <summary>The picture a channel post's card shows, and where its file comes from.</summary>
+    /// <param name="Image">What the card points at: an https address, or <c>attachment://name</c>.</param>
+    /// <param name="CoverName">The file name of the picture cropped for Discord, when the card shows it.</param>
+    /// <param name="Pictures">The other pictures fetched for the message.</param>
+    private sealed record PostPicture(string? Image, string? CoverName, CardPictureMessage Pictures);
+
+    /// <summary>
+    /// The picture for a channel post's card, for a new post, an edit and the last word alike.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The picture cropped for Discord comes first (§15.4). It is named from its id, so the card is
+    /// told what it is called without reading it; it is read only when something is to be sent.
+    /// The event's picture link comes next and goes on the card as it is, unless it is on VRChat,
+    /// which serves nobody without a session (§15.2); then the world's picture.
+    /// </para>
+    /// <para>
+    /// <strong>A picture the card points at is sent with every post and every edit</strong>
+    /// (changed 2026-10-02). An edit used to point at the file the first post left, which broke the
+    /// card when the file it now wanted was not the one the post had: a cropped picture removed,
+    /// leaving the world's picture the post never carried, or a world picture that could not be
+    /// fetched once and so was dropped from the message. Sending the files every time makes the
+    /// message carry exactly what its card points at. Edits only happen when the card changes, and
+    /// fetched pictures are remembered, so this costs an upload per change, not a fetch.
+    /// </para>
+    /// </remarks>
+    private async Task<PostPicture> PostPictureAsync(CalendarEvent e, VRChatWorld? world, Pass pass)
+    {
+        var pictures = pass.Pictures();
+
+        if (await CoverNameAsync(e, pass.Ct).ConfigureAwait(false) is { } coverName)
+            return new PostPicture(DiscordPicture.Scheme + coverName, coverName, pictures);
+
+        var own = CalendarCard.OwnPicture(e);
+
+        if (own is not null && !IsOnVRChat(own))
+            return new PostPicture(own, null, pictures);
+
+        var sent = await pictures.AddAsync(own ?? InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false);
+        return new PostPicture(sent, null, pictures);
+    }
+
+    /// <summary>
+    /// The files the message carries, matching what its card points at: the cropped picture, or
+    /// the pictures fetched for it (none when it points at an address). Null when the cropped picture
+    /// was deleted after its name was read.
+    /// </summary>
+    private async Task<IReadOnlyList<DiscordPicture>?> FilesAsync(CalendarEvent e, PostPicture picture, CancellationToken ct)
+    {
+        if (picture.CoverName is null)
+            return picture.Pictures.Files;
+
+        return await CoverAsync(e, ct).ConfigureAwait(false) is { } cover
+            ? [new DiscordPicture(picture.CoverName, cover.Bytes)]
+            : null;
+    }
+
     /// <summary>
     /// The file name of the picture cropped for Discord (§15.4), from its id and kind, so a post can
     /// point at it without reading it. Null without one, or when it is gone.
@@ -585,24 +642,20 @@ public sealed class CalendarDiscordPublisher
                 // At the times the post last showed: a date moved and then cancelled keeps its move.
                 var occurrence = place.OccurrenceStartsAt is { } was ? DateOf(e, was) : current;
 
-                // The picture is already on the message and stays there, so the last word costs
-                // no upload.
+                // The last word carries its picture again rather than trusting the message to still
+                // have it: a deleted event's cropped picture is gone by now (§15.4), and the card
+                // falls back to a picture the message never carried.
                 var closingWorld = pass.WorldOf(e);
-                var closingPictures = pass.Pictures();
-                var closingCover = await CoverNameAsync(e, pass.Ct).ConfigureAwait(false);
-                var closingOwn = CalendarCard.OwnPicture(e);
-                var closingPicture = new CardPicture(
-                    Image: closingCover is not null
-                        ? DiscordPicture.Scheme + closingCover
-                        : closingOwn is not null && !IsOnVRChat(closingOwn)
-                            ? closingOwn
-                            : await closingPictures.ReferenceAsync(closingOwn ?? InstanceCard.PictureOf(closingWorld), pass.Ct).ConfigureAwait(false));
+                var closing = await PostPictureAsync(e, closingWorld, pass).ConfigureAwait(false);
+                var closingFiles = await FilesAsync(e, closing, pass.Ct).ConfigureAwait(false);
 
+                // A cropped picture deleted between the two reads: the last word goes without one.
                 var card = CalendarCard.For(
-                    e, occurrence, closingWorld, state, joinLink: null, pass.Style, closingPicture);
+                    e, occurrence, closingWorld, state, joinLink: null, pass.Style,
+                    new CardPicture(Image: closingFiles is null ? null : closing.Image));
 
                 var edited = await pass
-                    .Call(g => g.EditAsync(postedIn, messageId, mention, [card], [], pictures: null, pass.Ct))
+                    .Call(g => g.EditAsync(postedIn, messageId, mention, [card], [], closingFiles ?? [], pass.Ct))
                     .ConfigureAwait(false);
 
                 if (!edited.Sent && !edited.Permanent)
@@ -665,28 +718,8 @@ public sealed class CalendarDiscordPublisher
         var world = pass.WorldOf(e);
         var first = place.ExternalId is null;
 
-        // A first post sends the world's picture; an edit points at the file the first post left
-        // on the message. The event's own picture, if the moderators gave one, is an ordinary
-        // address on a host that serves anybody, so it is linked either way -- unless it is on
-        // VRChat, which serves nobody without a session: that one is sent like the world's
-        // (calendar design §15.2, added 2026-10-02).
-        //
-        // The picture cropped in the form for Discord comes first (§15.4). It is named from its id,
-        // so the post is told what it is called without reading it; it is read, and sent, only
-        // when the post is made or changed.
-        var pictures = pass.Pictures();
-        var coverName = await CoverNameAsync(e, pass.Ct).ConfigureAwait(false);
-        var own = CalendarCard.OwnPicture(e);
-        var sent = own is null ? InstanceCard.PictureOf(world) : IsOnVRChat(own) ? own : null;
-        var image = coverName is not null
-            ? DiscordPicture.Scheme + coverName
-            : sent is null
-                ? own
-                : first
-                    ? await pictures.AddAsync(sent, pass.Ct).ConfigureAwait(false)
-                    : await pictures.ReferenceAsync(sent, pass.Ct).ConfigureAwait(false);
-
-        var (embed, links) = Post(e, world, joinLink, pass.Style, image);
+        var picture = await PostPictureAsync(e, world, pass).ConfigureAwait(false);
+        var (embed, links) = Post(e, world, joinLink, pass.Style, picture.Image);
 
         object?[] said =
         [
@@ -710,21 +743,10 @@ public sealed class CalendarDiscordPublisher
         if (place.State == CalendarPlaceStates.Failed && place.FailedFingerprint == fingerprint)
             return;
 
-        // The files the message carries. A cropped picture is sent on the post and on every change,
-        // since it may be new; a card that refers to no file any more keeps none, so a picture
-        // removed does not hang under the card. Otherwise an edit keeps what the post has.
-        IReadOnlyList<DiscordPicture> files = pictures.Files;
-        IReadOnlyList<DiscordPicture>? editFiles = null;
-
-        if (coverName is not null && await CoverAsync(e, pass.Ct).ConfigureAwait(false) is { } cover)
-        {
-            files = [new DiscordPicture(coverName, cover.Bytes)];
-            editFiles = files;
-        }
-        else if (embed.ImageUrl?.StartsWith(DiscordPicture.Scheme, StringComparison.Ordinal) != true)
-        {
-            editFiles = [];
-        }
+        // A cropped picture deleted since its name was read: its event no longer points at it, and
+        // the next pass draws the card without it.
+        if (await FilesAsync(e, picture, pass.Ct).ConfigureAwait(false) is not { } files)
+            return;
 
         DiscordPostOutcome outcome;
 
@@ -761,7 +783,7 @@ public sealed class CalendarDiscordPublisher
             var id = place.ExternalId!;
             var inChannel = place.ChannelId ?? channelId!;
             outcome = await pass
-                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, editFiles, pass.Ct))
+                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, files, pass.Ct))
                 .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the event changes, so a moderator who

@@ -974,14 +974,21 @@ Discord's event cover is 2.5:1 and VRChat's picture 16:9, so one crop cannot ser
   - `GET /api/calendar/covers/{id}` (See calendar): the bytes, with their type, `nosniff`, a
     `sandbox` policy, and a week's private cache (a cover never changes).
 - **Deleted when nothing uses it:** when its event is deleted or given another picture, unless a copy
-  of the event (Duplicate keeps the picture) still points at it; one uploaded and never saved is
-  deleted a day later, by the next upload. Deleting the row empties `coverPictureId` on any event that
-  still pointed at it, so an id never dangles.
+  of the event (Duplicate keeps the picture) still points at it. One uploaded and never saved is
+  deleted once it is a day old (long enough for any form still open), by `CalendarCoverSweep`, which
+  the calendar service runs in a loop of its own once an hour, so it is gone within the hour after
+  whether or not anybody uploads again (changed 2026-10-02: the first build swept only on the next
+  upload, which the docs' "a day later" did not match). Deleting the row empties `coverPictureId` on
+  any event that still pointed at it, so an id never dangles.
 - **What Discord gets:** with a picture cropped, the Discord event's cover is its bytes, in place of
   the picture link, and the channel post carries it as a file the card points at
-  (`attachment://cover-{id}.png`). It is read only when something is to be sent, and sent again with
-  every change to the post, since it may be new; a post whose card points at no file any more keeps
-  none. The fingerprint names the picture's id only when there is one, so events without one are not
+  (`attachment://cover-{id}.png`). It is read only when something is to be sent. **Every post, edit
+  and last word sends the files its card points at** (changed 2026-10-02 after review): an edit used
+  to point at the file the first post left, which broke the card when that was no longer the file it
+  wanted (a cropped picture removed leaving the world's picture the post never carried, a world
+  picture that could not be fetched once, or a deleted event's last word after its picture was
+  deleted). Now the message carries exactly what its card points at, and a card that points at an
+  address carries no file. The fingerprint names the picture's id only when there is one, so events without one are not
   sent again for nothing. Without one, the picture link works as before.
 - **The preview** names `GET /api/calendar/covers/{id}` as the cover and the post's picture once
   uploaded, and draws the crop in the browser before.
