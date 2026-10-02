@@ -338,6 +338,7 @@ public sealed class ModerationLogPoster
         {
             var (embeds, files) = await DrawAsync([cards[0]], names, worlds, discordNames, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
+            embeds[0] = EmbedSize.Shorten(embeds[0]);
 
             // The files are sent again rather than left as they were, so a person whose picture
             // changed since the first post is shown with the new one.
@@ -370,9 +371,10 @@ public sealed class ModerationLogPoster
             }
         }
 
-        var toPost = error is null ? cards.Skip(next).Chunk(_options.EmbedsPerMessage) : [];
+        var toPost = error is null ? cards.Skip(next).ToList() : [];
+        var at = 0;
 
-        foreach (var chunk in toPost)
+        while (at < toPost.Count)
         {
             if (messages >= _options.MessagesPerPass)
                 break;
@@ -380,8 +382,26 @@ public sealed class ModerationLogPoster
             if (sent > 0)
                 await delay(_options.GapBetweenMessages, ct).ConfigureAwait(false);
 
+            // Up to the most cards a message holds, then fewer when their words add up to more than
+            // Discord takes in one message. A card too big even alone is cut down, so the message
+            // always goes out and the cards behind it are not held up by one that cannot.
+            var chunk = toPost.GetRange(at, Math.Min(_options.EmbedsPerMessage, toPost.Count - at)).ToArray();
             var (embeds, files) = await DrawAsync(chunk, names, worlds, discordNames, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
+
+            var fit = EmbedSize.HowManyFit(embeds);
+
+            if (fit < chunk.Length)
+            {
+                chunk = chunk[..fit];
+                (embeds, files) = await DrawAsync(chunk, names, worlds, discordNames, faces, style, showPictures, ct)
+                    .ConfigureAwait(false);
+            }
+
+            if (chunk.Length == 1)
+                embeds[0] = EmbedSize.Shorten(embeds[0]);
+
+            at += chunk.Length;
 
             var outcome = await gateway
                 .PostAsync(channelId, null, embeds, null, files, ct)

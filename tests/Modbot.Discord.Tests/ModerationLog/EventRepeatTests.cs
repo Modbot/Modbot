@@ -153,6 +153,60 @@ public class EventRepeatTests
         Assert.True(place.PostedThrough >= latest);
     }
 
+    /// <summary>
+    /// Discord refuses a message whose cards hold more than six thousand characters between them,
+    /// and a refused message is retried on every pass while the cards behind it wait.
+    /// </summary>
+    [Fact]
+    public async Task ManyLongCards_NeverMakeAMessageOverDiscordsTotal_AndEveryCardGoesOut()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.UserProfileChanged], ct);
+
+        for (var i = 0; i < 25; i++)
+            await ProfileChangedAsync(services, $"usr_{i:D8}-0000-4000-8000-000000000000", new string('x', 4000), ct);
+
+        await RunAsync(services, gateway, ct);
+
+        Assert.NotEmpty(gateway.Messages);
+        Assert.All(gateway.Messages, m =>
+        {
+            Assert.InRange(m.Embeds.Count, 1, 10);
+            Assert.True(m.Embeds.Sum(EmbedSize.Of) <= EmbedSize.MessageLimit);
+        });
+    }
+
+    [Fact]
+    public void FewerCardsFit_WhenTheirWordsAddUpToMoreThanOneMessageTakes()
+    {
+        static DiscordEmbedContent Card(int length)
+            => new("t", new string('d', length), 0, [], null, null, null);
+
+        // 1500 each: four fit in 6000, a fifth does not.
+        var cards = Enumerable.Range(0, 10).Select(_ => Card(1499)).ToList();
+
+        Assert.Equal(4, EmbedSize.HowManyFit(cards));
+        Assert.Equal(10, EmbedSize.HowManyFit([.. Enumerable.Range(0, 10).Select(_ => Card(100))]));
+
+        // One card too big on its own still goes, cut to fit.
+        var huge = new DiscordEmbedContent(
+            "title",
+            new string('d', 4000),
+            0,
+            [.. Enumerable.Range(0, 20).Select(i => new DiscordEmbedField($"f{i}", new string('v', 900)))],
+            null, null, "footer");
+
+        Assert.Equal(1, EmbedSize.HowManyFit([huge, Card(10)]));
+
+        var shortened = EmbedSize.Shorten(huge);
+        Assert.True(EmbedSize.Of(shortened) <= EmbedSize.MessageLimit);
+        Assert.Equal("title", shortened.Title);
+        Assert.Equal("footer", shortened.Footer);
+    }
+
     [Fact]
     public async Task RepeatsInOnePass_AreOneCard()
     {

@@ -120,6 +120,15 @@ public static partial class EventCard
                 return DiscordPersonCard(e, style, label, Field("Channel", moved));
             }
 
+            // The fact kept the giveaway's name when it was written; its id alone says nothing here.
+            case FactType.GiveawayEntered:
+            case FactType.GiveawayWithdrawn:
+                return DiscordPersonCard(
+                    e, style, label,
+                    Field(
+                        "Giveaway",
+                        string.IsNullOrWhiteSpace(own.Name) ? null : CardText.Fit(CardText.EscapeText(own.Name.Trim()), ValueLength)));
+
             case FactType.DiscordMemberTimedOut:
                 return DiscordPersonCard(e, style, label, Field("Until", Time(own.Until)));
 

@@ -342,6 +342,17 @@ public class EventCardOwnFactsTests
         Assert.Equal("Who", card.Fields[0].Name);
     }
 
+    [Theory]
+    [InlineData(FactType.GiveawayEntered)]
+    [InlineData(FactType.GiveawayWithdrawn)]
+    public void AGiveawayEntryOrWithdrawal_NamesTheGiveaway(string type)
+    {
+        var card = Card(Voice(type, new JsonObject { ["giveawayId"] = "5", ["name"] = "Spring *raffle*" }));
+
+        Assert.Equal(@"Spring \*raffle\*", Field(card, "Giveaway"));
+        Assert.Equal($"<@{Member}>", Field(card, "Who"));
+    }
+
     [Fact]
     public void AVoiceMove_SaysFromWhereToWhere()
     {
