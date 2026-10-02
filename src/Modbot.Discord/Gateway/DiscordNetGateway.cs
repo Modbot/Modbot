@@ -779,7 +779,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             {
                 return DiscordPostOutcome.Failed(
                     "Discord does not know that channel, or the bot cannot see it. Check the id and "
-                    + "the bot's access to the channel.", permanent: true);
+                    + "the bot's access to the channel.", permanent: true, notFound: true);
             }
 
             return await work(channel).ConfigureAwait(false);
@@ -787,7 +787,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         catch (HttpException e)
         {
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
-            return DiscordPostOutcome.Failed(Explain(e), permanent);
+            return DiscordPostOutcome.Failed(Explain(e), permanent, notFound: e.HttpCode == HttpStatusCode.NotFound);
         }
         catch (RateLimitedException)
         {

@@ -57,6 +57,10 @@ public static class DiscordServiceCollectionExtensions
         // moderation log, which is the record rather than a notice board.
         services.AddHostedService<InstanceAnnounceService>();
 
+        // Old calendar posts Discord would not let the bot delete, kept between passes so each is
+        // asked about once a day and not every twenty seconds.
+        services.TryAddSingleton<Calendar.OldPostRefusals>();
+
         // The calendar's server events and channel posts (calendar design §9). Its own loop too.
         services.AddScoped<Calendar.CalendarDiscordPublisher>();
         services.AddHostedService<Calendar.CalendarDiscordService>();

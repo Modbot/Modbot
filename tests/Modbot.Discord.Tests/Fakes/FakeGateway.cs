@@ -341,9 +341,12 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Every timeout, in order.</summary>
     public List<(string GuildId, string UserId, TimeSpan Duration, string Reason)> TimedOut { get; } = [];
 
-    /// <summary>Makes the next delete fail. Its own queue, apart from posting and editing.</summary>
-    public void FailNextDelete(string error, bool permanent = false)
-        => _deleteOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+    /// <summary>
+    /// Makes the next delete fail. Its own queue, apart from posting and editing. <paramref name="notFound"/>
+    /// is Discord's 404, the post is already gone; <paramref name="permanent"/> alone is a refusal (403).
+    /// </summary>
+    public void FailNextDelete(string error, bool permanent = false, bool notFound = false)
+        => _deleteOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent || notFound, notFound));
 
     private readonly Queue<DiscordPostOutcome> _deleteOutcomes = new();
 

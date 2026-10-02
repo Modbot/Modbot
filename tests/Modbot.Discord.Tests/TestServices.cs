@@ -76,6 +76,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();
+        services.AddSingleton<Modbot.Discord.Calendar.OldPostRefusals>();
         services.AddScoped<Modbot.Discord.Calendar.CalendarDiscordPublisher>();
         services.AddScoped<Modbot.Analytics.Giveaways.GiveawayRuleChecker>();
         services.AddScoped<Modbot.Analytics.Giveaways.GiveawayDrawer>();

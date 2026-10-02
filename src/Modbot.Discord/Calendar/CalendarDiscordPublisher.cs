@@ -75,6 +75,9 @@ public sealed class CalendarDiscordPublisher
     /// <summary>How many old posts one pass may take down, at most, out of <see cref="CallsPerPass"/>.</summary>
     public const int RemovalsPerPass = 2;
 
+    /// <summary>How long a post Discord refused to let the bot delete is left alone before it is tried again.</summary>
+    public static readonly TimeSpan RefusedPostRetryAfter = TimeSpan.FromDays(1);
+
     /// <summary>The reason Discord's audit log shows for an old post Modbot took down.</summary>
     public const string OldPostReason = "Calendar event is over";
 
@@ -87,6 +90,7 @@ public sealed class CalendarDiscordPublisher
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
     private readonly CardPictures _pictures;
+    private readonly OldPostRefusals _refused;
     private readonly ILogger _log;
 
     /// <summary>Places this pass made, for the state-change facts.</summary>
@@ -99,6 +103,7 @@ public sealed class CalendarDiscordPublisher
         IFactWriter facts,
         EventPartitionMaintainer partitions,
         CardPictures? pictures = null,
+        OldPostRefusals? refused = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -113,6 +118,7 @@ public sealed class CalendarDiscordPublisher
         _facts = facts;
         _partitions = partitions;
         _pictures = pictures ?? new CardPictures();
+        _refused = refused ?? new OldPostRefusals();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -750,8 +756,12 @@ public sealed class CalendarDiscordPublisher
     {
         var due = now - PostKeptFor;
 
+        // Posts Discord refused to let the bot delete are left out here, not skipped later, so a
+        // refused one at the front of the line does not take the pass's place from the rest.
+        var held = _refused.OnHold(now);
+
         var cards = await _db.CalendarOldPosts
-            .Where(p => p.RemovedAt == null && p.EndsAt <= due)
+            .Where(p => p.RemovedAt == null && p.EndsAt <= due && !held.Contains(p.MessageId))
             .OrderBy(p => p.EndsAt)
             .Take(RemovalsPerPass)
             .ToListAsync(ct).ConfigureAwait(false);
@@ -761,14 +771,14 @@ public sealed class CalendarDiscordPublisher
         var lines = await _db.CalendarEventPlaces
             .Where(p => p.Place == CalendarPlaces.CancelPost
                 && p.State == CalendarPlaceStates.Published
-                && p.ExternalId != null && p.ExternalId != string.Empty
+                && p.ExternalId != null && p.ExternalId != string.Empty && !held.Contains(p.ExternalId)
                 && p.ChannelId != null && p.ChannelId != string.Empty
                 && p.OccurrenceStartsAt != null && p.OccurrenceStartsAt <= due)
             .ToListAsync(ct).ConfigureAwait(false);
 
         var dateLines = await _db.CalendarDateChanges
             .Where(c => c.CancelPostRemovedAt == null
-                && c.CancelPostId != null && c.CancelPostId != string.Empty
+                && c.CancelPostId != null && c.CancelPostId != string.Empty && !held.Contains(c.CancelPostId)
                 && c.CancelPostChannelId != null && c.CancelPostChannelId != string.Empty
                 && (c.StartsAt ?? c.PlannedStartsAt) <= due)
             .ToListAsync(ct).ConfigureAwait(false);
@@ -823,8 +833,10 @@ public sealed class CalendarDiscordPublisher
 
     /// <summary>
     /// Deletes each old post from Discord with what is left of the pass's calls. A post that is gone
-    /// already -- deleted by hand -- counts as done, and so does any other refusal that will not
-    /// change on its own: the post is not asked about again. Anything else is tried on the next pass.
+    /// already -- deleted by hand, Discord's 404 -- counts as done and is not asked about again. A
+    /// refusal to let the bot delete it (403, a role or permission taken away) is not done: it
+    /// says so in the log and is tried again after <see cref="RefusedPostRetryAfter"/>, in case
+    /// the permission comes back. Anything else is tried on the next pass.
     /// </summary>
     private async Task RemoveOldPostsAsync(Pass pass, List<OldPost> posts)
     {
@@ -837,17 +849,27 @@ public sealed class CalendarDiscordPublisher
                 .Call(g => g.DeleteMessageAsync(post.ChannelId, post.MessageId, OldPostReason, pass.Ct))
                 .ConfigureAwait(false);
 
-            if (deleted.Sent || deleted.Permanent)
+            if (deleted.Sent || deleted.NotFound)
             {
                 post.Removed(pass.Now);
+                _refused.Forget(post.MessageId);
 
                 if (!deleted.Sent)
                 {
                     _log.Information(
-                        "An old calendar post was not taken down, and will not be asked about again: {Reason}",
+                        "An old calendar post was already gone, and will not be asked about again: {Reason}",
                         deleted.Error);
                 }
 
+                continue;
+            }
+
+            if (deleted.Permanent)
+            {
+                _refused.Hold(post.MessageId, pass.Now + RefusedPostRetryAfter);
+                _log.Warning(
+                    "Discord would not let the bot take down an old calendar post; it will be tried again in a day: {Reason}",
+                    deleted.Error);
                 continue;
             }
 

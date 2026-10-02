@@ -229,18 +229,25 @@ public sealed class DiscordButtonPress
 /// A direct message was refused because the person does not accept messages from the server's
 /// members or has blocked the bot (Discord error 50007). Whoever sent it may try another way.
 /// </param>
+/// <param name="NotFound">
+/// Discord answered that the message or channel is not there (404). Different from a refusal
+/// (403), where the thing may well be there and the bot is only not allowed to touch it: a
+/// deleted message is done with, a refused one is not.
+/// </param>
 public sealed record DiscordPostOutcome(
     bool Sent,
     string? Error,
     bool Permanent,
     string? MessageId = null,
-    bool DirectMessagesClosed = false)
+    bool DirectMessagesClosed = false,
+    bool NotFound = false)
 {
     public static DiscordPostOutcome Ok { get; } = new(true, null, false);
 
     public static DiscordPostOutcome Posted(string messageId) => new(true, null, false, messageId);
 
-    public static DiscordPostOutcome Failed(string error, bool permanent = false) => new(false, error, permanent);
+    public static DiscordPostOutcome Failed(string error, bool permanent = false, bool notFound = false) =>
+        new(false, error, permanent, NotFound: notFound);
 }
 
 /// <summary>Why a gateway session ended, as the library reported it.</summary>

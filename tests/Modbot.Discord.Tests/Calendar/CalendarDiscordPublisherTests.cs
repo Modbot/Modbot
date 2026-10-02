@@ -956,7 +956,7 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         services.Clock.Advance(CalendarDiscordPublisher.PostKeptFor);
 
         // The older one is gone already (a 404); the other meets a failure that may pass.
-        gateway.FailNextDelete("Discord does not know that message.", permanent: true);
+        gateway.FailNextDelete("Discord does not know that message.", notFound: true);
         gateway.FailNextDelete("Discord is rate limiting the bot; it will try again shortly.");
         await RunAsync(services, gateway);
         Assert.Empty(gateway.Deleted);
@@ -970,6 +970,47 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         await RunAsync(services, gateway);
 
         Assert.Equal(laterPost, Assert.Single(gateway.Deleted).MessageId);
+    }
+
+    [Fact]
+    public async Task APostTheBotMayNotDelete_IsNotMarkedDone_AndIsAskedAboutOnceADay()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        // One pass each, so which post is which is known.
+        var refused = await AddEventAsync(services, TimeSpan.FromHours(1), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var other = await AddEventAsync(services, TimeSpan.FromHours(2), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var refusedPost = gateway.Messages[0].MessageId;
+        var otherPost = gateway.Messages[1].MessageId;
+
+        await FinishAsync(services, refused.Id, TimeSpan.FromHours(5));
+        await ChangeAsync(services, other.Id, x => CalendarTimeline.Advance(x, services.Clock.UtcNow));
+        await RunAsync(services, gateway);
+
+        services.Clock.Advance(CalendarDiscordPublisher.PostKeptFor);
+
+        // Discord says 403 for the older one: the bot may not delete it. Not gone, so not done.
+        gateway.FailNextDelete("Discord refused: the bot needs Manage Messages.", permanent: true);
+        await RunAsync(services, gateway);
+
+        await using var context = services.Database.NewContext();
+        Assert.Null((await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == refused.Id, Ct)).RemovedAt);
+
+        // The other post is not held up by it, and the refused one is not asked about again.
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+        Assert.Equal(otherPost, Assert.Single(gateway.Deleted).MessageId);
+
+        // A day later it is asked about once more, and this time the bot may.
+        services.Clock.Advance(CalendarDiscordPublisher.RefusedPostRetryAfter + TimeSpan.FromMinutes(1));
+        await RunAsync(services, gateway);
+
+        Assert.Equal(new[] { otherPost, refusedPost }, gateway.Deleted.Select(d => d.MessageId));
+        Assert.NotNull((await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == refused.Id, Ct)).RemovedAt);
     }
 
     [Fact]
