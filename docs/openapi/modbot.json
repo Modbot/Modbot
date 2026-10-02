@@ -12749,6 +12749,503 @@
         ]
       }
     },
+    "/api/discord-list-roles": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get roles from lists",
+        "description": "The Discord roles saved lists give, the switch, and what the bot may do in the server.\n\nNeeds the `ManageDiscordSync` permission.",
+        "operationId": "GetDiscordListRoles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update roles from lists",
+        "description": "Switch roles from lists on or off. Off gives and takes nothing.\n\nNeeds the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordListRoles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRolesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Add role from a list",
+        "description": "Give a Discord role to everybody in a saved list who is in the server, and take it from those it gave it to once they leave the list. Refused for @everyone, a bot's role, a role the bot cannot give, a role with a staff permission, a role something else already gives, and a list that lets everybody in. Needs what the preview needs, since saving follows it.\n\nNeeds the `ViewMembers` and `ViewProfile` and `ManageDiscordSync` permissions.",
+        "operationId": "AddDiscordListRole",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-list-roles/{id}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update role from a list",
+        "description": "Switch one list's role on or off. Off keeps the roles it gave where they are.\n\nNeeds the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordListRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRoleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete role from a list",
+        "description": "Stop a list giving a Discord role. Nobody loses the role: Modbot forgets who it gave it to, and the role stays with everybody who has it.\n\nNeeds the `ManageDiscordSync` permission.",
+        "operationId": "DeleteDiscordListRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-list-roles/preview": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Preview roles from lists",
+        "description": "Who would be given a list's Discord role and who would lose it right now, and how many in the list have no linked Discord account or are not in the server. Changes nothing. One saved pairing by `id`, one not saved yet by `listId` and `discordRoleId`, or every pairing that is on.\n\nNeeds the `ViewMembers` and `ViewProfile` and `ManageDiscordSync` permissions.",
+        "operationId": "PreviewDiscordListRoles",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRolePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolePreviewView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-list-roles/{id}/apply": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Apply role from a list",
+        "description": "Let a list's role carry on after it stopped because it would take the role from many people at once, or give it to most of the server. `taking`, `leaving` and `giving` are what the preview showed; refused if more would go now. Nothing is sent from here: the next pass, within a minute, makes the changes, and the allowance shrinks as they are made.\n\nNeeds the `ViewMembers` and `ViewProfile` and `RunDiscordSync` permissions.",
+        "operationId": "ApplyDiscordListRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListRoleApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListRolesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/audit": {
       "get": {
         "tags": [
@@ -27189,7 +27686,7 @@
           "Lists"
         ],
         "summary": "Update list",
-        "description": "Change a list's name or rules. A list a giveaway still being run names needs Run giveaways as well; one auto-invites names needs Set up auto-invites.\n\nNeeds the `ManageLists` permission.",
+        "description": "Change a list's name or rules. A list a giveaway still being run names needs Run giveaways as well; one auto-invites names needs Set up auto-invites; one a Discord role is given from needs Manage role and ban sync.\n\nNeeds the `ManageLists` permission.",
         "operationId": "UpdateList",
         "parameters": [
           {
@@ -27278,7 +27775,7 @@
           "Lists"
         ],
         "summary": "Delete list",
-        "description": "Delete a list. Refused while a giveaway still being run, auto-invites, or an event still being run names it.\n\nNeeds the `ManageLists` permission.",
+        "description": "Delete a list. Refused while a giveaway still being run, auto-invites, an event still being run, or a Discord role given from the list names it.\n\nNeeds the `ManageLists` permission.",
         "operationId": "DeleteList",
         "parameters": [
           {
@@ -41202,6 +41699,22 @@
           }
         }
       },
+      "ListChoiceView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ListExportRequest": {
         "required": [
           "format"
@@ -41367,18 +41880,377 @@
           }
         }
       },
-      "ListRoleView": {
+      "ListRoleApplyRequest": {
         "required": [
-          "id",
+          "taking"
+        ],
+        "type": "object",
+        "properties": {
+          "taking": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "leaving": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "giving": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
+      },
+      "ListRoleChangeView": {
+        "required": [
+          "what",
+          "discordUserId",
+          "vrChatUserId",
           "name"
         ],
         "type": "object",
         "properties": {
-          "id": {
+          "what": {
             "type": "string"
           },
-          "name": {
+          "discordUserId": {
             "type": "string"
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ListRolePlanView": {
+        "required": [
+          "id",
+          "listId",
+          "listName",
+          "discordRoleId",
+          "roleName",
+          "giving",
+          "taking",
+          "alreadyHave",
+          "takenByHand",
+          "noLinkedDiscord",
+          "notInServer",
+          "holders",
+          "leaving",
+          "takesHeld",
+          "heldBecause",
+          "stops",
+          "lossStops",
+          "giveStops",
+          "problem",
+          "changes"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "giving": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "taking": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "alreadyHave": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "takenByHand": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noLinkedDiscord": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notInServer": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "holders": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "leaving": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "takesHeld": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "heldBecause": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stops": {
+            "type": "boolean"
+          },
+          "lossStops": {
+            "type": "boolean"
+          },
+          "giveStops": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListRoleChangeView"
+            }
+          }
+        }
+      },
+      "ListRolePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "listId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ListRolePreviewView": {
+        "required": [
+          "plans"
+        ],
+        "type": "object",
+        "properties": {
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListRolePlanView"
+            }
+          }
+        }
+      },
+      "ListRoleRequest": {
+        "required": [
+          "listId",
+          "discordRoleId"
+        ],
+        "type": "object",
+        "properties": {
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enabled": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "ListRoleUpdate": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListRoleView": {
+        "required": [
+          "id",
+          "listId",
+          "listName",
+          "discordRoleId",
+          "roleName",
+          "enabled",
+          "given",
+          "problem",
+          "stoppedAt",
+          "stoppedTaking",
+          "removalsAllowed"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "listName": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "given": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stoppedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "stoppedTaking": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "removalsAllowed": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ListRolesUpdate": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ListRolesView": {
+        "required": [
+          "on",
+          "botCanManageRoles",
+          "ranAt",
+          "problem",
+          "roles",
+          "lists",
+          "canPreview",
+          "canApply"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "botCanManageRoles": {
+            "type": "boolean"
+          },
+          "ranAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListRoleView"
+            }
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListChoiceView"
+            }
+          },
+          "canPreview": {
+            "type": "boolean"
+          },
+          "canApply": {
+            "type": "boolean"
           }
         }
       },
@@ -41399,6 +42271,15 @@
             "type": "boolean"
           },
           "events": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "discordRoles": {
             "type": [
               "null",
               "array"
@@ -41479,6 +42360,10 @@
           },
           "canManage": {
             "type": "boolean"
+          },
+          "canGiveRoles": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

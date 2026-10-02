@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261002235510_LetListsGiveDiscordRoles")]
+    partial class LetListsGiveDiscordRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -878,40 +881,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("ban_reason", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCoverPicture", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<byte[]>("Bytes")
-                        .IsRequired()
-                        .HasColumnType("bytea")
-                        .HasColumnName("bytes");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("content_type");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_calendar_cover_picture");
-
-                    b.HasIndex("CreatedAt")
-                        .HasDatabaseName("ix_calendar_cover_picture_created_at");
-
-                    b.ToTable("calendar_cover_picture", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarDateChange", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1042,10 +1011,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ChannelId")
                         .HasColumnType("text")
                         .HasColumnName("channel_id");
-
-                    b.Property<Guid?>("CoverPictureId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("cover_picture_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1243,9 +1208,6 @@ namespace Modbot.Core.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_calendar_event");
-
-                    b.HasIndex("CoverPictureId")
-                        .HasDatabaseName("ix_calendar_event_cover_picture_id");
 
                     b.HasIndex("State")
                         .HasDatabaseName("ix_calendar_event_state");
@@ -8430,12 +8392,6 @@ namespace Modbot.Core.Data.Migrations
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
                 {
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarCoverPicture", null)
-                        .WithMany()
-                        .HasForeignKey("CoverPictureId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_calendar_event_calendar_cover_picture_cover_picture_id");
-
                     b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
                         .WithMany()
                         .HasForeignKey("WorldListId")
