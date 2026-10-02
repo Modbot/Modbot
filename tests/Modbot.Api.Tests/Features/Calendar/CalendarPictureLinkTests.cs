@@ -172,6 +172,14 @@ public class CalendarPictureLinkTests(PostgresFixture db)
         await using var host = await StartAsync(gate);
         var manager = await ManagerAsync(host);
 
+        // The database is shared with other tests, which may have turned it on.
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.VRChatImagesProxied = false;
+            await context.SaveChangesAsync(Ct);
+        }
+
         var response = await host.SendJsonAsync(
             HttpMethod.Post,
             PictureLink,
