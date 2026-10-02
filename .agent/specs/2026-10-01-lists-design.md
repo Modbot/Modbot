@@ -24,7 +24,8 @@ What a group does with a list:
 - **Name it in a giveaway or auto-invites**: as one of their rules.
 
 What a list never does is act by itself (M7 §7). Nothing here messages, invites, bans or gives a role
-to anybody because they are in a list.
+to anybody because they are in a list. (Narrowed 2026-10-02: a list somebody pairs with a Discord
+role, with that feature's switch on, gives the role; see the roles from lists design.)
 
 ---
 
