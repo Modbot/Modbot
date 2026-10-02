@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261002230829_KeepEveryProblemFoundBeforeSending")]
+    partial class KeepEveryProblemFoundBeforeSending
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1031,10 +1034,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ends_at");
 
-                    b.Property<bool>("Featured")
-                        .HasColumnType("boolean")
-                        .HasColumnName("featured");
-
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
@@ -1112,16 +1111,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("repeat_days");
 
-                    b.Property<int>("RepeatEvery")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1)
-                        .HasColumnName("repeat_every");
-
-                    b.Property<int?>("RepeatTimes")
-                        .HasColumnType("integer")
-                        .HasColumnName("repeat_times");
-
                     b.Property<DateOnly?>("RepeatUntil")
                         .HasColumnType("date")
                         .HasColumnName("repeat_until");
@@ -1160,6 +1149,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int?>("VRChatCloseInstanceAfterEndMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("vrchat_close_instance_after_end_minutes");
+
+                    b.Property<bool?>("VRChatFeatured")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vrchat_featured");
 
                     b.Property<int?>("VRChatGuestEarlyJoinMinutes")
                         .HasColumnType("integer")
