@@ -19,6 +19,12 @@ public class ProblemTests
 {
     private const string Audit = "/api/audit";
 
+    /// <summary>
+    /// An endpoint that names its permission with <c>RequiresFlag</c>. The audit log itself is
+    /// authorised by hand (any of several permissions), so its refusal names none.
+    /// </summary>
+    private const string BanList = "/api/audit/bans";
+
     private readonly PostgresFixture _db;
 
     public ProblemTests(PostgresFixture db) => _db = db;
@@ -52,7 +58,7 @@ public class ProblemTests
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewMembers, ct);
 
-        var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Audit, cookie), ct);
+        var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, BanList, cookie), ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await ProblemOf(response, ct);
