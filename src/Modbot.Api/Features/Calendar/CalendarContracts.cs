@@ -201,6 +201,10 @@ public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt, b
 /// <param name="FileId">The <c>file_…</c> id VRChat gave it, to save as the event's <c>vrChatImageId</c>.</param>
 public sealed record CalendarVRChatPictureView(string FileId);
 
+/// <summary>A picture link to fetch for the form's crop box.</summary>
+/// <param name="Url">An https link: a picture, a page with a picture, or a VRChat file link.</param>
+public sealed record CalendarPictureLinkRequest(string? Url);
+
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>
 /// <param name="MadeOnVRChat">Made on VRChat (on vrchat.com or in the game) and read in by Modbot.</param>

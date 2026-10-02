@@ -58,6 +58,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
     private readonly DiscordSocketClient _client;
     private readonly ILogger _log;
 
+    /// <summary>VRChat's pictures, for an event cover linked from VRChat. Null in a host without the VRChat side.</summary>
+    private readonly Core.Files.IPictures? _pictures;
+
     /// <summary>What this session asked for: <see cref="Intents"/>, less any refused before.</summary>
     private readonly GatewayIntents _intents;
 
@@ -69,9 +72,10 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// <summary>Whether this session has been ready at least once, so a later connect is a resume.</summary>
     private volatile bool _sessionReady;
 
-    public DiscordNetGateway(DiscordGatewayOptions? options = null, ILogger? log = null)
+    public DiscordNetGateway(DiscordGatewayOptions? options = null, ILogger? log = null, Core.Files.IPictures? pictures = null)
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
+        _pictures = pictures;
 
         options ??= new DiscordGatewayOptions();
         _intents = IntentsFor(options);
@@ -738,7 +742,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
         return InGuildAsync(guildId, async guild =>
         {
-            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, ct).ConfigureAwait(false);
+            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, _pictures, ct).ConfigureAwait(false);
 
             var created = await guild.CreateEventAsync(
                     details.Name,
@@ -773,7 +777,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             if (found.Status is GuildScheduledEventStatus.Completed or GuildScheduledEventStatus.Cancelled)
                 return DiscordPostOutcome.Failed(DiscordScheduledEventDetails.Gone, permanent: true);
 
-            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, ct).ConfigureAwait(false);
+            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, _pictures, ct).ConfigureAwait(false);
 
             await found.ModifyAsync(e =>
             {
@@ -2433,8 +2437,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
     }
 }
 
-public sealed class DiscordNetGatewayFactory : IDiscordGatewayFactory
+/// <param name="pictures">VRChat's pictures, for event covers linked from VRChat (calendar design §15.2).</param>
+public sealed class DiscordNetGatewayFactory(Core.Files.IPictures? pictures = null) : IDiscordGatewayFactory
 {
-    public IDiscordGateway Create(DiscordGatewayOptions options) => new DiscordNetGateway(options);
+    public IDiscordGateway Create(DiscordGatewayOptions options) => new DiscordNetGateway(options, pictures: pictures);
 }
 

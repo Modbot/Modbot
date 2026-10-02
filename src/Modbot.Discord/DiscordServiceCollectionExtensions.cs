@@ -39,7 +39,9 @@ public static class DiscordServiceCollectionExtensions
 
         services.TryAddSingleton<DiscordBotOptions>();
         services.TryAddSingleton<ModerationLogOptions>();
-        services.TryAddSingleton<IDiscordGatewayFactory, DiscordNetGatewayFactory>();
+        // IPictures, when the VRChat side is there, so an event cover linked from VRChat can be
+        // fetched with its session (calendar design §15.2).
+        services.TryAddSingleton<IDiscordGatewayFactory>(p => new DiscordNetGatewayFactory(p.GetService<Core.Files.IPictures>()));
 
         // The pictures on cards (Discord embeds design §3). A singleton, so what one pass fetched
         // the next one does not fetch again. IPictures comes from the VRChat side and is absent in

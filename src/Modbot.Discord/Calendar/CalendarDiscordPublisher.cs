@@ -373,6 +373,12 @@ public sealed class CalendarDiscordPublisher
             return;
 
         var details = ServerEventDetails(e, world, pass.PublicAddress, joinLink, pass.Now);
+
+        // A cover on VRChat is fetched through Modbot's VRChat session (§15.2), which the operator's
+        // switch for VRChat pictures turns off, as it does for the pictures on cards.
+        if (!pass.ShowPictures && IsOnVRChat(details.CoverImageUrl))
+            details = details with { CoverImageUrl = null };
+
         var guildId = pass.GuildId!;
 
         DiscordPostOutcome outcome;
@@ -445,6 +451,10 @@ public sealed class CalendarDiscordPublisher
             CalendarRepeat.TitleOf(calendarEvent, occurrence),
             CalendarRepeat.DescriptionOf(calendarEvent, occurrence));
     }
+
+    /// <summary>Whether a picture address is on one of VRChat's hosts, which serve nobody without a session.</summary>
+    public static bool IsOnVRChat(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var address) && Core.Files.VRChatFileIds.IsVRChatFileHost(address.Host);
 
     /// <summary>
     /// The channel post's card and buttons for the event's current occurrence, with the picture the
@@ -603,12 +613,17 @@ public sealed class CalendarDiscordPublisher
 
         // A first post sends the world's picture; an edit points at the file the first post left
         // on the message. The event's own picture, if the moderators gave one, is an ordinary
-        // address on a host that serves anybody, so it is linked either way.
+        // address on a host that serves anybody, so it is linked either way -- unless it is on
+        // VRChat, which serves nobody without a session: that one is sent like the world's
+        // (calendar design §15.2, added 2026-10-02).
         var pictures = pass.Pictures();
-        var image = CalendarCard.OwnPicture(e)
-            ?? (first
-                ? await pictures.AddAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false)
-                : await pictures.ReferenceAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false));
+        var own = CalendarCard.OwnPicture(e);
+        var sent = own is null ? InstanceCard.PictureOf(world) : IsOnVRChat(own) ? own : null;
+        var image = sent is null
+            ? own
+            : first
+                ? await pictures.AddAsync(sent, pass.Ct).ConfigureAwait(false)
+                : await pictures.ReferenceAsync(sent, pass.Ct).ConfigureAwait(false);
 
         var (embed, links) = Post(e, world, joinLink, pass.Style, image);
 
@@ -1095,7 +1110,10 @@ public sealed class CalendarDiscordPublisher
         public CardStyle Style { get; } = style;
 
         /// <summary>A fresh set of files for one message.</summary>
-        public CardPictureMessage Pictures() => pictures.ForMessage(showPictures);
+        public CardPictureMessage Pictures() => pictures.ForMessage(ShowPictures);
+
+        /// <summary>The operator's switch for fetching VRChat pictures through this server.</summary>
+        public bool ShowPictures { get; } = showPictures;
 
         public DateTimeOffset Now { get; } = now;
 

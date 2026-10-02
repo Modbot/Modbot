@@ -1,22 +1,30 @@
-using System.Net.Http;
-using System.Net.Http.Headers;
+using Modbot.Core.Files;
 using Modbot.Core.Net;
 
 namespace Modbot.Discord.Gateway;
 
 /// <summary>
-/// Fetches a calendar event's picture link for a Discord event cover (calendar design §3.2).
+/// Fetches a calendar event's picture link for a Discord event cover (calendar design §3.2, §15.2).
 /// </summary>
 /// <remarks>
 /// <para>
 /// Discord wants the picture's bytes, not its address, so Modbot has to fetch what a moderator
-/// typed. That is the same risk as a webhook address, and it gets the same guard: https only, and
-/// only to public addresses, checked on the address the name resolved to when connecting
-/// (<see cref="PublicAddresses"/>).
+/// typed. Since 2026-10-02 that goes the way the form's crop box gets it (<see cref="PictureLinks"/>):
+/// https only, public addresses only, checked on the address the name resolved to when connecting,
+/// each redirect checked again, a page read only as far as its own picture, and the bytes taken for
+/// what they are rather than what the host called them. Before, a link to a page or a host that
+/// called a picture something else gave no cover.
 /// </para>
 /// <para>
-/// A cover that cannot be fetched is left off rather than failing the event: the event matters, the
-/// picture does not.
+/// A VRChat file link is fetched through the VRChat side (<see cref="IPictures"/>), because VRChat
+/// serves its files only to a signed-in session, and a link pasted from VRChat's site is the usual
+/// way a group's picture arrives.
+/// </para>
+/// <para>
+/// Discord takes PNG, JPEG, GIF and WebP. Modbot's server has no way to turn other kinds into one
+/// of those, so a cover in another kind is left off; the form turns a picture into a PNG in the
+/// browser before anything is uploaded. A cover that cannot be fetched is left off rather than
+/// failing the event: the event matters, the picture does not.
 /// </para>
 /// </remarks>
 internal static class CoverImages
@@ -24,62 +32,35 @@ internal static class CoverImages
     /// <summary>Discord's own limit for an event cover is 10 MB; less is plenty for a picture.</summary>
     public const int MaxBytes = 8 * 1024 * 1024;
 
-    private static readonly HttpClient Http = new(new SocketsHttpHandler
-    {
-        ConnectCallback = (context, ct) =>
-            PublicAddresses.ConnectAsync(context, host => new HttpRequestException($"{host} is a private address."), ct),
-        AllowAutoRedirect = false,
-        PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-    })
-    {
-        Timeout = TimeSpan.FromSeconds(15),
-    };
-
-    public static async Task<Cover?> FetchAsync(string? url, CancellationToken ct)
+    public static async Task<Cover?> FetchAsync(string? url, IPictures? pictures, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(url)
-            || !Uri.TryCreate(url, UriKind.Absolute, out var address)
-            || address.Scheme != Uri.UriSchemeHttps
-            || PublicAddresses.IsBlockedHost(address.Host))
+            || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var address)
+            || PictureLinks.Problem(address) is not null)
         {
             return null;
         }
 
-        try
+        PictureBytes? picture;
+
+        if (VRChatFileIds.IsVRChatFileHost(address.Host))
         {
-            using var response = await Http.GetAsync(address, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode
-                || response.Content.Headers.ContentType is not MediaTypeHeaderValue { MediaType: { } type }
-                || !type.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
-                || response.Content.Headers.ContentLength > MaxBytes)
-            {
-                return null;
-            }
-
-            await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            var copy = new MemoryStream();
-            var buffer = new byte[81920];
-            int read;
-
-            while ((read = await body.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
-            {
-                if (copy.Length + read > MaxBytes)
-                {
-                    await copy.DisposeAsync().ConfigureAwait(false);
-                    return null;
-                }
-
-                copy.Write(buffer, 0, read);
-            }
-
-            copy.Position = 0;
-            return new Cover(copy);
+            picture = pictures is null ? null : await pictures.FetchAsync(address.ToString(), ct).ConfigureAwait(false);
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        else
+        {
+            var fetched = await PictureLinks.Shared.FetchAsync(address.ToString(), ct).ConfigureAwait(false);
+            picture = fetched.Picture;
+        }
+
+        if (picture is null
+            || picture.Bytes.Length is 0 or > MaxBytes
+            || !PictureFormats.DiscordTakes(PictureFormats.Sniff(picture.Bytes)))
         {
             return null;
         }
+
+        return new Cover(new MemoryStream(picture.Bytes, writable: false));
     }
 
     /// <summary>The fetched picture, kept open until Discord has been sent it.</summary>

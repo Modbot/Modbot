@@ -918,6 +918,105 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status502BadGateway)
             .Produces(StatusCodes.Status503ServiceUnavailable);
 
+        // The picture behind an event's picture link, for the form to crop and turn into a PNG in
+        // the browser (§15.2). A browser cannot read another site's picture into a canvas, and
+        // VRChat serves its files only to a signed-in session, so Modbot fetches it: any other link
+        // under PictureLinks' guard (https, public addresses on every hop, size and time limits, a
+        // picture by its bytes), a VRChat file link through the VRChat side. Nothing is kept.
+        group.MapPost("/picture-link", async (
+                HttpContext http,
+                [FromBody] CalendarPictureLinkRequest body,
+                [FromServices] ModbotContext db,
+                // Optional: the VRChat side is wired by the host, not by the API.
+                [FromServices] Core.Files.IPictures? vrchatPictures,
+                CancellationToken ct) =>
+            {
+                if (string.IsNullOrWhiteSpace(body.Url)
+                    || body.Url.Length > PictureLinks.MaxLinkLength
+                    || !Uri.TryCreate(body.Url.Trim(), UriKind.Absolute, out var link))
+                {
+                    return Results.BadRequest(new { error = PictureLinks.NotHttps });
+                }
+
+                if (PictureLinks.Problem(link) is { } problem)
+                    return Results.BadRequest(new { error = problem });
+
+                Core.Files.PictureBytes? picture;
+
+                if (Core.Files.VRChatFileIds.IsVRChatFileHost(link.Host))
+                {
+                    // The operator's switch for VRChat pictures: off, this server fetches none.
+                    var settings = await db.GetSettingsAsync(ct);
+
+                    if (!settings.VRChatImagesProxied)
+                    {
+                        return Results.Json(
+                            new { error = "VRChat pictures are not fetched through this server." },
+                            statusCode: StatusCodes.Status409Conflict);
+                    }
+
+                    picture = vrchatPictures is null
+                        ? null
+                        : await vrchatPictures.FetchAsync(link.ToString(), ct);
+
+                    if (picture is null)
+                    {
+                        return Results.Json(
+                            new { error = "Could not fetch the picture from VRChat." },
+                            statusCode: StatusCodes.Status502BadGateway);
+                    }
+                }
+                else
+                {
+                    var fetched = await PictureLinks.Shared.FetchAsync(link.ToString(), ct);
+
+                    if (fetched.Picture is null)
+                    {
+                        return Results.Json(
+                            new { error = fetched.Problem ?? PictureLinks.Unreachable },
+                            statusCode: fetched.Problem is PictureLinks.Private or PictureLinks.NotHttps
+                                ? StatusCodes.Status400BadRequest
+                                : StatusCodes.Status502BadGateway);
+                    }
+
+                    picture = fetched.Picture;
+                }
+
+                // The type its bytes have, never what the host said (PictureFormats).
+                if (Core.Files.PictureFormats.Sniff(picture.Bytes) is not { } type
+                    || picture.Bytes.Length > PictureLinks.MaxBytes)
+                {
+                    return Results.Json(
+                        new { error = PictureLinks.NotAPicture },
+                        statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                // Somebody else's bytes on Modbot's own address: never sniffed into something else,
+                // never a page with an origin, never kept by the browser.
+                http.Response.Headers.CacheControl = "no-store";
+                http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                http.Response.Headers.ContentSecurityPolicy = "sandbox";
+
+                return Results.Bytes(picture.Bytes, type);
+            })
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("FetchCalendarPictureLink")
+            .WithSummary("Fetch picture link")
+            .WithDescription(
+                "Fetches the picture behind an event's picture link and returns its bytes, for the "
+                + "form to crop. The link must be https on port 443. Modbot connects only to public "
+                + "addresses, checks every redirect the same way and follows at most three, reads a "
+                + "page only as far as its og:image or twitter:image, stops at 10 MB and 15 seconds, "
+                + "and returns only PNG, JPEG, GIF, WebP, BMP, AVIF or HEIC, told apart by the bytes. "
+                + "A VRChat file link is fetched with Modbot's VRChat session. Nothing is kept.")
+            .Produces<byte[]>(
+                StatusCodes.Status200OK,
+                "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/avif", "image/heic")
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status502BadGateway);
+
         group.MapGet("/worlds", async (
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
@@ -1679,12 +1778,16 @@ public static class CalendarEndpoints
             }
         }
 
-        // A VRChat picture address pasted whole is kept as the id inside it. What cannot be an id
-        // at all is refused only while the event goes to VRChat: the box is hidden otherwise, and
-        // a problem in a box nobody can see could not be fixed (added 2026-10-02).
-        var vrchatImageId = CalendarVRChatChecks.PictureIdFrom(body.VRChatImageId);
-        if (body.PublishToVRChat && CalendarVRChatChecks.PictureIdProblem(vrchatImageId) is { } pictureIdProblem)
-            problems.Add(pictureIdProblem);
+        // Whatever was pasted, a link from VRChat's site or the id itself, the id inside it is what
+        // is kept (§15.1). An id the event already holds is kept as it is, whatever it looks like,
+        // so an id VRChat issued in some older form never stops an edit (foundation §3.1.1).
+        var typedPicture = string.IsNullOrWhiteSpace(body.VRChatImageId) ? null : body.VRChatImageId.Trim();
+        var vrchatImageId = typedPicture is null || typedPicture == target.VRChatImageId
+            ? typedPicture
+            : Core.Files.VRChatFileIds.Find(typedPicture);
+
+        if (typedPicture is not null && vrchatImageId is null)
+            return Core.Files.VRChatFileIds.NotFound;
 
         var worldId = string.IsNullOrWhiteSpace(body.WorldId) ? null : body.WorldId.Trim();
         var channelId = string.IsNullOrWhiteSpace(body.ChannelId) ? null : body.ChannelId.Trim();
