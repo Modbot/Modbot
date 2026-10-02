@@ -329,12 +329,14 @@ a ping has to be asked for, per event, and goes to one role.
   edit, the last word included, keeps the mention text so the post goes on showing the role, and is
   sent with mentions off -- Discord does not notify for an edited-in mention either, but Modbot does
   not rely on that.
-- **"First" is kept per date, not per message.** `calendar_event_place.role_mentioned_for` holds the
-  planned start of the date whose post pinged, and the publisher reads it from every channel post row
-  the event has had, removed ones included. So a post made again for a date that has pinged -- after
-  somebody deleted it, or after the post was turned off and on -- shows the role and pings nobody. The
-  next date of a repeating event pings again on its own first post. It is set only once Discord took
-  the post: a post that failed pings when it finally goes up.
+- **"First" is kept per date, not per message.** `calendar_role_ping` has one row for each date
+  (the event's id and the date's planned start) whose post pinged, and the publisher reads every row
+  of the event. So a post made again for a date that has pinged -- after somebody deleted it, after
+  the post was turned off and on, or after the event was moved to another date and back -- shows the
+  role and pings nobody. The next date of a repeating event pings again on its own first post. A row
+  is written only once Discord took the post: a post that failed pings when it finally goes up. (Kept
+  for every date rather than the latest one, 2026-10-02, because a single event moved A to B and back
+  to A would otherwise ping A twice.)
 - The cancel post and the post when the first person is in never mention the role.
 - **Not built:** a default role per world list or category (not needed, 2026-10-02).
 
@@ -858,10 +860,11 @@ cannot know which copy a server wants to keep, so it **finds them and says so; i
   list is about tools, and a member's name has no place on it. Discord gives no maker for events
   made before late 2021; those read **Unknown**. Nothing is stored in the database.
 - **What counts as a copy** (`DiscordEventDuplicates`):
-  - **The title,** compared by its letters and digits only, in lower case, with anything in
-    brackets left out (unless that leaves nothing) and accents and styled letters reduced to plain
-    ones. So case, spaces, punctuation and emoji do not count, and "[VRChat, Group Public] Movie
-    night" is "Movie night". Two titles are the same when they are equal that way, or one holds the
+  - **The title,** compared by its letters and digits only, in lower case, with a bracketed
+    tag at the front left out (unless that leaves nothing) and accents and styled letters reduced to
+    plain ones. So case, spaces, punctuation and emoji do not count, and "[VRChat, Group Public]
+    Movie night" is "Movie night". A bracket after a word stays, so "Game Night (Among Us)" and
+    "Game Night (Minecraft)" are two events. Two titles are the same when they are equal that way, or one holds the
     other whole and the shorter has at least six letters (`ShortestContainedTitle`), so "Art" is not
     found inside "Watch party".
   - **The time:** starts at most **15 minutes** apart (`StartsWithin`). A tool that rounds, or a

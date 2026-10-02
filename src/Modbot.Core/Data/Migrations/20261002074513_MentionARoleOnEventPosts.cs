@@ -11,8 +11,6 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Both read as no until the bot next reads the whole server, which it does each time it
-            // connects: the picker marks every role "Bot cannot mention" until then.
             migrationBuilder.AddColumn<bool>(
                 name: "bot_can_mention_everyone",
                 table: "discord_server",
@@ -27,22 +25,38 @@ namespace Modbot.Core.Data.Migrations
                 nullable: false,
                 defaultValue: false);
 
-            migrationBuilder.AddColumn<DateTimeOffset>(
-                name: "role_mentioned_for",
-                table: "calendar_event_place",
-                type: "timestamp with time zone",
-                nullable: true);
-
             migrationBuilder.AddColumn<string>(
                 name: "mention_role_id",
                 table: "calendar_event",
                 type: "text",
                 nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "calendar_role_ping",
+                columns: table => new
+                {
+                    event_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    starts_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    pinged_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_calendar_role_ping", x => new { x.event_id, x.starts_at });
+                    table.ForeignKey(
+                        name: "fk_calendar_role_ping_calendar_event_event_id",
+                        column: x => x.event_id,
+                        principalTable: "calendar_event",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "calendar_role_ping");
+
             migrationBuilder.DropColumn(
                 name: "bot_can_mention_everyone",
                 table: "discord_server");
@@ -50,10 +64,6 @@ namespace Modbot.Core.Data.Migrations
             migrationBuilder.DropColumn(
                 name: "mentionable",
                 table: "discord_role");
-
-            migrationBuilder.DropColumn(
-                name: "role_mentioned_for",
-                table: "calendar_event_place");
 
             migrationBuilder.DropColumn(
                 name: "mention_role_id",

@@ -185,19 +185,18 @@ public sealed class CalendarDiscordPublisher
             _pictures,
             ct);
 
-        // Which dates have pinged their role already, from every channel post row the events have
-        // had: a post turned off and on again is a new row, and must not ping the same date twice.
+        // Which dates have pinged their role already: every date, not only the latest, so a post
+        // turned off and on, or an event moved to another date and back, does not ping one twice.
         var withRole = events.Where(e => e.MentionRoleId != null).Select(e => e.Id).ToList();
 
         if (withRole.Count > 0)
         {
-            var mentioned = await _db.CalendarEventPlaces.AsNoTracking()
-                .Where(p => p.Place == CalendarPlaces.ChannelPost && p.RoleMentionedFor != null && withRole.Contains(p.EventId))
-                .Select(p => new { p.EventId, p.RoleMentionedFor })
+            var mentioned = await _db.CalendarRolePings.AsNoTracking()
+                .Where(p => withRole.Contains(p.EventId))
                 .ToListAsync(ct).ConfigureAwait(false);
 
             foreach (var m in mentioned)
-                pass.Mentioned.Add((m.EventId, m.RoleMentionedFor!.Value));
+                pass.Mentioned.Add((m.EventId, m.StartsAt));
         }
 
         // First: a cancel post is news, and there are few of them.
@@ -630,7 +629,7 @@ public sealed class CalendarDiscordPublisher
 
                 if (ping)
                 {
-                    place.RoleMentionedFor = date;
+                    _db.CalendarRolePings.Add(new CalendarRolePing { EventId = e.Id, StartsAt = date, PingedAt = pass.Now });
                     pass.Mentioned.Add((e.Id, date));
                 }
             }

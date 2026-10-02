@@ -88,7 +88,7 @@ public static class CalendarPreviews
 
         if (discordPreview is not null && !string.IsNullOrEmpty(roleId) && !string.Equals(roleId, guildId, StringComparison.Ordinal))
         {
-            var role = await db.DiscordRoles.AsNoTracking().FirstOrDefaultAsync(r => r.RoleId == roleId, ct);
+            var role = await db.DiscordRoles.AsNoTracking().FirstOrDefaultAsync(r => r.RoleId == roleId && r.GuildId == guildId, ct);
 
             if (role is not { Everyone: true })
             {

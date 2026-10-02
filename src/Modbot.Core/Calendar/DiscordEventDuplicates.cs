@@ -16,9 +16,10 @@ namespace Modbot.Core.Calendar;
 /// </para>
 /// <para>
 /// <strong>The title.</strong> Compared as <see cref="Plain"/> gives it: lower case, letters and
-/// digits only (so case, spaces, punctuation and emoji do not count), with anything in brackets left
-/// out, because one tool writes "[VRChat, Group Public] Movie night" where another writes "Movie
-/// night". Two titles are the same when one plain title equals the other, or holds it whole and the
+/// digits only (so case, spaces, punctuation and emoji do not count), with a bracketed tag at the
+/// front left out, because one tool writes "[VRChat, Group Public] Movie night" where another writes
+/// "Movie night". A bracket after a word stays: "Game Night (Among Us)" is not "Game Night
+/// (Minecraft)". Two titles are the same when one plain title equals the other, or holds it whole and the
 /// shorter has at least <see cref="ShortestContainedTitle"/> letters: "Movie night" inside "Movie
 /// night at the cinema" counts, a two-letter title inside anything does not.
 /// </para>
@@ -37,8 +38,8 @@ public static class DiscordEventDuplicates
     public const int ShortestContainedTitle = 6;
 
     /// <summary>
-    /// The title as it is compared: lower case, letters and digits only, with bracketed parts left
-    /// out unless that leaves nothing. Accents and styled letters are reduced to plain ones.
+    /// The title as it is compared: lower case, letters and digits only, with a bracketed tag at the
+    /// front left out unless that leaves nothing. Accents and styled letters are reduced to plain ones.
     /// </summary>
     public static string Plain(string? title)
     {
@@ -116,15 +117,24 @@ public static class DiscordEventDuplicates
             .OrderBy(g => g[0].StartsAt)];
     }
 
+    /// <summary>
+    /// Leaves out the bracketed parts that come before the first word (a tag such as
+    /// "[VRChat, Group Public]"). A bracket after a word is part of the name: "Game Night (Among Us)"
+    /// and "Game Night (Minecraft)" are two events.
+    /// </summary>
     private static string WithoutBrackets(string text)
     {
         var kept = new StringBuilder(text.Length);
         var depth = 0;
+        var droppingThisBracket = false;
+        var seenWord = false;
 
         foreach (var c in text)
         {
             if (c is '[' or '(' or '{')
             {
+                if (depth == 0)
+                    droppingThisBracket = !seenWord;
                 depth++;
                 continue;
             }
@@ -136,7 +146,15 @@ public static class DiscordEventDuplicates
             }
 
             if (depth == 0)
+            {
                 kept.Append(c);
+                if (char.IsLetterOrDigit(c))
+                    seenWord = true;
+            }
+            else if (!droppingThisBracket)
+            {
+                kept.Append(c);
+            }
         }
 
         return kept.ToString();

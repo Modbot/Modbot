@@ -346,6 +346,22 @@ public class CalendarOldPost
     public DateTimeOffset? RemovedAt { get; set; }
 }
 
+/// <summary>
+/// One date of an event whose channel post has pinged the event's role (calendar design §3.3.1).
+/// A post made again for a date that is here -- after the first was deleted, after the post was
+/// turned off and on, or after the event was moved away from the date and back -- shows the role
+/// and pings nobody. The table is <c>calendar_role_ping</c>.
+/// </summary>
+public class CalendarRolePing
+{
+    public Guid EventId { get; set; }
+
+    /// <summary>The planned start of the date that was pinged.</summary>
+    public DateTimeOffset StartsAt { get; set; }
+
+    public DateTimeOffset PingedAt { get; set; }
+}
+
 /// <summary>The words stored in <see cref="CalendarEventPlace.State"/>.</summary>
 public static class CalendarPlaceStates
 {
@@ -382,14 +398,6 @@ public class CalendarEventPlace
 
     /// <summary>For Discord, which occurrence the event or post is about.</summary>
     public DateTimeOffset? OccurrenceStartsAt { get; set; }
-
-    /// <summary>
-    /// For a channel post, the planned start of the last date whose post pinged the event's
-    /// role (calendar design §3.3.1). A post for a date already pinged -- made again after the
-    /// first was deleted, or after the post was turned off and on -- shows the role and pings
-    /// nobody. Null until a post has pinged.
-    /// </summary>
-    public DateTimeOffset? RoleMentionedFor { get; set; }
 
     /// <summary>A hash of what was last written successfully.</summary>
     public string? SentFingerprint { get; set; }

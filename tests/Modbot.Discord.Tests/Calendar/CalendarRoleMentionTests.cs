@@ -172,10 +172,43 @@ public class CalendarRoleMentionTests(PostgresFixture db)
         // The old card's last word is an edit, and pings nobody.
         Assert.Equal("Finished", Assert.Single(gateway.Edits).Embeds[0].Footer);
 
+        // Both dates are remembered, not only the latest.
         await using var context = services.Database.NewContext();
-        var place = await context.CalendarEventPlaces.AsNoTracking()
-            .SingleAsync(p => p.EventId == e.Id && p.Place == CalendarPlaces.ChannelPost, Ct);
-        Assert.Equal(place.OccurrenceStartsAt, place.RoleMentionedFor);
+        Assert.Equal(2, await context.CalendarRolePings.CountAsync(p => p.EventId == e.Id, Ct));
+    }
+
+    [Fact]
+    public async Task AnEventMovedAwayFromADateAndBack_DoesNotPingTheDateTwice()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services);
+        var dateA = e.StartsAt;
+        await RunAsync(services, gateway);
+
+        // Moved to another date: a post for that date, and its own ping.
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.StartsAt = dateA.AddDays(1);
+            x.EndsAt = dateA.AddDays(1).AddHours(2);
+            CalendarTimeline.Advance(x, services.Clock.UtcNow);
+        });
+        await RunAsync(services, gateway);
+        Assert.Equal(2, gateway.RolePings.Count);
+
+        // And back to the first date: the post is made again, shows the role, and pings nobody.
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.StartsAt = dateA;
+            x.EndsAt = dateA.AddHours(2);
+            CalendarTimeline.Advance(x, services.Clock.UtcNow);
+        });
+        await RunAsync(services, gateway);
+
+        Assert.Equal(3, gateway.Messages.Count);
+        Assert.Equal($"<@&{GameNight}>", gateway.Messages[2].Text);
+        Assert.Equal(2, gateway.RolePings.Count);
     }
 
     [Fact]

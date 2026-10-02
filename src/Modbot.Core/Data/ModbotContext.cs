@@ -288,6 +288,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<CalendarOldPost> CalendarOldPosts => Set<CalendarOldPost>();
 
+    /// <summary>The dates whose channel post has pinged the event's role (calendar design §3.3.1).</summary>
+    public DbSet<CalendarRolePing> CalendarRolePings => Set<CalendarRolePing>();
+
     /// <summary>One row per occurrence whose instance Modbot tried to open (calendar design §4).</summary>
     public DbSet<CalendarOpening> CalendarOpenings => Set<CalendarOpening>();
 
@@ -2317,6 +2320,17 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.EndsAt)
                 .HasDatabaseName("ix_calendar_old_post_up")
                 .HasFilter("removed_at IS NULL");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CalendarRolePing>(entity =>
+        {
+            entity.ToTable("calendar_role_ping");
+            entity.HasKey(e => new { e.EventId, e.StartsAt });
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

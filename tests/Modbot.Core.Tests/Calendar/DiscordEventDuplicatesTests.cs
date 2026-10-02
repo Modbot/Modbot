@@ -20,7 +20,9 @@ public class DiscordEventDuplicatesTests
     [InlineData("  SLEEPY hollow -- watch party!!! ", "sleepyhollowwatchparty")]
     [InlineData("🎃 Sleepy Hollow Watch Party 🎃", "sleepyhollowwatchparty")]
     [InlineData("[VRChat, Group Public] Sleepy Hollow Watch Party", "sleepyhollowwatchparty")]
-    [InlineData("Sleepy Hollow Watch Party (18+)", "sleepyhollowwatchparty")]
+    [InlineData("[Event] [VRChat] Sleepy Hollow Watch Party", "sleepyhollowwatchparty")]
+    [InlineData("Sleepy Hollow Watch Party (18+)", "sleepyhollowwatchparty18")]
+    [InlineData("Game Night (Among Us)", "gamenightamongus")]
     [InlineData("Café night", "cafenight")]
     [InlineData("𝐌𝐨𝐯𝐢𝐞 𝐧𝐢𝐠𝐡𝐭", "movienight")]
     [InlineData("Ｍｏｖｉｅ　ｎｉｇｈｔ", "movienight")]
@@ -49,6 +51,12 @@ public class DiscordEventDuplicatesTests
         Assert.False(DiscordEventDuplicates.SameTitle("Art", "Watch party"));
 
         Assert.False(DiscordEventDuplicates.SameTitle("Movie night", "Karaoke"));
+
+        // A bracket after the words says which event it is: two different games on one night.
+        Assert.False(DiscordEventDuplicates.SameTitle("Game Night (Among Us)", "Game Night (Minecraft)"));
+
+        // A tag in front is only where the title was posted from.
+        Assert.True(DiscordEventDuplicates.SameTitle("[Event] Movie Night", "Movie Night"));
 
         // A title of nothing but emoji matches nothing, not every other one.
         Assert.False(DiscordEventDuplicates.SameTitle("🎃", "🎃"));

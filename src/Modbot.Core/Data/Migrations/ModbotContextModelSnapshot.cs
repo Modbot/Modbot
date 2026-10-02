@@ -1251,10 +1251,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurrence_starts_at");
 
-                    b.Property<DateTimeOffset?>("RoleMentionedFor")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("role_mentioned_for");
-
                     b.Property<string>("SentFingerprint")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
@@ -1510,6 +1506,26 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_calendar_opening");
 
                     b.ToTable("calendar_opening", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarRolePing", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<DateTimeOffset>("PingedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pinged_at");
+
+                    b.HasKey("EventId", "StartsAt")
+                        .HasName("pk_calendar_role_ping");
+
+                    b.ToTable("calendar_role_ping", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CaseFile", b =>
@@ -8014,6 +8030,16 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_opening_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarRolePing", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_role_ping_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayDraw", b =>
