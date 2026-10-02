@@ -2101,6 +2101,46 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("posted_through");
 
+                    b.Property<string>("RepeatActorId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_actor_id");
+
+                    b.Property<short?>("RepeatActorPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("repeat_actor_platform");
+
+                    b.Property<int>("RepeatCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("repeat_count");
+
+                    b.Property<string>("RepeatFields")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_fields");
+
+                    b.Property<DateTimeOffset?>("RepeatFirstAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_first_at");
+
+                    b.Property<DateTimeOffset?>("RepeatLastAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_last_at");
+
+                    b.Property<string>("RepeatPostId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_post_id");
+
+                    b.Property<string>("RepeatSubjectId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_subject_id");
+
+                    b.Property<short?>("RepeatSubjectPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("repeat_subject_platform");
+
+                    b.Property<string>("RepeatType")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_type");
+
                     b.Property<DateTimeOffset?>("RetryAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("retry_at");
