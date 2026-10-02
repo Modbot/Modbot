@@ -76,6 +76,15 @@ messages**.
 **Order:** no messages, then longest quiet, then still reading, then can't read; Discord's order
 between equals. **Filter:** All channels, or Hide staff-only (`hideStaffOnly=true`).
 
+**Who sees staff-only names:** only someone who also has **Change settings** (`ManageSettings`, the
+permission that guards every Discord setting). A staff-only channel's name can say what the staff talk
+about, and See analytics is given to people who are not staff. Everyone else gets the public channels
+and one line, "N staff-only channels", with nothing about them but the count (`staffOnlyHidden`);
+Hide staff-only changes nothing for them.
+
+**Still reading** is looked up in one query for every unfinished read-back in the server (a thread's
+counts for its channel), not one look per channel.
+
 ### Why the message store and not `last_message_id`
 
 Discord's channel objects carry `last_message_id`, a snowflake whose top bits are its time, and that

@@ -2090,6 +2090,8 @@ export type QuietChannelList = {
   guildId: string | null
   now: string
   channels: QuietChannelRow[]
+  /** Staff-only channels left out because the caller may not see their names (it takes Change settings). */
+  staffOnlyHidden: number
 }
 
 /** One number for the last seven days and the seven before them. */

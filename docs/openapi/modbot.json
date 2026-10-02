@@ -9940,7 +9940,7 @@
           "Discord"
         ],
         "summary": "Get the Discord quiet channels list",
-        "description": "The server's text, announcement and forum channels with when anybody last wrote in each (in the channel or any of its threads), quietest first: channels with no message at all, then the longest since the last message, then channels still being read back with nothing found yet, then channels the bot cannot read. `hideStaffOnly=true` leaves out channels @everyone cannot see. Read from the messages Modbot stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The server's text, announcement and forum channels with when anybody last wrote in each (in the channel or any of its threads), quietest first: channels with no message at all, then the longest since the last message, then channels still being read back with nothing found yet, then channels the bot cannot read. `hideStaffOnly=true` leaves out channels @everyone cannot see. Those channels are listed by name only for someone who can also change settings; for everyone else they are left out whatever `hideStaffOnly` says, and `staffOnlyHidden` counts them. Read from the messages Modbot stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetDiscordQuietChannels",
         "parameters": [
           {
@@ -43364,7 +43364,8 @@
         "required": [
           "guildId",
           "now",
-          "channels"
+          "channels",
+          "staffOnlyHidden"
         ],
         "type": "object",
         "properties": {
@@ -43383,6 +43384,10 @@
             "items": {
               "$ref": "#/components/schemas/QuietChannelRow"
             }
+          },
+          "staffOnlyHidden": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

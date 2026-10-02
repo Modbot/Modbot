@@ -78,10 +78,15 @@ public sealed record QuietChannelRow(
 /// <param name="GuildId">The server in settings, or null when none is set.</param>
 /// <param name="Now">The server's clock (spec 4.4), so how long each channel has been quiet is worked out against it.</param>
 /// <param name="Channels">Quietest first.</param>
+/// <param name="StaffOnlyHidden">
+/// How many staff-only channels were left out because the caller may not see their names (it takes
+/// <c>ManageSettings</c> as well as See analytics). Zero for someone who may.
+/// </param>
 public sealed record QuietChannelList(
     string? GuildId,
     DateTimeOffset Now,
-    IReadOnlyList<QuietChannelRow> Channels);
+    IReadOnlyList<QuietChannelRow> Channels,
+    int StaffOnlyHidden);
 
 /// <summary>
 /// The two read-only reports for tidying a Discord server: its roles with their marks, and its

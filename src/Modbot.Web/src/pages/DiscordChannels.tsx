@@ -25,6 +25,8 @@ import { useServerProfile } from '@/pages/analytics/useServerProfile'
  * The last message is the newest Modbot has stored for the channel or any of its threads, so the
  * page costs no request to Discord. How long it has been is worked out against the server's clock.
  * Staff-only channels -- ones @everyone cannot see -- carry Discord's lock and can be left out.
+ * Their names are sent only to someone who can also change settings; everybody else gets the public
+ * channels and a count of the staff-only ones left out.
  */
 export function DiscordChannels({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const server = useServerProfile(me)
@@ -109,6 +111,13 @@ function ChannelList() {
         <CardHeader className={cn(list.guildId === null && 'bg-warn/10')}>
           {list.guildId === null && <Unread>No Discord server set.</Unread>}
           <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {list.staffOnlyHidden > 0 && (
+              <span className="mr-3 inline-flex items-center gap-1">
+                <Lock className="size-[0.85em]" aria-hidden />
+                <span className="font-mono">{list.staffOnlyHidden.toLocaleString()}</span>{' '}
+                {list.staffOnlyHidden === 1 ? 'staff-only channel' : 'staff-only channels'}
+              </span>
+            )}
             <span className="font-mono">{list.channels.length.toLocaleString()}</span>{' '}
             {list.channels.length === 1 ? 'channel' : 'channels'}
           </span>

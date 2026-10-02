@@ -31,6 +31,12 @@ namespace Modbot.Api.Features.DiscordReports;
 /// are counts and dates about the server -- how many hold a role, when a channel was last written in --
 /// and name nobody.
 /// </para>
+/// <para>
+/// <strong>Who sees staff-only channel names.</strong> Only someone who can also change settings
+/// (<see cref="ModbotPermissions.ManageSettings"/>, which guards every Discord setting). A staff-only
+/// channel's name can give away what the staff talk about, and See analytics is given to people who
+/// are not staff. Everybody else gets the public channels and how many staff-only ones were left out.
+/// </para>
 /// </remarks>
 public static class DiscordReportEndpoints
 {
@@ -69,11 +75,17 @@ public static class DiscordReportEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/quiet-channels", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromQuery] bool? hideStaffOnly,
                 CancellationToken ct) =>
-                Results.Ok(await QuietChannelsAsync(db, clock, hideStaffOnly ?? false, ct)))
+                Results.Ok(await QuietChannelsAsync(
+                    db,
+                    clock,
+                    hideStaffOnly ?? false,
+                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageSettings),
+                    ct)))
             .WithName("GetDiscordQuietChannels")
             .WithSummary("Get the Discord quiet channels list")
             .WithDescription(
@@ -81,8 +93,11 @@ public static class DiscordReportEndpoints
                 + "each (in the channel or any of its threads), quietest first: channels with no "
                 + "message at all, then the longest since the last message, then channels still being "
                 + "read back with nothing found yet, then channels the bot cannot read. "
-                + "`hideStaffOnly=true` leaves out channels @everyone cannot see. Read from the "
-                + "messages Modbot stores; nothing is asked of Discord and nothing is changed.")
+                + "`hideStaffOnly=true` leaves out channels @everyone cannot see. Those channels are "
+                + "listed by name only for someone who can also change settings; for everyone else "
+                + "they are left out whatever `hideStaffOnly` says, and `staffOnlyHidden` counts them. "
+                + "Read from the messages Modbot stores; nothing is asked of Discord and nothing is "
+                + "changed.")
             .Produces<QuietChannelList>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -123,13 +138,13 @@ public static class DiscordReportEndpoints
     }
 
     internal static async Task<QuietChannelList> QuietChannelsAsync(
-        ModbotContext db, IModbotClock clock, bool hideStaffOnly, CancellationToken ct)
+        ModbotContext db, IModbotClock clock, bool hideStaffOnly, bool canSeeStaffOnly, CancellationToken ct)
     {
         var now = clock.UtcNow;
 
         var guildId = await DiscordMemberEndpoints.GuildIdAsync(db, ct);
         if (guildId is null)
-            return new QuietChannelList(null, now, []);
+            return new QuietChannelList(null, now, [], 0);
 
         var categories = await db.DiscordChannels.AsNoTracking()
             .Where(c => c.GuildId == guildId && c.Type == DiscordChannelTypes.Category)
@@ -156,10 +171,27 @@ public static class DiscordReportEndpoints
                     .OrderByDescending(m => m.SentAt)
                     .Select(m => (DateTimeOffset?)m.SentAt)
                     .FirstOrDefault(),
-                StillReading = db.DiscordReadBacks
-                    .Any(r => (r.ChannelId == c.ChannelId || r.ParentChannelId == c.ChannelId) && r.FinishedAt == null),
             })
             .ToListAsync(ct);
+
+        // Unfinished read-backs in one query, down the guild index: a few rows at a time, where
+        // asking per channel would scan the table once for each. A thread's read-back counts for the
+        // channel it sits in.
+        var reading = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var readBack in await db.DiscordReadBacks.AsNoTracking()
+                     .Where(r => r.GuildId == guildId && r.FinishedAt == null)
+                     .Select(r => new { r.ChannelId, r.ParentChannelId })
+                     .ToListAsync(ct))
+        {
+            reading.Add(readBack.ChannelId);
+            if (readBack.ParentChannelId is { } parent)
+                reading.Add(parent);
+        }
+
+        // A channel not read yet (null) counts as one everybody sees, as the filter does.
+        var staffOnly = channels.Where(c => c.EveryoneCanView == false).ToList();
+        if (!canSeeStaffOnly)
+            channels = channels.Where(c => c.EveryoneCanView != false).ToList();
 
         var rows = DiscordTidyUp.Channels(
             channels
@@ -171,11 +203,11 @@ public static class DiscordReportEndpoints
                     c.Position,
                     c.EveryoneCanView,
                     c.CanRead,
-                    c.StillReading,
+                    reading.Contains(c.ChannelId),
                     c.LastMessageAt))
                 .ToList(),
             hideStaffOnly);
 
-        return new QuietChannelList(guildId, now, rows);
+        return new QuietChannelList(guildId, now, rows, canSeeStaffOnly ? 0 : staffOnly.Count);
     }
 }

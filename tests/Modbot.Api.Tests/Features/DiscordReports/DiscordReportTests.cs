@@ -180,7 +180,7 @@ public class DiscordReportTests
     {
         await using var host = await StartAsync(_db);
         await ChannelsAsync(host);
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
         var at = host.Clock.UtcNow;
 
         var list = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels", cookie, Ct);
@@ -210,6 +210,27 @@ public class DiscordReportTests
 
         Assert.False(byId["105"].CanRead);
         Assert.Null(byId["105"].LastMessageAt);
+
+        Assert.Equal(0, list.StaffOnlyHidden);
+    }
+
+    [Fact]
+    public async Task Channels_NameStaffOnlyOnesOnlyToSomeoneWhoCanChangeSettings()
+    {
+        await using var host = await StartAsync(_db);
+        await ChannelsAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+
+        var list = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels", cookie, Ct);
+
+        // The public channels, in the same order, and how many were left out.
+        Assert.Equal(["104", "102", "101", "108"], list.Channels.Select(c => c.Id));
+        Assert.All(list.Channels, c => Assert.False(c.StaffOnly));
+        Assert.Equal(2, list.StaffOnlyHidden);
+
+        // Asking to hide them changes nothing for someone who never saw them.
+        var hidden = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?hideStaffOnly=true", cookie, Ct);
+        Assert.Equal(list.Channels.Select(c => c.Id), hidden.Channels.Select(c => c.Id));
     }
 
     [Fact]
@@ -217,12 +238,13 @@ public class DiscordReportTests
     {
         await using var host = await StartAsync(_db);
         await ChannelsAsync(host);
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
 
         var list = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?hideStaffOnly=true", cookie, Ct);
 
         Assert.Equal(["104", "102", "101", "108"], list.Channels.Select(c => c.Id));
         Assert.All(list.Channels, c => Assert.False(c.StaffOnly));
+        Assert.Equal(0, list.StaffOnlyHidden);
     }
 
     [Fact]

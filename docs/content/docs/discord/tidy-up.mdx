@@ -64,7 +64,8 @@ Your server's text, announcement and forum channels, the quietest first.
 
 Instead of a time, **Quiet for** can say:
 
-- **No messages**: nobody has ever written there, as far as the bot can see.
+- **No messages**: Modbot has stored no message for the channel. Nobody may have ever written there,
+  or its messages may have been deleted after a while (see [Where the time comes from](#where-the-time-comes-from)).
 - **Still reading**: the bot is still reading the channel's history and has found nothing yet.
 - **Can't read**: the bot is not allowed to see the channel or read its history. Give the bot's role
   **View Channel** and **Read Message History** there to include it.
@@ -75,12 +76,24 @@ then channels the bot cannot read.
 Above the list, **All channels** shows every channel; **Hide staff-only** leaves out the ones
 @everyone cannot see.
 
+Staff-only channel names are shown only to someone who can also **Change settings**. Everyone else
+sees the public channels and one line, for example **3 staff-only channels**, with nothing else about
+them.
+
 ### Where the time comes from
 
-The last message is the newest one Modbot has stored for that channel. The bot reads each channel's
-history back to its first message when it is set up, and stores every new message as it arrives, so
-this is the same as Discord's own. A message deleted since still counts: somebody wrote there then.
+The last message is the newest one Modbot has **stored** for that channel or any of its threads or
+forum posts. The bot reads each channel's history back to its first message when it is set up, and
+stores every new message as it arrives, so for a channel it can read this is usually the same as
+Discord's own. A message deleted since still counts: somebody wrote there then.
 
-If you set Discord messages to be deleted after a while (see
-[Data retention](/self-hosting/data-retention)), a channel quiet for longer than that shows **No
-messages**.
+It differs from Discord's own in three cases:
+
+- **A channel the bot cannot read** has no time, even though Modbot may hold older messages from
+  before: **Can't read** shows instead.
+- **Message retention.** If you set Discord messages to be deleted after a while (see
+  [Data retention](/self-hosting/data-retention)), a channel quiet for longer than that shows **No
+  messages**.
+- **A read that has not started yet.** A channel the bot has not got to reading back, or one it was
+  only just able to see, may show a later time or **No messages** until its history has been read.
+  **Still reading** covers only a read that has begun.
