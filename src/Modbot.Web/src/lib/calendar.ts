@@ -148,6 +148,12 @@ export type CalendarEvent = {
   invites?: CalendarInvites | null
   /** The Discord role the channel post mentions, pinged once per date; null for none. */
   mentionRoleId?: string | null
+  /** How many days, weeks or months apart the repeat falls; 1 for every one. */
+  repeatEvery?: number
+  /** How many dates the repeat has before it stops; null for no count. */
+  repeatTimes?: number | null
+  /** Whether VRChat is asked to show it as featured. */
+  featured?: boolean
 }
 
 /**
@@ -252,8 +258,18 @@ export type CalendarPreview = {
     platforms: string[]
     tags: string[]
     imageId: string | null
-    repeat: { frequency: string; days: string[]; until: string | null; timeZone: string | null } | null
+    repeat: {
+      frequency: string
+      days: string[]
+      until: string | null
+      timeZone: string | null
+      /** How many days, weeks or months apart. */
+      every: number
+      /** How many times, counted from where the series sent starts; null for no count. */
+      times: number | null
+    } | null
     notify: boolean
+    featured: boolean
   }
   feed: {
     calendarName: string
@@ -328,7 +344,11 @@ export type CalendarEventInput = {
   timeZone: string
   repeat: CalendarRepeat
   repeatDays: string[]
+  /** How many days, weeks or months apart, 1 to 52. */
+  repeatEvery: number
   repeatUntil: string | null
+  /** Stop after this many dates, 1 to 500; null for no count. Not together with `repeatUntil`. */
+  repeatTimes: number | null
   worldId: string | null
   accessType: string
   region: string
@@ -340,6 +360,7 @@ export type CalendarEventInput = {
   tags: string[]
   visibility: string
   notifyMembers: boolean
+  featured: boolean
   publishToVRChat: boolean
   publishToDiscord: boolean
   postToChannel: boolean
@@ -537,6 +558,12 @@ export const DAYS: { value: string; label: string }[] = [
   { value: 'SU', label: 'Sun' },
 ]
 
+/** "Every week", "Every 2 weeks": how often a repeating event falls. */
+export function repeatEveryText(repeat: CalendarRepeat, every: number): string {
+  const unit = { none: '', daily: 'day', weekly: 'week', monthly: 'month' }[repeat]
+  return every > 1 ? `Every ${every} ${unit}s` : `Every ${unit}`
+}
+
 /** `2026-09-20T20:00` for a Date, in the browser's own time — what a datetime-local input holds. */
 export function localInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -559,7 +586,9 @@ export function blankEvent(now: Date): CalendarEventInput {
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     repeat: 'none',
     repeatDays: [],
+    repeatEvery: 1,
     repeatUntil: null,
+    repeatTimes: null,
     worldId: null,
     accessType: 'members',
     region: 'us',
@@ -571,6 +600,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     tags: [],
     visibility: 'group',
     notifyMembers: false,
+    featured: false,
     publishToVRChat: true,
     publishToDiscord: true,
     postToChannel: false,
@@ -602,7 +632,9 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     timeZone: event.timeZone,
     repeat: event.repeat,
     repeatDays: event.repeatDays,
+    repeatEvery: event.repeatEvery ?? 1,
     repeatUntil: event.repeatUntil,
+    repeatTimes: event.repeatTimes ?? null,
     worldId: event.worldId,
     accessType: event.accessType,
     region: event.region,
@@ -614,6 +646,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     tags: event.tags,
     visibility: event.visibility,
     notifyMembers: event.notifyMembers,
+    featured: event.featured ?? false,
     publishToVRChat: event.publishToVRChat,
     publishToDiscord: event.publishToDiscord,
     postToChannel: event.postToChannel,

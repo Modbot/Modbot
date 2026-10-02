@@ -1036,7 +1036,7 @@ public static class CalendarEndpoints
                             || e.State == CalendarEventStates.Open
                             || (e.State == CalendarEventStates.Finished
                                 && ((e.Repeat == CalendarRepeats.None && e.EndsAt >= since)
-                                    || (e.Repeat != CalendarRepeats.None && (e.RepeatUntil == null || e.RepeatUntil >= lastDayFrom))
+                                    || (e.Repeat != CalendarRepeats.None && (e.RepeatUntil == null || e.RepeatUntil >= lastDayFrom || e.RepeatTimes != null))
                                     || e.DateChanges.Any(c => c.EndsAt >= since)))
                             || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= since)))
                     .ToListAsync(ct);
@@ -1499,6 +1499,19 @@ public static class CalendarEndpoints
             until = parsed;
         }
 
+        // Only a repeating event has them; a one-off ignores whatever the form still held.
+        var every = repeat == CalendarRepeats.None ? 1 : body.RepeatEvery ?? 1;
+        if (every is < 1 or > CalendarRepeats.MaxEvery)
+            return $"Repeat every must be between 1 and {CalendarRepeats.MaxEvery}.";
+
+        var times = repeat == CalendarRepeats.None ? null : body.RepeatTimes;
+        if (times is < 1 or > CalendarRepeats.MaxTimes)
+            return $"The number of times must be between 1 and {CalendarRepeats.MaxTimes}.";
+
+        // One end or the other, as iCalendar's UNTIL and COUNT and VRChat's own end are.
+        if (until is not null && times is not null)
+            return "Pick a last date or a number of times, not both.";
+
         var access = body.AccessType?.Trim() ?? "members";
         if (!AccessTypes.Contains(access))
             return "Who can join must be members, plus or public.";
@@ -1566,7 +1579,9 @@ public static class CalendarEndpoints
         target.EndsAt = ends;
         target.TimeZone = zone.Id;
         target.Repeat = repeat;
+        target.RepeatEvery = every;
         target.RepeatUntil = repeat == CalendarRepeats.None ? null : until;
+        target.RepeatTimes = times;
 
         // A world picked from a list stays the current date's world through an edit; another list
         // means a new pick (world lists design §5), made once the event is saved.
@@ -1597,6 +1612,7 @@ public static class CalendarEndpoints
         target.Tags = Clean(body.Tags);
         target.Visibility = visibility;
         target.NotifyMembers = body.NotifyMembers;
+        target.Featured = body.Featured ?? target.Featured;
         target.PublishToVRChat = body.PublishToVRChat;
         target.PublishToDiscord = body.PublishToDiscord;
         target.PostToChannel = body.PostToChannel;
@@ -1827,7 +1843,10 @@ public static class CalendarEndpoints
                 e.AnnounceFirstJoinInDiscord,
                 invites,
                 e.AnnounceFirstJoinInVRChat,
-                e.MentionRoleId);
+                e.MentionRoleId,
+                CalendarRepeat.EveryOf(e),
+                e.RepeatTimes,
+                e.Featured);
         })];
     }
 

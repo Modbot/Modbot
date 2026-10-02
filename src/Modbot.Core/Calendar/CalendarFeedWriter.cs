@@ -253,10 +253,23 @@ public static class CalendarFeedWriter
         if (rule is null)
             return null;
 
+        // Every N days, weeks or months. Weeks are counted Monday to Sunday, which is iCalendar's
+        // default; it is written out for a weekly repeat anyway, so a program that defaults to
+        // Sunday counts the same weeks Modbot does.
+        if (CalendarRepeat.EveryOf(calendarEvent) is var every and > 1)
+        {
+            rule += ";INTERVAL=" + every.ToString(CultureInfo.InvariantCulture);
+
+            if (calendarEvent.Repeat == CalendarRepeats.Weekly)
+                rule += ";WKST=MO";
+        }
+
         // UTC whatever DTSTART carries: RFC 5545 requires it when DTSTART has a TZID, and when it
         // is UTC. The last moment of the last day an occurrence may start on.
         if (calendarEvent.RepeatUntil is { } until)
             rule += ";UNTIL=" + Utc(LastMomentOf(until, zone).ToDateTimeOffset());
+        else if (calendarEvent.RepeatTimes is { } times)
+            rule += ";COUNT=" + Math.Clamp(times, 1, CalendarRepeats.MaxTimes).ToString(CultureInfo.InvariantCulture);
 
         return rule;
     }
@@ -323,6 +336,12 @@ public static class CalendarFeedWriter
         if (calendarEvent.RepeatUntil is { } until)
         {
             var last = LastMomentOf(until, zone) + Duration.FromTimeSpan(calendarEvent.EndsAt - calendarEvent.StartsAt);
+            return last > end ? last : end;
+        }
+
+        if (calendarEvent.RepeatTimes is not null && CalendarRepeat.LastPlanned(calendarEvent) is { } lastDate)
+        {
+            var last = Instant.FromDateTimeOffset(lastDate.EndsAt);
             return last > end ? last : end;
         }
 

@@ -1,7 +1,6 @@
 using System.Globalization;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
-using NodaTime;
 using VRChat.API.Model;
 using CalendarEvent = Modbot.Core.Data.Entities.CalendarEvent;
 using VRChatEvent = VRChat.API.Model.CalendarEvent;
@@ -27,7 +26,8 @@ public static class CalendarVRChatCopy
 {
     /// <summary>
     /// Why an event on VRChat cannot be kept as a Modbot event, or null when it can. Modbot's repeat
-    /// rule has no "every second week" and no yearly repeat (calendar design §2).
+    /// rule has no yearly repeat, and goes up to every <see cref="CalendarRepeats.MaxEvery"/> days,
+    /// weeks or months and <see cref="CalendarRepeats.MaxTimes"/> times (calendar design §2).
     /// </summary>
     public static string? CannotKeep(VRChatEvent source)
     {
@@ -39,7 +39,12 @@ public static class CalendarVRChatCopy
         if (rule.Frequency == CalendarEventFrequency.Yearly)
             return "repeats every year";
 
-        return rule.Interval > 1 ? $"repeats every {rule.Interval.ToString(CultureInfo.InvariantCulture)} {Unit(rule.Frequency)}" : null;
+        if (rule.Interval > CalendarRepeats.MaxEvery)
+            return $"repeats every {rule.Interval.ToString(CultureInfo.InvariantCulture)} {Unit(rule.Frequency)}";
+
+        return rule.End is { Type: CalendarEventRecurrenceEndType.AfterOccurrences, Count: > CalendarRepeats.MaxTimes } end
+            ? $"repeats {end.Count.ToString(CultureInfo.InvariantCulture)} times"
+            : null;
     }
 
     /// <summary>Copies <paramref name="source"/> onto <paramref name="target"/>.</summary>
@@ -89,7 +94,17 @@ public static class CalendarVRChatCopy
             target.RepeatDays = [];
         }
 
-        target.RepeatUntil = target.Repeat == CalendarRepeats.None ? null : LastDate(target, rule?.End, zone);
+        target.RepeatEvery = target.Repeat == CalendarRepeats.None || rule is null ? 1 : Math.Clamp(rule.Interval, 1, CalendarRepeats.MaxEvery);
+
+        // VRChat's "after N times" is kept as a number of times, counted from the series' start as
+        // VRChat has it, which is the start copied above.
+        var end = target.Repeat == CalendarRepeats.None ? null : rule?.End;
+
+        target.RepeatTimes = end is { Type: CalendarEventRecurrenceEndType.AfterOccurrences, Count: > 0 }
+            ? Math.Min(end.Count, CalendarRepeats.MaxTimes)
+            : null;
+
+        target.RepeatUntil = target.RepeatTimes is null ? LastDate(end) : null;
 
         target.Category = CategoryWord(source.Category);
         target.Languages = Clean(source.Languages);
@@ -103,7 +118,7 @@ public static class CalendarVRChatCopy
         if (target.MadeOnVRChat)
             target.ImageUrl = IsWebPicture(source.ImageUrl) ? source.ImageUrl : null;
 
-        target.VRChatFeatured = source.Featured;
+        target.Featured = source.Featured;
         target.VRChatHostEarlyJoinMinutes = source.HostEarlyJoinMinutes;
         target.VRChatGuestEarlyJoinMinutes = source.GuestEarlyJoinMinutes;
         target.VRChatCloseInstanceAfterEndMinutes = source.CloseInstanceAfterEndMinutes;
@@ -116,38 +131,21 @@ public static class CalendarVRChatCopy
         source is null || source.UpdatedAt == default ? null : AsUtc(source.UpdatedAt);
 
     /// <summary>
-    /// The last date the rule may start on. VRChat's "after a date" is that day's last moment as
-    /// wall-clock time in the zone; "after N times" is counted out to the Nth date.
+    /// The last date the rule may start on, for VRChat's "after a date": that day's last moment as
+    /// wall-clock time in the zone. Null for any other end.
     /// </summary>
-    private static DateOnly? LastDate(CalendarEvent target, CalendarEventRecurrenceEnd? end, DateTimeZone zone)
+    private static DateOnly? LastDate(CalendarEventRecurrenceEnd? end)
     {
-        if (end is null)
+        if (end is not { Type: CalendarEventRecurrenceEndType.AfterDate })
             return null;
 
-        if (end.Type == CalendarEventRecurrenceEndType.AfterDate)
-        {
-            var text = end.Date?.Trim();
-            if (string.IsNullOrEmpty(text) || text.Length < 10)
-                return null;
+        var text = end.Date?.Trim();
+        if (string.IsNullOrEmpty(text) || text.Length < 10)
+            return null;
 
-            return DateOnly.TryParseExact(text[..10], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
-                ? date
-                : null;
-        }
-
-        if (end.Type == CalendarEventRecurrenceEndType.AfterOccurrences && end.Count > 0)
-        {
-            target.RepeatUntil = null;
-
-            var last = CalendarRepeat.PlannedBetween(target, target.StartsAt).Skip(end.Count - 1).Select(o => (CalendarOccurrence?)o).FirstOrDefault();
-            if (last is not { } found)
-                return null;
-
-            var local = Instant.FromDateTimeOffset(found.StartsAt).InZone(zone).Date;
-            return new DateOnly(local.Year, local.Month, local.Day);
-        }
-
-        return null;
+        return DateOnly.TryParseExact(text[..10], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
     }
 
     private static string Unit(CalendarEventFrequency frequency) => frequency switch

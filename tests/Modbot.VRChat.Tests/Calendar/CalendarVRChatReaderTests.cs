@@ -34,7 +34,7 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         Assert.False(e.AutoOpen);
         Assert.Equal("public", e.Visibility);
         Assert.Equal("film_media", e.Category);
-        Assert.True(e.VRChatFeatured);
+        Assert.True(e.Featured);
         Assert.Equal(60, e.VRChatHostEarlyJoinMinutes);
 
         var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);

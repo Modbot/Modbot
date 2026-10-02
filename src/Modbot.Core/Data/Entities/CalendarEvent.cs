@@ -23,6 +23,12 @@ public static class CalendarRepeats
 
     public static readonly IReadOnlyList<string> All = [None, Daily, Weekly, Monthly];
 
+    /// <summary>The most days, weeks or months apart a repeat may fall (<see cref="CalendarEvent.RepeatEvery"/>).</summary>
+    public const int MaxEvery = 52;
+
+    /// <summary>The most dates a counted repeat may have (<see cref="CalendarEvent.RepeatTimes"/>).</summary>
+    public const int MaxTimes = 500;
+
     /// <summary>Two-letter day names, the spelling iCalendar and VRChat both use.</summary>
     public static readonly IReadOnlyList<string> Days = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 }
@@ -71,8 +77,22 @@ public class CalendarEvent
     /// <summary>For a weekly event, which days, as <c>MO</c> to <c>SU</c>. Empty means the first start's day.</summary>
     public List<string> RepeatDays { get; set; } = [];
 
+    /// <summary>
+    /// How many days, weeks or months apart the repeat falls: 1 is every week, 2 every other week.
+    /// Counted from the first start's own day, week (Monday to Sunday) or month, as iCalendar's
+    /// <c>INTERVAL</c> and VRChat's <c>interval</c> count it (added 2026-10-02).
+    /// </summary>
+    public int RepeatEvery { get; set; } = 1;
+
     /// <summary>The last date an occurrence may start on, in the event's own time zone. Null repeats forever.</summary>
     public DateOnly? RepeatUntil { get; set; }
+
+    /// <summary>
+    /// How many dates the repeat has before it stops, the first start included; null for no count.
+    /// Never set together with <see cref="RepeatUntil"/>. A date cancelled on its own still counts,
+    /// as an <c>EXDATE</c> does under iCalendar's <c>COUNT</c> (added 2026-10-02).
+    /// </summary>
+    public int? RepeatTimes { get; set; }
 
     // ── Where ────────────────────────────────────────────────────────────────────────────
 
@@ -121,17 +141,22 @@ public class CalendarEvent
     /// <summary>Whether VRChat tells group members when the event is created there.</summary>
     public bool NotifyMembers { get; set; }
 
+    /// <summary>
+    /// Whether VRChat shows the event as featured. A form field since 2026-10-02; before that it was
+    /// only kept as VRChat said it, for an event read from VRChat's calendar.
+    /// </summary>
+    public bool Featured { get; set; }
+
     // ── VRChat's settings Modbot's form does not have ────────────────────────────────────
     //
     // Kept as VRChat said them, for an event read from VRChat's calendar, and sent back unchanged
-    // with every update: VRChat's update body sends "featured" and "uses instance overflow" as false
-    // when they are left out, so an edit from Modbot would otherwise switch them off. Null for an
-    // event made in Modbot, which sends what it always has.
+    // with every update: VRChat's update body sends "uses instance overflow" as false when it is
+    // left out, so an edit from Modbot would otherwise switch it off. Null for an event made in
+    // Modbot, which sends what it always has. Why the form leaves them out: calendar repeats and
+    // VRChat settings design §6.
 
     /// <summary>True when the event was made on VRChat (on vrchat.com or in the game) and read in by Modbot.</summary>
     public bool MadeOnVRChat { get; set; }
-
-    public bool? VRChatFeatured { get; set; }
 
     public int? VRChatHostEarlyJoinMinutes { get; set; }
 

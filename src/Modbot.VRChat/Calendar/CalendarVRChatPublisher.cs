@@ -1015,6 +1015,12 @@ public sealed class CalendarVRChatPublisher
         place.MissingGroupPermission =
             VRChatGroupPermissions.Refusal(status, kind, endpoint.Operation, groupId, body, settings)?.Permission;
 
+        // Featuring an event may be more than the group or Modbot's account is allowed, and what
+        // VRChat answers then is not known (calendar repeats and VRChat settings design §6).
+        // Saying it was on names the one switch to try without.
+        if (calendarEvent.Featured && action != "delete" && place.MissingGroupPermission is null && status is >= 400 and < 500)
+            place.Error = Trim($"{place.Error} (sent with Featured on)");
+
         // Nothing came back, or VRChat's own trouble: try again later. Anything else is a refusal of
         // this content, and sending it again would get the same answer.
         place.FailedFingerprint = status == 0 || status >= 500 ? null : fingerprint;

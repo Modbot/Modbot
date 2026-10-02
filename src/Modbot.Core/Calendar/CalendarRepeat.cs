@@ -318,54 +318,103 @@ public static class CalendarRepeat
         return Instant.FromDateTimeOffset(calendarEvent.StartsAt).InZone(zone).LocalDateTime;
     }
 
+    /// <summary>How many days, weeks or months apart the repeat falls: 1 for an event with no other number.</summary>
+    public static int EveryOf(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return Math.Clamp(calendarEvent.RepeatEvery, 1, CalendarRepeats.MaxEvery);
+    }
+
+    /// <summary>
+    /// The last date the repeat gives, with no date's own change applied; null when it repeats
+    /// forever. For a repeat with a last date or a number of times.
+    /// </summary>
+    public static CalendarOccurrence? LastPlanned(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        if (calendarEvent.Repeat != CalendarRepeats.None && calendarEvent.RepeatUntil is null && calendarEvent.RepeatTimes is null)
+            return null;
+
+        CalendarOccurrence? last = null;
+
+        foreach (var occurrence in PlannedBetween(calendarEvent, DateTimeOffset.MinValue))
+            last = occurrence;
+
+        return last;
+    }
+
+    /// <summary>
+    /// How many of the repeat's dates start before <paramref name="startsAt"/>: what a series sent
+    /// from a later date has to take off its number of times.
+    /// </summary>
+    public static int PlannedBefore(CalendarEvent calendarEvent, DateTimeOffset startsAt)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return PlannedBetween(calendarEvent, DateTimeOffset.MinValue, startsAt).Count();
+    }
+
     private static IEnumerable<LocalDateTime> LocalStarts(CalendarEvent calendarEvent, DateTimeZone zone)
     {
         var first = FirstLocal(calendarEvent, zone);
         LocalDate? until = calendarEvent.RepeatUntil is { } u ? new LocalDate(u.Year, u.Month, u.Day) : null;
 
+        // A number of times stops the repeat after that many dates, the first start included.
+        var times = calendarEvent.RepeatTimes is { } n ? Math.Clamp(n, 1, CalendarRepeats.MaxTimes) : int.MaxValue;
+        var given = 0;
+
+        foreach (var start in RuleStarts(calendarEvent, zone, first))
+        {
+            if (start.Date > until || given >= times)
+                yield break;
+
+            given++;
+            yield return start;
+        }
+    }
+
+    /// <summary>Every start the rule gives, from the first, with no end applied.</summary>
+    private static IEnumerable<LocalDateTime> RuleStarts(CalendarEvent calendarEvent, DateTimeZone zone, LocalDateTime first)
+    {
+        var every = EveryOf(calendarEvent);
+
         switch (calendarEvent.Repeat)
         {
             case CalendarRepeats.Daily:
-                for (var i = 0; i < MaxSteps; i++)
-                {
-                    var start = first.PlusDays(i);
-                    if (start.Date > until)
-                        yield break;
-
-                    yield return start;
-                }
+                for (var i = 0; i < MaxSteps; i += every)
+                    yield return first.PlusDays(i);
 
                 yield break;
 
             case CalendarRepeats.Weekly:
                 var days = WeeklyDays(calendarEvent, zone).ToHashSet();
 
+                // Weeks run Monday to Sunday, counted from the first start's own week: with every
+                // 2 weeks, that week and every second one after it -- iCalendar's default WKST=MO.
+                var intoFirstWeek = (int)first.Date.DayOfWeek - (int)IsoDayOfWeek.Monday;
+
                 for (var i = 0; i < MaxSteps; i++)
                 {
                     var date = first.Date.PlusDays(i);
-                    if (date > until)
-                        yield break;
+                    var week = (i + intoFirstWeek) / 7;
 
-                    if (days.Contains(date.DayOfWeek))
+                    if (week % every == 0 && days.Contains(date.DayOfWeek))
                         yield return date + first.TimeOfDay;
                 }
 
                 yield break;
 
             case CalendarRepeats.Monthly:
-                for (var i = 0; i < MaxSteps; i++)
+                for (var i = 0; i < MaxSteps; i += every)
                 {
                     // The same day of the month, and months without that day are skipped rather than
-                    // moved to their last day -- what FREQ=MONTHLY means in iCalendar.
+                    // moved to their last day -- what FREQ=MONTHLY means in iCalendar. A skipped
+                    // month still counts towards "every N months", as INTERVAL counts it.
                     var month = new LocalDate(first.Year, first.Month, 1).PlusMonths(i);
                     if (first.Day > month.Calendar.GetDaysInMonth(month.Year, month.Month))
                         continue;
 
-                    var date = new LocalDate(month.Year, month.Month, first.Day);
-                    if (date > until)
-                        yield break;
-
-                    yield return date + first.TimeOfDay;
+                    yield return new LocalDate(month.Year, month.Month, first.Day) + first.TimeOfDay;
                 }
 
                 yield break;

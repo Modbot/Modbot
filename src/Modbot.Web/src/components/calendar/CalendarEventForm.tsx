@@ -48,6 +48,19 @@ const FROM_LIST = '__list__'
 
 type Tab = 'details' | 'preview'
 
+/** How a repeat stops: never, after its last date, or after a number of times. */
+type RepeatEnd = 'never' | 'date' | 'times'
+
+/** What "After a number of times" starts at. */
+const FIRST_TIMES = 4
+
+/** "week" or "weeks", for the number beside "Every". */
+const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
+  daily: ['day', 'days'],
+  weekly: ['week', 'weeks'],
+  monthly: ['month', 'months'],
+}
+
 /**
  * The create and edit form for one event (calendar design §2, §14).
  *
@@ -96,6 +109,10 @@ export function CalendarEventForm({
   const pictureThumbnails = usePictureThumbnails()
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('details')
+  // Kept apart from the input, so "On a date" stays picked while its date is still empty.
+  const [repeatEnd, setRepeatEnd] = useState<RepeatEnd>(() =>
+    input.repeatTimes !== null ? 'times' : input.repeatUntil !== null ? 'date' : 'never',
+  )
   // What Preview draws: the form as it was when Preview was opened.
   const [shown, setShown] = useState<CalendarEventInput | null>(null)
 
@@ -139,8 +156,20 @@ export function CalendarEventForm({
       ? OTHER_WORLD
       : (input.worldId ?? '')
 
+  const pickRepeatEnd = (next: RepeatEnd) => {
+    setRepeatEnd(next)
+    setInput((current) => ({
+      ...current,
+      repeatUntil: next === 'date' ? current.repeatUntil : null,
+      repeatTimes: next === 'times' ? (current.repeatTimes ?? FIRST_TIMES) : null,
+    }))
+  }
+
   const body = (draft: boolean): CalendarEventInput => ({
     ...input,
+    repeatUntil: repeatEnd === 'date' ? input.repeatUntil : null,
+    // An emptied Times is sent as 0, so it is refused rather than saved as never ending.
+    repeatTimes: repeatEnd === 'times' ? (input.repeatTimes ?? 0) : null,
     languages: splitList(languages),
     tags: splitList(tags),
     draft,
@@ -293,13 +322,49 @@ export function CalendarEventForm({
                   )}
 
                   {input.repeat !== 'none' && (
-                    <Labelled label="Last date">
-                      <Input
-                        type="date"
-                        value={input.repeatUntil ?? ''}
-                        onChange={(e) => set('repeatUntil', e.target.value || null)}
-                      />
-                    </Labelled>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Labelled label="Every">
+                        <span className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={52}
+                            className="w-20"
+                            value={input.repeatEvery}
+                            onChange={(e) => set('repeatEvery', Number(e.target.value))}
+                          />
+                          <span>{REPEAT_UNIT[input.repeat][input.repeatEvery === 1 ? 0 : 1]}</span>
+                        </span>
+                      </Labelled>
+                      <Labelled label="Ends">
+                        <Select value={repeatEnd} onChange={(v) => pickRepeatEnd(v as RepeatEnd)} aria-label="Ends">
+                          <option value="never">Never</option>
+                          <option value="date">On a date</option>
+                          <option value="times">After a number of times</option>
+                        </Select>
+                      </Labelled>
+                      {repeatEnd === 'date' && (
+                        <Labelled label="Last date">
+                          <Input
+                            type="date"
+                            value={input.repeatUntil ?? ''}
+                            onChange={(e) => set('repeatUntil', e.target.value || null)}
+                          />
+                        </Labelled>
+                      )}
+                      {repeatEnd === 'times' && (
+                        <Labelled label="Times">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={500}
+                            className="w-28"
+                            value={input.repeatTimes ?? ''}
+                            onChange={(e) => set('repeatTimes', e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </Labelled>
+                      )}
+                    </div>
                   )}
                 </Section>
 
@@ -432,6 +497,9 @@ export function CalendarEventForm({
                     </div>
                     <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
                       Notify group members
+                    </Checkbox>
+                    <Checkbox checked={input.featured} onChange={(v) => set('featured', v)}>
+                      Featured
                     </Checkbox>
                   </Section>
                 )}

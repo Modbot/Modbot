@@ -231,7 +231,14 @@ function VRChatCard({ entry }: { entry: CalendarPreview['vrChat'] }) {
         <Row label="When">{span(entry.startsAt, entry.endsAt)}</Row>
         <Row label="Repeats">
           {entry.repeat &&
-            [entry.repeat.frequency, join(entry.repeat.days), entry.repeat.until, entry.repeat.timeZone]
+            [
+              entry.repeat.frequency,
+              entry.repeat.every > 1 ? `every ${entry.repeat.every}` : null,
+              join(entry.repeat.days),
+              entry.repeat.until,
+              entry.repeat.times !== null ? `${entry.repeat.times} times` : null,
+              entry.repeat.timeZone,
+            ]
               .filter(Boolean)
               .join(' · ')}
         </Row>
@@ -244,6 +251,7 @@ function VRChatCard({ entry }: { entry: CalendarPreview['vrChat'] }) {
         <Row label="Tags">{join(entry.tags)}</Row>
         <Row label="VRChat image id">{entry.imageId && <span className="font-mono">{entry.imageId}</span>}</Row>
         <Row label="Notify group members">{entry.notify ? 'Yes' : 'No'}</Row>
+        <Row label="Featured">{entry.featured ? 'Yes' : 'No'}</Row>
         {entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>}
       </div>
     </Place>

@@ -2252,7 +2252,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.MentionRoleId).HasColumnType("text");
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.MadeOnVRChat).HasColumnName("made_on_vrchat");
-            entity.Property(e => e.VRChatFeatured).HasColumnName("vrchat_featured");
+            // Every event before 2026-10-02 repeated every day, week or month, never further apart.
+            entity.Property(e => e.RepeatEvery).HasDefaultValue(1);
             entity.Property(e => e.VRChatHostEarlyJoinMinutes).HasColumnName("vrchat_host_early_join_minutes");
             entity.Property(e => e.VRChatGuestEarlyJoinMinutes).HasColumnName("vrchat_guest_early_join_minutes");
             entity.Property(e => e.VRChatCloseInstanceAfterEndMinutes).HasColumnName("vrchat_close_instance_after_end_minutes");

@@ -29,9 +29,10 @@ public class CalendarVRChatCopyTests
     }
 
     [Fact]
-    public void AnEndAfterSoManyTimesBecomesTheLastDate()
+    public void AnEndAfterSoManyTimesIsKeptAsThatManyTimes()
     {
-        var e = new CalendarEvent();
+        // Until 2026-10-02 it was counted out to a last date, as Modbot had no number of times.
+        var e = new CalendarEvent { RepeatUntil = new DateOnly(2027, 1, 1) };
         var rule = new CalendarEventRecurrence(
             frequency: CalendarEventFrequency.Weekly,
             interval: 1,
@@ -40,7 +41,34 @@ public class CalendarVRChatCopyTests
 
         CalendarVRChatCopy.Onto(e, Series(rule));
 
-        Assert.Equal(new DateOnly(2026, 8, 8), e.RepeatUntil);
+        Assert.Equal(3, e.RepeatTimes);
+        Assert.Null(e.RepeatUntil);
+    }
+
+    [Fact]
+    public void EveryOtherWeekIsKept()
+    {
+        var e = new CalendarEvent();
+        var source = Series(new CalendarEventRecurrence(frequency: CalendarEventFrequency.Weekly, interval: 2, timezone: "UTC"));
+
+        Assert.Null(CalendarVRChatCopy.CannotKeep(source));
+
+        CalendarVRChatCopy.Onto(e, source);
+
+        Assert.Equal(CalendarRepeats.Weekly, e.Repeat);
+        Assert.Equal(2, e.RepeatEvery);
+        Assert.Null(e.RepeatTimes);
+    }
+
+    [Fact]
+    public void FeaturedIsCopiedAsVRChatHasIt()
+    {
+        var e = new CalendarEvent();
+        var source = FakeCalendar.Made("cal_one", "Movie", Start, TimeSpan.FromHours(2), Start, featured: true);
+
+        CalendarVRChatCopy.Onto(e, source);
+
+        Assert.True(e.Featured);
     }
 
     [Fact]
@@ -59,7 +87,7 @@ public class CalendarVRChatCopyTests
     }
 
     [Theory]
-    [InlineData(CalendarEventFrequency.Weekly, 2)]
+    [InlineData(CalendarEventFrequency.Weekly, CalendarRepeats.MaxEvery + 1)]
     [InlineData(CalendarEventFrequency.Yearly, 1)]
     public void ARuleModbotCannotHoldIsSaidSo(CalendarEventFrequency frequency, int interval)
     {

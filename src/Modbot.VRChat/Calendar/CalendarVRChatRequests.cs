@@ -26,9 +26,24 @@ public static class CalendarVRChatRequests
     {
         ArgumentNullException.ThrowIfNull(e);
 
-        return CalendarFingerprint.Of(
+        List<object?> parts =
+        [
             e.Title, e.Description, e.StartsAt, e.EndsAt, e.TimeZone, e.Repeat, e.RepeatDays, e.RepeatUntil?.ToString("O", CultureInfo.InvariantCulture),
-            e.Category, e.Languages, e.Platforms, e.Tags, e.Visibility, e.VRChatImageId, e.NotifyMembers);
+            e.Category, e.Languages, e.Platforms, e.Tags, e.Visibility, e.VRChatImageId, e.NotifyMembers,
+        ];
+
+        // Added 2026-10-02, and only when not what every event sent before then, so an event that
+        // uses none of them keeps the fingerprint it was published with and is not written again.
+        if (e.Repeat != CalendarRepeats.None && CalendarRepeat.EveryOf(e) > 1)
+            parts.AddRange(["every", CalendarRepeat.EveryOf(e)]);
+
+        if (e.Repeat != CalendarRepeats.None && e.RepeatTimes is { } times)
+            parts.AddRange(["times", times]);
+
+        if (e.Featured)
+            parts.Add("featured");
+
+        return CalendarFingerprint.Of([.. parts]);
     }
 
     public static CreateCalendarEventRequest Create(CalendarEvent e)
@@ -42,7 +57,7 @@ public static class CalendarVRChatRequests
             closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             description: e.Description ?? string.Empty,
             endsAt: ends,
-            featured: e.VRChatFeatured ?? false,
+            featured: e.Featured,
             guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
             hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
             imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
@@ -62,7 +77,8 @@ public static class CalendarVRChatRequests
     /// The SDK always sends <c>featured</c> and <c>usesInstanceOverflow</c>, as false when not given
     /// (checked 2026-09-27), and leaves out the minutes when they are 0 and the roles when null. So
     /// what VRChat said for an event read from its calendar is sent back as it was, and an edit made
-    /// in Modbot does not switch those settings off.
+    /// in Modbot does not switch those settings off. Featured is the form's own since 2026-10-02,
+    /// and is always sent as the form has it.
     /// </remarks>
     public static CalendarUpdateBody Update(CalendarEvent e)
     {
@@ -81,7 +97,7 @@ public static class CalendarVRChatRequests
             CloseInstanceAfterEndMinutes = e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             Description = e.Description ?? string.Empty,
             EndsAt = ends,
-            Featured = e.VRChatFeatured ?? false,
+            Featured = e.Featured,
             GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
             HostEarlyJoinMinutes = e.VRChatHostEarlyJoinMinutes ?? 0,
             ImageId = string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
@@ -178,20 +194,42 @@ public static class CalendarVRChatRequests
             ? CalendarRepeat.WeeklyDays(e, zone).Select(d => Enum.Parse<CalendarDayOfWeek>(CalendarRepeat.DayName(d))).ToList()
             : null;
 
-        // VRChat asks for the end date "without timezone or offset": the last moment of the last
-        // day, as wall-clock time in the event's zone.
-        var end = e.RepeatUntil is { } until
-            ? new CalendarEventRecurrenceEnd(
-                date: until.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T23:59:59",
-                type: CalendarEventRecurrenceEndType.AfterDate)
-            : null;
-
         return new CalendarEventRecurrence(
             daysOfWeek: days!,
-            end: end!,
+            end: End(e)!,
             frequency: frequency.Value,
-            interval: 1,
+            interval: CalendarRepeat.EveryOf(e),
             timezone: zone.Id);
+    }
+
+    /// <summary>
+    /// When the series VRChat is sent stops: after a date, after a number of times, or never (null).
+    /// </summary>
+    /// <remarks>
+    /// VRChat asks for the end date "without timezone or offset": the last moment of the last day,
+    /// as wall-clock time in the event's zone. A number of times is VRChat's own
+    /// <c>afterOccurrences</c>, counted from where the series sent starts (<see cref="SeriesStartsAt"/>):
+    /// the dates before it are not in what VRChat is sent, so they come off the number.
+    /// </remarks>
+    private static CalendarEventRecurrenceEnd? End(CalendarEvent e)
+    {
+        if (e.RepeatUntil is { } until)
+        {
+            return new CalendarEventRecurrenceEnd(
+                date: until.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + "T23:59:59",
+                type: CalendarEventRecurrenceEndType.AfterDate);
+        }
+
+        if (e.RepeatTimes is { } times)
+        {
+            var left = Math.Clamp(times, 1, CalendarRepeats.MaxTimes) - CalendarRepeat.PlannedBefore(e, SeriesStartsAt(e));
+
+            return new CalendarEventRecurrenceEnd(
+                count: Math.Max(left, 1),
+                type: CalendarEventRecurrenceEndType.AfterOccurrences);
+        }
+
+        return null;
     }
 
     private static CalendarEventCategory Category(string category) => category switch

@@ -2180,11 +2180,17 @@ function repeats(data: Record<string, unknown> | null): React.ReactNode {
   return data && data['repeat'] && data['repeat'] !== 'none' ? `, repeating ${repeatWords(data)}` : null
 }
 
-/** "every Monday and Friday", "every day", or "not at all". */
+/**
+ * "every Monday and Friday", "every 2 weeks on Monday", "every day, 6 times", or "not at all".
+ * Facts from before 2026-10-02 carry no `repeatEvery` or `repeatTimes`, and read as every one.
+ */
 function repeatWords(data: Record<string, unknown>): string {
   const repeat = data['repeat']
-  if (repeat === 'daily') return 'every day'
-  if (repeat === 'monthly') return 'every month'
+  const every = typeof data['repeatEvery'] === 'number' && data['repeatEvery'] > 1 ? data['repeatEvery'] : 1
+  const times = typeof data['repeatTimes'] === 'number' ? `, ${data['repeatTimes']} times` : ''
+
+  if (repeat === 'daily') return (every > 1 ? `every ${every} days` : 'every day') + times
+  if (repeat === 'monthly') return (every > 1 ? `every ${every} months` : 'every month') + times
   if (repeat !== 'weekly') return 'not at all'
 
   const days = typeof data['repeatDays'] === 'string' ? data['repeatDays'] : ''
@@ -2193,7 +2199,9 @@ function repeatWords(data: Record<string, unknown>): string {
     .map((d) => DAY_NAMES[d.trim()])
     .filter((d): d is string => !!d)
 
-  return named.length > 0 ? `every ${list(named)}` : 'every week'
+  if (every > 1) return `every ${every} weeks${named.length > 0 ? ` on ${list(named)}` : ''}${times}`
+
+  return (named.length > 0 ? `every ${list(named)}` : 'every week') + times
 }
 
 /** "a, b and c". */
@@ -2311,7 +2319,9 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   timeZone: { word: 'the time zone', show: plain },
   repeat: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },
   repeatDays: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },
+  repeatEvery: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },
   repeatUntil: { word: 'the last date', show: plain },
+  repeatTimes: { word: 'how many times it repeats', show: plain },
   worldId: { say: (was, now) => (now ? (was ? 'the world' : 'a world added') : 'the world taken off') },
   worldListId: { say: (_, now) => (now ? 'the world list' : 'the world list taken off') },
   accessType: { word: 'who can join', show: (v) => ACCESS_WORDS[String(v)] ?? plain(v) },
@@ -2321,6 +2331,7 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   tags: { word: 'the tags', show: plain },
   visibility: { word: 'who can see it', show: plain },
   notifyMembers: { toggle: 'notifying members' },
+  featured: { toggle: 'Featured' },
   publishToVRChat: { toggle: "VRChat's calendar" },
   publishToDiscord: { toggle: 'the Discord event' },
   postToChannel: { toggle: 'the channel post' },

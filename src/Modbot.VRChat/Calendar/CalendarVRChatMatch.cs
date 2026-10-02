@@ -115,7 +115,9 @@ public static class CalendarVRChatMatch
             calendarEvent.TimeZone,
             calendarEvent.Repeat,
             [.. calendarEvent.RepeatDays],
-            calendarEvent.RepeatUntil));
+            calendarEvent.RepeatUntil,
+            calendarEvent.RepeatEvery,
+            calendarEvent.RepeatTimes));
     }
 
     /// <summary>
@@ -156,6 +158,8 @@ public static class CalendarVRChatMatch
             Repeat = sent.Repeat,
             RepeatDays = [.. sent.RepeatDays ?? []],
             RepeatUntil = sent.RepeatUntil,
+            RepeatEvery = sent.RepeatEvery ?? 1,
+            RepeatTimes = sent.RepeatTimes,
         };
     }
 
@@ -199,7 +203,9 @@ public static class CalendarVRChatMatch
         string TimeZone,
         string Repeat,
         List<string>? RepeatDays,
-        DateOnly? RepeatUntil);
+        DateOnly? RepeatUntil,
+        int? RepeatEvery = null,
+        int? RepeatTimes = null);
 
     private static bool Far(DateTimeOffset a, DateTimeOffset b) => (a - b).Duration() >= SameTime;
 

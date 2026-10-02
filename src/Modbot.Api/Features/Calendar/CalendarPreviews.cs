@@ -181,9 +181,17 @@ public static class CalendarPreviews
                     frequency,
                     Texts(recurrence["daysOfWeek"]),
                     Text((recurrence["end"] as JsonObject)?["date"]),
-                    Text(recurrence["timezone"])),
-            notify);
+                    Text(recurrence["timezone"]),
+                    Number(recurrence["interval"]) ?? 1,
+                    Text((recurrence["end"] as JsonObject)?["type"]) == "afterOccurrences"
+                        ? Number((recurrence["end"] as JsonObject)?["count"])
+                        : null),
+            notify,
+            sent["featured"] is JsonValue featured && featured.TryGetValue<bool>(out var on) && on);
     }
+
+    private static int? Number(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<int>(out var number) ? number : null;
 
     private static DateTimeOffset Utc(DateTime value) =>
         new(DateTime.SpecifyKind(value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : value, DateTimeKind.Utc));

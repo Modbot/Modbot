@@ -14,6 +14,7 @@ import {
   canOpenNow,
   PLACE_LABEL,
   PLACE_STATE_LABEL,
+  repeatEveryText,
   STATE_LABEL,
   worldAt,
   type CalendarEvent,
@@ -128,8 +129,9 @@ function EventBody({
 
       {event.repeat !== 'none' && (
         <div className="text-muted-foreground">
-          {{ daily: 'Every day', weekly: 'Every week', monthly: 'Every month' }[event.repeat]}
+          {repeatEveryText(event.repeat, event.repeatEvery ?? 1)}
           {event.repeatUntil ? `, until ${event.repeatUntil}` : ''}
+          {event.repeatTimes ? `, ${event.repeatTimes} times` : ''}
         </div>
       )}
 

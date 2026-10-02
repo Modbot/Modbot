@@ -29,6 +29,15 @@ namespace Modbot.Api.Features.Calendar;
 /// A Discord role the channel post mentions, pinged once per date when the date's post first goes
 /// up; null for none. Must be a role in the server that the bot may mention, and never @everyone.
 /// </param>
+/// <param name="RepeatEvery">
+/// How many days, weeks or months apart the repeat falls, 1 to 52: 2 with <c>weekly</c> is every
+/// other week. Null is 1.
+/// </param>
+/// <param name="RepeatTimes">
+/// Stop after this many dates, the first included, 1 to 500; null for no count. Not together with
+/// <paramref name="RepeatUntil"/>.
+/// </param>
+/// <param name="Featured">Ask VRChat to show the event as featured. Null keeps what the event has.</param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -62,7 +71,10 @@ public sealed record CalendarEventRequest(
     Guid? InviteListId = null,
     bool AnnounceFirstJoinInDiscord = false,
     bool AnnounceFirstJoinInVRChat = false,
-    string? MentionRoleId = null);
+    string? MentionRoleId = null,
+    int? RepeatEvery = null,
+    int? RepeatTimes = null,
+    bool? Featured = null);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -182,6 +194,9 @@ public sealed record CalendarVRChatPictureView(string FileId);
 /// <param name="CancelledDates">Dates of a repeating event cancelled on their own, inside the range asked for, at their planned times.</param>
 /// <param name="InviteListName">The invite list's name, or null when it has none or the list is gone.</param>
 /// <param name="Invites">How far the current time's invites have got; null before any were queued.</param>
+/// <param name="RepeatEvery">How many days, weeks or months apart the repeat falls; 1 for every one.</param>
+/// <param name="RepeatTimes">How many dates the repeat has before it stops, or null.</param>
+/// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -235,7 +250,10 @@ public sealed record CalendarEventView(
     bool AnnounceFirstJoinInDiscord = false,
     CalendarInvitesView? Invites = null,
     bool AnnounceFirstJoinInVRChat = false,
-    string? MentionRoleId = null);
+    string? MentionRoleId = null,
+    int RepeatEvery = 1,
+    int? RepeatTimes = null,
+    bool Featured = false);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
@@ -295,6 +313,7 @@ public sealed record CalendarPreviewView(
 /// <param name="ImageId">The VRChat file id for the picture, when one was given.</param>
 /// <param name="Repeat">The repeat VRChat is sent, or null for an event that does not repeat.</param>
 /// <param name="Notify">Whether VRChat is asked to notify the group's members. Only a first create can.</param>
+/// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
 public sealed record CalendarVRChatPreviewView(
     bool Update,
     string Title,
@@ -308,13 +327,25 @@ public sealed record CalendarVRChatPreviewView(
     IReadOnlyList<string> Tags,
     string? ImageId,
     CalendarVRChatRepeatView? Repeat,
-    bool Notify);
+    bool Notify,
+    bool Featured = false);
 
 /// <param name="Frequency">VRChat's word: <c>daily</c>, <c>weekly</c> or <c>monthly</c>.</param>
 /// <param name="Days">For weekly, VRChat's day names.</param>
 /// <param name="Until">The last day, as VRChat is sent it, or null.</param>
 /// <param name="TimeZone">The time zone the repeat is counted in.</param>
-public sealed record CalendarVRChatRepeatView(string Frequency, IReadOnlyList<string> Days, string? Until, string? TimeZone);
+/// <param name="Every">How many days, weeks or months apart, as VRChat's <c>interval</c>.</param>
+/// <param name="Times">
+/// How many times, as VRChat's "after N times" is sent: counted from where the series sent starts,
+/// so the dates already past are not in it. Null when it has no count.
+/// </param>
+public sealed record CalendarVRChatRepeatView(
+    string Frequency,
+    IReadOnlyList<string> Days,
+    string? Until,
+    string? TimeZone,
+    int Every = 1,
+    int? Times = null);
 
 /// <summary>What a calendar program reads from the feed for this event.</summary>
 /// <param name="CalendarName">The name the feed gives the calendar: the group's.</param>
