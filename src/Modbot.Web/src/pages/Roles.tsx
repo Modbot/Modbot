@@ -311,7 +311,7 @@ function RoleEditor({
                   ))}
                 </div>
 
-                {role && can(me, 'ManageUsers') && <RoleDiscordRoles roleId={role.id} />}
+                {role && role.position !== FIRST_POSITION && can(me, 'ManageUsers') && <RoleDiscordRoles roleId={role.id} />}
 
                 <ErrorText>{error}</ErrorText>
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Discord;
+using Modbot.Core.Users;
 using Modbot.Discord.Bot;
 
 namespace Modbot.Discord.Sync;
@@ -20,11 +21,11 @@ public sealed class StaffRoleRunner : IStaffRoleRunner
         _bot = bot;
     }
 
-    public async Task<StaffRolePass> ApplyAsync(CancellationToken ct = default)
+    public async Task<StaffRolePass> ApplyAsync(StaffRolePlan plan, CancellationToken ct = default)
     {
         using var scope = _scopes.CreateScope();
         var sync = scope.ServiceProvider.GetRequiredService<StaffRoleSync>();
 
-        return await sync.RunAsync(_bot.ReadyGateway, _bot.MembersRead, pastBrake: true, ct).ConfigureAwait(false);
+        return await sync.RunAsync(_bot.ReadyGateway, _bot.MembersRead, pastBrake: true, ct, plan).ConfigureAwait(false);
     }
 }

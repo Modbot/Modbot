@@ -113,7 +113,8 @@ A change shows on the person's next click; they don't need to sign in again.
 
 The bot needs **Manage roles** in your server, and its own role must be above the Discord role. A
 **Both ways** Discord role can't be one that can ban, kick, manage the server or manage roles, and
-can't also be in a [role pair](/discord/role-and-ban-sync) with a group role.
+can't also be in a [role pair](/discord/role-and-ban-sync) with a group role. If the Discord role
+gains one of those permissions later, the linked role becomes **Not set up**.
 
 When the bot can't give the role, or Discord refuses when it tries, the linked role says
 **Not set up**. Until you fix that it works as **Discord decides**: changes in Discord still reach
@@ -124,9 +125,10 @@ A **Both ways** Modbot role can have only one Discord role, so Modbot knows whic
 
 Whichever side changed is copied to the other, and a change Modbot made itself never bounces back.
 The first time a linked role is checked, whichever side holds the role gives it to the other, except
-for somebody who isn't in the server, or who connected a Discord account after the linked role was
-saved: for them Discord decides. Connecting a different Discord account never carries the role over
-to it.
+for somebody who connected a Discord account after the linked role was saved: for them Discord
+decides. Connecting a different Discord account never carries the role over to it. Somebody who
+isn't in the server always counts as not holding the Discord role, so they lose the Modbot role and
+Modbot never tries to give them the Discord role.
 
 ## Stopped: too many at once
 
@@ -134,7 +136,8 @@ If one check would take roles away from more than five accounts at once, or from
 the accounts it reaches (and at least three), Modbot takes nothing away, the card says **Stopped**,
 and **Apply** appears. This catches a Discord role deleted by mistake, or the bot losing sight of the
 member list. Press **Apply** to see the list, then **Apply** again to carry it out. You can only
-apply it if you could take each of those roles away by hand.
+apply it if you could make each of those changes by hand: every role and every account in the list
+must be below your own highest role.
 
 Giving roles goes on while it is stopped.
 

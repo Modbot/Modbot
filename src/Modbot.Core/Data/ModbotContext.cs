@@ -1463,12 +1463,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // One Discord role gives one Modbot role (staff roles from Discord design §2).
             entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_staff_role_discord");
-            entity.HasIndex(e => e.RoleId, "ix_discord_staff_role_role");
+            // Every row of a Modbot role, for the pass's grouping and the cascade when a role goes.
+            entity.HasIndex(e => e.RoleId, "ix_discord_staff_role_role")
+                .HasDatabaseName("ix_discord_staff_role_role");
 
             // A both-ways row is the only both-ways row for its Modbot role: giving the Modbot role
-            // has to say which Discord role to give. The save also refuses a both-ways row beside
-            // a one-way one, which an index cannot say.
+            // has to say which Discord role to give. A both-ways row beside a one-way row is
+            // something an index cannot say; the save refuses it under an advisory lock, so two
+            // saves at once cannot both pass the check.
             entity.HasIndex(e => e.RoleId, "ux_discord_staff_role_both_ways")
+                .HasDatabaseName("ux_discord_staff_role_both_ways")
                 .IsUnique()
                 .HasFilter("direction = 'both'");
 

@@ -174,6 +174,9 @@ public static class StaffRoleEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, ct);
+
                 var checkedBody = await CheckAsync(http, db, accounts, body, null, ct);
                 if (checkedBody.Refusal is { } refusal)
                     return refusal;
@@ -192,8 +195,6 @@ public static class StaffRoleEndpoints
 
                 var after = (await StaffRoles.RulesAsync(db, ct)).Append(Rule(mapping) with { SavedAt = null }).ToList();
                 var plan = await StaffRoles.PlanAsync(db, after, withNotes: false, now, ct);
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.DiscordStaffRoles.Add(mapping);
                 await db.SaveChangesAsync(ct);
@@ -230,6 +231,9 @@ public static class StaffRoleEndpoints
                 if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, [mapping.Role], ct) is { } outranked)
                     return outranked;
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, ct);
+
                 var checkedBody = await CheckAsync(http, db, accounts, body, id, ct);
                 if (checkedBody.Refusal is { } refusal)
                     return refusal;
@@ -243,8 +247,6 @@ public static class StaffRoleEndpoints
                     .Select(r => r.Id == id ? new StaffRoleRule(id, body.DiscordRoleId.Trim(), checkedBody.Role!.Id, body.Direction) : r)
                     .ToList();
                 var plan = await StaffRoles.PlanAsync(db, proposed, withNotes: false, clock.UtcNow, ct);
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 mapping.DiscordRoleId = body.DiscordRoleId.Trim();
                 mapping.DiscordRoleName = checkedBody.DiscordRole!.Name;
@@ -347,20 +349,26 @@ public static class StaffRoleEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
-                // Apply takes away what the brake held back, so the person pressing it must be
-                // allowed to take away every one of those roles by hand.
+                // Apply carries out what the brake held back, so the person pressing it must be
+                // allowed to make every one of those changes by hand: each role given or taken is
+                // below their highest role, and so is each account. The plan is worked out once and
+                // the runner carries out that same plan, so what was checked is what runs.
                 var plan = await StaffRoles.PlanAsync(db, null, withNotes: false, clock.UtcNow, ct);
-                var takenRoleIds = plan.Changes
-                    .Where(c => StaffRoleChangeKinds.TakesAway(c.What))
-                    .Select(c => c.RoleId)
-                    .Distinct()
-                    .ToList();
 
-                var takenRoles = await db.Roles.AsNoTracking().Where(r => takenRoleIds.Contains(r.Id)).ToListAsync(ct);
-                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, takenRoles, ct) is { } outranked)
+                var roleIds = plan.Changes.Select(c => c.RoleId).Distinct().ToList();
+                var changedRoles = await db.Roles.AsNoTracking().Where(r => roleIds.Contains(r.Id)).ToListAsync(ct);
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, changedRoles, ct) is { } outranked)
                     return outranked;
 
-                var pass = await runner.ApplyAsync(ct);
+                var userIds = plan.Changes.Where(c => c.UserId is not null).Select(c => c.UserId!.Value).Distinct().ToList();
+                var affected = await accounts.UsersWithRoles().AsNoTracking().Where(u => userIds.Contains(u.Id)).ToListAsync(ct);
+                foreach (var account in affected)
+                {
+                    if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, account, ct) is { } above)
+                        return above;
+                }
+
+                var pass = await runner.ApplyAsync(plan, ct);
 
                 await facts.RecordAsync(
                     FactType.StaffRolesApplied,
@@ -465,6 +473,16 @@ public static class StaffRoleEndpoints
 
         return new Checked(null, role, discordRole);
     }
+
+    /// <summary>
+    /// One save of a linked role at a time. The checks that only the code can make -- a both-ways
+    /// row alone for its Modbot role, beside no one-way row -- read other rows, so two saves at once
+    /// could each pass them; under this lock the second one reads what the first wrote.
+    /// </summary>
+    private static Task LockAsync(ModbotContext db, CancellationToken ct)
+        => db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({SaveLock}))", ct);
+
+    private const string SaveLock = "modbot.staff-roles.save";
 
     private static Checked Refuse(string sentence) => new(Results.BadRequest(new { error = sentence }), null, null);
 

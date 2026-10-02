@@ -136,8 +136,8 @@ public static class StaffRoles
     public static readonly TimeSpan RetryAfter = TimeSpan.FromDays(1);
 
     /// <summary>
-    /// Whether a both-ways mapping works: the bot may assign its Discord role, and Discord has not
-    /// refused it lately (design §3.1). Otherwise it is Not set up, everywhere: it works as Discord
+    /// Whether a both-ways mapping works: the bot may assign its Discord role, the role carries no
+    /// power over the server as last read, and Discord has not refused it lately (design §3.1). Otherwise it is Not set up, everywhere: it works as Discord
     /// decides and its role cannot be changed by hand.
     /// </summary>
     /// <param name="rolesChangedAt">
@@ -148,7 +148,9 @@ public static class StaffRoles
     {
         ArgumentNullException.ThrowIfNull(rule);
 
-        if (rule.Direction != StaffRoleDirections.Both || !BotCanGive(role))
+        // A Discord role that has come to carry power over the server since it was linked is never
+        // handed out again, whatever the save allowed then.
+        if (rule.Direction != StaffRoleDirections.Both || !BotCanGive(role) || IsPowerful(role!))
             return false;
 
         if (rule.RefusedAt is not { } refused)
@@ -300,7 +302,7 @@ public static class StaffRoles
             var works = both is not null && Works(both, discordRoles.GetValueOrDefault(both.DiscordRoleId), rolesChangedAt, now);
 
             if (both is not null && !works)
-                problems.Add($"Not set up: the bot cannot give {DiscordName(both.DiscordRoleId, discordRoles)}. Give it Manage Roles and keep its own role above that one.");
+                problems.Add($"Not set up: the bot cannot give {DiscordName(both.DiscordRoleId, discordRoles)} both ways.");
 
             byRole.Add((role, usable, both, works));
         }
@@ -322,7 +324,7 @@ public static class StaffRoles
 
         var members = await db.DiscordMembers.AsNoTracking()
             .Where(m => m.GuildId == guildId && (withNotes ? m.LeftAt == null || provenIds.Contains(m.UserId) : provenIds.Contains(m.UserId)))
-            .Select(m => new Member(m.UserId, m.DisplayName, m.Roles, m.LeftAt, m.UpdatedAt))
+            .Select(m => new Member(m.UserId, m.DisplayName, m.Roles, m.LeftAt))
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -381,18 +383,33 @@ public static class StaffRoles
                 {
                     var discordRoleName = DiscordName(both!.DiscordRoleId, discordRoles);
 
-                    // With nothing agreed, Discord decides when the account is not in the server, and
-                    // when it proved its Discord account after the mapping was saved: a new or
-                    // re-proven Discord account is not a reason to hand it the Discord role.
-                    var discordDecides = !inServer || (both.SavedAt is { } saved && user.DiscordVerifiedAt > saved);
+                    // Not in the server: holding no Discord role, whatever was agreed, and Discord
+                    // decides. The Modbot role goes, and nothing is ever given in a server the
+                    // person is not in.
+                    if (!inServer)
+                    {
+                        if (modbotHeld)
+                        {
+                            changes.Add(new StaffRoleChange(
+                                StaffRoleChangeKinds.Take, user.Id, user.Username, user.DiscordUserId, role.Id, role.Name,
+                                both.DiscordRoleId, discordRoleName, both.Id, !heldRole!.FromDiscord,
+                                "They are not in the Discord server."));
+                        }
+
+                        continue;
+                    }
+
+                    // With nothing agreed, Discord decides when the account proved its Discord
+                    // account after the mapping was saved: a new or re-proven Discord account is not
+                    // a reason to hand it the Discord role.
+                    var discordDecides = both.SavedAt is { } saved && user.DiscordVerifiedAt > saved;
 
                     var plan = BothWays(
                         states.GetValueOrDefault((both.Id, user.Id)),
                         user.DiscordUserId,
                         discordDecides,
                         discordHeld,
-                        modbotHeld,
-                        DiscordChangedAt(member));
+                        modbotHeld);
 
                     switch (plan)
                     {
@@ -407,7 +424,7 @@ public static class StaffRoles
                                 both.DiscordRoleId, discordRoleName, both.Id, false,
                                 discordHeld
                                     ? $"They hold {discordRoleName} in Discord."
-                                    : inServer ? $"{discordRoleName} was taken away in Discord." : "They are not in the Discord server."));
+                                    : $"{discordRoleName} was taken away in Discord."));
                             break;
 
                         case BothWaysStep.FollowModbot:
@@ -471,21 +488,26 @@ public static class StaffRoles
     /// <param name="discordUserId">The Discord account the account proves now. An agreement about another one does not count.</param>
     /// <param name="discordDecidesWithoutAgreement">
     /// With nothing agreed, follow Discord rather than give the role to whichever side lacks it: the
-    /// account is not in the server, or its Discord account is new since the mapping was saved.
+    /// account's Discord account is new since the mapping was saved. (Somebody not in the server
+    /// never reaches here: they hold no Discord role and Discord decides.)
     /// </param>
-    /// <param name="discordChangedAt">
-    /// When the member's row last changed. Discord's side counts as changed only when the row has
-    /// changed since the agreement: until the update for the bot's own change comes back, the row
-    /// still shows the old roles, and reading that as a change would bounce the role back.
-    /// </param>
-    /// <remarks>Pure, so the table in the design is tested as a table.</remarks>
+    /// <remarks>
+    /// <para>
+    /// <strong>Held roles are compared, not times.</strong> Each side is compared with what was
+    /// agreed. The row's change time is not used: voice and name updates move it too, and a stamp
+    /// taken from the clock when the agreement is written would hide a Discord change that landed
+    /// between the plan's read and that write. What stops the bot's own change bouncing back is that
+    /// the pass writes that change into the stored member row as it makes it, so the row already
+    /// agrees before Discord's update arrives.
+    /// </para>
+    /// <para>Pure, so the table in the design is tested as a table.</para>
+    /// </remarks>
     public static BothWaysStep BothWays(
         DiscordStaffRoleState? state,
         string discordUserId,
         bool discordDecidesWithoutAgreement,
         bool discordHeld,
-        bool modbotHeld,
-        DateTimeOffset? discordChangedAt)
+        bool modbotHeld)
     {
         if (state is not null && !string.Equals(state.DiscordUserId, discordUserId, StringComparison.Ordinal))
             state = null;
@@ -503,7 +525,7 @@ public static class StaffRoles
             return discordHeld ? BothWaysStep.FollowDiscord : BothWaysStep.FollowModbot;
         }
 
-        var discordChanged = discordHeld != state.Held && (discordChangedAt is null || discordChangedAt > state.AgreedAt);
+        var discordChanged = discordHeld != state.Held;
         var modbotChanged = modbotHeld != state.Held;
 
         if (!discordChanged && !modbotChanged)
@@ -565,9 +587,6 @@ public static class StaffRoles
         return notes;
     }
 
-    private static DateTimeOffset? DiscordChangedAt(Member? member)
-        => member is null ? null : member.LeftAt is { } left && left > member.UpdatedAt ? left : member.UpdatedAt;
-
     private static DateTimeOffset? LatestChange(Dictionary<string, DiscordRole> roles)
         => roles.Count == 0 ? null : roles.Values.Max(r => r.UpdatedAt);
 
@@ -591,5 +610,5 @@ public static class StaffRoles
         }
     }
 
-    private sealed record Member(string UserId, string DisplayName, string Roles, DateTimeOffset? LeftAt, DateTimeOffset UpdatedAt);
+    private sealed record Member(string UserId, string DisplayName, string Roles, DateTimeOffset? LeftAt);
 }

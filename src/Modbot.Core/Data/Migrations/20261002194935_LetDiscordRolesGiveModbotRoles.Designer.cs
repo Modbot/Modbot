@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002193401_LetDiscordRolesGiveModbotRoles")]
+    [Migration("20261002194935_LetDiscordRolesGiveModbotRoles")]
     partial class LetDiscordRolesGiveModbotRoles
     {
         /// <inheritdoc />
@@ -2869,11 +2869,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ux_discord_staff_role_discord");
 
                     b.HasIndex(new[] { "RoleId" }, "ix_discord_staff_role_role")
-                        .HasDatabaseName("ix_discord_staff_role_role_id");
+                        .HasDatabaseName("ix_discord_staff_role_role");
 
                     b.HasIndex(new[] { "RoleId" }, "ux_discord_staff_role_both_ways")
                         .IsUnique()
-                        .HasDatabaseName("ix_discord_staff_role_role_id1")
+                        .HasDatabaseName("ux_discord_staff_role_both_ways")
                         .HasFilter("direction = 'both'");
 
                     b.ToTable("discord_staff_role", (string)null);

@@ -55,6 +55,7 @@ internal static class SyncSetUp
             GuildId = Guild,
             Name = "Staff",
             BotCanAssign = true,
+            Permissions = 0,
             FirstSeenAt = services.Clock.UtcNow,
             UpdatedAt = services.Clock.UtcNow,
         });

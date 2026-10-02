@@ -1,3 +1,5 @@
+using Modbot.Core.Users;
+
 namespace Modbot.Core.Discord;
 
 /// <summary>What one staff role pass did (staff roles from Discord design §6).</summary>
@@ -21,13 +23,17 @@ public sealed record StaffRolePass(int Given, int Taken, int Left, bool Held, in
 /// </remarks>
 public interface IStaffRoleRunner
 {
-    /// <summary>One pass now, carried out even when it would take roles from many accounts.</summary>
-    Task<StaffRolePass> ApplyAsync(CancellationToken ct = default);
+    /// <summary>
+    /// Carries out this plan now, even when it takes roles from many accounts. The plan is the one
+    /// the person pressing Apply was checked against; each change is still checked again as it is
+    /// made.
+    /// </summary>
+    Task<StaffRolePass> ApplyAsync(StaffRolePlan plan, CancellationToken ct = default);
 }
 
 /// <summary>A process with no Discord bot.</summary>
 public sealed class NoStaffRoleRunner : IStaffRoleRunner
 {
-    public Task<StaffRolePass> ApplyAsync(CancellationToken ct = default)
+    public Task<StaffRolePass> ApplyAsync(StaffRolePlan plan, CancellationToken ct = default)
         => Task.FromResult(StaffRolePass.Nothing with { Problem = "The Discord bot is not running." });
 }

@@ -499,12 +499,132 @@ public class StaffRoleSyncTests
         Assert.Equal(0, stale.Given + stale.Taken);
         Assert.NotNull(await HeldAsync(services, account.Id, Moderator));
 
+        // The pass wrote its own change into the stored member row as it made it.
+        await using (var db = services.Database.NewContext())
+        {
+            var row = await db.DiscordMembers.AsNoTracking().FirstAsync(m => m.UserId == Member, Ct);
+            Assert.Contains(SyncSetUp.DiscordRole, JsonSerializer.Deserialize<string[]>(row.Roles)!);
+        }
+
         // Discord's update arrives.
         await DiscordSaysAsync(services, Member, SyncSetUp.DiscordRole);
         services.Clock.Advance(TimeSpan.FromMinutes(1));
         var after = await PassAsync(services, gateway);
         Assert.Equal(0, after.Given + after.Taken);
         Assert.Single(gateway.RoleChanges);
+    }
+
+    /// <summary>
+    /// The race: Discord gave the role between the plan's read and the agreement's write, so the
+    /// agreement says not held and is stamped after the member row last changed. Held roles are
+    /// compared, not times, so the next pass still sees Discord's change and follows it.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysADiscordChangeBetweenReadAndWriteIsStillSeen()
+    {
+        await using var services = await OnAsync(_db);
+        var mappingId = await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordStaffRoleStates.Add(new DiscordStaffRoleState
+            {
+                MappingId = mappingId,
+                UserId = account.Id,
+                DiscordUserId = Member,
+                Held = false,
+                AgreedAt = services.Clock.UtcNow.AddHours(1),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.NotNull(await HeldAsync(services, account.Id, Moderator));
+    }
+
+    /// <summary>
+    /// Agreed not held, then they left the server, and somebody gave the Modbot role by hand: not
+    /// in the server is holding no Discord role, whatever was agreed, so the role goes and nothing
+    /// is sent to Discord.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysSomebodyWhoLeftTheServerIsNeverGivenTheDiscordRole()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await InServerAsync(services, Member);
+        await PassAsync(services); // Neither holds it: agreed not held.
+
+        await using (var db = services.Database.NewContext())
+        {
+            var at = services.Clock.UtcNow;
+            await db.DiscordMembers.Where(m => m.UserId == Member).ExecuteUpdateAsync(u => u.SetProperty(m => m.LeftAt, at), Ct);
+        }
+
+        await GiveByHandAsync(services, account.Id, Moderator);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+    }
+
+    [Fact]
+    public async Task BothWaysADiscordRoleThatBecamePowerfulIsNeverGiven()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await GiveByHandAsync(services, account.Id, Moderator);
+        await InServerAsync(services, Member);
+
+        await using (var db = services.Database.NewContext())
+        {
+            await db.DiscordRoles.Where(r => r.RoleId == SyncSetUp.DiscordRole)
+                .ExecuteUpdateAsync(u => u.SetProperty(r => r.Permissions, 1L << 2), Ct);
+        }
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        // Not set up, so Discord decides: no Discord give, and the hand-given role goes.
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+        Assert.StartsWith("Not set up", pass.Problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A role given by hand in Modbot and agreed both ways goes with the link: taking the Discord
+    /// account off takes it, the same as a role Discord gave.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysTakingTheDiscordAccountOffTakesAHandGivenAgreedRole()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await GiveByHandAsync(services, account.Id, Moderator);
+        await InServerAsync(services, Member);
+        await PassAsync(services); // Modbot holds it: the bot gives the Discord role, both agree.
+
+        Assert.True((await HeldAsync(services, account.Id, Moderator))!.FromDiscord);
+
+        await using (var db = services.Database.NewContext())
+        {
+            await db.Users.Where(u => u.Id == account.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DiscordUserId, (string?)null).SetProperty(x => x.DiscordVerifiedAt, (DateTimeOffset?)null), Ct);
+        }
+
+        await PassAsync(services);
+
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
     }
 
     [Fact]

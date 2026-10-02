@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
@@ -66,7 +67,12 @@ public sealed class StaffRoleSync
     /// <summary>One pass.</summary>
     /// <param name="membersRead">This connection has compared the member list. Nothing happens until it has.</param>
     /// <param name="pastBrake">Carry it out even when it would take roles from many accounts: the Apply button.</param>
-    public async Task<StaffRolePass> RunAsync(IDiscordGateway? gateway, bool membersRead, bool pastBrake, CancellationToken ct)
+    /// <param name="checkedPlan">
+    /// The plan the Apply button checked the presser against, carried out as it is rather than
+    /// worked out again, so what was checked is what runs. Null works it out now.
+    /// </param>
+    public async Task<StaffRolePass> RunAsync(
+        IDiscordGateway? gateway, bool membersRead, bool pastBrake, CancellationToken ct, StaffRolePlan? checkedPlan = null)
     {
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -81,7 +87,7 @@ public sealed class StaffRoleSync
             return StaffRolePass.Nothing with { Problem = pastBrake ? "The bot has not read the server's member list yet." : null };
 
         var guildId = settings.DiscordGuildId.Trim();
-        var plan = await StaffRoles.PlanAsync(_db, null, withNotes: false, _clock.UtcNow, ct).ConfigureAwait(false);
+        var plan = checkedPlan ?? await StaffRoles.PlanAsync(_db, null, withNotes: false, _clock.UtcNow, ct).ConfigureAwait(false);
         var losing = plan.AccountsLosing;
 
         // The brake holds back taking only. Giving goes ahead: a pass held for Apply must not also
@@ -279,6 +285,24 @@ public sealed class StaffRoleSync
         if (!stillMapped || !await SwitchOnAsync(ct).ConfigureAwait(false))
             return (false, null);
 
+        // The Discord role as the server index reads it now: still one the bot may give, and still
+        // with no power over the server. A role that gained Ban or Manage Roles since the plan is
+        // never handed out (StaffRoles.Works makes the link Not set up from the next pass).
+        var discordRole = await _db.DiscordRoles.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.GuildId == guildId && r.RoleId == discordRoleId, ct)
+            .ConfigureAwait(false);
+
+        if (!StaffRoles.BotCanGive(discordRole) || StaffRoles.IsPowerful(discordRole!))
+            return (false, null);
+
+        // Never anything in a server the person is not in.
+        var member = await _db.DiscordMembers
+            .FirstOrDefaultAsync(m => m.GuildId == guildId && m.UserId == discordUserId && m.LeftAt == null, ct)
+            .ConfigureAwait(false);
+
+        if (member is null)
+            return (false, null);
+
         var outcome = await gateway.ChangeRoleAsync(guildId, discordUserId, discordRoleId, give, Reason, ct).ConfigureAwait(false);
 
         // Gone from the server between the read and the write: the next pass sees it as Discord's
@@ -301,6 +325,15 @@ public sealed class StaffRoleSync
         if (outcome.Done)
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+            // The bot's own change goes into the stored member row now, before Discord's update
+            // for it arrives, so the row already agrees and the next pass cannot read the old roles
+            // as Discord changing its mind (StaffRoles.BothWays compares held roles, not times).
+            var heldNow = Ids(member.Roles);
+            if (give) heldNow.Add(discordRoleId); else heldNow.Remove(discordRoleId);
+            member.Roles = JsonSerializer.Serialize(heldNow.Order(StringComparer.Ordinal).ToArray());
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
             await AgreeAsync(mappingId, userId, discordUserId, give, ct).ConfigureAwait(false);
             await SetProblemAsync(mappingId, null, refusedAt: null, ct).ConfigureAwait(false);
             await WriteAsync(give ? FactType.CopiedRoleGiven : FactType.CopiedRoleTaken, FactPlatform.Discord, discordUserId, data, ct).ConfigureAwait(false);
@@ -330,6 +363,25 @@ public sealed class StaffRoleSync
     private async Task AgreeAsync(Guid mappingId, Guid userId, string discordUserId, bool held, CancellationToken ct)
     {
         var now = _clock.UtcNow;
+
+        // Agreed as held: the role now goes with the link, so taking the Discord account off takes
+        // it too, whether it was first given here by hand or in Discord (design §3.1, §5).
+        if (held)
+        {
+            var roleId = await _db.DiscordStaffRoles.AsNoTracking()
+                .Where(m => m.Id == mappingId)
+                .Select(m => (Guid?)m.RoleId)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            if (roleId is { } linked)
+            {
+                await _db.UserRoles
+                    .Where(r => r.UserId == userId && r.RoleId == linked && !r.FromDiscord)
+                    .ExecuteUpdateAsync(u => u.SetProperty(r => r.FromDiscord, true), ct)
+                    .ConfigureAwait(false);
+            }
+        }
 
         var updated = await _db.DiscordStaffRoleStates
             .Where(s => s.MappingId == mappingId && s.UserId == userId)
@@ -373,7 +425,7 @@ public sealed class StaffRoleSync
             return false;
 
         var mapped = await _db.DiscordStaffRoles.AsNoTracking()
-            .AnyAsync(m => m.Id == mappingId && m.RoleId == change.RoleId, ct)
+            .AnyAsync(m => m.Id == mappingId && m.RoleId == change.RoleId && m.DiscordRoleId == change.DiscordRoleId, ct)
             .ConfigureAwait(false);
 
         return mapped && await SwitchOnAsync(ct).ConfigureAwait(false);
@@ -427,6 +479,18 @@ public sealed class StaffRoleSync
         }
 
         return state;
+    }
+
+    private static HashSet<string> Ids(string json)
+    {
+        try
+        {
+            return (JsonSerializer.Deserialize<string[]>(json) ?? []).ToHashSet(StringComparer.Ordinal);
+        }
+        catch (JsonException)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
     }
 
     private static string Stopped(int losing)

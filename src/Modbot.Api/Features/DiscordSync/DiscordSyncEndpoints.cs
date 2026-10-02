@@ -202,6 +202,14 @@ public static class DiscordSyncEndpoints
                 if (taken)
                     return Results.BadRequest(new { error = "One of those roles is already paired with another." });
 
+                // A Discord role a linked role gives and takes both ways is that sync's to write;
+                // two syncs writing one role would undo each other (staff roles from Discord §3.1).
+                if (await db.DiscordStaffRoles.AsNoTracking()
+                        .AnyAsync(m => m.DiscordRoleId == discordRoleId && m.Direction == StaffRoleDirections.Both, ct))
+                {
+                    return Results.BadRequest(new { error = LinkedBothWays });
+                }
+
                 var now = clock.UtcNow;
 
                 var pair = new DiscordRolePair
@@ -262,6 +270,14 @@ public static class DiscordSyncEndpoints
 
                 if (taken)
                     return Results.BadRequest(new { error = "One of those roles is already paired with another." });
+
+                // A Discord role a linked role gives and takes both ways is that sync's to write;
+                // two syncs writing one role would undo each other (staff roles from Discord §3.1).
+                if (await db.DiscordStaffRoles.AsNoTracking()
+                        .AnyAsync(m => m.DiscordRoleId == discordRoleId && m.Direction == StaffRoleDirections.Both, ct))
+                {
+                    return Results.BadRequest(new { error = LinkedBothWays });
+                }
 
                 var pairBefore = Describe(pair);
 
@@ -348,6 +364,8 @@ public static class DiscordSyncEndpoints
     }
 
     // ── Pieces ─────────────────────────────────────────────────────────────────────────────
+
+    internal const string LinkedBothWays = "That Discord role is linked to a Modbot role both ways, so it cannot be paired.";
 
     /// <summary>One pair in the words the audit log shows: "Staff with Staff, decided by vrchat, on".</summary>
     private static string Describe(DiscordRolePair pair)

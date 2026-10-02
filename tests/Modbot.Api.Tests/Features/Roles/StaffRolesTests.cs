@@ -240,6 +240,26 @@ public class StaffRolesTests
     }
 
     [Fact]
+    public async Task AGroupRolePairCannotUseADiscordRoleLinkedBothWays()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper | ModbotPermissions.ManageDiscordSync, Ct);
+        await ServerAsync(host);
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, BuiltInRoles.ModeratorId, "both"), cookie, Ct)).StatusCode);
+
+        var pair = await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/discord-sync/pairs",
+            new { vrchatRoleId = "grol_staff", discordRoleId = Staff, decides = "vrchat", enabled = true },
+            cookie,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, pair.StatusCode);
+    }
+
+    [Fact]
     public async Task TwoBothWaysRowsForOneRoleAreRefusedByTheDatabaseToo()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
@@ -303,6 +323,35 @@ public class StaffRolesTests
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Empty(await host.FactsAsync(FactType.StaffRolesApplied, "staff-roles", Ct));
+    }
+
+    /// <summary>
+    /// The role Apply would take is below the presser, but the account losing it is not: an
+    /// account at or above you is not yours to change, by hand or by Apply.
+    /// </summary>
+    [Fact]
+    public async Task ApplyIsRefusedWhenAnAffectedAccountIsAboveThePresser()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        await ServerAsync(host, on: true);
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, BuiltInRoles.ModeratorId), cookie, Ct)).StatusCode);
+
+        var staff = await StaffMemberAsync(host, Member);
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var high = await TestAccounts.RoleForAsync(db, Mapper | ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
+            db.UserRoles.Add(new ModbotUserRole { UserId = staff.Id, RoleId = BuiltInRoles.ModeratorId });
+            db.UserRoles.Add(new ModbotUserRole { UserId = staff.Id, RoleId = high });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path + "/apply", null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

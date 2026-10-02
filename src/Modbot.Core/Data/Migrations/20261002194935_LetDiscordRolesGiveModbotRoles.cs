@@ -104,12 +104,12 @@ namespace Modbot.Core.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_discord_staff_role_role_id",
+                name: "ix_discord_staff_role_role",
                 table: "discord_staff_role",
                 column: "role_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_discord_staff_role_role_id1",
+                name: "ux_discord_staff_role_both_ways",
                 table: "discord_staff_role",
                 column: "role_id",
                 unique: true,
