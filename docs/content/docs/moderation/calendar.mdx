@@ -130,7 +130,7 @@ Click an event in any view. It opens in a small box beside it, showing:
 - **Instance**, once Modbot has tried to open one: **Opening** while it waits for VRChat, **Open**
   or **Closed** (click it for the [instance popup](/moderation/popups#instance-popup)), and a
   **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red,
-  with **Try again** while the instance can still be opened;
+  and **Open now** tries again while the instance can still be opened;
 - one line per place it is published, with its state: **Sending…** (with a turning mark) from the
   moment you save until it is done, then **Published**, or **Failed** with what went wrong and a
   **Try again** button. See [Try again](#try-again);
@@ -612,8 +612,8 @@ What Modbot does next depends on why it failed:
 ### Try again
 
 Every place that failed has a **Try again** button, for people with **Manage calendar**: the VRChat
-calendar, the Discord event, the channel post, the post saying the event is cancelled, one date's
-own change on VRChat, and the instance. It sends it again as it is, without editing the event, and
+calendar, the Discord event, the channel post, the post saying the event is cancelled, and one
+date's own change on VRChat. It sends it again as it is, without editing the event, and
 the place shows **Sending…** until it is done. Use it after fixing the cause outside Modbot, such
 as a permission in VRChat or Discord.
 
@@ -622,8 +622,7 @@ as a permission in VRChat or Discord.
 - Saving the event, even with nothing changed, does the same for every failed place at once: the old
   failure goes away as soon as you save, and the place shows **Sending…**. The one exception is
   *VRChat did not add the event.*, which only its own **Try again** sends.
-- For the instance, **Try again** is the same as [Open now](#open-now) and shows while Open now
-  would.
+- An instance that did not open is tried again with [Open now](#open-now).
 
 ## Discord
 
@@ -779,7 +778,7 @@ Once the instance is open, its join link goes onto the Discord event and the cha
 event shows it under **Instance**. When the instance closes, the link is taken off.
 
 **If VRChat refuses, Modbot does not try again** for that time by itself. The error shows on the
-event under **Instance**, with **Try again** while the time has not ended, and on
+event under **Instance**, with **Open now** to try again while the time has not ended, and on
 [Health](#on-health), and the event turns red. The next time the event happens gets its own attempt.
 
 **If the request never reached VRChat**, Modbot sends it again while the time has not ended: when it
@@ -1116,7 +1115,7 @@ Modbot's **Public address** is not set. Without it, the join link is at the top 
 event's description instead.
 
 **The instance did not open.** Check **Instance** on the event for VRChat's error. Modbot does not try
-again for that time by itself; fix the cause and press **Try again**, or open it yourself in VRChat.
+again for that time by itself; fix the cause and press **Open now**, or open it yourself in VRChat.
 The next time the event happens, Modbot tries again.
 
 **An event made on vrchat.com is not on the page.** Click **Refresh**. If it repeats every second

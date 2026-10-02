@@ -979,8 +979,8 @@ hidden otherwise, and a problem in a hidden box could not be fixed).
 ### 17.4 Try again
 
 - **Every failed place has Try again**, for people with **Manage calendar**: the VRChat calendar,
-  the Discord event, the channel post, the cancel post, one date's own VRChat change, and the
-  instance. It sends it again, as it is, without editing the event.
+  the Discord event, the channel post, the cancel post, and one date's own VRChat change. It sends
+  it again, as it is, without editing the event.
 - `POST /api/calendar/events/{id}/{place}/try-again`, `place` one of `vrchat`, `discordEvent`,
   `channelPost`, `cancelPost`; with `plannedStartsAt` in the body, one date of a repeating event on
   VRChat. The place goes back to waiting and the next pass sends it. The route is the one VRChat's
@@ -990,9 +990,10 @@ hidden otherwise, and a problem in a hidden box could not be fixed).
   (§17.1), so a press before the permission is given sends nothing to VRChat's calendar.
 - **A second press is refused** (409, "There is nothing to try again."): the place is waiting by
   then. The button stays off while its request is out.
-- **The instance** uses Open now's own request (`POST /api/calendar/events/{id}/open`, §4), which
-  already refuses while an attempt is under way or being checked; the Try again beside the
-  instance's error shows only while Open now would be offered.
+- **The instance** is tried again with **Open now** (`POST /api/calendar/events/{id}/open`, §4),
+  which already shows after a refused opening and refuses while an attempt is under way or being
+  checked. It gets no Try again of its own: two buttons beside each other doing the same thing
+  were one too many (changed before release, 2026-10-02).
 - `canTryAgain` on a place now means "failed, and Try again sends it again"; until 2026-10-02 it
   meant only a VRChat create that was not added.
 

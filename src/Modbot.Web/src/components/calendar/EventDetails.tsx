@@ -102,7 +102,6 @@ function EventBody({
   results,
   canManage = false,
   onChanged,
-  now,
   children,
 }: {
   event: CalendarEvent
@@ -114,8 +113,6 @@ function EventBody({
   results?: ReactNode
   canManage?: boolean
   onChanged?: () => void
-  /** The page's clock, for whether the instance can be opened again. */
-  now?: Date
   children?: ReactNode
 }) {
   // A ticked place that cannot work as things are set up, while the event can still go anywhere.
@@ -155,12 +152,7 @@ function EventBody({
         <div>
           <span className="text-muted-foreground">Instance </span>
           {event.opening.error ? (
-            <>
-              <span className="text-destructive">{event.opening.error}</span>
-              {manage && now && canOpenNow(event, now) && (
-                <TryAgainButton className="ml-2" send={() => calendarApi.openNow(event.id)} onDone={manage} />
-              )}
-            </>
+            <span className="text-destructive">{event.opening.error}</span>
           ) : event.opening.instanceId ? (
             <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.instanceId!)}>
               {event.opening.closed ? 'Closed' : 'Open'}
@@ -313,19 +305,11 @@ function PlaceProblems({ place }: { place: CalendarEvent['places'][number] }) {
 }
 
 /**
- * "Try again" on anything that failed: a place, one date's VRChat change, or the instance (calendar
- * design §17.4). Sends it again as it is. Pressed once: it stays off until the server has answered,
+ * "Try again" on a place that failed, or one date's VRChat change (calendar design §17.4). The
+ * instance has Open now for this, so it gets no second button. Sends it again as it is. Pressed once: it stays off until the server has answered,
  * and the server refuses a second press for a place that is already being sent again.
  */
-function TryAgainButton({
-  send,
-  onDone,
-  className,
-}: {
-  send: () => Promise<unknown>
-  onDone: () => void
-  className?: string
-}) {
+function TryAgainButton({ send, onDone }: { send: () => Promise<unknown>; onDone: () => void }) {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -343,7 +327,7 @@ function TryAgainButton({
 
   return (
     <>
-      <Button type="button" variant="outline" size="xs" className={className} disabled={sending} onClick={press}>
+      <Button type="button" variant="outline" size="xs" disabled={sending} onClick={press}>
         {sending ? 'Sending…' : 'Try again'}
       </Button>
       {problem && <span className="text-destructive">{problem}</span>}
@@ -611,7 +595,6 @@ export function EventDetails({
       results={shown}
       canManage={actions.canManage}
       onChanged={actions.onChanged}
-      now={now}
     >
       {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
     </EventBody>
@@ -683,7 +666,6 @@ export function EventDetails({
               results={shown}
               canManage={actions.canManage}
               onChanged={actions.onChanged}
-              now={now}
             />
           </DialogContent>
         </Dialog>

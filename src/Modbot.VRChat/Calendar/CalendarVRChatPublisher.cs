@@ -185,6 +185,19 @@ public sealed class CalendarVRChatPublisher
             .OrderBy(e => e.UpdatedAt)
             .ToListAsync(ct).ConfigureAwait(false);
 
+        // Places taken down whose event wants VRChat again (turned off and on, say). A place is one
+        // row per event and kind of place, so the row left behind is used again: adding a second
+        // one broke the key (event, place) and stopped every pass saving, as the Discord loop's did
+        // until staging's eea76aba.
+        var wantedIds = events.Where(Wants).Select(e => e.Id).Where(id => !places.ContainsKey(id)).ToList();
+        var takenDown = wantedIds.Count == 0
+            ? []
+            : await _db.CalendarEventPlaces
+                .Where(p => p.Place == CalendarPlaces.VRChat
+                    && p.State == CalendarPlaceStates.Removed
+                    && wantedIds.Contains(p.EventId))
+                .ToDictionaryAsync(p => p.EventId, ct).ConfigureAwait(false);
+
         (CalendarEvent Event, CalendarEventPlace Place, string Action, string Fingerprint)? due = null;
 
         foreach (var calendarEvent in events)
@@ -193,6 +206,14 @@ public sealed class CalendarVRChatPublisher
 
             if (Wants(calendarEvent))
             {
+                if (place is null && takenDown.Remove(calendarEvent.Id, out var again))
+                {
+                    // From the start, with nothing of before: VRChat no longer has it.
+                    Revive(again, now);
+                    place = again;
+                    places[calendarEvent.Id] = place;
+                }
+
                 if (place is null)
                 {
                     place = new CalendarEventPlace
@@ -799,6 +820,22 @@ public sealed class CalendarVRChatPublisher
         change.VRChatErrorAt = null;
         change.VRChatFailedFingerprint = null;
         return true;
+    }
+
+    /// <summary>A place taken down and wanted again: waiting, as a place never sent is.</summary>
+    private static void Revive(CalendarEventPlace place, DateTimeOffset now)
+    {
+        place.State = CalendarPlaceStates.Waiting;
+        place.ExternalId = null;
+        place.SentFingerprint = null;
+        place.VRChatUpdatedAt = null;
+        place.FailedFingerprint = null;
+        place.Error = null;
+        place.ErrorAt = null;
+        place.MissingGroupPermission = null;
+        place.Problems = null;
+        place.CreateSent = null;
+        place.UpdatedAt = now;
     }
 
     /// <summary>Back to waiting, with nothing of the failure left to hold it.</summary>

@@ -400,6 +400,41 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         return tried;
     }
 
+    /// <summary>
+    /// VRChat's calendar turned off and on again: the place row left from the take-down is used
+    /// again. A second row for the same event broke the key (event, place) and stopped every pass
+    /// saving, as the Discord loop's did until staging's eea76aba (fixed here 2026-10-02).
+    /// </summary>
+    [Fact]
+    public async Task TurningVRChatOffAndOnAgain_UsesThePlaceLeftBehind_AndSendsTheEventAgain()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        await PublishAsync();
+
+        await EditAsync(e.Id, x => x.PublishToVRChat = false);
+        Assert.Equal("delete", (await PublishAsync()).Action);
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+
+        await EditAsync(e.Id, x => x.PublishToVRChat = true);
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(CalendarPlaceStates.Waiting, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+
+        Clock.Advance(Settle);
+        var result = await PublishAsync();
+
+        Assert.Equal(CalendarPublishOutcome.Written, result.Outcome);
+        Assert.Equal("create", result.Action);
+        Assert.Equal(2, VRChat.Calendar.Creates.Count);
+
+        await using var context = Database.NewContext();
+        var place = Assert.Single(await context.CalendarEventPlaces.AsNoTracking()
+            .Where(p => p.EventId == e.Id && p.Place == CalendarPlaces.VRChat)
+            .ToListAsync(Ct));
+        Assert.Equal(CalendarPlaceStates.Published, place.State);
+        Assert.Equal("cal_2", place.ExternalId);
+    }
+
     [Fact]
     public async Task CancellingDeletesTheEventOnVRChat()
     {

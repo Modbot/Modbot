@@ -226,9 +226,10 @@ public static class VRChatGroupPermissions
     /// </summary>
     /// <remarks>
     /// Read from VRChat's own JSON rather than the SDK's model, because the SDK's permission list
-    /// is an enum that does not know every permission VRChat has (it has no
-    /// <c>group-calendar-manage</c>), and a permission it cannot name is exactly the kind that
-    /// matters here.
+    /// is a closed enum: a permission VRChat adds before the SDK names it would be lost, and a
+    /// permission Modbot cannot name is exactly the kind that matters here. (The pinned SDK,
+    /// 2.21.1-nightly.41, does name <c>group-calendar-manage</c>, as <c>group_calendar_manage</c>,
+    /// as 2.21.0 did; 1.19.0 did not. Checked 2026-10-02.)
     /// </remarks>
     public static (List<string>? RoleIds, List<string>? Permissions) AccountFrom(string? groupJson)
     {
