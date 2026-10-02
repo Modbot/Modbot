@@ -1,20 +1,20 @@
 ---
 title: Modbot roles from Discord
-description: Let a Discord role give a Modbot role, so staff get and lose their Modbot permissions when they get and lose their Discord staff roles.
+description: Link a Discord role to a Modbot role, so staff get and lose their Modbot permissions when they get and lose their Discord staff roles.
 ---
 
-If your team already decides who is staff with Discord roles, Modbot can follow them. You say which
-Discord role gives which Modbot role, and from then on somebody given that Discord role gets the
-Modbot role within about a minute, and loses it within about a minute of losing the Discord role.
+If your team already decides who is staff with Discord roles, Modbot can follow them. You link a
+Discord role to a Modbot role, and from then on somebody given that Discord role gets the Modbot
+role within about a minute, and loses it within about a minute of losing the Discord role.
 
-Nothing happens until you set it up. There are no mappings until you make one, and every mapping
-names one Discord role, one Modbot role and which way it works. A role you have not mapped is never
-looked at.
+Nothing happens until you set it up. There are no linked roles until you make one, and every linked
+role names one Discord role, one Modbot role and which way it works. A role you have not linked is
+never looked at.
 
 ## Before you start
 
-You need both **Manage roles** and **Manage users**. A mapping changes who holds a role, so it asks
-for what changing somebody's roles by hand asks for.
+You need both **Manage roles** and **Manage users**. A linked role changes who holds a role, so it
+asks for what changing somebody's roles by hand asks for.
 
 The [Discord bot](/discord/bot-setup) must be in your server. It only needs to read the member list,
 which it already does, unless you use **Both ways** (below).
@@ -30,18 +30,18 @@ Everybody else is left alone:
 - **Administrators are never touched**, and nor is the owner. A Discord role can't give
   Administrator, or any role that includes it.
 - Disabled accounts are left as they are.
-- **Modbot never makes accounts.** Somebody who holds a mapped Discord role and has no Modbot account
+- **Modbot never makes accounts.** Somebody who holds a linked Discord role and has no Modbot account
   shows up in the preview under **Left alone**, so you know whom to [invite](/accounts/staff-accounts).
 
 ## Where to set it up
 
-The same list, in two places. A mapping made in one shows in the other.
+The same list, in two places. A linked role made in one shows in the other.
 
-- **Settings → Discord → Modbot roles from Discord**: every mapping, the switch, and **Apply**.
+- **Settings → Discord → Modbot roles from Discord**: every linked role, the switch, and **Apply**.
 - **Settings → People and roles → Roles**: open a role, and its **Discord roles** are listed under
   its permissions.
 
-## Add a mapping
+## Link a role
 
 <Steps>
 
@@ -54,7 +54,7 @@ belong to bots can't be used. One Discord role gives one Modbot role, but severa
 give the same Modbot role, and holding any of them is enough. Fourteen department roles can all give
 **Moderator**.
 
-You can only map a Modbot role that is below your own highest role and allows nothing you can't do
+You can only link a Modbot role that is below your own highest role and allows nothing you can't do
 yourself: the same rule as [giving somebody a role by hand](/accounts/roles-and-permissions#who-can-give-what).
 
 </Step>
@@ -76,7 +76,7 @@ yourself: the same rule as [giving somebody a role by hand](/accounts/roles-and-
 
 **Add** shows **Who would change** before anything is saved: who would get the role, who would lose
 it, and whether they had it from Discord or were given it by hand. Press **Save**, or **Cancel** to
-back out. Changing which way a mapping works shows the same list.
+back out. Changing which way a linked role works shows the same list.
 
 </Step>
 
@@ -85,8 +85,8 @@ back out. Changing which way a mapping works shows the same list.
 ### Switch it on
 
 **Give Modbot roles from Discord roles** is off to begin with. Turning it on shows the list once
-more, for every mapping, then **Turn on**. While it is off nothing is given or taken, and on the
-Roles page the mappings show **Off**.
+more, for every linked role, then **Turn on**. While it is off nothing is given or taken, and on the
+Roles page the linked roles show **Off**.
 
 </Step>
 
@@ -96,39 +96,47 @@ Roles page the mappings show **Off**.
 
 | They… | Modbot… |
 | --- | --- |
-| get a mapped Discord role | gives the Modbot role |
+| get a linked Discord role | gives the Modbot role |
 | lose it (and hold no other Discord role that gives the same Modbot role) | takes the Modbot role away; the account stays, even with no role left |
 | leave the Discord server | takes the Modbot role away |
-| take their Discord account off their Modbot account | takes away every role a mapping gave them |
+| take their Discord account off their Modbot account | takes away every role a linked role gave them |
 | hold the Modbot role from before, given by hand, but not the Discord role | takes it away: Discord decides |
 
-On an account a mapping reaches, a role that follows Discord can't be given or taken by hand on the
-**Users** page: its box is greyed out. A **Both ways** role can, and the change goes to Discord.
+On an account a linked role reaches, a role that follows Discord can't be given or taken by hand on
+the **Users** page: its box is greyed out. A **Both ways** role can, and the change goes to Discord.
 
-**Removing a mapping takes nothing away.** The roles it gave stay as ordinary roles.
+**Removing a linked role takes nothing away.** The roles it gave stay as ordinary roles.
 
 A change shows on the person's next click; they don't need to sign in again.
 
 ## Both ways
 
-The bot needs **Manage roles** in your server, and its own role must be above the Discord role.
-When it can't give the role, the mapping says **Not set up**, and until you fix that it works as
-**Discord decides**: changes in Discord still reach Modbot, and the role can't be changed by hand in
-Modbot.
+The bot needs **Manage roles** in your server, and its own role must be above the Discord role. A
+**Both ways** Discord role can't be one that can ban, kick, manage the server or manage roles, and
+can't also be in a [role pair](/discord/role-and-ban-sync) with a group role.
+
+When the bot can't give the role, or Discord refuses when it tries, the linked role says
+**Not set up**. Until you fix that it works as **Discord decides**: changes in Discord still reach
+Modbot, and the role can't be changed by hand in Modbot. After a refusal the bot asks Discord again
+once a day, or as soon as a role in your server changes, such as the bot's own role moving up.
 
 A **Both ways** Modbot role can have only one Discord role, so Modbot knows which one to give.
 
 Whichever side changed is copied to the other, and a change Modbot made itself never bounces back.
-The first time a mapping is checked, whichever side holds the role gives it to the other.
+The first time a linked role is checked, whichever side holds the role gives it to the other, except
+for somebody who isn't in the server, or who connected a Discord account after the linked role was
+saved: for them Discord decides. Connecting a different Discord account never carries the role over
+to it.
 
 ## Stopped: too many at once
 
 If one check would take roles away from more than five accounts at once, or from more than half of
-the accounts it reaches (and at least three), Modbot takes nothing, the card says **Stopped**, and
-**Apply** appears. This catches a Discord role deleted by mistake, or the bot losing sight of the
-member list. Press **Apply** to see the list, then **Apply** again to carry it out.
+the accounts it reaches (and at least three), Modbot takes nothing away, the card says **Stopped**,
+and **Apply** appears. This catches a Discord role deleted by mistake, or the bot losing sight of the
+member list. Press **Apply** to see the list, then **Apply** again to carry it out. You can only
+apply it if you could take each of those roles away by hand.
 
-Giving roles is never stopped this way.
+Giving roles goes on while it is stopped.
 
 Modbot also waits after the bot reconnects until it has read the member list again, so it never acts
 on roles from before the bot went away.
@@ -140,9 +148,10 @@ In the operational log:
 - **Roles changed**, with no person as the one who did it, saying Modbot changed the roles to match
   Discord.
 - **Discord role given a Modbot role** and **Discord role no longer gives a Modbot role**, saying
-  who made or removed the mapping.
-- **Roles from Discord stopped**, once, when too many would have lost a role at once.
+  who linked or unlinked the roles.
+- **Roles from Discord stopped**, once, when too many would have lost a role at once, and **Roles
+  from Discord applied**, saying who pressed **Apply**.
 - Turning the switch on or off, like any other setting.
 
 For **Both ways**, a Discord role Modbot gives or takes is recorded against the person like a
-[role sync](/discord/role-and-ban-sync) copy, and a refusal from Discord as a failed copy.
+[role sync](/discord/role-and-ban-sync) copy, and a refusal from Discord as one failed copy.

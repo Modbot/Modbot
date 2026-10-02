@@ -107,6 +107,7 @@ public static class DiscordConnectEndpoints
                     var proven = user.IsDiscordProven;
                     Clear(user);
                     await db.SaveChangesAsync(ct);
+                    await ForgetAgreementsAsync(db, [user.Id], ct);
 
                     await facts.RecordAsync(
                         FactType.DiscordDisconnected,
@@ -199,6 +200,10 @@ public static class DiscordConnectEndpoints
             return Back("taken");
         }
 
+        // What both-ways linked roles agreed about this account's Discord account, and about the
+        // accounts it came off, no longer counts (staff roles from Discord design §3.1).
+        await ForgetAgreementsAsync(db, [user.Id, .. typedElsewhere.Select(o => o.Id)], ct);
+
         foreach (var other in typedElsewhere)
         {
             await facts.RecordAsync(
@@ -230,6 +235,9 @@ public static class DiscordConnectEndpoints
 
         return Back("connected");
     }
+
+    private static Task ForgetAgreementsAsync(ModbotContext db, IReadOnlyList<Guid> userIds, CancellationToken ct)
+        => db.DiscordStaffRoleStates.Where(s => userIds.Contains(s.UserId)).ExecuteDeleteAsync(ct);
 
     private static void Clear(ModbotUser user)
     {

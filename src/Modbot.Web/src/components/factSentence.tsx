@@ -988,6 +988,13 @@ const SENTENCES: Record<string, Sentence> = {
       {p.actor} stopped {named(p.text('discordRoleName'), 'Discord role')} giving {named(p.text('name'), 'Modbot role')}.
     </>
   ),
+  'modbot.role.discord.apply': (p) => (
+    <>
+      {p.actor} applied Modbot roles from Discord
+      {typeof p.entry.data?.taken === 'number' ? <>, taking away {p.entry.data.taken}</> : null}
+      {typeof p.entry.data?.given === 'number' ? <> and giving {p.entry.data.given}</> : null}.
+    </>
+  ),
   'modbot.role.discord.held': (p) => (
     <>
       Modbot stopped giving Modbot roles from Discord roles: it would have taken roles from{' '}

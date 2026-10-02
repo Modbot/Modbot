@@ -197,7 +197,7 @@ function Editor({
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <Fact label="Last checked" value={settings.ranAt ? dateTime(settings.ranAt) : 'Never'} mono={!!settings.ranAt} />
-            <Fact label="Mappings" value={settings.mappings.length.toString()} mono />
+            <Fact label="Linked roles" value={settings.mappings.length.toString()} mono />
           </div>
           <Outcome tone="problem">{settings.problem}</Outcome>
           <div className="flex max-w-lg flex-col gap-3">

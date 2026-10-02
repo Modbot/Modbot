@@ -2,7 +2,8 @@
 
 - **Date:** 2026-10-02
 - **Status:** Accepted 2026-10-02. Every decision answered (§10)
-- **Covers:** letting a Discord role decide whether a staff account holds a Modbot role
+- **Covers:** letting a Discord role decide whether a staff account holds a Modbot role. The
+  screens call a mapping a **linked role**; this spec keeps "mapping" for the row.
 - **Depends on:** accounts and access (§3 roles, §3.5 role order, §4.6 proving a Discord account),
   the Discord member list (`discord_member`, kept by the bot), the sync loop (`DiscordSyncService`)
 - **Related:** M5 role sync (`RoleSync`, VRChat group roles ↔ Discord roles), which this copies the
@@ -56,17 +57,30 @@ Each mapping has a **direction**, chosen when it is saved:
 
 - **One to one.** A both-ways mapping must be the only mapping for its Modbot role and for its
   Discord role: with two Discord roles behind one Modbot role, giving the Modbot role would not say
-  which Discord role to give. Saving one that breaks this is refused with 400.
+  which Discord role to give. Saving one that breaks this is refused with 400, and a partial unique
+  index (`ux_discord_staff_role_both_ways`, `role_id` where `direction = 'both'`) holds the database
+  to two both-ways rows never sharing a Modbot role.
+- **Never a powerful Discord role, never a paired one.** Saving both ways is refused for a Discord
+  role that carries Administrator, Manage Server, Manage Roles, Ban Members or Kick Members, or whose
+  permissions the bot has not read yet: Modbot must never hand those out. It is refused too for a
+  Discord role already in a VRChat role pair (M5), because two syncs writing one role undo each
+  other. *Discord decides* allows both, since it changes nothing in Discord.
 - **The bot must be able to give the role**: Manage Roles, and its own highest role above the mapped
   one (`DiscordRole.BotCanAssign`, kept by the server index). When it cannot, the mapping shows
   **Not set up** on the screen and the Discord health row says which role, and the mapping works as
   *Discord decides* until it can: Discord's changes still reach Modbot, and changing the role by hand
   in Modbot is refused (§5) rather than accepted and never sent. A Discord refusal at the moment of
-  giving (403, the role moved above the bot) sets the same *Not set up* and records
-  `modbot.copy.failed`. Nothing fails without saying so.
+  giving (403, the role moved above the bot) sets `discord_staff_role.refused_at`, which makes the
+  mapping *Not set up* in every place that asks (`StaffRoles.Works`: the pass, the preview, the
+  hand-change lock, the screen), with one `modbot.copy.failed` fact. The pass asks no more for that
+  mapping that run, and does not ask again until a day has passed or any role in the server has
+  changed since (the server index stamps a role only when something about it changes, so a bot
+  given Manage Roles or moved up shows as a change). Nothing fails without saying so, and nothing
+  fails once per person per minute.
 - **Who wins.** For each covered account and both-ways mapping Modbot keeps what both sides last
-  agreed on (`discord_staff_role_state`: account, mapping, held, when). A pass compares each side
-  with that:
+  agreed on (`discord_staff_role_state`: account, mapping, the Discord account it was about, held,
+  when). An agreement about a different Discord account than the one the account proves now counts
+  as none. A pass compares each side with that:
 
   | Discord vs agreed | Modbot vs agreed | Pass |
   |---|---|---|
@@ -75,6 +89,7 @@ Each mapping has a **direction**, chosen when it is saved:
   | same | changed | Discord follows Modbot |
   | changed | changed | both moved the same way (one yes-or-no each), so they agree: written down |
   | no agreed state yet (first pass after saving) | | whichever side holds the role, the other is given it; the preview shows these first |
+  | no agreed state, and the account is not in the server, or proved its Discord account after the mapping was saved | | Discord decides: a new or re-proven Discord account is never handed the role; one without it loses the Modbot role |
 
   After every change the agreed state is written in the same transaction as the fact. **That is
   what keeps it from bouncing:** when the bot gives a Discord role, the member update that comes
@@ -86,7 +101,11 @@ Each mapping has a **direction**, chosen when it is saved:
 - **Leaving the server, unlinking Discord**: the Modbot role goes, as in §5. The Discord role stays
   as it is: once the Discord account is off the Modbot account, Modbot no longer acts for it in
   Discord. (The first draft took back a Discord role the bot had given, like M5 role sync; the
-  account no longer names the Discord account by then, so it was dropped.)
+  account no longer names the Discord account by then, so it was dropped.) Disconnecting, and
+  connecting any Discord account (the same or another), clears every agreement the account had, and
+  so does the pass when it takes a role because the link is gone. Connecting the same Discord
+  account again therefore follows Discord and leaves its role alone; connecting another one that
+  lacks the role takes the Modbot role.
 - **Protection is the same.** Only covered accounts (§4): proven Discord account, enabled, no
   Administrator role. Administrators and the owner are never given or taken anything on either side.
   A hand change in Modbot has already passed the role order rules (§3.5) for the person making it;
@@ -151,9 +170,14 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
   take roles from people who were given them meanwhile.
 - **At most 50 account changes a pass**; the next pass carries on.
 - **A brake on taking away.** If one pass would take roles from at least 3 covered accounts and
-  either more than 5 or more than half of them, on either side, it takes nothing, puts a problem on the Discord health row, records one
+  either more than 5 or more than half of them, on either side, it takes nothing (it still gives), puts a problem on the Discord health row, records one
   `modbot.role.discord.held` fact, and waits for somebody to press **Apply** on the staff roles screen
-  after seeing the list. Giving is not braked. This catches a Discord role deleted by mistake, a
+  after seeing the list. Giving is not braked. **Apply** is refused unless the person pressing it
+  could take away every role it would take by hand (§3.5), and records
+  `modbot.role.discord.apply` naming them.
+- **Each change is checked again as it is made**: the account is still enabled, holds no
+  Administrator role, and for a give still proves the same Discord account, the mapping still exists
+  and the switch is still on. This catches a Discord role deleted by mistake, a
   server swapped in settings, or the bot losing sight of members.
 - Each pass re-checks §2's Administrator rule: a mapped role later edited to carry Administrator is
   skipped, with a health problem, until the mapping is removed.
@@ -168,6 +192,7 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
 | `modbot.role.discord.map` | a mapping was saved or its direction changed | the saver | Modbot role id and name, Discord role id and name, direction, how many accounts the preview said would gain or lose |
 | `modbot.role.discord.unmap` | a mapping was removed | the remover | the same, without counts |
 | `modbot.role.discord.held` | the brake stopped a pass | none | how many would have lost a role |
+| `modbot.role.discord.apply` | somebody pressed Apply | the person | given, taken, left, the problem if any |
 | `modbot.settings.change` (existing) | the switch turned on or off | the person | the switch |
 
 All operational log, moderation retention, like every other account fact. Reusing the existing
@@ -254,7 +279,16 @@ Written with the build, run in the testing pass. Against real PostgreSQL with a 
 - Both ways: a Modbot-side change gives or takes the Discord role; a Discord-side change reaches
   Modbot; the member update that follows the bot's own change does nothing (no bounce), nor does a
   pass before that update arrives; the first pass gives the missing side.
-- Both ways refused when another mapping shares its Modbot or Discord role.
+- Both ways refused when another mapping shares its Modbot or Discord role, for a Discord role in a
+  VRChat role pair, and for a Discord role with power over the server; the database refuses two
+  both-ways rows for one Modbot role.
+- A held pass still gives; only taking waits for Apply. Apply is recorded and refused to somebody
+  who could not take the roles away by hand.
+- A Discord refusal makes the mapping Not set up everywhere, writes one failed fact, stops asking
+  until a day has passed, and locks the role against hand changes.
+- Both ways: somebody not in the server loses the Modbot role on the first pass; proving a different
+  Discord account without the role takes the Modbot role; connecting the same one again keeps the
+  Discord role.
 - Bot unable to give the role: *Not set up* reported, the Modbot-to-Discord half does nothing, hand
   changes are refused, Discord's changes still reach Modbot; a 403 at give time sets the same.
 - Administrators are never given or taken a Discord role through a both-ways mapping.

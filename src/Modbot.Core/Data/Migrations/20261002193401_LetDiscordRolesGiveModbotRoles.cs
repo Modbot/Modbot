@@ -62,7 +62,8 @@ namespace Modbot.Core.Data.Migrations
                     created_by_id = table.Column<Guid>(type: "uuid", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    problem = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true)
+                    problem = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    refused_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -81,6 +82,7 @@ namespace Modbot.Core.Data.Migrations
                 {
                     mapping_id = table.Column<Guid>(type: "uuid", nullable: false),
                     user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    discord_user_id = table.Column<string>(type: "text", nullable: false),
                     held = table.Column<bool>(type: "boolean", nullable: false),
                     agreed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
@@ -102,9 +104,16 @@ namespace Modbot.Core.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_discord_staff_role_role",
+                name: "ix_discord_staff_role_role_id",
                 table: "discord_staff_role",
                 column: "role_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_discord_staff_role_role_id1",
+                table: "discord_staff_role",
+                column: "role_id",
+                unique: true,
+                filter: "direction = 'both'");
 
             migrationBuilder.CreateIndex(
                 name: "ux_discord_staff_role_discord",

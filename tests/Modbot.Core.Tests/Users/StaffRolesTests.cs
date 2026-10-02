@@ -10,9 +10,12 @@ namespace Modbot.Core.Tests.Users;
 /// </summary>
 public class StaffRolesTests
 {
+    private const string Discord = "5001";
+
     private static readonly DateTimeOffset Agreed = new(2026, 10, 2, 12, 0, 0, TimeSpan.Zero);
 
-    private static DiscordStaffRoleState State(bool held) => new() { Held = held, AgreedAt = Agreed };
+    private static DiscordStaffRoleState State(bool held, string discordUserId = Discord)
+        => new() { Held = held, AgreedAt = Agreed, DiscordUserId = discordUserId };
 
     // ── Both ways: the table in §3.1 ─────────────────────────────────────────────────────
 
@@ -22,19 +25,19 @@ public class StaffRolesTests
     [InlineData(true, false, Step.FollowDiscord)]
     [InlineData(false, true, Step.FollowModbot)]
     public void TheFirstTimeWhicheverSideHoldsItGivesItToTheOther(bool discord, bool modbot, Step expected)
-        => Assert.Equal(expected, StaffRoles.BothWays(null, discord, modbot, Agreed.AddMinutes(1)));
+        => Assert.Equal(expected, StaffRoles.BothWays(null, Discord, false, discord, modbot, Agreed.AddMinutes(1)));
 
     [Fact]
     public void NothingChangedIsNothingToDo()
-        => Assert.Equal(Step.Nothing, StaffRoles.BothWays(State(true), true, true, Agreed.AddMinutes(1)));
+        => Assert.Equal(Step.Nothing, StaffRoles.BothWays(State(true), Discord, false, true, true, Agreed.AddMinutes(1)));
 
     [Fact]
     public void AChangeInDiscordIsFollowedInModbot()
-        => Assert.Equal(Step.FollowDiscord, StaffRoles.BothWays(State(true), false, true, Agreed.AddMinutes(1)));
+        => Assert.Equal(Step.FollowDiscord, StaffRoles.BothWays(State(true), Discord, false, false, true, Agreed.AddMinutes(1)));
 
     [Fact]
     public void AChangeInModbotIsFollowedInDiscord()
-        => Assert.Equal(Step.FollowModbot, StaffRoles.BothWays(State(false), false, true, Agreed.AddMinutes(1)));
+        => Assert.Equal(Step.FollowModbot, StaffRoles.BothWays(State(false), Discord, false, false, true, Agreed.AddMinutes(1)));
 
     /// <summary>
     /// The no-bounce rule: the bot gave the Discord role and wrote the agreement, but the member row
@@ -43,15 +46,33 @@ public class StaffRolesTests
     /// </summary>
     [Fact]
     public void AMemberRowNotChangedSinceTheAgreementIsNotADiscordChange()
-        => Assert.Equal(Step.Nothing, StaffRoles.BothWays(State(true), false, true, Agreed.AddSeconds(-5)));
+        => Assert.Equal(Step.Nothing, StaffRoles.BothWays(State(true), Discord, false, false, true, Agreed.AddSeconds(-5)));
 
     [Fact]
     public void BothChangedAndNowAgreeIsWrittenDown()
-        => Assert.Equal(Step.Agree, StaffRoles.BothWays(State(true), false, false, Agreed.AddMinutes(1)));
+        => Assert.Equal(Step.Agree, StaffRoles.BothWays(State(true), Discord, false, false, false, Agreed.AddMinutes(1)));
+
+    /// <summary>
+    /// What was agreed about another Discord account says nothing. A newly proven account that lacks
+    /// the Discord role loses the Modbot role rather than being handed the Discord role.
+    /// </summary>
+    [Fact]
+    public void AnAgreementAboutAnotherDiscordAccountDoesNotCount()
+    {
+        Assert.Equal(Step.FollowDiscord, StaffRoles.BothWays(State(true, "9999"), Discord, true, false, true, Agreed.AddMinutes(1)));
+        Assert.Equal(Step.FollowModbot, StaffRoles.BothWays(State(true, "9999"), Discord, false, false, true, Agreed.AddMinutes(1)));
+    }
+
+    [Theory]
+    [InlineData(true, false, Step.FollowDiscord)]
+    [InlineData(false, true, Step.FollowDiscord)]
+    [InlineData(true, true, Step.Agree)]
+    public void WhenDiscordDecidesForWantOfAnAgreementDiscordIsFollowed(bool discord, bool modbot, Step expected)
+        => Assert.Equal(expected, StaffRoles.BothWays(null, Discord, true, discord, modbot, Agreed));
 
     [Fact]
     public void SomebodyNeverSeenInTheServerCountsAsAChange()
-        => Assert.Equal(Step.FollowDiscord, StaffRoles.BothWays(State(true), false, true, null));
+        => Assert.Equal(Step.FollowDiscord, StaffRoles.BothWays(State(true), Discord, false, false, true, null));
 
     // ── The brake ──────────────────────────────────────────────────────────────────────────
 
@@ -64,6 +85,50 @@ public class StaffRolesTests
     [InlineData(6, 100, true)]
     public void TheBrakeStopsTakingFromManyAtOnce(int losing, int covered, bool brakes)
         => Assert.Equal(brakes, StaffRoles.Brakes(losing, covered));
+
+    // ── Not set up ─────────────────────────────────────────────────────────────────────────
+
+    private static readonly DiscordRole Assignable = new() { RoleId = "801", BotCanAssign = true, UpdatedAt = Agreed.AddDays(-10) };
+
+    private static StaffRoleRule BothWays(DateTimeOffset? refusedAt = null)
+        => new(Guid.CreateVersion7(), "801", Guid.CreateVersion7(), StaffRoleDirections.Both, Agreed, refusedAt);
+
+    [Fact]
+    public void ABothWaysRoleTheBotCanGiveWorks()
+        => Assert.True(StaffRoles.Works(BothWays(), Assignable, Assignable.UpdatedAt, Agreed));
+
+    [Fact]
+    public void ARoleTheBotCannotAssignIsNotSetUp()
+        => Assert.False(StaffRoles.Works(BothWays(), new DiscordRole { BotCanAssign = false }, null, Agreed));
+
+    [Fact]
+    public void ARefusalIsNotSetUpForADayUnlessARoleChanges()
+    {
+        var rule = BothWays(refusedAt: Agreed);
+
+        Assert.False(StaffRoles.Works(rule, Assignable, Assignable.UpdatedAt, Agreed.AddHours(23)));
+        Assert.True(StaffRoles.Works(rule, Assignable, Assignable.UpdatedAt, Agreed.AddDays(1)));
+        Assert.True(StaffRoles.Works(rule, Assignable, Agreed.AddMinutes(5), Agreed.AddMinutes(10)));
+    }
+
+    [Fact]
+    public void ADiscordDecidesMappingNeverWorksBothWays()
+        => Assert.False(StaffRoles.Works(BothWays() with { Direction = StaffRoleDirections.Discord }, Assignable, null, Agreed));
+
+    [Theory]
+    [InlineData(0L, false)]
+    [InlineData(1L << 3, true)]
+    [InlineData(1L << 1, true)]
+    [InlineData(1L << 2, true)]
+    [InlineData(1L << 5, true)]
+    [InlineData(1L << 28, true)]
+    [InlineData(1L << 10, false)]
+    public void ARoleWithPowerOverTheServerIsPowerful(long permissions, bool powerful)
+        => Assert.Equal(powerful, StaffRoles.IsPowerful(new DiscordRole { Permissions = permissions }));
+
+    [Fact]
+    public void ARoleWhosePermissionsAreNotReadYetCountsAsPowerful()
+        => Assert.True(StaffRoles.IsPowerful(new DiscordRole { Permissions = null }));
 
     // ── Who is reached ─────────────────────────────────────────────────────────────────────
 

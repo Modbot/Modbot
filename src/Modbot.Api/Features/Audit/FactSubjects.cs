@@ -99,6 +99,7 @@ public static class FactSubjects
         [FactType.StaffRoleMapped] = SubjectKind.Other,
         [FactType.StaffRoleUnmapped] = SubjectKind.Other,
         [FactType.StaffRolesHeld] = SubjectKind.Other,
+        [FactType.StaffRolesApplied] = SubjectKind.Other,
         [FactType.ApiKeyCreated] = SubjectKind.Other,
         [FactType.ApiKeyRevoked] = SubjectKind.Other,
         [FactType.WebhookCreated] = SubjectKind.Other,

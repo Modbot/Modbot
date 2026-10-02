@@ -81,15 +81,14 @@ public sealed class StaffRoleSync
             return StaffRolePass.Nothing with { Problem = pastBrake ? "The bot has not read the server's member list yet." : null };
 
         var guildId = settings.DiscordGuildId.Trim();
-        var plan = await StaffRoles.PlanAsync(_db, null, withNotes: false, ct).ConfigureAwait(false);
-        var now = _clock.UtcNow;
+        var plan = await StaffRoles.PlanAsync(_db, null, withNotes: false, _clock.UtcNow, ct).ConfigureAwait(false);
         var losing = plan.AccountsLosing;
 
-        if (!pastBrake && StaffRoles.Brakes(losing, plan.Covered))
-        {
+        // The brake holds back taking only. Giving goes ahead: a pass held for Apply must not also
+        // keep new staff waiting for their role.
+        var held = !pastBrake && StaffRoles.Brakes(losing, plan.Covered);
+        if (held)
             await HoldAsync(losing, ct).ConfigureAwait(false);
-            return new StaffRolePass(0, 0, plan.Changes.Count, true, losing, Stopped(losing));
-        }
 
         // Quiet bookkeeping: hand-given roles a held Discord role now gives, and both-ways states
         // where the two sides already agree.
@@ -102,16 +101,33 @@ public sealed class StaffRoleSync
         }
 
         foreach (var agreement in plan.Agree)
-            await AgreeAsync(agreement.MappingId, agreement.UserId, agreement.Held, ct).ConfigureAwait(false);
+            await AgreeAsync(agreement.MappingId, agreement.UserId, agreement.DiscordUserId, agreement.Held, ct).ConfigureAwait(false);
 
         var given = 0;
         var taken = 0;
         var left = 0;
-        string? problem = plan.Problems.Count > 0 ? plan.Problems[0] : null;
+        string? problem = held ? Stopped(losing) : plan.Problems.Count > 0 ? plan.Problems[0] : null;
+
+        // A mapping Discord refused once this pass is not asked again for anybody else: one
+        // refusal, one fact, and the mapping is Not set up from here on.
+        var refused = new HashSet<Guid>();
 
         foreach (var change in plan.Changes)
         {
+            if (held && StaffRoleChangeKinds.TakesAway(change.What))
+            {
+                left++;
+                continue;
+            }
+
             if (given + taken >= MaxChangesPerPass)
+            {
+                left++;
+                continue;
+            }
+
+            if (change.MappingId is { } mappingId && refused.Contains(mappingId)
+                && change.What is StaffRoleChangeKinds.GiveDiscord or StaffRoleChangeKinds.TakeDiscord)
             {
                 left++;
                 continue;
@@ -120,7 +136,7 @@ public sealed class StaffRoleSync
             var outcome = change.What switch
             {
                 StaffRoleChangeKinds.Give or StaffRoleChangeKinds.Take => await ChangeModbotAsync(change, ct).ConfigureAwait(false),
-                StaffRoleChangeKinds.GiveDiscord or StaffRoleChangeKinds.TakeDiscord => await ChangeDiscordAsync(gateway, guildId, change, ct).ConfigureAwait(false),
+                StaffRoleChangeKinds.GiveDiscord or StaffRoleChangeKinds.TakeDiscord => await ChangeDiscordAsync(gateway, guildId, change, refused, ct).ConfigureAwait(false),
                 _ => (Done: false, Error: (string?)null),
             };
 
@@ -134,9 +150,12 @@ public sealed class StaffRoleSync
             }
         }
 
-        await NoteRanAsync(problem, ct).ConfigureAwait(false);
+        if (held)
+            await NoteHeldRanAsync(ct).ConfigureAwait(false);
+        else
+            await NoteRanAsync(problem, ct).ConfigureAwait(false);
 
-        return new StaffRolePass(given, taken, left, false, losing, problem);
+        return new StaffRolePass(given, taken, left, held, losing, problem);
     }
 
     // ── The Modbot side ────────────────────────────────────────────────────────────────────
@@ -160,6 +179,11 @@ public sealed class StaffRoleSync
         if (user is null || user.IsDisabled || user.DeletedAt is not null || user.Roles.Any(r => RoleRank.IsAdministrator(r.Role)))
             return (false, null);
 
+        // A give is checked again too: still the Discord account the plan read, still proven, the
+        // mapping still there, and the switch still on.
+        if (give && !await MayStillGiveAsync(user, change, ct).ConfigureAwait(false))
+            return (false, null);
+
         var held = user.Roles.FirstOrDefault(r => r.RoleId == change.RoleId);
         if (give == (held is not null))
             return (false, null);
@@ -178,8 +202,15 @@ public sealed class StaffRoleSync
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        if (change.MappingId is { } mappingId && await IsBothWaysAsync(mappingId, ct).ConfigureAwait(false))
-            await AgreeAsync(mappingId, user.Id, give, ct).ConfigureAwait(false);
+        if (user.DiscordVerifiedAt is null || string.IsNullOrEmpty(user.DiscordUserId))
+        {
+            // Taken because the Discord account came off: nothing agreed about it counts any more.
+            await _db.DiscordStaffRoleStates.Where(st => st.UserId == user.Id).ExecuteDeleteAsync(ct).ConfigureAwait(false);
+        }
+        else if (change.MappingId is { } mappingId && await IsBothWaysAsync(mappingId, ct).ConfigureAwait(false))
+        {
+            await AgreeAsync(mappingId, user.Id, user.DiscordUserId, give, ct).ConfigureAwait(false);
+        }
 
         var afterNames = user.Roles.Select(r => r.Role.Name).Order().ToList();
         var afterIds = user.Roles.Select(r => r.RoleId).Order().ToList();
@@ -217,7 +248,7 @@ public sealed class StaffRoleSync
     // ── The Discord side (both ways) ───────────────────────────────────────────────────────
 
     private async Task<(bool Done, string? Error)> ChangeDiscordAsync(
-        IDiscordGateway? gateway, string guildId, StaffRoleChange change, CancellationToken ct)
+        IDiscordGateway? gateway, string guildId, StaffRoleChange change, HashSet<Guid> refused, CancellationToken ct)
     {
         if (change.UserId is not { } userId || change.DiscordUserId is not { } discordUserId
             || change.DiscordRoleId is not { } discordRoleId || change.MappingId is not { } mappingId)
@@ -238,6 +269,14 @@ public sealed class StaffRoleSync
             .ConfigureAwait(false);
 
         if (!stillCovered)
+            return (false, null);
+
+        // The mapping is still there, still both ways, and the switch still on.
+        var stillMapped = await _db.DiscordStaffRoles.AsNoTracking()
+            .AnyAsync(m => m.Id == mappingId && m.Direction == StaffRoleDirections.Both && m.DiscordRoleId == discordRoleId, ct)
+            .ConfigureAwait(false);
+
+        if (!stillMapped || !await SwitchOnAsync(ct).ConfigureAwait(false))
             return (false, null);
 
         var outcome = await gateway.ChangeRoleAsync(guildId, discordUserId, discordRoleId, give, Reason, ct).ConfigureAwait(false);
@@ -262,18 +301,20 @@ public sealed class StaffRoleSync
         if (outcome.Done)
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
-            await AgreeAsync(mappingId, userId, give, ct).ConfigureAwait(false);
-            await SetProblemAsync(mappingId, null, ct).ConfigureAwait(false);
+            await AgreeAsync(mappingId, userId, discordUserId, give, ct).ConfigureAwait(false);
+            await SetProblemAsync(mappingId, null, refusedAt: null, ct).ConfigureAwait(false);
             await WriteAsync(give ? FactType.CopiedRoleGiven : FactType.CopiedRoleTaken, FactPlatform.Discord, discordUserId, data, ct).ConfigureAwait(false);
             await transaction.CommitAsync(ct).ConfigureAwait(false);
             return (true, null);
         }
 
-        // Refused: the mapping shows Not set up with Discord's words, and nothing is agreed, so the
-        // next pass tries again once the bot can.
+        // Refused: the mapping is Not set up everywhere from now on (StaffRoles.Works), so it works
+        // as Discord decides, its role cannot be changed by hand, and the bot does not ask again
+        // until a day has passed or a role in the server has changed. Nothing is agreed.
+        refused.Add(mappingId);
         var error = outcome.Error ?? "Discord refused the change.";
         var sentence = $"Not set up: Discord refused to change {change.DiscordRoleName ?? discordRoleId}: {error}";
-        await SetProblemAsync(mappingId, sentence, ct).ConfigureAwait(false);
+        await SetProblemAsync(mappingId, sentence, _clock.UtcNow, ct).ConfigureAwait(false);
 
         data["error"] = error;
         await WriteAsync(FactType.CopyFailed, FactPlatform.Discord, discordUserId, data, ct).ConfigureAwait(false);
@@ -286,26 +327,57 @@ public sealed class StaffRoleSync
     private Task<bool> IsBothWaysAsync(Guid mappingId, CancellationToken ct)
         => _db.DiscordStaffRoles.AsNoTracking().AnyAsync(m => m.Id == mappingId && m.Direction == StaffRoleDirections.Both, ct);
 
-    private async Task AgreeAsync(Guid mappingId, Guid userId, bool held, CancellationToken ct)
+    private async Task AgreeAsync(Guid mappingId, Guid userId, string discordUserId, bool held, CancellationToken ct)
     {
         var now = _clock.UtcNow;
 
         var updated = await _db.DiscordStaffRoleStates
             .Where(s => s.MappingId == mappingId && s.UserId == userId)
-            .ExecuteUpdateAsync(u => u.SetProperty(s => s.Held, held).SetProperty(s => s.AgreedAt, now), ct)
+            .ExecuteUpdateAsync(
+                u => u.SetProperty(s => s.Held, held).SetProperty(s => s.AgreedAt, now).SetProperty(s => s.DiscordUserId, discordUserId),
+                ct)
             .ConfigureAwait(false);
 
         if (updated > 0)
             return;
 
-        _db.DiscordStaffRoleStates.Add(new DiscordStaffRoleState { MappingId = mappingId, UserId = userId, Held = held, AgreedAt = now });
+        _db.DiscordStaffRoleStates.Add(new DiscordStaffRoleState
+        {
+            MappingId = mappingId,
+            UserId = userId,
+            DiscordUserId = discordUserId,
+            Held = held,
+            AgreedAt = now,
+        });
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
-    private Task SetProblemAsync(Guid mappingId, string? problem, CancellationToken ct)
+    private Task SetProblemAsync(Guid mappingId, string? problem, DateTimeOffset? refusedAt, CancellationToken ct)
         => _db.DiscordStaffRoles
-            .Where(m => m.Id == mappingId && m.Problem != problem)
-            .ExecuteUpdateAsync(u => u.SetProperty(m => m.Problem, problem), ct);
+            .Where(m => m.Id == mappingId)
+            .ExecuteUpdateAsync(u => u.SetProperty(m => m.Problem, problem).SetProperty(m => m.RefusedAt, refusedAt), ct);
+
+    private Task<bool> SwitchOnAsync(CancellationToken ct)
+        => _db.Settings.AsNoTracking().AnyAsync(s => s.Id == 1 && s.DiscordStaffRolesOn, ct);
+
+    /// <summary>Whether a Modbot role the plan gives may still be given now.</summary>
+    private async Task<bool> MayStillGiveAsync(ModbotUser user, StaffRoleChange change, CancellationToken ct)
+    {
+        if (user.DiscordVerifiedAt is null || string.IsNullOrEmpty(user.DiscordUserId)
+            || !string.Equals(user.DiscordUserId, change.DiscordUserId, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (change.MappingId is not { } mappingId)
+            return false;
+
+        var mapped = await _db.DiscordStaffRoles.AsNoTracking()
+            .AnyAsync(m => m.Id == mappingId && m.RoleId == change.RoleId, ct)
+            .ConfigureAwait(false);
+
+        return mapped && await SwitchOnAsync(ct).ConfigureAwait(false);
+    }
 
     private async Task HoldAsync(int losing, CancellationToken ct)
     {
@@ -322,6 +394,14 @@ public sealed class StaffRoleSync
         // Said once when it stops, not every minute while it waits.
         if (first)
             await WriteAsync(FactType.StaffRolesHeld, FactPlatform.Modbot, Subject, new JsonObject { ["accounts"] = losing }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>A held pass ran: the gives went ahead, the hold stays until Apply.</summary>
+    private async Task NoteHeldRanAsync(CancellationToken ct)
+    {
+        var state = await StateAsync(ct).ConfigureAwait(false);
+        state.StaffRolesRanAt = _clock.UtcNow;
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     private async Task NoteRanAsync(string? problem, CancellationToken ct)

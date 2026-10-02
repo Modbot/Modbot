@@ -132,6 +132,7 @@ public static class FactLabels
         [FactType.StaffRoleMapped] = "Discord role given a Modbot role",
         [FactType.StaffRoleUnmapped] = "Discord role no longer gives a Modbot role",
         [FactType.StaffRolesHeld] = "Roles from Discord stopped",
+        [FactType.StaffRolesApplied] = "Roles from Discord applied",
         [FactType.ApiKeyCreated] = "API key created",
         [FactType.ApiKeyRevoked] = "API key revoked",
         [FactType.McpConnected] = "AI app connected",

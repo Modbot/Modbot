@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002191315_LetDiscordRolesGiveModbotRoles")]
+    [Migration("20261002193401_LetDiscordRolesGiveModbotRoles")]
     partial class LetDiscordRolesGiveModbotRoles
     {
         /// <inheritdoc />
@@ -2849,6 +2849,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("problem");
 
+                    b.Property<DateTimeOffset?>("RefusedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("refused_at");
+
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("role_id");
@@ -2864,8 +2868,13 @@ namespace Modbot.Core.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_discord_staff_role_discord");
 
-                    b.HasIndex("RoleId")
-                        .HasDatabaseName("ix_discord_staff_role_role");
+                    b.HasIndex(new[] { "RoleId" }, "ix_discord_staff_role_role")
+                        .HasDatabaseName("ix_discord_staff_role_role_id");
+
+                    b.HasIndex(new[] { "RoleId" }, "ux_discord_staff_role_both_ways")
+                        .IsUnique()
+                        .HasDatabaseName("ix_discord_staff_role_role_id1")
+                        .HasFilter("direction = 'both'");
 
                     b.ToTable("discord_staff_role", (string)null);
                 });
@@ -2883,6 +2892,11 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset>("AgreedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("agreed_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
 
                     b.Property<bool>("Held")
                         .HasColumnType("boolean")

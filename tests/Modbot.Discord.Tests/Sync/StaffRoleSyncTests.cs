@@ -329,7 +329,7 @@ public class StaffRoleSyncTests
         Assert.Null(await HeldAsync(services, account.Id, Moderator));
 
         await using var db = services.Database.NewContext();
-        var plan = await StaffRoles.PlanAsync(db, null, withNotes: true, Ct);
+        var plan = await StaffRoles.PlanAsync(db, null, withNotes: true, services.Clock.UtcNow, Ct);
         var change = Assert.Single(plan.Changes);
         Assert.Equal(StaffRoleChangeKinds.Give, change.What);
         Assert.Empty(await services.FactsOfTypeAsync(FactType.UserRolesChanged, Ct));
@@ -393,6 +393,44 @@ public class StaffRoleSyncTests
         Assert.Equal(6, applied.Taken);
         foreach (var a in accounts)
             Assert.Null(await HeldAsync(services, a.Id, Moderator));
+    }
+
+    /// <summary>A held pass still gives: only taking waits for Apply.</summary>
+    [Fact]
+    public async Task AHeldPassStillGivesAndOnlyTakingWaitsForApply()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+
+        var losing = new List<ModbotUser>();
+        for (var i = 0; i < 6; i++)
+        {
+            var id = (6100 + i).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var account = await AccountAsync(services, id);
+            await GiveByHandAsync(services, account.Id, Moderator);
+            await InServerAsync(services, id);
+            losing.Add(account);
+        }
+
+        var newcomer = await AccountAsync(services, "6200");
+        await InServerAsync(services, "6200", SyncSetUp.DiscordRole);
+
+        var held = await PassAsync(services);
+
+        Assert.True(held.Held);
+        Assert.Equal(1, held.Given);
+        Assert.Equal(0, held.Taken);
+        Assert.NotNull(await HeldAsync(services, newcomer.Id, Moderator));
+        foreach (var a in losing)
+            Assert.NotNull(await HeldAsync(services, a.Id, Moderator));
+
+        var applied = await PassAsync(services, pastBrake: true);
+
+        Assert.False(applied.Held);
+        Assert.Equal(6, applied.Taken);
+        foreach (var a in losing)
+            Assert.Null(await HeldAsync(services, a.Id, Moderator));
+        Assert.NotNull(await HeldAsync(services, newcomer.Id, Moderator));
     }
 
     [Fact]
@@ -550,7 +588,149 @@ public class StaffRoleSyncTests
 
         await using var db = services.Database.NewContext();
         Assert.False(await db.DiscordStaffRoleStates.AnyAsync(s => s.MappingId == mappingId, Ct));
-        Assert.NotNull((await db.DiscordStaffRoles.AsNoTracking().FirstAsync(m => m.Id == mappingId, Ct)).Problem);
+        var mapping = await db.DiscordStaffRoles.AsNoTracking().FirstAsync(m => m.Id == mappingId, Ct);
+        Assert.NotNull(mapping.Problem);
+        Assert.NotNull(mapping.RefusedAt);
+    }
+
+    /// <summary>
+    /// After a refusal the mapping is Not set up everywhere: the bot stops asking (one failed fact,
+    /// not one per person per minute), the role follows Discord, and a hand change is refused. A day
+    /// later it asks once more.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysARefusalMakesTheMappingNotSetUpUntilADayHasPassed()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+
+        var first = await AccountAsync(services, Member);
+        await GiveByHandAsync(services, first.Id, Moderator);
+        await InServerAsync(services, Member);
+
+        var second = await AccountAsync(services, "5002");
+        await GiveByHandAsync(services, second.Id, Moderator);
+        await InServerAsync(services, "5002");
+
+        var gateway = new FakeGateway { RoleError = "Missing Permissions" };
+        await PassAsync(services, gateway);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await PassAsync(services, gateway);
+
+        Assert.Single(gateway.RoleReasons);
+        Assert.Single(await services.FactsOfTypeAsync(FactType.CopyFailed, Ct));
+
+        // Working as Discord decides: neither holds the Discord role, so both hand-given roles go.
+        Assert.Null(await HeldAsync(services, first.Id, Moderator));
+        Assert.Null(await HeldAsync(services, second.Id, Moderator));
+
+        await using (var db = services.Database.NewContext())
+        {
+            var user = await db.Users.Include(u => u.Roles).ThenInclude(r => r.Role).FirstAsync(u => u.Id == first.Id, Ct);
+            var locked = await StaffRoles.FollowingDiscordAsync(db, [user], services.Clock.UtcNow, Ct);
+            Assert.Contains(Moderator, locked[first.Id]);
+        }
+
+        // A day on, the bot asks again.
+        services.Clock.Advance(TimeSpan.FromDays(1));
+        await GiveByHandAsync(services, first.Id, Moderator);
+        gateway.RoleError = null;
+        await PassAsync(services, gateway);
+
+        var (added, _, userId, _) = Assert.Single(gateway.RoleChanges);
+        Assert.True(added);
+        Assert.Equal(Member, userId);
+    }
+
+    [Fact]
+    public async Task BothWaysSomebodyNotInTheServerLosesTheModbotRoleTheFirstTime()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await GiveByHandAsync(services, account.Id, Moderator);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+    }
+
+    /// <summary>
+    /// Re-proving a different Discord account that lacks the role: the agreement was about the old
+    /// one, so it does not count, and Discord decides. The Modbot role goes; the new account is not
+    /// handed the Discord role.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysProvingADifferentDiscordAccountWithoutTheRoleTakesTheModbotRole()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+        await PassAsync(services); // Discord holds it: Modbot gives, both agree.
+        Assert.NotNull(await HeldAsync(services, account.Id, Moderator));
+
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await InServerAsync(services, "5009");
+        await using (var db = services.Database.NewContext())
+        {
+            var at = services.Clock.UtcNow;
+            await db.Users.Where(u => u.Id == account.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DiscordUserId, "5009").SetProperty(x => x.DiscordVerifiedAt, at), Ct);
+        }
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+    }
+
+    /// <summary>
+    /// Unlinking and connecting the same Discord account again: the unlink took the Modbot role the
+    /// mapping gave and cleared the agreement, and the Discord role was left. Connecting again gives
+    /// the Modbot role back and never takes the Discord role.
+    /// </summary>
+    [Fact]
+    public async Task BothWaysConnectingTheSameDiscordAccountAgainDoesNotTakeTheDiscordRole()
+    {
+        await using var services = await OnAsync(_db);
+        var mappingId = await MapAsync(services, SyncSetUp.DiscordRole, Moderator, StaffRoleDirections.Both);
+        var account = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+        await PassAsync(services);
+
+        // Unlinked: the next pass takes what the mapping gave and forgets the agreement.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await using (var db = services.Database.NewContext())
+        {
+            await db.Users.Where(u => u.Id == account.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DiscordUserId, (string?)null).SetProperty(x => x.DiscordVerifiedAt, (DateTimeOffset?)null), Ct);
+        }
+
+        await PassAsync(services);
+        Assert.Null(await HeldAsync(services, account.Id, Moderator));
+
+        await using (var db = services.Database.NewContext())
+            Assert.False(await db.DiscordStaffRoleStates.AnyAsync(st => st.MappingId == mappingId, Ct));
+
+        // Connected again, the same Discord account, still holding the Discord role.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await using (var db = services.Database.NewContext())
+        {
+            var at = services.Clock.UtcNow;
+            await db.Users.Where(u => u.Id == account.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(x => x.DiscordUserId, Member).SetProperty(x => x.DiscordVerifiedAt, at), Ct);
+        }
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.NotNull(await HeldAsync(services, account.Id, Moderator));
     }
 
     [Fact]
@@ -580,7 +760,7 @@ public class StaffRoleSyncTests
         await InServerAsync(services, "5101", SyncSetUp.DiscordRole);
 
         await using var db = services.Database.NewContext();
-        var plan = await StaffRoles.PlanAsync(db, null, withNotes: true, Ct);
+        var plan = await StaffRoles.PlanAsync(db, null, withNotes: true, services.Clock.UtcNow, Ct);
 
         Assert.Contains(plan.Notes, n => n.What == StaffRoleChangeKinds.NoAccount && n.DiscordUserId == "5100");
         Assert.Contains(plan.Notes, n => n.What == StaffRoleChangeKinds.NotProven && n.DiscordUserId == "5101");

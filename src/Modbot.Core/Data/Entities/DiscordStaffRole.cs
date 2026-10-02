@@ -55,6 +55,13 @@ public class DiscordStaffRole
 
     /// <summary>The last change in Discord this row asked for that was refused, as a sentence.</summary>
     public string? Problem { get; set; }
+
+    /// <summary>
+    /// When Discord last refused to give or take this row's role, or null. While it stands the row
+    /// is Not set up everywhere, as if the bot could not give the role (design §3.1), and the bot
+    /// does not ask again until a day has passed or a role in the server has changed.
+    /// </summary>
+    public DateTimeOffset? RefusedAt { get; set; }
 }
 
 /// <summary>
@@ -71,6 +78,12 @@ public class DiscordStaffRoleState
     public Guid MappingId { get; set; }
 
     public Guid UserId { get; set; }
+
+    /// <summary>
+    /// The Discord account the agreement was about. An account that now proves a different one, or
+    /// none, has no agreement: what was agreed about somebody else's Discord account says nothing.
+    /// </summary>
+    public string DiscordUserId { get; set; } = string.Empty;
 
     public bool Held { get; set; }
 

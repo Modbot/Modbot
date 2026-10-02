@@ -4,12 +4,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Auth;
 using Modbot.Api.Conventions;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Users;
@@ -65,6 +67,7 @@ public static class UserEndpoints
         group.MapGet("/", async (
                 [FromServices] ModbotContext db,
                 [FromServices] UserAccountService accounts,
+                [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
                 var users = await accounts.UsersWithRoles()
@@ -72,7 +75,7 @@ public static class UserEndpoints
                     .OrderBy(u => u.UsernameNormalized)
                     .ToListAsync(ct);
 
-                var following = await StaffRoles.FollowingDiscordAsync(db, users, ct);
+                var following = await StaffRoles.FollowingDiscordAsync(db, users, clock.UtcNow, ct);
 
                 return Results.Ok(users.Select(u => UserSummary.From(u, following.GetValueOrDefault(u.Id))).ToList());
             })
@@ -168,7 +171,8 @@ public static class UserEndpoints
                 // A role that follows a Discord role is the Discord role's to give and take on this
                 // account: the next pass would undo a change made here (staff roles from Discord
                 // design §5).
-                var following = await StaffRoles.FollowingDiscordAsync(db, [user], ct);
+                var following = await StaffRoles.FollowingDiscordAsync(
+                    db, [user], http.RequestServices.GetRequiredService<IModbotClock>().UtcNow, ct);
                 if (following.TryGetValue(user.Id, out var locked))
                 {
                     var asked = (body.RoleIds ?? []).ToHashSet();

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Settings;
@@ -126,9 +127,15 @@ public static class StaffRoleEndpoints
         group.MapPost("/preview", async (
                 [FromBody] StaffRolesPreviewRequest body,
                 [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
+
+                // A saved row keeps what only the server knows about it: when it was saved, and
+                // whether Discord refused it lately. Changing a row's sides or direction is a save,
+                // so it is treated as one that has not been refused.
+                var saved = (await StaffRoles.RulesAsync(db, ct)).ToDictionary(r => r.Id);
 
                 var rules = new List<StaffRoleRule>();
                 foreach (var m in body.Mappings ?? [])
@@ -136,10 +143,17 @@ public static class StaffRoleEndpoints
                     if (string.IsNullOrWhiteSpace(m.DiscordRoleId) || !StaffRoleDirections.IsKnown(m.Direction))
                         return Results.BadRequest(new { error = BadMapping });
 
-                    rules.Add(new StaffRoleRule(m.Id ?? Guid.CreateVersion7(), m.DiscordRoleId.Trim(), m.RoleId, m.Direction));
+                    var rule = new StaffRoleRule(m.Id ?? Guid.CreateVersion7(), m.DiscordRoleId.Trim(), m.RoleId, m.Direction);
+                    if (m.Id is { } id && saved.TryGetValue(id, out var was)
+                        && was.DiscordRoleId == rule.DiscordRoleId && was.RoleId == rule.RoleId && was.Direction == rule.Direction)
+                    {
+                        rule = was;
+                    }
+
+                    rules.Add(rule);
                 }
 
-                var plan = await StaffRoles.PlanAsync(db, rules, withNotes: true, ct);
+                var plan = await StaffRoles.PlanAsync(db, rules, withNotes: true, clock.UtcNow, ct);
                 return Results.Ok(View(plan));
             })
             .WithName("PreviewStaffRoles")
@@ -176,8 +190,8 @@ public static class StaffRoleEndpoints
                     UpdatedAt = now,
                 };
 
-                var after = (await StaffRoles.RulesAsync(db, ct)).Append(Rule(mapping)).ToList();
-                var plan = await StaffRoles.PlanAsync(db, after, withNotes: false, ct);
+                var after = (await StaffRoles.RulesAsync(db, ct)).Append(Rule(mapping) with { SavedAt = null }).ToList();
+                var plan = await StaffRoles.PlanAsync(db, after, withNotes: false, now, ct);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -228,7 +242,7 @@ public static class StaffRoleEndpoints
                 var proposed = (await StaffRoles.RulesAsync(db, ct))
                     .Select(r => r.Id == id ? new StaffRoleRule(id, body.DiscordRoleId.Trim(), checkedBody.Role!.Id, body.Direction) : r)
                     .ToList();
-                var plan = await StaffRoles.PlanAsync(db, proposed, withNotes: false, ct);
+                var plan = await StaffRoles.PlanAsync(db, proposed, withNotes: false, clock.UtcNow, ct);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -239,6 +253,7 @@ public static class StaffRoleEndpoints
                 mapping.Direction = body.Direction;
                 mapping.UpdatedAt = clock.UtcNow;
                 mapping.Problem = null;
+                mapping.RefusedAt = null;
                 await db.SaveChangesAsync(ct);
 
                 // What the two sides agreed on under the old shape says nothing about the new one.
@@ -328,9 +343,38 @@ public static class StaffRoleEndpoints
                 [FromServices] IStaffRoleRunner runner,
                 [FromServices] ModbotContext db,
                 [FromServices] UserAccountService accounts,
+                [FromServices] AccountFacts facts,
+                [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
+                // Apply takes away what the brake held back, so the person pressing it must be
+                // allowed to take away every one of those roles by hand.
+                var plan = await StaffRoles.PlanAsync(db, null, withNotes: false, clock.UtcNow, ct);
+                var takenRoleIds = plan.Changes
+                    .Where(c => StaffRoleChangeKinds.TakesAway(c.What))
+                    .Select(c => c.RoleId)
+                    .Distinct()
+                    .ToList();
+
+                var takenRoles = await db.Roles.AsNoTracking().Where(r => takenRoleIds.Contains(r.Id)).ToListAsync(ct);
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, takenRoles, ct) is { } outranked)
+                    return outranked;
+
                 var pass = await runner.ApplyAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.StaffRolesApplied,
+                    Subject,
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["given"] = pass.Given,
+                        ["taken"] = pass.Taken,
+                        ["left"] = pass.Left,
+                        ["problem"] = pass.Problem,
+                    },
+                    ct);
+
                 var view = await ViewAsync(http, db, accounts, ct);
 
                 return Results.Ok(new StaffRolesApplyView(pass.Given, pass.Taken, pass.Left, pass.Problem, view));
@@ -355,6 +399,14 @@ public static class StaffRoleEndpoints
     internal const string DiscordRoleTaken = "That Discord role already gives a Modbot role.";
 
     internal const string OneForBothWays = "A role that works both ways can have only one Discord role.";
+
+    internal const string PairedElsewhere = "That Discord role is paired with a group role, so it cannot work both ways.";
+
+    internal const string PowerfulRole =
+        "A Discord role that can ban, kick, manage the server or manage roles cannot work both ways.";
+
+    /// <summary>The subject of the facts about linked roles as a whole.</summary>
+    internal const string Subject = "staff-roles";
 
     private sealed record Checked(IResult? Refusal, ModbotRole? Role, DiscordRole? DiscordRole);
 
@@ -399,6 +451,18 @@ public static class StaffRoleEndpoints
         if (sameRole.Count > 0 && (body.Direction == StaffRoleDirections.Both || sameRole.Any(m => m.Direction == StaffRoleDirections.Both)))
             return Refuse(OneForBothWays);
 
+        if (body.Direction == StaffRoleDirections.Both)
+        {
+            // Two syncs writing the same Discord role would undo each other.
+            if (await db.DiscordRolePairs.AsNoTracking().AnyAsync(p => p.DiscordRoleId == discordRoleId, ct))
+                return Refuse(PairedElsewhere);
+
+            // Both ways hands the Discord role out from Modbot: never one that carries power over
+            // the server. A role whose permissions are not read yet counts as one that might.
+            if (StaffRoles.IsPowerful(discordRole))
+                return Refuse(PowerfulRole);
+        }
+
         return new Checked(null, role, discordRole);
     }
 
@@ -406,7 +470,7 @@ public static class StaffRoleEndpoints
 
     // ── Pieces ─────────────────────────────────────────────────────────────────────────────
 
-    private static StaffRoleRule Rule(DiscordStaffRole m) => new(m.Id, m.DiscordRoleId, m.RoleId, m.Direction);
+    private static StaffRoleRule Rule(DiscordStaffRole m) => new(m.Id, m.DiscordRoleId, m.RoleId, m.Direction, m.UpdatedAt, m.RefusedAt);
 
     /// <summary>
     /// With no mapping left for a role, the roles the mappings gave become ordinary ones: they no
@@ -455,6 +519,9 @@ public static class StaffRoleEndpoints
                 .Where(r => r.GuildId == settings.DiscordGuildId)
                 .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct);
 
+        var now = http.RequestServices.GetRequiredService<IModbotClock>().UtcNow;
+        var rolesChangedAt = discordRoles.Count == 0 ? (DateTimeOffset?)null : discordRoles.Values.Max(r => r.UpdatedAt);
+
         var roles = await db.Roles.AsNoTracking().ToListAsync(ct);
         var callerIsAdministrator = RoleOrder.IsAdministrator(http);
         var callerRank = await RoleOrder.CallerRankAsync(http, accounts, ct);
@@ -488,7 +555,7 @@ public static class StaffRoleEndpoints
                         role.Id,
                         role.Name,
                         m.Direction,
-                        m.Direction == StaffRoleDirections.Both && !StaffRoles.BotCanGive(discordRole),
+                        m.Direction == StaffRoleDirections.Both && !StaffRoles.Works(Rule(m), discordRole, rolesChangedAt, now),
                         Below(role),
                         m.Problem);
                 })

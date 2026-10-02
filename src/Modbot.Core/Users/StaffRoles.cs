@@ -8,7 +8,15 @@ namespace Modbot.Core.Users;
 /// <summary>One mapping as the planner reads it: saved, or proposed by a preview.</summary>
 /// <param name="Id">The saved row's id; a fresh id for one only proposed.</param>
 /// <param name="Direction">One of <see cref="StaffRoleDirections"/>.</param>
-public sealed record StaffRoleRule(Guid Id, string DiscordRoleId, Guid RoleId, string Direction);
+/// <param name="SavedAt">When the saved row last changed; null for one only proposed.</param>
+/// <param name="RefusedAt">When Discord last refused this row's role (<see cref="DiscordStaffRole.RefusedAt"/>).</param>
+public sealed record StaffRoleRule(
+    Guid Id,
+    string DiscordRoleId,
+    Guid RoleId,
+    string Direction,
+    DateTimeOffset? SavedAt = null,
+    DateTimeOffset? RefusedAt = null);
 
 /// <summary>What a planned change does. Text, so the API and the web app read the same word.</summary>
 public static class StaffRoleChangeKinds
@@ -52,7 +60,7 @@ public sealed record StaffRoleChange(
     string Why);
 
 /// <summary>Both sides of a both-ways mapping already agree for this account: write it down.</summary>
-public sealed record StaffRoleAgreement(Guid MappingId, Guid UserId, bool Held);
+public sealed record StaffRoleAgreement(Guid MappingId, Guid UserId, string DiscordUserId, bool Held);
 
 /// <summary>What one staff role pass would do.</summary>
 /// <param name="Changes">Roles to give and take, on either side.</param>
@@ -120,10 +128,45 @@ public static class StaffRoles
         return !role.Everyone && !role.Managed && role.RemovedAt is null;
     }
 
-    /// <summary>Whether a both-ways mapping can give its Discord role: the bot may assign it.</summary>
+    /// <summary>Whether the bot may assign this Discord role, as the server index last read it.</summary>
     public static bool BotCanGive(DiscordRole? role)
         => role is { BotCanAssign: true, RemovedAt: null };
 
+    /// <summary>How long after Discord refused a both-ways role the bot asks again, when nothing in the server changed.</summary>
+    public static readonly TimeSpan RetryAfter = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Whether a both-ways mapping works: the bot may assign its Discord role, and Discord has not
+    /// refused it lately (design §3.1). Otherwise it is Not set up, everywhere: it works as Discord
+    /// decides and its role cannot be changed by hand.
+    /// </summary>
+    /// <param name="rolesChangedAt">
+    /// The latest change to any role in the server. A refusal stands until a day has passed or a
+    /// role has changed since, which is what fixing the bot's permissions or role order looks like.
+    /// </param>
+    public static bool Works(StaffRoleRule rule, DiscordRole? role, DateTimeOffset? rolesChangedAt, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        if (rule.Direction != StaffRoleDirections.Both || !BotCanGive(role))
+            return false;
+
+        if (rule.RefusedAt is not { } refused)
+            return true;
+
+        return now - refused >= RetryAfter || rolesChangedAt > refused;
+    }
+
+    /// <summary>The Discord permissions a both-ways role may not carry: Modbot must never hand those out.</summary>
+    /// <remarks>Administrator, Kick Members, Ban Members, Manage Server and Manage Roles, as Discord numbers them.</remarks>
+    public const long PowerfulDiscordPermissions = (1L << 3) | (1L << 1) | (1L << 2) | (1L << 5) | (1L << 28);
+
+    /// <summary>Whether a Discord role carries a permission Modbot must never hand out, or is not read yet.</summary>
+    public static bool IsPowerful(DiscordRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        return role.Permissions is not { } permissions || (permissions & PowerfulDiscordPermissions) != 0;
+    }
     /// <summary>The saved mappings, as the planner reads them.</summary>
     public static async Task<IReadOnlyList<StaffRoleRule>> RulesAsync(ModbotContext db, CancellationToken ct)
     {
@@ -131,7 +174,7 @@ public static class StaffRoles
 
         return await db.DiscordStaffRoles.AsNoTracking()
             .OrderBy(m => m.CreatedAt)
-            .Select(m => new StaffRoleRule(m.Id, m.DiscordRoleId, m.RoleId, m.Direction))
+            .Select(m => new StaffRoleRule(m.Id, m.DiscordRoleId, m.RoleId, m.Direction, m.UpdatedAt, m.RefusedAt))
             .ToListAsync(ct)
             .ConfigureAwait(false);
     }
@@ -142,7 +185,7 @@ public static class StaffRoles
     /// Empty while the switch is off, because then nothing would undo a change by hand.
     /// </summary>
     public static async Task<IReadOnlyDictionary<Guid, IReadOnlySet<Guid>>> FollowingDiscordAsync(
-        ModbotContext db, IReadOnlyCollection<ModbotUser> users, CancellationToken ct)
+        ModbotContext db, IReadOnlyCollection<ModbotUser> users, DateTimeOffset now, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(users);
@@ -163,10 +206,11 @@ public static class StaffRoles
             return none;
 
         var discordRoles = await DiscordRolesAsync(db, settings.DiscordGuildId, ct).ConfigureAwait(false);
+        var rolesChangedAt = LatestChange(discordRoles);
 
         var locked = rules
             .GroupBy(r => r.RoleId)
-            .Where(g => !g.Any(r => r.Direction == StaffRoleDirections.Both && BotCanGive(discordRoles.GetValueOrDefault(r.DiscordRoleId))))
+            .Where(g => !g.Any(r => Works(r, discordRoles.GetValueOrDefault(r.DiscordRoleId), rolesChangedAt, now)))
             .Select(g => g.Key)
             .ToHashSet();
 
@@ -204,7 +248,7 @@ public static class StaffRoles
     /// <param name="proposed">The mappings as they would be after a save, for a preview; null reads the saved ones.</param>
     /// <param name="withNotes">Also list the Discord members the pass cannot reach. Reads every member, so the preview only.</param>
     public static async Task<StaffRolePlan> PlanAsync(
-        ModbotContext db, IReadOnlyList<StaffRoleRule>? proposed, bool withNotes, CancellationToken ct)
+        ModbotContext db, IReadOnlyList<StaffRoleRule>? proposed, bool withNotes, DateTimeOffset now, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -228,6 +272,7 @@ public static class StaffRoles
             .ConfigureAwait(false);
 
         var discordRoles = await DiscordRolesAsync(db, guildId, ct).ConfigureAwait(false);
+        var rolesChangedAt = LatestChange(discordRoles);
         var problems = new List<string>();
 
         // Each Modbot role with the mappings that give it. A role that has come to carry the
@@ -252,7 +297,7 @@ public static class StaffRoles
                 continue;
 
             var both = usable.FirstOrDefault(r => r.Direction == StaffRoleDirections.Both);
-            var works = both is not null && BotCanGive(discordRoles.GetValueOrDefault(both.DiscordRoleId));
+            var works = both is not null && Works(both, discordRoles.GetValueOrDefault(both.DiscordRoleId), rolesChangedAt, now);
 
             if (both is not null && !works)
                 problems.Add($"Not set up: the bot cannot give {DiscordName(both.DiscordRoleId, discordRoles)}. Give it Manage Roles and keep its own role above that one.");
@@ -336,8 +381,15 @@ public static class StaffRoles
                 {
                     var discordRoleName = DiscordName(both!.DiscordRoleId, discordRoles);
 
+                    // With nothing agreed, Discord decides when the account is not in the server, and
+                    // when it proved its Discord account after the mapping was saved: a new or
+                    // re-proven Discord account is not a reason to hand it the Discord role.
+                    var discordDecides = !inServer || (both.SavedAt is { } saved && user.DiscordVerifiedAt > saved);
+
                     var plan = BothWays(
                         states.GetValueOrDefault((both.Id, user.Id)),
+                        user.DiscordUserId,
+                        discordDecides,
                         discordHeld,
                         modbotHeld,
                         DiscordChangedAt(member));
@@ -345,7 +397,7 @@ public static class StaffRoles
                     switch (plan)
                     {
                         case BothWaysStep.Agree:
-                            agree.Add(new StaffRoleAgreement(both.Id, user.Id, discordHeld));
+                            agree.Add(new StaffRoleAgreement(both.Id, user.Id, user.DiscordUserId, discordHeld));
                             break;
 
                         case BothWaysStep.FollowDiscord:
@@ -416,19 +468,37 @@ public static class StaffRoles
     /// Which side a both-ways mapping copies for one account (design §3.1).
     /// </summary>
     /// <param name="state">What the two sides last agreed on, or null when nothing has been agreed yet.</param>
+    /// <param name="discordUserId">The Discord account the account proves now. An agreement about another one does not count.</param>
+    /// <param name="discordDecidesWithoutAgreement">
+    /// With nothing agreed, follow Discord rather than give the role to whichever side lacks it: the
+    /// account is not in the server, or its Discord account is new since the mapping was saved.
+    /// </param>
     /// <param name="discordChangedAt">
     /// When the member's row last changed. Discord's side counts as changed only when the row has
     /// changed since the agreement: until the update for the bot's own change comes back, the row
     /// still shows the old roles, and reading that as a change would bounce the role back.
     /// </param>
     /// <remarks>Pure, so the table in the design is tested as a table.</remarks>
-    public static BothWaysStep BothWays(DiscordStaffRoleState? state, bool discordHeld, bool modbotHeld, DateTimeOffset? discordChangedAt)
+    public static BothWaysStep BothWays(
+        DiscordStaffRoleState? state,
+        string discordUserId,
+        bool discordDecidesWithoutAgreement,
+        bool discordHeld,
+        bool modbotHeld,
+        DateTimeOffset? discordChangedAt)
     {
+        if (state is not null && !string.Equals(state.DiscordUserId, discordUserId, StringComparison.Ordinal))
+            state = null;
+
         if (state is null)
         {
-            // The first time: both agree, or whichever side holds it gives it to the other.
+            // The first time: both agree, or whichever side holds it gives it to the other, unless
+            // Discord decides for want of anything agreed.
             if (discordHeld == modbotHeld)
                 return BothWaysStep.Agree;
+
+            if (discordDecidesWithoutAgreement)
+                return BothWaysStep.FollowDiscord;
 
             return discordHeld ? BothWaysStep.FollowDiscord : BothWaysStep.FollowModbot;
         }
@@ -497,6 +567,9 @@ public static class StaffRoles
 
     private static DateTimeOffset? DiscordChangedAt(Member? member)
         => member is null ? null : member.LeftAt is { } left && left > member.UpdatedAt ? left : member.UpdatedAt;
+
+    private static DateTimeOffset? LatestChange(Dictionary<string, DiscordRole> roles)
+        => roles.Count == 0 ? null : roles.Values.Max(r => r.UpdatedAt);
 
     private static Task<Dictionary<string, DiscordRole>> DiscordRolesAsync(ModbotContext db, string guildId, CancellationToken ct)
         => db.DiscordRoles.AsNoTracking()

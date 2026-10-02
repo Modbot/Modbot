@@ -22,6 +22,7 @@ public class StaffRolesTests
     private const string Staff = "801";
     private const string Managed = "802";
     private const string Events = "803";
+    private const string Bans = "804";
     private const string Member = "5001";
 
     /// <summary>Enough to map Moderator: both permissions, and everything Moderator allows.</summary>
@@ -48,9 +49,10 @@ public class StaffRolesTests
 
         db.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "The server", BotCanManageRoles = true });
         db.DiscordRoles.Add(new DiscordRole { RoleId = Guild, GuildId = Guild, Name = "@everyone", Everyone = true });
-        db.DiscordRoles.Add(new DiscordRole { RoleId = Staff, GuildId = Guild, Name = "Staff", BotCanAssign = true });
+        db.DiscordRoles.Add(new DiscordRole { RoleId = Staff, GuildId = Guild, Name = "Staff", BotCanAssign = true, Permissions = 0 });
         db.DiscordRoles.Add(new DiscordRole { RoleId = Managed, GuildId = Guild, Name = "Booster", Managed = true });
-        db.DiscordRoles.Add(new DiscordRole { RoleId = Events, GuildId = Guild, Name = "Events", BotCanAssign = true });
+        db.DiscordRoles.Add(new DiscordRole { RoleId = Events, GuildId = Guild, Name = "Events", BotCanAssign = true, Permissions = 0 });
+        db.DiscordRoles.Add(new DiscordRole { RoleId = Bans, GuildId = Guild, Name = "Bans", BotCanAssign = true, Permissions = 1L << 2 });
 
         await db.SaveChangesAsync(Ct);
     }
@@ -199,6 +201,108 @@ public class StaffRolesTests
         var second = await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Events, BuiltInRoles.ModeratorId), cookie, Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task ADiscordRoleWithPowerOverTheServerCannotWorkBothWays()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        await ServerAsync(host);
+
+        var both = await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Bans, BuiltInRoles.ModeratorId, "both"), cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
+
+        // Discord decides never changes anything in Discord, so it may follow such a role.
+        var oneWay = await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Bans, BuiltInRoles.ModeratorId), cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, oneWay.StatusCode);
+    }
+
+    [Fact]
+    public async Task ADiscordRoleInAGroupRolePairCannotWorkBothWays()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        await ServerAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordRolePairs.Add(new DiscordRolePair { VRChatRoleId = "grol_staff", DiscordRoleId = Staff, Decides = RoleSyncDecides.VRChat });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, BuiltInRoles.ModeratorId, "both"), cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task TwoBothWaysRowsForOneRoleAreRefusedByTheDatabaseToo()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        await ServerAsync(host);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        db.DiscordStaffRoles.Add(new DiscordStaffRole { DiscordRoleId = Staff, RoleId = BuiltInRoles.ModeratorId, Direction = StaffRoleDirections.Both });
+        db.DiscordStaffRoles.Add(new DiscordStaffRole { DiscordRoleId = Events, RoleId = BuiltInRoles.ModeratorId, Direction = StaffRoleDirections.Both });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ApplyIsRecordedWithWhoPressedIt()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (me, cookie) = await host.SignedInAsync(Mapper, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, Path + "/apply", null, cookie, Ct)).StatusCode);
+
+        var fact = Assert.Single(await host.FactsAsync(FactType.StaffRolesApplied, "staff-roles", Ct));
+        Assert.Equal(me.Id.ToString(), fact.ActorId);
+    }
+
+    /// <summary>Apply takes away what the brake held back: only somebody who could take each of those roles by hand may press it.</summary>
+    [Fact]
+    public async Task ApplyIsRefusedToSomebodyWhoCouldNotTakeTheRolesAwayByHand()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        await ServerAsync(host, on: true);
+
+        // A role above the presser, mapped by an administrator, held by hand by somebody who lacks
+        // its Discord role: the pass would take it away.
+        Guid high;
+        using (var scope = host.Services.CreateScope())
+        {
+            high = await TestAccounts.RoleForAsync(
+                scope.ServiceProvider.GetRequiredService<ModbotContext>(),
+                Mapper | ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings,
+                Ct);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, high), admin, Ct)).StatusCode);
+
+        var staff = await StaffMemberAsync(host, Member);
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.UserRoles.Add(new ModbotUserRole { UserId = staff.Id, RoleId = high });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path + "/apply", null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(await host.FactsAsync(FactType.StaffRolesApplied, "staff-roles", Ct));
     }
 
     [Fact]

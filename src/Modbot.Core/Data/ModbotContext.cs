@@ -1463,7 +1463,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // One Discord role gives one Modbot role (staff roles from Discord design §2).
             entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_staff_role_discord");
-            entity.HasIndex(e => e.RoleId).HasDatabaseName("ix_discord_staff_role_role");
+            entity.HasIndex(e => e.RoleId, "ix_discord_staff_role_role");
+
+            // A both-ways row is the only both-ways row for its Modbot role: giving the Modbot role
+            // has to say which Discord role to give. The save also refuses a both-ways row beside
+            // a one-way one, which an index cannot say.
+            entity.HasIndex(e => e.RoleId, "ux_discord_staff_role_both_ways")
+                .IsUnique()
+                .HasFilter("direction = 'both'");
 
             // A Modbot role can only be deleted once nobody holds it; its mappings go with it.
             entity.HasOne(e => e.Role)
@@ -1476,6 +1483,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         {
             entity.ToTable("discord_staff_role_state");
             entity.HasKey(e => new { e.MappingId, e.UserId });
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
 
             entity.HasOne<DiscordStaffRole>()
                 .WithMany()
