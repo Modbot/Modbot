@@ -8,9 +8,9 @@
   post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
   added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01); taking Modbot's old
   channel posts down (§3.3, added 2026-10-01); mentioning a role on the channel post (§3.3.1,
-  added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02); every few weeks, a
-  number of times and Featured ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md),
-  added 2026-10-02)
+  added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02); sending, failing and
+  trying again (§17, added 2026-10-02); every few weeks, a number of times and Featured
+  ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md), added 2026-10-02)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -183,9 +183,11 @@ event finishing and cancelling: each changes what the place should say.
   machine, not yet against VRChat.
 - Cancelling, deleting, or unticking VRChat deletes the event on VRChat. A finished event is left
   there: it is history on VRChat's side as well.
-- A write VRChat refuses is not sent again until the event changes. An update or delete that got no
-  answer (timeout, VRChat's own 5xx) is tried again after 15 minutes. What VRChat said
-  (`error.message` in its reply) is what the event's VRChat status shows, not the bare HTTP reason.
+- A write VRChat refuses is not sent again until the event changes, a save or Try again clears it,
+  or -- for a missing group permission -- a read of the group finds the permission (§17, changed
+  2026-10-02). An update or delete that got no answer (timeout, VRChat's own 5xx) is tried again
+  after 15 minutes. What VRChat said (`error.message` in its reply) is what the event's VRChat
+  status shows, not the bare HTTP reason.
 - **A create with no answer is never sent again on its own** (changed 2026-10-01). VRChat has
   answered a create with a 500 and saved the event anyway (2026-09-25, and three times on
   2026-10-01), so a 5xx, a timeout or an answer with no id says nothing about whether it saved:
@@ -890,3 +892,110 @@ cannot know which copy a server wants to keep, so it **finds them and says so; i
 - **Not built:** deleting a copy, or telling Modbot's calendar to stop making one. Either would be a
   choice between tools that belongs to the server's owners, and is made in Discord or in the other
   tool's settings.
+
+## 17. Sending, failing and trying again (added 2026-10-02)
+
+A recorded test on a live install on 2026-10-02 went like this. An event was scheduled; the event's
+box sat still for a while and then said **VRChat calendar: Failed**, because VRChat did not take the
+picture id. The id was fixed and the event saved again; the box went on showing the old failure until
+the new one arrived: Modbot's VRChat account lacked **Manage Group Calendar**. The permission was
+given in VRChat, the event saved again with nothing changed, and nothing happened. A duplicate of the
+event was refused too. The testers asked for four things, built here.
+
+### 17.1 A permission given is picked up
+
+**Why nothing happened.** A refusal was held until the event changed (§3.1): the place kept what
+it had tried to send, and was not sent again while the event would send the same thing. That is right
+for a field VRChat does not accept, and wrong for a permission: giving it changes nothing about the
+event, so saving the event again unchanged kept the same content and the same hold, and the place
+showed the old failure for as long as nobody changed a field VRChat sees. Modbot's copy of the
+account's permissions played a part too: it is read with the group every five minutes, and a 403 was
+labelled "needs Manage Group Calendar" whenever that copy did not show the permission (or had never
+been read), so a refusal for any other reason could read as the permission while the copy was behind.
+
+Now:
+
+- **A refusal for a missing group permission stands only while the account lacks it.** When a read
+  of the group -- the five-minute poll, or one of the reads below -- finds the permission, the next
+  pass sends the event again, with no edit and no button. A refusal for anything else is still held
+  until the event changes, a save clears it (§17.3) or Try again is pressed (§17.4).
+- **A 403 is judged against a fresh read.** When VRChat answers a calendar write with 403, the group
+  is read once more before the refusal is labelled: if the account has the permission now, the place
+  shows VRChat's own words instead.
+- **The read** is the group poll's own: `GetGroup` on `groups.read`, whose limit is already set
+  (foundation §4.2, one request every 10 seconds), so no new endpoint. At most once a pass, and only
+  when a send is due, which a hold keeps to once per change, save or press. A 429 cold-stops the
+  class like any other and is not retried; the last read then stands.
+
+### 17.2 Every problem at once
+
+**Before sending** a create or an update, the VRChat calendar loop checks what it can know
+(`CalendarVRChatChecks`):
+
+1. **Manage Group Calendar**, as the group was last read. When that says it is missing, the group is
+   read once more first (§17.1), so a permission given since is not refused from a stale copy. Not
+   read yet is not a problem: VRChat's answer says.
+2. **The title** and **the description**, which VRChat requires.
+3. **The VRChat image id.** Never checked for its shape (foundation §3.1.1: ids are opaque); only
+   what cannot be an id at all is refused: a space in it, or a slash, backslash, question mark or
+   hash, which a link has and a path segment cannot. A VRChat picture address pasted whole
+   (`https://api.vrchat.cloud/api/1/file/{id}/…`, or `/image/`) is saved as the id inside it,
+   taken from between the slashes.
+
+Anything found fails the place with **every problem together, the permission first**, and nothing is
+sent: the place's error holds every sentence, its `problems` the ones other than the permission, and
+its missing permission is shown first with the link to the group's roles. It is held like a refusal.
+One `publish.fail` fact carries every sentence in its `error`, the permission first; it has no
+separate `fix`, which the Discord card would show as the same sentence twice.
+
+**A refused save names everything at once.** The form's save (`POST` and `PUT /api/calendar/events`)
+checks every field and answers 400 with `problems` (one sentence each, in the form's order) and
+`error` (the same, joined); until now it stopped at the first. When the event goes to VRChat's
+calendar and the last read of the group says the permission is missing, that comes first. **On its
+own it never refuses a save**: the read may be minutes old, a save never waits on VRChat (§9), and
+the event is still worth saving for Discord; the loop reads the group again before it refuses to
+send. The image id rule above is a save problem too, while VRChat calendar is ticked (the box is
+hidden otherwise, and a problem in a hidden box could not be fixed).
+
+### 17.3 Being sent
+
+- **A place being sent says so.** The event's box shows **Sending…**, with a turning mark, for a
+  place that is waiting (for edits to settle, its turn, or a rate limit), and also for a ticked place
+  Modbot has not made a row for yet: right after a save the loops have not run, and before this the
+  box showed nothing at all for up to a pass. **Waiting** reads **Sending…** wherever a place's state
+  is shown.
+- **The box reads the event again every 4 seconds** while anything on it is being sent or the
+  instance is opening. Not every step writes a fact for the live stream (an edit reaching a place
+  that already had the event writes none, §14.1), so "Sending…" could otherwise outlast the sending.
+- **A save clears the old failure at once.** Saving the event, or one of its dates, puts every place
+  that failed back to waiting with nothing of the failure left, and the loops send it again even when
+  nothing they send changed: saving again is how a moderator says "send it again". Two are left
+  alone: a VRChat create that got no answer (it is looked for first, §3.1) and one VRChat did not
+  add (only Try again sends it). A failed error is shown only while the place is failed, so an old
+  error no longer shows beside **Sending…**.
+- **A place whose content is back to what was last sent** (an edit undone, say) is published
+  again without a write, rather than left failed or waiting for a write that never comes.
+
+### 17.4 Try again
+
+- **Every failed place has Try again**, for people with **Manage calendar**: the VRChat calendar,
+  the Discord event, the channel post, the cancel post, one date's own VRChat change, and the
+  instance. It sends it again, as it is, without editing the event.
+- `POST /api/calendar/events/{id}/{place}/try-again`, `place` one of `vrchat`, `discordEvent`,
+  `channelPost`, `cancelPost`; with `plannedStartsAt` in the body, one date of a repeating event on
+  VRChat. The place goes back to waiting and the next pass sends it. The route is the one VRChat's
+  "not added" Try again had (§3.1), which keeps its own way: one more look at VRChat's calendar, then
+  the create. A create with no answer whose look could not be made is looked for now, never sent
+  without the look. A refusal for a missing permission is checked against a fresh read first
+  (§17.1), so a press before the permission is given sends nothing to VRChat's calendar.
+- **A second press is refused** (409, "There is nothing to try again."): the place is waiting by
+  then. The button stays off while its request is out.
+- **The instance** uses Open now's own request (`POST /api/calendar/events/{id}/open`, §4), which
+  already refuses while an attempt is under way or being checked; the Try again beside the
+  instance's error shows only while Open now would be offered.
+- `canTryAgain` on a place now means "failed, and Try again sends it again"; until 2026-10-02 it
+  meant only a VRChat create that was not added.
+
+**Not built:** a Discord refusal for a missing permission is still held until the event changes, a
+save or Try again; Modbot does not watch the bot's Discord permissions for it. The posts for the
+first person have no Try again.

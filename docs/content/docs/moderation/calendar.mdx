@@ -74,8 +74,9 @@ each other, when there are any (see [Duplicate Discord events](#duplicate-discor
 a **Drafts** box lists events saved as drafts, when there are any. Under that, **Past events** lists
 every time an event ran in the last 90 days, the busiest first. See [Past events](#past-events).
 
-The page updates by itself when an event changes, so a place changing from **Waiting** to
-**Published** shows up without reloading.
+The page updates by itself when an event changes, so a place changing from **Sending…** to
+**Published** shows up without reloading. While an open event still has something being sent, it is
+also read again every few seconds.
 
 ### Colours
 
@@ -128,8 +129,11 @@ Click an event in any view. It opens in a small box beside it, showing:
   [Next game](/moderation/world-lists#next-game);
 - **Instance**, once Modbot has tried to open one: **Opening** while it waits for VRChat, **Open**
   or **Closed** (click it for the [instance popup](/moderation/popups#instance-popup)), and a
-  **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red;
-- one line per place it is published, with its state and, if it failed, VRChat's or Discord's error;
+  **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red,
+  with **Try again** while the instance can still be opened;
+- one line per place it is published, with its state: **Sending…** (with a turning mark) from the
+  moment you save until it is done, then **Published**, or **Failed** with what went wrong and a
+  **Try again** button. See [Try again](#try-again);
 - **How it went**, once the time you clicked has started. See [What an event did](#what-an-event-did).
 
 With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** and **Delete**, and
@@ -396,7 +400,9 @@ field with a **Get VRChat+** link, and nothing is uploaded.
 To turn it on, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn on **Upload
 VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off the form has a
 box for a VRChat image id instead: the `file_` id of a picture already on VRChat, typed by hand, as
-before uploads existed.
+before uploads existed. You can also paste the picture's whole VRChat address, such as
+`https://api.vrchat.cloud/api/1/file/file_…/1/file`: Modbot keeps only the id inside it. A link
+to anywhere else, or an id with a space in it, is refused when you save.
 
 With it on:
 
@@ -458,9 +464,17 @@ time.
 
 ### When saving fails
 
-The form shows what is wrong, for example:
+The form lists everything that is wrong at once, one line each, so one fix-and-save round is enough.
+For example:
 
+- **Modbot's VRChat account needs Manage Group Calendar in this group.** Shown first, when
+  **VRChat calendar** is on and Modbot's last look at your group says its account lacks that
+  permission. On its own it does not stop the save: the event is saved, and the
+  [VRChat calendar place](#when-vrchat-says-no) waits for the permission.
 - **An event needs a title.**
+- **VRChat's calendar needs a description.**
+- **The VRChat image id is not a VRChat file id.** It has a space in it, or it is a link to
+  somewhere other than VRChat. See [The VRChat picture](#the-vrchat-picture).
 - **The end must be after the start.**
 - **An event can last at most 7 days.**
 - **The last date is before the start.**
@@ -559,25 +573,57 @@ The **VRChat calendar** place on the event shows one of:
 
 | State | What is happening |
 |---|---|
-| **Waiting** | Queued: waiting for its turn, for your edits to settle, or for a rate limit to pass. |
+| **Sending…** | Being sent: waiting for your edits to settle, for its turn, or for a rate limit to pass. |
 | **Published** | VRChat has the latest version. |
-| **Failed** | VRChat refused, or did not answer. VRChat's own error is shown beside it. |
+| **Failed** | Something stopped it. What went wrong is shown beside it, with **Try again**. |
 | **Removed** | Taken off VRChat after a cancel, a delete, or turning it off. |
+
+**Before sending, Modbot checks what it can**, and lists every problem it finds together, so you can
+fix them all at once:
+
+1. that Modbot's VRChat account has **Manage Group Calendar** in your group, with a link to your
+   group's roles on VRChat. Modbot looks at your group every few minutes; when its last look says
+   the permission is missing, Modbot looks once more before saying so, so a permission you just gave
+   is not missed;
+2. a title and a description;
+3. that the VRChat image id could be one (see [The VRChat picture](#the-vrchat-picture)).
+
+When any of these is wrong, nothing is sent to VRChat, so none of its strict limit is spent.
 
 What Modbot does next depends on why it failed:
 
+- **Modbot's VRChat account lacks Manage Group Calendar.** Give the permission to a role Modbot's
+  account has in VRChat (**Group settings**, **Roles**). Modbot sends the event by itself the next
+  time it looks at your group, within a few minutes, with no edit. Press **Try again** to have it
+  look straight away.
 - **VRChat said "too many requests".** Modbot never retries straight away. It pauses all VRChat
-  calendar changes for a while and the place shows **Waiting**, not **Failed**. It carries on by
+  calendar changes for a while and the place shows **Sending…**, not **Failed**. It carries on by
   itself. You can see the pause under **VRChat request limits** on [Health](/self-hosting/health#vrchat-request-limits).
 - **VRChat refused the event** (for example, a field it does not accept). Modbot does not send the
-  same thing again. Fix the event in Modbot, and the changed version is sent. Saving it with nothing
-  changed does not send it again.
+  same thing again by itself. Fix the event in Modbot and save, and it is sent. Saving with nothing
+  changed, or pressing **Try again**, sends it again as it is.
 - **VRChat did not answer, or had a problem on its side.** For a change to an event already on
   VRChat, Modbot tries again after 15 minutes. For a new event, VRChat sometimes adds it anyway, so
   Modbot looks on VRChat's calendar instead of sending it again: if it is there, the place shows
   **Published**; if not, it shows **Failed** with *VRChat did not add the event.* and a **Try
-  again** button, and Modbot sends nothing until you press it. **Try again** looks once more first,
-  in case VRChat added it late.
+  again** button, and Modbot sends nothing until you press it, not even after an edit. **Try again**
+  looks once more first, in case VRChat added it late.
+
+### Try again
+
+Every place that failed has a **Try again** button, for people with **Manage calendar**: the VRChat
+calendar, the Discord event, the channel post, the post saying the event is cancelled, one date's
+own change on VRChat, and the instance. It sends it again as it is, without editing the event, and
+the place shows **Sending…** until it is done. Use it after fixing the cause outside Modbot, such
+as a permission in VRChat or Discord.
+
+- One press is enough. The button is off while it sends, and a second press finds the place already
+  being sent.
+- Saving the event, even with nothing changed, does the same for every failed place at once: the old
+  failure goes away as soon as you save, and the place shows **Sending…**. The one exception is
+  *VRChat did not add the event.*, which only its own **Try again** sends.
+- For the instance, **Try again** is the same as [Open now](#open-now) and shows while Open now
+  would.
 
 ## Discord
 
@@ -701,7 +747,7 @@ bot to be connected; while it is not, nothing is listed.
 
 ### When Discord says no
 
-The **Discord event** and **Channel post** places use the same states as VRChat: **Waiting**,
+The **Discord event** and **Channel post** places use the same states as VRChat: **Sending…**,
 **Published**, **Failed** and **Removed**, with Discord's error beside a failure. Common errors:
 
 | Error | Fix |
@@ -710,10 +756,9 @@ The **Discord event** and **Channel post** places use the same states as VRChat:
 | **The bot is not in that server.** | Check **Server id** in **Settings**, **Discord**, and that the bot has been invited. |
 | **Discord is rate limiting the bot.** | Nothing. Modbot tries again on its next check. |
 
-A refusal that will not fix itself, such as a missing permission, is not sent again until the event
-changes. After fixing the permission, change something Discord shows, such as the description, and
-save. Saving with nothing changed does not send it again. Other failures are tried again on the next
-check.
+A refusal that will not fix itself, such as a missing permission, is not sent again by itself. After
+fixing the permission, press **Try again** on the place, or save the event; nothing has to change.
+See [Try again](#try-again). Other failures are tried again on the next check.
 
 ## Opening the instance
 
@@ -733,9 +778,9 @@ it still opens the instance when it comes back, as long as that time has not end
 Once the instance is open, its join link goes onto the Discord event and the channel post, and the
 event shows it under **Instance**. When the instance closes, the link is taken off.
 
-**If VRChat refuses, Modbot does not try again** for that time. The error shows on the event under
-**Instance** and on [Health](#on-health), and the event turns red. The next time the event happens
-gets its own attempt.
+**If VRChat refuses, Modbot does not try again** for that time by itself. The error shows on the
+event under **Instance**, with **Try again** while the time has not ended, and on
+[Health](#on-health), and the event turns red. The next time the event happens gets its own attempt.
 
 **If the request never reached VRChat**, Modbot sends it again while the time has not ended: when it
 was waiting out a VRChat request limit or signing in, when Cloudflare stopped it, or when VRChat asked
@@ -894,7 +939,8 @@ Reading the feed asks VRChat nothing, so it does not use any of your group's VRC
 
 Open the event and click **Edit**. The form opens with **Save** (and **Save draft** too, while it is
 still a draft). Changes reach every place by themselves: VRChat after 20 seconds without further
-changes, Discord on its next check.
+changes, Discord on its next check. A place that had failed shows **Sending…** as soon as you save,
+and is sent again even if nothing it shows changed.
 
 For a repeating event, **Edit** first asks **This date** or **All dates**. **All dates** opens the form
 for the whole event. **This date** opens a smaller form for the date you clicked; see
@@ -1003,7 +1049,7 @@ for events that are **Scheduled** or **Open**:
 - **Missing Manage Events** appears in the **Discord bot** card when an event has **Discord event**
   on and the bot does not have Manage Events in your server.
 
-A place that is only **Waiting** because of a VRChat rate limit is not a problem and is not listed
+A place that is only **Sending…** because of a VRChat rate limit is not a problem and is not listed
 here. Look at **VRChat request limits** on the same page instead.
 
 ## In the audit log
@@ -1044,15 +1090,18 @@ deleted on VRChat*.
 
 ## Common problems
 
-**The VRChat calendar place stays on Waiting.** Modbot sends at most one VRChat calendar change a
+**The VRChat calendar place stays on Sending….** Modbot sends at most one VRChat calendar change a
 minute, and waits 20 seconds after your last edit. With several events queued, give it a few minutes.
 If it still waits, VRChat may have asked Modbot to slow down; check **VRChat request limits** on
 [Health](/self-hosting/health#vrchat-request-limits). Also check that a **Managed group** is chosen.
 
 **Nothing happens in Discord.** Check that the bot is connected on [Health](/self-hosting/health),
 that **Server id** is set, and, for the Discord event, that the bot has **Manage Events**. After fixing
-a permission, change something about the event, such as its description, and save, so Modbot tries
-again.
+a permission, press **Try again** on the place.
+
+**VRChat calendar still says Modbot needs Manage Group Calendar after you gave it.** Check that the
+role you changed is one Modbot's VRChat account has: the message names the account's roles. Then
+press **Try again**, which looks at your group's roles again before sending.
 
 **The same event shows twice in Discord's event list.** More than one tool is making Discord events.
 Check **Possible duplicates in Discord** under the calendar to see which ones, then see
@@ -1067,7 +1116,8 @@ Modbot's **Public address** is not set. Without it, the join link is at the top 
 event's description instead.
 
 **The instance did not open.** Check **Instance** on the event for VRChat's error. Modbot does not try
-again for that time; open it yourself in VRChat. The next time the event happens, Modbot tries again.
+again for that time by itself; fix the cause and press **Try again**, or open it yourself in VRChat.
+The next time the event happens, Modbot tries again.
 
 **An event made on vrchat.com is not on the page.** Click **Refresh**. If it repeats every second
 week or every year, Modbot cannot hold it (see [What Modbot cannot hold](#events-made-on-vrchat)).
