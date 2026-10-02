@@ -364,7 +364,7 @@ months**.
 | **World list** | Shown for **Pick from a list**. The list to pick from. See [When the world is picked](/moderation/world-lists#when-the-world-is-picked). |
 | **Who can join** | **Group members**, **Members and their friends** or **Anyone**. Used for the instance Modbot opens, and shown on the channel post. |
 | **Region** | **US West**, **US East**, **Europe** or **Japan**. Used for the instance Modbot opens. |
-| **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture. When empty, Discord gets the world's picture instead. |
+| **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture. When empty, Discord gets the world's picture instead. It can be a link to the picture itself, a link to a page that shows it, or a VRChat file link: see [Picture links](#picture-links). |
 
 ### VRChat calendar
 
@@ -386,10 +386,35 @@ the instance after the end, instance overflow and which group roles see the even
 [made on VRChat](#events-made-on-vrchat), Modbot keeps what VRChat has for them and sends them back
 with every change.
 
+### Picture links
+
+The **Picture link** can be more than a link that ends in `.png` or `.jpg`:
+
+- **A link to a page** that shows the picture (a gallery page, a post): Modbot uses the picture the
+  page names for link previews, the same one Discord or a chat app would show.
+- **A link that does not end in a picture name**, like a CDN link with `?ex=…` after it, or a
+  picture in another format such as WebP: Modbot looks at what the link sends back, not at its name.
+- **A VRChat file link**, like `https://api.vrchat.cloud/api/1/file/file_…/1/file`, from a picture
+  you uploaded to VRChat: the **VRChat picture** fills itself in from it, so you do not have to copy
+  the `file_` part across. Change or clear the link and a VRChat picture that came from it follows.
+  A VRChat picture you chose yourself stays.
+
+To use a link, Modbot's server fetches it. It only fetches `https://` links on public websites, never
+an address on your own network, follows at most three redirects, stops after 10 MB or 15 seconds, and
+keeps nothing. A VRChat file link is fetched with Modbot's VRChat login, and only while **Settings**,
+**VRChat proxy**, **Proxy VRChat images through Modbot** is on.
+
+Discord takes PNG, JPEG, GIF and WebP for an event cover. A link to a picture in another format
+still works for the **VRChat picture**, which is turned into a PNG in your browser, but Discord's
+event gets no cover from it.
+
+A Discord attachment link (`cdn.discordapp.com/attachments/…?ex=…`) stops working after about a
+day. Modbot fetches the link again each time it updates the Discord event, so use a link that lasts.
+
 ### The VRChat picture
 
 VRChat's calendar does not take a picture link, so its picture is a separate field from **Picture
-link**, which only Discord uses.
+link**. A VRChat file link in **Picture link** fills it in (see [Picture links](#picture-links)).
 
 **Uploading a picture is off until you turn it on, and it needs VRChat+.** VRChat takes the upload
 only from an account that has [VRChat+](https://hello.vrchat.com/vrchatplus), and the account that
@@ -399,16 +424,24 @@ field with a **Get VRChat+** link, and nothing is uploaded.
 
 To turn it on, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn on **Upload
 VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off the form has a
-box for a VRChat image id instead: the `file_` id of a picture already on VRChat, typed by hand, as
-before uploads existed. You can also paste the picture's whole VRChat address, such as
-`https://api.vrchat.cloud/api/1/file/file_…/1/file`: Modbot keeps only the id inside it. A link
-to anywhere else, or an id with a space in it, is refused when you save.
+box for a VRChat image id instead: the id of a picture already on VRChat. Paste the whole VRChat
+link if you like (`https://api.vrchat.cloud/api/1/file/file_…/1/file`, with `_blob` or anything else
+on the end): Modbot keeps only the `file_…` id inside it. Text with no VRChat file id in it is
+refused with an example of one.
 
 With it on:
 
-- **Choose picture** and pick a **PNG** or **JPEG** of up to **10 MB**. Modbot uploads it to VRChat
-  straight away, and a small copy of it shows in the form once VRChat has it. While it uploads,
-  **Save** and **Schedule** wait.
+- **Choose picture** and pick any picture your browser can open (PNG, JPEG, WebP, AVIF, GIF, and
+  more). Or give a **Picture link** in this form: its picture opens the same way.
+- **The picture opens in a crop box** in the shape VRChat's calendar uses, 16:9. Drag the box to
+  choose the part to keep, and use **Size** to make it larger or smaller. The **Preview** tab shows
+  the cropped picture before anything is uploaded.
+- **Upload** sends the cropped picture to VRChat, as a PNG (or a JPEG if a PNG would be over
+  **10 MB**), and a small copy of it shows in the form once VRChat has it. Pressing **Save** or
+  **Schedule** with a crop still open uploads it first. While it uploads, **Save** and **Schedule**
+  wait.
+- **Crop** on a VRChat picture that came from a VRChat file link opens that picture in the crop box,
+  to upload a cropped copy in its place.
 - **The picture is uploaded to VRChat, to the VRChat account Modbot signs in as for your group.**
   It is a file on that account from then on, like a picture uploaded on vrchat.com. Modbot does not
   keep a copy; it keeps only the id VRChat gives the picture, and sends that id with the event.
@@ -425,8 +458,11 @@ With it on:
 
 If the upload fails, the reason shows under the field:
 
-- **The picture must be a PNG or JPEG.** Modbot looks at the file itself, not its name.
+- **Could not open the picture.** Your browser cannot read that kind of picture (some browsers
+  cannot read HEIC, for example). Save it as a PNG or JPEG and choose it again.
 - **The picture is larger than 10 MB.**
+- **The link is not a picture.**, **Could not fetch the picture link.** or **The link took too long
+  to answer.** The picture link gave Modbot nothing it could use.
 - **VRChat is not taking uploads right now. Try again in a few minutes.** VRChat asked Modbot to
   slow down. Modbot does not try again by itself; choose the picture again later.
 - **You don't have permission to use tag: gallery.** The account Modbot signs in as does not have

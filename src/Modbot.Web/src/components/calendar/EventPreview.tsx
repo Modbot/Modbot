@@ -36,11 +36,17 @@ export function EventPreview({
   eventId,
   input,
   places,
+  vrchatPicture = null,
 }: {
   eventId: string | null
   input: CalendarEventInput
   /** The chips that are on, the feed among them, in the chips' order. */
   places: CalendarDestination[]
+  /**
+   * VRChat's picture as the form has it: a crop not uploaded yet, or the set picture when the page
+   * can see it (calendar design §15.3). VRChat is sent only the file id, so the server cannot draw it.
+   */
+  vrchatPicture?: ReactNode
 }) {
   const [preview, setPreview] = useState<CalendarPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -69,7 +75,7 @@ export function EventPreview({
     <div className="flex flex-col gap-4" style={{ fontSize: 'var(--text-small)' }}>
       {places.includes('discordEvent') && preview.discordEvent && <DiscordEventCard event={preview.discordEvent} />}
       {places.includes('channelPost') && preview.channelPost && <ChannelPostCard post={preview.channelPost} />}
-      {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} />}
+      {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
       {places.includes('feed') && <FeedCard entry={preview.feed} />}
     </div>
   )
@@ -221,10 +227,11 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const join = (values: string[]) => (values.length > 0 ? values.join(', ') : null)
 
-function VRChatCard({ entry }: { entry: CalendarPreview['vrChat'] }) {
+function VRChatCard({ entry, picture }: { entry: CalendarPreview['vrChat']; picture: ReactNode }) {
   return (
     <Place place="vrchat">
       <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
+        {picture}
         <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
           {entry.title}
         </div>

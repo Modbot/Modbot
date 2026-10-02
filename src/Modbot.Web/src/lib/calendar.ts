@@ -1,5 +1,5 @@
 import type { CalendarReady } from './calendarPlaces.ts'
-import { http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from '@/lib/api'
+import { ApiError, http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from '@/lib/api'
 
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
@@ -426,9 +426,6 @@ export type CalendarDiscordDuplicates = {
 
 const base = '/api/calendar'
 
-/** The pictures VRChat's calendar picture may be. Checked again by the server, from the bytes. */
-export const VRCHAT_PICTURE_TYPES = ['image/png', 'image/jpeg']
-
 /** Where a person gets VRChat+, which VRChat's gallery upload needs on the account Modbot signs in as. */
 export const VRCHAT_PLUS_URL = 'https://hello.vrchat.com/vrchatplus'
 
@@ -480,6 +477,36 @@ export const calendarApi = {
       `${base}/vrchat-picture${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`,
       { method: 'POST', body: picture, headers: { 'content-type': picture.type || 'application/octet-stream' } },
     ),
+  /**
+   * The picture behind a picture link, fetched by Modbot so the form can crop it (calendar design
+   * §15.2): a browser cannot read another site's picture, and VRChat's need Modbot's session.
+   */
+  pictureFromLink: async (url: string): Promise<Blob> => {
+    let response: Response
+
+    try {
+      response = await fetch(`${base}/picture-link`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+    } catch {
+      throw new ApiError(0, 'Could not reach the Modbot server. Is it still running?', null)
+    }
+
+    if (!response.ok) {
+      let message = `The server answered ${response.status}.`
+      try {
+        const body: unknown = JSON.parse(await response.text())
+        if (typeof body === 'object' && body !== null && 'error' in body) message = String((body as { error: unknown }).error)
+      } catch {
+        // Not JSON; the status is all there is to say.
+      }
+      throw new ApiError(response.status, message, null)
+    }
+
+    return response.blob()
+  },
   inviteChoices: () => http.request<CalendarInviteChoices>(`${base}/invite-choices`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   /** What the time of an event that started at `at` did. */

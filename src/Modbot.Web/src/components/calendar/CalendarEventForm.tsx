@@ -40,7 +40,10 @@ import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
+import { pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
+import { CroppedPicture } from './PictureCrop'
 import { usePictureThumbnails } from './usePictureThumbnails'
+import { useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
 import { VRChatPictureField } from './VRChatPictureField'
 
 const OTHER_WORLD = '__other__'
@@ -104,9 +107,16 @@ export function CalendarEventForm({
   const [languages, setLanguages] = useState(() => input.languages.join(', '))
   const [tags, setTags] = useState(() => input.tags.join(', '))
   const [busy, setBusy] = useState(false)
-  // A VRChat picture on its way up: saving now would save the event without it.
-  const [uploading, setUploading] = useState(false)
   const pictureThumbnails = usePictureThumbnails()
+  // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
+  // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
+  const vrchatPicture = useVRChatPicture({
+    eventId: event?.id ?? null,
+    thumbnails: pictureThumbnails,
+    onUploaded: (fileId) => set('vrChatImageId', fileId),
+    initialLink: input.imageUrl,
+  })
+  const uploading = vrchatPicture.uploading
   // Everything a save was refused for, one line each, in the server's order.
   const [error, setError] = useState<string[] | null>(null)
   const [tab, setTab] = useState<Tab>('details')
@@ -181,7 +191,7 @@ export function CalendarEventForm({
   // "Pick from a list" with no list chosen would save as an event with no world at all.
   const listMissing = worldChoice === FROM_LIST && !input.worldListId
 
-  const save = (draft: boolean) => {
+  const save = async (draft: boolean) => {
     if (listMissing) {
       setListMissed(true)
       setTab('details')
@@ -191,7 +201,22 @@ export function CalendarEventForm({
     setBusy(true)
     setError(null)
 
-    const request = event ? calendarApi.update(event.id, body(draft)) : calendarApi.create(body(draft))
+    let saving = body(draft)
+
+    // A crop still in the box goes up first; refused, nothing is saved and the field says why.
+    if (vrchatPicture.draft && input.publishToVRChat) {
+      const fileId = await vrchatPicture.upload()
+
+      if (!fileId) {
+        setBusy(false)
+        setTab('details')
+        return
+      }
+
+      saving = { ...saving, vrChatImageId: fileId }
+    }
+
+    const request = event ? calendarApi.update(event.id, saving) : calendarApi.create(saving)
 
     request
       .then(onSaved)
@@ -205,6 +230,20 @@ export function CalendarEventForm({
   }
 
   const isDraft = !event || event.state === 'draft'
+
+  // What Preview shows as VRChat's picture: a crop not uploaded yet, or the set picture when this
+  // page can see it (one uploaded here, or the picture link's own).
+  const vrchatAddress = vrchatPictureAddress(input.vrChatImageId, input.imageUrl, pictureThumbnails)
+  const vrchatPreview = vrchatPicture.draft ? (
+    <CroppedPicture
+      picture={vrchatPicture.draft.picture}
+      box={vrchatPicture.draft.box}
+      aspect={VRCHAT_PICTURE_ASPECT}
+      className="rounded-sm"
+    />
+  ) : vrchatAddress ? (
+    <img src={vrchatAddress} alt="" className="aspect-video w-full rounded-sm object-cover" />
+  ) : null
   const on = (place: CalendarDestination) => place === 'feed' || input[DESTINATION_SWITCH[place]]
   const title = counted(input.title, TITLE_LIMIT)
   const description = counted(input.description, DESCRIPTION_LIMIT)
@@ -229,11 +268,11 @@ export function CalendarEventForm({
               Cancel
             </Button>
             {isDraft && (
-              <Button size="sm" variant="outline" disabled={busy || uploading} onClick={() => save(true)}>
+              <Button size="sm" variant="outline" disabled={busy || uploading} onClick={() => void save(true)}>
                 Save draft
               </Button>
             )}
-            <Button size="sm" disabled={busy || uploading} onClick={() => save(false)}>
+            <Button size="sm" disabled={busy || uploading} onClick={() => void save(false)}>
               {isDraft ? 'Schedule' : 'Save'}
             </Button>
           </DialogFoot>
@@ -278,7 +317,12 @@ export function CalendarEventForm({
             panelClassName="overflow-visible pt-4"
           >
             {tab === 'preview' && shown ? (
-              <EventPreview eventId={event?.id ?? null} input={shown} places={DESTINATIONS.filter(on)} />
+              <EventPreview
+                eventId={event?.id ?? null}
+                input={shown}
+                places={DESTINATIONS.filter(on)}
+                vrchatPicture={vrchatPreview}
+              />
             ) : (
               <div className="flex flex-col gap-4">
                 <Counted label="Title" count={title}>
@@ -453,7 +497,22 @@ export function CalendarEventForm({
                       </Select>
                     </Labelled>
                   </div>
-                  <Field label="Picture link" value={input.imageUrl ?? ''} placeholder="https://" onChange={(v) => set('imageUrl', v.trim() || null)} />
+                  <Field
+                    label="Picture link"
+                    value={input.imageUrl ?? ''}
+                    placeholder="https://"
+                    onChange={(v) =>
+                      // A link from VRChat fills the VRChat picture too (§15.1).
+                      setInput((current) => {
+                        const imageUrl = v.trim() || null
+                        return {
+                          ...current,
+                          imageUrl,
+                          vrChatImageId: pictureFollowingLink(current.imageUrl, imageUrl, current.vrChatImageId),
+                        }
+                      })
+                    }
+                  />
                 </Section>
 
                 {input.publishToVRChat && (
@@ -476,22 +535,15 @@ export function CalendarEventForm({
                       </Labelled>
                       <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
                       <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
-                      {pictureUploads ? (
-                        <VRChatPictureField
-                          eventId={event?.id ?? null}
-                          thumbnails={pictureThumbnails}
-                          value={input.vrChatImageId}
-                          onChange={(id) => set('vrChatImageId', id)}
-                          onUploading={setUploading}
-                        />
-                      ) : (
-                        <Field
-                          label="VRChat image id"
-                          value={input.vrChatImageId ?? ''}
-                          placeholder="file_…"
-                          onChange={(v) => set('vrChatImageId', v.trim() || null)}
-                        />
-                      )}
+                      <VRChatPictureField
+                        uploads={pictureUploads}
+                        picture={vrchatPicture}
+                        thumbnails={pictureThumbnails}
+                        value={input.vrChatImageId}
+                        saved={event?.vrChatImageId ?? null}
+                        link={input.imageUrl}
+                        onChange={(id) => set('vrChatImageId', id)}
+                      />
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {platforms.map((p) => (

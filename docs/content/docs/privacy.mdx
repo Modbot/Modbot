@@ -84,7 +84,13 @@ wherever you choose to store them. These pages describe what is kept and how it 
   and stays there as a file on that account. It is off until you turn it on, with **Settings**,
   **Modbot's VRChat login**, **Pictures**, **Upload VRChat pictures**, and it needs VRChat+ on that
   account. Even when it is on, nothing is uploaded unless someone with **Manage calendar** chooses
-  a picture.
+  a picture. The picture is cropped and turned into a PNG or JPEG in that person's browser; only the
+  cropped picture is sent.
+- [Picture links](/moderation/calendar#picture-links): to crop an event's picture link, and to give
+  Discord's event its cover, Modbot's server fetches the link, so the website it points at sees a
+  request from your server. It fetches only `https://` links on public websites, never an address on
+  your own network, and keeps nothing. A VRChat file link is fetched with Modbot's VRChat login,
+  only while **Proxy VRChat images through Modbot** is on.
 - [Event invites](/moderation/calendar#inviting-people): for an event set to invite people, Modbot
   sends VRChat invites from the group's Modbot VRChat account, and Discord direct messages from the
   server's Modbot bot, to the host, staff and list the organiser picked, and can post in the group

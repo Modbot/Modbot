@@ -10,7 +10,8 @@
   channel posts down (§3.3, added 2026-10-01); mentioning a role on the channel post (§3.3.1,
   added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02); sending, failing and
   trying again (§17, added 2026-10-02); every few weeks, a number of times and Featured
-  ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md), added 2026-10-02)
+  ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md), added 2026-10-02);
+  picture links, the crop box and picture kinds (§15.1–§15.3, added 2026-10-02)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -521,7 +522,9 @@ Two loops, both on `IModbotClock`, never the system clock:
   `recurrence` keeps or removes a series.
 - Whether `CreateInstance` for a group needs anything beyond owner, type, access, region and
   `instancePersistenceEnabled` (§4; the last was learned from a 400 on 2026-10-01).
-- Discord's handling of external event covers fetched from arbitrary picture links.
+- Discord's handling of external event covers fetched from arbitrary picture links. Whether VRChat's
+  calendar shows exactly 16:9 at every size (§15.3; taken from VRChat's default event picture, not
+  measured), and whether a `vrchat.com` gallery link carries the same id VRChat's calendar takes.
 - **One date on VRChat (§3.1, added 2026-10-01).** That VRChat's month list gives each date of a
   series an id of its own; that a delete or update by that id changes only that date (and not the
   series); whether an update to one date wants `parentId`; and whether VRChat keeps a changed date
@@ -813,8 +816,9 @@ upload.
 - **The request body is the picture**, no multipart form. PNG or JPEG only, told apart by the first
   bytes rather than the Content-Type, and at most **10 MB**. VRChat publishes no limit for this
   endpoint, so 10 MB is a guess kept well above an event picture and well under what an image host
-  is likely to refuse. Anything else is refused before VRChat is asked (400, or 413 for too big). The
-  form checks the same two things first.
+  is likely to refuse. Anything else is refused before VRChat is asked (400, or 413 for too big).
+  Since 2026-10-02 the form always sends the PNG or JPEG its crop box made (§15.3), whatever kind of
+  picture was chosen.
 - **One request, through the gate**, `FilesApi.UploadImageWithHttpInfoAsync` with
   `ImagePurpose.Gallery`, on `files.upload` (§5) at interactive priority. A 429 cold-stops the class
   and answers 429 with a plain sentence; nothing is sent again (foundation §4.3.1). Any other refusal
@@ -841,12 +845,108 @@ upload.
 - **Remove** clears the id on the event. The file stays on VRChat: deleting it would be a second
   VRChat write for nothing members can see.
 - **The thumbnail** in the form is drawn from the file on the person's own computer, so it shows only
-  for a picture chosen on that page. A saved id, or one an event made on VRChat brought with it, reads
+  for a picture chosen on that page, or (since 2026-10-02) from the picture link when the VRChat
+  picture came from it (§15.1). A saved id, or one an event made on VRChat brought with it, reads
   "VRChat picture set": Modbot has no address for it without asking VRChat.
 - **Fact:** `modbot.calendar.picture.upload` with the person as actor. Its subject is the event's id
   when the form sends `eventId` (an event already saved); for a new event there is no id yet, so the
   subject is the file id, and the event's `create` fact names the same file as `vrchatImageId`. No
   member data is in it.
+
+### 15.1 A VRChat link fills the VRChat picture (added 2026-10-02)
+
+A tester call on 2026-10-02 showed the two picture fields asking for the same thing twice: the
+picture link was a VRChat file link (`https://api.vrchat.cloud/api/1/file/file_…/1/file`), and the
+VRChat picture wanted the `file_…` inside it, which the tester then cut out by hand, kept `_blob` on
+the end of, and had refused by VRChat at publish time with no word on what was wanted.
+
+- **A picture link on VRChat's hosts fills the VRChat picture.** In the form, when the picture link
+  changes and the VRChat picture is empty, or is the one the old link gave, it becomes the file id in
+  the new link, or empties when the new link has none. A VRChat picture chosen any other way (an
+  upload, an id typed) is never touched. Only VRChat's own hosts (`vrchat.cloud`, `vrchat.com`) count:
+  `file_` in somebody else's address is somebody else's file. The form does this, not the server, so
+  an API caller says what it means and gets exactly that.
+- **The VRChat picture takes any VRChat link** (`VRChatFileIds.Find`, the same rule in the form):
+  the whole link, with `/1/file` or `/image/…/1024` after the id, `_blob`, a query string, or the id
+  alone. An id in VRChat's usual form (`file_` and a UUID) is taken exactly, which drops anything
+  after it. Any other `file_…` is taken up to the first character that cannot be in an id in a link,
+  so an odd id VRChat really issued still goes through: **this finds ids, it never checks their shape**
+  (foundation §3.1.1). Only text with no `file_` in it, or a link on another site, is refused, with an
+  example: "Use a VRChat file link or id, like file_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d." An id the
+  event already holds is kept as it is, whatever it looks like, so an id read back from VRChat
+  (§12) never stops an edit.
+- With uploads off the field is still the typed box; a link pasted there becomes the id inside it as
+  it is pasted, and text with no id says so once the field is left.
+
+### 15.2 Fetching a picture link (added 2026-10-02)
+
+Testers paste links that are not a plain `.png`: a page that shows the picture, a signed CDN link
+with a query string, a host that answers with WebP. A browser cannot read another site's picture
+into a canvas to crop it, and VRChat serves its files only to a signed-in session, so Modbot fetches
+the picture. **`POST /api/calendar/picture-link`** (Manage calendar), body `{ url }`, answers with the
+picture's bytes; Discord's event cover (§3.2) is fetched the same way when it is published.
+
+Every fetch is Modbot's server calling an address a person chose, so the guard (`PictureLinks`) is
+the webhook's and more:
+
+| Rule | How |
+|---|---|
+| https on port 443 only, no user name or password in the link | refused before anything is sent |
+| Public addresses only | a literal or `localhost` is refused before sending; every connection goes through `PublicAddresses.ConnectAsync`, which resolves the name and drops loopback, private, link-local (the cloud metadata address among them), carrier-grade NAT, multicast, documentation and IPv6 equivalents, so a name that resolves somewhere private reaches nothing |
+| Redirects | never followed by the HTTP stack; each one is read, checked like the first link, and followed at most **3** times |
+| Size and time | at most **10 MB** (a larger `Content-Length` is refused unread, a body is read one byte past and no further); **15 s** for the whole fetch, redirects included |
+| A picture by its bytes | PNG, JPEG, GIF, WebP, BMP, AVIF or HEIC, told apart by the first bytes (`PictureFormats`), whatever the host called it. SVG and HTML are never pictures |
+| A page | read only as far as its `og:image` (its secure form first) or `twitter:image`, in the first 512 KB; that picture is fetched under the same rules and must itself be a picture. A page whose picture is a page gives nothing |
+| Nothing else | no proxy from the environment (it would connect somewhere the check never saw), no cookies, nothing of the person's sent, nothing kept |
+
+- **A VRChat file link** (`vrchat.cloud` and below) is fetched through the VRChat side
+  (`IPictures`, the gate's file fetch), and only while the operator lets this server fetch VRChat
+  pictures (`settings.vr_chat_images_proxied`); off, the endpoint answers 409 and VRChat is not asked.
+- **The answer is somebody else's bytes on Modbot's own address**, so it goes out with the type its
+  bytes have, `nosniff`, a `sandbox` content security policy and `no-store`, as the VRChat file route
+  does.
+- **Discord.** The event cover now goes through the same fetch, so a page or a host that mislabels its
+  picture gives a cover where before it gave none. A cover on VRChat is fetched with Modbot's VRChat
+  session, and only while VRChat pictures are on. Discord takes PNG, JPEG, GIF and WebP; a cover in
+  another kind is left off. On the channel post a link anywhere but VRChat is put on the card as it
+  is (Discord fetches it); a VRChat link, which Discord could not fetch, is sent with the message as
+  the world's picture is (Discord embeds design §3).
+- **Why the server does not convert.** It has no image library, and adding one (a native decoder in
+  the container) for the one picture an event has is more to keep safe than it is worth. The browser
+  already decodes every kind it shows, so the conversion is done there (§15.3) and the server only
+  ever passes bytes on. A signed CDN link that has expired by the time the event is published gives
+  no cover, the same as any other link that stops answering.
+
+### 15.3 The crop box (added 2026-10-02)
+
+The tester's worry was whether a picture "is going to fit": VRChat crops what it is given. VRChat's
+event pictures are **16:9** (an event with no picture of its own shows VRChat's 1024 × 576 one,
+VRChat's wiki); Discord's event cover is **2.5:1** (the 800 × 320 Discord's own help asks for, and
+the shape the preview already drew).
+
+- **With uploads on, a picture opens in a 16:9 crop box** before anything is uploaded: one chosen on
+  this computer (any kind the browser can draw: PNG, JPEG, WebP, AVIF, GIF's first frame, BMP, HEIC
+  where the browser reads it), the picture behind a picture link given in this form (fetched as in
+  §15.2, about a second after the typing stops), or, with Crop, the picture link a VRChat picture came
+  from. The box starts as the largest one in the middle, what VRChat would show; it is dragged to
+  move it (or moved with the arrow keys) and sized with a slider, never past the picture's edges.
+- **Upload** draws the crop onto a canvas no wider than 2048 px (never enlarged) and sends it as a
+  PNG, or a JPEG when the PNG would be over 10 MB. That is the picture §15 uploads; the file VRChat
+  makes from it is the event's VRChat picture. Cancel closes the box; a link closed or removed is not
+  opened again on its own. A link the form opened with is not opened on its own either: editing an
+  event does not fetch anything until a link is given.
+- **Save or Schedule with a crop still in the box uploads it first.** Pressing Schedule with a crop on
+  screen means the picture is wanted. The upload is still its own request; the save waits for it, and
+  a refused upload stops the save and shows why on the picture field.
+- **The Preview tab shows the crop** as VRChat's picture, drawn in the browser, before anything is
+  uploaded; after it, the uploaded picture, and for a VRChat picture from the picture link, the
+  link's picture at 16:9. VRChat is sent only the file id, so this part of the preview is the
+  browser's, not the server's (§14.2).
+- **With uploads off nothing opens in a crop box**: nothing could be uploaded, and a box that changes
+  nothing would mislead.
+- The crop is held by the form, not the field, so it survives the Preview tab and the VRChat chip
+  being turned off and on; the picture is let go of when it is uploaded, cancelled, replaced, or the
+  form closes.
 
 ## 16. Copies of an event in Discord (added 2026-10-02)
 
