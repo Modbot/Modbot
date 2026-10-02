@@ -500,6 +500,56 @@ public class JoinGateTests
         Assert.Contains(gateway.RoleChanges, c => c.UserId == "2010" && c.Added);
     }
 
+    /// <summary>
+    /// Phase 2, 2026-10-02: the catch-up's "does not hold the member role" ran as LIKE on the jsonb
+    /// roles column and PostgreSQL refused it, failing every pass. This runs the query against the
+    /// real database: only the joiner the bot missed, without the role, is gated.
+    /// </summary>
+    [Fact]
+    public async Task TheCatchUp_GatesOnlyJoinersTheBotMissed_WithoutTheMemberRole()
+    {
+        await using var services = await SetUpAsync(_db);
+        var gateway = new FakeGateway();
+        var started = services.Clock.UtcNow;
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "Server", RefreshedAt = started, UpdatedAt = started, MembersListedAt = started });
+
+            DiscordMember Member(string id, DateTimeOffset joined, string roles) => new()
+            {
+                GuildId = Guild,
+                UserId = id,
+                Username = "user" + id,
+                DisplayName = "user" + id,
+                Roles = roles,
+                FirstSeenAt = joined,
+                JoinedAt = joined,
+                UpdatedAt = joined,
+            };
+
+            db.DiscordMembers.Add(Member("3001", started.AddMinutes(5), "[\"901\", \"902\"]"));     // missed, no member role
+            db.DiscordMembers.Add(Member("3002", started.AddMinutes(5), $"[\"901\", \"{Role}\"]")); // already let in
+            db.DiscordMembers.Add(Member("3003", started.AddDays(-30), "[]"));                     // here before the gate
+            db.DiscordMembers.Add(Member("3004", started.AddMinutes(5), "[]"));                     // missed, no roles at all
+            await db.SaveChangesAsync(Ct);
+        }
+
+        services.Clock.Advance(TimeSpan.FromMinutes(10));
+        var pass = await PassAsync(services, gateway);
+        Assert.Null(pass.Problem);
+
+        await using var check = services.Database.NewContext();
+        var gated = await check.DiscordGateEntries.AsNoTracking()
+            .Where(e => e.ClosedAt == null)
+            .Select(e => e.DiscordUserId)
+            .OrderBy(id => id)
+            .ToListAsync(Ct);
+
+        Assert.Equal(["3001", "3004"], gated);
+        Assert.Equal(["3001", "3004"], gateway.ActionMessages.Select(m => m.UserId).Order().ToList());
+    }
+
     [Fact]
     public void TheEarliestRemoval_IsNeverSoonerThanAWarningWindowAfterTheWarning()
     {

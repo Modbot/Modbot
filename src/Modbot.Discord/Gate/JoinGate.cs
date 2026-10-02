@@ -1297,7 +1297,9 @@ public sealed class JoinGate
         if (!listed)
             return [];
 
-        var role = '"' + settings.MemberRoleId + '"';
+        // Containment, as jsonb understands it: the stored list holds this role id. A string
+        // Contains on the jsonb column would be sent as LIKE, which PostgreSQL has no operator for.
+        var role = System.Text.Json.JsonSerializer.Serialize(new[] { settings.MemberRoleId });
         var guild = settings.GuildId!;
         var exempt = await ExemptionsAsync(gateway, guild, ct).ConfigureAwait(false);
         var staff = exempt.StaffIds.ToList();
@@ -1305,7 +1307,7 @@ public sealed class JoinGate
         var missed = await _db.DiscordMembers.AsNoTracking()
             .Where(m => m.GuildId == guild && m.LeftAt == null && !m.IsBot
                         && m.JoinedAt != null && m.JoinedAt >= started
-                        && !m.Roles.Contains(role)
+                        && !EF.Functions.JsonContains(m.Roles, role)
                         && !staff.Contains(m.UserId)
                         && !_db.DiscordGateEntries.Any(e => e.GuildId == guild && e.DiscordUserId == m.UserId
                                                             && (e.ClosedAt == null || e.ClosedAt >= m.JoinedAt)))
