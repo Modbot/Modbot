@@ -191,7 +191,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   people: 'n',
   live: 'l',
   calendar: 'e',
-  'world-lists': '',
+  'world-lists': 'x',
   giveaways: 'p',
   lists: 'u',
   chat: 'c',
