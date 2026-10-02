@@ -251,10 +251,6 @@ public sealed class DiscordEventRecorder
                 server.MembersListedAt = now;
         }
 
-        // The whole list compared in this connection: from here member updates keep it current.
-        if (server is not null)
-            server.MembersReadAt = now;
-
         foreach (var fact in facts)
             await WriteAsync(fact, ct).ConfigureAwait(false);
 
@@ -385,6 +381,19 @@ public sealed class DiscordEventRecorder
         => _db.DiscordServers
             .Where(s => s.GuildId == guildId && s.MembersReadAt != null)
             .ExecuteUpdateAsync(u => u.SetProperty(s => s.MembersReadAt, (DateTimeOffset?)null), ct);
+
+    /// <summary>
+    /// Notes that the whole member list was compared in the bot's current connection, so member
+    /// updates keep it current from here. The bot calls it only while that connection is still the
+    /// one it has.
+    /// </summary>
+    public Task MembersReadAsync(string guildId, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        return _db.DiscordServers
+            .Where(s => s.GuildId == guildId)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.MembersReadAt, now), ct);
+    }
 
     /// <summary>Notes that the bot is listening now.</summary>
     public async Task SeenAsync(string guildId, CancellationToken ct)

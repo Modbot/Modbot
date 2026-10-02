@@ -55,6 +55,12 @@ public class DiscordListRole
     /// while no more than this would be taken; cleared once a pass is under the brake again.
     /// </summary>
     public int? RemovalsAllowed { get; set; }
+
+    /// <summary>
+    /// How many gives somebody looked at and allowed with Apply after the give brake stopped the
+    /// pairing (design §5). Counted off as roles are given; cleared once a pass is under it again.
+    /// </summary>
+    public int? GivesAllowed { get; set; }
 }
 
 /// <summary>

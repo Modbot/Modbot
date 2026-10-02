@@ -115,4 +115,14 @@ public class ListRoleChecksTests
     [InlineData(10, 100, false)]
     public void TheBrakeStopsMassRemovals(int taking, int holders, bool stops)
         => Assert.Equal(stops, ListRoleChecks.Brakes(taking, holders));
+
+    /// <summary>The give brake is for one extreme only: most of the server, and more than 100 people.</summary>
+    [Theory]
+    [InlineData(100, 100, false)] // all of a small server: not over the floor
+    [InlineData(101, 200, true)] // just over half of the server
+    [InlineData(101, 202, false)] // exactly half is not more than half
+    [InlineData(500, 10_000, false)] // a big give on a big server is ordinary
+    [InlineData(6_000, 10_000, true)]
+    public void TheGiveBrakeStopsOnlyMostOfTheServerAtOnce(int giving, int members, bool stops)
+        => Assert.Equal(stops, ListRoleChecks.BrakesGiving(giving, members));
 }

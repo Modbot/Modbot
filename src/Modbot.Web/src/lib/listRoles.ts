@@ -55,6 +55,8 @@ export type ListRolePlan = {
   takesHeld: number
   heldBecause: string | null
   stops: boolean
+  lossStops: boolean
+  giveStops: boolean
   problem: string | null
   changes: ListRoleChange[]
 }
@@ -72,6 +74,6 @@ export const listRoleApi = {
   /** One saved list role, one not saved yet, or with neither every one that is on. */
   preview: (body: { id?: string; listId?: string; discordRoleId?: string }) =>
     http.post<ListRolePreview>(`${base}/preview`, body),
-  apply: (id: string, taking: number, leaving: number) =>
-    http.post<ListRoles>(`${base}/${encodeURIComponent(id)}/apply`, { taking, leaving }),
+  apply: (id: string, taking: number, leaving: number, giving: number) =>
+    http.post<ListRoles>(`${base}/${encodeURIComponent(id)}/apply`, { taking, leaving, giving }),
 }

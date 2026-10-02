@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002200833_LetListsGiveDiscordRoles")]
+    [Migration("20261002202340_LetListsGiveDiscordRoles")]
     partial class LetListsGiveDiscordRoles
     {
         /// <inheritdoc />
@@ -2312,6 +2312,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
+
+                    b.Property<int?>("GivesAllowed")
+                        .HasColumnType("integer")
+                        .HasColumnName("gives_allowed");
 
                     b.Property<Guid>("ListId")
                         .HasColumnType("uuid")

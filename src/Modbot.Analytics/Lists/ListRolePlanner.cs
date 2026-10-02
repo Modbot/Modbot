@@ -20,7 +20,11 @@ public static class ListRoleChangeKinds
 /// <summary>One role a pass would give or take.</summary>
 /// <param name="What">One of <see cref="ListRoleChangeKinds"/>.</param>
 /// <param name="Name">Their name as the list or the member list shows it.</param>
-public sealed record ListRoleChange(string What, string DiscordUserId, string? VRChatUserId, string? Name);
+/// <param name="Holds">
+/// For a take: the stored member row shows the role. When it does not, the removal is still sent,
+/// but Discord changes nothing it can report, so no fact says a role was taken.
+/// </param>
+public sealed record ListRoleChange(string What, string DiscordUserId, string? VRChatUserId, string? Name, bool Holds = true);
 
 /// <summary>What one list role would do right now (roles from lists design §5).</summary>
 /// <param name="ListRoleId">The saved pairing, or null for one not saved yet.</param>
@@ -40,6 +44,7 @@ public sealed record ListRoleChange(string What, string DiscordUserId, string? V
 /// <param name="NoLinkedDiscord">In the list by their VRChat account, with no linked Discord account.</param>
 /// <param name="NotInServer">In the list with a Discord account that is not in the server.</param>
 /// <param name="Holders">Everybody in the server holding the role now, however they got it.</param>
+/// <param name="Members">Everybody in the server, bots left out, for the give brake.</param>
 /// <param name="TakesHeld">Roles this plan would have taken away and is not taking, because of <paramref name="HeldBecause"/>.</param>
 /// <param name="HeldBecause">Why nothing is taken away this time though other changes go ahead, or null.</param>
 /// <param name="Problem">Why nothing can be done for it, as a sentence. Everything else is empty when set.</param>
@@ -57,6 +62,7 @@ public sealed record ListRolePlan(
     int NoLinkedDiscord,
     int NotInServer,
     int Holders,
+    int Members,
     int TakesHeld,
     string? HeldBecause,
     string? Problem)
@@ -69,7 +75,13 @@ public sealed record ListRolePlan(
     public int Losing => Taking + Leaving;
 
     /// <summary>Whether this many losses at once stops the pass (design §5).</summary>
-    public bool Stops => ListRoleChecks.Brakes(Losing, Holders + Leaving);
+    public bool LossStops => ListRoleChecks.Brakes(Losing, Holders + Leaving);
+
+    /// <summary>Whether giving the role to most of the server at once stops the pass (design §5).</summary>
+    public bool GiveStops => ListRoleChecks.BrakesGiving(Giving, Members);
+
+    /// <summary>Whether either brake stops the pass until somebody presses Apply.</summary>
+    public bool Stops => LossStops || GiveStops;
 }
 
 /// <summary>
@@ -122,6 +134,9 @@ public sealed class ListRolePlanner
     };
 
     private const string WaitingForMembers = "Waiting for the member list.";
+
+    /// <summary>How many times lists named inside lists are written out before the rest read as nobody.</summary>
+    private const int MaxExpansions = 4;
 
     private readonly ModbotContext _db;
     private readonly GiveawayRuleChecker _checker;
@@ -198,13 +213,15 @@ public sealed class ListRolePlanner
     }
 
     /// <summary>
-    /// A list's stored rules, or why a list cannot give a role with them: rules that cannot be read
-    /// are never taken to mean "everybody", and rules that let everybody in are refused (design §4).
+    /// A list's stored rules with every list they name written out, or why a list cannot give a role
+    /// with them: rules that cannot be read are never taken to mean "everybody", and rules that let
+    /// everybody in, or hold an empty group, are refused (design §4). Checked after the lists they
+    /// name are written out, so a list that only names an empty list is caught too.
     /// </summary>
-    public static GiveawayRule? ReadRules(string? json, out string? problem)
+    public async Task<(GiveawayRule? Rules, string? Problem)> RulesAsync(string? json, CancellationToken ct = default)
     {
-        problem = null;
         GiveawayRule? rule = null;
+        string? problem = null;
 
         try
         {
@@ -217,18 +234,27 @@ public sealed class ListRolePlanner
         }
 
         if (rule is null || problem is not null)
+            return (null, "The list's rules cannot be read.");
+
+        // A list cannot name a list when it is saved, so one pass is all a tree takes; a few more
+        // cover rows from before that check, and a list still named after them reads as nobody.
+        var expanded = rule;
+        for (var pass = 0; pass < MaxExpansions && GiveawayRules.ListsIn(expanded).Count > 0; pass++)
         {
-            problem = "The list's rules cannot be read.";
-            return null;
+            var next = await SavedListRules.ExpandAsync(_db, expanded, ct).ConfigureAwait(false);
+            if (next == expanded || GiveawayRules.Count(next) > SavedListRules.MaxExpandedRules)
+                break;
+
+            expanded = next;
         }
 
-        if (!AsksAnything(rule))
-        {
-            problem = "That list lets everybody in. Give it rules first.";
-            return null;
-        }
+        if (LetsEverybodyIn(expanded))
+            return (null, "That list lets everybody in. Give it rules first.");
 
-        return rule;
+        if (HasEmptyGroup(expanded))
+            return (null, "That list has an empty group of rules. Fill it or take it out first.");
+
+        return (expanded, null);
     }
 
     // ── One plan ───────────────────────────────────────────────────────────────────────────
@@ -246,7 +272,7 @@ public sealed class ListRolePlanner
         var roleName = role?.Name;
 
         ListRolePlan Refused(string why)
-            => new(pairingId, listId, listName, roleId, roleName, [], [], 0, 0, 0, 0, 0, 0, 0, null, why);
+            => new(pairingId, listId, listName, roleId, roleName, [], [], 0, 0, 0, 0, 0, 0, 0, 0, null, why);
 
         if (list is null || list.DeletedAt is not null)
             return Refused("That list does not exist any more.");
@@ -259,7 +285,8 @@ public sealed class ListRolePlanner
         if (ListRoleChecks.WhyNot(role, elsewhere) is { } why)
             return Refused(why);
 
-        if (ReadRules(list.Rules, out var rulesProblem) is not { } rules)
+        var (rules, rulesProblem) = await RulesAsync(list.Rules, ct).ConfigureAwait(false);
+        if (rules is null)
             return Refused(rulesProblem!);
 
         // Who holds the role comes from the stored member list. Out of date, it would show roles
@@ -358,7 +385,8 @@ public sealed class ListRolePlanner
             {
                 // Taken away whether or not the stored row shows the role: a missing role there is
                 // a reason to ask Discord, which answers a removal of a role not held as done.
-                takes.Add(new ListRoleChange(ListRoleChangeKinds.Take, row.DiscordUserId, row.VRChatUserId, member.Name));
+                takes.Add(new ListRoleChange(
+                    ListRoleChangeKinds.Take, row.DiscordUserId, row.VRChatUserId, member.Name, member.Roles.Contains(roleId)));
             }
             else if (seenLeaving.Contains(row.DiscordUserId))
             {
@@ -384,14 +412,53 @@ public sealed class ListRolePlanner
         return new ListRolePlan(
             pairingId, listId, listName, roleId, roleName,
             [.. gives, .. takes], forget, leaving, alreadyHave, takenByHand, noLinked, notInServer, holders,
-            held, heldBecause, null);
+            server.Members.Count, held, heldBecause, null);
     }
 
     // ── What the rules ask ─────────────────────────────────────────────────────────────────
 
-    /// <summary>Whether the tree asks anything at all, rather than letting everybody in.</summary>
-    private static bool AsksAnything(GiveawayRule rule)
-        => GiveawayRuleKinds.IsCombining(rule.Kind) ? rule.Rules.Any(AsksAnything) : true;
+    /// <summary>
+    /// Whether the tree lets everybody through, by the checker's own reading: an empty "all of" and
+    /// an empty "none of" let everybody in, an empty "any of" nobody, and a list that is gone nobody.
+    /// </summary>
+    public static bool LetsEverybodyIn(GiveawayRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        return rule.Kind switch
+        {
+            GiveawayRuleKinds.AllOf => rule.Rules.All(LetsEverybodyIn),
+            GiveawayRuleKinds.AnyOf => rule.Rules.Any(LetsEverybodyIn),
+            GiveawayRuleKinds.NoneOf => rule.Rules.All(LetsNobodyIn),
+            _ => false,
+        };
+    }
+
+    private static bool LetsNobodyIn(GiveawayRule rule) => rule.Kind switch
+    {
+        GiveawayRuleKinds.AllOf => rule.Rules.Any(LetsNobodyIn),
+        GiveawayRuleKinds.AnyOf => rule.Rules.All(LetsNobodyIn),
+        GiveawayRuleKinds.NoneOf => rule.Rules.Any(LetsEverybodyIn),
+        GiveawayRuleKinds.InList => true,
+        _ => false,
+    };
+
+    /// <summary>
+    /// Whether an "all of" or "none of" anywhere in the tree is empty. Such a group lets everybody
+    /// through on its own, so whatever it sits in reads differently from what anybody meant.
+    /// </summary>
+    public static bool HasEmptyGroup(GiveawayRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        if (!GiveawayRuleKinds.IsCombining(rule.Kind))
+            return false;
+
+        if (rule.Rules.Count == 0 && rule.Kind is GiveawayRuleKinds.AllOf or GiveawayRuleKinds.NoneOf)
+            return true;
+
+        return rule.Rules.Any(HasEmptyGroup);
+    }
 
     /// <summary>Whether any question in the tree is answered from VRChat data.</summary>
     private static bool AsksVRChat(GiveawayRule rule)

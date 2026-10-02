@@ -220,20 +220,42 @@ public static class SavedListRules
 
         // Discord roles a list gives. The live name from the server's role list where there is
         // one, else the name kept when the pairing was saved.
+        var guildId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordGuildId)
+            .FirstOrDefaultAsync(ct);
+
         var roleRows = await db.DiscordListRoles.AsNoTracking()
             .OrderBy(p => p.CreatedAt)
             .Select(p => new
             {
                 p.ListId,
-                Name = db.DiscordRoles.Where(r => r.RoleId == p.DiscordRoleId).Select(r => r.Name).FirstOrDefault()
+                ListRules = db.SavedLists.Where(l => l.Id == p.ListId).Select(l => l.Rules).FirstOrDefault(),
+                Name = db.DiscordRoles.Where(r => r.GuildId == guildId && r.RoleId == p.DiscordRoleId).Select(r => r.Name).FirstOrDefault()
                        ?? p.DiscordRoleName
                        ?? p.DiscordRoleId,
             })
             .ToListAsync(ct);
 
-        var roles = roleRows
-            .GroupBy(r => r.ListId.ToString("D"), StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Select(r => r.Name).ToList(), StringComparer.Ordinal);
+        // A list the paired list names among its rules decides who holds the role as much as the
+        // paired list does, so it is in use by that role too (roles from lists design §9).
+        var roles = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+        foreach (var row in roleRows)
+        {
+            var reached = GiveawayRules.ListsIn(GiveawayRules.ReadStored(row.ListRules))
+                .Append(row.ListId.ToString("D"))
+                .Distinct(StringComparer.Ordinal);
+
+            foreach (var id in reached)
+            {
+                if (!roles.TryGetValue(id, out var names))
+                    roles[id] = names = [];
+
+                if (!names.Contains(row.Name, StringComparer.Ordinal))
+                    names.Add(row.Name);
+            }
+        }
 
         return giveaways.Keys.Concat(invited).Concat(events.Keys).Concat(roles.Keys)
             .Distinct(StringComparer.Ordinal)

@@ -175,7 +175,7 @@ function ListRolesForm({ data, onChanged }: { data: ListRoles; onChanged: (next:
               onLook={() => look({ kind: 'one', id: role.id })}
               onSwitch={(enabled) => act(() => listRoleApi.update(role.id, enabled))}
               onRemove={() => act(() => listRoleApi.remove(role.id))}
-              onApply={(taking, leaving) => act(() => listRoleApi.apply(role.id, taking, leaving))}
+              onApply={(taking, leaving, giving) => act(() => listRoleApi.apply(role.id, taking, leaving, giving))}
             />
           ))}
         </ul>
@@ -253,10 +253,14 @@ function RoleRow({
   onLook: () => void
   onSwitch: (enabled: boolean) => void
   onRemove: () => void
-  onApply: (taking: number, leaving: number) => void
+  onApply: (taking: number, leaving: number, giving: number) => void
 }) {
-  // Apply only after this list's own changes are on screen, and only for the removals shown.
+  // Switching one back on shows what it would do first, like adding one; Turn on then saves it.
+  const [turningOn, setTurningOn] = useState(false)
+
+  // Apply only after this list's own changes are on screen, and only for the changes shown.
   const canPressApply = canApply && role.stoppedAt !== null && plan !== undefined && plan.problem === null
+  const canTurnOn = turningOn && plan !== undefined && plan.problem === null
 
   return (
     <li className="flex flex-col gap-2 border-b border-b-(length:--hairline) py-2 last:border-0">
@@ -269,16 +273,44 @@ function RoleRow({
           Given <span className="font-mono">{role.given.toLocaleString()}</span>
         </span>
 
-        <Switch checked={role.enabled} disabled={busy} onChange={onSwitch}>
+        <Switch
+          checked={role.enabled || turningOn}
+          disabled={busy || (!role.enabled && !canPreview)}
+          onChange={(enabled) => {
+            if (enabled && !role.enabled) {
+              setTurningOn(true)
+              onLook()
+            } else if (!enabled && turningOn) {
+              setTurningOn(false)
+            } else {
+              onSwitch(enabled)
+            }
+          }}
+        >
           On
         </Switch>
+
+        {canTurnOn && (
+          <Button
+            type="button"
+            size="xs"
+            variant="destructive"
+            disabled={busy}
+            onClick={() => {
+              setTurningOn(false)
+              onSwitch(true)
+            }}
+          >
+            Turn on
+          </Button>
+        )}
 
         <Button type="button" size="xs" variant="outline" disabled={busy || !canPreview} onClick={onLook}>
           Show who would change
         </Button>
 
         {canPressApply && (
-          <Button type="button" size="xs" variant="destructive" disabled={busy} onClick={() => onApply(plan.taking, plan.leaving)}>
+          <Button type="button" size="xs" variant="destructive" disabled={busy} onClick={() => onApply(plan.taking, plan.leaving, plan.giving)}>
             Apply
           </Button>
         )}
@@ -323,9 +355,14 @@ function PlanView({ plan }: { plan: ListRolePlan }) {
 
           <Outcome tone="problem">{plan.heldBecause}</Outcome>
 
-          {plan.stops && (
+          {plan.lossStops && (
             <Outcome tone="problem">
               Stops: {(plan.taking + plan.leaving).toLocaleString()} people would lose {role} at once.
+            </Outcome>
+          )}
+          {plan.giveStops && (
+            <Outcome tone="problem">
+              Stops: {plan.giving.toLocaleString()} people would be given {role} at once.
             </Outcome>
           )}
 

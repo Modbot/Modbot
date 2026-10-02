@@ -190,6 +190,62 @@ public class ListRoleEndpointTests(PostgresFixture db)
         Assert.Equal("That list lets everybody in. Give it rules first.", await ErrorOf(response));
     }
 
+    /// <summary>
+    /// A list that only names a list with no rules lets everybody in once that list is written out,
+    /// and a list a paired list names is in use by that role too.
+    /// </summary>
+    [Fact]
+    public async Task ListsNamedInsideAPairedListCount()
+    {
+        var started = await StartAsync();
+        await using var host = started.Host;
+        var (_, cookie) = await host.SignedInAsync(Everything, Ct);
+        var (_, listsOnly) = await host.SignedInAsync(SeeLists | ModbotPermissions.ManageLists, Ct);
+
+        var empty = Guid.CreateVersion7();
+        var outer = Guid.CreateVersion7();
+        var naming = Guid.CreateVersion7();
+
+        await using (var context = db.NewContext())
+        {
+            var now = host.Clock.UtcNow;
+            context.SavedLists.AddRange(
+                new SavedList { Id = empty, Name = "Nothing", Rules = """{"kind":"allOf","rules":[]}""", CreatedAt = now, UpdatedAt = now },
+                new SavedList
+                {
+                    Id = outer,
+                    Name = "In nothing",
+                    Rules = $$"""{"kind":"allOf","rules":[{"kind":"inList","id":"{{empty}}"}]}""",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                },
+                new SavedList
+                {
+                    Id = naming,
+                    Name = "In regulars",
+                    Rules = $$"""{"kind":"allOf","rules":[{"kind":"inList","id":"{{started.ListId}}"}]}""",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var refused = await AddAsync(host, cookie, outer, Regular);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal("That list lets everybody in. Give it rules first.", await ErrorOf(refused));
+
+        Assert.Equal(HttpStatusCode.OK, (await AddAsync(host, cookie, naming, Regular)).StatusCode);
+
+        var change = await host.SendJsonAsync(
+            HttpMethod.Put,
+            $"/api/lists/{started.ListId}",
+            new { name = "Regulars", rules = new { kind = "allOf", rules = new object[] { new { kind = "linkedAccounts" } } } },
+            listsOnly,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, change.StatusCode);
+    }
+
     /// <summary>Saving follows the preview, which names people in a list, so it needs what that needs.</summary>
     [Fact]
     public async Task SavingNeedsSeeMembersAndSeeProfiles()

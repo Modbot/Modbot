@@ -51,7 +51,8 @@ namespace Modbot.Core.Data.Migrations
                     problem = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     stopped_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     stopped_taking = table.Column<int>(type: "integer", nullable: true),
-                    removals_allowed = table.Column<int>(type: "integer", nullable: true)
+                    removals_allowed = table.Column<int>(type: "integer", nullable: true),
+                    gives_allowed = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {

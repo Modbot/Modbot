@@ -128,11 +128,17 @@ the group's member sweep or audit log has not completed in the last 6 hours
 (`ListRolePlanner.VRChatStaleAfter`): people may only look gone. Gives still go ahead.
 
 **Lists that ask nothing are refused.** Rules that let everybody in are refused when a pairing is
-saved and on every pass; stored rules that cannot be read are never taken to mean "everybody".
+saved and on every pass; stored rules that cannot be read are never taken to mean "everybody". The
+check runs on the tree with every list it names written out (repeatedly, up to four times), and
+reads it as the checker does: an empty "all of" or "none of" lets everybody in, an empty "any of"
+and a list that is gone let nobody in. A tree with an empty "all of" or "none of" anywhere is
+refused too (review 2026-10-02, round 2): "in list B" with B empty, or an empty group inside an
+"any of", is a list that lets everybody in.
 
 **The switch.** *Give roles from lists*, `settings.discord_list_roles_on`, **off by default**. Off
 gives and takes nothing at all. Each list role also has its own **On**; a new one is on, but nothing
-happens while the switch is off. Turning the switch on is refused while the bot lacks Manage Roles.
+happens while the switch is off. Switching one back on shows its preview first, and **Turn on**
+saves it. Turning the switch on is refused while the bot lacks Manage Roles.
 
 **The preview** is the same code as the pass (`ListRolePlanner`), changing nothing: who would be
 given the role, who would lose it, how many already have it, how many in the list have no linked
@@ -156,16 +162,20 @@ with its rows intact. The floor of 3 and
 the "more than half" are the staff roles brake's (staff roles design §6, built alongside); 25 is
 higher than its 5 because a community role has many more holders and a few people drifting out of
 "regulars" each day is normal. It catches a list whose rules were changed or broken, a retention
-change, a member list that went missing. Giving is not braked: the preview is what guards a first
-run.
+change, a member list that went missing.
+
+**The give brake** is for one extreme only: a pass that would give the role to more than 100
+people (`ListRoleChecks.BrakeGivingFloor`) and to more than half of the server's members at once
+stops the same way, before anything is sent. A list whose rules were broken into "everybody" is the
+case it catches; ordinary giving is guarded by the preview.
 
 Saving a pairing needs what the preview needs (Manage role and ban sync, See members, See
 profiles), since saving follows it. **Apply** (Run role and ban sync, with See members and See profiles) is pressed after looking at the
-list. It carries the number of removals the person saw; if more would be taken now, it is refused
-("More would be taken away than you saw. Look again."). Otherwise that many removals are allowed
-(`removals_allowed`), counted off as each role is taken or each row forgotten, and the passes carry
-on through the brake while the backlog fits it; once a pass is under the brake the allowance is
-cleared. Nothing is sent from the request itself:
+list. It carries the numbers the person saw (removals, people seen leaving, and gives when the give
+brake stopped it); if more would go now, it is refused ("More would be taken away than you saw.
+Look again."). Otherwise that many are allowed (`removals_allowed`, `gives_allowed`), counted off as
+each role is taken, each row forgotten or each role given, and the passes carry on through the
+brake while the backlog fits it; once a pass is under a brake its allowance is cleared. Nothing is sent from the request itself:
 the next pass, within a minute, does the work at the usual pace.
 
 A list that cannot be answered — a rule reaching past retention, more than 50,000 people, a list
@@ -196,6 +206,10 @@ No display names: the subject is the account, and the audit log names them from 
 Setting up is a settings change (`discordListRoles`): the switch, and each list role added, changed
 or removed, in words ("Regulars gives Regular, on").
 
+A take is only a fact when the stored member row showed the role: a removal sent for somebody whose
+row did not show it is accepted by Discord whether or not anything changed, so nothing is said to
+have been taken. Its given-row still goes.
+
 A failed change is not a fact: it is the list role's **problem** on the card and in the bot's
 status, like role sync's.
 
@@ -209,7 +223,8 @@ Discord until somebody removes it there. Their give and take facts go with the r
 
 A list a list role uses is **in use**: it shows "Discord role: Regular" beside the giveaways and
 events, cannot be deleted, and changing it needs **Manage role and ban sync** as well as Manage
-lists, because changing it changes who holds the role. The list's own page has a **Give a Discord
+lists, because changing it changes who holds the role. So is a list the paired list names among its
+rules ("in list B"): changing B changes who holds the role just as much. The list's own page has a **Give a Discord
 role** button for those who may set one up, which opens Settings → Discord with the list picked.
 
 ## 10. Where it lives
@@ -221,9 +236,10 @@ stopped.
 
 ## 11. Not built
 
-- **Taking back on remove.** Removing a list role, or switching it off, leaves the role with
-  everybody who has it and forgets which ones Modbot gave. A "take them back" button would be a
-  second, bigger brake decision.
+- **Taking back on remove.** Removing a list role leaves the role with everybody who has it and
+  forgets which ones Modbot gave. Switching one off leaves the roles too, but keeps the record, so
+  switching it back on carries on where it stopped. A "take them back" button would be a second,
+  bigger brake decision.
 - **Waiting out close calls.** Somebody near a presence threshold can fall in and out of a list; the
   role follows. A grace period is a later choice.
 - **Staff role mappings.** The staff roles feature (built alongside) maps Discord roles to Modbot

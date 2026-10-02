@@ -123,18 +123,25 @@ public sealed class ListRoleSync
         var losing = plan.Losing;
         var roleName = plan.RoleName ?? pairing.DiscordRoleName ?? pairing.DiscordRoleId;
 
-        // The brake comes before anything is forgotten or sent: a member list that suddenly shows
-        // everybody gone must not cost Modbot its record of whom it gave the role to.
-        if (plan.Stops && !(pairing.RemovalsAllowed is { } allowed && losing <= allowed))
+        // The brakes come before anything is forgotten or sent: a member list that suddenly shows
+        // everybody gone must not cost Modbot its record of whom it gave the role to, and a list
+        // that suddenly lets most of the server in must not hand them all the role.
+        var lossStops = plan.LossStops && !(pairing.RemovalsAllowed is { } allowed && losing <= allowed);
+        var giveStops = plan.GiveStops && !(pairing.GivesAllowed is { } gives && plan.Giving <= gives);
+
+        if (lossStops || giveStops)
         {
-            await StopAsync(pairing, plan, roleName, tally, ct).ConfigureAwait(false);
+            await StopAsync(pairing, plan, roleName, lossStops, tally, ct).ConfigureAwait(false);
             tally.Left += plan.Changes.Count;
             return;
         }
 
-        // Under the brake again: whatever Apply allowed has been used up or is no longer needed.
-        if (!plan.Stops)
+        // Under a brake again: whatever Apply allowed for it has been used up or is no longer needed.
+        if (!plan.LossStops)
             pairing.RemovalsAllowed = null;
+
+        if (!plan.GiveStops)
+            pairing.GivesAllowed = null;
 
         pairing.StoppedAt = null;
         pairing.StoppedTaking = null;
@@ -178,12 +185,20 @@ public sealed class ListRoleSync
                 if (give)
                 {
                     await RememberGivenAsync(pairing.Id, change, ct).ConfigureAwait(false);
+                    if (pairing.GivesAllowed is { } givesLeft)
+                        pairing.GivesAllowed = Math.Max(0, givesLeft - 1);
                     tally.Given++;
                 }
                 else
                 {
                     await ForgetGivenAsync(pairing.Id, change.DiscordUserId, ct).ConfigureAwait(false);
                     Allowed(pairing, 1);
+
+                    // The member row did not show the role: Discord accepted a removal of a role
+                    // they may not have held, so nothing is said to have been taken.
+                    if (!change.Holds)
+                        continue;
+
                     tally.Taken++;
                 }
 
@@ -210,7 +225,7 @@ public sealed class ListRoleSync
             // one, so the pairing stops for this pass and says why. What it did not get to is left.
             pairing.Problem = outcome.RoleGone ? "That role is not in the Discord server." : outcome.Error;
             tally.Problem = pairing.Problem;
-            tally.Left += plan.Changes.Count - i - 1;
+            tally.Left += plan.Changes.Count - i;
             break;
         }
 
@@ -246,7 +261,8 @@ public sealed class ListRoleSync
                 """,
                 ct);
 
-    private async Task StopAsync(DiscordListRole pairing, ListRolePlan plan, string roleName, Tally tally, CancellationToken ct)
+    private async Task StopAsync(
+        DiscordListRole pairing, ListRolePlan plan, string roleName, bool losses, Tally tally, CancellationToken ct)
     {
         var first = pairing.StoppedAt is null;
         var taking = plan.Losing;
@@ -254,7 +270,10 @@ public sealed class ListRoleSync
         pairing.StoppedAt ??= _clock.UtcNow;
         pairing.StoppedTaking = taking;
         pairing.RemovalsAllowed = null;
-        pairing.Problem = $"Stopped: {taking} people would lose {roleName} at once.";
+        pairing.GivesAllowed = null;
+        pairing.Problem = losses
+            ? $"Stopped: {taking} people would lose {roleName} at once."
+            : $"Stopped: {plan.Giving} people would be given {roleName} at once.";
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
@@ -271,6 +290,7 @@ public sealed class ListRoleSync
                 ["roleId"] = pairing.DiscordRoleId,
                 ["roleName"] = roleName,
                 ["taking"] = taking,
+                ["giving"] = plan.Giving,
                 ["holders"] = plan.Holders,
             }, ct).ConfigureAwait(false);
         }

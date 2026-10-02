@@ -381,7 +381,8 @@ public class ListRoleSyncTests
 
     /// <summary>
     /// A member row without the role is not proof the role is gone: out of the list, Modbot still
-    /// asks Discord to take it away rather than quietly forgetting it gave it.
+    /// asks Discord to take it away rather than quietly forgetting it gave it. Discord changed
+    /// nothing Modbot can tell, so no fact says a role was taken.
     /// </summary>
     [Fact]
     public async Task AMemberRowWithoutTheRoleIsNotTakenAsProof()
@@ -392,11 +393,15 @@ public class ListRoleSyncTests
         await GivenRowAsync(services, setup.PairingId, "5007");
 
         var gateway = new FakeGateway();
-        await PassAsync(services, gateway);
+        var pass = await PassAsync(services, gateway);
 
         var (added, _, userId, _) = Assert.Single(gateway.RoleChanges);
         Assert.False(added);
         Assert.Equal("5007", userId);
+
+        Assert.Equal(0, pass.Taken);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.ListRoleTaken, Ct));
+        Assert.Empty(await GivenAsync(services));
     }
 
     [Fact]
@@ -560,7 +565,90 @@ public class ListRoleSyncTests
         Assert.NotNull(pass.Problem);
     }
 
+    /// <summary>
+    /// "In list B" where B lets everybody in is a list that lets everybody in, found once B is
+    /// written out.
+    /// </summary>
+    [Fact]
+    public async Task AListThatOnlyNamesAnEmptyListGivesNothing()
+    {
+        var empty = Guid.CreateVersion7();
+        await using var setup = await SetUpAsync(
+            rules: $$"""{"kind":"allOf","rules":[{"kind":"inList","id":"{{empty}}"}]}""");
+        var services = setup.Services;
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.SavedLists.Add(new SavedList
+            {
+                Id = empty,
+                Name = "Nothing",
+                Rules = """{"kind":"allOf","rules":[]}""",
+                CreatedAt = services.Clock.UtcNow,
+                UpdatedAt = services.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await SyncSetUp.UnlinkedMemberAsync(services, "5002", [], Ct);
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Equal("That list lets everybody in. Give it rules first.", pass.Problem);
+    }
+
     // ── The brake ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The give brake: a list that would hand the role to more than 100 people and most of the
+    /// server at once stops and waits, with nothing sent.
+    /// </summary>
+    [Fact]
+    public async Task GivingTheRoleToMostOfTheServerAtOnceStops()
+    {
+        await using var setup = await SetUpAsync(rules: """{"kind":"noneOf","rules":[{"kind":"inGroup"}]}""");
+        var services = setup.Services;
+
+        await using (var db = services.Database.NewContext())
+        {
+            for (var i = 0; i < 101; i++)
+            {
+                db.DiscordMembers.Add(new DiscordMember
+                {
+                    GuildId = SyncSetUp.Guild,
+                    UserId = $"6{i:000}",
+                    Username = $"member6{i:000}",
+                    DisplayName = $"Member 6{i:000}",
+                    Roles = "[]",
+                    FirstSeenAt = services.Clock.UtcNow,
+                    UpdatedAt = services.Clock.UtcNow,
+                });
+            }
+
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var plan = await PlanAsync(services, setup.PairingId);
+        Assert.True(plan.GiveStops);
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(1, pass.Stopped);
+        Assert.Empty(gateway.RoleChanges);
+
+        // What Apply writes for the gives it allowed: then they go, at the pass's pace.
+        await using (var db = services.Database.NewContext())
+            await db.DiscordListRoles.Where(p => p.Id == setup.PairingId).ExecuteUpdateAsync(u => u.SetProperty(p => p.GivesAllowed, 101), Ct);
+
+        var applied = await PassAsync(services, gateway);
+
+        Assert.Equal(0, applied.Stopped);
+        Assert.Equal(ListRoleSync.MaxChangesPerPass, applied.Given);
+        Assert.Equal(101 - ListRoleSync.MaxChangesPerPass, (await PairingAsync(services, setup.PairingId)).GivesAllowed);
+    }
 
     /// <summary>
     /// Design §5: taking the role from most of its holders at once stops the pairing, says so once,
@@ -691,7 +779,7 @@ public class ListRoleSyncTests
         var pass = await PassAsync(services, gateway);
 
         Assert.Equal(0, pass.Given);
-        Assert.Equal(2, pass.Left);
+        Assert.Equal(3, pass.Left);
         Assert.Equal("Discord said no.", pass.Problem);
         Assert.Empty(await GivenAsync(services));
     }

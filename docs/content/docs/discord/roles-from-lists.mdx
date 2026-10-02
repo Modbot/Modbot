@@ -53,8 +53,9 @@ loses the role the next minute.
 
 ## Which roles a list can give
 
-Lists are for community roles, and only lists with rules: a list with no rules would let everybody
-in, so it cannot give a role. A list cannot give:
+Lists are for community roles, and only lists with rules: a list that would let everybody in, or
+that has an empty group of rules anywhere, cannot give a role. That includes a list whose only rule
+is another list with no rules. A list cannot give:
 
 - **@everyone**, or a role that belongs to a bot or an integration;
 - a role the bot cannot give: it needs **Manage Roles**, and its own role above that one;
@@ -125,15 +126,19 @@ Press **Show who would change** on that list, read who would lose the role, then
 Modbot carries on, taking the role from the people you saw, and counts them off as it goes. If more
 people would lose it than you saw, Apply is refused; look again.
 
-Giving the role is never stopped this way. Look before you switch a list's role on.
+Giving is stopped only at one extreme: if one check would give the role to more than 100 people
+and to more than half of your server at once, the list stops the same way and waits for **Apply**.
+Otherwise giving is never stopped. Look before you switch a list's role on.
 
 ## Removing one, or switching it off
 
 Switching a list's role off, or removing it, takes nothing away. Everybody keeps the role they have.
-Once it is removed, Modbot forgets who it gave the role to, so it will never take those away.
+Switching it back on shows **Show who would change** first; **Turn on** then saves it. Once it is
+removed, Modbot forgets who it gave the role to, so it will never take those away.
 
 A list that gives a role cannot be deleted, and changing its rules needs **Manage role and ban sync**
-as well as **Manage lists**, because changing the list changes who holds the role.
+as well as **Manage lists**, because changing the list changes who holds the role. The same goes for
+a list it names among its rules with **In the list**.
 
 ## Erasing somebody
 

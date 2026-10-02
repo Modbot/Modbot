@@ -55,6 +55,18 @@ public static class ListRoleChecks
     public static bool Brakes(int taking, int holders)
         => taking >= BrakeFloor && (taking > BrakeTaking || taking * 2 > holders);
 
+    /// <summary>The give brake never stops a pass giving the role to this many people or fewer.</summary>
+    public const int BrakeGivingFloor = 100;
+
+    /// <summary>
+    /// Whether a pass that would give the role to <paramref name="giving"/> of the
+    /// <paramref name="members"/> in the server stops and waits for Apply: more than
+    /// <see cref="BrakeGivingFloor"/> and more than half the server at once. Only that extreme;
+    /// ordinary giving is guarded by the preview (design §5).
+    /// </summary>
+    public static bool BrakesGiving(int giving, int members)
+        => giving > BrakeGivingFloor && giving * 2 > members;
+
     /// <summary>
     /// Why this role cannot be given by a list, as a sentence, or null when it can.
     /// </summary>

@@ -373,6 +373,9 @@ public sealed class DiscordBotService : BackgroundService
         if (gateway is null || guildId is null)
             return;
 
+        // A new session: the stored member list is from before it until it has been compared.
+        await ForgetMembersReadAsync().ConfigureAwait(false);
+
         _disconnectedAt = null;
         _retry = _options.FirstRetry;
 
@@ -456,6 +459,9 @@ public sealed class DiscordBotService : BackgroundService
         if (_gateway is null)
             return;
 
+        // Updates may have been missed while the session was away, until the list is compared again.
+        await ForgetMembersReadAsync().ConfigureAwait(false);
+
         _disconnectedAt = null;
         _retry = _options.FirstRetry;
         _status.Connected(_clock.UtcNow, _commandsRegistered);
@@ -521,15 +527,15 @@ public sealed class DiscordBotService : BackgroundService
     /// <summary>Everything the bot missed while it was away, in the order that keeps names right.</summary>
     private async Task CatchUpAsync(IDiscordGateway gateway, string guildId, bool messages, CancellationToken ct)
     {
+        // Until the list below has been compared, the stored roles are from before (roles from
+        // lists design §6). Cleared before anything else here, the gap's own marker included.
+        await RecordAsync("note the member list is not read yet", (recorder, token) =>
+            recorder.MembersUnreadAsync(guildId, token)).ConfigureAwait(false);
+
         DateTimeOffset? seenThrough = null;
         await RecordAsync("read when the bot last listened", async (recorder, token) =>
             seenThrough = await recorder.SeenThroughAsync(guildId, token).ConfigureAwait(false)).ConfigureAwait(false);
         _gapRead = true;
-
-        // Until the list below has been compared, the stored roles are from before (roles from
-        // lists design §6).
-        await RecordAsync("note the member list is not read yet", (recorder, token) =>
-            recorder.MembersUnreadAsync(guildId, token)).ConfigureAwait(false);
 
         // Members first, so the audit log's facts can name the people in them.
         if (await gateway.ReadMembersAsync(guildId, ct).ConfigureAwait(false) is { } members)
@@ -545,7 +551,16 @@ public sealed class DiscordBotService : BackgroundService
             // Only this session's own compare counts, and only while it is still the session: an
             // old one finishing after a disconnect cleared the flag must not set it again.
             if (compared && !ct.IsCancellationRequested && ReferenceEquals(_gateway, gateway))
+            {
                 _membersRead = true;
+
+                // Written down too, for roles from lists, which is planned from the stored list.
+                if (gateway.State == DiscordGatewayState.Ready)
+                {
+                    await RecordAsync("note the member list is read", (recorder, token) =>
+                        recorder.MembersReadAsync(guildId, token)).ConfigureAwait(false);
+                }
+            }
         }
 
         await ReadAuditLogAsync(gateway, guildId, ct).ConfigureAwait(false);
