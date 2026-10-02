@@ -86,7 +86,7 @@ public sealed record SessionUser(
             on.ChatOn,
             user.Roles.Count == 0 ? null : RoleRank.Of(user),
             on.BriefsOn,
-            user.GetsEventInvites);
+            GetsEventInvites: user.GetsEventInvites);
     }
 }
 

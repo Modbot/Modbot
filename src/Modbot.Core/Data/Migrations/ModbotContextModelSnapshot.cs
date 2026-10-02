@@ -983,6 +983,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("access_type");
 
+                    b.Property<bool>("AnnounceFirstJoinInDiscord")
+                        .HasColumnType("boolean")
+                        .HasColumnName("announce_first_join_in_discord");
+
+                    b.Property<bool>("AnnounceFirstJoinInVRChat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("announce_first_join_in_vrchat");
+
                     b.Property<bool>("AutoOpen")
                         .HasColumnType("boolean")
                         .HasColumnName("auto_open");
@@ -1027,6 +1035,19 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("image_url");
+
+                    b.Property<Guid?>("InviteHostUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invite_host_user_id");
+
+                    b.Property<Guid?>("InviteListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invite_list_id");
+
+                    b.PrimitiveCollection<string>("InviteStaffUserIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("invite_staff_user_ids");
 
                     b.PrimitiveCollection<string>("Languages")
                         .IsRequired()
@@ -1281,6 +1302,96 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset?>("MessagedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("messaged_at");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<string>("PersonKey")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("person_key");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("problem");
+
+                    b.Property<DateTimeOffset>("QueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("queued_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("role");
+
+                    b.Property<Guid?>("StaffUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("staff_user_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset?>("TriedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tried_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_invite");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_calendar_invite_discord_user_id");
+
+                    b.HasIndex("State")
+                        .HasDatabaseName("ix_calendar_invite_state");
+
+                    b.HasIndex("VRChatUserId")
+                        .HasDatabaseName("ix_calendar_invite_vrchat_user_id");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt", "PersonKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_calendar_invite_person");
+
+                    b.ToTable("calendar_invite", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOldPost", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1349,9 +1460,31 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("error");
 
+                    b.Property<string>("FirstJoinDiscordPostError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("first_join_discord_post_error");
+
+                    b.Property<DateTimeOffset?>("FirstJoinDiscordPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_join_discord_posted_at");
+
+                    b.Property<string>("FirstJoinVRChatPostError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("first_join_vrchat_post_error");
+
+                    b.Property<DateTimeOffset?>("FirstJoinVRChatPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_join_vrchat_posted_at");
+
                     b.Property<Guid?>("InstanceId")
                         .HasColumnType("uuid")
                         .HasColumnName("instance_id");
+
+                    b.Property<DateTimeOffset?>("InvitesQueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invites_queued_at");
 
                     b.Property<string>("Location")
                         .HasColumnType("text")
@@ -2709,6 +2842,33 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_email_queue_state_kind_queued_at");
 
                     b.ToTable("email_queue", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventInviteChoice", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("ChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("changed_at");
+
+                    b.Property<string>("VRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_user_id");
+
+                    b.Property<bool>("Wants")
+                        .HasColumnType("boolean")
+                        .HasColumnName("wants");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_event_invite_choice");
+
+                    b.HasIndex("VRChatUserId")
+                        .HasDatabaseName("ix_event_invite_choice_vrchat_user_id");
+
+                    b.ToTable("event_invite_choice", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventReport", b =>
@@ -4371,6 +4531,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("email");
+
+                    b.Property<bool>("GetsEventInvites")
+                        .HasColumnType("boolean")
+                        .HasColumnName("gets_event_invites");
 
                     b.Property<bool>("IsDisabled")
                         .HasColumnType("boolean")
@@ -6854,6 +7018,32 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_storage_day", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatFriend", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<bool>("IsFriend")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_friend");
+
+                    b.Property<string>("LearnedFrom")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("learned_from");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_vrchat_friend");
+
+                    b.ToTable("vrchat_friend", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatInstance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7730,6 +7920,16 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_event_place_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_invite_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOldPost", b =>

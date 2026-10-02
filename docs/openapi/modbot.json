@@ -1732,6 +1732,53 @@
         ]
       }
     },
+    "/api/auth/event-invites": {
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get or stop event invites",
+        "description": "Whether an event that names you as its host or staff invites you when its instance opens. On for a new account.",
+        "operationId": "SetOwnEventInvites",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventInvitesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/auth/sign-out-everywhere": {
       "post": {
         "tags": [
@@ -22610,7 +22657,7 @@
           "Calendar"
         ],
         "summary": "Open an event's instance now",
-        "description": "Opens the group instance for the event's current or next time, from two hours before its start until its end, when none is open. One request to VRChat, recorded with who asked; the invites and the first-person posts follow as usual. Answers with the event.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Opens the group instance for the event's current or next time, from two hours before its start until its end, when none is open. Refused while an earlier attempt has no answer yet. One request to VRChat, recorded with who asked; the invites and the first-person posts follow as usual. Answers with the event.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "OpenCalendarEventNow",
         "parameters": [
           {
@@ -22635,14 +22682,21 @@
             }
           },
           "403": {
-            "description": "Forbidden"
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -22650,15 +22704,22 @@
           "409": {
             "description": "Conflict",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
           },
           "401": {
-            "description": "Not signed in, or the API key is not valid."
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -23258,6 +23319,56 @@
                   "items": {
                     "$ref": "#/components/schemas/CalendarWorldView"
                   }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/invite-choices": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "List who an event can invite",
+        "description": "The staff accounts an event can invite as its host and staff, and the saved lists it can invite. Lists are null without See members and See profiles.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "ListCalendarInviteChoices",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarInviteChoicesView"
                 }
               }
             }
@@ -25691,7 +25802,7 @@
           "Lists"
         ],
         "summary": "Delete list",
-        "description": "Delete a list. Refused while a giveaway still being run, or auto-invites, names it.\n\nNeeds the `ManageLists` permission.",
+        "description": "Delete a list. Refused while a giveaway still being run, auto-invites, or an event still being run names it.\n\nNeeds the `ManageLists` permission.",
         "operationId": "DeleteList",
         "parameters": [
           {
@@ -29621,6 +29732,38 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "inviteHostUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inviteStaffUserIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "inviteListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "announceFirstJoinInDiscord": {
+            "type": "boolean",
+            "default": false
+          },
+          "announceFirstJoinInVRChat": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -29882,6 +30025,54 @@
             "items": {
               "$ref": "#/components/schemas/CalendarOccurrenceView"
             }
+          },
+          "inviteHostUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inviteStaffUserIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "inviteListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inviteListName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "announceFirstJoinInDiscord": {
+            "type": "boolean",
+            "default": false
+          },
+          "invites": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarInvitesView"
+              }
+            ]
+          },
+          "announceFirstJoinInVRChat": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -29953,6 +30144,103 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CalendarInviteChoicesView": {
+        "required": [
+          "staff",
+          "lists"
+        ],
+        "type": "object",
+        "properties": {
+          "staff": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarStaffChoice"
+            }
+          },
+          "lists": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarListChoice"
+            }
+          }
+        }
+      },
+      "CalendarInvitesView": {
+        "required": [
+          "total",
+          "invited",
+          "vrChat",
+          "discord",
+          "couldNotReach",
+          "noWay",
+          "waiting",
+          "stopped",
+          "skipped"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "invited": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "vrChat": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discord": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "couldNotReach": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "noWay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stopped": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notAsked": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        }
+      },
+      "CalendarListChoice": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -30098,6 +30386,26 @@
               "null",
               "string"
             ]
+          },
+          "firstJoinDiscordPostError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "firstJoinVRChatPostError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "checking": {
+            "type": "boolean",
+            "default": false
+          },
+          "instanceMade": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -30314,6 +30622,30 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CalendarStaffChoice": {
+        "required": [
+          "id",
+          "name",
+          "hasVRChat",
+          "hasDiscord"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hasVRChat": {
+            "type": "boolean"
+          },
+          "hasDiscord": {
+            "type": "boolean"
           }
         }
       },
@@ -33693,6 +34025,17 @@
                 "$ref": "#/components/schemas/JsonNode"
               }
             ]
+          }
+        }
+      },
+      "EventInvitesRequest": {
+        "required": [
+          "getsEventInvites"
+        ],
+        "type": "object",
+        "properties": {
+          "getsEventInvites": {
+            "type": "boolean"
           }
         }
       },
@@ -39052,6 +39395,15 @@
           },
           "autoInvites": {
             "type": "boolean"
+          },
+          "events": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -44643,6 +44995,10 @@
                 "$ref": "#/components/schemas/KeyInUse"
               }
             ]
+          },
+          "getsEventInvites": {
+            "type": "boolean",
+            "default": true
           }
         }
       },
