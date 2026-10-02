@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261002232803_KeepACroppedDiscordPicture")]
+    partial class KeepACroppedDiscordPicture
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1301,10 +1304,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("OccurrenceStartsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurrence_starts_at");
-
-                    b.PrimitiveCollection<string>("Problems")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("problems");
 
                     b.Property<string>("SentFingerprint")
                         .HasMaxLength(64)

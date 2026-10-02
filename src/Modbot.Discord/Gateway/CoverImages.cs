@@ -32,6 +32,20 @@ internal static class CoverImages
     /// <summary>Discord's own limit for an event cover is 10 MB; less is plenty for a picture.</summary>
     public const int MaxBytes = 8 * 1024 * 1024;
 
+    /// <summary>The cover for an event: the cropped picture when there is one, the link's otherwise.</summary>
+    public static async Task<Cover?> ForAsync(DiscordScheduledEventDetails details, IPictures? pictures, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (details.CoverBytes is { Length: > 0 and <= MaxBytes } bytes
+            && PictureFormats.DiscordTakes(PictureFormats.Sniff(bytes)))
+        {
+            return new Cover(new MemoryStream(bytes, writable: false));
+        }
+
+        return await FetchAsync(details.CoverImageUrl, pictures, ct).ConfigureAwait(false);
+    }
+
     public static async Task<Cover?> FetchAsync(string? url, IPictures? pictures, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(url)

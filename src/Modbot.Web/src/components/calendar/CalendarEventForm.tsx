@@ -40,11 +40,11 @@ import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
-import { pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
+import { DISCORD_COVER_ASPECT, pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
 import { CroppedPicture } from './PictureCrop'
 import { usePictureThumbnails } from './usePictureThumbnails'
-import { useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
-import { VRChatPictureField } from './VRChatPictureField'
+import { useDiscordCover, useVRChatPicture, vrchatPictureAddress } from './useVRChatPicture'
+import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 
 const OTHER_WORLD = '__other__'
 const FROM_LIST = '__list__'
@@ -116,7 +116,12 @@ export function CalendarEventForm({
     onUploaded: (fileId) => set('vrChatImageId', fileId),
     initialLink: input.imageUrl,
   })
-  const uploading = vrchatPicture.uploading
+  // The picture for Discord, cropped to Discord's cover shape and kept by Modbot (§15.4).
+  const discordCover = useDiscordCover({
+    onUploaded: (coverId) => set('coverPictureId', coverId),
+    initialLink: input.imageUrl,
+  })
+  const uploading = vrchatPicture.uploading || discordCover.uploading
   // Everything a save was refused for, one line each, in the server's order.
   const [error, setError] = useState<string[] | null>(null)
   const [tab, setTab] = useState<Tab>('details')
@@ -203,7 +208,7 @@ export function CalendarEventForm({
 
     let saving = body(draft)
 
-    // A crop still in the box goes up first; refused, nothing is saved and the field says why.
+    // A crop still in a box goes up first; refused, nothing is saved and the field says why.
     if (vrchatPicture.draft && input.publishToVRChat) {
       const fileId = await vrchatPicture.upload()
 
@@ -214,6 +219,18 @@ export function CalendarEventForm({
       }
 
       saving = { ...saving, vrChatImageId: fileId }
+    }
+
+    if (discordCover.draft && discordOn) {
+      const coverId = await discordCover.upload()
+
+      if (!coverId) {
+        setBusy(false)
+        setTab('details')
+        return
+      }
+
+      saving = { ...saving, coverPictureId: coverId }
     }
 
     const request = event ? calendarApi.update(event.id, saving) : calendarApi.create(saving)
@@ -230,6 +247,24 @@ export function CalendarEventForm({
   }
 
   const isDraft = !event || event.state === 'draft'
+
+  // Discord's picture is for the Discord event and the channel post.
+  const discordOn = input.publishToDiscord || input.postToChannel
+
+  // A picture chosen on this computer opens in every crop box shown, so one choice serves both
+  // places; each is cropped to its own shape.
+  const chooseEverywhere = (file: Blob) => {
+    if (pictureUploads && input.publishToVRChat) vrchatPicture.openFile(file)
+    if (discordOn) discordCover.openFile(file)
+  }
+
+  const discordPreview = discordCover.draft ? (
+    <CroppedPicture
+      picture={discordCover.draft.picture}
+      box={discordCover.draft.box}
+      aspect={DISCORD_COVER_ASPECT}
+    />
+  ) : null
 
   // What Preview shows as VRChat's picture: a crop not uploaded yet, or the set picture when this
   // page can see it (one uploaded here, or the picture link's own).
@@ -322,6 +357,7 @@ export function CalendarEventForm({
                 input={shown}
                 places={DESTINATIONS.filter(on)}
                 vrchatPicture={vrchatPreview}
+                discordPicture={discordPreview}
               />
             ) : (
               <div className="flex flex-col gap-4">
@@ -513,6 +549,15 @@ export function CalendarEventForm({
                       })
                     }
                   />
+                  {discordOn && (
+                    <DiscordPictureField
+                      picture={discordCover}
+                      value={input.coverPictureId}
+                      link={input.imageUrl}
+                      onChange={(id) => set('coverPictureId', id)}
+                      onFile={chooseEverywhere}
+                    />
+                  )}
                 </Section>
 
                 {input.publishToVRChat && (
@@ -543,6 +588,7 @@ export function CalendarEventForm({
                         saved={event?.vrChatImageId ?? null}
                         link={input.imageUrl}
                         onChange={(id) => set('vrChatImageId', id)}
+                        onFile={chooseEverywhere}
                       />
                     </div>
                     <div className="flex flex-wrap gap-3">

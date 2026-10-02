@@ -86,6 +86,10 @@ wherever you choose to store them. These pages describe what is kept and how it 
   account. Even when it is on, nothing is uploaded unless someone with **Manage calendar** chooses
   a picture. The picture is cropped and turned into a PNG or JPEG in that person's browser; only the
   cropped picture is sent.
+- [The Discord picture](/moderation/calendar#the-discord-picture): a picture cropped for an event's
+  Discord cover is kept in Modbot's database, sent to your Discord server as the event's cover and
+  on its channel post, and deleted when the event is deleted or given another picture (or after a
+  day, if it was never saved with an event).
 - [Picture links](/moderation/calendar#picture-links): to crop an event's picture link, and to give
   Discord's event its cover, Modbot's server fetches the link, so the website it points at sees a
   request from your server. It fetches only `https://` links on public websites, never an address on

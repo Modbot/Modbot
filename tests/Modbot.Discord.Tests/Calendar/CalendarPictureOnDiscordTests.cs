@@ -30,7 +30,7 @@ public class CalendarPictureOnDiscordTests(PostgresFixture db)
         await scope.ServiceProvider.GetRequiredService<CalendarDiscordPublisher>().RunOnceAsync(gateway, Ct);
     }
 
-    private static async Task AddEventAsync(TestServices services, string imageUrl)
+    private static async Task AddEventAsync(TestServices services, string imageUrl, Guid? coverId = null)
     {
         var now = services.Clock.UtcNow;
         var e = new CalendarEvent
@@ -42,6 +42,7 @@ public class CalendarPictureOnDiscordTests(PostgresFixture db)
             EndsAt = now.AddDays(1).AddHours(2),
             TimeZone = "UTC",
             ImageUrl = imageUrl,
+            CoverPictureId = coverId,
             State = CalendarEventStates.Scheduled,
             PublishToDiscord = true,
             PostToChannel = true,
@@ -102,6 +103,47 @@ public class CalendarPictureOnDiscordTests(PostgresFixture db)
         await RunAsync(services, gateway);
 
         Assert.Equal(cover, Assert.Single(gateway.ServerEvents.Values).Details.CoverImageUrl);
+    }
+
+    /// <summary>
+    /// The picture cropped for Discord (§15.4) goes in place of the link: as the cover's bytes, and
+    /// as a file on the post that the card points at.
+    /// </summary>
+    [Fact]
+    public async Task ACroppedPictureIsTheCoverAndThePostsPicture()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+        var coverId = Guid.CreateVersion7();
+
+        await using (var context = services.Database.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture
+            {
+                Id = coverId,
+                Bytes = png,
+                ContentType = "image/png",
+                CreatedAt = services.Clock.UtcNow,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await AddEventAsync(services, OtherLink, coverId);
+        await RunAsync(services, gateway);
+
+        var details = Assert.Single(gateway.ServerEvents.Values).Details;
+        Assert.Null(details.CoverImageUrl);
+        Assert.Equal(png, details.CoverBytes);
+
+        var name = CalendarDiscordPublisher.CoverName(coverId) + ".png";
+        var post = Assert.Single(gateway.Messages);
+        Assert.Equal("attachment://" + name, post.Embeds[0].ImageUrl);
+
+        var file = Assert.Single(gateway.PicturesSent[post.MessageId]!);
+        Assert.Equal(name, file.Name);
+        Assert.Equal(png, file.Bytes);
     }
 
     [Theory]

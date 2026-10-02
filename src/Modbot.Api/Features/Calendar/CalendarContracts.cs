@@ -14,6 +14,10 @@ namespace Modbot.Api.Features.Calendar;
 /// answered it, or one an older event already has. Null for none.
 /// </param>
 /// <param name="Draft">Save without publishing anything or opening anything.</param>
+/// <param name="CoverPictureId">
+/// The picture for Discord, as <c>POST /api/calendar/cover</c> answered it: the Discord event's cover
+/// and the channel post's picture, in place of <paramref name="ImageUrl"/>. Null for none.
+/// </param>
 /// <param name="WorldListId">
 /// Pick the world from this world list, date by date, instead of <paramref name="WorldId"/>.
 /// </param>
@@ -74,7 +78,8 @@ public sealed record CalendarEventRequest(
     string? MentionRoleId = null,
     int? RepeatEvery = null,
     int? RepeatTimes = null,
-    bool? Featured = null);
+    bool? Featured = null,
+    Guid? CoverPictureId = null);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -201,6 +206,10 @@ public sealed record CalendarDateCancelRequest(DateTimeOffset PlannedStartsAt, b
 /// <param name="FileId">The <c>file_…</c> id VRChat gave it, to save as the event's <c>vrChatImageId</c>.</param>
 public sealed record CalendarVRChatPictureView(string FileId);
 
+/// <summary>A picture cropped for Discord and kept by Modbot.</summary>
+/// <param name="CoverId">Save it as the event's <c>coverPictureId</c>.</param>
+public sealed record CalendarCoverView(Guid CoverId);
+
 /// <summary>A picture link to fetch for the form's crop box.</summary>
 /// <param name="Url">An https link: a picture, a page with a picture, or a VRChat file link.</param>
 public sealed record CalendarPictureLinkRequest(string? Url);
@@ -275,7 +284,8 @@ public sealed record CalendarEventView(
     string? MentionRoleId = null,
     int RepeatEvery = 1,
     int? RepeatTimes = null,
-    bool Featured = false);
+    bool Featured = false,
+    Guid? CoverPictureId = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

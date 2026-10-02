@@ -450,13 +450,18 @@ public sealed record DiscordServerSnapshot(
 /// <param name="Description">Up to 1000 characters, or null.</param>
 /// <param name="Location">The join link once the instance is open, the world's name before. Up to 100 characters.</param>
 /// <param name="CoverImageUrl">An https picture link for the cover, or null for none.</param>
+/// <param name="CoverBytes">
+/// The cover itself, in place of <paramref name="CoverImageUrl"/>: the picture cropped for Discord in
+/// the event form (calendar design §15.4). A PNG, JPEG, GIF or WebP.
+/// </param>
 public sealed record DiscordScheduledEventDetails(
     string Name,
     string? Description,
     DateTimeOffset StartsAt,
     DateTimeOffset EndsAt,
     string Location,
-    string? CoverImageUrl)
+    string? CoverImageUrl,
+    byte[]? CoverBytes = null)
 {
     /// <summary>The error an update comes back with when the event was deleted or ended in Discord.</summary>
     public const string Gone = "That server event is gone, or has already ended.";

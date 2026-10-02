@@ -123,6 +123,12 @@ public class CalendarEvent
     /// <summary>A VRChat file id for VRChat's calendar. Modbot never uploads one.</summary>
     public string? VRChatImageId { get; set; }
 
+    /// <summary>
+    /// The picture cropped in the form for Discord (calendar design §15.4, added 2026-10-02): the
+    /// Discord event's cover and the channel post's picture, in place of <see cref="ImageUrl"/>.
+    /// </summary>
+    public Guid? CoverPictureId { get; set; }
+
     // ── VRChat's calendar fields ─────────────────────────────────────────────────────────
 
     /// <summary>VRChat's category word, such as <c>hangout</c>.</summary>

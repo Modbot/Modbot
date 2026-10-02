@@ -26,6 +26,7 @@ public static class CalendarEventFields
             ["description"] = e.Description,
             ["imageUrl"] = e.ImageUrl,
             ["vrchatImageId"] = e.VRChatImageId,
+            ["coverPictureId"] = e.CoverPictureId?.ToString(),
             ["category"] = e.Category,
             ["languages"] = string.Join(", ", e.Languages),
             ["platforms"] = string.Join(", ", e.Platforms),

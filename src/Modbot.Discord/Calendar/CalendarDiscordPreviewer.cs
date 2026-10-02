@@ -14,6 +14,9 @@ namespace Modbot.Discord.Calendar;
 /// </remarks>
 public sealed class CalendarDiscordPreviewer : ICalendarDiscordPreview
 {
+    /// <summary>Where the web app reads a picture cropped for Discord: <c>GET /api/calendar/covers/{id}</c>.</summary>
+    public const string CoverPath = "/api/calendar/covers/";
+
     public CalendarDiscordPreview Preview(CalendarEvent calendarEvent, VRChatWorld? world, CalendarPreviewContext context)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
@@ -23,13 +26,17 @@ public sealed class CalendarDiscordPreviewer : ICalendarDiscordPreview
         var details = CalendarDiscordPublisher.ServerEventDetails(
             calendarEvent, world, publicAddress, context.JoinLink, context.Now);
 
-        var picture = CalendarCard.OwnPicture(calendarEvent) ?? InstanceCard.PictureOf(world);
+        // The picture cropped for Discord (§15.4) is sent as a file; the preview shows Modbot's own
+        // address for it.
+        var cover = calendarEvent.CoverPictureId is { } coverId ? CoverPath + coverId : null;
+
+        var picture = cover ?? CalendarCard.OwnPicture(calendarEvent) ?? InstanceCard.PictureOf(world);
         var (card, links) = CalendarDiscordPublisher.Post(
             calendarEvent, world, context.JoinLink, new CardStyle(publicAddress, context.GroupName), picture);
 
         return new CalendarDiscordPreview(
             new CalendarDiscordEventPreview(
-                details.Name, details.Description, details.StartsAt, details.EndsAt, details.Location, details.CoverImageUrl),
+                details.Name, details.Description, details.StartsAt, details.EndsAt, details.Location, cover ?? details.CoverImageUrl),
             new CalendarChannelPostPreview(
                 card.AuthorName,
                 card.Title,

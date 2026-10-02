@@ -355,9 +355,15 @@ public sealed class CalendarDiscordPublisher
         // "Join:" line and the post's Join button already follow.
         var location = Location(pass.PublicAddress, e, joinLink);
 
-        var fingerprint = CalendarFingerprint.Of(
+        object?[] sent =
+        [
             "discordEvent", title, description, occurrence.StartsAt, occurrence.EndsAt,
-            location, joinLink, open, e.ImageUrl, world?.Name, world?.ImageUrl, e.WorldId);
+            location, joinLink, open, e.ImageUrl, world?.Name, world?.ImageUrl, e.WorldId,
+        ];
+
+        // Added only with a cropped picture, so an event without one keeps the fingerprint it was
+        // sent under and is not updated again for nothing.
+        var fingerprint = CalendarFingerprint.Of(e.CoverPictureId is { } coverId ? [.. sent, coverId] : sent);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
         {
@@ -378,6 +384,11 @@ public sealed class CalendarDiscordPublisher
         // switch for VRChat pictures turns off, as it does for the pictures on cards.
         if (!pass.ShowPictures && IsOnVRChat(details.CoverImageUrl))
             details = details with { CoverImageUrl = null };
+
+        // The picture cropped in the form for Discord goes in place of the link (§15.4), read only
+        // now that something is to be sent.
+        if (await CoverAsync(e, pass.Ct).ConfigureAwait(false) is { } cover)
+            details = details with { CoverImageUrl = null, CoverBytes = cover.Bytes };
 
         var guildId = pass.GuildId!;
 
@@ -450,6 +461,44 @@ public sealed class CalendarDiscordPublisher
             link,
             CalendarRepeat.TitleOf(calendarEvent, occurrence),
             CalendarRepeat.DescriptionOf(calendarEvent, occurrence));
+    }
+
+    /// <summary>
+    /// The file name of the picture cropped for Discord (§15.4), from its id and kind, so a post can
+    /// point at it without reading it. Null without one, or when it is gone.
+    /// </summary>
+    private async Task<string?> CoverNameAsync(CalendarEvent e, CancellationToken ct)
+    {
+        if (e.CoverPictureId is not { } id)
+            return null;
+
+        var type = await _db.CalendarCoverPictures.AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => c.ContentType)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return CardPictures.Extension(type) is { } extension
+            ? CoverName(id) + extension
+            : null;
+    }
+
+    /// <summary>The name a cropped picture goes by on a post, before its extension.</summary>
+    public static string CoverName(Guid id) => "cover-" + id.ToString("N");
+
+    /// <summary>The picture cropped for Discord (§15.4), or null without one.</summary>
+    private async Task<Core.Files.PictureBytes?> CoverAsync(CalendarEvent e, CancellationToken ct)
+    {
+        if (e.CoverPictureId is not { } id)
+            return null;
+
+        var cover = await _db.CalendarCoverPictures.AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new { c.Bytes, c.ContentType })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return cover is null ? null : new Core.Files.PictureBytes(cover.Bytes, cover.ContentType);
     }
 
     /// <summary>Whether a picture address is on one of VRChat's hosts, which serve nobody without a session.</summary>
@@ -540,9 +589,14 @@ public sealed class CalendarDiscordPublisher
                 // no upload.
                 var closingWorld = pass.WorldOf(e);
                 var closingPictures = pass.Pictures();
+                var closingCover = await CoverNameAsync(e, pass.Ct).ConfigureAwait(false);
+                var closingOwn = CalendarCard.OwnPicture(e);
                 var closingPicture = new CardPicture(
-                    Image: CalendarCard.OwnPicture(e)
-                        ?? await closingPictures.ReferenceAsync(InstanceCard.PictureOf(closingWorld), pass.Ct).ConfigureAwait(false));
+                    Image: closingCover is not null
+                        ? DiscordPicture.Scheme + closingCover
+                        : closingOwn is not null && !IsOnVRChat(closingOwn)
+                            ? closingOwn
+                            : await closingPictures.ReferenceAsync(closingOwn ?? InstanceCard.PictureOf(closingWorld), pass.Ct).ConfigureAwait(false));
 
                 var card = CalendarCard.For(
                     e, occurrence, closingWorld, state, joinLink: null, pass.Style, closingPicture);
@@ -616,14 +670,21 @@ public sealed class CalendarDiscordPublisher
         // address on a host that serves anybody, so it is linked either way -- unless it is on
         // VRChat, which serves nobody without a session: that one is sent like the world's
         // (calendar design §15.2, added 2026-10-02).
+        //
+        // The picture cropped in the form for Discord comes first (§15.4). It is named from its id,
+        // so the post is told what it is called without reading it; it is read, and sent, only
+        // when the post is made or changed.
         var pictures = pass.Pictures();
+        var coverName = await CoverNameAsync(e, pass.Ct).ConfigureAwait(false);
         var own = CalendarCard.OwnPicture(e);
         var sent = own is null ? InstanceCard.PictureOf(world) : IsOnVRChat(own) ? own : null;
-        var image = sent is null
-            ? own
-            : first
-                ? await pictures.AddAsync(sent, pass.Ct).ConfigureAwait(false)
-                : await pictures.ReferenceAsync(sent, pass.Ct).ConfigureAwait(false);
+        var image = coverName is not null
+            ? DiscordPicture.Scheme + coverName
+            : sent is null
+                ? own
+                : first
+                    ? await pictures.AddAsync(sent, pass.Ct).ConfigureAwait(false)
+                    : await pictures.ReferenceAsync(sent, pass.Ct).ConfigureAwait(false);
 
         var (embed, links) = Post(e, world, joinLink, pass.Style, image);
 
@@ -649,6 +710,22 @@ public sealed class CalendarDiscordPublisher
         if (place.State == CalendarPlaceStates.Failed && place.FailedFingerprint == fingerprint)
             return;
 
+        // The files the message carries. A cropped picture is sent on the post and on every change,
+        // since it may be new; a card that refers to no file any more keeps none, so a picture
+        // removed does not hang under the card. Otherwise an edit keeps what the post has.
+        IReadOnlyList<DiscordPicture> files = pictures.Files;
+        IReadOnlyList<DiscordPicture>? editFiles = null;
+
+        if (coverName is not null && await CoverAsync(e, pass.Ct).ConfigureAwait(false) is { } cover)
+        {
+            files = [new DiscordPicture(coverName, cover.Bytes)];
+            editFiles = files;
+        }
+        else if (embed.ImageUrl?.StartsWith(DiscordPicture.Scheme, StringComparison.Ordinal) != true)
+        {
+            editFiles = [];
+        }
+
         DiscordPostOutcome outcome;
 
         if (first)
@@ -660,10 +737,10 @@ public sealed class CalendarDiscordPublisher
 
             outcome = ping
                 ? await pass
-                    .Call(g => g.PostMentioningRoleAsync(channelId!, e.MentionRoleId!.Trim(), [embed], links, pictures.Files, pass.Ct))
+                    .Call(g => g.PostMentioningRoleAsync(channelId!, e.MentionRoleId!.Trim(), [embed], links, files, pass.Ct))
                     .ConfigureAwait(false)
                 : await pass
-                    .Call(g => g.PostAsync(channelId!, mention, [embed], links, pictures.Files, pass.Ct))
+                    .Call(g => g.PostAsync(channelId!, mention, [embed], links, files, pass.Ct))
                     .ConfigureAwait(false);
 
             if (outcome is { Sent: true, MessageId: { } posted })
@@ -684,7 +761,7 @@ public sealed class CalendarDiscordPublisher
             var id = place.ExternalId!;
             var inChannel = place.ChannelId ?? channelId!;
             outcome = await pass
-                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, pictures: null, pass.Ct))
+                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, editFiles, pass.Ct))
                 .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the event changes, so a moderator who

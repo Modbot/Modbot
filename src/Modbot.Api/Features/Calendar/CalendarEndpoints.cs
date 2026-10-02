@@ -47,6 +47,9 @@ public static class CalendarEndpoints
     public const int MaxListItemLength = 64;
     public const int MaxOpenMinutesBefore = 120;
 
+    /// <summary>The refusal for a Discord picture over <see cref="CalendarCoverPicture.MaxBytes"/>.</summary>
+    public const string CoverTooBig = "The picture is larger than 8 MB.";
+
     /// <summary>The most staff accounts one event invites, besides the host.</summary>
     public const int MaxInviteStaff = 20;
 
@@ -205,7 +208,7 @@ public static class CalendarEndpoints
                     CreatedByUserId = ModbotAuth.UserIdOf(http.User),
                 };
 
-                if (await RefusedAsync(db, body, calendarEvent, keptMention: null, ct) is { } problems)
+                if (await RefusedAsync(db, body, calendarEvent, keptMention: null, keptCover: null, ct) is { } problems)
                     return problems;
 
                 if (await CheckInvitesAsync(http, db, body, keptListId: null, kept: [], ct) is { } refused)
@@ -268,6 +271,7 @@ public static class CalendarEndpoints
                 var now = clock.UtcNow;
                 var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
                 var keptMention = calendarEvent.MentionRoleId;
+                var coverBefore = calendarEvent.CoverPictureId;
 
                 // Keeping the list already on the event needs nothing more; picking one does.
                 List<Guid> kept = [.. calendarEvent.InviteStaffUserIds];
@@ -277,7 +281,7 @@ public static class CalendarEndpoints
                 if (await CheckInvitesAsync(http, db, body, keptListId: calendarEvent.InviteListId, kept, ct) is { } refused)
                     return refused;
 
-                if (await RefusedAsync(db, body, calendarEvent, keptMention, ct) is { } problems)
+                if (await RefusedAsync(db, body, calendarEvent, keptMention, keptCover: coverBefore, ct) is { } problems)
                     return problems;
 
                 // Dates cancelled or changed on their own follow the series to its new times, by the
@@ -314,6 +318,10 @@ public static class CalendarEndpoints
                     ct);
 
                 await transaction.CommitAsync(ct);
+
+                // A Discord picture this event no longer uses is not kept for nothing (§15.4).
+                if (coverBefore != calendarEvent.CoverPictureId)
+                    await DropCoverIfUnusedAsync(db, coverBefore, ct);
 
                 await PickDateAsync(db, facts, clock, calendarEvent, ct);
 
@@ -741,6 +749,9 @@ public static class CalendarEndpoints
                     new JsonObject { ["title"] = calendarEvent.Title }, ct);
                 await transaction.CommitAsync(ct);
 
+                // Its Discord picture goes with it, unless a copy of the event still uses it (§15.4).
+                await DropCoverIfUnusedAsync(db, calendarEvent.CoverPictureId, ct);
+
                 return Results.NoContent();
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
@@ -917,6 +928,106 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status429TooManyRequests)
             .Produces(StatusCodes.Status502BadGateway)
             .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        // The picture cropped in the form for Discord (§15.4): kept by Modbot, because Discord is
+        // sent a cover's bytes each time the event is made or changed and the crop exists nowhere
+        // else. Its own request, like VRChat's picture, so saving stays plain JSON. A cover nobody
+        // saved is cleared out here, a day later.
+        group.MapPost("/cover", async (
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                if (http.Request.ContentLength > CalendarCoverPicture.MaxBytes)
+                {
+                    return Results.Json(
+                        new { error = CoverTooBig },
+                        statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+
+                if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                    limit.MaxRequestBodySize = CalendarCoverPicture.MaxBytes + 1;
+
+                var bytes = await ReadPictureAsync(http.Request.Body, http.Request.ContentLength, ct);
+
+                if (bytes.Length > CalendarCoverPicture.MaxBytes)
+                {
+                    return Results.Json(
+                        new { error = CoverTooBig },
+                        statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+
+                // The type its bytes have, and one Discord takes.
+                var type = Core.Files.PictureFormats.Sniff(bytes);
+                if (!Core.Files.PictureFormats.DiscordTakes(type))
+                    return Results.BadRequest(new { error = "The picture must be a PNG, JPEG, GIF or WebP." });
+
+                var now = clock.UtcNow;
+                var unsavedBefore = now.AddDays(-1);
+
+                await db.CalendarCoverPictures
+                    .Where(c => c.CreatedAt < unsavedBefore
+                        && !db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null))
+                    .ExecuteDeleteAsync(ct);
+
+                var cover = new CalendarCoverPicture
+                {
+                    Id = Guid.CreateVersion7(),
+                    Bytes = bytes,
+                    ContentType = type!,
+                    CreatedAt = now,
+                    CreatedByUserId = ModbotAuth.UserIdOf(http.User),
+                };
+
+                db.CalendarCoverPictures.Add(cover);
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(new CalendarCoverView(cover.Id));
+            })
+            // No declared request body, as with the VRChat picture: the body is a file.
+            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .WithName("UploadCalendarCover")
+            .WithSummary("Upload Discord picture")
+            .WithDescription(
+                "Keeps a picture for an event's Discord cover and channel post. The body is the "
+                + "picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first "
+                + "bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps "
+                + "it until the event is deleted or given another; one no event was saved with is "
+                + "deleted after a day.")
+            .Produces<CalendarCoverView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status413PayloadTooLarge);
+
+        group.MapGet("/covers/{id:guid}", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var cover = await db.CalendarCoverPictures.AsNoTracking()
+                    .Where(c => c.Id == id)
+                    .Select(c => new { c.Bytes, c.ContentType })
+                    .FirstOrDefaultAsync(ct);
+
+                if (cover is null)
+                    return Results.NotFound();
+
+                // A cover never changes once kept, so its address can be kept as long as it lives.
+                http.Response.Headers.CacheControl = "private, max-age=604800, immutable";
+                http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                http.Response.Headers.ContentSecurityPolicy = "sandbox";
+
+                return Results.Bytes(cover.Bytes, cover.ContentType);
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("GetCalendarCover")
+            .WithSummary("Get Discord picture")
+            .WithDescription("The picture kept for an event's Discord cover and channel post.")
+            .Produces<byte[]>(StatusCodes.Status200OK, "image/png", "image/jpeg", "image/gif", "image/webp")
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
 
         // The picture behind an event's picture link, for the form to crop and turn into a PNG in
         // the browser (§15.2). A browser cannot read another site's picture into a canvas, and
@@ -1326,8 +1437,9 @@ public static class CalendarEndpoints
     /// </para>
     /// </remarks>
     /// <param name="keptMention">The role already on the event, before this save changes it.</param>
+    /// <param name="keptCover">The Discord picture already on the event, before this save changes it.</param>
     private static async Task<IResult?> RefusedAsync(
-        ModbotContext db, CalendarEventRequest body, CalendarEvent target, string? keptMention, CancellationToken ct)
+        ModbotContext db, CalendarEventRequest body, CalendarEvent target, string? keptMention, Guid? keptCover, CancellationToken ct)
     {
         var problems = ApplyAll(body, target);
 
@@ -1336,6 +1448,9 @@ public static class CalendarEndpoints
 
         if (await MentionProblemAsync(db, body, keptMention, ct) is { } mentionProblem)
             problems.Add(mentionProblem);
+
+        if (await CoverProblemAsync(db, body, keptCover, ct) is { } coverProblem)
+            problems.Add(coverProblem);
 
         if (problems.Count == 0)
             return null;
@@ -1373,6 +1488,34 @@ public static class CalendarEndpoints
             else
                 CalendarDiscordRetry.ClearAfterEdit(place, now);
         }
+    }
+
+    /// <summary>What is wrong with the Discord picture an event names, or null (§15.4).</summary>
+    private static async Task<string?> CoverProblemAsync(
+        ModbotContext db, CalendarEventRequest body, Guid? kept, CancellationToken ct)
+    {
+        if (body.CoverPictureId is not { } id || id == kept)
+            return null;
+
+        return await db.CalendarCoverPictures.AnyAsync(c => c.Id == id, ct)
+            ? null
+            : "That Discord picture is gone. Choose it again.";
+    }
+
+    /// <summary>
+    /// Deletes a Discord picture no live event uses any more: its event was deleted or given
+    /// another one (§15.4). A copy of an event shares its picture, so the picture stays while any
+    /// event still points at it.
+    /// </summary>
+    private static async Task DropCoverIfUnusedAsync(ModbotContext db, Guid? coverId, CancellationToken ct)
+    {
+        if (coverId is not { } id)
+            return;
+
+        if (await db.CalendarEvents.AnyAsync(e => e.CoverPictureId == id && e.DeletedAt == null, ct))
+            return;
+
+        await db.CalendarCoverPictures.Where(c => c.Id == id).ExecuteDeleteAsync(ct);
     }
 
     /// <summary>What is wrong with the world list an event names, or null.</summary>
@@ -1846,6 +1989,7 @@ public static class CalendarEndpoints
         target.Region = region;
         target.ImageUrl = imageUrl;
         target.VRChatImageId = vrchatImageId;
+        target.CoverPictureId = body.CoverPictureId;
         target.Category = category;
         target.Languages = Clean(body.Languages);
         target.Platforms = platforms;
@@ -2093,7 +2237,8 @@ public static class CalendarEndpoints
                 e.MentionRoleId,
                 CalendarRepeat.EveryOf(e),
                 e.RepeatTimes,
-                e.Featured);
+                e.Featured,
+                e.CoverPictureId);
         })];
     }
 

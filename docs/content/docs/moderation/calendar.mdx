@@ -364,7 +364,7 @@ months**.
 | **World list** | Shown for **Pick from a list**. The list to pick from. See [When the world is picked](/moderation/world-lists#when-the-world-is-picked). |
 | **Who can join** | **Group members**, **Members and their friends** or **Anyone**. Used for the instance Modbot opens, and shown on the channel post. |
 | **Region** | **US West**, **US East**, **Europe** or **Japan**. Used for the instance Modbot opens. |
-| **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture. When empty, Discord gets the world's picture instead. It can be a link to the picture itself, a link to a page that shows it, or a VRChat file link: see [Picture links](#picture-links). |
+| **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture, unless a [Discord picture](#the-discord-picture) is set. When empty, Discord gets the world's picture instead. It can be a link to the picture itself, a link to a page that shows it, or a VRChat file link: see [Picture links](#picture-links). |
 
 ### VRChat calendar
 
@@ -410,6 +410,23 @@ event gets no cover from it.
 
 A Discord attachment link (`cdn.discordapp.com/attachments/…?ex=…`) stops working after about a
 day. Modbot fetches the link again each time it updates the Discord event, so use a link that lasts.
+
+### The Discord picture
+
+Shown while the **Discord event** or **Discord channel post** chip is on. Discord shows an event's
+cover in a wide 2.5:1 strip, so a picture made for VRChat's calendar loses its top and bottom there.
+**Discord picture** lets you choose which part shows.
+
+- **Choose picture**, or give a **Picture link**: the picture opens in a crop box in Discord's shape.
+  A picture chosen here or under **VRChat picture** opens in both crop boxes, each in its own shape.
+- Drag the box, and use **Size**. The **Preview** tab shows the Discord event and the channel post
+  with the crop, before anything is uploaded.
+- **Upload** keeps the cropped picture in Modbot. From then on Discord gets it as the event's cover
+  and on the channel post, instead of the picture link. Pressing **Save** or **Schedule** with a crop
+  still open uploads it first.
+- **Remove** goes back to the picture link. **Crop** opens the picture link again to crop it anew.
+- Modbot keeps the picture (at most 8 MB) until the event is deleted or given another one. A
+  picture uploaded but never saved with an event is deleted a day later.
 
 ### The VRChat picture
 

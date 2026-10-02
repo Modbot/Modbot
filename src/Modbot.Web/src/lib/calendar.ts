@@ -159,6 +159,8 @@ export type CalendarEvent = {
   repeatTimes?: number | null
   /** Whether VRChat is asked to show it as featured. */
   featured?: boolean
+  /** The picture cropped for Discord (calendar design §15.4). Missing from an older server. */
+  coverPictureId?: string | null
 }
 
 /**
@@ -382,6 +384,8 @@ export type CalendarEventInput = {
   announceFirstJoinInVRChat: boolean
   /** The Discord role the channel post mentions; null for none. */
   mentionRoleId: string | null
+  /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
+  coverPictureId: string | null
 }
 
 /** Who made a Discord server event. A person is never named. */
@@ -439,6 +443,14 @@ export function isGalleryRefusal(message: string): boolean {
 
 /** The largest VRChat calendar picture: 10 MB, the server's `VRChatPictureUploads.MaxBytes`. */
 export const VRCHAT_PICTURE_MAX_BYTES = 10 * 1024 * 1024
+
+/** The largest picture kept for Discord: 8 MB, the server's `CalendarCoverPicture.MaxBytes`. */
+export const CALENDAR_COVER_MAX_BYTES = 8 * 1024 * 1024
+
+/** Where a picture kept for Discord is read from (calendar design §15.4). */
+export function coverAddress(coverId: string): string {
+  return `${base}/covers/${encodeURIComponent(coverId)}`
+}
 
 export const calendarApi = {
   view: (from: Date, to: Date) =>
@@ -507,6 +519,16 @@ export const calendarApi = {
 
     return response.blob()
   },
+  /**
+   * Keeps a picture cropped for Discord (calendar design §15.4) and answers with its id, to save as
+   * `coverPictureId`: the Discord event's cover and the channel post's picture.
+   */
+  uploadCover: (picture: Blob) =>
+    http.request<{ coverId: string }>(`${base}/cover`, {
+      method: 'POST',
+      body: picture,
+      headers: { 'content-type': picture.type || 'application/octet-stream' },
+    }),
   inviteChoices: () => http.request<CalendarInviteChoices>(`${base}/invite-choices`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   /** What the time of an event that started at `at` did. */
@@ -650,6 +672,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     announceFirstJoinInDiscord: false,
     announceFirstJoinInVRChat: false,
     mentionRoleId: null,
+    coverPictureId: null,
   }
 }
 
@@ -697,5 +720,6 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     announceFirstJoinInDiscord: event.announceFirstJoinInDiscord ?? false,
     announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
     mentionRoleId: event.mentionRoleId ?? null,
+    coverPictureId: event.coverPictureId ?? null,
   }
 }

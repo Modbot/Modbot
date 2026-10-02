@@ -37,6 +37,7 @@ export function EventPreview({
   input,
   places,
   vrchatPicture = null,
+  discordPicture = null,
 }: {
   eventId: string | null
   input: CalendarEventInput
@@ -47,6 +48,11 @@ export function EventPreview({
    * can see it (calendar design §15.3). VRChat is sent only the file id, so the server cannot draw it.
    */
   vrchatPicture?: ReactNode
+  /**
+   * Discord's picture cropped and not uploaded yet (calendar design §15.4), drawn in place of the
+   * cover and the post's picture. Once uploaded, the server's preview names it.
+   */
+  discordPicture?: ReactNode
 }) {
   const [preview, setPreview] = useState<CalendarPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,8 +79,12 @@ export function EventPreview({
 
   return (
     <div className="flex flex-col gap-4" style={{ fontSize: 'var(--text-small)' }}>
-      {places.includes('discordEvent') && preview.discordEvent && <DiscordEventCard event={preview.discordEvent} />}
-      {places.includes('channelPost') && preview.channelPost && <ChannelPostCard post={preview.channelPost} />}
+      {places.includes('discordEvent') && preview.discordEvent && (
+        <DiscordEventCard event={preview.discordEvent} picture={discordPicture} />
+      )}
+      {places.includes('channelPost') && preview.channelPost && (
+        <ChannelPostCard post={preview.channelPost} picture={discordPicture} />
+      )}
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
       {places.includes('feed') && <FeedCard entry={preview.feed} />}
     </div>
@@ -111,13 +121,19 @@ function DiscordText({ text, now }: { text: string; now: Date }) {
   )
 }
 
-function DiscordEventCard({ event }: { event: NonNullable<CalendarPreview['discordEvent']> }) {
+function DiscordEventCard({
+  event,
+  picture,
+}: {
+  event: NonNullable<CalendarPreview['discordEvent']>
+  picture: ReactNode
+}) {
   return (
     <Place place="discordEvent">
       <div className="flex flex-col overflow-hidden rounded-sm border-(length:--hairline) bg-card">
-        {event.coverUrl && (
+        {picture ?? (event.coverUrl && (
           <img src={vrchatMedia(event.coverUrl)} alt="" className="aspect-[2.5/1] w-full object-cover" loading="lazy" />
-        )}
+        ))}
         <div className="flex flex-col gap-1.5 p-3">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <CalendarDays className="size-3.5 shrink-0" />
@@ -137,7 +153,13 @@ function DiscordEventCard({ event }: { event: NonNullable<CalendarPreview['disco
   )
 }
 
-function ChannelPostCard({ post }: { post: NonNullable<CalendarPreview['channelPost']> }) {
+function ChannelPostCard({
+  post,
+  picture,
+}: {
+  post: NonNullable<CalendarPreview['channelPost']>
+  picture: ReactNode
+}) {
   const now = new Date()
   const colour = `#${post.colour.toString(16).padStart(6, '0')}`
 
@@ -174,9 +196,10 @@ function ChannelPostCard({ post }: { post: NonNullable<CalendarPreview['channelP
               </div>
             ))}
           </div>
-          {post.pictureUrl && (
-            <img src={vrchatMedia(post.pictureUrl)} alt="" className="max-h-64 w-full rounded-sm object-cover" loading="lazy" />
-          )}
+          {picture ??
+            (post.pictureUrl && (
+              <img src={vrchatMedia(post.pictureUrl)} alt="" className="max-h-64 w-full rounded-sm object-cover" loading="lazy" />
+            ))}
           {post.footer && <div className="text-muted-foreground">{post.footer}</div>}
         </div>
         {post.buttons.length > 0 && (

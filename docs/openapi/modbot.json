@@ -24440,6 +24440,166 @@
         ]
       }
     },
+    "/api/calendar/cover": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Upload Discord picture",
+        "description": "Keeps a picture for an event's Discord cover and channel post. The body is the picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps it until the event is deleted or given another; one no event was saved with is deleted after a day.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "UploadCalendarCover",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarCoverView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/covers/{id}": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get Discord picture",
+        "description": "The picture kept for an event's Discord cover and channel post.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "GetCalendarCover",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/picture-link": {
       "post": {
         "tags": [
@@ -30792,6 +30952,18 @@
           }
         }
       },
+      "CalendarCoverView": {
+        "required": [
+          "coverId"
+        ],
+        "type": "object",
+        "properties": {
+          "coverId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "CalendarDateCancelRequest": {
         "required": [
           "plannedStartsAt"
@@ -31216,6 +31388,13 @@
               "null",
               "boolean"
             ]
+          },
+          "coverPictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -31547,6 +31726,13 @@
           "featured": {
             "type": "boolean",
             "default": false
+          },
+          "coverPictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

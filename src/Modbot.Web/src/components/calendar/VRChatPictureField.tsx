@@ -1,18 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { isGalleryRefusal, VRCHAT_PLUS_URL } from '@/lib/calendar'
-import {
-  isVRChatFileHost,
-  VRCHAT_FILE_NOT_FOUND,
-  VRCHAT_PICTURE_ASPECT,
-  vrchatFileIdIn,
-  vrchatFileIdInLink,
-} from '@/lib/eventPicture'
-import { PictureCrop } from './PictureCrop'
+import { coverAddress, isGalleryRefusal, VRCHAT_PLUS_URL } from '@/lib/calendar'
+import { isVRChatFileHost, VRCHAT_FILE_NOT_FOUND, vrchatFileIdIn, vrchatFileIdInLink } from '@/lib/eventPicture'
+import { CropField } from './CropField'
+import { useOpenGivenLink, type CroppedPicture } from './useCroppedPicture'
 import type { PictureThumbnails } from './usePictureThumbnails'
-import { vrchatPictureAddress, type VRChatPicture } from './useVRChatPicture'
+import { vrchatPictureAddress } from './useVRChatPicture'
 
 /**
  * The picture for VRChat's calendar (calendar design §2, §15). With uploads on, a picture chosen on
@@ -32,11 +27,12 @@ export function VRChatPictureField({
   saved,
   link,
   onChange,
+  onFile,
 }: {
   /** Whether pictures may be uploaded (Settings). */
   uploads: boolean
   /** The picture being chosen, held by the form. */
-  picture: VRChatPicture
+  picture: CroppedPicture
   /** The form's thumbnails, so one outlives this field being drawn again. */
   thumbnails: PictureThumbnails
   value: string | null
@@ -45,10 +41,12 @@ export function VRChatPictureField({
   /** The event's picture link. */
   link: string | null
   onChange: (fileId: string | null) => void
+  /** A picture file chosen here, which the form opens in every crop box that is shown. */
+  onFile: (file: Blob) => void
 }) {
   if (!uploads) return <TypedId value={value} saved={saved} onChange={onChange} />
 
-  return <Upload picture={picture} thumbnails={thumbnails} value={value} link={link} onChange={onChange} />
+  return <Upload picture={picture} thumbnails={thumbnails} value={value} link={link} onChange={onChange} onFile={onFile} />
 }
 
 function Upload({
@@ -57,116 +55,120 @@ function Upload({
   value,
   link,
   onChange,
+  onFile,
 }: {
-  picture: VRChatPicture
+  picture: CroppedPicture
   thumbnails: PictureThumbnails
   value: string | null
   link: string | null
   onChange: (fileId: string | null) => void
+  onFile: (file: Blob) => void
 }) {
-  const chooser = useRef<HTMLInputElement>(null)
-  const { draft, opening, uploading, error, passed, setPassed } = picture
   const shown = vrchatPictureAddress(value, link, thumbnails)
   const fromLink = link !== null && value !== null && vrchatFileIdInLink(link) === value
 
-  // A picture link that is not VRChat's opens in the crop box on its own, once the typing stops.
-  const { openLink } = picture
-  useEffect(() => {
-    if (value || draft || opening || !link || link === passed) return
-    if (!/^https:\/\//i.test(link) || vrchatFileIdInLink(link)) return
-
-    const timer = setTimeout(() => {
-      setPassed(link)
-      openLink(link)
-    }, 700)
-    return () => clearTimeout(timer)
-  }, [value, draft, opening, link, passed, setPassed, openLink])
+  // A picture link that is not VRChat's opens in the crop box on its own; one that is fills the
+  // field instead (§15.1).
+  useOpenGivenLink(picture, link, !value && !vrchatFileIdInLink(link))
 
   const remove = () => {
     if (value) thumbnails.drop(value)
-    setPassed(link)
+    picture.setPassed(link)
     picture.setError(null)
     onChange(null)
   }
 
   return (
-    <div className={draft ? 'flex flex-col gap-1 sm:col-span-2' : 'flex flex-col gap-1'} style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">VRChat picture</span>
-      {draft ? (
-        <>
-          <PictureCrop
-            picture={draft.picture}
-            aspect={VRCHAT_PICTURE_ASPECT}
-            box={draft.box}
-            onBox={picture.setBox}
-            label="VRChat picture crop"
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" disabled={uploading} onClick={() => void picture.upload()}>
-              {uploading ? 'Uploading…' : 'Upload'}
+    <CropField
+      label="VRChat picture"
+      picture={picture}
+      link={link}
+      onFile={onFile}
+      refusal={(error) =>
+        isGalleryRefusal(error) && (
+          <a className="underline" href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
+            Get VRChat+
+          </a>
+        )
+      }
+      set={
+        value ? (
+          <>
+            {shown ? (
+              <img src={shown} alt="" className="aspect-video h-16 rounded-sm border border-(length:--hairline) object-cover" />
+            ) : (
+              <span>VRChat picture set</span>
+            )}
+            {fromLink && link && isVRChatFileHost(new URL(link).hostname) && (
+              <Button size="sm" variant="outline" disabled={picture.opening} onClick={() => picture.openLink(link)}>
+                {picture.opening ? 'Opening…' : 'Crop'}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={remove}>
+              Remove
             </Button>
+          </>
+        ) : null
+      }
+    />
+  )
+}
+
+/**
+ * The picture for Discord (calendar design §15.4): the Discord event's cover and the channel post's
+ * picture, cropped to 2.5:1, Discord's cover shape, and kept by Modbot. A picture chosen on this
+ * computer or the one behind the picture link opens in the crop box. Without one, Discord gets the
+ * picture link as it is.
+ */
+export function DiscordPictureField({
+  picture,
+  value,
+  link,
+  onChange,
+  onFile,
+}: {
+  picture: CroppedPicture
+  value: string | null
+  link: string | null
+  onChange: (coverId: string | null) => void
+  onFile: (file: Blob) => void
+}) {
+  useOpenGivenLink(picture, link, !value)
+
+  return (
+    <CropField
+      label="Discord picture"
+      picture={picture}
+      link={link}
+      onFile={onFile}
+      set={
+        value ? (
+          <>
+            <img
+              src={coverAddress(value)}
+              alt=""
+              className="aspect-[2.5/1] h-16 rounded-sm border border-(length:--hairline) object-cover"
+            />
+            {link && (
+              <Button size="sm" variant="outline" disabled={picture.opening} onClick={() => picture.openLink(link)}>
+                {picture.opening ? 'Opening…' : 'Crop'}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
-              disabled={uploading}
               onClick={() => {
-                if (draft.from === 'link') setPassed(link)
-                picture.cancel()
+                picture.setPassed(link)
+                picture.setError(null)
+                onChange(null)
               }}
             >
-              Cancel
+              Remove
             </Button>
-          </div>
-        </>
-      ) : (
-        <div className="flex min-h-(--control-h) flex-wrap items-center gap-2">
-          {value ? (
-            <>
-              {shown ? (
-                <img src={shown} alt="" className="aspect-video h-16 rounded-sm border border-(length:--hairline) object-cover" />
-              ) : (
-                <span>VRChat picture set</span>
-              )}
-              {fromLink && link && isVRChatFileHost(new URL(link).hostname) && (
-                <Button size="sm" variant="outline" disabled={opening} onClick={() => picture.openLink(link)}>
-                  {opening ? 'Opening…' : 'Crop'}
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={remove}>
-                Remove
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="outline" disabled={opening} onClick={() => chooser.current?.click()}>
-              {opening ? 'Opening…' : 'Choose picture'}
-            </Button>
-          )}
-        </div>
-      )}
-      <input
-        ref={chooser}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        aria-label="VRChat picture"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) picture.openFile(file)
-          // The same file can be chosen again after a refusal.
-          e.target.value = ''
-        }}
-      />
-      {error && (
-        <div className="flex flex-wrap items-center gap-x-3">
-          <Outcome tone="problem">{error}</Outcome>
-          {isGalleryRefusal(error) && (
-            <a className="underline" href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
-              Get VRChat+
-            </a>
-          )}
-        </div>
-      )}
-    </div>
+          </>
+        ) : null
+      }
+    />
   )
 }
 

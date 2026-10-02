@@ -287,6 +287,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
+    public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
+
     /// <summary>Dates of repeating events cancelled or changed on their own (calendar design §2.2).</summary>
     public DbSet<CalendarDateChange> CalendarDateChanges => Set<CalendarDateChange>();
 
@@ -2226,9 +2228,24 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.GuildId, e.LiftedAt }).HasDatabaseName("ix_discord_ban_current");
         });
 
+        // A cropped Discord cover (calendar design §15.4). A cover deleted under an event leaves
+        // the event with none, never a dangling id.
+        builder.Entity<CalendarCoverPicture>(entity =>
+        {
+            entity.ToTable("calendar_cover_picture");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ContentType).HasMaxLength(32);
+            entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_calendar_cover_picture_created_at");
+        });
+
         builder.Entity<CalendarEvent>(entity =>
         {
             entity.ToTable("calendar_event");
+            entity.HasOne<CalendarCoverPicture>()
+                .WithMany()
+                .HasForeignKey(e => e.CoverPictureId)
+                .OnDelete(DeleteBehavior.SetNull);
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
 

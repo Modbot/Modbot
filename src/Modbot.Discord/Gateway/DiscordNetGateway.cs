@@ -742,7 +742,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
         return InGuildAsync(guildId, async guild =>
         {
-            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, _pictures, ct).ConfigureAwait(false);
+            using var cover = await CoverImages.ForAsync(details, _pictures, ct).ConfigureAwait(false);
 
             var created = await guild.CreateEventAsync(
                     details.Name,
@@ -777,7 +777,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             if (found.Status is GuildScheduledEventStatus.Completed or GuildScheduledEventStatus.Cancelled)
                 return DiscordPostOutcome.Failed(DiscordScheduledEventDetails.Gone, permanent: true);
 
-            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, _pictures, ct).ConfigureAwait(false);
+            using var cover = await CoverImages.ForAsync(details, _pictures, ct).ConfigureAwait(false);
 
             await found.ModifyAsync(e =>
             {

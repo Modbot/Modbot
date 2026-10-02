@@ -11,7 +11,8 @@
   added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02); sending, failing and
   trying again (§17, added 2026-10-02); every few weeks, a number of times and Featured
   ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md), added 2026-10-02);
-  picture links, the crop box and picture kinds (§15.1–§15.3, added 2026-10-02)
+  picture links, the crop box and picture kinds (§15.1–§15.3, added 2026-10-02); the picture
+  cropped for Discord (§15.4, added 2026-10-02)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -942,11 +943,50 @@ the shape the preview already drew).
   uploaded; after it, the uploaded picture, and for a VRChat picture from the picture link, the
   link's picture at 16:9. VRChat is sent only the file id, so this part of the preview is the
   browser's, not the server's (§14.2).
-- **With uploads off nothing opens in a crop box**: nothing could be uploaded, and a box that changes
-  nothing would mislead.
+- **With uploads off VRChat's crop box never opens**: nothing could be uploaded, and a box that
+  changes nothing would mislead. Discord's (§15.4) does.
 - The crop is held by the form, not the field, so it survives the Preview tab and the VRChat chip
   being turned off and on; the picture is let go of when it is uploaded, cancelled, replaced, or the
   form closes.
+
+### 15.4 The picture cropped for Discord (added 2026-10-02)
+
+The maintainer chose, the same day, a second crop box for Discord that can be moved like VRChat's.
+Discord's event cover is 2.5:1 and VRChat's picture 16:9, so one crop cannot serve both.
+
+- **Where it shows:** a *Discord picture* field under the picture link, while the Discord event or
+  the channel post chip is on. It needs no setting and no VRChat+: nothing goes to VRChat.
+- **The same crop box**, at 2.5:1: a picture chosen on this computer, the picture behind a picture
+  link given in this form (§15.2, once the typing stops), or, with Crop, the picture link again. A
+  picture chosen in either field opens in every crop box shown, so one choice serves both places,
+  each cropped to its own shape. Upload, Cancel, Remove, Save uploading a crop still open, and the
+  Preview tab drawing it before it is uploaded all work as for VRChat's (§15.3).
+- **Modbot keeps it** (`calendar_cover_picture`: the bytes, their type, when and who). Discord is
+  sent a cover's bytes each time the event is made or changed, and the crop exists nowhere else, so
+  something has to hold it between the form and the Discord loop. Keeping a crop rectangle instead
+  and cutting the picture on the server was the other way; it would need an image library on the
+  server (the one thing §15.2 avoids) and the picture link would have to be fetched again, and still
+  answer, every time the event changed.
+  - `POST /api/calendar/cover` (Manage calendar): the body is the picture, PNG, JPEG, GIF or WebP by
+    its first bytes, at most **8 MB** (under Discord's 10 MB for a cover); a larger
+    `Content-Length` is refused unread. Answers `{ coverId }`, saved on the event as
+    `coverPictureId`, checked to exist when the event is saved.
+  - `GET /api/calendar/covers/{id}` (See calendar): the bytes, with their type, `nosniff`, a
+    `sandbox` policy, and a week's private cache (a cover never changes).
+- **Deleted when nothing uses it:** when its event is deleted or given another picture, unless a copy
+  of the event (Duplicate keeps the picture) still points at it; one uploaded and never saved is
+  deleted a day later, by the next upload. Deleting the row empties `coverPictureId` on any event that
+  still pointed at it, so an id never dangles.
+- **What Discord gets:** with a picture cropped, the Discord event's cover is its bytes, in place of
+  the picture link, and the channel post carries it as a file the card points at
+  (`attachment://cover-{id}.png`). It is read only when something is to be sent, and sent again with
+  every change to the post, since it may be new; a post whose card points at no file any more keeps
+  none. The fingerprint names the picture's id only when there is one, so events without one are not
+  sent again for nothing. Without one, the picture link works as before.
+- **The preview** names `GET /api/calendar/covers/{id}` as the cover and the post's picture once
+  uploaded, and draws the crop in the browser before.
+- **In the audit log** the event's create and change facts carry `coverPictureId`; the picture itself
+  is not in them.
 
 ## 16. Copies of an event in Discord (added 2026-10-02)
 
