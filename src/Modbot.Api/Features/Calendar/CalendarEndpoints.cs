@@ -199,6 +199,9 @@ public static class CalendarEndpoints
                 if (await ListProblemAsync(db, body, ct) is { } listProblem)
                     return Results.BadRequest(new { error = listProblem });
 
+                if (await MentionProblemAsync(db, body, kept: null, ct) is { } mentionProblem)
+                    return Results.BadRequest(new { error = mentionProblem });
+
                 var now = clock.UtcNow;
                 var calendarEvent = new CalendarEvent
                 {
@@ -265,6 +268,9 @@ public static class CalendarEndpoints
 
                 if (await ListProblemAsync(db, body, ct) is { } listProblem)
                     return Results.BadRequest(new { error = listProblem });
+
+                if (await MentionProblemAsync(db, body, calendarEvent.MentionRoleId, ct) is { } mentionProblem)
+                    return Results.BadRequest(new { error = mentionProblem });
 
                 var before = Describe(calendarEvent);
                 var now = clock.UtcNow;
@@ -892,6 +898,22 @@ public static class CalendarEndpoints
             .Produces<IReadOnlyList<CalendarWorldView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/discord-duplicates", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IDiscordServerEvents serverEvents,
+                CancellationToken ct) =>
+                Results.Ok(await CalendarDiscordDuplicates.BuildAsync(db, serverEvents, ct)))
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("ListDiscordEventDuplicates")
+            .WithSummary("List possible duplicate Discord events")
+            .WithDescription(
+                "Events in the Discord server, made by anyone, that look like copies of each other: the same "
+                + "title once case, spaces, punctuation, emoji and anything in brackets are left out, starting "
+                + $"at most {(int)DiscordEventDuplicates.StartsWithin.TotalMinutes} minutes apart. Says which bot made each copy and which is Modbot's own; a "
+                + "person is never named. Discord is asked at most once every five minutes. Changes nothing.")
+            .Produces<CalendarDiscordDuplicatesView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/invite-choices", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
@@ -1163,6 +1185,48 @@ public static class CalendarEndpoints
             return "That world list has no worlds.";
 
         return null;
+    }
+
+    /// <summary>
+    /// The role the channel post mentions (calendar design §3.3.1): one in the server in settings
+    /// that the bot may mention, and never @everyone. Read from Modbot's copy of the role list, so
+    /// it answers while the bot is offline.
+    /// </summary>
+    /// <param name="kept">
+    /// The role already on the event. Keeping it is allowed even when the bot may no longer mention
+    /// it, so an unrelated edit is not refused for a change made in Discord; @everyone never is.
+    /// </param>
+    public static async Task<string?> MentionProblemAsync(
+        ModbotContext db, CalendarEventRequest body, string? kept, CancellationToken ct)
+    {
+        var roleId = body.MentionRoleId?.Trim();
+        if (string.IsNullOrEmpty(roleId))
+            return null;
+
+        var guildId = (await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordGuildId)
+            .FirstOrDefaultAsync(ct))?.Trim();
+
+        if (string.Equals(roleId, guildId, StringComparison.Ordinal))
+            return "The post cannot mention @everyone.";
+
+        var role = string.IsNullOrEmpty(guildId)
+            ? null
+            : await db.DiscordRoles.AsNoTracking().FirstOrDefaultAsync(r => r.RoleId == roleId && r.GuildId == guildId, ct);
+
+        if (role is { Everyone: true })
+            return "The post cannot mention @everyone.";
+
+        if (string.Equals(roleId, kept, StringComparison.Ordinal))
+            return null;
+
+        if (role is null || role.RemovedAt is not null)
+            return "That role is not in the Discord server.";
+
+        var server = await db.DiscordServers.AsNoTracking().FirstOrDefaultAsync(s => s.GuildId == guildId, ct);
+
+        return DiscordRole.BotCanMention(role, server) ? null : "The bot may not mention that role.";
     }
 
     /// <summary>
@@ -1537,6 +1601,7 @@ public static class CalendarEndpoints
         target.PublishToDiscord = body.PublishToDiscord;
         target.PostToChannel = body.PostToChannel;
         target.ChannelId = channelId;
+        target.MentionRoleId = string.IsNullOrWhiteSpace(body.MentionRoleId) ? null : body.MentionRoleId.Trim();
         target.AutoOpen = body.AutoOpen;
         target.OpenMinutesBefore = openBefore;
         target.InviteHostUserId = body.InviteHostUserId;
@@ -1761,7 +1826,8 @@ public static class CalendarEndpoints
                 e.InviteListId is { } listId && inviteListNames.TryGetValue(listId, out var listName) ? listName : null,
                 e.AnnounceFirstJoinInDiscord,
                 invites,
-                e.AnnounceFirstJoinInVRChat);
+                e.AnnounceFirstJoinInVRChat,
+                e.MentionRoleId);
         })];
     }
 

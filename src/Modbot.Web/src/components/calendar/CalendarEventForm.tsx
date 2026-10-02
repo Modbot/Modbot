@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
+import { RolePicker } from '@/components/discord/RolePicker'
 import { Checkbox, Field, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
@@ -443,6 +444,12 @@ export function CalendarEventForm({
                       onChange={(id) => set('channelId', id || null)}
                       needs={['viewChannel', 'sendMessages', 'embedLinks']}
                       allowNone={false}
+                    />
+                    <RolePicker
+                      label="Mention role"
+                      value={input.mentionRoleId ?? ''}
+                      onChange={(id) => set('mentionRoleId', id || null)}
+                      needsMention
                     />
                   </Section>
                 )}

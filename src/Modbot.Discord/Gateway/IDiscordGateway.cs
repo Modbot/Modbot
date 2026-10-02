@@ -380,6 +380,7 @@ public sealed record DiscordChannelSnapshot(
 /// <param name="Color">0xRRGGBB, zero for none.</param>
 /// <param name="BotCanAssign">Manage Roles held, role below the bot's highest, not managed, not @everyone.</param>
 /// <param name="Permissions">The role's server-wide permission bits, as Discord sends them. Null when not known.</param>
+/// <param name="Mentionable">"Allow anyone to @mention this role" is on.</param>
 public sealed record DiscordRoleSnapshot(
     string Id,
     string Name,
@@ -388,7 +389,8 @@ public sealed record DiscordRoleSnapshot(
     bool Managed,
     bool Everyone,
     bool BotCanAssign,
-    long? Permissions = null);
+    long? Permissions = null,
+    bool Mentionable = false);
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>
@@ -398,6 +400,10 @@ public sealed record DiscordRoleSnapshot(
 /// <param name="BannerUrl">The server's banner, or null for none.</param>
 /// <param name="BoostCount">How many boosts the server has, or null when not known.</param>
 /// <param name="BoostLevel">The boost level Discord gives the server, 0 to 3, or null when not known.</param>
+/// <param name="BotCanMentionEveryone">
+/// Mention @everyone, @here and All Roles, which lets the bot ping a role that is not open to
+/// mentions (calendar design §3.3.1). The bot itself never pings @everyone or @here.
+/// </param>
 public sealed record DiscordServerSnapshot(
     string GuildId,
     string Name,
@@ -411,7 +417,8 @@ public sealed record DiscordServerSnapshot(
     string? IconUrl = null,
     string? BannerUrl = null,
     int? BoostCount = null,
-    int? BoostLevel = null);
+    int? BoostLevel = null,
+    bool BotCanMentionEveryone = false);
 
 /// <summary>
 /// A server event as the calendar describes it: an external event whose location is a line of text.
@@ -549,11 +556,29 @@ public interface IDiscordGateway : IAsyncDisposable
         CancellationToken ct);
 
     /// <summary>
+    /// Posts a message whose text is a mention of one role, and pings that role and nobody else
+    /// (calendar design §3.3.1). The calendar's channel post, the first time it goes up for a date.
+    /// </summary>
+    /// <remarks>
+    /// Discord's allowed mentions name the one role, so nothing else in the message can ping. The
+    /// server's @everyone role (whose id is the server's) is never pinged: asked for it, the message
+    /// goes out with mentions off. Whether the role is pinged is still Discord's to decide: a role
+    /// not open to mentions pings only when the bot holds Mention @everyone, @here and All Roles.
+    /// </remarks>
+    Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct);
+
+    /// <summary>
     /// Rewrites a message the bot posted earlier.
     /// </summary>
     /// <remarks>
     /// A message somebody deleted comes back as a permanent failure, which is the caller's signal
-    /// to forget the id rather than to keep trying.
+    /// to forget the id rather than to keep trying. An edit never pings anybody, whatever its text.
     /// </remarks>
     /// <param name="links">
     /// The buttons the message should have after the edit. Null or empty removes any it had.
@@ -634,6 +659,13 @@ public interface IDiscordGateway : IAsyncDisposable
     /// is already gone counts as ended.
     /// </summary>
     Task<DiscordPostOutcome> EndEventAsync(string guildId, string eventId, CancellationToken ct);
+
+    /// <summary>
+    /// Every server event that has not ended, whoever made it (calendar design §16). One request.
+    /// A person who made one is never named. Null when the bot is not in the server or Discord did
+    /// not answer.
+    /// </summary>
+    Task<IReadOnlyList<Core.Discord.DiscordServerEvent>?> ReadServerEventsAsync(string guildId, CancellationToken ct);
 
     // ── Bans and removals (M5 spec §4; Discord sync design §4) ───────────────────────────
     //

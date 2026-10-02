@@ -130,6 +130,10 @@ public static class DiscordServiceCollectionExtensions
         // Discord's online count for the server header, asked on page open and kept five minutes.
         services.AddSingleton<IDiscordOnlineCount, DiscordOnlineCount>();
 
+        // The server's scheduled events, for the calendar's possible duplicates (calendar design
+        // §16). Asked on page open and kept five minutes, the same way.
+        services.AddSingleton<IDiscordServerEvents, DiscordServerEvents>();
+
         // Messages, stored in full (M5 spec §5.1), and checked by AI moderation. The checker that
         // checks nothing stands in when AI moderation is not registered; when it is, it wins.
         services.AddScoped<DiscordMessageStore>();

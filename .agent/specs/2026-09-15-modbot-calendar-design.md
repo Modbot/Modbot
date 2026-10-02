@@ -7,7 +7,8 @@
   (§12, added 2026-09-27); where an event goes, its preview, places not set up and the cancel
   post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
   added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01); taking Modbot's old
-  channel posts down (§3.3, added 2026-10-01)
+  channel posts down (§3.3, added 2026-10-01); mentioning a role on the channel post (§3.3.1,
+  added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -267,7 +268,8 @@ event finishing and cancelling: each changes what the place should say.
 - A Join button once the instance is open. Rewritten when the event changes or opens.
 - Ends as "Finished" or "Cancelled", without the button. A repeating event gets a new post for
   each occurrence, the way a notice board would.
-- Unticking the channel post deletes the post. Mentions are off, as on every message the bot sends.
+- Unticking the channel post deletes the post. Mentions are off, as on every message the bot sends,
+  except the one role an event may name (§3.3.1).
 - The channel picker marks a channel missing View Channel, Send Messages or Embed Links.
 - **Deleting an event ends its post as "Cancelled"**, the same last word a cancel gives it, at once;
   the Discord event is ended as for a cancel. A delete is a cancel that is also hidden, so the post
@@ -302,6 +304,39 @@ weekly event filled with old cards and "Cancelled" lines, a card per date and a 
   their ids, so older ones are taken down.
 - A one-date "Cancelled" line that could not be posted until after the time it would come down is
   not posted at all (it was a fixed day before; it is now the same `PostKeptFor`).
+
+### 3.3.1 Mentioning a role (added 2026-10-02)
+
+A review of a live server on 2026-10-02 found 16 "event notification" roles pinged by hand or by
+another bot, while Modbot's post pinged nobody. The maintainer approved an opt-in mention. This
+narrows the rule that Modbot's messages never ping (§3.3; the instance cards and giveaways keep it):
+a ping has to be asked for, per event, and goes to one role.
+
+- **One role per event, off by default** (`calendar_event.mention_role_id`). Picked in the form's
+  Discord channel post section, **Mention role**, from Modbot's copy of the role list. The post's text
+  is the mention, `<@&id>`, above the card; the Preview draws it as `@Name` in the role's colour.
+- **Only a role the bot may ping.** A role whose "Allow anyone to @mention this role" is on
+  (`discord_role.mentionable`), or any role when the bot holds Mention @everyone, @here and All Roles
+  (`discord_server.bot_can_mention_everyone`). The picker marks the others **Bot cannot mention**, the
+  way it marks a role the bot cannot assign, and a save naming one is refused ("The bot may not
+  mention that role."). The role already on the event may be kept, so an unrelated edit is not
+  refused for a change made in Discord since; Discord then decides whether it pings.
+- **Never @everyone or @here.** @everyone's role id is the server's own: a save naming it is refused,
+  the picker does not offer it, the publisher sends no mention for it, and the gateway posts with
+  mentions off if asked to ping it. @here is not a role and cannot be named.
+- **Pinged once per date, on the date's first post.** Discord's allowed mentions name that one role
+  on that one message (`IDiscordGateway.PostMentioningRoleAsync`); nothing else in it can ping. Every
+  edit, the last word included, keeps the mention text so the post goes on showing the role, and is
+  sent with mentions off -- Discord does not notify for an edited-in mention either, but Modbot does
+  not rely on that.
+- **"First" is kept per date, not per message.** `calendar_event_place.role_mentioned_for` holds the
+  planned start of the date whose post pinged, and the publisher reads it from every channel post row
+  the event has had, removed ones included. So a post made again for a date that has pinged -- after
+  somebody deleted it, or after the post was turned off and on -- shows the role and pings nobody. The
+  next date of a repeating event pings again on its own first post. It is set only once Discord took
+  the post: a post that failed pings when it finally goes up.
+- The cancel post and the post when the first person is in never mention the role.
+- **Not built:** a default role per world list or category (not needed, 2026-10-02).
 
 ## 4. Opening the instance
 
@@ -801,3 +836,47 @@ upload.
   when the form sends `eventId` (an event already saved); for a new event there is no id yet, so the
   subject is the file id, and the event's `create` fact names the same file as `vrchatImageId`. No
   member data is in it.
+
+## 16. Copies of an event in Discord (added 2026-10-02)
+
+A review of a live server on 2026-10-02 found its upcoming Discord events listed twice: two other
+bots (one mirroring VRChat's calendar) and a person had made Discord events, two of them for the
+same evenings, and Modbot's calendar was trying to make its own for the same titles (refused for
+want of Manage Events). Members saw two of everything. Modbot
+cannot know which copy a server wants to keep, so it **finds them and says so; it deletes nothing**.
+
+- **Read from Discord, whoever made them.** `IDiscordServerEvents` asks Discord for the server's
+  scheduled events (`GET /guilds/{id}/scheduled-events`, one request through Discord.Net's
+  `GetEventsAsync`), only when the calendar page or Health is opened, and keeps the answer five
+  minutes for everybody, the way the online count does (`DiscordServerEvents.KeepFor`): at most
+  twelve requests an hour while somebody looks, none while nobody does. A failed read is kept too,
+  so a Discord that is refusing is not asked on every page open. The gateway's scheduled-event
+  intent is not asked for: the list is read when it is looked at, and nothing has to be kept up to
+  date in between. Discord.Net waits out Discord's own rate limits on this request as on every other.
+- **What is kept of each:** its id, title, start, end, whether it has started, and who made it --
+  **Modbot** (the bot's own account), **a bot or app**, named, or **a person**, never named: the
+  list is about tools, and a member's name has no place on it. Discord gives no maker for events
+  made before late 2021; those read **Unknown**. Nothing is stored in the database.
+- **What counts as a copy** (`DiscordEventDuplicates`):
+  - **The title,** compared by its letters and digits only, in lower case, with anything in
+    brackets left out (unless that leaves nothing) and accents and styled letters reduced to plain
+    ones. So case, spaces, punctuation and emoji do not count, and "[VRChat, Group Public] Movie
+    night" is "Movie night". Two titles are the same when they are equal that way, or one holds the
+    other whole and the shorter has at least six letters (`ShortestContainedTitle`), so "Art" is not
+    found inside "Watch party".
+  - **The time:** starts at most **15 minutes** apart (`StartsWithin`). A tool that rounds, or a
+    copy made by hand, is a few minutes off; two different events with the same title that close
+    together are rare enough that the list says "possible".
+  - Copies of copies are one group: three events where the first matches the second and the second
+    the third are shown together.
+- **Modbot's own copy is marked.** A copy whose id is held by a calendar event's Discord place is
+  Modbot's, and the page names that calendar event and opens it ("Modbot's calendar", Open). A copy
+  the bot made that no calendar event holds any more still reads **Modbot**.
+- **Where it shows.** The calendar page: a **Possible duplicates in Discord** card under the
+  calendar, only when there are some, one block per group with each copy's title, who made it, and
+  its time when it differs (`GET /api/calendar/discord-duplicates`, See calendar). Health: one line
+  per group in the Calendar card, leading to the calendar page. The page says nothing when the list
+  could not be read; neither does Health.
+- **Not built:** deleting a copy, or telling Modbot's calendar to stop making one. Either would be a
+  choice between tools that belongs to the server's owners, and is made in Discord or in the other
+  tool's settings.

@@ -292,6 +292,39 @@ public class DiscordServerIndexTests
         Assert.False((await db.DiscordServers.AsNoTracking().SingleAsync(Ct)).BotCanManageRoles);
     }
 
+    /// <summary>Calendar design §3.3.1: which roles a mention by the bot would ping.</summary>
+    [Fact]
+    public async Task ARoleOpenedToMentions_AndTheBotsMentionEveryone_AreStored()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        Assert.False((await RoleRowAsync(services, "201")).Mentionable);
+
+        gateway.Server = Server(
+            roles:
+            [
+                new DiscordRoleSnapshot(Guild, "@everyone", 0, 0, Managed: false, Everyone: true, BotCanAssign: false),
+                Role("201", "Member", 1) with { Mentionable = true },
+                Role("202", "Modbot", 2, canAssign: false, managed: true),
+            ]) with { BotCanMentionEveryone = true };
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseServerChangedAsync(Guild);
+
+        var member = await RoleRowAsync(services, "201");
+        Assert.True(member.Mentionable);
+        Assert.False((await RoleRowAsync(services, "202")).Mentionable);
+
+        await using var db = services.Database.NewContext();
+        var server = await db.DiscordServers.AsNoTracking().SingleAsync(Ct);
+        Assert.True(server.BotCanMentionEveryone);
+
+        // @everyone is never one the bot may mention, whatever it holds.
+        Assert.True(DiscordRole.BotCanMention(member, server));
+        Assert.False(DiscordRole.BotCanMention(await RoleRowAsync(services, Guild), server));
+    }
+
     [Fact]
     public async Task TheServersPicturesAndBoosts_AreStored_AndKeptCurrentWhenTheServerChanges()
     {

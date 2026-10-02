@@ -25,6 +25,10 @@ namespace Modbot.Api.Features.Calendar;
 /// </param>
 /// <param name="AnnounceFirstJoinInDiscord">Post once in the channel post's channel when the first person is in the instance.</param>
 /// <param name="AnnounceFirstJoinInVRChat">Post once in the VRChat group's posts when the first person is in the instance.</param>
+/// <param name="MentionRoleId">
+/// A Discord role the channel post mentions, pinged once per date when the date's post first goes
+/// up; null for none. Must be a role in the server that the bot may mention, and never @everyone.
+/// </param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -57,7 +61,8 @@ public sealed record CalendarEventRequest(
     IReadOnlyList<Guid>? InviteStaffUserIds = null,
     Guid? InviteListId = null,
     bool AnnounceFirstJoinInDiscord = false,
-    bool AnnounceFirstJoinInVRChat = false);
+    bool AnnounceFirstJoinInVRChat = false,
+    string? MentionRoleId = null);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -229,7 +234,8 @@ public sealed record CalendarEventView(
     string? InviteListName = null,
     bool AnnounceFirstJoinInDiscord = false,
     CalendarInvitesView? Invites = null,
-    bool AnnounceFirstJoinInVRChat = false);
+    bool AnnounceFirstJoinInVRChat = false,
+    string? MentionRoleId = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

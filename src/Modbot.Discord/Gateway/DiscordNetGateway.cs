@@ -258,6 +258,64 @@ public sealed class DiscordNetGateway : IDiscordGateway
         });
     }
 
+    public Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+
+        if (!ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var role))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord role id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            var built = embeds.Select(ToEmbed).ToArray();
+            var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
+
+            // The one role, and nothing else the embeds or the text happen to contain. @everyone's id
+            // is the server's: asked for that, nobody is pinged at all.
+            var everyone = channel is IGuildChannel inServer && inServer.GuildId == role;
+            var mentions = everyone ? AllowedMentions.None : new AllowedMentions { RoleIds = [role] };
+            var text = $"<@&{Text(role)}>";
+
+            IUserMessage sent;
+
+            if (Files(pictures) is { Count: > 0 } files)
+            {
+                try
+                {
+                    sent = await channel.SendFilesAsync(
+                            attachments: files,
+                            text: text,
+                            embeds: built,
+                            allowedMentions: mentions,
+                            components: buttons)
+                        .ConfigureAwait(false);
+                }
+                finally
+                {
+                    foreach (var file in files)
+                        file.Dispose();
+                }
+            }
+            else
+            {
+                sent = await channel.SendMessageAsync(
+                        text: text,
+                        embeds: built,
+                        allowedMentions: mentions,
+                        components: buttons)
+                    .ConfigureAwait(false);
+            }
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        });
+    }
+
     public Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
@@ -726,6 +784,53 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }, goneIsOk: true);
     }
 
+    public async Task<IReadOnlyList<Core.Discord.DiscordServerEvent>?> ReadServerEventsAsync(string guildId, CancellationToken ct)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
+            return null;
+
+        try
+        {
+            // One REST request. Discord lists the events that are scheduled or happening; ended
+            // ones are not in it.
+            var events = await guild.GetEventsAsync(new RequestOptions { CancelToken = ct }).ConfigureAwait(false);
+            var me = _client.CurrentUser?.Id;
+
+            return [.. events
+                .Where(e => e.Status is GuildScheduledEventStatus.Scheduled or GuildScheduledEventStatus.Active)
+                .Select(e => new Core.Discord.DiscordServerEvent(
+                    Text(e.Id),
+                    e.Name ?? string.Empty,
+                    e.StartTime,
+                    e.EndTime,
+                    e.Status == GuildScheduledEventStatus.Active,
+                    MadeBy(e, me),
+                    e.Creator is { IsBot: true } bot ? bot.GlobalName ?? bot.Username : null))];
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read the Discord server's events");
+            return null;
+        }
+    }
+
+    /// <summary>Who made a server event, without naming a person (calendar design §16).</summary>
+    private static string MadeBy(RestGuildEvent e, ulong? me)
+    {
+        // The creator's id comes on its own as well; zero when Discord did not give one.
+        var creatorId = e.Creator?.Id ?? e.CreatorId;
+
+        if (creatorId != 0 && creatorId == me)
+            return Core.Discord.DiscordEventMakers.Modbot;
+
+        return e.Creator switch
+        {
+            null => Core.Discord.DiscordEventMakers.Unknown,
+            { IsBot: true } => Core.Discord.DiscordEventMakers.Bot,
+            _ => Core.Discord.DiscordEventMakers.Person,
+        };
+    }
+
     private async Task<DiscordPostOutcome> InGuildAsync(
         string guildId, Func<SocketGuild, Task<DiscordPostOutcome>> work, bool goneIsOk = false)
     {
@@ -1006,7 +1111,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
             IconUrl: guild.IconUrl,
             BannerUrl: guild.BannerUrl,
             BoostCount: guild.PremiumSubscriptionCount,
-            BoostLevel: (int)guild.PremiumTier);
+            BoostLevel: (int)guild.PremiumTier,
+            BotCanMentionEveryone: serverWide.MentionEveryone);
     }
 
     // ── Channel and role changes ───────────────────────────────────────────────────────────
@@ -1474,7 +1580,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
             canAssign,
 
             // The same 64 bits in a signed number; only ever compared whole.
-            unchecked((long)role.Permissions.RawValue));
+            unchecked((long)role.Permissions.RawValue),
+            role.IsMentionable);
     }
 
     // ── Messages ───────────────────────────────────────────────────────────────────────────

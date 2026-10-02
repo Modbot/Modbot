@@ -103,6 +103,7 @@ public static class ApiSurface
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
         services.TryAddSingleton<IDiscordOnlineCount, NoDiscordOnlineCount>();
+        services.TryAddSingleton<IDiscordServerEvents, NoDiscordServerEvents>();
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
 

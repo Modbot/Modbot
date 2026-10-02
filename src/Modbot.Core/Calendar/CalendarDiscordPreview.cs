@@ -48,6 +48,10 @@ public sealed record CalendarDiscordEventPreview(
 /// Discord draws in each reader's own time and as a link.
 /// </param>
 /// <param name="PictureUrl">The event's picture link, or the world's picture, which goes with the message as a file.</param>
+/// <param name="MentionRole">
+/// The name of the role the post mentions above the card, or null for none (calendar design §3.3.1).
+/// </param>
+/// <param name="MentionRoleColour">That role's colour as <c>0xRRGGBB</c>, zero for none.</param>
 public sealed record CalendarChannelPostPreview(
     string? GroupName,
     string Title,
@@ -57,7 +61,9 @@ public sealed record CalendarChannelPostPreview(
     IReadOnlyList<CalendarPreviewField> Fields,
     string? Footer,
     string? PictureUrl,
-    IReadOnlyList<CalendarPreviewButton> Buttons);
+    IReadOnlyList<CalendarPreviewButton> Buttons,
+    string? MentionRole = null,
+    int MentionRoleColour = 0);
 
 public sealed record CalendarPreviewField(string Name, string Value, bool Inline);
 

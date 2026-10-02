@@ -2162,6 +2162,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Tags).HasColumnType("jsonb");
             entity.Property(e => e.Visibility).HasMaxLength(16);
             entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.MentionRoleId).HasColumnType("text");
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.MadeOnVRChat).HasColumnName("made_on_vrchat");
             entity.Property(e => e.VRChatFeatured).HasColumnName("vrchat_featured");

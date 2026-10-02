@@ -47,6 +47,10 @@ public sealed record DiscordChannelsResponse(
 /// <param name="Color">0xRRGGBB, zero for a role with no colour.</param>
 /// <param name="Managed">Owned by a bot or an integration; nobody can hand it out.</param>
 /// <param name="BotCanAssign">The bot holds Manage Roles, the role is below the bot's highest, and it is neither managed nor @everyone.</param>
+/// <param name="BotCanMention">
+/// A mention of the role by the bot pings: the role is open to mentions, or the bot holds Mention
+/// @everyone, @here and All Roles. Never @everyone itself.
+/// </param>
 public sealed record DiscordRoleView(
     string Id,
     string Name,
@@ -55,7 +59,8 @@ public sealed record DiscordRoleView(
     bool Managed,
     bool Everyone,
     bool BotCanAssign,
-    bool Removed);
+    bool Removed,
+    bool BotCanMention = false);
 
 public sealed record DiscordRolesResponse(
     string? GuildId,
@@ -134,6 +139,7 @@ public static class DiscordListEndpoints
             {
                 var guildId = await GuildIdAsync(db, ct);
                 var server = await ServerAsync(db, guildId, ct);
+                var mentionEveryone = server?.BotCanMentionEveryone ?? false;
 
                 var roles = guildId is null
                     ? []
@@ -149,7 +155,8 @@ public static class DiscordListEndpoints
                             r.Managed,
                             r.Everyone,
                             r.BotCanAssign,
-                            r.RemovedAt != null))
+                            r.RemovedAt != null,
+                            !r.Everyone && r.RoleId != r.GuildId && (r.Mentionable || mentionEveryone)))
                         .ToListAsync(ct);
 
                 return Results.Ok(new DiscordRolesResponse(

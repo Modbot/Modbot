@@ -69,9 +69,10 @@ A repeating event appears once for every time it happens.
 Times on the page are in your browser's time zone. Each event also has its own time zone, which you
 set in the form (see [When](#when)).
 
-Below the calendar, a **Drafts** box lists events saved as drafts, when there are any. Under it,
-**Past events** lists every time an event ran in the last 90 days, the busiest first. See
-[Past events](#past-events).
+Below the calendar, **Possible duplicates in Discord** lists Discord events that look like copies of
+each other, when there are any (see [Duplicate Discord events](#duplicate-discord-events)). Under it,
+a **Drafts** box lists events saved as drafts, when there are any. Under that, **Past events** lists
+every time an event ran in the last 90 days, the busiest first. See [Past events](#past-events).
 
 The page updates by itself when an event changes, so a place changing from **Waiting** to
 **Published** shows up without reloading.
@@ -302,7 +303,8 @@ be, and so does [Health](#on-health).
 - **Discord event**: the cover, the time, the title, the location and the description, cut to
   Discord's 100 and 1,000 characters. The location is the world's name (or **VRChat** with no world);
   the join address only appears while an instance Modbot opened is open.
-- **Discord channel post**: the card as it will be posted, with the times in your own time.
+- **Discord channel post**: the card as it will be posted, with the times in your own time, and
+  the role it mentions above it, if you picked one.
 - **VRChat calendar**: exactly what is sent to VRChat: the title, time, repeat, category, who can see
   it, languages, platforms, tags, picture id, whether members are notified, and the description.
   VRChat may change some characters after it gets them.
@@ -417,6 +419,7 @@ Shown while the **Discord channel post** chip is on.
 | Field | Notes |
 |---|---|
 | **Channel** | Required. A channel where the bot is missing View Channel, Send Messages or Embed Links is marked **Missing** followed by what it lacks. |
+| **Mention role** | Optional, **None** to start with. A role to ping when the post goes up, such as **@GameNight**. See [Mentioning a role](#mentioning-a-role). |
 
 The **Discord event** has no settings of its own.
 
@@ -621,6 +624,53 @@ said **Finished** or **Cancelled**. Delete those by hand. Older **Cancelled** me
 a couple at a time.
 
 The bot needs View Channel, Send Messages and Embed Links in the channel.
+
+### Mentioning a role
+
+An event can ping one role when its channel post goes up, for example **@GameNight** for the people
+who asked to hear about game nights. It is off until you pick a role in **Mention role**.
+
+- The post shows the role above the card, and **pings it once for each date**: when that date's post
+  first goes up. A repeating event pings again for each new date.
+- **Edits never ping.** When the event changes, opens or finishes, the post is edited and keeps
+  showing the role, but nobody is notified. If someone deletes the post and Modbot posts it again,
+  or you turn **Discord channel post** off and on, that date is not pinged a second time.
+- **Only roles the bot may ping.** That is a role with **Allow anyone to @mention this role** turned
+  on (Discord, **Server Settings**, **Roles**, the role, **Display**), or any role if the bot has the
+  **Mention @everyone, @here and All Roles** permission. Other roles are marked **Bot cannot
+  mention** in the list, and saving with one says **The bot may not mention that role.**
+- **@everyone and @here are never offered**, and an event cannot ping them.
+- Nothing else Modbot posts pings the role: not the [cancel message](#cancel), and not the post when
+  the [first person joins](#announce-when-the-first-person-joins).
+
+The role list is the one Modbot keeps for **Settings**, **Discord**. Like the channel list, it needs
+[**Change settings**](/accounts/roles-and-permissions#change-settings) to open.
+
+### Duplicate Discord events
+
+When several tools make Discord events (another bot that copies VRChat's calendar, a bot of your
+own, Modbot's calendar, or people by hand), your server's event list can show the same event twice.
+Modbot looks for this in every Discord event in your server, whoever made it, and lists what it finds
+under the calendar as **Possible duplicates in Discord**, and on [Health](#on-health).
+
+Two events count as possible duplicates when:
+
+- **their titles match**, ignoring capitals, spaces, punctuation, emoji and anything in brackets (so
+  **[VRChat, Group Public] Movie night** matches **Movie night 🎬**), or one title contains the
+  whole of the other and the shorter one has at least six letters; and
+- **they start at most 15 minutes apart.**
+
+Each set shows the title and time, then every copy with who made it: the bot's or app's name,
+**Modbot's calendar** for the Discord event of one of your Modbot events (with **Open** to open it),
+**Modbot** for another event Modbot's bot made, or **A person**. People are never named.
+
+Modbot does not delete or change anything. Decide which tool should make your Discord events, turn
+the others off, and delete the extra events in Discord. To stop Modbot making one, turn off
+**Discord event** on that Modbot event.
+
+Modbot reads your server's event list when you open the Calendar page or Health, at most once every
+five minutes, so a duplicate you just deleted can stay listed for a few minutes. The list needs the
+bot to be connected; while it is not, nothing is listed.
 
 ### When Discord says no
 
@@ -920,6 +970,9 @@ for events that are **Scheduled** or **Open**:
 - **Not set up** lines in the same **Calendar** card name each place an event wants that cannot
   work yet (see [Where it goes](#where-it-goes)): for example **Discord event · Not set up**, linking
   to the setting that is missing.
+- **Possible duplicates in Discord** lines in the same **Calendar** card name each set of
+  [duplicate Discord events](#duplicate-discord-events), its time and who made the copies, and lead
+  to the Calendar page. These show even when Modbot has no events of its own.
 - **Missing Manage Events** appears in the **Discord bot** card when an event has **Discord event**
   on and the bot does not have Manage Events in your server.
 
@@ -973,6 +1026,14 @@ If it still waits, VRChat may have asked Modbot to slow down; check **VRChat req
 that **Server id** is set, and, for the Discord event, that the bot has **Manage Events**. After fixing
 a permission, change something about the event, such as its description, and save, so Modbot tries
 again.
+
+**The same event shows twice in Discord's event list.** More than one tool is making Discord events.
+Check **Possible duplicates in Discord** under the calendar to see which ones, then see
+[Duplicate Discord events](#duplicate-discord-events).
+
+**The role was not pinged.** Check that the role is open to mentions, or that the bot has **Mention
+@everyone, @here and All Roles** (see [Mentioning a role](#mentioning-a-role)). A date is pinged only
+once: an edit, or a post made again for the same date, does not ping.
 
 **The Discord event shows the world's name instead of a link.** The instance is not open yet, or
 Modbot's **Public address** is not set. Without it, the join link is at the top of the Discord

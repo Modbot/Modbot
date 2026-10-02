@@ -154,6 +154,13 @@ public class CalendarEvent
 
     public string? ChannelId { get; set; }
 
+    /// <summary>
+    /// The Discord role the channel post mentions, or null for none (calendar design §3.3.1). Off
+    /// unless a moderator picks one. The role is pinged once per date, on the date's first post;
+    /// an edit never pings. Never the server's @everyone role, whose id is the server's.
+    /// </summary>
+    public string? MentionRoleId { get; set; }
+
     public bool AutoOpen { get; set; }
 
     /// <summary>How many minutes before the start the instance is opened.</summary>
@@ -375,6 +382,14 @@ public class CalendarEventPlace
 
     /// <summary>For Discord, which occurrence the event or post is about.</summary>
     public DateTimeOffset? OccurrenceStartsAt { get; set; }
+
+    /// <summary>
+    /// For a channel post, the planned start of the last date whose post pinged the event's
+    /// role (calendar design §3.3.1). A post for a date already pinged -- made again after the
+    /// first was deleted, or after the post was turned off and on -- shows the role and pings
+    /// nobody. Null until a post has pinged.
+    /// </summary>
+    public DateTimeOffset? RoleMentionedFor { get; set; }
 
     /// <summary>A hash of what was last written successfully.</summary>
     public string? SentFingerprint { get; set; }

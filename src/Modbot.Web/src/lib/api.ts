@@ -12,6 +12,9 @@ import type { TrustRank } from './trustRank'
 // where the rule builder lives; auto-invites store the same tree (auto-invites design §3).
 import type { GiveawayRule } from './giveaways.ts'
 
+// Type only for the same reason: `calendar.ts` imports `http` from this file.
+import type { CalendarDuplicate } from './calendar.ts'
+
 /** Where the wizard should resume. Mirrors the server's OnboardingStep. */
 export type OnboardingStep =
   | 'Administrator'
@@ -490,6 +493,8 @@ export type DiscordRole = {
   everyone: boolean
   botCanAssign: boolean
   removed: boolean
+  /** A mention of it by the bot pings: open to mentions, or the bot may mention any role. Missing from an older server. */
+  botCanMention?: boolean
 }
 
 export type DiscordRoles = {
@@ -2814,6 +2819,8 @@ export type CalendarHealth = {
   }[]
   /** Places scheduled or open events want that are not set up: `vrchat`, `instance`, `discordEvent`, `channelPost`. */
   notSetUp?: string[] | null
+  /** Discord server events, made by anyone, that look like copies of each other. */
+  duplicates?: CalendarDuplicate[] | null
 }
 
 /** The VRChat group permissions Modbot uses that its own VRChat account lacks. */

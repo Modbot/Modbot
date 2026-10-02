@@ -14,6 +14,9 @@ function colorOf(role: DiscordRole): string | null {
  * above the bot's own, or the role belongs to a bot or an integration -- are marked. They stay
  * pickable, as channels missing a permission do, because the fix is in Discord.
  *
+ * With `needsMention`, roles a mention by the bot would not ping -- not open to mentions, and the
+ * bot lacks Mention @everyone, @here and All Roles -- are marked the same way.
+ *
  * A saved id that is not in the list stays selected and reads as an unknown role.
  */
 export function RolePicker({
@@ -21,6 +24,7 @@ export function RolePicker({
   value,
   onChange,
   needsAssign = false,
+  needsMention = false,
   includeEveryone = false,
   allowNone = true,
   disabled,
@@ -31,6 +35,8 @@ export function RolePicker({
   onChange: (roleId: string) => void
   /** Mark roles the bot cannot give to somebody. */
   needsAssign?: boolean
+  /** Mark roles the bot cannot ping. */
+  needsMention?: boolean
   /** Offer @everyone. Left out unless asked for. */
   includeEveryone?: boolean
   /** Offer "None", which sets an empty string. */
@@ -43,6 +49,7 @@ export function RolePicker({
   const marksFor = (role: DiscordRole): PickerMark[] => {
     if (role.removed) return [{ text: 'Removed', tone: 'quiet' }]
     if (needsAssign && !role.botCanAssign) return [{ text: 'Bot cannot assign', tone: 'problem' }]
+    if (needsMention && !role.botCanMention) return [{ text: 'Bot cannot mention', tone: 'problem' }]
     return []
   }
 

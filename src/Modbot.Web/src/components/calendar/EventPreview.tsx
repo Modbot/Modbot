@@ -138,6 +138,11 @@ function ChannelPostCard({ post }: { post: NonNullable<CalendarPreview['channelP
   return (
     <Place place="channelPost">
       <div className="flex flex-col gap-2">
+        {post.mentionRole && (
+          <div>
+            <RoleMention name={post.mentionRole} colour={post.mentionRoleColour ?? 0} />
+          </div>
+        )}
         <div
           className="flex flex-col gap-2 rounded-sm border-(length:--hairline) border-l-4 bg-card p-3"
           style={{ borderLeftColor: colour }}
@@ -185,6 +190,20 @@ function ChannelPostCard({ post }: { post: NonNullable<CalendarPreview['channelP
         )}
       </div>
     </Place>
+  )
+}
+
+/** A role mention as Discord draws it: the role's name in its colour, on a faint wash of it. */
+function RoleMention({ name, colour }: { name: string; colour: number }) {
+  if (!colour) {
+    return <span className="rounded-sm bg-[#5865f2]/20 px-0.5 font-medium text-[#5865f2]">@{name}</span>
+  }
+
+  const hex = `#${colour.toString(16).padStart(6, '0')}`
+  return (
+    <span className="rounded-sm px-0.5 font-medium" style={{ color: hex, backgroundColor: `${hex}26` }}>
+      @{name}
+    </span>
   )
 }
 

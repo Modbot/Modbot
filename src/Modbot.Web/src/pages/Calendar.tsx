@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
 import { DateForm } from '@/components/calendar/DateForm'
+import { DiscordDuplicates } from '@/components/calendar/DiscordDuplicates'
 import type { Change, Entry, Spot } from '@/components/calendar/entry'
 import { dateAt, spotOf } from '@/components/calendar/entry'
 import { EventDetails } from '@/components/calendar/EventDetails'
@@ -371,6 +372,25 @@ export function Calendar() {
       })
   }
 
+  /** Opens an event at its current or next time, read on its own when it is not on screen. */
+  const openEvent = (eventId: string) => {
+    setQuick(null)
+    calendarApi
+      .event(eventId)
+      .then((e) => {
+        setLinked(e)
+        setDetail({
+          id: e.id,
+          start: new Date(e.occurrenceStartsAt ?? e.startsAt),
+          end: new Date(e.occurrenceEndsAt ?? e.endsAt),
+          spot: null,
+        })
+      })
+      .catch(() => {
+        // Deleted since the list was read: nothing to open.
+      })
+  }
+
   const openCreate = (created: { start: Date; end: Date }, spot: Spot) => {
     setDetail(null)
     setQuick({ ...created, spot })
@@ -473,6 +493,8 @@ export function Calendar() {
           )}
         </div>
       </div>
+
+      <DiscordDuplicates live={live} onOpen={openEvent} />
 
       {drafts.length > 0 && (
         <Card>

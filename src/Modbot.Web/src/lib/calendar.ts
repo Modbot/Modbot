@@ -146,6 +146,8 @@ export type CalendarEvent = {
   announceFirstJoinInVRChat?: boolean
   /** Null before any invites were queued for the current time. */
   invites?: CalendarInvites | null
+  /** The Discord role the channel post mentions, pinged once per date; null for none. */
+  mentionRoleId?: string | null
 }
 
 /**
@@ -233,6 +235,10 @@ export type CalendarPreview = {
     footer: string | null
     pictureUrl: string | null
     buttons: { label: string; url: string }[]
+    /** The role mentioned above the card, by name; null for none. */
+    mentionRole?: string | null
+    /** That role's colour, 0xRRGGBB, zero for none. */
+    mentionRoleColour?: number
   } | null
   vrChat: {
     update: boolean
@@ -348,6 +354,48 @@ export type CalendarEventInput = {
   inviteListId: string | null
   announceFirstJoinInDiscord: boolean
   announceFirstJoinInVRChat: boolean
+  /** The Discord role the channel post mentions; null for none. */
+  mentionRoleId: string | null
+}
+
+/** Who made a Discord server event. A person is never named. */
+export type DiscordEventMaker = 'modbot' | 'bot' | 'person' | 'unknown'
+
+/** One copy of a Discord server event that looks like a duplicate (calendar design §16). */
+export type CalendarDiscordCopy = {
+  id: string
+  name: string
+  startsAt: string
+  started: boolean
+  madeBy: DiscordEventMaker
+  /** The bot's or app's name, for `modbot` and `bot`. */
+  botName: string | null
+  /** The Modbot calendar event this is the Discord event of, when it is one. */
+  calendarEventId: string | null
+  calendarEventTitle: string | null
+}
+
+export type CalendarDuplicate = { title: string; startsAt: string; copies: CalendarDiscordCopy[] }
+
+/** Who made a copy: the bot's name, never a person's. */
+export function madeByLabel(copy: Pick<CalendarDiscordCopy, 'madeBy' | 'botName'>): string {
+  switch (copy.madeBy) {
+    case 'modbot':
+      return 'Modbot'
+    case 'bot':
+      return copy.botName ?? 'A bot'
+    case 'person':
+      return 'A person'
+    default:
+      return 'Unknown'
+  }
+}
+
+export type CalendarDiscordDuplicates = {
+  /** False when Discord's list could not be read: no server, bot not connected, or no answer. */
+  read: boolean
+  readAt: string | null
+  duplicates: CalendarDuplicate[]
 }
 
 const base = '/api/calendar'
@@ -411,6 +459,8 @@ export const calendarApi = {
     ),
   /** Every time an event ran over the last 90 days, the most at once first. */
   past: () => http.request<CalendarPast>(`${base}/past`),
+  /** Discord server events, made by anyone, that look like copies of each other. Changes nothing. */
+  discordDuplicates: () => http.request<CalendarDiscordDuplicates>(`${base}/discord-duplicates`),
   regenerateFeed: () => http.post<CalendarFeed>(`${base}/feed`),
   /**
    * Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar
@@ -533,6 +583,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     inviteListId: null,
     announceFirstJoinInDiscord: false,
     announceFirstJoinInVRChat: false,
+    mentionRoleId: null,
   }
 }
 
@@ -576,5 +627,6 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     inviteListId: event.inviteListId ?? null,
     announceFirstJoinInDiscord: event.announceFirstJoinInDiscord ?? false,
     announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
+    mentionRoleId: event.mentionRoleId ?? null,
   }
 }

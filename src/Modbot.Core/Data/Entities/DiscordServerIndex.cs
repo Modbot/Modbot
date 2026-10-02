@@ -77,6 +77,12 @@ public class DiscordServer
     /// <summary>Whether the bot holds Kick Members, which removing somebody from the server needs.</summary>
     public bool BotCanRemoveMembers { get; set; }
 
+    /// <summary>
+    /// Whether the bot holds Mention @everyone, @here and All Roles, which lets it ping a role that
+    /// is not open to mentions (calendar design §3.3.1). The bot never pings @everyone or @here.
+    /// </summary>
+    public bool BotCanMentionEveryone { get; set; }
+
     /// <summary>When every channel and role was last read in one go -- on sign-in and on resume.</summary>
     public DateTimeOffset RefreshedAt { get; set; }
 
@@ -215,6 +221,22 @@ public class DiscordRole
     /// as an unsigned 64-bit number; it is kept as the same 64 bits in a signed column.
     /// </remarks>
     public long? Permissions { get; set; }
+
+    /// <summary>
+    /// "Allow anyone to @mention this role" is on in Discord, so anybody's mention of it pings,
+    /// the bot's included.
+    /// </summary>
+    public bool Mentionable { get; set; }
+
+    /// <summary>
+    /// Whether a mention of this role by the bot pings: the role is open to mentions, or the bot
+    /// holds Mention @everyone, @here and All Roles. Never @everyone itself.
+    /// </summary>
+    public static bool BotCanMention(DiscordRole role, DiscordServer? server)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        return !role.Everyone && role.RoleId != role.GuildId && (role.Mentionable || server is { BotCanMentionEveryone: true });
+    }
 
     public DateTimeOffset FirstSeenAt { get; set; }
 

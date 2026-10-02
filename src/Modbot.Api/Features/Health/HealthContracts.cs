@@ -348,10 +348,15 @@ public sealed record PausedRule(
 /// <c>discordEvent</c> and <c>channelPost</c> without a server id or a connected bot (calendar
 /// design §14.3).
 /// </param>
+/// <param name="Duplicates">
+/// Discord server events that look like copies of each other, whoever made them (calendar design
+/// §16). Empty when there are none or Discord's list could not be read.
+/// </param>
 public sealed record CalendarHealth(
     bool MissingManageEvents,
     IReadOnlyList<CalendarProblem> Problems,
-    IReadOnlyList<string>? NotSetUp = null);
+    IReadOnlyList<string>? NotSetUp = null,
+    IReadOnlyList<Modbot.Api.Features.Calendar.CalendarDuplicateView>? Duplicates = null);
 
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
 /// <param name="MissingGroupPermission">Set when VRChat refused because Modbot's VRChat account lacks a group permission.</param>

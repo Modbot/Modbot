@@ -55,6 +55,7 @@ public sealed class DiscordServerIndex
         row.BotCanManageEvents = server.BotCanManageEvents;
         row.BotCanBanMembers = server.BotCanBanMembers;
         row.BotCanRemoveMembers = server.BotCanRemoveMembers;
+        row.BotCanMentionEveryone = server.BotCanMentionEveryone;
         row.IconUrl = Picture(server.IconUrl);
         row.BannerUrl = Picture(server.BannerUrl);
         row.BoostCount = server.BoostCount is >= 0 ? server.BoostCount : row.BoostCount;
@@ -247,6 +248,7 @@ public sealed class DiscordServerIndex
             && row.Everyone == snapshot.Everyone
             && row.BotCanAssign == snapshot.BotCanAssign
             && row.Permissions == (snapshot.Permissions ?? row.Permissions)
+            && row.Mentionable == snapshot.Mentionable
             && row.RemovedAt is null;
 
         if (same)
@@ -260,6 +262,7 @@ public sealed class DiscordServerIndex
         row.Everyone = snapshot.Everyone;
         row.BotCanAssign = snapshot.BotCanAssign;
         row.Permissions = snapshot.Permissions ?? row.Permissions;
+        row.Mentionable = snapshot.Mentionable;
         row.RemovedAt = null;
         row.UpdatedAt = now;
     }

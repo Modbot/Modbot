@@ -81,6 +81,28 @@ public static class CalendarPreviews
         var discordPreview = discord?.Preview(
             calendarEvent, world, new CalendarPreviewContext(settings?.PublicAddress, settings?.ManagedGroupName, joinLink, now));
 
+        // The role mentioned above the card (§3.3.1), by its name in Modbot's copy of the role list.
+        // The same rule as the post: never @everyone, whose id is the server's.
+        var guildId = settings?.DiscordGuildId?.Trim();
+        var roleId = calendarEvent.MentionRoleId?.Trim();
+
+        if (discordPreview is not null && !string.IsNullOrEmpty(roleId) && !string.Equals(roleId, guildId, StringComparison.Ordinal))
+        {
+            var role = await db.DiscordRoles.AsNoTracking().FirstOrDefaultAsync(r => r.RoleId == roleId, ct);
+
+            if (role is not { Everyone: true })
+            {
+                discordPreview = discordPreview with
+                {
+                    ChannelPost = discordPreview.ChannelPost with
+                    {
+                        MentionRole = role?.Name ?? roleId,
+                        MentionRoleColour = role?.Color ?? 0,
+                    },
+                };
+            }
+        }
+
         var names = world?.Name is { Length: > 0 } name
             ? new Dictionary<string, string>(StringComparer.Ordinal) { [world.WorldId] = name }
             : new Dictionary<string, string>(StringComparer.Ordinal);

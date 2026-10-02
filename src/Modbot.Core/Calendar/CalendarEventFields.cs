@@ -47,6 +47,7 @@ public static class CalendarEventFields
             ["publishToDiscord"] = e.PublishToDiscord,
             ["postToChannel"] = e.PostToChannel,
             ["channelId"] = e.ChannelId,
+            ["mentionRoleId"] = e.MentionRoleId,
             ["autoOpen"] = e.AutoOpen,
             ["openMinutesBefore"] = e.OpenMinutesBefore,
 

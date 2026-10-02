@@ -7,7 +7,7 @@ import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
-import { timeOfDay, duration, formatDay } from '@/lib/format'
+import { timeOfDay, duration, formatDay, dateTimeWithWeekday } from '@/lib/format'
 import { dateTime } from '@/components/charts/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
@@ -31,6 +31,8 @@ import { vrchatPermissionLabel, vrchatRolesPage } from '@/lib/vrchatPermissions'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Empty } from '@/components/ListParts'
 import { NotSetUp } from '@/components/calendar/NotSetUp'
+import { madeByLabel } from '@/lib/calendar'
+import { followLink } from '@/lib/router'
 import type { CalendarSwitchable } from '@/lib/calendarPlaces'
 
 /**
@@ -195,7 +197,10 @@ export function Health() {
         />
       )}
 
-      {health.calendar && (health.calendar.problems.length > 0 || (health.calendar.notSetUp?.length ?? 0) > 0) && (
+      {health.calendar &&
+        (health.calendar.problems.length > 0 ||
+          (health.calendar.notSetUp?.length ?? 0) > 0 ||
+          (health.calendar.duplicates?.length ?? 0) > 0) && (
         <CalendarProblems calendar={health.calendar} now={health.now} />
       )}
 
@@ -677,8 +682,9 @@ function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
 }
 
 /**
- * Calendar events that did not publish or whose instance did not open (calendar design §3, §4), and
- * places events want that are not set up (§14.3).
+ * Calendar events that did not publish or whose instance did not open (calendar design §3, §4),
+ * places events want that are not set up (§14.3), and Discord events that look like copies of each
+ * other, whoever made them (§16), leading to the list on the calendar page.
  */
 function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: string }) {
   return (
@@ -686,6 +692,15 @@ function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: st
       {(calendar.notSetUp ?? []).filter(isSwitchable).map((place) => (
         <p key={`not-set-up-${place}`} className="max-w-3xl text-warn">
           {CALENDAR_PLACE[place] ?? place} · <NotSetUp place={place} />
+        </p>
+      ))}
+      {(calendar.duplicates ?? []).map((d) => (
+        <p key={`duplicate-${d.copies.map((c) => c.id).join('|')}`} className="max-w-3xl text-warn">
+          {d.title} · {dateTimeWithWeekday(d.startsAt)} ·{' '}
+          <a href="/calendar" onClick={followLink('/calendar')} className="underline underline-offset-2">
+            Possible duplicates in Discord
+          </a>{' '}
+          ({[...new Set(d.copies.map(madeByLabel))].join(', ')})
         </p>
       ))}
       {calendar.problems.map((p) =>

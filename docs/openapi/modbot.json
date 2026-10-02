@@ -23463,6 +23463,56 @@
         ]
       }
     },
+    "/api/calendar/discord-duplicates": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "List possible duplicate Discord events",
+        "description": "Events in the Discord server, made by anyone, that look like copies of each other: the same title once case, spaces, punctuation, emoji and anything in brackets are left out, starting at most 15 minutes apart. Says which bot made each copy and which is Modbot's own; a person is never named. Discord is asked at most once every five minutes. Changes nothing.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "ListDiscordEventDuplicates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarDiscordDuplicatesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/invite-choices": {
       "get": {
         "tags": [
@@ -29571,6 +29621,17 @@
             "items": {
               "$ref": "#/components/schemas/CalendarPreviewButton"
             }
+          },
+          "mentionRole": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mentionRoleColour": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -29626,6 +29687,82 @@
           }
         }
       },
+      "CalendarDiscordCopyView": {
+        "required": [
+          "id",
+          "name",
+          "startsAt",
+          "started",
+          "madeBy",
+          "botName",
+          "calendarEventId",
+          "calendarEventTitle"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started": {
+            "type": "boolean"
+          },
+          "madeBy": {
+            "type": "string"
+          },
+          "botName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "calendarEventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "calendarEventTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarDiscordDuplicatesView": {
+        "required": [
+          "read",
+          "readAt",
+          "duplicates"
+        ],
+        "type": "object",
+        "properties": {
+          "read": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "duplicates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarDuplicateView"
+            }
+          }
+        }
+      },
       "CalendarDiscordEventPreview": {
         "required": [
           "name",
@@ -29662,6 +29799,29 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "CalendarDuplicateView": {
+        "required": [
+          "title",
+          "startsAt",
+          "copies"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "copies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarDiscordCopyView"
+            }
           }
         }
       },
@@ -29873,6 +30033,12 @@
           "announceFirstJoinInVRChat": {
             "type": "boolean",
             "default": false
+          },
+          "mentionRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -30182,6 +30348,12 @@
           "announceFirstJoinInVRChat": {
             "type": "boolean",
             "default": false
+          },
+          "mentionRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -33396,6 +33568,10 @@
           },
           "removed": {
             "type": "boolean"
+          },
+          "botCanMention": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

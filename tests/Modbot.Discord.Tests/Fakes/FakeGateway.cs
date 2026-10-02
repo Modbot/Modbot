@@ -306,6 +306,32 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
+    /// <summary>Every message posted that pinged a role, in order: the only kind that pings one.</summary>
+    public List<(string ChannelId, string MessageId, string RoleId)> RolePings { get; } = [];
+
+    public Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        Posts.Add((channelId, embeds));
+        Messages.Add((channelId, messageId, $"<@&{roleId}>", embeds, links ?? []));
+        PicturesSent[messageId] = pictures;
+        RolePings.Add((channelId, messageId, roleId));
+
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
     public Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
@@ -614,6 +640,17 @@ public sealed class FakeGateway : IDiscordGateway
     {
         OnlineReads++;
         return Task.FromResult(Online);
+    }
+
+    /// <summary>What <see cref="ReadServerEventsAsync"/> answers. Null means Discord did not answer.</summary>
+    public List<Core.Discord.DiscordServerEvent>? ServerEventList { get; set; } = [];
+
+    public int ServerEventReads { get; private set; }
+
+    public Task<IReadOnlyList<Core.Discord.DiscordServerEvent>?> ReadServerEventsAsync(string guildId, CancellationToken ct)
+    {
+        ServerEventReads++;
+        return Task.FromResult<IReadOnlyList<Core.Discord.DiscordServerEvent>?>(ServerEventList?.ToList());
     }
 
     public Task RaiseMemberJoinedAsync(string guildId, DiscordMemberSnapshot member)

@@ -185,6 +185,21 @@ public sealed class CalendarDiscordPublisher
             _pictures,
             ct);
 
+        // Which dates have pinged their role already, from every channel post row the events have
+        // had: a post turned off and on again is a new row, and must not ping the same date twice.
+        var withRole = events.Where(e => e.MentionRoleId != null).Select(e => e.Id).ToList();
+
+        if (withRole.Count > 0)
+        {
+            var mentioned = await _db.CalendarEventPlaces.AsNoTracking()
+                .Where(p => p.Place == CalendarPlaces.ChannelPost && p.RoleMentionedFor != null && withRole.Contains(p.EventId))
+                .Select(p => new { p.EventId, p.RoleMentionedFor })
+                .ToListAsync(ct).ConfigureAwait(false);
+
+            foreach (var m in mentioned)
+                pass.Mentioned.Add((m.EventId, m.RoleMentionedFor!.Value));
+        }
+
         // First: a cancel post is news, and there are few of them.
         await SyncCancelPostsAsync(pass, cancelPosts).ConfigureAwait(false);
         await SyncDateCancelPostsAsync(pass, dateCancelPosts).ConfigureAwait(false);
@@ -455,6 +470,10 @@ public sealed class CalendarDiscordPublisher
         var removedInModbot = e.State == CalendarEventStates.Cancelled || e.DeletedAt is not null;
         var current = CalendarRepeat.Current(e);
 
+        // The role above the card, kept on every edit so the post goes on showing it. Only the
+        // date's first post pings it (§3.3.1); an edit never does.
+        var mention = RoleMention(e, pass.GuildId);
+
         if (place?.ExternalId is { } messageId && place.ChannelId is { } postedIn)
         {
             var movedOn = CalendarEventStates.IsLive(e.State) && place.OccurrenceStartsAt != current.PlannedStartsAt;
@@ -496,7 +515,7 @@ public sealed class CalendarDiscordPublisher
                     e, occurrence, closingWorld, state, joinLink: null, pass.Style, closingPicture);
 
                 var edited = await pass
-                    .Call(g => g.EditAsync(postedIn, messageId, null, [card], [], pictures: null, pass.Ct))
+                    .Call(g => g.EditAsync(postedIn, messageId, mention, [card], [], pictures: null, pass.Ct))
                     .ConfigureAwait(false);
 
                 if (!edited.Sent && !edited.Permanent)
@@ -570,9 +589,15 @@ public sealed class CalendarDiscordPublisher
 
         var (embed, links) = Post(e, world, joinLink, pass.Style, image);
 
-        var fingerprint = CalendarFingerprint.Of(
+        object?[] said =
+        [
             "channelPost", channelId, embed.Title, embed.Description, embed.Color, embed.Url, embed.Footer, embed.ImageUrl,
-            string.Join('\n', embed.Fields.Select(f => f.Name + "=" + f.Value)), links.Count > 0 ? links[0].Url : null);
+            string.Join('\n', embed.Fields.Select(f => f.Name + "=" + f.Value)), links.Count > 0 ? links[0].Url : null,
+        ];
+
+        // Added only with a role, so a post without one keeps the fingerprint it was sent under and
+        // is not edited again for nothing.
+        var fingerprint = CalendarFingerprint.Of(mention is null ? said : [.. said, mention]);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
             return;
@@ -584,15 +609,30 @@ public sealed class CalendarDiscordPublisher
 
         if (first)
         {
-            outcome = await pass
-                .Call(g => g.PostAsync(channelId!, null, [embed], links, pictures.Files, pass.Ct))
-                .ConfigureAwait(false);
+            // Pinged once per date: a post made again for a date that has pinged shows the role and
+            // pings nobody.
+            var date = current.PlannedStartsAt;
+            var ping = mention is not null && !pass.Mentioned.Contains((e.Id, date));
+
+            outcome = ping
+                ? await pass
+                    .Call(g => g.PostMentioningRoleAsync(channelId!, e.MentionRoleId!.Trim(), [embed], links, pictures.Files, pass.Ct))
+                    .ConfigureAwait(false)
+                : await pass
+                    .Call(g => g.PostAsync(channelId!, mention, [embed], links, pictures.Files, pass.Ct))
+                    .ConfigureAwait(false);
 
             if (outcome is { Sent: true, MessageId: { } posted })
             {
                 place.ExternalId = posted;
                 place.ChannelId = channelId;
-                place.OccurrenceStartsAt = current.PlannedStartsAt;
+                place.OccurrenceStartsAt = date;
+
+                if (ping)
+                {
+                    place.RoleMentionedFor = date;
+                    pass.Mentioned.Add((e.Id, date));
+                }
             }
         }
         else
@@ -600,7 +640,7 @@ public sealed class CalendarDiscordPublisher
             var id = place.ExternalId!;
             var inChannel = place.ChannelId ?? channelId!;
             outcome = await pass
-                .Call(g => g.EditAsync(inChannel, id, null, [embed], links, pictures: null, pass.Ct))
+                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, pictures: null, pass.Ct))
                 .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the event changes, so a moderator who
@@ -620,6 +660,22 @@ public sealed class CalendarDiscordPublisher
 
         Published(place, fingerprint, pass.Now);
         pass.Written++;
+    }
+
+    /// <summary>
+    /// The line above the channel post's card: a mention of the event's role, or null for none
+    /// (calendar design §3.3.1). Never the server's @everyone role, whose id is the server's.
+    /// </summary>
+    public static string? RoleMention(CalendarEvent calendarEvent, string? guildId)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        var role = calendarEvent.MentionRoleId?.Trim();
+
+        if (string.IsNullOrEmpty(role) || string.Equals(role, guildId?.Trim(), StringComparison.Ordinal))
+            return null;
+
+        return $"<@&{role}>";
     }
 
     // ── The cancel post ──────────────────────────────────────────────────────────────────
@@ -1016,6 +1072,9 @@ public sealed class CalendarDiscordPublisher
 
         public VRChatWorld? WorldOf(CalendarEvent e) =>
             e.WorldId is { } id && worlds.TryGetValue(id, out var world) ? world : null;
+
+        /// <summary>Each event's dates whose post has pinged its role, from every channel post row it has had.</summary>
+        public HashSet<(Guid EventId, DateTimeOffset Date)> Mentioned { get; } = [];
 
         public Task<DiscordPostOutcome> Call(Func<IDiscordGateway, Task<DiscordPostOutcome>> call)
         {

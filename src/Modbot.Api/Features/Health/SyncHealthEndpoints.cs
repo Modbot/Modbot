@@ -78,6 +78,7 @@ public static class SyncHealthEndpoints
                 [FromServices] UserRefreshQueue? queue,
                 // Optional for the same reason: the bot is wired by the host, not by the API.
                 [FromServices] Modbot.Core.Discord.IDiscordBotStatus? discordBot,
+                [FromServices] Modbot.Core.Discord.IDiscordServerEvents? serverEvents,
                 // Optional like the rest: a host without AI registered has no spend to warn about.
                 [FromServices] Modbot.AI.Usage.AiSpendReport? aiSpend,
                 // Optional for the same reason: a test host has no log store and no Cloud address.
@@ -158,7 +159,7 @@ public static class SyncHealthEndpoints
                             w.PartUnknown))],
                     await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
-                    await CalendarHealthAsync(db, settings, discordBot, ct),
+                    await CalendarHealthAsync(db, settings, discordBot, serverEvents, ct),
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
                     UserReads(diagnostics),
@@ -337,15 +338,20 @@ public static class SyncHealthEndpoints
     /// <summary>
     /// Calendar places that failed, instances that did not open for the current occurrence, a
     /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4), and
-    /// places events want that are not set up (§14.3).
+    /// places events want that are not set up (§14.3), and Discord events that look like copies of
+    /// each other, whoever made them (§16).
     /// </summary>
     private static async Task<CalendarHealth?> CalendarHealthAsync(
         ModbotContext db,
         Modbot.Core.Data.Entities.Settings? settings,
         Modbot.Core.Discord.IDiscordBotStatus? discordBot,
+        Modbot.Core.Discord.IDiscordServerEvents? serverEvents,
         CancellationToken ct)
     {
         var guildId = settings?.DiscordGuildId;
+
+        // Read whether or not Modbot has events of its own: other bots make copies too.
+        var duplicates = (await Modbot.Api.Features.Calendar.CalendarDiscordDuplicates.BuildAsync(db, serverEvents, ct)).Duplicates;
 
         var live = await db.CalendarEvents.AsNoTracking()
             .Where(e => e.DeletedAt == null
@@ -355,7 +361,7 @@ public static class SyncHealthEndpoints
             .ToListAsync(ct);
 
         if (live.Count == 0)
-            return null;
+            return duplicates.Count == 0 ? null : new CalendarHealth(false, [], [], duplicates);
 
         var titles = live.ToDictionary(e => e.Id, e => e.Title);
         var ids = titles.Keys.ToList();
@@ -403,9 +409,9 @@ public static class SyncHealthEndpoints
             wantsDiscordEvent: live.Any(e => e.PublishToDiscord),
             wantsChannelPost: live.Any(e => e.PostToChannel));
 
-        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0
+        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0 && duplicates.Count == 0
             ? null
-            : new CalendarHealth(missingManageEvents, problems, notSetUp);
+            : new CalendarHealth(missingManageEvents, problems, notSetUp, duplicates);
     }
 
     /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>
