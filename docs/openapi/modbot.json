@@ -23529,7 +23529,7 @@
           "Calendar"
         ],
         "summary": "Update calendar event",
-        "description": "Publishing follows on its own. Several changes close together are sent to VRChat as one.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Publishing follows on its own. Several changes close together are sent to VRChat as one. A place that failed goes back to waiting and is sent again, even when nothing it is sent changed; a VRChat event that got no answer is the exception, and keeps its Try again. A refusal (400) lists everything wrong at once, as for a new event.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UpdateCalendarEvent",
         "parameters": [
           {
@@ -23692,7 +23692,7 @@
           "Calendar"
         ],
         "summary": "Add calendar event",
-        "description": "Plan an event.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Plan an event. A refusal (400) lists everything wrong at once, in problems, and joins it in error. When the event goes to VRChat's calendar and the group as Modbot last read it says Modbot's VRChat account lacks Manage Group Calendar, that comes first; on its own it does not refuse the save.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CreateCalendarEvent",
         "requestBody": {
           "content": {
@@ -24122,14 +24122,14 @@
         ]
       }
     },
-    "/api/calendar/events/{id}/vrchat/try-again": {
+    "/api/calendar/events/{id}/{place}/try-again": {
       "post": {
         "tags": [
           "Calendar"
         ],
-        "summary": "Try VRChat's calendar again",
-        "description": "Send an event to VRChat's calendar again after VRChat gave no answer to adding it and the event was not on VRChat's calendar afterwards (its VRChat place has canTryAgain). Modbot never sends that again on its own. 409 when the place is in any other state.\n\nNeeds the `ManageCalendar` permission.",
-        "operationId": "TryVRChatCalendarAgain",
+        "summary": "Try a place again",
+        "description": "Send a failed place of an event again, as it is, without editing the event: place is vrchat, discordEvent, channelPost or cancelPost, and the place has canTryAgain. With plannedStartsAt, one date of a repeating event whose own change to VRChat's calendar failed. A VRChat event that got no answer and was not on VRChat's calendar is looked for once more before it is sent. Sent on the next pass; the place says waiting until then. 409 when there is no failure to try again, as on a second press. The body may be left out.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "TryCalendarPlaceAgain",
         "parameters": [
           {
             "name": "id",
@@ -24139,11 +24139,45 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "place",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarTryAgainRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -31792,6 +31826,15 @@
           "canTryAgain": {
             "type": "boolean",
             "default": false
+          },
+          "problems": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -31959,6 +32002,21 @@
           },
           "hasDiscord": {
             "type": "boolean"
+          }
+        }
+      },
+      "CalendarTryAgainRequest": {
+        "required": [
+          "plannedStartsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "plannedStartsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

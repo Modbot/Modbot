@@ -2385,6 +2385,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.MissingGroupPermission).HasMaxLength(64);
             entity.Property(e => e.VRChatUpdatedAt).HasColumnName("vrchat_updated_at");
             entity.Property(e => e.CreateSent).HasColumnType("jsonb");
+            entity.Property(e => e.Problems).HasColumnType("jsonb");
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

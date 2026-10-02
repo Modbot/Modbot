@@ -190,6 +190,7 @@ public static class CalendarVRChatMatch
         place.Error = null;
         place.ErrorAt = null;
         place.MissingGroupPermission = null;
+        place.Problems = null;
         place.CreateSent = null;
         place.UpdatedAt = now;
     }

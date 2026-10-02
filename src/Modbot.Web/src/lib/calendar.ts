@@ -18,8 +18,13 @@ export type CalendarPlace = {
   errorAt: string | null
   updatedAt: string
   missingGroupPermission?: MissingGroupPermission | null
-  /** VRChat only: VRChat gave no answer to adding it and does not have it. Sent again only by `tryVRChatAgain`. */
+  /** It failed, and `tryAgain` sends it again without an edit. */
   canTryAgain?: boolean
+  /**
+   * VRChat only: Modbot sent nothing because of what it found first. Every problem, in order; a
+   * missing permission is in `missingGroupPermission` instead, shown before them.
+   */
+  problems?: string[] | null
 }
 
 export type CalendarOpening = {
@@ -448,8 +453,12 @@ export const calendarApi = {
   update: (id: string, body: CalendarEventInput) => http.put<CalendarEvent>(`${base}/events/${id}`, body),
   /** `postInChannel`: also post in the event's channel that it is cancelled, once. */
   cancel: (id: string, postInChannel = false) => http.post<void>(`${base}/events/${id}/cancel`, { postInChannel }),
-  /** Sends the event to VRChat's calendar again, for a VRChat place with `canTryAgain`. */
-  tryVRChatAgain: (id: string) => http.post<void>(`${base}/events/${id}/vrchat/try-again`),
+  /**
+   * Sends a failed place again, for a place with `canTryAgain`; with `plannedStartsAt`, the VRChat
+   * change of that one date of a repeating event.
+   */
+  tryAgain: (id: string, place: CalendarPlaceName, plannedStartsAt?: string) =>
+    http.post<void>(`${base}/events/${id}/${place}/try-again`, plannedStartsAt ? { plannedStartsAt } : {}),
   /** The form's input drawn the way each place would show it. Saves nothing. */
   preview: (eventId: string | null, input: CalendarEventInput) =>
     http.post<CalendarPreview>(`${base}/preview`, { eventId, event: input }),
@@ -520,7 +529,7 @@ export const PLACE_LABEL: Record<CalendarPlaceName, string> = {
 }
 
 export const PLACE_STATE_LABEL: Record<CalendarPlaceState, string> = {
-  waiting: 'Waiting',
+  waiting: 'Sending…',
   published: 'Published',
   failed: 'Failed',
   removed: 'Removed',

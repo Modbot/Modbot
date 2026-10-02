@@ -448,6 +448,14 @@ public class CalendarEventPlace
     public string? MissingGroupPermission { get; set; }
 
     /// <summary>
+    /// For VRChat, every problem Modbot found before sending, when it sent nothing because of them:
+    /// one sentence each, in the order they are shown. A missing group permission is not among
+    /// them; it is <see cref="MissingGroupPermission"/>, shown first. Null when the last failure
+    /// was VRChat's own answer, or there is none (calendar design §17.2, added 2026-10-02).
+    /// </summary>
+    public List<string>? Problems { get; set; }
+
+    /// <summary>
     /// For VRChat, what a create that got no answer sent: the title, times and repeat, as JSON.
     /// VRChat may have made the event anyway, and its copy says what was sent, not what the event
     /// says after an edit, so the copy is looked for by this (calendar design §3.1). Null otherwise.

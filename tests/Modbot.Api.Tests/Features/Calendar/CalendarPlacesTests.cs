@@ -153,10 +153,11 @@ public class CalendarPlacesTests(PostgresFixture db)
 
     /// <summary>
     /// Calendar design §3.1 (2026-10-01): a create VRChat gave no answer to, and that was not on its
-    /// calendar afterwards, is sent again only when a moderator asks, and only from that state.
+    /// calendar afterwards, is sent again only when a moderator asks, after one more look. Since
+    /// 2026-10-02 every failed place has Try again (§17.4); this one keeps its look.
     /// </summary>
     [Fact]
-    public async Task TryAgain_SendsOnlyAVRChatCreateThatWasNotAdded_AndNeedsManageCalendar()
+    public async Task TryAgain_OnAVRChatCreateThatWasNotAdded_LooksFirst_AndNeedsManageCalendar()
     {
         await using var host = await StartAsync();
         var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);

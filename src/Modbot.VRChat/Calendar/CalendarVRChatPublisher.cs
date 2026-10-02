@@ -5,6 +5,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Sync;
 using Serilog;
 using CalendarEventOccurrenceKind = VRChat.API.Model.CalendarEventOccurrenceKind;
 using PaginatedCalendarEventList = VRChat.API.Model.PaginatedCalendarEventList;
@@ -70,6 +71,20 @@ public sealed record CalendarPublishResult(CalendarPublishOutcome Outcome, Guid?
 /// While the place waits for the look nothing has failed yet, so no failure fact is written until
 /// the create is found not added.
 /// </para>
+/// <para>
+/// <strong>What can be known is checked before sending</strong> (added 2026-10-02,
+/// <see cref="CalendarVRChatChecks"/>): Manage Group Calendar, as the group was last read and read
+/// once more before refusing on it, and the fields VRChat would refuse. Every problem found is
+/// shown together, the permission first, and nothing is sent.
+/// </para>
+/// <para>
+/// <strong>A refusal for a missing group permission stands only while the account still lacks
+/// it.</strong> Until 2026-10-02 it was held like any refusal, until the event changed, so giving
+/// the permission did nothing: saving the event again unchanged kept the same content and the same
+/// hold, and the place went on showing the old failure. Now the next pass after a read of the
+/// group finds the permission sends it again, with no edit; and a 403 is judged against a fresh
+/// read of the group rather than the last poll's.
+/// </para>
 /// </remarks>
 public sealed class CalendarVRChatPublisher
 {
@@ -124,6 +139,9 @@ public sealed class CalendarVRChatPublisher
     /// the calendar is read, so no failure fact is written yet.
     /// </summary>
     private bool _waitingToLook;
+
+    /// <summary>The group was read once more for the account's permissions in this pass already.</summary>
+    private bool _readAccount;
 
     public CalendarVRChatPublisher(
         IVRChatGate gate, ModbotContext db, IModbotClock clock, CalendarFacts facts, ILogger? log = null)
@@ -212,9 +230,25 @@ public sealed class CalendarVRChatPublisher
                 }
 
                 if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
-                    continue;
+                {
+                    // VRChat has this already. A failure of a later version, cleared by an edit back
+                    // or by Try again, is over: without this the place would wait for a write that
+                    // never comes.
+                    if (place.State != CalendarPlaceStates.Published)
+                    {
+                        place.State = CalendarPlaceStates.Published;
+                        place.FailedFingerprint = null;
+                        place.Error = null;
+                        place.ErrorAt = null;
+                        place.MissingGroupPermission = null;
+                        place.Problems = null;
+                        place.UpdatedAt = now;
+                    }
 
-                if (Held(place, fingerprint, now))
+                    continue;
+                }
+
+                if (Held(place, fingerprint, now, settings))
                     continue;
 
                 if (place.State != CalendarPlaceStates.Waiting)
@@ -258,7 +292,7 @@ public sealed class CalendarVRChatPublisher
                 continue;
             }
 
-            if (Held(place, DeleteFingerprint, now))
+            if (Held(place, DeleteFingerprint, now, settings))
                 continue;
 
             due ??= (calendarEvent, place, "delete", DeleteFingerprint);
@@ -314,7 +348,10 @@ public sealed class CalendarVRChatPublisher
 
             // A refusal for a group permission Modbot's VRChat account lacks says which one, so the
             // fact's card in a Discord channel can say what to give it as the calendar page does.
-            if (_couldNotCheck is null && work.Place.MissingGroupPermission is { Length: > 0 } permission)
+            // Found before sending, the error already says so first, with the other problems.
+            if (_couldNotCheck is null
+                && work.Place.MissingGroupPermission is { Length: > 0 } permission
+                && work.Place.Problems is null)
             {
                 failed["fix"] = VRChatGroupPermissions.Sentence(
                     new MissingGroupPermission(permission, groupId, null, null));
@@ -669,26 +706,111 @@ public sealed class CalendarVRChatPublisher
     }
 
     /// <summary>
-    /// A moderator's Try again on a create that was not added: the next pass looks at the calendar
-    /// once more, takes the copy if it has turned up, and otherwise sends the create. False,
-    /// changing nothing, for a place in any other state.
+    /// A moderator's Try again on a failed VRChat place: the next pass sends it again, as it is,
+    /// without the event being edited. False, changing nothing, for a place that has not failed --
+    /// which is also what a second press finds.
     /// </summary>
     /// <remarks>
-    /// When the first create was sent, and what it sent, are kept for that look.
+    /// <para>
+    /// A create that was not added keeps its own way (2026-10-01): the next pass looks at the
+    /// calendar once more, takes the copy if it has turned up, and otherwise sends the create. When
+    /// the first create was sent, and what it sent, are kept for that look.
+    /// </para>
+    /// <para>
+    /// A create with no answer whose look could not be made is looked for now, never sent without
+    /// the look: VRChat may have made it. Anything else -- a refusal, a check made before sending,
+    /// an update or delete with no answer -- is cleared and sent on the next pass (added
+    /// 2026-10-02). A refusal for a missing permission is checked against a fresh read of the
+    /// group first, so a press before the permission is given sends nothing to VRChat's calendar.
+    /// </para>
     /// </remarks>
     public static bool TryAgain(CalendarEventPlace place, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(place);
 
-        if (!NotAdded(place))
+        if (place.Place != CalendarPlaces.VRChat || place.State != CalendarPlaceStates.Failed)
             return false;
 
-        place.State = CalendarPlaceStates.Waiting;
-        place.FailedFingerprint = TryAgainFingerprint;
-        place.Error = null;
-        place.MissingGroupPermission = null;
-        place.UpdatedAt = now;
+        if (NotAdded(place))
+        {
+            place.State = CalendarPlaceStates.Waiting;
+            place.FailedFingerprint = TryAgainFingerprint;
+            place.Error = null;
+            place.MissingGroupPermission = null;
+            place.Problems = null;
+            place.UpdatedAt = now;
+            return true;
+        }
+
+        if (MayHaveBeenCreated(place))
+        {
+            // The look is due as if just after the create: LookDue counts from the time it was sent
+            // while the place's own time is not later than that.
+            place.State = CalendarPlaceStates.Waiting;
+            place.Error = null;
+            place.MissingGroupPermission = null;
+            place.Problems = null;
+            place.UpdatedAt = place.ErrorAt!.Value;
+            return true;
+        }
+
+        ClearFailure(place, now);
         return true;
+    }
+
+    /// <summary>
+    /// An edit of the event, or of one of its dates, clears the old failure at once, so the event
+    /// shows it being sent rather than the failure the edit may have fixed (added 2026-10-02). The
+    /// next pass sends it, even when nothing VRChat is sent changed: saving again is how a
+    /// moderator says "send it again". False, changing nothing, for a place that has not failed,
+    /// and for a create VRChat may have made (looked for first) or did not add (only Try again
+    /// sends that again).
+    /// </summary>
+    public static bool ClearAfterEdit(CalendarEventPlace place, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(place);
+
+        if (place.Place != CalendarPlaces.VRChat
+            || place.State != CalendarPlaceStates.Failed
+            || NotAdded(place)
+            || MayHaveBeenCreated(place)
+            || TryingAgain(place))
+        {
+            return false;
+        }
+
+        ClearFailure(place, now);
+        return true;
+    }
+
+    /// <summary>
+    /// A moderator's Try again on one date that failed: sent again on the next pass, and looked
+    /// up on VRChat's calendar again first, as every date write is. False for a date with no
+    /// failure.
+    /// </summary>
+    public static bool TryDateAgain(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        if (change.VRChatErrorAt is null && change.VRChatError is null)
+            return false;
+
+        change.VRChatError = null;
+        change.VRChatErrorAt = null;
+        change.VRChatFailedFingerprint = null;
+        return true;
+    }
+
+    /// <summary>Back to waiting, with nothing of the failure left to hold it.</summary>
+    private static void ClearFailure(CalendarEventPlace place, DateTimeOffset now)
+    {
+        place.State = CalendarPlaceStates.Waiting;
+        place.FailedFingerprint = null;
+        place.Error = null;
+        place.ErrorAt = null;
+        place.MissingGroupPermission = null;
+        place.Problems = null;
+        place.UpdatedAt = now;
     }
 
     /// <summary>A moderator pressed Try again, and the look before the create has not run yet.</summary>
@@ -711,14 +833,21 @@ public sealed class CalendarVRChatPublisher
     }
 
     /// <summary>A failure that should not be sent again yet.</summary>
-    private static bool Held(CalendarEventPlace place, string fingerprint, DateTimeOffset now)
+    /// <param name="settings">For Modbot's own permissions in the group, as last read.</param>
+    internal static bool Held(CalendarEventPlace place, string fingerprint, DateTimeOffset now, Settings settings)
     {
         if (place.State != CalendarPlaceStates.Failed)
             return false;
 
-        // Refused: not again until what would be sent changes.
+        // Refused: not again until what would be sent changes -- or, when the refusal was for a
+        // group permission Modbot's account lacked, until a read of the group finds it has it now.
+        // Giving the permission changes nothing about the event, so holding such a refusal by the
+        // event alone kept it refused after the cause was fixed (seen 2026-10-02).
         if (place.FailedFingerprint == fingerprint)
-            return true;
+        {
+            return !(place.MissingGroupPermission is { Length: > 0 } permission
+                && VRChatGroupPermissions.Holds(settings.VRChatAccountPermissions, permission) == true);
+        }
 
         // No answer: again after a while, not every pass.
         return place.FailedFingerprint is null
@@ -790,6 +919,7 @@ public sealed class CalendarVRChatPublisher
                 place.FailedFingerprint = NotAddedFingerprint;
                 place.Error = NotAddedError;
                 place.MissingGroupPermission = null;
+                place.Problems = null;
                 place.UpdatedAt = now;
 
                 _log.Warning(
@@ -806,6 +936,7 @@ public sealed class CalendarVRChatPublisher
                 place.FailedFingerprint = null;
                 place.Error = null;
                 place.MissingGroupPermission = null;
+                place.Problems = null;
                 place.ErrorAt = null;
                 place.CreateSent = null;
                 place.UpdatedAt = now;
@@ -840,6 +971,14 @@ public sealed class CalendarVRChatPublisher
 
                 return CalendarPublishOutcome.NothingToDo;
             }
+        }
+
+        // What can be known before sending, after any look for an earlier copy: a copy found is
+        // taken whatever the event says, as nothing is written to take it.
+        if (action is "create" or "update"
+            && await CheckFirstAsync(calendarEvent, place, action, fingerprint, groupId, settings, now, ct).ConfigureAwait(false))
+        {
+            return CalendarPublishOutcome.Failed;
         }
 
         switch (action)
@@ -964,12 +1103,15 @@ public sealed class CalendarVRChatPublisher
             place.FailedFingerprint = null;
             place.Error = null;
             place.MissingGroupPermission = null;
+            place.Problems = null;
             place.ErrorAt = null;
             place.CreateSent = null;
 
             _log.Information("VRChat calendar {Action} for the event {EventId}", action, calendarEvent.Id);
             return CalendarPublishOutcome.Written;
         }
+
+        place.Problems = null;
 
         if (kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
@@ -1009,6 +1151,12 @@ public sealed class CalendarVRChatPublisher
         place.State = CalendarPlaceStates.Failed;
         place.Error = Trim(Reason(kind, body, error, status));
         place.ErrorAt = now;
+
+        // A 403 is judged against the account's permissions as they are now, not as the last poll of
+        // the group left them: read once more, so a permission given or taken since decides whether
+        // this is shown as the missing permission or in VRChat's own words (added 2026-10-02).
+        if (status == 403 && kind != VRChatFailureKind.WafBlocked && VRChatGroupPermissions.NeededFor(endpoint.Operation) is not null)
+            await ReadAccountAgainAsync(settings, groupId, ct).ConfigureAwait(false);
 
         // A 403 because Modbot's VRChat account lacks Manage Group Calendar: kept apart from the
         // text, so the page can say which permission and link to where it is given.
@@ -1103,12 +1251,116 @@ public sealed class CalendarVRChatPublisher
         _couldNotCheck = Trim(Reason(result.Kind, result.RawResponse, result.ErrorMessage, result.StatusCode));
         place.Error = Trim("Could not check VRChat's calendar for an earlier copy: " + _couldNotCheck);
         place.MissingGroupPermission = null;
+        place.Problems = null;
 
         _log.Warning(
             "VRChat calendar {Action} for the event {EventId} is held: {Status} {Reason}",
             action, calendarEvent.Id, result.StatusCode, place.Error);
 
         return CalendarPublishOutcome.Failed;
+    }
+
+    /// <summary>
+    /// Checks what can be known before a create or an update is sent (<see cref="CalendarVRChatChecks"/>),
+    /// and when anything is wrong, fails the place with every problem and sends nothing. True when
+    /// it did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The permission is judged by the group as last read, and when that says Manage Group
+    /// Calendar is missing the group is read once more before refusing on it: the last poll may be
+    /// minutes old, and a permission given since must not be refused from a stale copy. A read that
+    /// fails leaves the last one standing.
+    /// </para>
+    /// <para>
+    /// Held like a refusal: not checked again until the event changes, a moderator presses Try
+    /// again, or -- for the permission -- a read of the group finds it (<see cref="Held"/>). So the
+    /// group is read again at most once for each of those, never every pass.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> CheckFirstAsync(
+        CalendarEvent calendarEvent,
+        CalendarEventPlace place,
+        string action,
+        string fingerprint,
+        string groupId,
+        Settings settings,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var lacks = CalendarVRChatChecks.LacksCalendarPermission(settings);
+
+        if (lacks)
+        {
+            await ReadAccountAgainAsync(settings, groupId, ct).ConfigureAwait(false);
+            lacks = CalendarVRChatChecks.LacksCalendarPermission(settings);
+        }
+
+        var problems = CalendarVRChatChecks.FieldProblems(calendarEvent);
+
+        if (!lacks && problems.Count == 0)
+            return false;
+
+        var permission = lacks ? VRChatGroupPermissions.ManageCalendar : null;
+
+        // Every sentence in the place's error too, the permission first, for the fact and for
+        // anything that shows the error alone.
+        var sentences = permission is null
+            ? problems
+            : [VRChatGroupPermissions.Sentence(new MissingGroupPermission(permission, groupId, null, null)), .. problems];
+
+        place.State = CalendarPlaceStates.Failed;
+        place.Error = Trim(string.Join(" ", sentences));
+        place.ErrorAt = now;
+        place.FailedFingerprint = fingerprint;
+        place.MissingGroupPermission = permission;
+        place.Problems = problems;
+        place.UpdatedAt = now;
+
+        // A create looked for before this keeps nothing of what it sent: it was not found, and
+        // nothing is sent now.
+        if (action == "create")
+            place.CreateSent = null;
+
+        _log.Warning(
+            "VRChat calendar {Action} for the event {EventId} was not sent: {Reason}",
+            action, calendarEvent.Id, place.Error);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the group once more for Modbot's own roles and permissions in it, and keeps what it
+    /// says, so the next poll's work is done now. At most once a pass.
+    /// </summary>
+    /// <remarks>
+    /// The very read the group poll makes (<see cref="GroupInfoSync"/>): <c>GetGroup</c> on
+    /// <c>groups.read</c>, whose limit is already set (foundation §4.2, one request every 10
+    /// seconds), so no new endpoint. A 429 cold-stops that class like any other and is not retried;
+    /// the last read then stands.
+    /// </remarks>
+    private async Task ReadAccountAgainAsync(Settings settings, string groupId, CancellationToken ct)
+    {
+        if (_readAccount)
+            return;
+
+        _readAccount = true;
+
+        var result = await _gate.ExecuteAsync(
+            new VRChatEndpoint(VRChatEndpointClass.GroupsRead, groupId, "GetGroup"),
+            (client, token) => client.Groups.GetGroupWithHttpInfoAsync(groupId, includeRoles: true, cancellationToken: token),
+            VRChatCallPriority.Background,
+            ct).ConfigureAwait(false);
+
+        if (result.Success)
+        {
+            GroupInfoSync.RecordAccount(settings, result.RawResponse);
+            return;
+        }
+
+        _log.Information(
+            "Could not read the group again for Modbot's own permissions: {Status} {Reason}; the last read stands",
+            result.StatusCode, result.ErrorMessage);
     }
 
     /// <summary>VRChat's own words when it gave any, otherwise the gate's.</summary>

@@ -105,14 +105,25 @@ public sealed record CalendarInviteChoicesView(
     IReadOnlyList<CalendarListChoice>? Lists);
 
 /// <summary>One place an event is published, and how that went.</summary>
-/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c> or <c>channelPost</c>.</param>
-/// <param name="State"><c>waiting</c>, <c>published</c>, <c>failed</c> or <c>removed</c>.</param>
+/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c> or <c>cancelPost</c>.</param>
+/// <param name="State">
+/// <c>waiting</c> (being sent: waiting for edits to settle, for its turn, or for a rate limit),
+/// <c>published</c>, <c>failed</c> or <c>removed</c>.
+/// </param>
 /// <param name="MissingGroupPermission">
-/// Set when VRChat refused the last write because Modbot's VRChat account lacks a group permission.
+/// Set when Modbot's VRChat account lacks a group permission the last write needed: VRChat refused
+/// for it, or Modbot found it missing before sending.
 /// </param>
 /// <param name="CanTryAgain">
-/// VRChat's calendar only: a create that got no answer and was not on VRChat's calendar either.
-/// Modbot does not send it again on its own; <c>POST /api/calendar/events/{id}/vrchat/try-again</c> does.
+/// The place failed, and <c>POST /api/calendar/events/{id}/{place}/try-again</c> sends it again
+/// without an edit. Changed 2026-10-02: until then only a VRChat create that got no answer and was
+/// not on VRChat's calendar had it.
+/// </param>
+/// <param name="Problems">
+/// VRChat's calendar only: Modbot sent nothing, because of what it found before sending. Every
+/// problem, one sentence each, in order; a missing permission is in
+/// <paramref name="MissingGroupPermission"/> instead, shown before them. Null when the failure was
+/// VRChat's own answer (added 2026-10-02).
 /// </param>
 public sealed record CalendarPlaceView(
     string Place,
@@ -121,7 +132,14 @@ public sealed record CalendarPlaceView(
     DateTimeOffset? ErrorAt,
     DateTimeOffset UpdatedAt,
     MissingGroupPermission? MissingGroupPermission = null,
-    bool CanTryAgain = false);
+    bool CanTryAgain = false,
+    IReadOnlyList<string>? Problems = null);
+
+/// <param name="PlannedStartsAt">
+/// One date of a repeating event, by its planned start, whose own VRChat write failed. Left out
+/// for the place itself.
+/// </param>
+public sealed record CalendarTryAgainRequest(DateTimeOffset? PlannedStartsAt);
 
 /// <summary>The instance Modbot opened, or tried to, for the current occurrence.</summary>
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>

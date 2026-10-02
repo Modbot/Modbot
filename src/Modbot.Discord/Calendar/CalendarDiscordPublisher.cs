@@ -360,7 +360,14 @@ public sealed class CalendarDiscordPublisher
             location, joinLink, open, e.ImageUrl, world?.Name, world?.ImageUrl, e.WorldId);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
+        {
+            // Discord has this already: a failure since, cleared by an edit back or by Try again,
+            // is over rather than left waiting for a write that never comes.
+            if (place.State != CalendarPlaceStates.Published)
+                Published(place, fingerprint, pass.Now);
+
             return;
+        }
 
         if (place.State == CalendarPlaceStates.Failed && place.FailedFingerprint == fingerprint)
             return;
@@ -616,7 +623,13 @@ public sealed class CalendarDiscordPublisher
         var fingerprint = CalendarFingerprint.Of(mention is null ? said : [.. said, mention]);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
+        {
+            // As for the Discord event: already there, so no failure or wait is left.
+            if (place.State != CalendarPlaceStates.Published)
+                Published(place, fingerprint, pass.Now);
+
             return;
+        }
 
         if (place.State == CalendarPlaceStates.Failed && place.FailedFingerprint == fingerprint)
             return;

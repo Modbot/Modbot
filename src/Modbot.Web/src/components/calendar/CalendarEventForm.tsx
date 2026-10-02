@@ -107,7 +107,8 @@ export function CalendarEventForm({
   // A VRChat picture on its way up: saving now would save the event without it.
   const [uploading, setUploading] = useState(false)
   const pictureThumbnails = usePictureThumbnails()
-  const [error, setError] = useState<string | null>(null)
+  // Everything a save was refused for, one line each, in the server's order.
+  const [error, setError] = useState<string[] | null>(null)
   const [tab, setTab] = useState<Tab>('details')
   // Kept apart from the input, so "On a date" stays picked while its date is still empty.
   const [repeatEnd, setRepeatEnd] = useState<RepeatEnd>(() =>
@@ -194,7 +195,7 @@ export function CalendarEventForm({
 
     request
       .then(onSaved)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save the event.'))
+      .catch((e: unknown) => setError(e instanceof ApiError ? problemsOf(e) : ['Could not save the event.']))
       .finally(() => setBusy(false))
   }
 
@@ -216,8 +217,12 @@ export function CalendarEventForm({
         foot={
           <DialogFoot>
             {error && (
-              <span className="mr-auto min-w-0 basis-full sm:basis-auto">
-                <Outcome tone="problem">{error}</Outcome>
+              <span role="alert" className="mr-auto flex min-w-0 basis-full flex-col sm:basis-auto">
+                {error.map((line) => (
+                  <Outcome key={line} tone="problem">
+                    {line}
+                  </Outcome>
+                ))}
               </span>
             )}
             <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
@@ -669,6 +674,16 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
       {children}
     </label>
   )
+}
+
+/**
+ * Every problem a refused save names, in the server's order (calendar design §17.2): its
+ * `problems`, or the one sentence an older answer carries.
+ */
+function problemsOf(e: ApiError): string[] {
+  const detail = e.detail as { problems?: unknown } | null
+  const problems = Array.isArray(detail?.problems) ? detail.problems.filter((p): p is string => typeof p === 'string') : []
+  return problems.length > 0 ? problems : [e.message]
 }
 
 function splitList(text: string): string[] {

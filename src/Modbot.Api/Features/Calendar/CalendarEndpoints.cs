@@ -196,12 +196,6 @@ public static class CalendarEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                if (await ListProblemAsync(db, body, ct) is { } listProblem)
-                    return Results.BadRequest(new { error = listProblem });
-
-                if (await MentionProblemAsync(db, body, kept: null, ct) is { } mentionProblem)
-                    return Results.BadRequest(new { error = mentionProblem });
-
                 var now = clock.UtcNow;
                 var calendarEvent = new CalendarEvent
                 {
@@ -211,8 +205,8 @@ public static class CalendarEndpoints
                     CreatedByUserId = ModbotAuth.UserIdOf(http.User),
                 };
 
-                if (Apply(body, calendarEvent) is { } problem)
-                    return Results.BadRequest(new { error = problem });
+                if (await RefusedAsync(db, body, calendarEvent, keptMention: null, ct) is { } problems)
+                    return problems;
 
                 if (await CheckInvitesAsync(http, db, body, keptListId: null, kept: [], ct) is { } refused)
                     return refused;
@@ -240,7 +234,11 @@ public static class CalendarEndpoints
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CreateCalendarEvent")
             .WithSummary("Add calendar event")
-            .WithDescription("Plan an event.")
+            .WithDescription(
+                "Plan an event. A refusal (400) lists everything wrong at once, in problems, and joins "
+                + "it in error. When the event goes to VRChat's calendar and the group as Modbot last "
+                + "read it says Modbot's VRChat account lacks Manage Group Calendar, that comes first; "
+                + "on its own it does not refuse the save.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -266,15 +264,10 @@ public static class CalendarEndpoints
                 if (body.Draft && calendarEvent.State != CalendarEventStates.Draft)
                     return Results.Conflict(new { error = "A published event cannot go back to being a draft." });
 
-                if (await ListProblemAsync(db, body, ct) is { } listProblem)
-                    return Results.BadRequest(new { error = listProblem });
-
-                if (await MentionProblemAsync(db, body, calendarEvent.MentionRoleId, ct) is { } mentionProblem)
-                    return Results.BadRequest(new { error = mentionProblem });
-
                 var before = Describe(calendarEvent);
                 var now = clock.UtcNow;
                 var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
+                var keptMention = calendarEvent.MentionRoleId;
 
                 // Keeping the list already on the event needs nothing more; picking one does.
                 List<Guid> kept = [.. calendarEvent.InviteStaffUserIds];
@@ -284,8 +277,8 @@ public static class CalendarEndpoints
                 if (await CheckInvitesAsync(http, db, body, keptListId: calendarEvent.InviteListId, kept, ct) is { } refused)
                     return refused;
 
-                if (Apply(body, calendarEvent) is { } problem)
-                    return Results.BadRequest(new { error = problem });
+                if (await RefusedAsync(db, body, calendarEvent, keptMention, ct) is { } problems)
+                    return problems;
 
                 // Dates cancelled or changed on their own follow the series to its new times, by the
                 // day they fall on (calendar design §2.2).
@@ -302,6 +295,9 @@ public static class CalendarEndpoints
 
                     if (Place(calendarEvent, now) is { } ended)
                         return Results.BadRequest(new { error = ended });
+
+                    // The places that failed show being sent again at once, not the old failure.
+                    await ClearFailuresAsync(db, calendarEvent.Id, now, ct);
                 }
 
                 calendarEvent.Version++;
@@ -327,7 +323,11 @@ public static class CalendarEndpoints
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("UpdateCalendarEvent")
             .WithSummary("Update calendar event")
-            .WithDescription("Publishing follows on its own. Several changes close together are sent to VRChat as one.")
+            .WithDescription(
+                "Publishing follows on its own. Several changes close together are sent to VRChat as one. "
+                + "A place that failed goes back to waiting and is sent again, even when nothing it is "
+                + "sent changed; a VRChat event that got no answer is the exception, and keeps its "
+                + "Try again. A refusal (400) lists everything wrong at once, as for a new event.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -501,6 +501,10 @@ public static class CalendarEndpoints
                 change.Description = description;
                 change.UpdatedAt = now;
 
+                // A changed date shows being sent, not the failure of what it was before.
+                CalendarVRChatPublisher.TryDateAgain(change);
+                await ClearFailuresAsync(db, calendarEvent.Id, now, ct);
+
                 // Put back exactly as planned: nothing of its own is left to keep -- unless VRChat
                 // was sent the change, which it keeps until it is sent the planned date back; the
                 // publisher removes the row once it has been (calendar design §2.2).
@@ -635,35 +639,71 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
-        // A create VRChat gave no answer to, and that was not on VRChat's calendar either, is never
-        // sent again on its own: VRChat has made events while answering 500 (calendar design §3.1).
-        group.MapPost("/events/{id:guid}/vrchat/try-again", async (
+        // Any failed place, sent again without an edit (calendar design §17.4, added 2026-10-02).
+        // Until then only a VRChat create that got no answer and was not on VRChat's calendar had
+        // it, at /events/{id}/vrchat/try-again, which is this route with place "vrchat". That one
+        // still looks at VRChat's calendar first: VRChat has made events while answering 500.
+        group.MapPost("/events/{id:guid}/{place}/try-again", async (
                 [FromRoute] Guid id,
+                [FromRoute] string place,
+                [FromBody] CalendarTryAgainRequest? body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
-                var place = await db.CalendarEventPlaces.FirstOrDefaultAsync(
-                    p => p.EventId == id && p.Place == CalendarPlaces.VRChat, ct);
-
-                if (place is null || !await db.CalendarEvents.AnyAsync(e => e.Id == id && e.DeletedAt == null, ct))
+                if (place != CalendarPlaces.VRChat && !CalendarDiscordRetry.IsDiscord(place))
                     return Results.NotFound();
 
-                if (!CalendarVRChatPublisher.TryAgain(place, clock.UtcNow))
+                var now = clock.UtcNow;
+
+                // One date of a repeating event whose own VRChat write failed.
+                if (body?.PlannedStartsAt is { } planned)
+                {
+                    if (place != CalendarPlaces.VRChat)
+                        return Results.BadRequest(new { error = "Only VRChat's calendar has dates of their own to try again." });
+
+                    var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
+                    var change = calendarEvent?.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == planned);
+
+                    if (change is null)
+                        return Results.NotFound();
+
+                    if (!CalendarVRChatPublisher.TryDateAgain(change))
+                        return Results.Conflict(new { error = "There is nothing to try again." });
+
+                    await db.SaveChangesAsync(ct);
+                    return Results.NoContent();
+                }
+
+                var row = await db.CalendarEventPlaces.FirstOrDefaultAsync(p => p.EventId == id && p.Place == place, ct);
+
+                if (row is null || !await db.CalendarEvents.AnyAsync(e => e.Id == id && e.DeletedAt == null, ct))
+                    return Results.NotFound();
+
+                // A place that has not failed -- a second press finds it waiting -- is refused.
+                var tried = place == CalendarPlaces.VRChat
+                    ? CalendarVRChatPublisher.TryAgain(row, now)
+                    : CalendarDiscordRetry.TryAgain(row, now);
+
+                if (!tried)
                     return Results.Conflict(new { error = "There is nothing to try again." });
 
                 await db.SaveChangesAsync(ct);
                 return Results.NoContent();
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
-            .WithName("TryVRChatCalendarAgain")
-            .WithSummary("Try VRChat's calendar again")
+            .WithName("TryCalendarPlaceAgain")
+            .WithSummary("Try a place again")
             .WithDescription(
-                "Send an event to VRChat's calendar again after VRChat gave no answer to adding it "
-                + "and the event was not on VRChat's calendar afterwards (its VRChat place has "
-                + "canTryAgain). Modbot never sends that again on its own. 409 when the place is in "
-                + "any other state.")
+                "Send a failed place of an event again, as it is, without editing the event: place is "
+                + "vrchat, discordEvent, channelPost or cancelPost, and the place has canTryAgain. "
+                + "With plannedStartsAt, one date of a repeating event whose own change to VRChat's "
+                + "calendar failed. A VRChat event that got no answer and was not on VRChat's "
+                + "calendar is looked for once more before it is sent. Sent on the next pass; the "
+                + "place says waiting until then. 409 when there is no failure to try again, as on "
+                + "a second press. The body may be left out.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
@@ -1172,6 +1212,70 @@ public static class CalendarEndpoints
         return new CalendarFeedView(path, string.IsNullOrWhiteSpace(address) ? null : address.TrimEnd('/') + path);
     }
 
+    /// <summary>
+    /// Checks a save and copies it onto the event. Null when it may be saved; otherwise a 400 with
+    /// everything wrong at once, in <c>problems</c>, joined in <c>error</c> (calendar design §17.2,
+    /// added 2026-10-02).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// When the event goes to VRChat's calendar and the group as last read says Modbot's VRChat
+    /// account lacks Manage Group Calendar, that comes first: nothing else matters until it is
+    /// given. It never refuses a save on its own. The last read may be minutes old, a save never
+    /// waits on VRChat to read it again, and the event is still worth saving for its other places;
+    /// the VRChat calendar loop reads the group again before it refuses to send (§17.1).
+    /// </para>
+    /// </remarks>
+    /// <param name="keptMention">The role already on the event, before this save changes it.</param>
+    private static async Task<IResult?> RefusedAsync(
+        ModbotContext db, CalendarEventRequest body, CalendarEvent target, string? keptMention, CancellationToken ct)
+    {
+        var problems = ApplyAll(body, target);
+
+        if (await ListProblemAsync(db, body, ct) is { } listProblem)
+            problems.Add(listProblem);
+
+        if (await MentionProblemAsync(db, body, keptMention, ct) is { } mentionProblem)
+            problems.Add(mentionProblem);
+
+        if (problems.Count == 0)
+            return null;
+
+        if (body.PublishToVRChat && !body.Draft)
+        {
+            var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+
+            if (settings?.ManagedGroupId is { Length: > 0 } groupId && CalendarVRChatChecks.LacksCalendarPermission(settings))
+            {
+                problems.Insert(0, VRChatGroupPermissions.Sentence(
+                    new MissingGroupPermission(VRChatGroupPermissions.ManageCalendar, groupId, null, null)));
+            }
+        }
+
+        return Results.BadRequest(new { error = string.Join(" ", problems), problems });
+    }
+
+    /// <summary>
+    /// After a save of the event or of one of its dates: every place that failed goes back to
+    /// waiting with its failure cleared, so the event shows it being sent rather than the failure
+    /// the save may have fixed, and the loops send it again (calendar design §17.3, added
+    /// 2026-10-02). A VRChat create that got no answer keeps its own way (§3.1).
+    /// </summary>
+    private static async Task ClearFailuresAsync(ModbotContext db, Guid eventId, DateTimeOffset now, CancellationToken ct)
+    {
+        var failed = await db.CalendarEventPlaces
+            .Where(p => p.EventId == eventId && p.State == CalendarPlaceStates.Failed)
+            .ToListAsync(ct);
+
+        foreach (var place in failed)
+        {
+            if (place.Place == CalendarPlaces.VRChat)
+                CalendarVRChatPublisher.ClearAfterEdit(place, now);
+            else
+                CalendarDiscordRetry.ClearAfterEdit(place, now);
+        }
+    }
+
     /// <summary>What is wrong with the world list an event names, or null.</summary>
     private static async Task<string?> ListProblemAsync(ModbotContext db, CalendarEventRequest body, CancellationToken ct)
     {
@@ -1434,69 +1538,91 @@ public static class CalendarEndpoints
         ["description"] = CalendarRepeat.DescriptionOf(calendarEvent, date),
     };
 
-    /// <summary>Checks a request and copies it onto the event. Returns what is wrong, or null.</summary>
+    /// <summary>Checks a request and copies it onto the event. Returns the first thing wrong, or null.</summary>
     /// <param name="preview">
     /// For the form's preview: a piece not filled in yet -- the title, the description VRChat needs,
     /// the channel, the world to open -- is let through, so the rest can still be drawn. Everything
     /// that would be refused for its shape or its length is still refused.
     /// </param>
-    public static string? Apply(CalendarEventRequest body, CalendarEvent target, bool preview = false)
+    public static string? Apply(CalendarEventRequest body, CalendarEvent target, bool preview = false) =>
+        ApplyAll(body, target, preview) is [var first, ..] ? first : null;
+
+    /// <summary>
+    /// Checks a request and copies it onto the event when nothing is wrong. Returns everything that
+    /// is wrong, in the form's order, so a save is refused once with all of it (calendar design
+    /// §17.2, added 2026-10-02); before, it stopped at the first, and a second save found the next.
+    /// </summary>
+    /// <remarks>
+    /// A check that needs an earlier one to have passed -- the end against a start that is not a
+    /// time -- is left out while that one fails, rather than said twice.
+    /// </remarks>
+    /// <param name="preview">As for <see cref="Apply"/>.</param>
+    public static List<string> ApplyAll(CalendarEventRequest body, CalendarEvent target, bool preview = false)
     {
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(target);
 
+        var problems = new List<string>();
+
         var title = body.Title?.Trim() ?? string.Empty;
         if (title.Length == 0 && !preview)
-            return "An event needs a title.";
+            problems.Add(CalendarVRChatChecks.NoTitle);
 
         if (title.Length > CalendarEvent.MaxTitleLength)
-            return $"The title is longer than {CalendarEvent.MaxTitleLength} characters.";
+            problems.Add($"The title is longer than {CalendarEvent.MaxTitleLength} characters.");
 
         var description = body.Description?.Trim() ?? string.Empty;
         if (description.Length > CalendarEvent.MaxDescriptionLength)
-            return $"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.";
+            problems.Add($"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.");
 
         // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
         // never sent, so it may stay empty until it is published.
         if (body.PublishToVRChat && !body.Draft && description.Length == 0 && !preview)
-            return "VRChat's calendar needs a description.";
+            problems.Add(CalendarVRChatChecks.NoDescription);
 
-        if (CalendarRepeat.FindZone(body.TimeZone) is not { } zone)
-            return "That time zone is not known.";
+        var zone = CalendarRepeat.FindZone(body.TimeZone);
+        if (zone is null)
+            problems.Add("That time zone is not known.");
 
-        if (ParseLocal(body.StartsAt) is not { } startLocal)
-            return "The start is not a date and time.";
+        var startLocal = ParseLocal(body.StartsAt);
+        if (startLocal is null)
+            problems.Add("The start is not a date and time.");
 
-        if (ParseLocal(body.EndsAt) is not { } endLocal)
-            return "The end is not a date and time.";
+        var endLocal = ParseLocal(body.EndsAt);
+        if (endLocal is null)
+            problems.Add("The end is not a date and time.");
 
-        var starts = zone.AtLeniently(startLocal).ToInstant().ToDateTimeOffset();
-        var ends = zone.AtLeniently(endLocal).ToInstant().ToDateTimeOffset();
+        DateTimeOffset starts = default;
+        DateTimeOffset ends = default;
 
-        if (ends <= starts)
-            return "The end must be after the start.";
+        if (zone is not null && startLocal is { } startAt && endLocal is { } endAt)
+        {
+            starts = zone.AtLeniently(startAt).ToInstant().ToDateTimeOffset();
+            ends = zone.AtLeniently(endAt).ToInstant().ToDateTimeOffset();
 
-        if (ends - starts > MaxLength)
-            return "An event can last at most 7 days.";
+            if (ends <= starts)
+                problems.Add("The end must be after the start.");
+            else if (ends - starts > MaxLength)
+                problems.Add("An event can last at most 7 days.");
+        }
 
         var repeat = string.IsNullOrWhiteSpace(body.Repeat) ? CalendarRepeats.None : body.Repeat.Trim();
         if (!CalendarRepeats.All.Contains(repeat))
-            return "Repeat must be none, daily, weekly or monthly.";
+            problems.Add("Repeat must be none, daily, weekly or monthly.");
 
         var days = (body.RepeatDays ?? []).Select(d => d.Trim().ToUpperInvariant()).Distinct().ToList();
         if (days.Any(d => !CalendarRepeat.IsDayName(d)))
-            return "Repeat days must be MO, TU, WE, TH, FR, SA or SU.";
+            problems.Add("Repeat days must be MO, TU, WE, TH, FR, SA or SU.");
 
         DateOnly? until = null;
         if (!string.IsNullOrWhiteSpace(body.RepeatUntil))
         {
             if (!DateOnly.TryParseExact(body.RepeatUntil.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-                return "The last date is not a date.";
-
-            if (parsed < DateOnly.FromDateTime(startLocal.ToDateTimeUnspecified()))
-                return "The last date is before the start.";
-
-            until = parsed;
+                problems.Add("The last date is not a date.");
+            else if (startLocal is { } firstDay && parsed < DateOnly.FromDateTime(firstDay.ToDateTimeUnspecified()))
+                problems.Add("The last date is before the start.");
+            else
+                until = parsed;
         }
 
         // Only a repeating event has them; a one-off ignores whatever the form still held.
@@ -1514,29 +1640,29 @@ public static class CalendarEndpoints
 
         var access = body.AccessType?.Trim() ?? "members";
         if (!AccessTypes.Contains(access))
-            return "Who can join must be members, plus or public.";
+            problems.Add("Who can join must be members, plus or public.");
 
         var region = body.Region?.Trim() ?? "us";
         if (!Regions.Contains(region))
-            return "The region must be us, use, eu or jp.";
+            problems.Add("The region must be us, use, eu or jp.");
 
         var visibility = body.Visibility?.Trim() ?? "group";
         if (!Visibilities.Contains(visibility))
-            return "Visibility must be group or public.";
+            problems.Add("Visibility must be group or public.");
 
         var category = string.IsNullOrWhiteSpace(body.Category) ? "hangout" : body.Category.Trim();
         if (!CalendarVRChatRequests.Categories.Contains(category))
-            return "That is not one of VRChat's categories.";
+            problems.Add("That is not one of VRChat's categories.");
 
         var platforms = (body.Platforms ?? []).Select(p => p.Trim()).Distinct().ToList();
         if (platforms.Any(p => !CalendarVRChatRequests.Platforms.Contains(p)))
-            return "That is not one of VRChat's platforms.";
+            problems.Add("That is not one of VRChat's platforms.");
 
         if (List(body.Languages, "languages") is { } languageProblem)
-            return languageProblem;
+            problems.Add(languageProblem);
 
         if (List(body.Tags, "tags") is { } tagProblem)
-            return tagProblem;
+            problems.Add(tagProblem);
 
         var imageUrl = string.IsNullOrWhiteSpace(body.ImageUrl) ? null : body.ImageUrl.Trim();
         if (imageUrl is not null)
@@ -1545,39 +1671,50 @@ public static class CalendarEndpoints
                 || !Uri.TryCreate(imageUrl, UriKind.Absolute, out var picture)
                 || picture.Scheme != Uri.UriSchemeHttps)
             {
-                return "The picture link must start with https://.";
+                problems.Add("The picture link must start with https://.");
             }
-
-            if (PublicAddresses.IsBlockedHost(picture.Host))
-                return "The picture link points at a private address.";
+            else if (PublicAddresses.IsBlockedHost(picture.Host))
+            {
+                problems.Add("The picture link points at a private address.");
+            }
         }
+
+        // A VRChat picture address pasted whole is kept as the id inside it. What cannot be an id
+        // at all is refused only while the event goes to VRChat: the box is hidden otherwise, and
+        // a problem in a box nobody can see could not be fixed (added 2026-10-02).
+        var vrchatImageId = CalendarVRChatChecks.PictureIdFrom(body.VRChatImageId);
+        if (body.PublishToVRChat && CalendarVRChatChecks.PictureIdProblem(vrchatImageId) is { } pictureIdProblem)
+            problems.Add(pictureIdProblem);
 
         var worldId = string.IsNullOrWhiteSpace(body.WorldId) ? null : body.WorldId.Trim();
         var channelId = string.IsNullOrWhiteSpace(body.ChannelId) ? null : body.ChannelId.Trim();
 
         if (body.PostToChannel && channelId is null && !preview)
-            return "Pick a channel to post to.";
+            problems.Add("Pick a channel to post to.");
 
         if (body.AutoOpen && worldId is null && body.WorldListId is null && !preview)
-            return "Pick a world to open the instance in.";
+            problems.Add("Pick a world to open the instance in.");
 
         var openBefore = body.OpenMinutesBefore ?? 10;
         if (openBefore is < 0 or > MaxOpenMinutesBefore)
-            return $"The instance can open between 0 and {MaxOpenMinutesBefore} minutes early.";
+            problems.Add($"The instance can open between 0 and {MaxOpenMinutesBefore} minutes early.");
 
         // The post goes in the channel post's channel; without one there is nowhere to say it.
         if (body.AnnounceFirstJoinInDiscord && (!body.PostToChannel || channelId is null) && !preview)
-            return "Posting when the first person joins needs a channel post.";
+            problems.Add("Posting when the first person joins needs a channel post.");
 
         var staff = (body.InviteStaffUserIds ?? []).Distinct().ToList();
         if (staff.Count > MaxInviteStaff)
-            return $"At most {MaxInviteStaff} staff.";
+            problems.Add($"At most {MaxInviteStaff} staff.");
+
+        if (problems.Count > 0)
+            return problems;
 
         target.Title = title;
         target.Description = description;
         target.StartsAt = starts;
         target.EndsAt = ends;
-        target.TimeZone = zone.Id;
+        target.TimeZone = zone!.Id;
         target.Repeat = repeat;
         target.RepeatEvery = every;
         target.RepeatUntil = repeat == CalendarRepeats.None ? null : until;
@@ -1605,7 +1742,7 @@ public static class CalendarEndpoints
         target.AccessType = access;
         target.Region = region;
         target.ImageUrl = imageUrl;
-        target.VRChatImageId = string.IsNullOrWhiteSpace(body.VRChatImageId) ? null : body.VRChatImageId.Trim();
+        target.VRChatImageId = vrchatImageId;
         target.Category = category;
         target.Languages = Clean(body.Languages);
         target.Platforms = platforms;
@@ -1630,7 +1767,7 @@ public static class CalendarEndpoints
         // first occurrence.
         if (repeat == CalendarRepeats.Weekly)
         {
-            var first = CalendarRepeat.DayName(startLocal.DayOfWeek);
+            var first = CalendarRepeat.DayName(startLocal!.Value.DayOfWeek);
             if (!days.Contains(first))
                 days.Add(first);
 
@@ -1641,7 +1778,7 @@ public static class CalendarEndpoints
             target.RepeatDays = [];
         }
 
-        return null;
+        return problems;
     }
 
     private static string? List(IReadOnlyList<string>? values, string what)
@@ -1807,16 +1944,23 @@ public static class CalendarEndpoints
                 [.. places
                     .Where(p => p.EventId == e.Id)
                     .OrderBy(p => p.Place, StringComparer.Ordinal)
-                    .Select(p => new CalendarPlaceView(
-                        p.Place,
-                        p.State,
-                        p.Error,
-                        p.ErrorAt,
-                        p.UpdatedAt,
-                        p.MissingGroupPermission is { } permission && settings?.ManagedGroupId is { Length: > 0 } groupId
-                            ? new MissingGroupPermission(permission, groupId, VRChatGroupPermissions.RoleNames(settings), p.Error)
-                            : null,
-                        CalendarVRChatPublisher.NotAdded(p)))],
+                    .Select(p =>
+                    {
+                        // Found before sending: nothing of VRChat's own to quote.
+                        var problems = p.State == CalendarPlaceStates.Failed ? p.Problems : null;
+
+                        return new CalendarPlaceView(
+                            p.Place,
+                            p.State,
+                            p.Error,
+                            p.ErrorAt,
+                            p.UpdatedAt,
+                            p.MissingGroupPermission is { } permission && settings?.ManagedGroupId is { Length: > 0 } groupId
+                                ? new MissingGroupPermission(permission, groupId, VRChatGroupPermissions.RoleNames(settings), problems is null ? p.Error : null)
+                                : null,
+                            p.State == CalendarPlaceStates.Failed,
+                            problems);
+                    })],
                 opening is null
                     ? null
                     : new CalendarOpeningView(

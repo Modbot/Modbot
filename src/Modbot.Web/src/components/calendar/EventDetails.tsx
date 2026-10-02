@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Popover } from 'radix-ui'
-import { X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { WorldLink } from '@/components/facts'
@@ -23,7 +23,7 @@ import {
 } from '@/lib/calendar'
 import { worldPickApi } from '@/lib/worldLists'
 import { sameDay } from '@/lib/calendarGrid'
-import { DESTINATION_LABEL, notSetUp, type CalendarReady } from '@/lib/calendarPlaces'
+import { anySending, DESTINATION_LABEL, notSetUp, placeLines, type CalendarReady } from '@/lib/calendarPlaces'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import { dateAt, type Spot } from './entry'
@@ -33,6 +33,9 @@ import { NotSetUp } from './NotSetUp'
 import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+
+/** How often an open event is read again while something on it is being sent. */
+const LOOK_AGAIN_MS = 4000
 
 /**
  * The event's state, and where it was made when that was VRChat (calendar design §12). A date
@@ -51,6 +54,7 @@ export function StateBadge({ event, dateCancelled = false }: { event: CalendarEv
   )
 }
 
+/** A place and its state. One being sent turns, so it never reads as stuck. */
 export function PlaceBadge({
   place,
   state,
@@ -60,6 +64,7 @@ export function PlaceBadge({
 }) {
   return (
     <Badge variant={state === 'failed' ? 'destructive' : state === 'published' ? 'secondary' : 'outline'}>
+      {state === 'waiting' && <Loader2 aria-hidden className="size-3 shrink-0 animate-spin motion-reduce:animate-none" />}
       {PLACE_LABEL[place] ?? place}: {PLACE_STATE_LABEL[state] ?? state}
     </Badge>
   )
@@ -97,6 +102,7 @@ function EventBody({
   results,
   canManage = false,
   onChanged,
+  now,
   children,
 }: {
   event: CalendarEvent
@@ -108,11 +114,15 @@ function EventBody({
   results?: ReactNode
   canManage?: boolean
   onChanged?: () => void
+  /** The page's clock, for whether the instance can be opened again. */
+  now?: Date
   children?: ReactNode
 }) {
   // A ticked place that cannot work as things are set up, while the event can still go anywhere.
   const pending = event.state === 'draft' || event.state === 'scheduled' || event.state === 'open'
   const missing = pending ? notSetUp(event, ready) : []
+  const lines = placeLines(event, ready)
+  const manage = canManage && onChanged ? onChanged : null
   const description = occurrence?.description || event.description
   const planned = occurrence ? new Date(occurrence.plannedStartsAt) : null
   const moved = planned !== null && planned.getTime() !== start.getTime()
@@ -145,7 +155,12 @@ function EventBody({
         <div>
           <span className="text-muted-foreground">Instance </span>
           {event.opening.error ? (
-            <span className="text-destructive">{event.opening.error}</span>
+            <>
+              <span className="text-destructive">{event.opening.error}</span>
+              {manage && now && canOpenNow(event, now) && (
+                <TryAgainButton className="ml-2" send={() => calendarApi.openNow(event.id)} onDone={manage} />
+              )}
+            </>
           ) : event.opening.instanceId ? (
             <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.instanceId!)}>
               {event.opening.closed ? 'Closed' : 'Open'}
@@ -171,21 +186,17 @@ function EventBody({
 
       {event.invites && <InviteCounts invites={event.invites} />}
 
-      {(event.places.length > 0 || missing.length > 0) && (
+      {(lines.length > 0 || missing.length > 0 || occurrence?.vrChatError) && (
         <div className="flex flex-col gap-1">
-          {event.places
-            .filter((p) => !missing.some((m) => m === p.place))
-            .map((p) => (
-              <div key={p.place} className="flex flex-wrap items-center gap-2">
-                <PlaceBadge place={p.place} state={p.state} />
-                {p.missingGroupPermission ? (
-                  <VRChatPermissionMissing missing={p.missingGroupPermission} className="text-destructive" />
-                ) : (
-                  p.error && <span className="text-destructive">{p.error}</span>
-                )}
-                {p.canTryAgain && canManage && onChanged && <PlaceTryAgain event={event} onDone={onChanged} />}
-              </div>
-            ))}
+          {lines.map(({ place, state, row }) => (
+            <div key={place} className="flex flex-wrap items-center gap-2">
+              <PlaceBadge place={place} state={state} />
+              {row && state === 'failed' && <PlaceProblems place={row} />}
+              {row?.canTryAgain && state === 'failed' && manage && (
+                <TryAgainButton send={() => calendarApi.tryAgain(event.id, place)} onDone={manage} />
+              )}
+            </div>
+          ))}
           {missing.map((place) => (
             <div key={place} className="flex flex-wrap items-center gap-2">
               <Badge variant="destructive">{place === 'instance' ? DESTINATION_LABEL.instance : PLACE_LABEL[place]}</Badge>
@@ -196,6 +207,12 @@ function EventBody({
             <div className="flex flex-wrap items-center gap-2">
               <PlaceBadge place="vrchat" state="failed" />
               <span className="text-destructive">{occurrence.vrChatError}</span>
+              {manage && (
+                <TryAgainButton
+                  send={() => calendarApi.tryAgain(event.id, 'vrchat', occurrence.plannedStartsAt)}
+                  onDone={manage}
+                />
+              )}
             </div>
           )}
         </div>
@@ -272,19 +289,53 @@ function WorldLine({
 }
 
 /**
- * "Try again" on the VRChat place, when VRChat gave no answer to adding the event and does not have
- * it: Modbot never sends that again on its own (calendar design §3.1).
+ * Why a place failed: the missing VRChat permission first, with where to give it, then every other
+ * problem Modbot found before sending, or else VRChat's or Discord's own words.
  */
-function PlaceTryAgain({ event, onDone }: { event: CalendarEvent; onDone: () => void }) {
+function PlaceProblems({ place }: { place: CalendarEvent['places'][number] }) {
+  const problems = place.problems
+
+  if (!problems)
+    return place.missingGroupPermission ? (
+      <VRChatPermissionMissing missing={place.missingGroupPermission} className="text-destructive" />
+    ) : (
+      place.error && <span className="text-destructive">{place.error}</span>
+    )
+
+  return (
+    <div className="flex basis-full flex-col gap-0.5 text-destructive">
+      {place.missingGroupPermission && <VRChatPermissionMissing missing={place.missingGroupPermission} />}
+      {problems.map((p) => (
+        <span key={p}>{p}</span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * "Try again" on anything that failed: a place, one date's VRChat change, or the instance (calendar
+ * design §17.4). Sends it again as it is. Pressed once: it stays off until the server has answered,
+ * and the server refuses a second press for a place that is already being sent again.
+ */
+function TryAgainButton({
+  send,
+  onDone,
+  className,
+}: {
+  send: () => Promise<unknown>
+  onDone: () => void
+  className?: string
+}) {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
   const press = () => {
+    if (sending) return
+
     setSending(true)
     setProblem(null)
 
-    calendarApi
-      .tryVRChatAgain(event.id)
+    send()
       .then(onDone)
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not try again.'))
       .finally(() => setSending(false))
@@ -292,8 +343,8 @@ function PlaceTryAgain({ event, onDone }: { event: CalendarEvent; onDone: () => 
 
   return (
     <>
-      <Button type="button" variant="outline" size="xs" disabled={sending} onClick={press}>
-        Try again
+      <Button type="button" variant="outline" size="xs" className={className} disabled={sending} onClick={press}>
+        {sending ? 'Sending…' : 'Try again'}
       </Button>
       {problem && <span className="text-destructive">{problem}</span>}
     </>
@@ -507,6 +558,25 @@ export function EventDetails({
   const [choosing, setChoosing] = useState<'edit' | 'cancel' | null>(null)
   const sheet = useMedia(SHEET)
 
+  // While anything is being sent, the event is read again every few seconds (calendar design
+  // §17.3). Not every step writes to the live stream -- an edit reaching a place that already had
+  // the event writes nothing -- so without this "Sending…" could outlast the sending.
+  const opening = event.opening
+  const sending =
+    anySending(placeLines(event, ready)) || (!!opening && !opening.error && !opening.instanceId && !opening.instanceMade)
+  const reread = useRef(actions.onChanged)
+
+  useEffect(() => {
+    reread.current = actions.onChanged
+  })
+
+  useEffect(() => {
+    if (!sending) return
+
+    const timer = window.setInterval(() => reread.current(), LOOK_AGAIN_MS)
+    return () => window.clearInterval(timer)
+  }, [sending])
+
   // The date clicked. A repeating event's Edit and Cancel ask "This date" or "All dates" while that
   // date is still to come and was not cancelled on its own (calendar design §2.2).
   const found = dateAt(event, start)
@@ -541,6 +611,7 @@ export function EventDetails({
       results={shown}
       canManage={actions.canManage}
       onChanged={actions.onChanged}
+      now={now}
     >
       {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
     </EventBody>
@@ -612,6 +683,7 @@ export function EventDetails({
               results={shown}
               canManage={actions.canManage}
               onChanged={actions.onChanged}
+              now={now}
             />
           </DialogContent>
         </Dialog>
