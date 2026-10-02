@@ -42,6 +42,51 @@ public static class DiscordGateOutcomes
 }
 
 /// <summary>
+/// The join gate's timing (join gate design §6), in one place for the pass that removes people and
+/// the list that says when it will.
+/// </summary>
+public static class DiscordGateTimes
+{
+    public const int ShortestWarningMinutes = 5;
+
+    public const int LongestWarningMinutes = 10;
+
+    /// <summary>
+    /// The least time between a delivered warning and the removal: half the removal time, never
+    /// less than <see cref="ShortestWarningMinutes"/> nor more than <see cref="LongestWarningMinutes"/>.
+    /// </summary>
+    public static TimeSpan WarningWindow(int removeAfterMinutes)
+        => TimeSpan.FromMinutes(Math.Clamp(removeAfterMinutes / 2, ShortestWarningMinutes, LongestWarningMinutes));
+
+    /// <summary>Whether the warning is due: half the removal time has counted.</summary>
+    public static bool WarningDue(int minutesCounted, int removeAfterMinutes) => minutesCounted * 2 >= removeAfterMinutes;
+
+    /// <summary>
+    /// The earliest somebody can be removed if nothing changes and their time keeps counting: when
+    /// their time runs out, and never before the warning window has passed since the warning reached
+    /// them. A warning not delivered yet is taken as going out when it falls due, or now when it is
+    /// overdue, so the answer is never sooner than a full window away. Null when they are never
+    /// removed: Watch only, or Remove after set to Never.
+    /// </summary>
+    public static DateTimeOffset? EarliestRemoval(DiscordGateEntry entry, int? removeAfterMinutes, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        if (entry.WatchOnly || removeAfterMinutes is not { } removeAfter)
+            return null;
+
+        var timeRunsOut = now.AddMinutes(Math.Max(0, removeAfter - entry.MinutesCounted));
+
+        var warning = entry.WarnedAt
+                      ?? now.AddMinutes(Math.Max(0, (removeAfter + 1) / 2 - entry.MinutesCounted));
+
+        var afterWarning = warning + WarningWindow(removeAfter);
+
+        return timeRunsOut > afterWarning ? timeRunsOut : afterWarning;
+    }
+}
+
+/// <summary>
 /// One person's time at the join gate, from joining to getting in, leaving or being removed (join
 /// gate design §11). A person who comes back gets a new row; at most one row per person is open.
 /// </summary>
@@ -61,12 +106,6 @@ public class DiscordGateEntry
 
     /// <summary>Made while the gate was Watch only: nothing is done in Discord for this row.</summary>
     public bool WatchOnly { get; set; }
-
-    /// <summary>
-    /// Never warned and never removed: somebody who was in the server before the gate went on and
-    /// pressed Get in anyway, or whose join Modbot never saw. They can still do the steps and get in.
-    /// </summary>
-    public bool NeverRemove { get; set; }
 
     /// <summary>
     /// Whether Discord said they had not accepted the server's rules yet, as the join showed it. Used

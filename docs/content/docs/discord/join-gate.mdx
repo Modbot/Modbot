@@ -56,9 +56,11 @@ Open **Settings → Discord** and find the **Join gate** card.
 </Steps>
 
 Only people who join after you turn the gate on are gated. Everybody already in your server is left
-alone. If somebody who was already in presses **Get in** anyway, they can do the steps and get the
-member role, but they are never warned or removed. Staff joining (a Discord account connected to a
-Modbot account) and the server's owner are not gated.
+alone: no clock, no warning, no removal. **Get in** only works for somebody the gate saw join.
+Anybody else who presses it, someone who was here before the gate or whose member role a moderator
+took away, is told to ask the staff; it never gives a role back. To let them in, give them the
+member role in Discord yourself. Staff joining (a Discord account connected to a Modbot account)
+and the server's owner are not gated.
 
 ## What a new member sees
 
@@ -87,7 +89,8 @@ there are always at least 10 minutes.
 At the end, the bot removes them from the server. They are not banned, and can join again. Just
 before removing anybody, the bot looks at them in Discord as they are at that moment, and leaves
 them alone if they have the member role by then, are a bot or the server's owner, hold a role that
-moderates, or are connected to a Modbot staff account.
+moderates, are connected to a Modbot staff account, or have done every step and accepted your
+server's rules in Discord by then (they get the role instead).
 
 **Time only counts while the hold-up is theirs.** It stops while:
 
@@ -100,8 +103,8 @@ moderates, or are connected to a Modbot staff account.
 So nobody is removed because Modbot could not let them in. When Modbot is down, new members wait in
 the gate channel; nobody gets in and nobody is removed until it is back.
 
-Changing **Remove after** puts everybody waiting back to no later than halfway, and they are warned
-again with the new time. Nobody is ever past the deadline the moment you save.
+Changing **Remove after** or the steps puts everybody waiting back to no later than halfway, and
+they are warned again. Nobody is ever past the deadline the moment you save.
 
 If Discord refuses to remove somebody (they hold a role above the bot's, or the bot lacks Kick
 Members), the bot stops trying for that person and records **Could not remove at the join gate**.
@@ -114,7 +117,9 @@ got in that minute are let in a minute or two later.
 ## Seeing who is waiting
 
 **Discord → Members** shows an **At the gate** card above the member list while the gate is not
-off: who is waiting, when they joined, which steps they have done, and when they will be removed.
+off: who is waiting, when they joined, which steps they have done, and the **Earliest removal**, the
+soonest the bot could remove them if nothing changes, counting the warning they must get first.
+It is empty when **Remove after** is **Never**. In Watch only the column is **Would remove**.
 
 With the **Manage the join gate** permission you also see:
 

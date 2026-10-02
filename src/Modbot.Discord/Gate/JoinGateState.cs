@@ -69,6 +69,12 @@ public sealed class JoinGateState
         }
     }
 
+    /// <summary>
+    /// Where the next pass carries on in the open rows: after this join time. Null starts at the
+    /// oldest (join gate design §6).
+    /// </summary>
+    public DateTimeOffset? PageAfter { get; set; }
+
     /// <summary>When the gate message was last rewritten or checked, so a deleted one is noticed within the hour.</summary>
     public DateTimeOffset? MessageCheckedAt { get; set; }
 

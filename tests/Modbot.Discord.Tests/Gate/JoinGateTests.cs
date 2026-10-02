@@ -344,7 +344,7 @@ public class JoinGateTests
         await MinutesAsync(services, gateway, 1);
         Assert.NotNull((await EntryAsync(services, "2001")).WarnedAt);
 
-        await MinutesAsync(services, gateway, (int)JoinGate.WarningWindow(30).TotalMinutes - 1);
+        await MinutesAsync(services, gateway, (int)DiscordGateTimes.WarningWindow(30).TotalMinutes - 1);
         Assert.Empty(gateway.Moderation);
 
         await MinutesAsync(services, gateway, 1);
@@ -376,7 +376,7 @@ public class JoinGateTests
 
         Assert.NotNull(warnedAt);
         Assert.NotNull(removedAt);
-        Assert.True(removedAt - warnedAt >= JoinGate.WarningWindow(30));
+        Assert.True(removedAt - warnedAt >= DiscordGateTimes.WarningWindow(30));
     }
 
     [Fact]
@@ -448,27 +448,78 @@ public class JoinGateTests
         Assert.False(await db.DiscordGateEntries.AnyAsync(e => e.DiscordUserId == "2006", Ct));
     }
 
-    /// <summary>Review, 2026-10-02 (a): "everybody already in your server is left alone" stays true.</summary>
+    /// <summary>
+    /// Review, 2026-10-02 (a) and round 2 (d): somebody the gate did not see join -- already in the
+    /// server, or whose member role a moderator took away -- gets no clock and no role from Get in.
+    /// Only staff let them in.
+    /// </summary>
     [Fact]
-    public async Task SomebodyAlreadyInTheServerPressingGetIn_IsNeverWarnedOrRemoved()
+    public async Task SomebodyTheGateDidNotSeeJoin_IsToldToAskStaff_AndNoClockStarts()
     {
         await using var services = await SetUpAsync(_db, removeAfter: 30);
         var gateway = new FakeGateway();
 
-        await PressAsync(services, gateway, "2007", JoinGateButtons.GetIn);
+        var getIn = await PressAsync(services, gateway, "2007", JoinGateButtons.GetIn);
+        var agree = await PressAsync(services, gateway, "2007", JoinGateButtons.Agree);
         await MinutesAsync(services, gateway, 60);
 
-        var entry = await EntryAsync(services, "2007");
-        Assert.True(entry.NeverRemove);
-        Assert.Equal(0, entry.MinutesCounted);
-        Assert.Null(entry.WarnedAt);
-        Assert.Null(entry.ClosedAt);
+        Assert.Equal(JoinGate.AskStaff, getIn.Text);
+        Assert.Equal(JoinGate.AskStaff, agree.Text);
+        Assert.Empty(gateway.RoleChanges);
         Assert.Empty(gateway.Moderation);
         Assert.Empty(gateway.ActionMessages);
 
-        // They can still do the steps and get in.
-        var reply = await PressAsync(services, gateway, "2007", JoinGateButtons.Agree);
-        Assert.Equal(JoinGate.YoureIn, reply.Text);
+        await using var db = services.Database.NewContext();
+        Assert.False(await db.DiscordGateEntries.AnyAsync(e => e.DiscordUserId == "2007", Ct));
+    }
+
+    /// <summary>Round 2 (e): done with the steps and, live, through Discord's rules: not removed.</summary>
+    [Fact]
+    public async Task SomebodyDoneWhoAcceptedTheRulesSinceTheListWasRead_IsNotRemoved()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+
+        // They joined still in Discord's rules screening, and agreed straight away.
+        using (var scope = services.Scope())
+        {
+            var joining = new DiscordMemberSnapshot("2010", "newcomer", "newcomer", null, false, services.Clock.UtcNow, [], null, IsPending: true);
+            await scope.ServiceProvider.GetRequiredService<JoinGate>()
+                .JoinedAsync(gateway, new DiscordMemberJoin(Guild, "2010", "newcomer", false, joining), Ct);
+        }
+
+        Assert.Equal(JoinGate.RulesFirst, (await PressAsync(services, gateway, "2010", JoinGateButtons.Agree)).Text);
+
+        // Pending as far as Modbot has stored, so time counts; live, they have accepted the rules.
+        gateway.LiveMembers["2010"] = new DiscordMemberSnapshot("2010", "newcomer", "newcomer", null, false, null, [], null, IsPending: false);
+        await MinutesAsync(services, gateway, 45);
+
+        Assert.Empty(gateway.Moderation);
+        var entry = await EntryAsync(services, "2010");
+        Assert.NotEqual(DiscordGateOutcomes.Removed, entry.Outcome);
+        Assert.Contains(gateway.RoleChanges, c => c.UserId == "2010" && c.Added);
+    }
+
+    [Fact]
+    public void TheEarliestRemoval_IsNeverSoonerThanAWarningWindowAfterTheWarning()
+    {
+        var now = new DateTimeOffset(2026, 10, 2, 12, 0, 0, TimeSpan.Zero);
+        var window = DiscordGateTimes.WarningWindow(30);
+
+        // Time ran out long ago, but the warning never reached them: a full window from now.
+        var overdue = new DiscordGateEntry { MinutesCounted = 45 };
+        Assert.Equal(now + window, DiscordGateTimes.EarliestRemoval(overdue, 30, now));
+
+        // Warned five minutes ago with time run out: the rest of the window.
+        var warned = new DiscordGateEntry { MinutesCounted = 30, WarnedAt = now.AddMinutes(-5) };
+        Assert.Equal(now.AddMinutes(-5) + window, DiscordGateTimes.EarliestRemoval(warned, 30, now));
+
+        // Just joined: when their time runs out.
+        Assert.Equal(now.AddMinutes(30), DiscordGateTimes.EarliestRemoval(new DiscordGateEntry(), 30, now));
+
+        // Never, and Watch only: nothing to show.
+        Assert.Null(DiscordGateTimes.EarliestRemoval(new DiscordGateEntry(), null, now));
+        Assert.Null(DiscordGateTimes.EarliestRemoval(new DiscordGateEntry { WatchOnly = true }, 30, now));
     }
 
     /// <summary>Review, 2026-10-02 (b).</summary>

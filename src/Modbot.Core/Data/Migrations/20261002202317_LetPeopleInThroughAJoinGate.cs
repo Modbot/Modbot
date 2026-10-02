@@ -117,7 +117,6 @@ namespace Modbot.Core.Data.Migrations
                     discord_username = table.Column<string>(type: "text", nullable: false),
                     joined_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     watch_only = table.Column<bool>(type: "boolean", nullable: false),
-                    never_remove = table.Column<bool>(type: "boolean", nullable: false),
                     pending = table.Column<bool>(type: "boolean", nullable: false),
                     agreed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     minutes_counted = table.Column<int>(type: "integer", nullable: false),

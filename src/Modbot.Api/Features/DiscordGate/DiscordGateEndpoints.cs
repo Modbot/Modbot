@@ -19,8 +19,8 @@ namespace Modbot.Api.Features.DiscordGate;
 /// <param name="EighteenPlus">Their linked VRChat account is 18+ verified. Null without See profiles.</param>
 /// <param name="MinutesCounted">The minutes counted against them so far.</param>
 /// <param name="RemovedAt">
-/// When they will be removed if they do nothing and time keeps counting; null when removal is never
-/// or the gate is Watch only.
+/// The earliest they can be removed if they do nothing and time keeps counting, and never sooner than
+/// the warning window after a warning that reached them; null in Watch only and when removal is Never.
 /// </param>
 /// <param name="WouldRemoveAt">Watch only: when they would have been removed.</param>
 /// <param name="Problem">The last thing that went wrong for them, in a sentence.</param>
@@ -116,9 +116,7 @@ public static class DiscordGateEndpoints
                         seesLinks ? r.EighteenPlus : null,
                         r.Entry.MinutesCounted,
                         r.Entry.WarnedAt,
-                        removeAfter is { } minutes && !r.Entry.WatchOnly
-                            ? now.AddMinutes(Math.Max(0, minutes - r.Entry.MinutesCounted))
-                            : null,
+                        DiscordGateTimes.EarliestRemoval(r.Entry, removeAfter, now),
                         r.Entry.WouldRemoveAt,
                         r.Entry.Problem))
                     .ToList();
@@ -138,8 +136,10 @@ public static class DiscordGateEndpoints
             .WithDescription(
                 "The Discord join gate's mode, whether new joiners are held, and everybody waiting at "
                 + "it, oldest joiner first (at most 200). `linked` and `eighteenPlus` need See profiles "
-                + "and are null without it. `removedAt` is when somebody will be removed if nothing "
-                + "changes; `wouldRemoveAt` is when Watch only would have removed them.")
+                + "and are null without it. `removedAt` is the earliest somebody can be removed if "
+                + "nothing changes, never sooner than the warning window after their warning reached "
+                + "them, and null in Watch only or when removal is Never; `wouldRemoveAt` is when Watch "
+                + "only would have removed them.")
             .Produces<DiscordGateResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 

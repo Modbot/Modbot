@@ -2291,10 +2291,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("minutes_counted");
 
-                    b.Property<bool>("NeverRemove")
-                        .HasColumnType("boolean")
-                        .HasColumnName("never_remove");
-
                     b.Property<string>("Outcome")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")

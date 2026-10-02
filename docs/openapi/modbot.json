@@ -11369,7 +11369,7 @@
           "Settings"
         ],
         "summary": "Update join gate settings",
-        "description": "Save the join gate's settings. `mode` is off, watch (record what would happen, do nothing in Discord) or on. Changing the mode ends everybody's current time at the gate and gates only people who join from then on. `removeAfterMinutes` is one of `removeChoices`, or null for never; changing it starts everybody waiting no later than halfway again, with a new warning. `needsEighteenPlus` needs `needsLink`, and `needsLink` needs account linking to be set up.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the join gate's settings. `mode` is off, watch (record what would happen, do nothing in Discord) or on. Changing the mode ends everybody's current time at the gate and gates only people who join from then on. `removeAfterMinutes` is one of `removeChoices`, or null for never; changing it, or the steps, starts everybody waiting no later than halfway again, with a new warning. `needsEighteenPlus` needs `needsLink`, and `needsLink` needs account linking to be set up.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordGateSettings",
         "requestBody": {
           "content": {
@@ -11439,7 +11439,7 @@
           "Discord"
         ],
         "summary": "Who is at the join gate",
-        "description": "The Discord join gate's mode, whether new joiners are held, and everybody waiting at it, oldest joiner first (at most 200). `linked` and `eighteenPlus` need See profiles and are null without it. `removedAt` is when somebody will be removed if nothing changes; `wouldRemoveAt` is when Watch only would have removed them.\n\nNeeds the `ViewMembers` permission.",
+        "description": "The Discord join gate's mode, whether new joiners are held, and everybody waiting at it, oldest joiner first (at most 200). `linked` and `eighteenPlus` need See profiles and are null without it. `removedAt` is the earliest somebody can be removed if nothing changes, never sooner than the warning window after their warning reached them, and null in Watch only or when removal is Never; `wouldRemoveAt` is when Watch only would have removed them.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordGate",
         "responses": {
           "200": {

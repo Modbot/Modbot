@@ -366,7 +366,7 @@ export type DiscordGateRow = {
   eighteenPlus: boolean | null
   minutesCounted: number
   warnedAt: string | null
-  /** When they will be removed if nothing changes; null when never or Watch only. */
+  /** The earliest they can be removed if nothing changes, a full warning window after their warning; null when never or Watch only. */
   removedAt: string | null
   /** Watch only: when they would have been removed. */
   wouldRemoveAt: string | null

@@ -66,11 +66,25 @@ Modbot **gives the member role when the steps are done**. It does not put a "wai
 and take it off. So when Modbot is down, new joiners wait and nobody is let in unchecked (§10).
 
 **Who is gated.** Only people who join while the gate is on, and who do not hold the member role.
-Everyone already in the server is left alone. Somebody who presses **Get in** without the gate having
-seen them join (they were here before, Modbot missed the join, or they are staff) can do the steps
-and get the role, but their row is marked never-remove: no clock, no warning, no removal. Staff
-joining (a Discord account a Modbot account holds), the server's owner and bots are not gated at all.
-A join always starts a new row; a row still open from before is closed as left.
+Everyone already in the server is left alone. **Get in** works only for somebody with an open row,
+which only a join (or the catch-up after downtime) makes. Anybody else who presses it -- here before
+the gate, or whose member role a moderator took away -- is told to ask the staff, and no row or clock
+starts (review round 2: Get in must not hand back a role taken away on purpose). Staff let them in by
+giving the role in Discord. Staff joining (a Discord account a Modbot account holds), the server's
+owner and bots are not gated at all. A join always starts a new row; a row still open from before is
+closed as left.
+
+**Changing the steps** re-bases the clocks as changing Remove after does (§6): everybody waiting goes
+back to no later than halfway and is warned again.
+
+**The pass** looks at the open rows a page of 200 at a time, carrying on where the last pass stopped
+and starting over at the oldest after the end, so a crowd never keeps the newest from being seen. A
+row skipped by a pass only loses time (at most two minutes count a pass).
+
+**Locking.** Joins, presses, staff actions and the pass read the settings under the gate's lock.
+Welcome messages, from a join or from the catch-up, go out after the lock is released, so a raid's
+direct messages never make a Hold or a settings save wait. The halfway warning stays inside the pass,
+because whether it was delivered decides the row.
 
 ## 4. What a new member sees
 
@@ -124,7 +138,11 @@ step. A server that is not set up for linking cannot save the link step.
 - **A live look first.** Just before a kick the bot reads the member from Discord (REST, not the
   stored list) and does not kick when they now hold the member role (closed as let in), are a bot,
   the owner, a Modbot staff account's Discord, or hold a role with Administrator, Kick Members, Ban
-  Members, Manage Server, Manage Roles or Timeout Members (closed as not gated), or have left. This
+  Members, Manage Server, Manage Roles or Timeout Members (closed as not gated), or have left; nor
+  when they have done every step and, live, accepted Discord's rules (the stored list was behind:
+  the row stays open, marked as through the rules, and the next pass gives the role). The At the
+  gate list's earliest removal follows the same rules: never sooner than the warning window after
+  a warning that reached them, and empty in Watch only and when removal is Never. This
   is also why removals need not wait for the member list to be read again after a restart: the
   stored list is never what a kick is decided on.
 - **Discord refuses a kick** (they outrank the bot, or Kick Members is missing): the row closes as
@@ -211,7 +229,8 @@ counts as let in.
 
 ## 11. Permissions, Discord limits, privacy
 
-**Bot permissions** (`DiscordInvite.PermissionsFor`, only while the gate is on): Manage Roles (the
+**Bot permissions** (`DiscordInvite.PermissionsFor`, only while the gate is On; Watch only asks for
+nothing, so the invite link is opened again when the gate goes On): Manage Roles (the
 bot's role above the member role); View Channel, Send Messages, Embed Links and Read Message History
 in the gate channel (the message is fetched by id before each rewrite); Kick Members while **Remove
 after** is not Never; Manage Server only while **Allow pausing invites** is on. **Intent:** Server
@@ -236,8 +255,7 @@ it. Changing the gate's settings is Change settings, as for every other card.
 
 **What is stored** (`discord_gate_entry`, one row per person per time through the gate): Discord id
 and name, when they joined, Watch only or not, when they agreed, minutes counted, when they were
-warned, whether they are never removed, whether Discord said they had not accepted the rules when
-they joined, how it ended (passed, let in, let in in Discord, removed, could not remove, not gated,
+warned, whether Discord said they had not accepted the rules when they joined, how it ended (passed, let in, let in in Discord, removed, could not remove, not gated,
 left, gate changed) and when, who let them in or removed them, the last problem. Nothing about the person beyond what linking already keeps.
 The warning facts take the short retention class; the rest are moderation history.
 `WhatModbotKeeps` and the `/me` docs gain one line, "Whether you got in through the server's join

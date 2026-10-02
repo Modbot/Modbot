@@ -51,8 +51,9 @@ public static class DiscordInvite
 
         // The join gate gives the member role, removes people who do not finish when the operator
         // set a removal time, and pauses invites only when the operator allowed it (join gate
-        // design §11). Watch only does nothing in Discord, but asks now so switching it on works.
-        if (settings.DiscordGateMode is DiscordGateModes.Watch or DiscordGateModes.On)
+        // design §11), and only while it is On: Watch only does nothing in Discord, so it asks for
+        // nothing. Turning the gate On makes the link ask for more; open it again then.
+        if (settings.DiscordGateMode == DiscordGateModes.On)
         {
             permissions |= ManageRoles;
 

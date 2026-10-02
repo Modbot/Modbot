@@ -121,7 +121,7 @@ export function AtTheGateCard({ me }: { me: CurrentUser }) {
               <Th>Person</Th>
               <Th>Joined</Th>
               <Th>Steps</Th>
-              <Th>{gate.mode === 'watch' ? 'Would remove' : 'Remove at'}</Th>
+              <Th>{gate.mode === 'watch' ? 'Would remove' : 'Earliest removal'}</Th>
               {acts && (
                 <Th>
                   <span className="sr-only">Actions</span>
@@ -149,7 +149,7 @@ export function AtTheGateCard({ me }: { me: CurrentUser }) {
                 <span title={dateTime(r.joinedAt)}>{timeAgo(r.joinedAt, now) ?? dateTime(r.joinedAt)}</span>
               </Td>
               <Td>{steps(gate, r)}</Td>
-              <Td className="font-mono">{removal(gate, r) ?? <span className="text-muted-foreground">—</span>}</Td>
+              <Td className="font-mono">{removal(gate, r)}</Td>
               {acts && (
                 <Td>
                   <Actions row={r} busy={busy} run={run} />

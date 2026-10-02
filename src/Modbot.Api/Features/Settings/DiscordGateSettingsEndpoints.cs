@@ -111,9 +111,9 @@ public static class DiscordGateSettingsEndpoints
                 "Save the join gate's settings. `mode` is off, watch (record what would happen, do "
                 + "nothing in Discord) or on. Changing the mode ends everybody's current time at the "
                 + "gate and gates only people who join from then on. `removeAfterMinutes` is one of "
-                + "`removeChoices`, or null for never; changing it starts everybody waiting no later "
-                + "than halfway again, with a new warning. `needsEighteenPlus` needs `needsLink`, and "
-                + "`needsLink` needs account linking to be set up.")
+                + "`removeChoices`, or null for never; changing it, or the steps, starts everybody "
+                + "waiting no later than halfway again, with a new warning. `needsEighteenPlus` "
+                + "needs `needsLink`, and `needsLink` needs account linking to be set up.")
             .Produces<DiscordGateSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -191,8 +191,12 @@ public static class DiscordGateSettingsEndpoints
             // A hold belongs to the gate that was on; a new mode starts without one.
             settings.DiscordGateHeldAt = null;
         }
-        else if (settings.DiscordGateRemoveAfterMinutes != body.RemoveAfterMinutes)
+        else if (settings.DiscordGateRemoveAfterMinutes != body.RemoveAfterMinutes
+                 || settings.DiscordGateNeedsLink != body.NeedsLink
+                 || settings.DiscordGateNeedsEighteenPlus != body.NeedsEighteenPlus)
         {
+            // A new removal time, or new steps somebody waiting now has to do as well: nobody is past
+            // the deadline at once, and everybody is warned again with what is asked of them now.
             await RestartClocksAsync(db, body.RemoveAfterMinutes, ct);
         }
 
@@ -214,8 +218,8 @@ public static class DiscordGateSettingsEndpoints
     }
 
     /// <summary>
-    /// A new removal time must not put anybody past it at once (join gate design §6). Everybody
-    /// waiting goes back to no later than halfway and loses the warning they had, so the next pass
+    /// A new removal time, or new steps, must not put anybody past the deadline at once (join gate
+    /// design §6). Everybody waiting goes back to no later than halfway and loses the warning they had, so the next pass
     /// warns them again with the new deadline and the removal comes at least the warning window
     /// after that. Removal turned off clears the time counted altogether.
     /// </summary>
