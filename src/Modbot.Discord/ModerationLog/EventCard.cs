@@ -33,7 +33,7 @@ namespace Modbot.Discord.ModerationLog;
 /// limits, never mid-escape-sequence.
 /// </para>
 /// </remarks>
-public static class EventCard
+public static partial class EventCard
 {
     /// <summary>The most of a description a card shows.</summary>
     /// <remarks>
@@ -96,6 +96,11 @@ public static class EventCard
                 => WatchChanged(e, style, picture),
 
             FactType.GroupInfoChanged => GroupDetails(e, style),
+            FactType.GroupProfileChanged => GroupDetails(e, style),
+
+            _ when IsPlannedEvent(e.Type) => PlannedEvent(e, style, picture),
+            _ when e.SubjectPlatform == FactPlatform.Discord => DiscordCard(e, style),
+            _ when AboutAThing(e) => Thing(e, style),
 
             _ => Plain(e, style, picture),
         };
@@ -149,7 +154,7 @@ public static class EventCard
         var view = ModerationEventView.From(fact, new Dictionary<string, string?>());
         var names = view.What.Changes.Select(c => c.Name);
 
-        if (fact.Type == FactType.GroupInfoChanged)
+        if (fact.Type is FactType.GroupInfoChanged or FactType.GroupProfileChanged)
             names = names.Where(n => !GroupBookkeeping.Contains(n));
 
         return string.Join(',', names.Select(n => n.ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal));
@@ -500,15 +505,26 @@ public static class EventCard
     }
 
     /// <summary>By and When, which every card has, then whatever the kind of event adds.</summary>
+    /// <param name="lead">Fields that go before By, such as the person a Discord card is about.</param>
     private static List<DiscordEmbedField> Fields(
-        ModerationEventView e, CardStyle style, IReadOnlyList<DiscordEmbedField> extra)
+        ModerationEventView e,
+        CardStyle style,
+        IReadOnlyList<DiscordEmbedField> extra,
+        IReadOnlyList<DiscordEmbedField>? lead = null)
     {
-        var fields = new List<DiscordEmbedField>(2 + extra.Count);
+        var fields = new List<DiscordEmbedField>(2 + extra.Count + (lead?.Count ?? 0));
+
+        if (lead is not null)
+            fields.AddRange(lead);
 
         if (e.ActorId is not null)
         {
             fields.Add(new DiscordEmbedField(
-                "By", CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress), Inline: true));
+                "By",
+                e.ActorPlatform == FactPlatform.Discord
+                    ? DiscordPerson(e.ActorName, e.ActorId, style)
+                    : CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress),
+                Inline: true));
         }
 
         fields.Add(new DiscordEmbedField(

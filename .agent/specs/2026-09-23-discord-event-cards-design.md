@@ -165,3 +165,45 @@ leaves the field off rather than printing an id.
 
 It does not add an event type, change which types may be sent, or change routing. It does not read
 `auditData`. It does not make the log post more messages than it does now.
+
+## 9. Modbot's own facts and Discord's (added 2026-10-02)
+
+Three cards from a live server showed only an id where the subject should be: "Planned event
+changed" with the event's id and nothing to say which event or what changed; "Event failed to
+publish" with the id and no word of where or why; "Joined a voice channel" with a Discord user id and
+no channel. All three fell through to §2's fallback, which looks the subject up among VRChat profiles
+and prints the id when it finds nobody. A calendar event's id, a Discord account's id and a list's id
+are never in that table.
+
+**Modbot's own payloads are read by name too.** §3 keeps the card to the names the audit-log mapper
+lifts. The calendar, the Discord member recorder and the page saves are Modbot's own producers, whose
+names are written in this repository, so the card reads theirs as well (`ModbotDetails`), and only in
+the cards for those kinds of event.
+
+**A calendar card is titled by the event.** Every calendar fact carries the event's title; it heads
+the card, linked to the event on the calendar page (`/calendar?event=`, which the calendar feed links
+to as well), and what happened sits on the author line where the group's name would be. A fact with no
+title reads "A calendar event". A deleted event links nowhere, as there is nothing left to open.
+
+- A change lists what changed, in the calendar form's own words for each field, before and after, up
+  to the same eight lines a group change lists. Times are Discord's timestamp markup, which each reader
+  sees in their own time zone, as on every other card. An id or an address is named as changed and
+  not printed. A change with nothing visible in it says "No visible change": the route asked for every
+  change, and a missing card reads as a channel that stopped working.
+- A failure says **Where** (VRChat calendar, Discord event, Discord channel post) and **Why**:
+  VRChat's or Discord's own words, then the fix when the producer knew it. Discord's refusals already
+  name the permission the bot needs; a VRChat refusal for a group permission Modbot's account lacks now
+  writes that permission's sentence into the fact as `fix`. Older facts have no place or error, and
+  their cards say only which event.
+- Created, opened, finished, one date changed or cancelled, an instance opened, a world picked: the
+  event's name and the one or two facts that matter (the start, the date, the world).
+
+**A Discord account is never a bare id.** The name comes from Modbot's member list, else from the
+name the fact kept when it was written; with neither, the card names the person with Discord's own
+mention `<@id>` in a **Who** field, which Discord draws as their name in the server. Mentions in a
+card ping nobody: every message the bot sends turns them off. Channels and roles are named the same
+way (`<#id>`, `<@&id>`), and a move shows where from and where to.
+
+**A thing Modbot keeps is titled by its name.** A list, a role, a giveaway, a webhook: the name the
+payload carries heads the card, under what happened. One with no name in its payload (the calendar
+feed, a settings change) is headed by the group with the event's label as its title.

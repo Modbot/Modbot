@@ -43,6 +43,11 @@ public sealed record EventChange(string Name, string? Before, string? After);
 /// Every <c>{old, new}</c> pair the payload carried, which is the one shape several kinds of event
 /// share and the one a card can draw without knowing the kind.
 /// </param>
+/// <param name="Modbot">
+/// The names Modbot's own producers write -- the calendar's, the Discord member recorder's, and the
+/// page saves' -- read only by the cards for those kinds of event. Null when the payload was not
+/// readable.
+/// </param>
 public sealed record EventDetails(
     string? RoleId = null,
     string? RoleName = null,
@@ -54,13 +59,76 @@ public sealed record EventDetails(
     string? Visibility = null,
     string? Kind = null,
     string? AccessType = null,
-    IReadOnlyList<EventChange>? Changed = null)
+    IReadOnlyList<EventChange>? Changed = null,
+    ModbotDetails? Modbot = null)
 {
     /// <summary>An event whose payload carried none of this.</summary>
     public static EventDetails None { get; } = new();
 
     /// <summary>What changed, never null.</summary>
     public IReadOnlyList<EventChange> Changes => Changed ?? [];
+
+    /// <summary>Modbot's own names, never null.</summary>
+    public ModbotDetails Own => Modbot ?? ModbotDetails.None;
+}
+
+/// <summary>
+/// The parts of a payload Modbot wrote itself that a card may read, each under the name its
+/// producer writes.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Kept apart from <see cref="EventDetails"/>, whose names are the audit-log mapper's and no
+/// others. These are the calendar's (<c>CalendarEventFields</c>, the publishers, the opener, the
+/// world picker, the invites), the Discord member recorder's, and the names the page saves write
+/// for lists, roles, giveaways and the like. Each name here is one a producer in this repository
+/// writes, never a guess.
+/// </para>
+/// <para>
+/// <see cref="Before"/> and <see cref="After"/> are the scalar members of the <c>before</c> and
+/// <c>after</c> objects a change fact carries, as text, in the order they were written. A nested
+/// value in them is skipped: no card draws one.
+/// </para>
+/// </remarks>
+public sealed record ModbotDetails(
+    string? Name = null,
+    string? DisplayName = null,
+    string? ChannelId = null,
+    string? ChannelName = null,
+    string? FromChannelId = null,
+    string? FromChannelName = null,
+    string? Count = null,
+    string? Until = null,
+    string? Old = null,
+    string? New = null,
+    string? Place = null,
+    string? Action = null,
+    string? Error = null,
+    string? Problem = null,
+    string? Fix = null,
+    string? Date = null,
+    string? StartsAt = null,
+    string? EndsAt = null,
+    string? OccurrenceStartsAt = null,
+    string? On = null,
+    string? WorldId = null,
+    string? WorldName = null,
+    string? List = null,
+    string? EventId = null,
+    IReadOnlyList<KeyValuePair<string, string?>>? Before = null,
+    IReadOnlyList<KeyValuePair<string, string?>>? After = null)
+{
+    public static ModbotDetails None { get; } = new();
+
+    /// <summary>A name out of <c>after</c> or <c>before</c>, for a change fact that carries none of its own.</summary>
+    public string? NameInChange(string key)
+        => Pick(After, key) ?? Pick(Before, key);
+
+    private static string? Pick(IReadOnlyList<KeyValuePair<string, string?>>? values, string key)
+        => values?.FirstOrDefault(v => string.Equals(v.Key, key, StringComparison.Ordinal)).Value is { } value
+           && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
 }
 
 /// <summary>
@@ -78,6 +146,15 @@ public sealed record EventDetails(
 /// <param name="InstanceId">The fact's own instance column, beside <paramref name="WorldId"/>.</param>
 /// <param name="WorldName">From <c>vrchat_world</c> when Modbot has read that world; else null.</param>
 /// <param name="Details">The payload, as far as a card may read it. Null means none was readable.</param>
+/// <param name="SubjectPlatform">
+/// Which system the subject's id belongs to. A Discord account is shown as a Discord mention when
+/// its name is not known, never as a bare id; a VRChat person has no such thing.
+/// </param>
+/// <param name="ActorPlatform">Which system the actor's id belongs to, for the same reason.</param>
+/// <param name="Worlds">
+/// World names by id, for the worlds a payload names on its own (a calendar event's world, before
+/// and after a change) rather than in the fact's world column.
+/// </param>
 public sealed record ModerationEventView(
     long Id,
     string Type,
@@ -90,27 +167,47 @@ public sealed record ModerationEventView(
     string? WorldId = null,
     string? InstanceId = null,
     string? WorldName = null,
-    EventDetails? Details = null)
+    EventDetails? Details = null,
+    FactPlatform SubjectPlatform = FactPlatform.VRChat,
+    FactPlatform? ActorPlatform = null,
+    IReadOnlyDictionary<string, string?>? Worlds = null)
 {
     /// <summary>The payload as a card reads it, never null.</summary>
     public EventDetails What => Details ?? EventDetails.None;
 
+    /// <summary>A world's name by its id, when Modbot has read that world.</summary>
+    public string? WorldNamed(string? worldId)
+        => worldId is not null && Worlds is not null && Worlds.TryGetValue(worldId, out var name) && !string.IsNullOrWhiteSpace(name)
+            ? name
+            : null;
+
     /// <param name="worlds">World names by world id, for the events that name an instance.</param>
+    /// <param name="discordNames">
+    /// Discord accounts' names by Discord user id, for the subjects and actors whose platform is
+    /// Discord. Looked up only for those: ids are opaque text, and a VRChat and a Discord id are
+    /// never compared.
+    /// </param>
     public static ModerationEventView From(
         ModbotEvent fact,
         IReadOnlyDictionary<string, string?> names,
-        IReadOnlyDictionary<string, string?>? worlds = null)
+        IReadOnlyDictionary<string, string?>? worlds = null,
+        IReadOnlyDictionary<string, string?>? discordNames = null)
     {
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(names);
 
         var (actorDisplayName, description, details) = ReadPayload(fact.Data);
 
-        names.TryGetValue(fact.SubjectId, out var subjectName);
+        var subjectName = NameOf(fact.SubjectPlatform, fact.SubjectId, names, discordNames);
+
+        // A Discord fact names its member at the time it was written; Modbot's member list may be
+        // older than that, or may never have listed them.
+        if (fact.SubjectPlatform == FactPlatform.Discord && string.IsNullOrWhiteSpace(subjectName))
+            subjectName = details.Own.DisplayName;
 
         string? actorName = null;
         if (fact.ActorId is not null)
-            names.TryGetValue(fact.ActorId, out actorName);
+            actorName = NameOf(fact.ActorPlatform ?? FactPlatform.VRChat, fact.ActorId, names, discordNames);
 
         string? worldName = null;
         if (worlds is not null && fact.WorldId is not null)
@@ -121,14 +218,49 @@ public sealed record ModerationEventView(
             fact.Type,
             fact.OccurredAt,
             fact.SubjectId,
-            subjectName,
+            string.IsNullOrWhiteSpace(subjectName) ? null : subjectName,
             fact.ActorId,
-            actorName ?? actorDisplayName,
+            string.IsNullOrWhiteSpace(actorName) ? actorDisplayName : actorName,
             description,
             fact.WorldId,
             fact.InstanceId,
             worldName,
-            details);
+            details,
+            fact.SubjectPlatform,
+            fact.ActorPlatform,
+            worlds);
+    }
+
+    /// <summary>
+    /// The worlds a fact's payload names on its own, so the poster can read their names with the
+    /// rest: a calendar event's world, and its world before and after a change.
+    /// </summary>
+    public static IEnumerable<string> WorldsNamedIn(ModbotEvent fact)
+    {
+        ArgumentNullException.ThrowIfNull(fact);
+
+        var own = ReadPayload(fact.Data).Details.Own;
+
+        var inChange = (own.Before ?? []).Concat(own.After ?? [])
+            .Where(v => string.Equals(v.Key, "worldId", StringComparison.Ordinal))
+            .Select(v => v.Value);
+
+        return inChange.Prepend(own.WorldId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id!)
+            .Distinct(StringComparer.Ordinal);
+    }
+
+    private static string? NameOf(
+        FactPlatform platform,
+        string id,
+        IReadOnlyDictionary<string, string?> names,
+        IReadOnlyDictionary<string, string?>? discordNames)
+    {
+        if (platform == FactPlatform.Discord)
+            return discordNames is not null && discordNames.TryGetValue(id, out var discord) ? discord : null;
+
+        return names.TryGetValue(id, out var name) ? name : null;
     }
 
     private static (string? ActorDisplayName, string? Description, EventDetails Details) ReadPayload(string data)
@@ -155,7 +287,8 @@ public sealed record ModerationEventView(
                 Visibility: Text(root, "visibility"),
                 Kind: Text(root, "type"),
                 AccessType: Text(root, "accessType"),
-                Changed: Changes(root));
+                Changed: Changes(root),
+                Modbot: Own(root));
 
             return (Text(root, "actorDisplayName"), Text(root, "description"), details);
         }
@@ -193,6 +326,61 @@ public sealed record ModerationEventView(
 
         return pairs.Count == 0 ? null : pairs;
     }
+
+    /// <summary>The names Modbot's own producers write (<see cref="ModbotDetails"/>).</summary>
+    private static ModbotDetails Own(JsonElement root) => new(
+        Name: Text(root, "name"),
+        DisplayName: Text(root, "displayName"),
+        ChannelId: Text(root, "channelId"),
+        ChannelName: Text(root, "channelName"),
+        FromChannelId: Text(root, "from"),
+        FromChannelName: Text(root, "fromName"),
+        Count: Scalar(root, "count"),
+        Until: Text(root, "until"),
+        Old: Text(root, "old"),
+        New: Text(root, "new"),
+        Place: Text(root, "place"),
+        Action: Text(root, "action"),
+        Error: Text(root, "error"),
+        Problem: Text(root, "problem"),
+        Fix: Text(root, "fix"),
+        Date: Text(root, "date"),
+        StartsAt: Text(root, "startsAt"),
+        EndsAt: Text(root, "endsAt"),
+        OccurrenceStartsAt: Text(root, "occurrenceStartsAt"),
+        On: Text(root, "on"),
+        WorldId: Text(root, "worldId"),
+        WorldName: Text(root, "worldName"),
+        List: Text(root, "list"),
+        EventId: Text(root, "eventId"),
+        Before: Members(root, "before"),
+        After: Members(root, "after"));
+
+    /// <summary>The scalar members of one object in the payload, as text, in the order written.</summary>
+    private static IReadOnlyList<KeyValuePair<string, string?>>? Members(JsonElement root, string name)
+    {
+        if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var members = new List<KeyValuePair<string, string?>>();
+
+        foreach (var member in value.EnumerateObject())
+        {
+            if (member.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
+                continue;
+
+            members.Add(new KeyValuePair<string, string?>(member.Name, Value(member.Value)));
+        }
+
+        return members;
+    }
+
+    /// <summary>A string, a number or a flag as text.</summary>
+    private static string? Scalar(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value)
+           && value.ValueKind is JsonValueKind.String or JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False
+            ? Value(value)
+            : null;
 
     /// <summary>
     /// One side of a pair as text: the string itself, nothing for a null, and the raw JSON for
@@ -253,6 +441,41 @@ public static class DisplayNames
             foreach (var account in accounts)
                 names[account.Id.ToString()] = account.Username;
         }
+
+        return names;
+    }
+}
+
+/// <summary>
+/// What each of a set of Discord accounts is called in the server, from Modbot's member list, by
+/// Discord user id.
+/// </summary>
+/// <remarks>
+/// The list is as fresh as the last time Modbot read the server's members, so a name here can be
+/// missing; a card then shows the person as a Discord mention, which Discord draws with their name.
+/// </remarks>
+public static class DiscordNames
+{
+    public static async Task<Dictionary<string, string?>> LoadAsync(
+        ModbotContext db, IEnumerable<string?> ids, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var wanted = ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).Distinct(StringComparer.Ordinal).ToArray();
+        if (wanted.Length == 0)
+            return new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        var rows = await db.DiscordMembers.AsNoTracking()
+            .Where(m => wanted.Contains(m.UserId) && m.DisplayName != "")
+            .Select(m => new { m.UserId, m.DisplayName })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var names = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+            names.TryAdd(row.UserId, row.DisplayName);
 
         return names;
     }

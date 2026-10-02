@@ -252,12 +252,15 @@ public class RouteRolesAndPeopleTests
         var pass = await RunAsync(services, gateway, ct);
 
         Assert.Equal(4, pass.Posted);
-        // No profiles stored for any of these subjects, so each author line falls back to the raw id.
-        var who = Assert.Single(gateway.Posts).Embeds.Select(e => e.AuthorName).ToList();
+        // No profiles stored for any of these subjects. A VRChat card's author line falls back to the
+        // raw id; a Discord card names the account with Discord's mention in its Who field instead.
+        var who = Assert.Single(gateway.Posts).Embeds
+            .Select(e => e.AuthorName ?? e.Fields.FirstOrDefault(f => f.Name == "Who")?.Value)
+            .ToList();
         Assert.Contains(TeaSpoon, who);
-        Assert.Contains(DiscordOnly, who);
+        Assert.Contains($"<@{DiscordOnly}>", who);
         Assert.Contains(JessieVRChat, who);
-        Assert.Contains(JessieDiscord, who);
+        Assert.Contains($"<@{JessieDiscord}>", who);
     }
 
     private static Task<long> DiscordJoinAsync(TestServices services, string discordId, CancellationToken ct)

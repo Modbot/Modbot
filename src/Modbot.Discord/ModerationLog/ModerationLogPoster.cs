@@ -275,7 +275,21 @@ public sealed class ModerationLogPoster
         // The worlds the instance events happened in, so a warn or an instance kick can say where
         // by name. Only the events that carry a world are asked for, and a world Modbot has never
         // read simply has no name, which leaves that card without the field.
-        var worlds = await WorldNames.LoadAsync(_db, matching.Select(m => m.WorldId), ct).ConfigureAwait(false);
+        // A calendar event's own world, and its world before and after a change, are named in the
+        // payload rather than in the column, and are read with the rest.
+        var worlds = await WorldNames.LoadAsync(
+                _db,
+                matching.Select(m => m.WorldId).Concat(matching.SelectMany(ModerationEventView.WorldsNamedIn)),
+                ct)
+            .ConfigureAwait(false);
+
+        // The Discord accounts the events are about or were done by, from Modbot's member list.
+        var discordNames = await DiscordNames.LoadAsync(
+                _db,
+                matching.Where(m => m.SubjectPlatform == FactPlatform.Discord).Select(m => m.SubjectId)
+                    .Concat(matching.Where(m => m.ActorPlatform == FactPlatform.Discord).Select(m => m.ActorId)),
+                ct)
+            .ConfigureAwait(false);
 
         // Only the people a card is headed by, so a pass does not read pictures for the actors,
         // whose names sit in a field and carry no picture.
@@ -322,7 +336,7 @@ public sealed class ModerationLogPoster
 
         if (cards[0].Earlier is { } post)
         {
-            var (embeds, files) = await DrawAsync([cards[0]], names, worlds, faces, style, showPictures, ct)
+            var (embeds, files) = await DrawAsync([cards[0]], names, worlds, discordNames, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
 
             // The files are sent again rather than left as they were, so a person whose picture
@@ -366,7 +380,7 @@ public sealed class ModerationLogPoster
             if (sent > 0)
                 await delay(_options.GapBetweenMessages, ct).ConfigureAwait(false);
 
-            var (embeds, files) = await DrawAsync(chunk, names, worlds, faces, style, showPictures, ct)
+            var (embeds, files) = await DrawAsync(chunk, names, worlds, discordNames, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
 
             var outcome = await gateway
@@ -462,6 +476,7 @@ public sealed class ModerationLogPoster
         IReadOnlyList<Repeats> cards,
         IReadOnlyDictionary<string, string?> names,
         IReadOnlyDictionary<string, string?> worlds,
+        IReadOnlyDictionary<string, string?> discordNames,
         IReadOnlyDictionary<string, string?> faces,
         CardStyle style,
         bool showPictures,
@@ -472,7 +487,7 @@ public sealed class ModerationLogPoster
 
         foreach (var card in cards)
         {
-            var view = ModerationEventView.From(card.Latest, names, worlds);
+            var view = ModerationEventView.From(card.Latest, names, worlds, discordNames);
             var face = faces.GetValueOrDefault(view.SubjectId);
 
             var embed = EventCard.For(

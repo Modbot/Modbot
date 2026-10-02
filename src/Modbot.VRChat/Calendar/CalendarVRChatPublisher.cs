@@ -305,16 +305,22 @@ public sealed class CalendarVRChatPublisher
 
         if (outcome == CalendarPublishOutcome.Failed && !_waitingToLook)
         {
-            await _facts.RecordAsync(
-                FactType.PlannedEventPublishFailed,
-                work.Event,
-                new JsonObject
-                {
-                    ["place"] = CalendarPlaces.VRChat,
-                    ["action"] = _couldNotCheck is null ? work.Action : "check",
-                    ["error"] = _couldNotCheck ?? work.Place.Error,
-                },
-                ct: ct).ConfigureAwait(false);
+            var failed = new JsonObject
+            {
+                ["place"] = CalendarPlaces.VRChat,
+                ["action"] = _couldNotCheck is null ? work.Action : "check",
+                ["error"] = _couldNotCheck ?? work.Place.Error,
+            };
+
+            // A refusal for a group permission Modbot's VRChat account lacks says which one, so the
+            // fact's card in a Discord channel can say what to give it as the calendar page does.
+            if (_couldNotCheck is null && work.Place.MissingGroupPermission is { Length: > 0 } permission)
+            {
+                failed["fix"] = VRChatGroupPermissions.Sentence(
+                    new MissingGroupPermission(permission, groupId, null, null));
+            }
+
+            await _facts.RecordAsync(FactType.PlannedEventPublishFailed, work.Event, failed, ct: ct).ConfigureAwait(false);
         }
 
         return new CalendarPublishResult(outcome, work.Event.Id, work.Action);

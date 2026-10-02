@@ -145,6 +145,43 @@ public static class CardLink
         return For(CardSubject.DiscordPerson, name, id, publicAddress);
     }
 
+    /// <summary>
+    /// The address that opens one calendar event on Modbot's calendar page, or null when no public
+    /// address is set. The page's own <c>?event=</c>, which the calendar feed links to as well.
+    /// </summary>
+    public static string? CalendarEvent(string id, string? publicAddress)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        return string.IsNullOrWhiteSpace(publicAddress)
+            ? null
+            : $"{publicAddress.TrimEnd('/')}/calendar?event={Uri.EscapeDataString(id)}";
+    }
+
+    /// <summary>
+    /// A Discord account as Discord's own mention, <c>&lt;@id&gt;</c>: Discord draws it as the
+    /// person's name in the server, whether or not Modbot knows that name. A mention in a card
+    /// pings nobody: every message the bot sends turns mentions off.
+    /// </summary>
+    public static string DiscordMention(string id) => $"<@{Inert(id)}>";
+
+    /// <summary>A Discord channel as Discord's own mention, which Discord draws as its name.</summary>
+    public static string ChannelMention(string id) => $"<#{Inert(id)}>";
+
+    /// <summary>A Discord role as Discord's own mention, which Discord draws as its name.</summary>
+    public static string RoleMention(string id) => $"<@&{Inert(id)}>";
+
+    /// <summary>
+    /// An id with the characters that would end or break the mention taken out. Nothing is checked
+    /// about its shape (foundation §3.1.1).
+    /// </summary>
+    private static string Inert(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        return new string(id.Where(c => c is not ('<' or '>' or '`' or '@' or '#' or '&') && !char.IsWhiteSpace(c)).ToArray());
+    }
+
     private static string Prefix(CardSubject kind) => kind switch
     {
         CardSubject.World => "world",
