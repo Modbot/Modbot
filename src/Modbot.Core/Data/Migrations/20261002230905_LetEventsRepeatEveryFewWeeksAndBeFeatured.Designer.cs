@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002224500_LetEventsRepeatEveryFewWeeksAndBeFeatured")]
+    [Migration("20261002230905_LetEventsRepeatEveryFewWeeksAndBeFeatured")]
     partial class LetEventsRepeatEveryFewWeeksAndBeFeatured
     {
         /// <inheritdoc />
@@ -2257,6 +2257,91 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_discord_event_route");
 
                     b.ToTable("discord_event_route", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordGateEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("AgreedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("agreed_at");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<string>("DiscordUsername")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_username");
+
+                    b.Property<string>("GuildId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("guild_id");
+
+                    b.Property<DateTimeOffset>("JoinedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at");
+
+                    b.Property<DateTimeOffset?>("LastCountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_counted_at");
+
+                    b.Property<int>("MinutesCounted")
+                        .HasColumnType("integer")
+                        .HasColumnName("minutes_counted");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("outcome");
+
+                    b.Property<bool>("Pending")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pending");
+
+                    b.Property<string>("Problem")
+                        .HasColumnType("text")
+                        .HasColumnName("problem");
+
+                    b.Property<DateTimeOffset?>("WarnedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("warned_at");
+
+                    b.Property<bool>("WatchOnly")
+                        .HasColumnType("boolean")
+                        .HasColumnName("watch_only");
+
+                    b.Property<DateTimeOffset?>("WouldRemoveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("would_remove_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_gate_entry");
+
+                    b.HasIndex("JoinedAt")
+                        .HasDatabaseName("ix_discord_gate_entry_waiting")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.HasIndex("GuildId", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_discord_gate_entry_open")
+                        .HasFilter("closed_at IS NULL");
+
+                    b.ToTable("discord_gate_entry", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordLinkCode", b =>
@@ -6757,6 +6842,70 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DiscordEighteenPlusRoleId")
                         .HasColumnType("text")
                         .HasColumnName("discord_eighteen_plus_role_id");
+
+                    b.Property<string>("DiscordGateChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_channel_id");
+
+                    b.Property<DateTimeOffset?>("DiscordGateHeldAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_gate_held_at");
+
+                    b.Property<bool>("DiscordGateHoldOnSpike")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_gate_hold_on_spike");
+
+                    b.Property<string>("DiscordGateMemberRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_member_role_id");
+
+                    b.Property<string>("DiscordGateMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_message");
+
+                    b.Property<string>("DiscordGateMessageChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_message_channel_id");
+
+                    b.Property<string>("DiscordGateMessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_message_id");
+
+                    b.Property<string>("DiscordGateMessagePosted")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gate_message_posted");
+
+                    b.Property<string>("DiscordGateMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("off")
+                        .HasColumnName("discord_gate_mode");
+
+                    b.Property<bool>("DiscordGateNeedsEighteenPlus")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_gate_needs_eighteen_plus");
+
+                    b.Property<bool>("DiscordGateNeedsLink")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_gate_needs_link");
+
+                    b.Property<bool>("DiscordGatePauseInvites")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_gate_pause_invites");
+
+                    b.Property<int?>("DiscordGateRemoveAfterMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("discord_gate_remove_after_minutes");
+
+                    b.Property<DateTimeOffset?>("DiscordGateSpikeSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_gate_spike_seen_at");
+
+                    b.Property<DateTimeOffset?>("DiscordGateStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_gate_started_at");
 
                     b.Property<string>("DiscordGuildId")
                         .HasColumnType("text")
