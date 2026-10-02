@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002232803_KeepACroppedDiscordPicture")]
+    [Migration("20261002234635_KeepACroppedDiscordPicture")]
     partial class KeepACroppedDiscordPicture
     {
         /// <inheritdoc />
@@ -1304,6 +1304,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("OccurrenceStartsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurrence_starts_at");
+
+                    b.PrimitiveCollection<string>("Problems")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("problems");
 
                     b.Property<string>("SentFingerprint")
                         .HasMaxLength(64)
