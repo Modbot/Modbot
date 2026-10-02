@@ -2929,6 +2929,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("members_listed_at");
 
+                    b.Property<DateTimeOffset?>("MembersReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("members_read_at");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")

@@ -120,21 +120,15 @@ public sealed class ListRoleSync
             return;
         }
 
-        if (plan.Forget.Count > 0)
-        {
-            var forget = plan.Forget.ToList();
-            await _db.DiscordListRolesGiven
-                .Where(g => g.ListRoleId == pairing.Id && forget.Contains(g.DiscordUserId))
-                .ExecuteDeleteAsync(ct)
-                .ConfigureAwait(false);
-        }
-
-        var taking = plan.Taking;
+        var losing = plan.Losing;
         var roleName = plan.RoleName ?? pairing.DiscordRoleName ?? pairing.DiscordRoleId;
 
-        if (plan.Stops && !(pairing.RemovalsAllowed is { } allowed && taking <= allowed))
+        // The brake comes before anything is forgotten or sent: a member list that suddenly shows
+        // everybody gone must not cost Modbot its record of whom it gave the role to.
+        if (plan.Stops && !(pairing.RemovalsAllowed is { } allowed && losing <= allowed))
         {
             await StopAsync(pairing, plan, roleName, tally, ct).ConfigureAwait(false);
+            tally.Left += plan.Changes.Count;
             return;
         }
 
@@ -144,14 +138,27 @@ public sealed class ListRoleSync
 
         pairing.StoppedAt = null;
         pairing.StoppedTaking = null;
-        pairing.Problem = null;
+        pairing.Problem = plan.HeldBecause;
 
-        foreach (var change in plan.Changes)
+        if (plan.Forget.Count > 0)
         {
+            var forget = plan.Forget.ToList();
+            await _db.DiscordListRolesGiven
+                .Where(g => g.ListRoleId == pairing.Id && forget.Contains(g.DiscordUserId))
+                .ExecuteDeleteAsync(ct)
+                .ConfigureAwait(false);
+
+            Allowed(pairing, plan.Leaving);
+        }
+
+        for (var i = 0; i < plan.Changes.Count; i++)
+        {
+            var change = plan.Changes[i];
+
             if (tally.Given + tally.Taken >= MaxChangesPerPass)
             {
-                tally.Left++;
-                continue;
+                tally.Left += plan.Changes.Count - i;
+                break;
             }
 
             var give = change.What == ListRoleChangeKinds.Give;
@@ -164,6 +171,10 @@ public sealed class ListRoleSync
 
             if (outcome.Done)
             {
+                // The stored member row follows at once, rather than waiting for Discord's update to
+                // come back: the next pass reads it.
+                await MemberHoldsAsync(guildId, change.DiscordUserId, pairing.DiscordRoleId, give, ct).ConfigureAwait(false);
+
                 if (give)
                 {
                     await RememberGivenAsync(pairing.Id, change, ct).ConfigureAwait(false);
@@ -172,6 +183,7 @@ public sealed class ListRoleSync
                 else
                 {
                     await ForgetGivenAsync(pairing.Id, change.DiscordUserId, ct).ConfigureAwait(false);
+                    Allowed(pairing, 1);
                     tally.Taken++;
                 }
 
@@ -186,8 +198,8 @@ public sealed class ListRoleSync
                 continue;
             }
 
-            // Left the server between the read and the write: leaving took the role, and the next
-            // pass will not see them at all.
+            // Discord says they are not in the server: leaving took the role, and the next pass will
+            // not see them at all.
             if (outcome.NotInServer)
             {
                 await ForgetGivenAsync(pairing.Id, change.DiscordUserId, ct).ConfigureAwait(false);
@@ -195,24 +207,54 @@ public sealed class ListRoleSync
             }
 
             // A role gone or a permission the bot lost fails the same way for everybody after this
-            // one, so the pairing stops for this pass and says why.
+            // one, so the pairing stops for this pass and says why. What it did not get to is left.
             pairing.Problem = outcome.RoleGone ? "That role is not in the Discord server." : outcome.Error;
             tally.Problem = pairing.Problem;
+            tally.Left += plan.Changes.Count - i - 1;
             break;
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>Lowers what Apply allowed by the losses just made, so it covers only the backlog it was given for.</summary>
+    private static void Allowed(DiscordListRole pairing, int used)
+    {
+        if (pairing.RemovalsAllowed is { } allowed)
+            pairing.RemovalsAllowed = Math.Max(0, allowed - used);
+    }
+
+    /// <summary>
+    /// Adds or removes this one role on the stored member row, in one statement, leaving every other
+    /// role as it is. Never a write of the whole list, which could undo an update that arrived since.
+    /// </summary>
+    private Task<int> MemberHoldsAsync(string guildId, string discordUserId, string roleId, bool holds, CancellationToken ct)
+        => holds
+            ? _db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE discord_member
+                SET roles = roles || jsonb_build_array({roleId}::text)
+                WHERE guild_id = {guildId} AND user_id = {discordUserId}
+                  AND NOT (roles @> jsonb_build_array({roleId}::text))
+                """,
+                ct)
+            : _db.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                UPDATE discord_member
+                SET roles = roles - {roleId}::text
+                WHERE guild_id = {guildId} AND user_id = {discordUserId}
+                """,
+                ct);
+
     private async Task StopAsync(DiscordListRole pairing, ListRolePlan plan, string roleName, Tally tally, CancellationToken ct)
     {
         var first = pairing.StoppedAt is null;
-        var taking = plan.Taking;
+        var taking = plan.Losing;
 
         pairing.StoppedAt ??= _clock.UtcNow;
         pairing.StoppedTaking = taking;
         pairing.RemovalsAllowed = null;
-        pairing.Problem = $"Stopped: this would take {roleName} from {taking} people at once.";
+        pairing.Problem = $"Stopped: {taking} people would lose {roleName} at once.";
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 

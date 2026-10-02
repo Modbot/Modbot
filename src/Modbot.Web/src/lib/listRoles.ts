@@ -50,6 +50,10 @@ export type ListRolePlan = {
   noLinkedDiscord: number
   notInServer: number
   holders: number
+  /** Given the role, then seen leaving the server: nothing is sent, Modbot forgets it gave it. */
+  leaving: number
+  takesHeld: number
+  heldBecause: string | null
   stops: boolean
   problem: string | null
   changes: ListRoleChange[]
@@ -68,5 +72,6 @@ export const listRoleApi = {
   /** One saved list role, one not saved yet, or with neither every one that is on. */
   preview: (body: { id?: string; listId?: string; discordRoleId?: string }) =>
     http.post<ListRolePreview>(`${base}/preview`, body),
-  apply: (id: string, taking: number) => http.post<ListRoles>(`${base}/${encodeURIComponent(id)}/apply`, { taking }),
+  apply: (id: string, taking: number, leaving: number) =>
+    http.post<ListRoles>(`${base}/${encodeURIComponent(id)}/apply`, { taking, leaving }),
 }

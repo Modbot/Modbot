@@ -20,6 +20,22 @@ nothing else. No other role, no nickname, no message.
   `Modbot: no longer in the list “Regulars”`.
 - **Everything is off until you switch it on**, and each list's role has its own switch too.
 
+## What Modbot needs to see
+
+Modbot knows who holds the role from the bot's copy of your member list, kept up to date by the
+member updates Discord sends. That needs the **Server Members Intent** on the bot (see
+[Bot setup](/discord/bot-setup)).
+
+- **Taking a role back depends on Modbot seeing member updates.** Modbot only forgets that it gave
+  somebody the role when it sees them leave the server. Without member updates it cannot tell.
+- **Nothing changes until the bot has read the whole member list** since it last connected. Until
+  then the card says **Waiting for the member list.** If the bot is disconnected, or the intent is
+  off, it stays that way.
+- **A list that asks about VRChat takes no roles away while the VRChat group's member list is old.**
+  If Modbot has not finished reading the group's member list, or its audit log, in the last 6
+  hours, people may only look like they left the group. Roles are still given; none are taken away
+  until VRChat has been read again.
+
 ## Who gets the role
 
 A Discord role can only go to somebody in your Discord server. A list can hold VRChat accounts,
@@ -37,7 +53,8 @@ loses the role the next minute.
 
 ## Which roles a list can give
 
-Lists are for community roles. A list cannot give:
+Lists are for community roles, and only lists with rules: a list with no rules would let everybody
+in, so it cannot give a role. A list cannot give:
 
 - **@everyone**, or a role that belongs to a bot or an integration;
 - a role the bot cannot give: it needs **Manage Roles**, and its own role above that one;
@@ -56,8 +73,7 @@ why on the card.
 
 | To do this | You need |
 | --- | --- |
-| Set it up, switch it on and off | **Manage role and ban sync** and **Manage settings** |
-| See who would change | **See members** and **See profiles** as well |
+| Set it up, see who would change, switch it on and off | **Manage role and ban sync**, **Manage settings**, **See members** and **See profiles** |
 | **Apply**, when a list stopped | **Run role and ban sync**, with **See members** and **See profiles** |
 
 ## Give a role from a list
@@ -99,13 +115,15 @@ minute from then on, and changes at most 50 roles a minute.
 ## When a list would take the role from many people
 
 If one check would take the role from more than 25 people at once, or from more than half of the
-people who hold it, Modbot changes nothing for that list and the card says **Stopped**. That usually
-means the list's rules changed, or something went wrong: it is a chance to look before anybody
-loses a role.
+people who hold it, Modbot changes nothing for that list and the card says **Stopped**. It never
+stops for fewer than 3 people. People Modbot gave the role to and saw leave the server count too,
+so a member list that suddenly shows everybody gone stops it before Modbot forgets anything. That
+usually means the list's rules changed, or something went wrong: it is a chance to look before
+anybody loses a role.
 
 Press **Show who would change** on that list, read who would lose the role, then press **Apply**.
-Modbot carries on, taking the role from the people you saw. If more people would lose it than you
-saw, Apply is refused; look again.
+Modbot carries on, taking the role from the people you saw, and counts them off as it goes. If more
+people would lose it than you saw, Apply is refused; look again.
 
 Giving the role is never stopped this way. Look before you switch a list's role on.
 

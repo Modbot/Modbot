@@ -36,6 +36,9 @@ public class ListRoleEndpointTests(PostgresFixture db)
     {
         Guid listId;
 
+        // Started first, so what is written below is fresh by the host's own clock.
+        var host = await ApiTestHost.StartAsync(db);
+
         await using (var context = db.NewContext())
         {
             // Pairings first: a list one names cannot go while it does.
@@ -54,13 +57,19 @@ public class ListRoleEndpointTests(PostgresFixture db)
             settings.DiscordLinkedRoleId = null;
             settings.DiscordEighteenPlusRoleId = null;
 
-            var now = DateTimeOffset.UtcNow;
+            var now = host.Clock.UtcNow;
+
+            // The VRChat member list and the Discord member list both read just now.
+            settings.MemberSweepCompletedAt = now;
+            settings.AuditLogPolledAt = now;
 
             context.DiscordServers.Add(new DiscordServer
             {
                 GuildId = Guild,
                 Name = "The server",
                 BotCanManageRoles = true,
+                MembersReadAt = now,
+                SeenThrough = now,
                 RefreshedAt = now,
                 UpdatedAt = now,
             });
@@ -88,7 +97,7 @@ public class ListRoleEndpointTests(PostgresFixture db)
             await context.SaveChangesAsync(Ct);
         }
 
-        return (await ApiTestHost.StartAsync(db), listId);
+        return (host, listId);
     }
 
     private static DiscordRole Role(string id, string name, long? permissions, DateTimeOffset now, bool everyone = false) => new()
@@ -149,6 +158,47 @@ public class ListRoleEndpointTests(PostgresFixture db)
         var (_, cookie) = await host.SignedInAsync(Everything, Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, (await AddAsync(host, cookie, listId, roleId)).StatusCode);
+    }
+
+    /// <summary>A list with no rules would give the role to everybody in the server.</summary>
+    [Fact]
+    public async Task AListThatLetsEverybodyInIsRefused()
+    {
+        var started = await StartAsync();
+        await using var host = started.Host;
+        var (_, cookie) = await host.SignedInAsync(Everything, Ct);
+
+        Guid empty;
+        await using (var context = db.NewContext())
+        {
+            var list = new SavedList
+            {
+                Id = Guid.CreateVersion7(),
+                Name = "Everybody",
+                Rules = """{"kind":"allOf","rules":[]}""",
+                CreatedAt = host.Clock.UtcNow,
+                UpdatedAt = host.Clock.UtcNow,
+            };
+            context.SavedLists.Add(list);
+            await context.SaveChangesAsync(Ct);
+            empty = list.Id;
+        }
+
+        var response = await AddAsync(host, cookie, empty, Regular);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("That list lets everybody in. Give it rules first.", await ErrorOf(response));
+    }
+
+    /// <summary>Saving follows the preview, which names people in a list, so it needs what that needs.</summary>
+    [Fact]
+    public async Task SavingNeedsSeeMembersAndSeeProfiles()
+    {
+        var started = await StartAsync();
+        await using var host = started.Host;
+        var (_, setUpOnly) = await host.SignedInAsync(SetUp, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await AddAsync(host, setUpOnly, started.ListId, Regular)).StatusCode);
     }
 
     /// <summary>Two lists giving one role would undo each other every minute.</summary>
@@ -261,7 +311,7 @@ public class ListRoleEndpointTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             var pairing = await context.DiscordListRoles.SingleAsync(Ct);
-            var now = DateTimeOffset.UtcNow;
+            var now = host.Clock.UtcNow;
 
             foreach (var member in new[] { "9201", "9202", "9203", "9204" })
             {
@@ -291,10 +341,10 @@ public class ListRoleEndpointTests(PostgresFixture db)
         Assert.Equal(4, plan.GetProperty("taking").GetInt32());
         Assert.True(plan.GetProperty("stops").GetBoolean());
 
-        var tooFew = await host.SendJsonAsync(HttpMethod.Post, $"/api/discord-list-roles/{id}/apply", new { taking = 3 }, cookie, Ct);
+        var tooFew = await host.SendJsonAsync(HttpMethod.Post, $"/api/discord-list-roles/{id}/apply", new { taking = 3, leaving = 0 }, cookie, Ct);
         Assert.Equal(HttpStatusCode.Conflict, tooFew.StatusCode);
 
-        var applied = await host.SendJsonAsync(HttpMethod.Post, $"/api/discord-list-roles/{id}/apply", new { taking = 4 }, cookie, Ct);
+        var applied = await host.SendJsonAsync(HttpMethod.Post, $"/api/discord-list-roles/{id}/apply", new { taking = 4, leaving = 0 }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, applied.StatusCode);
         Assert.Equal(4, (await ApiTestHost.BodyOf(applied, Ct)).GetProperty("roles")[0].GetProperty("removalsAllowed").GetInt32());
     }

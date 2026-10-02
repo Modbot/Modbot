@@ -64,7 +64,8 @@ public sealed record ListRoleUpdate(bool Enabled);
 public sealed record ListRolePreviewRequest(Guid? Id = null, Guid? ListId = null, string? DiscordRoleId = null);
 
 /// <param name="Taking">How many removals the person saw in the preview they are agreeing to.</param>
-public sealed record ListRoleApplyRequest(int Taking);
+/// <param name="Leaving">How many people the preview showed leaving the server, whose given-rows go.</param>
+public sealed record ListRoleApplyRequest(int Taking, int Leaving = 0);
 
 /// <param name="What"><c>give</c> or <c>take</c>.</param>
 public sealed record ListRoleChangeView(string What, string DiscordUserId, string? VRChatUserId, string? Name);
@@ -75,7 +76,10 @@ public sealed record ListRoleChangeView(string What, string DiscordUserId, strin
 /// <param name="NoLinkedDiscord">In the list by their VRChat account, with no linked Discord account.</param>
 /// <param name="NotInServer">In the list with a Discord account that is not in the server.</param>
 /// <param name="Holders">Everybody in the server holding the role now.</param>
-/// <param name="Stops">Whether this many removals at once stops the pass until somebody presses Apply.</param>
+/// <param name="Leaving">People Modbot gave the role to and saw leave the server. Nothing is sent; Modbot forgets it gave it.</param>
+/// <param name="TakesHeld">Removals not made this time, for the reason in <paramref name="HeldBecause"/>.</param>
+/// <param name="HeldBecause">Why nothing is taken away this time though other changes go ahead.</param>
+/// <param name="Stops">Whether this many losses at once stops the pass until somebody presses Apply.</param>
 /// <param name="Changes">The changes, up to 500.</param>
 public sealed record ListRolePlanView(
     Guid? Id,
@@ -90,6 +94,9 @@ public sealed record ListRolePlanView(
     int NoLinkedDiscord,
     int NotInServer,
     int Holders,
+    int Leaving,
+    int TakesHeld,
+    string? HeldBecause,
     bool Stops,
     string? Problem,
     IReadOnlyList<ListRoleChangeView> Changes);
@@ -199,6 +206,9 @@ public static class ListRoleEndpoints
                 if (list is null)
                     return Results.BadRequest(new { error = "Pick a list." });
 
+                if (ListRolePlanner.ReadRules(list.Rules, out var rulesProblem) is null)
+                    return Results.BadRequest(new { error = rulesProblem });
+
                 var roleId = body.DiscordRoleId.Trim();
 
                 if (await planner.WhyNotAsync(roleId, null, ct) is { } refused)
@@ -233,11 +243,12 @@ public static class ListRoleEndpoints
             .WithDescription(
                 "Give a Discord role to everybody in a saved list who is in the server, and take it from those "
                 + "it gave it to once they leave the list. Refused for @everyone, a bot's role, a role the bot "
-                + "cannot give, a role with a staff permission, and a role something else already gives.")
+                + "cannot give, a role with a staff permission, a role something else already gives, and a "
+                + "list that lets everybody in. Needs what the preview needs, since saving follows it.")
             .Produces<ListRolesView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
-            .RequiresFlag(ModbotPermissions.ManageDiscordSync);
+            .RequiresFlag(ToPreview);
 
         group.MapPut("/{id:guid}", async (
                 HttpContext http,
@@ -374,17 +385,17 @@ public static class ListRoleEndpoints
                 if (plan.Problem is { } problem)
                     return Results.Conflict(new { error = problem });
 
-                // The number is what the person looked at. More than that is a list they have not
+                // The numbers are what the person looked at. More than that is a list they have not
                 // seen, so it is refused rather than allowed on the strength of an older look.
-                if (plan.Taking > body.Taking)
+                if (plan.Taking > body.Taking || plan.Leaving > body.Leaving)
                     return Results.Conflict(new { error = "More would be taken away than you saw. Look again." });
 
                 var change = new SettingsChange("discordListRoles")
-                    .Field("removalsAllowed", pairing.RemovalsAllowed, (int?)plan.Taking);
+                    .Field("removalsAllowed", pairing.RemovalsAllowed, (int?)plan.Losing);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-                pairing.RemovalsAllowed = plan.Taking;
+                pairing.RemovalsAllowed = plan.Losing;
                 pairing.UpdatedAt = clock.UtcNow;
                 await db.SaveChangesAsync(ct);
 
@@ -397,8 +408,9 @@ public static class ListRoleEndpoints
             .WithSummary("Apply role from a list")
             .WithDescription(
                 "Let a list's role carry on after it stopped because it would take the role from many people "
-                + "at once. `taking` is how many removals the preview showed; refused if more would be taken "
-                + "now. Nothing is sent from here: the next pass, within a minute, makes the changes.")
+                + "at once. `taking` and `leaving` are what the preview showed; refused if more would go "
+                + "now. Nothing is sent from here: the next pass, within a minute, makes the changes, and the "
+                + "allowance shrinks as they are made.")
             .Produces<ListRolesView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -447,6 +459,9 @@ public static class ListRoleEndpoints
         plan.NoLinkedDiscord,
         plan.NotInServer,
         plan.Holders,
+        plan.Leaving,
+        plan.TakesHeld,
+        plan.HeldBecause,
         plan.Stops,
         plan.Problem,
         [.. plan.Changes.Take(MaxListed).Select(c => new ListRoleChangeView(c.What, c.DiscordUserId, c.VRChatUserId, c.Name))]);

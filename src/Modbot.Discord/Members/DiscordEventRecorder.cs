@@ -251,6 +251,10 @@ public sealed class DiscordEventRecorder
                 server.MembersListedAt = now;
         }
 
+        // The whole list compared in this connection: from here member updates keep it current.
+        if (server is not null)
+            server.MembersReadAt = now;
+
         foreach (var fact in facts)
             await WriteAsync(fact, ct).ConfigureAwait(false);
 
@@ -372,6 +376,15 @@ public sealed class DiscordEventRecorder
             .Where(s => s.GuildId == guildId)
             .Select(s => s.SeenThrough)
             .FirstOrDefaultAsync(ct);
+
+    /// <summary>
+    /// Notes that the stored member list may be out of date: the bot is connecting, or lost its
+    /// connection. Set again once the whole list has been compared.
+    /// </summary>
+    public Task MembersUnreadAsync(string guildId, CancellationToken ct)
+        => _db.DiscordServers
+            .Where(s => s.GuildId == guildId && s.MembersReadAt != null)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.MembersReadAt, (DateTimeOffset?)null), ct);
 
     /// <summary>Notes that the bot is listening now.</summary>
     public async Task SeenAsync(string guildId, CancellationToken ct)

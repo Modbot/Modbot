@@ -110,6 +110,14 @@ public class DiscordServer
     public DateTimeOffset? MembersListedAt { get; set; }
 
     /// <summary>
+    /// When the bot last compared the whole member list in the connection it has now. Cleared when
+    /// it connects and when it loses the connection, so null means the stored members and their
+    /// roles may be out of date (roles from lists design §6). Stays null while the Server Members
+    /// intent is off, since Discord then sends no list and no member updates.
+    /// </summary>
+    public DateTimeOffset? MembersReadAt { get; set; }
+
+    /// <summary>
     /// When the whole ban list was last read from Discord. Null until the bot has read it, which
     /// needs Ban Members. Read on sign-in and again once a day (<see cref="DiscordBan"/>).
     /// </summary>

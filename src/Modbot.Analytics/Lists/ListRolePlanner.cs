@@ -1,10 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Giveaways;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Giveaways;
+using Modbot.Core.Time;
 
 namespace Modbot.Analytics.Lists;
 
@@ -24,16 +26,22 @@ public sealed record ListRoleChange(string What, string DiscordUserId, string? V
 /// <param name="ListRoleId">The saved pairing, or null for one not saved yet.</param>
 /// <param name="Changes">Roles to give, then roles to take away. Every one, not a page.</param>
 /// <param name="Forget">
-/// Discord accounts whose given-row goes quietly, with nothing sent: they left the server (which
-/// took the role), somebody took the role off them by hand and they have since left the list, or
-/// they left and came back between two passes (and are in <paramref name="Changes"/> to be given it
-/// again).
+/// Discord accounts whose given-row goes with nothing sent: Modbot saw them leave the server, which
+/// took the role, or they left and came back between two passes (and are in
+/// <paramref name="Changes"/> to be given it again). Never because the stored member row lacks the
+/// role: that is a reason to look again, not proof (design §3).
 /// </param>
+/// <param name="Leaving">How many of <paramref name="Forget"/> Modbot saw leave the server.</param>
 /// <param name="AlreadyHave">In the list, in the server, and holding the role.</param>
-/// <param name="TakenByHand">In the list, and somebody took off the role Modbot gave them. Left alone.</param>
+/// <param name="TakenByHand">
+/// In the list; Modbot gave them the role and the member list does not show it now. Left alone:
+/// somebody took it off by hand, or the update has not arrived.
+/// </param>
 /// <param name="NoLinkedDiscord">In the list by their VRChat account, with no linked Discord account.</param>
 /// <param name="NotInServer">In the list with a Discord account that is not in the server.</param>
 /// <param name="Holders">Everybody in the server holding the role now, however they got it.</param>
+/// <param name="TakesHeld">Roles this plan would have taken away and is not taking, because of <paramref name="HeldBecause"/>.</param>
+/// <param name="HeldBecause">Why nothing is taken away this time though other changes go ahead, or null.</param>
 /// <param name="Problem">Why nothing can be done for it, as a sentence. Everything else is empty when set.</param>
 public sealed record ListRolePlan(
     Guid? ListRoleId,
@@ -43,19 +51,25 @@ public sealed record ListRolePlan(
     string? RoleName,
     IReadOnlyList<ListRoleChange> Changes,
     IReadOnlyList<string> Forget,
+    int Leaving,
     int AlreadyHave,
     int TakenByHand,
     int NoLinkedDiscord,
     int NotInServer,
     int Holders,
+    int TakesHeld,
+    string? HeldBecause,
     string? Problem)
 {
     public int Giving => Changes.Count(c => c.What == ListRoleChangeKinds.Give);
 
     public int Taking => Changes.Count(c => c.What == ListRoleChangeKinds.Take);
 
-    /// <summary>Whether this many removals at once stops the pass (design §5).</summary>
-    public bool Stops => ListRoleChecks.Brakes(Taking, Holders);
+    /// <summary>Everybody this plan stops counting as holding the role: taken away, or seen leaving.</summary>
+    public int Losing => Taking + Leaving;
+
+    /// <summary>Whether this many losses at once stops the pass (design §5).</summary>
+    public bool Stops => ListRoleChecks.Brakes(Losing, Holders + Leaving);
 }
 
 /// <summary>
@@ -69,27 +83,59 @@ public sealed record ListRolePlan(
 /// </para>
 /// <para>
 /// Who is in the list comes from <see cref="GiveawayRuleChecker.PeopleAsync"/>, the same answer the
-/// Lists page shows. A list that cannot be answered is never read as "nobody": the plan carries the
-/// reason and no changes, because "nobody" would take the role from everybody.
+/// Lists page shows. A list that cannot be answered, rules that cannot be read and rules that let
+/// everybody in are never acted on: the plan carries the reason and no changes.
 /// </para>
 /// <para>
-/// <strong>Only what it gave is taken.</strong> A take needs a row in
-/// <c>discord_list_role_given</c>; somebody holding the role with no row was given it by hand, and
-/// is never touched (design §3).
+/// <strong>Only with a fresh member list.</strong> Who holds the role comes from the stored
+/// member list, which falls behind whenever the bot is not connected or member updates are off. So
+/// nothing is planned unless the whole list was compared in the bot's current connection and the
+/// bot is still listening (<see cref="MembersFreshFor"/>).
+/// </para>
+/// <para>
+/// <strong>Only what it gave is taken</strong>, and a given-row is only forgotten when Modbot saw
+/// the person leave the server (design §3).
 /// </para>
 /// </remarks>
 public sealed class ListRolePlanner
 {
+    /// <summary>
+    /// How long after the bot last noted it was listening the stored member list still counts as
+    /// current. The bot notes it once a minute.
+    /// </summary>
+    public static readonly TimeSpan MembersFreshFor = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// How old the VRChat group's member list may be before a list that asks about VRChat takes
+    /// nobody's role away. Gives still go ahead (design §5).
+    /// </summary>
+    public static readonly TimeSpan VRChatStaleAfter = TimeSpan.FromHours(6);
+
+    /// <summary>The rule kinds answered from Discord or Modbot alone; every other question reads VRChat data.</summary>
+    private static readonly HashSet<string> DiscordOnlyKinds = new(StringComparer.Ordinal)
+    {
+        GiveawayRuleKinds.DiscordMemberDays,
+        GiveawayRuleKinds.VoiceHours,
+        GiveawayRuleKinds.Messages,
+        GiveawayRuleKinds.DiscordRole,
+        GiveawayRuleKinds.LinkedAccounts,
+    };
+
+    private const string WaitingForMembers = "Waiting for the member list.";
+
     private readonly ModbotContext _db;
     private readonly GiveawayRuleChecker _checker;
+    private readonly IModbotClock _clock;
 
-    public ListRolePlanner(ModbotContext db, GiveawayRuleChecker checker)
+    public ListRolePlanner(ModbotContext db, GiveawayRuleChecker checker, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(checker);
+        ArgumentNullException.ThrowIfNull(clock);
 
         _db = db;
         _checker = checker;
+        _clock = clock;
     }
 
     /// <summary>Every saved pairing's plan, oldest first; only the switched-on ones when asked.</summary>
@@ -151,6 +197,40 @@ public sealed class ListRolePlanner
         return ListRoleChecks.WhyNot(role, await DecidedElsewhereAsync(settings, discordRoleId, except, ct).ConfigureAwait(false));
     }
 
+    /// <summary>
+    /// A list's stored rules, or why a list cannot give a role with them: rules that cannot be read
+    /// are never taken to mean "everybody", and rules that let everybody in are refused (design §4).
+    /// </summary>
+    public static GiveawayRule? ReadRules(string? json, out string? problem)
+    {
+        problem = null;
+        GiveawayRule? rule = null;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(json))
+                rule = GiveawayRules.Read(JsonNode.Parse(json), out problem);
+        }
+        catch (JsonException)
+        {
+            rule = null;
+        }
+
+        if (rule is null || problem is not null)
+        {
+            problem = "The list's rules cannot be read.";
+            return null;
+        }
+
+        if (!AsksAnything(rule))
+        {
+            problem = "That list lets everybody in. Give it rules first.";
+            return null;
+        }
+
+        return rule;
+    }
+
     // ── One plan ───────────────────────────────────────────────────────────────────────────
 
     private async Task<ListRolePlan> PlanAsync(Server server, Guid? pairingId, Guid listId, string roleId, CancellationToken ct)
@@ -165,7 +245,8 @@ public sealed class ListRolePlanner
         var role = server.Roles.GetValueOrDefault(roleId);
         var roleName = role?.Name;
 
-        ListRolePlan Refused(string why) => new(pairingId, listId, listName, roleId, roleName, [], [], 0, 0, 0, 0, 0, why);
+        ListRolePlan Refused(string why)
+            => new(pairingId, listId, listName, roleId, roleName, [], [], 0, 0, 0, 0, 0, 0, 0, null, why);
 
         if (list is null || list.DeletedAt is not null)
             return Refused("That list does not exist any more.");
@@ -178,7 +259,15 @@ public sealed class ListRolePlanner
         if (ListRoleChecks.WhyNot(role, elsewhere) is { } why)
             return Refused(why);
 
-        var people = await _checker.PeopleAsync(GiveawayRules.ReadStored(list.Rules), ct).ConfigureAwait(false);
+        if (ReadRules(list.Rules, out var rulesProblem) is not { } rules)
+            return Refused(rulesProblem!);
+
+        // Who holds the role comes from the stored member list. Out of date, it would show roles
+        // Modbot gave as missing and people who left as present.
+        if (!server.MembersFresh)
+            return Refused(WaitingForMembers);
+
+        var people = await _checker.PeopleAsync(rules, ct).ConfigureAwait(false);
 
         if (people.Unanswerable is { } unanswerable)
             return Refused(unanswerable);
@@ -190,11 +279,23 @@ public sealed class ListRolePlanner
                 .ConfigureAwait(false)
             : new Dictionary<string, DiscordListRoleGiven>(StringComparer.Ordinal);
 
+        // Of the people with a given-row, who Modbot saw leave the server. Somebody with no member
+        // row at all was never seen leaving, and keeps theirs.
+        var givenIds = given.Keys.ToList();
+        var seenLeaving = givenIds.Count == 0
+            ? new HashSet<string>(StringComparer.Ordinal)
+            : (await _db.DiscordMembers.AsNoTracking()
+                .Where(m => m.GuildId == server.GuildId && m.LeftAt != null && givenIds.Contains(m.UserId))
+                .Select(m => m.UserId)
+                .ToListAsync(ct)
+                .ConfigureAwait(false))
+                .ToHashSet(StringComparer.Ordinal);
+
         var gives = new List<ListRoleChange>();
         var takes = new List<ListRoleChange>();
         var forget = new List<string>();
         var inList = new HashSet<string>(StringComparer.Ordinal);
-        int alreadyHave = 0, takenByHand = 0, noLinked = 0, notInServer = 0;
+        int alreadyHave = 0, takenByHand = 0, noLinked = 0, notInServer = 0, leaving = 0;
 
         foreach (var person in people.People.Select(p => p.Person))
         {
@@ -209,6 +310,14 @@ public sealed class ListRolePlanner
             if (!server.Members.TryGetValue(discordUserId, out var member))
             {
                 notInServer++;
+
+                // Leaving took the role; the row has done its work.
+                if (given.ContainsKey(discordUserId) && seenLeaving.Contains(discordUserId))
+                {
+                    forget.Add(discordUserId);
+                    leaving++;
+                }
+
                 continue;
             }
 
@@ -228,8 +337,9 @@ public sealed class ListRolePlanner
                 }
                 else
                 {
-                    // Modbot gave it and somebody took it off them by hand. Not given again while
-                    // the row stands: a moderator is not overruled a minute later (design §3).
+                    // Modbot gave it and the member list does not show it. Somebody took it off by
+                    // hand, or the update has not arrived: either way it is not given again while
+                    // the row stands, so a moderator is not overruled a minute later (design §3).
                     takenByHand++;
                     continue;
                 }
@@ -244,22 +354,58 @@ public sealed class ListRolePlanner
             if (inList.Contains(row.DiscordUserId))
                 continue;
 
-            // Leaving the server took every role, and a role somebody already took off them by hand
-            // has nothing left to take. Either way the row has done its work.
-            if (!server.Members.TryGetValue(row.DiscordUserId, out var member) || !member.Roles.Contains(roleId))
+            if (server.Members.TryGetValue(row.DiscordUserId, out var member))
+            {
+                // Taken away whether or not the stored row shows the role: a missing role there is
+                // a reason to ask Discord, which answers a removal of a role not held as done.
+                takes.Add(new ListRoleChange(ListRoleChangeKinds.Take, row.DiscordUserId, row.VRChatUserId, member.Name));
+            }
+            else if (seenLeaving.Contains(row.DiscordUserId))
             {
                 forget.Add(row.DiscordUserId);
-                continue;
+                leaving++;
             }
-
-            takes.Add(new ListRoleChange(ListRoleChangeKinds.Take, row.DiscordUserId, row.VRChatUserId, member.Name));
         }
 
         var holders = server.Members.Values.Count(m => m.Roles.Contains(roleId));
 
+        // A list that asks about VRChat, read from a VRChat member list that has not been read
+        // lately, would take roles from people who only look gone. Gives still go ahead.
+        var held = 0;
+        string? heldBecause = null;
+
+        if (takes.Count > 0 && AsksVRChat(rules) && VRChatStale(server.Settings) is { } stale)
+        {
+            held = takes.Count;
+            heldBecause = stale;
+            takes.Clear();
+        }
+
         return new ListRolePlan(
             pairingId, listId, listName, roleId, roleName,
-            [.. gives, .. takes], forget, alreadyHave, takenByHand, noLinked, notInServer, holders, null);
+            [.. gives, .. takes], forget, leaving, alreadyHave, takenByHand, noLinked, notInServer, holders,
+            held, heldBecause, null);
+    }
+
+    // ── What the rules ask ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Whether the tree asks anything at all, rather than letting everybody in.</summary>
+    private static bool AsksAnything(GiveawayRule rule)
+        => GiveawayRuleKinds.IsCombining(rule.Kind) ? rule.Rules.Any(AsksAnything) : true;
+
+    /// <summary>Whether any question in the tree is answered from VRChat data.</summary>
+    private static bool AsksVRChat(GiveawayRule rule)
+        => GiveawayRuleKinds.IsCombining(rule.Kind) ? rule.Rules.Any(AsksVRChat) : !DiscordOnlyKinds.Contains(rule.Kind);
+
+    /// <summary>Why the VRChat member list is too old to take roles away by, or null when it is not.</summary>
+    private string? VRChatStale(Settings? settings)
+    {
+        var since = _clock.UtcNow - VRChatStaleAfter;
+
+        return settings?.MemberSweepCompletedAt is { } swept && swept >= since
+               && settings.AuditLogPolledAt is { } polled && polled >= since
+            ? null
+            : "Not taking the role away until the VRChat group's member list has been read again.";
     }
 
     // ── What is read once per plan or set of plans ─────────────────────────────────────────
@@ -269,6 +415,7 @@ public sealed class ListRolePlanner
     private sealed record Server(
         Settings? Settings,
         string? GuildId,
+        bool MembersFresh,
         IReadOnlyDictionary<string, DiscordRole> Roles,
         IReadOnlyDictionary<string, Member> Members);
 
@@ -283,7 +430,7 @@ public sealed class ListRolePlanner
         if (guildId is null)
         {
             return new Server(
-                settings, null,
+                settings, null, false,
                 new Dictionary<string, DiscordRole>(StringComparer.Ordinal),
                 new Dictionary<string, Member>(StringComparer.Ordinal));
         }
@@ -292,6 +439,16 @@ public sealed class ListRolePlanner
             .Where(r => r.GuildId == guildId)
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
+
+        // Compared whole in the bot's current connection, and the bot still listening.
+        var read = await _db.DiscordServers.AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Select(s => new { s.MembersReadAt, s.SeenThrough })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var fresh = read?.MembersReadAt is { } readAt
+                    && _clock.UtcNow - (read.SeenThrough is { } seen && seen > readAt ? seen : readAt) <= MembersFreshFor;
 
         // Everybody in the server now, bots left out: a bot is never in a list.
         var rows = await _db.DiscordMembers.AsNoTracking()
@@ -304,7 +461,7 @@ public sealed class ListRolePlanner
         foreach (var row in rows)
             members[row.UserId] = new Member(row.DisplayName, row.JoinedAt, Ids(row.Roles));
 
-        return new Server(settings, guildId, roles, members);
+        return new Server(settings, guildId, fresh, roles, members);
     }
 
     /// <summary>What already decides who holds this role, as a sentence, or null when nothing does.</summary>

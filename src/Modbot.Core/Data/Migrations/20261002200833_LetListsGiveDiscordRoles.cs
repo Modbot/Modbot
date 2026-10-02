@@ -31,6 +31,12 @@ namespace Modbot.Core.Data.Migrations
                 type: "timestamp with time zone",
                 nullable: true);
 
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "members_read_at",
+                table: "discord_server",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "discord_list_role",
                 columns: table => new
@@ -120,6 +126,10 @@ namespace Modbot.Core.Data.Migrations
             migrationBuilder.DropColumn(
                 name: "list_roles_ran_at",
                 table: "discord_sync_state");
+
+            migrationBuilder.DropColumn(
+                name: "members_read_at",
+                table: "discord_server");
         }
     }
 }

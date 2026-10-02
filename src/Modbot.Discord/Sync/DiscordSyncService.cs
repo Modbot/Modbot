@@ -80,8 +80,22 @@ public sealed class DiscordSyncService : BackgroundService
 
                     if (rolePass.Problem is { } roleProblem)
                         _status.Problem($"Could not change a paired role: {roleProblem}", _clock.UtcNow);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception e)
+                {
+                    _log.Warning(e, "The role and ban sync pass failed; trying again shortly");
+                }
 
-                    // Its own switch; while it is off the pass reads one settings row and stops.
+                // Its own try and its own scope, so a failure in either half never stops the other.
+                // Its own switch too: while it is off the pass reads one settings row and stops.
+                try
+                {
+                    using var scope = _scopes.CreateScope();
+
                     var lists = scope.ServiceProvider.GetRequiredService<ListRoleSync>();
                     var listPass = await lists.RunAsync(gateway, stoppingToken).ConfigureAwait(false);
 
@@ -97,7 +111,7 @@ public sealed class DiscordSyncService : BackgroundService
                 }
                 catch (Exception e)
                 {
-                    _log.Warning(e, "The role and ban sync pass failed; trying again shortly");
+                    _log.Warning(e, "The roles from lists pass failed; trying again shortly");
                 }
             }
 

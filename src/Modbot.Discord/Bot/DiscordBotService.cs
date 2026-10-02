@@ -526,6 +526,11 @@ public sealed class DiscordBotService : BackgroundService
             seenThrough = await recorder.SeenThroughAsync(guildId, token).ConfigureAwait(false)).ConfigureAwait(false);
         _gapRead = true;
 
+        // Until the list below has been compared, the stored roles are from before (roles from
+        // lists design §6).
+        await RecordAsync("note the member list is not read yet", (recorder, token) =>
+            recorder.MembersUnreadAsync(guildId, token)).ConfigureAwait(false);
+
         // Members first, so the audit log's facts can name the people in them.
         if (await gateway.ReadMembersAsync(guildId, ct).ConfigureAwait(false) is { } members)
         {
@@ -893,6 +898,9 @@ public sealed class DiscordBotService : BackgroundService
         var now = _clock.UtcNow;
         _disconnectedAt ??= now;
 
+        // Member updates stop with the connection, so the stored list may fall behind.
+        await ForgetMembersReadAsync().ConfigureAwait(false);
+
         if (disconnect.IntentsRefused && (_sessionOptions.MemberEvents || _sessionOptions.MessageContent))
         {
             // Connect again without the refused intents, straight away: the moderation log and
@@ -990,8 +998,20 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
+    /// <summary>Marks the stored member list as possibly out of date, for the server the bot is on.</summary>
+    private async Task ForgetMembersReadAsync()
+    {
+        if (_guildId is { } guildId)
+        {
+            await RecordAsync("note the member list may be out of date", (recorder, token) =>
+                recorder.MembersUnreadAsync(guildId, token)).ConfigureAwait(false);
+        }
+    }
+
     private async Task TearDownAsync()
     {
+        await ForgetMembersReadAsync().ConfigureAwait(false);
+
         var gateway = _gateway;
         _gateway = null;
         _guildId = null;

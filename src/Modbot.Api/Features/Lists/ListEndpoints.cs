@@ -47,10 +47,11 @@ public static class ListEndpoints
     public const ModbotPermissions ToSee = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
 
     /// <summary>
-    /// What setting up a Discord role from a list needs: the Discord settings tab it lives on, and
-    /// the role pairs' own permission (roles from lists design §9).
+    /// What setting up a Discord role from a list needs: the Discord settings tab it lives on, the
+    /// role pairs' own permission, and what seeing a list needs, since saving follows the preview
+    /// (roles from lists design §9).
     /// </summary>
-    public const ModbotPermissions ToGiveRoles = ModbotPermissions.ManageSettings | ModbotPermissions.ManageDiscordSync;
+    public const ModbotPermissions ToGiveRoles = ModbotPermissions.ManageSettings | ModbotPermissions.ManageDiscordSync | ToSee;
 
     public const int DefaultPageSize = 50;
 

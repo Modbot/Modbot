@@ -51,9 +51,16 @@ account when linked, when). A take needs that row.
 | In the list, already holds it (given by hand) | nothing; no row |
 | Out of the list, holds it, row says Modbot gave it | taken away; row removed |
 | Out of the list, holds it, no row (given by hand) | nothing, ever |
-| Modbot gave it, somebody took it away by hand, still in the list | nothing: not given again while the row stands |
-| Modbot gave it, then they left the server | row removed (leaving took every role); given again if they come back and still match |
+| Modbot gave it, the member list does not show it, still in the list | nothing: not given again while the row stands (taken off by hand, or the update has not come) |
+| Out of the list, row stands, the member list does not show the role | taken away anyway: a missing role on the stored row is a reason to ask Discord, not proof |
+| Modbot gave it, then saw them leave the server | row removed (leaving took every role); given again if they come back and still match |
+| Row stands, no member row at all | kept: Modbot never saw them leave |
 | Row older than their current join | they left and came back between two passes: row removed, given again |
+
+**A row is only forgotten when Modbot saw the person leave** (the member row's `left_at`), never
+because the stored member row lacks the role (review 2026-10-02). After each give or take the pass
+adds or removes that one role id on the stored member row in a single statement, so the next pass
+reads what it just did without waiting for Discord's update, and no other role is rewritten.
 
 The second-to-last row is the "never fight a person" rule: a moderator who takes @Regular off
 somebody by hand is not overruled a minute later. Once that person drops out of the list the row is
@@ -107,6 +114,22 @@ Only roles somebody pairs here are ever touched. There is no "every role except"
 
 ## 5. The switch, the preview, the brake
 
+**Only on a fresh member list** (review 2026-10-02). Who holds the role is read from the stored
+member list, which falls behind whenever the bot is disconnected or member updates are off. The bot
+clears `discord_server.members_read_at` when it connects and when it loses the connection, and sets
+it once it has compared the whole list; it stays clear while the Server Members intent is off,
+since Discord then sends no list. A plan is made only while it is set and the bot noted it was
+listening in the last 5 minutes (`ListRolePlanner.MembersFreshFor`); otherwise nothing is given,
+taken or forgotten, and the card says "Waiting for the member list."
+
+**Old VRChat data takes nothing.** A list asking anything answered from VRChat (every rule but
+Discord days, voice hours, messages, Discord role and linked accounts) takes nobody's role while
+the group's member sweep or audit log has not completed in the last 6 hours
+(`ListRolePlanner.VRChatStaleAfter`): people may only look gone. Gives still go ahead.
+
+**Lists that ask nothing are refused.** Rules that let everybody in are refused when a pairing is
+saved and on every pass; stored rules that cannot be read are never taken to mean "everybody".
+
 **The switch.** *Give roles from lists*, `settings.discord_list_roles_on`, **off by default**. Off
 gives and takes nothing at all. Each list role also has its own **On**; a new one is on, but nothing
 happens while the switch is off. Turning the switch on is refused while the bot lacks Manage Roles.
@@ -122,21 +145,27 @@ in a list (lists design §6).
 nothing for that list role, says so once, and waits:
 
 ```
-stops = taking >= 3 && (taking > 25 || taking * 2 > holders)
+losing = taking + leaving
+stops  = losing >= 3 && (losing > 25 || losing * 2 > holders + leaving)
 ```
 
-`holders` is everybody in the server holding the role now, given by hand or not. The floor of 3 and
+`holders` is everybody in the server holding the role now, given by hand or not; `leaving` is people
+Modbot gave the role to and saw leave the server, whose rows would be forgotten. The brake runs
+before any row is forgotten, so a member list that suddenly shows everybody gone stops the pairing
+with its rows intact. The floor of 3 and
 the "more than half" are the staff roles brake's (staff roles design §6, built alongside); 25 is
 higher than its 5 because a community role has many more holders and a few people drifting out of
 "regulars" each day is normal. It catches a list whose rules were changed or broken, a retention
 change, a member list that went missing. Giving is not braked: the preview is what guards a first
 run.
 
-**Apply** (Run role and ban sync, with See members and See profiles) is pressed after looking at the
+Saving a pairing needs what the preview needs (Manage role and ban sync, See members, See
+profiles), since saving follows it. **Apply** (Run role and ban sync, with See members and See profiles) is pressed after looking at the
 list. It carries the number of removals the person saw; if more would be taken now, it is refused
 ("More would be taken away than you saw. Look again."). Otherwise that many removals are allowed
-(`removals_allowed`), and the passes carry on through the brake until the backlog is done and the
-number falls back under it, when the allowance is cleared. Nothing is sent from the request itself:
+(`removals_allowed`), counted off as each role is taken or each row forgotten, and the passes carry
+on through the brake while the backlog fits it; once a pass is under the brake the allowance is
+cleared. Nothing is sent from the request itself:
 the next pass, within a minute, does the work at the usual pace.
 
 A list that cannot be answered — a rule reaching past retention, more than 50,000 people, a list
@@ -144,8 +173,10 @@ too big once written out — is never read as "nobody": the pass changes nothing
 
 ## 6. When it runs, and how fast
 
-On the Discord sync loop (`DiscordSyncService`), after role sync, once a minute while the bot has a
-ready session. At most **50 changes a pass** across all list roles (the role sync's number, for the
+On the Discord sync loop (`DiscordSyncService`), after role sync, in its own try and its own
+scope so a failure in either never stops the other, once a minute while the bot has a ready
+session. Changes a pass does not get to, because of the 50 limit, the brake or a refusal from
+Discord, are counted as left. At most **50 changes a pass** across all list roles (the role sync's number, for the
 same reason: Discord queues the bot's requests behind one another). Each change is one
 `ChangeRoleAsync` with a reason in Discord's audit log: `Modbot: in the list “Regulars”` or
 `Modbot: no longer in the list “Regulars”`. The list's name is the only thing in it.

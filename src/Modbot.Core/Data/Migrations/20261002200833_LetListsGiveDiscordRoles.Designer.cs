@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002194317_LetListsGiveDiscordRoles")]
+    [Migration("20261002200833_LetListsGiveDiscordRoles")]
     partial class LetListsGiveDiscordRoles
     {
         /// <inheritdoc />
@@ -2882,6 +2882,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("MembersListedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("members_listed_at");
+
+                    b.Property<DateTimeOffset?>("MembersReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("members_read_at");
 
                     b.Property<string>("Name")
                         .IsRequired()

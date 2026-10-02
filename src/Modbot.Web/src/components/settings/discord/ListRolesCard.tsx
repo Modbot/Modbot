@@ -175,7 +175,7 @@ function ListRolesForm({ data, onChanged }: { data: ListRoles; onChanged: (next:
               onLook={() => look({ kind: 'one', id: role.id })}
               onSwitch={(enabled) => act(() => listRoleApi.update(role.id, enabled))}
               onRemove={() => act(() => listRoleApi.remove(role.id))}
-              onApply={(taking) => act(() => listRoleApi.apply(role.id, taking))}
+              onApply={(taking, leaving) => act(() => listRoleApi.apply(role.id, taking, leaving))}
             />
           ))}
         </ul>
@@ -253,7 +253,7 @@ function RoleRow({
   onLook: () => void
   onSwitch: (enabled: boolean) => void
   onRemove: () => void
-  onApply: (taking: number) => void
+  onApply: (taking: number, leaving: number) => void
 }) {
   // Apply only after this list's own changes are on screen, and only for the removals shown.
   const canPressApply = canApply && role.stoppedAt !== null && plan !== undefined && plan.problem === null
@@ -278,7 +278,7 @@ function RoleRow({
         </Button>
 
         {canPressApply && (
-          <Button type="button" size="xs" variant="destructive" disabled={busy} onClick={() => onApply(plan.taking)}>
+          <Button type="button" size="xs" variant="destructive" disabled={busy} onClick={() => onApply(plan.taking, plan.leaving)}>
             Apply
           </Button>
         )}
@@ -317,11 +317,15 @@ function PlanView({ plan }: { plan: ListRolePlan }) {
             <Fact label="Taken off by hand" value={plan.takenByHand.toLocaleString()} mono />
             <Fact label="No linked Discord" value={plan.noLinkedDiscord.toLocaleString()} mono />
             <Fact label="Not in the server" value={plan.notInServer.toLocaleString()} mono />
+            <Fact label="Left the server" value={plan.leaving.toLocaleString()} mono />
+            {plan.takesHeld > 0 && <Fact label="Not taken away yet" value={plan.takesHeld.toLocaleString()} mono />}
           </div>
+
+          <Outcome tone="problem">{plan.heldBecause}</Outcome>
 
           {plan.stops && (
             <Outcome tone="problem">
-              Stops: this would take {role} from {plan.taking.toLocaleString()} people at once.
+              Stops: {(plan.taking + plan.leaving).toLocaleString()} people would lose {role} at once.
             </Outcome>
           )}
 
