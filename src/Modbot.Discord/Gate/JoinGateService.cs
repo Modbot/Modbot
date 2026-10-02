@@ -104,14 +104,29 @@ public sealed class JoinGateActions : IJoinGateActions
 {
     private readonly IServiceScopeFactory _scopes;
     private readonly DiscordBotService _bot;
+    private readonly JoinGateState _state;
 
-    public JoinGateActions(IServiceScopeFactory scopes, DiscordBotService bot)
+    public JoinGateActions(IServiceScopeFactory scopes, DiscordBotService bot, JoinGateState state)
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentNullException.ThrowIfNull(bot);
+        ArgumentNullException.ThrowIfNull(state);
 
         _scopes = scopes;
         _bot = bot;
+        _state = state;
+    }
+
+    public async Task<T> RunAloneAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        T result;
+        using (await _state.LockAsync(ct).ConfigureAwait(false))
+            result = await work().ConfigureAwait(false);
+
+        _state.Wake();
+        return result;
     }
 
     public Task<JoinGateOutcome> LetInAsync(string discordUserId, Guid by, CancellationToken ct = default)

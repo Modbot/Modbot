@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002194118_LetPeopleInThroughAJoinGate")]
+    [Migration("20261002200837_LetPeopleInThroughAJoinGate")]
     partial class LetPeopleInThroughAJoinGate
     {
         /// <inheritdoc />
@@ -2294,10 +2294,18 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("minutes_counted");
 
+                    b.Property<bool>("NeverRemove")
+                        .HasColumnType("boolean")
+                        .HasColumnName("never_remove");
+
                     b.Property<string>("Outcome")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("outcome");
+
+                    b.Property<bool>("Pending")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pending");
 
                     b.Property<string>("Problem")
                         .HasColumnType("text")

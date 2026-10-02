@@ -289,6 +289,9 @@ public static class FactType
     /// <summary>Removed at the gate: for not finishing, or by a moderator. Payload: <c>by</c>, minutes counted.</summary>
     public const string DiscordGateRemoved = "discord.gate.remove";
 
+    /// <summary>Discord refused to remove them at the gate, so the gate stopped trying. Payload: the error.</summary>
+    public const string DiscordGateRemoveRefused = "discord.gate.remove-refused";
+
     /// <summary>Warned once, halfway to removal. Payload: <c>dm</c>, <c>channel</c> or <c>none</c>. Short retention.</summary>
     public const string DiscordGateWarned = "discord.gate.warn";
 

@@ -65,11 +65,8 @@ public sealed class JoinGate
     /// <summary>The most a pass adds to anybody's time, so a gap in passes never counts against them.</summary>
     public const int MostMinutesAPass = 2;
 
-    public const int MostRemovalsAPass = 10;
-
+    /// <summary>Most removals in any hour; per minute, <see cref="JoinGateState.MostRemovalsAMinute"/>.</summary>
     public const int MostRemovalsAnHour = 30;
-
-    public const int MostRoleChangesAPass = 25;
 
     public const int MostRowsAPass = 200;
 
@@ -86,6 +83,7 @@ public sealed class JoinGate
     public const string Held = "New joiners are on hold. Staff will let you in.";
     public const string RulesFirst = "Accept the server's rules in Discord first.";
     public const string CouldNotGiveRole = "Modbot could not give you the role. Staff can see why.";
+    public const string TooBusy = "Lots of people are getting in right now. You will be let in within a few minutes.";
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -136,10 +134,25 @@ public sealed class JoinGate
         if (member.Member?.RoleIds.Contains(settings.MemberRoleId, StringComparer.Ordinal) == true)
             return false;
 
+        // Staff joining (a Modbot account's Discord) and the server's owner are not gated.
+        var exempt = await ExemptionsAsync(gateway, settings.GuildId, ct).ConfigureAwait(false);
+        if (exempt.Covers(member.UserId, [], member.IsBot))
+            return false;
+
         using (await _state.LockAsync(ct).ConfigureAwait(false))
         {
-            var entry = await OpenEntryAsync(settings.GuildId, member.UserId, ct).ConfigureAwait(false)
-                        ?? await StartAsync(settings, member.UserId, member.Username, _clock.UtcNow, ct).ConfigureAwait(false);
+            // A join is a new time through the gate. A row still open from before means they left and
+            // came back before a pass saw them go: that time ended when they left.
+            if (await OpenEntryAsync(settings.GuildId, member.UserId, ct).ConfigureAwait(false) is { } earlier)
+            {
+                Close(earlier, DiscordGateOutcomes.Left, null);
+
+                // Saved before the new row, which the one-open-row index would otherwise refuse.
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+
+            var entry = await StartAsync(settings, member.UserId, member.Username, _clock.UtcNow, ct).ConfigureAwait(false);
+            entry.Pending = member.Member?.IsPending ?? false;
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
             if (settings.Mode != DiscordGateModes.On)
@@ -159,11 +172,13 @@ public sealed class JoinGate
     {
         ArgumentNullException.ThrowIfNull(gateway);
 
+        // The lock first, then the settings: a settings save waits for a running pass and runs
+        // alone, so a pass never acts on a mode or a removal time that changed under it.
+        using var held = await _state.LockAsync(ct).ConfigureAwait(false);
+
         var settings = await SettingsAsync(ct).ConfigureAwait(false);
         if (settings.GuildId is null)
             return JoinGatePass.Nothing;
-
-        using var held = await _state.LockAsync(ct).ConfigureAwait(false);
 
         // Rows made under another mode end: Watch only never turns into removals.
         await CloseOtherModesAsync(settings, ct).ConfigureAwait(false);
@@ -210,12 +225,12 @@ public sealed class JoinGate
 
         var links = await LinksAsync(ids, ct).ConfigureAwait(false);
         var timeIsTheirs = await ModbotIsWorkingAsync(settings, now, ct).ConfigureAwait(false);
-        var removalsLeft = Math.Min(MostRemovalsAPass, MostRemovalsAnHour - await RemovedThisHourAsync(guildId, now, ct).ConfigureAwait(false));
+        var exempt = await ExemptionsAsync(gateway, guildId, ct).ConfigureAwait(false);
+        var removalsThisHour = MostRemovalsAnHour - await RemovedThisHourAsync(guildId, now, ct).ConfigureAwait(false);
 
-        if (removalsLeft <= 0 && settings.RemoveAfterMinutes is not null && settings.Mode == DiscordGateModes.On)
+        if (removalsThisHour <= 0 && settings.RemoveAfterMinutes is not null && settings.Mode == DiscordGateModes.On)
             problem ??= $"The join gate stopped removing people: {MostRemovalsAnHour} were removed in the last hour.";
 
-        var roleChangesLeft = MostRoleChangesAPass;
         int passed = 0, inDiscord = 0, warned = 0, removed = 0, left = 0;
 
         // Somebody done would not get in either, so time stops for everybody while the bot cannot
@@ -238,32 +253,22 @@ public sealed class JoinGate
 
             if (member is not null && HasRole(member.Roles, memberRoleId))
             {
-                Close(entry, DiscordGateOutcomes.LetInInDiscord, null);
-                await RecordAsync(FactType.DiscordGateLetIn, entry.DiscordUserId, null, new JsonObject
-                {
-                    ["by"] = "discord",
-                    ["watchOnly"] = entry.WatchOnly,
-                }, ct).ConfigureAwait(false);
+                await LetInInDiscordAsync(entry, ct).ConfigureAwait(false);
                 inDiscord++;
                 continue;
             }
 
             links.TryGetValue(entry.DiscordUserId, out var link);
             var done = StepsDone(settings, entry, link);
-            var pending = member?.IsPending == true;
 
-            if (settings.Mode == DiscordGateModes.On && done && !pending && settings.HeldAt is null && roleChangesLeft > 0)
+            // The stored member list's word, or the join's when the list has no row for them yet.
+            var pending = member?.IsPending ?? entry.Pending;
+
+            if (settings.Mode == DiscordGateModes.On && done && !pending && settings.HeldAt is null && _state.TryRoleChange(now))
             {
-                roleChangesLeft--;
-
                 if (await GiveRoleAsync(gateway, settings, entry, ct).ConfigureAwait(false))
                 {
-                    Close(entry, DiscordGateOutcomes.Passed, null);
-                    await RecordAsync(FactType.DiscordGatePassed, entry.DiscordUserId, null, new JsonObject
-                    {
-                        ["roleId"] = settings.MemberRoleId,
-                        ["steps"] = Steps(settings),
-                    }, ct).ConfigureAwait(false);
+                    await PassedAsync(settings, entry, ct).ConfigureAwait(false);
                     passed++;
                     continue;
                 }
@@ -278,25 +283,48 @@ public sealed class JoinGate
                 roleBlocked = true;
             }
 
+            // Removal set to Never, or somebody the gate never removes: no clock at all.
+            if (settings.RemoveAfterMinutes is not { } removeAfter || entry.NeverRemove)
+            {
+                entry.LastCountedAt = now;
+                continue;
+            }
+
             CountTime(entry, now, timeIsTheirs && !roleBlocked && (!done || pending));
 
-            if (settings.RemoveAfterMinutes is not { } removeAfter)
-                continue;
-
+            // The warning, halfway. It counts only once it reached them; anything else is tried again
+            // next pass, and nobody is removed before it is delivered.
             if (entry.WarnedAt is null && entry.MinutesCounted * 2 >= removeAfter)
             {
-                entry.WarnedAt = now;
-
-                if (!entry.WatchOnly)
+                if (entry.WatchOnly)
                 {
-                    var deadline = now.AddMinutes(Math.Max(0, removeAfter - entry.MinutesCounted));
-                    var via = await WarnAsync(gateway, settings, entry.DiscordUserId, deadline, ct).ConfigureAwait(false);
-                    await RecordAsync(FactType.DiscordGateWarned, entry.DiscordUserId, null, new JsonObject { ["via"] = via }, ct).ConfigureAwait(false);
-                    warned++;
+                    entry.WarnedAt = now;
+                }
+                else
+                {
+                    var window = WarningWindow(removeAfter);
+                    var deadline = now + TimeSpan.FromMinutes(Math.Max(0, removeAfter - entry.MinutesCounted)) is var byTime && byTime > now + window
+                        ? byTime
+                        : now + window;
+
+                    var warning = await WarnAsync(gateway, settings, entry.DiscordUserId, deadline, ct).ConfigureAwait(false);
+
+                    if (warning.Delivered)
+                    {
+                        entry.WarnedAt = now;
+                        entry.Problem = null;
+                        await RecordAsync(FactType.DiscordGateWarned, entry.DiscordUserId, null, new JsonObject { ["via"] = warning.Via }, ct)
+                            .ConfigureAwait(false);
+                        warned++;
+                    }
+                    else
+                    {
+                        entry.Problem = "Could not warn them: " + (warning.Error ?? "Discord refused.");
+                    }
                 }
             }
 
-            if (entry.MinutesCounted < removeAfter)
+            if (entry.MinutesCounted < removeAfter || entry.WarnedAt is not { } warnedAt || now - warnedAt < WarningWindow(removeAfter))
                 continue;
 
             if (entry.WatchOnly)
@@ -305,33 +333,63 @@ public sealed class JoinGate
                 continue;
             }
 
-            if (removalsLeft <= 0)
+            if (removalsThisHour <= 0 || !_state.TryRemoval(now))
                 continue;
 
-            removalsLeft--;
-            var outcome = await gateway.RemoveAsync(guildId, entry.DiscordUserId, RemovedReason, ct).ConfigureAwait(false);
+            removalsThisHour--;
 
-            if (outcome.Done)
+            // Read live, at the moment of removal: a member role given a second ago, staff, a bot
+            // or the server's owner is never removed, whatever the stored list says.
+            var removal = await gateway
+                .RemoveCheckedAsync(guildId, entry.DiscordUserId, RemovedReason, live => MayRemove(live, memberRoleId, exempt), ct)
+                .ConfigureAwait(false);
+
+            if (removal.Kept)
             {
-                Close(entry, outcome.NothingToDo ? DiscordGateOutcomes.Left : DiscordGateOutcomes.Removed, null);
-
-                if (!outcome.NothingToDo)
+                if (removal.Member is { } live && live.RoleIds.Contains(memberRoleId, StringComparer.Ordinal))
                 {
-                    await RecordAsync(FactType.DiscordGateRemoved, entry.DiscordUserId, null, new JsonObject
-                    {
-                        ["by"] = "gate",
-                        ["minutes"] = entry.MinutesCounted,
-                    }, ct).ConfigureAwait(false);
-                    removed++;
+                    await LetInInDiscordAsync(entry, ct).ConfigureAwait(false);
+                    inDiscord++;
                 }
                 else
                 {
-                    left++;
+                    Close(entry, DiscordGateOutcomes.NotGated, null);
                 }
+
+                continue;
+            }
+
+            var outcome = removal.Outcome;
+
+            if (outcome.Done && outcome.NothingToDo)
+            {
+                Close(entry, DiscordGateOutcomes.Left, null);
+                left++;
+            }
+            else if (outcome.Done)
+            {
+                Close(entry, DiscordGateOutcomes.Removed, null);
+                await RecordAsync(FactType.DiscordGateRemoved, entry.DiscordUserId, null, new JsonObject
+                {
+                    ["by"] = "gate",
+                    ["minutes"] = entry.MinutesCounted,
+                }, ct).ConfigureAwait(false);
+                removed++;
+            }
+            else if (outcome.NotAllowed)
+            {
+                // Discord will refuse this one every time (they outrank the bot, or Kick Members is
+                // missing): stop trying, say so once, and leave the removal slots for others.
+                var why = outcome.Error ?? "Discord refused the removal.";
+                Close(entry, DiscordGateOutcomes.CannotRemove, null);
+                entry.Problem = why;
+                await RecordAsync(FactType.DiscordGateRemoveRefused, entry.DiscordUserId, null, new JsonObject { ["error"] = why }, ct)
+                    .ConfigureAwait(false);
+                problem ??= "Could not remove somebody at the join gate: " + why;
             }
             else
             {
-                entry.Problem = outcome.Error ?? "Discord refused the removal.";
+                entry.Problem = outcome.Error ?? "Discord did not answer the removal.";
                 problem ??= "Could not remove somebody at the join gate: " + entry.Problem;
             }
         }
@@ -377,8 +435,17 @@ public sealed class JoinGate
 
         using (await _state.LockAsync(ct).ConfigureAwait(false))
         {
-            var entry = await OpenEntryAsync(settings.GuildId, press.DiscordUserId, ct).ConfigureAwait(false)
-                        ?? await StartAsync(settings, press.DiscordUserId, press.DiscordUsername, _clock.UtcNow, ct).ConfigureAwait(false);
+            var entry = await OpenEntryAsync(settings.GuildId, press.DiscordUserId, ct).ConfigureAwait(false);
+
+            if (entry is null)
+            {
+                // A press from somebody the gate did not see join: they were here before it went
+                // on, or Modbot missed the join, or they are staff. They can do the steps and get in,
+                // but no clock starts for them: everybody already in the server is left alone.
+                entry = await StartAsync(settings, press.DiscordUserId, press.DiscordUsername, _clock.UtcNow, ct).ConfigureAwait(false);
+                entry.NeverRemove = true;
+                entry.Pending = member?.IsPending ?? false;
+            }
 
             if (id == JoinGateButtons.Agree)
                 entry.AgreedAt ??= _clock.UtcNow;
@@ -390,7 +457,7 @@ public sealed class JoinGate
             {
                 reply = await StepsReplyAsync(settings, entry, link, ct).ConfigureAwait(false);
             }
-            else if (member?.IsPending == true)
+            else if (member?.IsPending ?? entry.Pending)
             {
                 reply = DiscordReply.Say(RulesFirst);
             }
@@ -402,14 +469,14 @@ public sealed class JoinGate
             {
                 reply = DiscordReply.Say(CouldNotGiveRole);
             }
+            else if (!_state.TryRoleChange(_clock.UtcNow))
+            {
+                // The same allowance the pass uses; the pass lets them in once there is room.
+                reply = DiscordReply.Say(TooBusy);
+            }
             else if (await GiveRoleAsync(gateway, settings, entry, ct).ConfigureAwait(false))
             {
-                Close(entry, DiscordGateOutcomes.Passed, null);
-                await RecordAsync(FactType.DiscordGatePassed, entry.DiscordUserId, null, new JsonObject
-                {
-                    ["roleId"] = settings.MemberRoleId,
-                    ["steps"] = Steps(settings),
-                }, ct).ConfigureAwait(false);
+                await PassedAsync(settings, entry, ct).ConfigureAwait(false);
                 reply = DiscordReply.Say(YoureIn);
             }
             else
@@ -511,8 +578,28 @@ public sealed class JoinGate
                 return JoinGateOutcome.NotAtTheGate;
 
             var reason = $"Modbot: removed at the join gate by {byName}";
-            var outcome = await gateway.RemoveAsync(settings.GuildId, discordUserId, reason.Length <= 512 ? reason : reason[..511] + "…", ct)
+            var exempt = await ExemptionsAsync(gateway, settings.GuildId, ct).ConfigureAwait(false);
+            var memberRole = settings.MemberRoleId ?? string.Empty;
+
+            // The same live check as the pass: somebody who got the member role a moment ago, staff,
+            // a bot or the owner is not removed from here either.
+            var removal = await gateway
+                .RemoveCheckedAsync(settings.GuildId, discordUserId, reason.Length <= 512 ? reason : reason[..511] + "…",
+                    live => MayRemove(live, memberRole, exempt), ct)
                 .ConfigureAwait(false);
+
+            if (removal.Kept)
+            {
+                if (removal.Member is { } live && live.RoleIds.Contains(memberRole, StringComparer.Ordinal))
+                    await LetInInDiscordAsync(entry, ct).ConfigureAwait(false);
+                else
+                    Close(entry, DiscordGateOutcomes.NotGated, null);
+
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                return JoinGateOutcome.NotAtTheGate;
+            }
+
+            var outcome = removal.Outcome;
 
             if (!outcome.Done)
                 return JoinGateOutcome.Failed(outcome.Error ?? "Discord refused the removal.");
@@ -534,8 +621,15 @@ public sealed class JoinGate
         return JoinGateOutcome.Ok;
     }
 
+    /// <summary>A moderator holds new joiners. Waits for a running pass, so it lands between two.</summary>
+    public async Task<JoinGateOutcome> HoldAsync(Guid by, CancellationToken ct)
+    {
+        using (await _state.LockAsync(ct).ConfigureAwait(false))
+            return await HoldWithinPassAsync(by, ct).ConfigureAwait(false);
+    }
+
     /// <param name="by">The Modbot account, or null when a join spike held them.</param>
-    public async Task<JoinGateOutcome> HoldAsync(Guid? by, CancellationToken ct)
+    private async Task<JoinGateOutcome> HoldWithinPassAsync(Guid? by, CancellationToken ct)
     {
         var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
 
@@ -557,15 +651,18 @@ public sealed class JoinGate
 
     public async Task<JoinGateOutcome> LiftHoldAsync(Guid by, CancellationToken ct)
     {
-        var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
+        using (await _state.LockAsync(ct).ConfigureAwait(false))
+        {
+            var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
 
-        if (settings.DiscordGateHeldAt is null)
-            return JoinGateOutcome.Ok;
+            if (settings.DiscordGateHeldAt is null)
+                return JoinGateOutcome.Ok;
 
-        settings.DiscordGateHeldAt = null;
-        await RecordAsync(FactType.DiscordGateHoldLifted, settings.DiscordGuildId ?? string.Empty, by, new JsonObject(), ct, onServer: true)
-            .ConfigureAwait(false);
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            settings.DiscordGateHeldAt = null;
+            await RecordAsync(FactType.DiscordGateHoldLifted, settings.DiscordGuildId ?? string.Empty, by, new JsonObject(), ct, onServer: true)
+                .ConfigureAwait(false);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
 
         _state.Wake();
         return JoinGateOutcome.Ok;
@@ -805,6 +902,19 @@ public sealed class JoinGate
     private static bool HasRole(string roles, string roleId)
         => roles.Contains('"' + roleId + '"', StringComparison.Ordinal);
 
+    /// <summary>A stored member's role ids, from the JSON list they are kept as.</summary>
+    private static IReadOnlyList<string> StoredRoles(string roles)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<string[]>(roles) ?? [];
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
+    }
+
     /// <summary>
     /// Gives the member role. False when it was not given: the row's problem says why, and when the
     /// person is not in the server any more the row is closed as left.
@@ -849,7 +959,13 @@ public sealed class JoinGate
     }
 
     /// <summary>The warning halfway to removal. Returns how it went: <c>dm</c>, <c>channel</c> or <c>none</c>.</summary>
-    private async Task<string> WarnAsync(IDiscordGateway gateway, GateSettings settings, string userId, DateTimeOffset deadline, CancellationToken ct)
+    private sealed record Warning(bool Delivered, string Via, string? Error);
+
+    /// <summary>
+    /// Sends the warning: a direct message, or, when their DMs are closed, a mention in the gate
+    /// channel. Delivered only when one of them was actually sent.
+    /// </summary>
+    private async Task<Warning> WarnAsync(IDiscordGateway gateway, GateSettings settings, string userId, DateTimeOffset deadline, CancellationToken ct)
     {
         var server = await ServerNameAsync(settings.GuildId, ct).ConfigureAwait(false);
         var getIn = new[] { new DiscordActionButton(JoinGateButtons.GetInLabel, DiscordActionButton.Marked(JoinGateButtons.GetIn, settings.GuildId!)) };
@@ -857,16 +973,95 @@ public sealed class JoinGate
 
         var dm = await gateway.SendDirectMessageAsync(userId, text, null, getIn, ct).ConfigureAwait(false);
         if (dm.Sent)
-            return LinkPromptVia.DirectMessage;
+            return new Warning(true, LinkPromptVia.DirectMessage, null);
 
-        if (dm.DirectMessagesClosed && settings.ChannelId is { } channel)
+        if (!dm.DirectMessagesClosed)
+            return new Warning(false, LinkPromptVia.None, dm.Error);
+
+        if (settings.ChannelId is not { } channel)
+            return new Warning(false, LinkPromptVia.None, "Their DMs are closed and no gate channel is set.");
+
+        var mention = await gateway.MentionAsync(channel, userId, text, null, getIn, ct).ConfigureAwait(false);
+        return mention.Sent
+            ? new Warning(true, LinkPromptVia.BackupChannel, null)
+            : new Warning(false, LinkPromptVia.None, "Their DMs are closed and the gate channel refused the mention: " + mention.Error);
+    }
+
+    /// <summary>
+    /// The least time between a delivered warning and the removal: half the removal time, but never
+    /// less than <see cref="ShortestWarningMinutes"/> nor more than <see cref="LongestWarningMinutes"/>.
+    /// </summary>
+    public static TimeSpan WarningWindow(int removeAfterMinutes)
+        => TimeSpan.FromMinutes(Math.Clamp(removeAfterMinutes / 2, ShortestWarningMinutes, LongestWarningMinutes));
+
+    public const int ShortestWarningMinutes = 5;
+
+    public const int LongestWarningMinutes = 10;
+
+    /// <summary>The server's owner, Modbot staff accounts' Discord ids, and roles that moderate: none of them is ever gated.</summary>
+    public sealed record Exemptions(string? OwnerId, IReadOnlySet<string> StaffIds, IReadOnlySet<string> StaffRoleIds)
+    {
+        public bool Covers(string userId, IEnumerable<string> roleIds, bool isBot)
+            => isBot
+               || string.Equals(userId, OwnerId, StringComparison.Ordinal)
+               || StaffIds.Contains(userId)
+               || roleIds.Any(StaffRoleIds.Contains);
+    }
+
+    /// <summary>
+    /// Roles that hold any of these are staff: Administrator, Kick Members, Ban Members, Manage
+    /// Server, Manage Roles, Timeout Members.
+    /// </summary>
+    public const long StaffPermissions = (1L << 3) | (1L << 1) | (1L << 2) | (1L << 5) | (1L << 28) | (1L << 40);
+
+    private async Task<Exemptions> ExemptionsAsync(IDiscordGateway? gateway, string guildId, CancellationToken ct)
+    {
+        var staff = await _db.Users.AsNoTracking()
+            .Where(u => u.DeletedAt == null && u.DiscordUserId != null && u.DiscordUserId != "")
+            .Select(u => u.DiscordUserId!)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var roles = await _db.DiscordRoles.AsNoTracking()
+            .Where(r => r.GuildId == guildId && r.RemovedAt == null && r.Permissions != null && (r.Permissions.Value & StaffPermissions) != 0)
+            .Select(r => r.RoleId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return new Exemptions(
+            gateway?.GuildOwnerId(guildId),
+            staff.Select(s => s.Trim()).ToHashSet(StringComparer.Ordinal),
+            roles.ToHashSet(StringComparer.Ordinal));
+    }
+
+    /// <summary>Whether somebody, as Discord has them now, may be removed at the gate.</summary>
+    public static bool MayRemove(DiscordMemberSnapshot live, string memberRoleId, Exemptions exempt)
+    {
+        ArgumentNullException.ThrowIfNull(live);
+        ArgumentNullException.ThrowIfNull(exempt);
+
+        return !live.RoleIds.Contains(memberRoleId, StringComparer.Ordinal)
+               && !exempt.Covers(live.UserId, live.RoleIds, live.IsBot);
+    }
+
+    private async Task LetInInDiscordAsync(DiscordGateEntry entry, CancellationToken ct)
+    {
+        Close(entry, DiscordGateOutcomes.LetInInDiscord, null);
+        await RecordAsync(FactType.DiscordGateLetIn, entry.DiscordUserId, null, new JsonObject
         {
-            var mention = await gateway.MentionAsync(channel, userId, text, null, getIn, ct).ConfigureAwait(false);
-            if (mention.Sent)
-                return LinkPromptVia.BackupChannel;
-        }
+            ["by"] = "discord",
+            ["watchOnly"] = entry.WatchOnly,
+        }, ct).ConfigureAwait(false);
+    }
 
-        return LinkPromptVia.None;
+    private async Task PassedAsync(GateSettings settings, DiscordGateEntry entry, CancellationToken ct)
+    {
+        Close(entry, DiscordGateOutcomes.Passed, null);
+        await RecordAsync(FactType.DiscordGatePassed, entry.DiscordUserId, null, new JsonObject
+        {
+            ["roleId"] = settings.MemberRoleId,
+            ["steps"] = Steps(settings),
+        }, ct).ConfigureAwait(false);
     }
 
     public static string WelcomeText(string? serverName)
@@ -1039,7 +1234,8 @@ public sealed class JoinGate
         if (!settings.HoldOnSpike)
             return null;
 
-        await HoldAsync(null, ct).ConfigureAwait(false);
+        // Inside the pass, which already holds the lock.
+        await HoldWithinPassAsync(null, ct).ConfigureAwait(false);
 
         if (!settings.PauseInvites)
             return null;
@@ -1067,22 +1263,30 @@ public sealed class JoinGate
 
         var role = '"' + settings.MemberRoleId + '"';
         var guild = settings.GuildId!;
+        var exempt = await ExemptionsAsync(gateway, guild, ct).ConfigureAwait(false);
+        var staff = exempt.StaffIds.ToList();
 
         var missed = await _db.DiscordMembers.AsNoTracking()
             .Where(m => m.GuildId == guild && m.LeftAt == null && !m.IsBot
                         && m.JoinedAt != null && m.JoinedAt >= started
                         && !m.Roles.Contains(role)
+                        && !staff.Contains(m.UserId)
                         && !_db.DiscordGateEntries.Any(e => e.GuildId == guild && e.DiscordUserId == m.UserId
                                                             && (e.ClosedAt == null || e.ClosedAt >= m.JoinedAt)))
             .OrderBy(m => m.JoinedAt)
             .Take(MostCaughtUpAPass)
-            .Select(m => new { m.UserId, m.Username })
+            .Select(m => new { m.UserId, m.Username, m.Roles, m.IsPending })
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
         foreach (var member in missed)
         {
+            // The owner and anybody holding a role that moderates are not gated.
+            if (exempt.Covers(member.UserId, StoredRoles(member.Roles), isBot: false))
+                continue;
+
             var entry = await StartAsync(settings, member.UserId, member.Username, _clock.UtcNow, ct).ConfigureAwait(false);
+            entry.Pending = member.IsPending;
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
             if (settings.Mode == DiscordGateModes.On)

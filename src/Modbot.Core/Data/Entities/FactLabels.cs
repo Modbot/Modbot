@@ -100,6 +100,7 @@ public static class FactLabels
         [FactType.DiscordGatePassed] = "Passed the join gate",
         [FactType.DiscordGateLetIn] = "Let in at the join gate",
         [FactType.DiscordGateRemoved] = "Removed at the join gate",
+        [FactType.DiscordGateRemoveRefused] = "Could not remove at the join gate",
         [FactType.DiscordGateWarned] = "Warned at the join gate",
         [FactType.DiscordGateHeld] = "New joiners held",
         [FactType.DiscordGateHoldLifted] = "Hold on new joiners lifted",

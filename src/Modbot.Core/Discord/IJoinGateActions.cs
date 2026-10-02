@@ -38,6 +38,12 @@ public interface IJoinGateActions
     Task<JoinGateOutcome> LiftHoldAsync(Guid by, CancellationToken ct = default);
 
     Task<JoinGateOutcome> PauseInvitesAsync(Guid by, CancellationToken ct = default);
+
+    /// <summary>
+    /// Runs <paramref name="work"/> while no pass of the gate is running and none can start: a
+    /// settings save, so a pass never acts on settings that changed under it (join gate design §6).
+    /// </summary>
+    Task<T> RunAloneAsync<T>(Func<Task<T>> work, CancellationToken ct = default);
 }
 
 /// <summary>A process with no Discord bot. Every action answers that the bot is not connected.</summary>
@@ -57,4 +63,11 @@ public sealed class NoJoinGateActions : IJoinGateActions
 
     public Task<JoinGateOutcome> PauseInvitesAsync(Guid by, CancellationToken ct = default)
         => Task.FromResult(JoinGateOutcome.Offline);
+
+    /// <summary>No bot, so no pass to wait for.</summary>
+    public Task<T> RunAloneAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        return work();
+    }
 }

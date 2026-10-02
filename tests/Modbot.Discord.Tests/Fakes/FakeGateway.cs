@@ -224,6 +224,24 @@ public sealed class FakeGateway : IDiscordGateway
             .ToList());
     }
 
+    /// <summary>Members as a live read sees them, by id, for <see cref="RemoveCheckedAsync"/>. Missing: no roles.</summary>
+    public Dictionary<string, DiscordMemberSnapshot> LiveMembers { get; } = new(StringComparer.Ordinal);
+
+    public async Task<DiscordCheckedRemoval> RemoveCheckedAsync(
+        string guildId, string userId, string reason, Func<DiscordMemberSnapshot, bool> mayRemove, CancellationToken ct)
+    {
+        if (NotInServer.Contains(userId))
+            return new DiscordCheckedRemoval(DiscordModerationOutcome.Already);
+
+        var member = LiveMembers.GetValueOrDefault(userId)
+                     ?? new DiscordMemberSnapshot(userId, "member", "member", null, false, null, [], null);
+
+        if (!mayRemove(member))
+            return new DiscordCheckedRemoval(DiscordModerationOutcome.Already, Kept: true, Member: member);
+
+        return new DiscordCheckedRemoval(await ModerationAsync("remove", guildId, userId, reason), Member: member);
+    }
+
     private Task<DiscordModerationOutcome> ModerationAsync(string action, string guildId, string userId, string reason)
     {
         if (ModerationRefused is { } refused)

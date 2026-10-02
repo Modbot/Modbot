@@ -172,6 +172,7 @@ public static class AuditVisibility
         [FactType.DiscordGatePassed] = AuditCategory.Moderation,
         [FactType.DiscordGateLetIn] = AuditCategory.Moderation,
         [FactType.DiscordGateRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordGateRemoveRefused] = AuditCategory.Moderation,
         [FactType.DiscordGateWarned] = AuditCategory.Operational,
         [FactType.DiscordGateHeld] = AuditCategory.Moderation,
         [FactType.DiscordGateHoldLifted] = AuditCategory.Moderation,

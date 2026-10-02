@@ -311,6 +311,206 @@ public class JoinGateTests
         Assert.Single(await services.FactsOfTypeAsync(FactType.DiscordGateHeld, Ct));
     }
 
+    private static async Task MinutesAsync(TestServices services, FakeGateway gateway, int minutes)
+    {
+        for (var minute = 0; minute < minutes; minute++)
+        {
+            services.Clock.Advance(TimeSpan.FromMinutes(1));
+            await PassAsync(services, gateway);
+        }
+    }
+
+    /// <summary>Review, 2026-10-02: a warning that never reached them holds the removal back, however long.</summary>
+    [Fact]
+    public async Task AWarningThatCouldNotBeDelivered_IsTriedAgain_AndNobodyIsRemovedBeforeIt()
+    {
+        // DMs closed and no gate channel to mention them in: the warning cannot reach them.
+        await using var services = await SetUpAsync(_db, removeAfter: 30, more: s => s.DiscordGateChannelId = null);
+        var gateway = new FakeGateway { DirectMessagesClosed = true };
+        await JoinAsync(services, gateway, "2001");
+
+        await MinutesAsync(services, gateway, 45);
+
+        var entry = await EntryAsync(services, "2001");
+        Assert.Null(entry.WarnedAt);
+        Assert.NotNull(entry.Problem);
+        Assert.Null(entry.ClosedAt);
+        Assert.Empty(gateway.Moderation);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.DiscordGateWarned, Ct));
+
+        // Their DMs open again: the warning goes out on the next pass, and the removal comes no
+        // sooner than the warning window after it, although their time ran out long ago.
+        gateway.DirectMessagesClosed = false;
+        await MinutesAsync(services, gateway, 1);
+        Assert.NotNull((await EntryAsync(services, "2001")).WarnedAt);
+
+        await MinutesAsync(services, gateway, (int)JoinGate.WarningWindow(30).TotalMinutes - 1);
+        Assert.Empty(gateway.Moderation);
+
+        await MinutesAsync(services, gateway, 1);
+        Assert.Single(gateway.Moderation);
+    }
+
+    [Fact]
+    public async Task TheWarningAndTheRemoval_NeverLandInOnePass()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+        await JoinAsync(services, gateway, "2002");
+        gateway.ActionMessages.Clear();
+
+        DateTimeOffset? warnedAt = null;
+        DateTimeOffset? removedAt = null;
+
+        for (var minute = 0; minute < 60 && removedAt is null; minute++)
+        {
+            services.Clock.Advance(TimeSpan.FromMinutes(1));
+            await PassAsync(services, gateway);
+
+            if (warnedAt is null && gateway.ActionMessages.Count > 0)
+                warnedAt = services.Clock.UtcNow;
+
+            if (gateway.Moderation.Count > 0)
+                removedAt = services.Clock.UtcNow;
+        }
+
+        Assert.NotNull(warnedAt);
+        Assert.NotNull(removedAt);
+        Assert.True(removedAt - warnedAt >= JoinGate.WarningWindow(30));
+    }
+
+    [Fact]
+    public async Task WithRemovalSetToNever_NoTimeIsCounted()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: null);
+        var gateway = new FakeGateway();
+        await JoinAsync(services, gateway, "2003");
+
+        await MinutesAsync(services, gateway, 20);
+
+        Assert.Equal(0, (await EntryAsync(services, "2003")).MinutesCounted);
+    }
+
+    /// <summary>Review, 2026-10-02: the stored list can be a minute old; the kick looks at Discord itself.</summary>
+    [Fact]
+    public async Task SomebodyWhoHasTheMemberRoleByTheTimeOfRemoval_IsLetInNotRemoved()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+        await JoinAsync(services, gateway, "2004");
+
+        // Given the role in Discord a moment ago; the stored member list has not heard yet.
+        gateway.LiveMembers["2004"] = new DiscordMemberSnapshot("2004", "newcomer", "newcomer", null, false, null, [Role], null);
+
+        await MinutesAsync(services, gateway, 45);
+
+        Assert.Empty(gateway.Moderation);
+        Assert.Equal(DiscordGateOutcomes.LetInInDiscord, (await EntryAsync(services, "2004")).Outcome);
+    }
+
+    [Fact]
+    public async Task SomebodyHoldingARoleThatModerates_IsNeverRemoved()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordRoles.Add(new DiscordRole
+            {
+                GuildId = Guild,
+                RoleId = "950",
+                Name = "Mods",
+                Permissions = 1L << 1,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await JoinAsync(services, gateway, "2005");
+        gateway.LiveMembers["2005"] = new DiscordMemberSnapshot("2005", "mod", "mod", null, false, null, ["950"], null);
+
+        await MinutesAsync(services, gateway, 45);
+
+        Assert.Empty(gateway.Moderation);
+        Assert.Equal(DiscordGateOutcomes.NotGated, (await EntryAsync(services, "2005")).Outcome);
+    }
+
+    [Fact]
+    public async Task StaffJoining_AreNotGated()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+        await services.LinkedAccountAsync("2006", ModbotPermissions.ViewMembers, ct: Ct);
+
+        Assert.False(await JoinAsync(services, gateway, "2006"));
+
+        await using var db = services.Database.NewContext();
+        Assert.False(await db.DiscordGateEntries.AnyAsync(e => e.DiscordUserId == "2006", Ct));
+    }
+
+    /// <summary>Review, 2026-10-02 (a): "everybody already in your server is left alone" stays true.</summary>
+    [Fact]
+    public async Task SomebodyAlreadyInTheServerPressingGetIn_IsNeverWarnedOrRemoved()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+
+        await PressAsync(services, gateway, "2007", JoinGateButtons.GetIn);
+        await MinutesAsync(services, gateway, 60);
+
+        var entry = await EntryAsync(services, "2007");
+        Assert.True(entry.NeverRemove);
+        Assert.Equal(0, entry.MinutesCounted);
+        Assert.Null(entry.WarnedAt);
+        Assert.Null(entry.ClosedAt);
+        Assert.Empty(gateway.Moderation);
+        Assert.Empty(gateway.ActionMessages);
+
+        // They can still do the steps and get in.
+        var reply = await PressAsync(services, gateway, "2007", JoinGateButtons.Agree);
+        Assert.Equal(JoinGate.YoureIn, reply.Text);
+    }
+
+    /// <summary>Review, 2026-10-02 (b).</summary>
+    [Fact]
+    public async Task LeavingAndJoiningAgain_StartsANewTimeThroughTheGate()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway();
+        await JoinAsync(services, gateway, "2008");
+        await MinutesAsync(services, gateway, 20);
+
+        await JoinAsync(services, gateway, "2008");
+
+        await using var db = services.Database.NewContext();
+        var rows = await db.DiscordGateEntries.AsNoTracking()
+            .Where(e => e.DiscordUserId == "2008")
+            .OrderBy(e => e.JoinedAt)
+            .ToListAsync(Ct);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(DiscordGateOutcomes.Left, rows[0].Outcome);
+        Assert.Null(rows[1].ClosedAt);
+        Assert.Equal(0, rows[1].MinutesCounted);
+        Assert.Null(rows[1].WarnedAt);
+    }
+
+    /// <summary>Review, 2026-10-02 (c).</summary>
+    [Fact]
+    public async Task ARemovalDiscordRefuses_ClosesTheRowOnce_AndIsNotTriedAgain()
+    {
+        await using var services = await SetUpAsync(_db, removeAfter: 30);
+        var gateway = new FakeGateway { ModerationRefused = "Missing Permissions" };
+        await JoinAsync(services, gateway, "2009");
+
+        await MinutesAsync(services, gateway, 60);
+
+        var entry = await EntryAsync(services, "2009");
+        Assert.Equal(DiscordGateOutcomes.CannotRemove, entry.Outcome);
+        Assert.Single(await services.FactsOfTypeAsync(FactType.DiscordGateRemoveRefused, Ct));
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.DiscordGateRemoved, Ct));
+    }
+
     [Theory]
     [InlineData(0.5, 0)]
     [InlineData(1, 1)]

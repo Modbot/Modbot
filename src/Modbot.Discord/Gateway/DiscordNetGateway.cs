@@ -603,6 +603,40 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
+    public async Task<DiscordCheckedRemoval> RemoveCheckedAsync(
+        string guildId, string userId, string reason, Func<DiscordMemberSnapshot, bool> mayRemove, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(mayRemove);
+
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
+            || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+        {
+            return new DiscordCheckedRemoval(DiscordModerationOutcome.Failed("That is not a Discord server or user id."));
+        }
+
+        try
+        {
+            var member = await _client.Rest.GetGuildUserAsync(guild, user, new RequestOptions { CancelToken = ct })
+                .ConfigureAwait(false);
+
+            if (member is null)
+                return new DiscordCheckedRemoval(DiscordModerationOutcome.Already);
+
+            var now = Describe(member);
+            if (!mayRemove(now))
+                return new DiscordCheckedRemoval(DiscordModerationOutcome.Already, Kept: true, Member: now);
+
+            await member.KickAsync(reason, new RequestOptions { AuditLogReason = reason, CancelToken = ct })
+                .ConfigureAwait(false);
+
+            return new DiscordCheckedRemoval(DiscordModerationOutcome.Ok, Member: now);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return new DiscordCheckedRemoval(Explain("remove", e));
+        }
+    }
+
     public async Task<IReadOnlyList<DiscordBanSnapshot>?> ReadBansAsync(string guildId, CancellationToken ct)
     {
         if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)

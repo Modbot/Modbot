@@ -340,6 +340,11 @@ public sealed record DiscordRoleOutcome(bool Done, bool NotInServer, bool RoleGo
     public static DiscordRoleOutcome Failed(string error) => new(false, false, false, error);
 }
 
+/// <summary>What a checked removal did (<see cref="IDiscordGateway.RemoveCheckedAsync"/>).</summary>
+/// <param name="Kept">The check said no, so nobody was removed. <paramref name="Member"/> is who was read.</param>
+/// <param name="Member">The member as Discord had them, when they were read.</param>
+public sealed record DiscordCheckedRemoval(DiscordModerationOutcome Outcome, bool Kept = false, DiscordMemberSnapshot? Member = null);
+
 /// <summary>
 /// Whether banning, unbanning or removing somebody went through.
 /// </summary>
@@ -773,6 +778,19 @@ public interface IDiscordGateway : IAsyncDisposable
     /// not in the server counts as nothing to do: they are already out.
     /// </summary>
     Task<DiscordModerationOutcome> RemoveAsync(string guildId, string userId, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Removes somebody only when <paramref name="mayRemove"/>, shown the member as Discord has them
+    /// at this moment, says so (join gate design §6). The member is read live over REST, never from
+    /// the stored list, so a role given a second ago or a member who just left is seen.
+    /// </summary>
+    /// <returns>
+    /// Removed; not in the server (<see cref="DiscordModerationOutcome.NothingToDo"/>); kept, with
+    /// the member who was read; or a failure, with <see cref="DiscordModerationOutcome.NotAllowed"/>
+    /// when Discord refused. A member who could not be read is never removed.
+    /// </returns>
+    Task<DiscordCheckedRemoval> RemoveCheckedAsync(
+        string guildId, string userId, string reason, Func<DiscordMemberSnapshot, bool> mayRemove, CancellationToken ct);
 
     /// <summary>Gives a member a role. Needs Manage Roles and the role below the bot's highest.</summary>
     Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);

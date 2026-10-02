@@ -33,6 +33,12 @@ public static class DiscordGateOutcomes
 
     /// <summary>The gate was turned off or changed mode while they were waiting.</summary>
     public const string GateChanged = "gate-changed";
+
+    /// <summary>Discord refused the removal (the person outranks the bot, or Kick Members is missing).</summary>
+    public const string CannotRemove = "cannot-remove";
+
+    /// <summary>Not somebody the gate holds: the server's owner, a bot, or staff.</summary>
+    public const string NotGated = "not-gated";
 }
 
 /// <summary>
@@ -56,6 +62,18 @@ public class DiscordGateEntry
     /// <summary>Made while the gate was Watch only: nothing is done in Discord for this row.</summary>
     public bool WatchOnly { get; set; }
 
+    /// <summary>
+    /// Never warned and never removed: somebody who was in the server before the gate went on and
+    /// pressed Get in anyway, or whose join Modbot never saw. They can still do the steps and get in.
+    /// </summary>
+    public bool NeverRemove { get; set; }
+
+    /// <summary>
+    /// Whether Discord said they had not accepted the server's rules yet, as the join showed it. Used
+    /// only while the stored member list has no row for them.
+    /// </summary>
+    public bool Pending { get; set; }
+
     /// <summary>When they pressed I agree.</summary>
     public DateTimeOffset? AgreedAt { get; set; }
 
@@ -68,7 +86,12 @@ public class DiscordGateEntry
     /// <summary>When the last pass looked at this row, so the next one knows how much time went by.</summary>
     public DateTimeOffset? LastCountedAt { get; set; }
 
-    /// <summary>When they were warned (or, in Watch only, would have been).</summary>
+    /// <summary>
+    /// When the warning reached them: a direct message that was sent, or, with their DMs closed, a
+    /// mention in the gate channel that was posted. In Watch only, when it would have been sent.
+    /// Null until then: a warning that could not be delivered is tried again, and nobody is removed
+    /// before it is.
+    /// </summary>
     public DateTimeOffset? WarnedAt { get; set; }
 
     /// <summary>When they would have been removed, in Watch only. The row stays open.</summary>

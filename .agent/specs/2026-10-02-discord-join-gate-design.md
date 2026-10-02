@@ -66,8 +66,11 @@ Modbot **gives the member role when the steps are done**. It does not put a "wai
 and take it off. So when Modbot is down, new joiners wait and nobody is let in unchecked (§10).
 
 **Who is gated.** Only people who join while the gate is on, and who do not hold the member role.
-Everyone already in the server is left alone. Somebody who joined before the gate was on and presses
-**Get in** anyway is gated from that moment.
+Everyone already in the server is left alone. Somebody who presses **Get in** without the gate having
+seen them join (they were here before, Modbot missed the join, or they are staff) can do the steps
+and get the role, but their row is marked never-remove: no clock, no warning, no removal. Staff
+joining (a Discord account a Modbot account holds), the server's owner and bots are not gated at all.
+A join always starts a new row; a row still open from before is closed as left.
 
 ## 4. What a new member sees
 
@@ -106,11 +109,26 @@ step. A server that is not set up for linking cannot save the link step.
 
 **Remove after** is the operator's (owner, Q2), with **Never** among the choices.
 
-- **One warning, halfway.** At half the removal time the bot DMs once: "You have not finished
+- **A real warning, halfway.** At half the removal time the bot DMs: "You have not finished
   getting in to **server**. Get in by <time>, or you will be removed." with **Get in**. DMs closed:
-  one mention in the gate channel. No warning when removal is Never.
+  one mention in the gate channel. The warning counts only once it was **delivered** (the DM sent,
+  or with DMs closed the mention posted); anything else is tried again next pass, and nobody is
+  removed before a delivered warning. Removal comes no sooner than the warning window after it: half
+  the removal time, at least 5 and at most 10 minutes (10 for every choice offered). No clock and no
+  warning while removal is Never.
+- **Changing Remove after** (review, 2026-10-02): everybody waiting goes back to no later than
+  halfway and loses their warning, so the next pass warns them again with the new time. Nobody is
+  past the deadline at the moment of saving. Removal set to Never clears the time counted.
 - Removal is a **kick**, never a ban: they can come back. Discord's audit log says "Modbot: did not
   finish the join gate".
+- **A live look first.** Just before a kick the bot reads the member from Discord (REST, not the
+  stored list) and does not kick when they now hold the member role (closed as let in), are a bot,
+  the owner, a Modbot staff account's Discord, or hold a role with Administrator, Kick Members, Ban
+  Members, Manage Server, Manage Roles or Timeout Members (closed as not gated), or have left. This
+  is also why removals need not wait for the member list to be read again after a restart: the
+  stored list is never what a kick is decided on.
+- **Discord refuses a kick** (they outrank the bot, or Kick Members is missing): the row closes as
+  "can't remove" with one **Could not remove at the join gate** fact, and is not tried again.
 - **Time counts only while the hold-up is theirs.** Each open entry keeps the minutes it has been
   counted. A pass adds the minutes since the last pass, at most two, and only when:
   - the bot is connected (a pass needs a ready session at all);
@@ -121,8 +139,13 @@ step. A server that is not set up for linking cannot save the link step.
   - linking is set up, for a gate with the link step;
   - the person has steps left to do (somebody done and waiting on a hold is waiting on staff).
   A Modbot down for a day counts as two minutes. Nobody is removed while Modbot is the reason.
-- **Runaway guard.** At most 10 removals in a pass, and none once 30 people were removed in the last
-  hour; the gate then says so on Health and stops removing until the hour has passed.
+- **Runaway guard and pacing.** At most 10 removals in any minute and 30 in any hour, counted in
+  rolling windows rather than per pass (a pass can be woken more often than once a minute). Past 30 in
+  an hour the gate says so on Health and stops removing until the hour has passed. Member roles: at
+  most 25 in any minute, shared by the pass and Get in presses; a press over the limit is told it
+  will be let in shortly, and the pass does it.
+- **Settings saves run alone.** A save takes the gate's lock, so it waits for a running pass and no
+  pass starts until it is done; the pass reads the settings only after taking the lock.
 
 ## 7. What staff see
 
@@ -202,17 +225,20 @@ it. Changing the gate's settings is Change settings, as for every other card.
 
 - 50 requests a second for the whole bot, plus per-route limits; 10,000 refused requests (401, 403,
   429) in 10 minutes gets the bot's address blocked ([docs][rates]). A refused role change stops time
-  counting and is not retried until the next pass; at most 10 removals and 25 role changes a pass.
-- A button press must be answered within 3 seconds; the steps are read from stored rows only.
-- DMs to strangers are what spam looks like: one DM on join and one warning, never more.
+  counting and is not retried until the next pass; at most 10 removals and 25 role changes in any
+  minute (§6).
+- A button press is deferred at once, as every Modbot button is; the steps are read from stored rows.
+- DMs to strangers are what spam looks like: one DM on join and one delivered warning. A warning that
+  failed is tried again; a second one comes only when the removal time changes.
 - **Checked during the test, not from docs:** whether a role can be given to a `pending` member (the
   gate waits for `pending` to be false either way), and whether a member held by verification level
   "in the server 10 minutes" can press buttons.
 
 **What is stored** (`discord_gate_entry`, one row per person per time through the gate): Discord id
 and name, when they joined, Watch only or not, when they agreed, minutes counted, when they were
-warned, how it ended (passed, let in, let in in Discord, removed, left, gate changed) and when, who let
-them in or removed them, the last problem. Nothing about the person beyond what linking already keeps.
+warned, whether they are never removed, whether Discord said they had not accepted the rules when
+they joined, how it ended (passed, let in, let in in Discord, removed, could not remove, not gated,
+left, gate changed) and when, who let them in or removed them, the last problem. Nothing about the person beyond what linking already keeps.
 The warning facts take the short retention class; the rest are moderation history.
 `WhatModbotKeeps` and the `/me` docs gain one line, "Whether you got in through the server's join
 gate, and when". The privacy policy on modbot.co lives outside this repository and needs the same

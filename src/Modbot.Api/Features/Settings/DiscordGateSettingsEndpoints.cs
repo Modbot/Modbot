@@ -92,6 +92,7 @@ public static class DiscordGateSettingsEndpoints
                 [FromBody] DiscordGateSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] IJoinGateActions gate,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -100,87 +101,9 @@ public static class DiscordGateSettingsEndpoints
                 if (!DiscordGateModes.IsKnown(mode))
                     return Results.BadRequest(new { error = "`mode` is off, watch or on." });
 
-                var settings = await db.GetSettingsAsync(ct);
-
-                var role = Blank(body.MemberRoleId);
-                var channel = Blank(body.ChannelId);
-                var message = Blank(body.Message);
-
-                if (mode != DiscordGateModes.Off && role is null)
-                    return Results.BadRequest(new { error = "Pick the member role." });
-
-                if (mode == DiscordGateModes.On && channel is null)
-                    return Results.BadRequest(new { error = "Pick the gate channel." });
-
-                if (message is { Length: > MaxMessageLength })
-                    return Results.BadRequest(new { error = $"The message is longer than {MaxMessageLength} characters." });
-
-                if (body.RemoveAfterMinutes is { } minutes && !RemoveChoices.Contains(minutes))
-                    return Results.BadRequest(new { error = "`removeAfterMinutes` is one of the choices, or null for never." });
-
-                if (body.NeedsEighteenPlus && !body.NeedsLink)
-                    return Results.BadRequest(new { error = "18+ on VRChat needs the Link VRChat account step." });
-
-                var linkingReady = LinkingReady(settings);
-                if (body.NeedsLink && !linkingReady)
-                    return Results.BadRequest(new { error = "Account linking is not set up." });
-
-                if (role is not null)
-                {
-                    var known = await db.DiscordRoles.AsNoTracking()
-                        .FirstOrDefaultAsync(r => r.RoleId == role && r.RemovedAt == null, ct);
-
-                    if (known is { BotCanAssign: false })
-                        return Results.BadRequest(new { error = $"The bot cannot assign {known.Name}." });
-                }
-
-                var change = new SettingsChange("discordGate")
-                    .Field("mode", settings.DiscordGateMode, mode)
-                    .Field("memberRoleId", settings.DiscordGateMemberRoleId, role)
-                    .Field("channelId", settings.DiscordGateChannelId, channel)
-                    .Field("message", settings.DiscordGateMessage, message)
-                    .Field("needsLink", settings.DiscordGateNeedsLink, body.NeedsLink)
-                    .Field("needsEighteenPlus", settings.DiscordGateNeedsEighteenPlus, body.NeedsEighteenPlus)
-                    .Field("removeAfterMinutes", settings.DiscordGateRemoveAfterMinutes, body.RemoveAfterMinutes)
-                    .Field("holdOnSpike", settings.DiscordGateHoldOnSpike, body.HoldOnSpike)
-                    .Field("pauseInvites", settings.DiscordGatePauseInvites, body.PauseInvites);
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-                var now = clock.UtcNow;
-                var modeChanged = !string.Equals(settings.DiscordGateMode, mode, StringComparison.Ordinal);
-
-                if (modeChanged)
-                {
-                    // The rows of the old mode end here, and the gate counts joiners from now.
-                    await db.DiscordGateEntries
-                        .Where(e => e.ClosedAt == null)
-                        .ExecuteUpdateAsync(s => s
-                            .SetProperty(e => e.ClosedAt, now)
-                            .SetProperty(e => e.Outcome, DiscordGateOutcomes.GateChanged), ct);
-
-                    settings.DiscordGateStartedAt = mode == DiscordGateModes.Off ? null : now;
-                    settings.DiscordGateSpikeSeenAt = mode == DiscordGateModes.Off ? null : now;
-
-                    // A hold belongs to the gate that was on; a new mode starts without one.
-                    settings.DiscordGateHeldAt = null;
-                }
-
-                settings.DiscordGateMode = mode!;
-                settings.DiscordGateMemberRoleId = role;
-                settings.DiscordGateChannelId = channel;
-                settings.DiscordGateMessage = message;
-                settings.DiscordGateNeedsLink = body.NeedsLink;
-                settings.DiscordGateNeedsEighteenPlus = body.NeedsEighteenPlus;
-                settings.DiscordGateRemoveAfterMinutes = body.RemoveAfterMinutes;
-                settings.DiscordGateHoldOnSpike = body.HoldOnSpike;
-                settings.DiscordGatePauseInvites = body.PauseInvites;
-
-                await db.SaveChangesAsync(ct);
-                await change.RecordAsync(http, ct);
-                await transaction.CommitAsync(ct);
-
-                return Results.Ok(View(settings));
+                // While no pass runs: a pass that started before this save must not go on removing
+                // people under a removal time or a mode that has just changed.
+                return await gate.RunAloneAsync(() => SaveAsync(http, body, mode!, db, clock, ct), ct);
             })
             .WithName("SetDiscordGateSettings")
             .WithSummary("Update join gate settings")
@@ -188,7 +111,8 @@ public static class DiscordGateSettingsEndpoints
                 "Save the join gate's settings. `mode` is off, watch (record what would happen, do "
                 + "nothing in Discord) or on. Changing the mode ends everybody's current time at the "
                 + "gate and gates only people who join from then on. `removeAfterMinutes` is one of "
-                + "`removeChoices`, or null for never. `needsEighteenPlus` needs `needsLink`, and "
+                + "`removeChoices`, or null for never; changing it starts everybody waiting no later "
+                + "than halfway again, with a new warning. `needsEighteenPlus` needs `needsLink`, and "
                 + "`needsLink` needs account linking to be set up.")
             .Produces<DiscordGateSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -196,6 +120,125 @@ public static class DiscordGateSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         return app;
+    }
+
+    private static async Task<IResult> SaveAsync(
+        HttpContext http, DiscordGateSettingsUpdate body, string mode, ModbotContext db, IModbotClock clock, CancellationToken ct)
+    {
+        var settings = await db.GetSettingsAsync(ct);
+
+        var role = Blank(body.MemberRoleId);
+        var channel = Blank(body.ChannelId);
+        var message = Blank(body.Message);
+
+        if (mode != DiscordGateModes.Off && role is null)
+            return Results.BadRequest(new { error = "Pick the member role." });
+
+        if (mode == DiscordGateModes.On && channel is null)
+            return Results.BadRequest(new { error = "Pick the gate channel." });
+
+        if (message is { Length: > MaxMessageLength })
+            return Results.BadRequest(new { error = $"The message is longer than {MaxMessageLength} characters." });
+
+        if (body.RemoveAfterMinutes is { } minutes && !RemoveChoices.Contains(minutes))
+            return Results.BadRequest(new { error = "`removeAfterMinutes` is one of the choices, or null for never." });
+
+        if (body.NeedsEighteenPlus && !body.NeedsLink)
+            return Results.BadRequest(new { error = "18+ on VRChat needs the Link VRChat account step." });
+
+        var linkingReady = LinkingReady(settings);
+        if (body.NeedsLink && !linkingReady)
+            return Results.BadRequest(new { error = "Account linking is not set up." });
+
+        if (role is not null)
+        {
+            var guild = settings.DiscordGuildId ?? string.Empty;
+            var known = await db.DiscordRoles.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.GuildId == guild && r.RoleId == role && r.RemovedAt == null, ct);
+
+            if (known is { BotCanAssign: false })
+                return Results.BadRequest(new { error = $"The bot cannot assign {known.Name}." });
+        }
+
+        var change = new SettingsChange("discordGate")
+            .Field("mode", settings.DiscordGateMode, mode)
+            .Field("memberRoleId", settings.DiscordGateMemberRoleId, role)
+            .Field("channelId", settings.DiscordGateChannelId, channel)
+            .Field("message", settings.DiscordGateMessage, message)
+            .Field("needsLink", settings.DiscordGateNeedsLink, body.NeedsLink)
+            .Field("needsEighteenPlus", settings.DiscordGateNeedsEighteenPlus, body.NeedsEighteenPlus)
+            .Field("removeAfterMinutes", settings.DiscordGateRemoveAfterMinutes, body.RemoveAfterMinutes)
+            .Field("holdOnSpike", settings.DiscordGateHoldOnSpike, body.HoldOnSpike)
+            .Field("pauseInvites", settings.DiscordGatePauseInvites, body.PauseInvites);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var now = clock.UtcNow;
+        var modeChanged = !string.Equals(settings.DiscordGateMode, mode, StringComparison.Ordinal);
+
+        if (modeChanged)
+        {
+            // The rows of the old mode end here, and the gate counts joiners from now.
+            await db.DiscordGateEntries
+                .Where(e => e.ClosedAt == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(e => e.ClosedAt, now)
+                    .SetProperty(e => e.Outcome, DiscordGateOutcomes.GateChanged), ct);
+
+            settings.DiscordGateStartedAt = mode == DiscordGateModes.Off ? null : now;
+            settings.DiscordGateSpikeSeenAt = mode == DiscordGateModes.Off ? null : now;
+
+            // A hold belongs to the gate that was on; a new mode starts without one.
+            settings.DiscordGateHeldAt = null;
+        }
+        else if (settings.DiscordGateRemoveAfterMinutes != body.RemoveAfterMinutes)
+        {
+            await RestartClocksAsync(db, body.RemoveAfterMinutes, ct);
+        }
+
+        settings.DiscordGateMode = mode!;
+        settings.DiscordGateMemberRoleId = role;
+        settings.DiscordGateChannelId = channel;
+        settings.DiscordGateMessage = message;
+        settings.DiscordGateNeedsLink = body.NeedsLink;
+        settings.DiscordGateNeedsEighteenPlus = body.NeedsEighteenPlus;
+        settings.DiscordGateRemoveAfterMinutes = body.RemoveAfterMinutes;
+        settings.DiscordGateHoldOnSpike = body.HoldOnSpike;
+        settings.DiscordGatePauseInvites = body.PauseInvites;
+
+        await db.SaveChangesAsync(ct);
+        await change.RecordAsync(http, ct);
+        await transaction.CommitAsync(ct);
+
+        return Results.Ok(View(settings));
+    }
+
+    /// <summary>
+    /// A new removal time must not put anybody past it at once (join gate design §6). Everybody
+    /// waiting goes back to no later than halfway and loses the warning they had, so the next pass
+    /// warns them again with the new deadline and the removal comes at least the warning window
+    /// after that. Removal turned off clears the time counted altogether.
+    /// </summary>
+    public static Task RestartClocksAsync(ModbotContext db, int? removeAfterMinutes, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        var open = db.DiscordGateEntries.Where(e => e.ClosedAt == null);
+
+        if (removeAfterMinutes is not { } minutes)
+        {
+            return open.ExecuteUpdateAsync(s => s
+                .SetProperty(e => e.MinutesCounted, 0)
+                .SetProperty(e => e.WarnedAt, (DateTimeOffset?)null)
+                .SetProperty(e => e.WouldRemoveAt, (DateTimeOffset?)null), ct);
+        }
+
+        var half = minutes / 2;
+
+        return open.ExecuteUpdateAsync(s => s
+            .SetProperty(e => e.MinutesCounted, e => e.MinutesCounted > half ? half : e.MinutesCounted)
+            .SetProperty(e => e.WarnedAt, (DateTimeOffset?)null)
+            .SetProperty(e => e.WouldRemoveAt, (DateTimeOffset?)null), ct);
     }
 
     private static DiscordGateSettingsResponse View(Core.Data.Entities.Settings settings) => new(

@@ -56,7 +56,9 @@ Open **Settings → Discord** and find the **Join gate** card.
 </Steps>
 
 Only people who join after you turn the gate on are gated. Everybody already in your server is left
-alone.
+alone. If somebody who was already in presses **Get in** anyway, they can do the steps and get the
+member role, but they are never warned or removed. Staff joining (a Discord account connected to a
+Modbot account) and the server's owner are not gated.
 
 ## What a new member sees
 
@@ -76,22 +78,38 @@ one message, not two.
 
 ## Not finishing
 
-With **Remove after** set, the bot warns somebody once, halfway through: a direct message saying when
-they will be removed, with the **Get in** button. At the end, the bot removes them from the server.
-They are not banned, and can join again.
+With **Remove after** set, the bot warns somebody halfway through: a direct message saying when they
+will be removed, with the **Get in** button. If their direct messages are closed, it mentions them
+in the gate channel instead. **Nobody is removed without a warning that reached them**: a warning that
+could not be sent is tried again, and the removal waits for it. Between the warning and the removal
+there are always at least 10 minutes.
+
+At the end, the bot removes them from the server. They are not banned, and can join again. Just
+before removing anybody, the bot looks at them in Discord as they are at that moment, and leaves
+them alone if they have the member role by then, are a bot or the server's owner, hold a role that
+moderates, or are connected to a Modbot staff account.
 
 **Time only counts while the hold-up is theirs.** It stops while:
 
 - the bot is offline, or Modbot is down;
 - the bot cannot give the member role (it lost Manage Roles, or the role moved above the bot's);
 - VRChat is refusing Modbot's requests, for a gate that asks for a linked account;
-- they have done every step and are waiting on a hold.
+- they have done every step and are waiting on a hold;
+- **Remove after** is **Never**.
 
 So nobody is removed because Modbot could not let them in. When Modbot is down, new members wait in
 the gate channel; nobody gets in and nobody is removed until it is back.
 
-The bot removes at most 10 people a minute and stops removing once 30 were removed in an hour. The
-**Discord bot** card on **Health** then says so.
+Changing **Remove after** puts everybody waiting back to no later than halfway, and they are warned
+again with the new time. Nobody is ever past the deadline the moment you save.
+
+If Discord refuses to remove somebody (they hold a role above the bot's, or the bot lacks Kick
+Members), the bot stops trying for that person and records **Could not remove at the join gate**.
+
+The bot removes at most 10 people in any minute and 30 in any hour, and gives the member role to
+at most 25 people in any minute. Past 30 removals in an hour it stops removing until the hour has
+passed, and the **Discord bot** card on **Health** says so. People who finish while 25 have already
+got in that minute are let in a minute or two later.
 
 ## Seeing who is waiting
 
@@ -146,6 +164,7 @@ These appear in the audit log and can be sent to [event channels](/discord/event
 | **Passed the join gate** | Somebody did the steps and got the member role. |
 | **Let in at the join gate** | A moderator let them in from Modbot, or they got the member role in Discord. |
 | **Removed at the join gate** | The bot removed them for not finishing, or a moderator removed them. |
+| **Could not remove at the join gate** | Discord refused the removal, so the bot stopped trying for that person. |
 | **Warned at the join gate** | They were warned halfway. |
 | **New joiners held** | A moderator, or a join spike, held new joiners. |
 | **Hold on new joiners lifted** | A moderator lifted the hold. |

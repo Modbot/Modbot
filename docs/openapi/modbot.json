@@ -11369,7 +11369,7 @@
           "Settings"
         ],
         "summary": "Update join gate settings",
-        "description": "Save the join gate's settings. `mode` is off, watch (record what would happen, do nothing in Discord) or on. Changing the mode ends everybody's current time at the gate and gates only people who join from then on. `removeAfterMinutes` is one of `removeChoices`, or null for never. `needsEighteenPlus` needs `needsLink`, and `needsLink` needs account linking to be set up.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the join gate's settings. `mode` is off, watch (record what would happen, do nothing in Discord) or on. Changing the mode ends everybody's current time at the gate and gates only people who join from then on. `removeAfterMinutes` is one of `removeChoices`, or null for never; changing it starts everybody waiting no later than halfway again, with a new warning. `needsEighteenPlus` needs `needsLink`, and `needsLink` needs account linking to be set up.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordGateSettings",
         "requestBody": {
           "content": {

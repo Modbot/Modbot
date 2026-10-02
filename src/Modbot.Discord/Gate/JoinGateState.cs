@@ -39,6 +39,36 @@ public sealed class JoinGateState
         RoleProblemAt = null;
     }
 
+    /// <summary>Most member roles given in any minute, by the pass and button presses together.</summary>
+    public const int MostRoleChangesAMinute = 25;
+
+    /// <summary>Most removals in any minute. Passes can run more often than once a minute, so this is counted here.</summary>
+    public const int MostRemovalsAMinute = 10;
+
+    private readonly Queue<DateTimeOffset> _roleChanges = new();
+    private readonly Queue<DateTimeOffset> _removals = new();
+
+    /// <summary>Takes one role change from this minute's allowance; false when it is used up.</summary>
+    public bool TryRoleChange(DateTimeOffset now) => TryTake(_roleChanges, MostRoleChangesAMinute, now);
+
+    /// <summary>Takes one removal from this minute's allowance; false when it is used up.</summary>
+    public bool TryRemoval(DateTimeOffset now) => TryTake(_removals, MostRemovalsAMinute, now);
+
+    private static bool TryTake(Queue<DateTimeOffset> taken, int most, DateTimeOffset now)
+    {
+        lock (taken)
+        {
+            while (taken.Count > 0 && now - taken.Peek() >= TimeSpan.FromMinutes(1))
+                taken.Dequeue();
+
+            if (taken.Count >= most)
+                return false;
+
+            taken.Enqueue(now);
+            return true;
+        }
+    }
+
     /// <summary>When the gate message was last rewritten or checked, so a deleted one is noticed within the hour.</summary>
     public DateTimeOffset? MessageCheckedAt { get; set; }
 
