@@ -1423,6 +1423,20 @@ public sealed class DiscordNetGateway : IDiscordGateway
             ? me.GetPermissions(channel)
             : ChannelPermissions.None;
 
+        // Whether @everyone sees it. The channel's own overwrite for @everyone decides when it sets
+        // View Channel; otherwise @everyone's server-wide permission does. Administrator on
+        // @everyone sees everything, as Discord resolves it.
+        var everyone = channel.Guild.EveryoneRole;
+        bool? everyoneCanView = everyone is null
+            ? null
+            : everyone.Permissions.Administrator
+              || (channel.GetPermissionOverwrite(everyone)?.ViewChannel switch
+              {
+                  PermValue.Allow => true,
+                  PermValue.Deny => false,
+                  _ => everyone.Permissions.ViewChannel,
+              });
+
         return new DiscordChannelSnapshot(
             Text(channel.Id),
             channel.Name,
@@ -1436,7 +1450,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 permissions.SendMessages,
                 permissions.EmbedLinks,
                 permissions.AttachFiles,
-                permissions.ManageMessages));
+                permissions.ManageMessages),
+            everyoneCanView);
     }
 
     private static DiscordRoleSnapshot Describe(SocketRole role, SocketGuildUser? me)
@@ -1456,7 +1471,10 @@ public sealed class DiscordNetGateway : IDiscordGateway
             role.Position,
             role.IsManaged,
             role.IsEveryone,
-            canAssign);
+            canAssign,
+
+            // The same 64 bits in a signed number; only ever compared whole.
+            unchecked((long)role.Permissions.RawValue));
     }
 
     // ── Messages ───────────────────────────────────────────────────────────────────────────

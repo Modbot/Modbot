@@ -25,6 +25,10 @@ import { mayOpen, type PageId } from './nav.ts'
 export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-server', label: 'Overview' },
   { id: 'calendar', label: 'Events' },
+  // Discord's column has "Channels & Roles" between Events and Members; here they are two links,
+  // each a read-only report (Discord tidy-up design).
+  { id: 'discord-channels', label: 'Channels' },
+  { id: 'discord-roles', label: 'Roles' },
   { id: 'discord-members', label: 'Members' },
   { id: 'bans', label: 'Bans' },
 ]

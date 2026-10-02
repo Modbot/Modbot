@@ -64,6 +64,8 @@ import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
+import { DiscordChannels } from '@/pages/DiscordChannels'
+import { DiscordRoles } from '@/pages/DiscordRoles'
 import { Now } from '@/pages/Now'
 import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
@@ -92,6 +94,9 @@ const TITLES: Record<PageId, string> = {
   requests: 'Requests',
   // Shown as the Members part of the Discord page, so it carries that page's name, as the sidebar does.
   'discord-members': 'Discord',
+  // The Roles and Channels tabs of the Discord page, so they carry its name too.
+  'discord-roles': 'Discord',
+  'discord-channels': 'Discord',
   people: 'People',
   live: 'Live',
   calendar: 'Calendar',
@@ -138,6 +143,8 @@ const PATHS: Record<PageId, string> = {
   members: MEMBERS_PATH,
   requests: '/requests',
   'discord-members': '/discord/members',
+  'discord-roles': '/discord/roles',
+  'discord-channels': '/discord/channels',
   people: '/people',
   live: '/live',
   calendar: '/calendar',
@@ -632,6 +639,8 @@ function Shell({
           )}
           {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} onWaitingCount={setJoinRequests} />}
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'discord-roles' && <DiscordRoles me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'discord-channels' && <DiscordChannels me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}

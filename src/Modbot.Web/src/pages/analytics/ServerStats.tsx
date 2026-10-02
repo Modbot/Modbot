@@ -366,7 +366,7 @@ function ReachNote({ reach, me, pathOf }: { reach: ServerReach } & Links) {
 }
 
 /** The picture Discord draws before a channel's name, in the size of the list's text. */
-function ChannelIcon({ look }: { look: ChannelLook }) {
+export function ChannelIcon({ look }: { look: ChannelLook }) {
   const props = { 'aria-hidden': true, className: 'size-[1em] shrink-0' } as const
 
   switch (look) {

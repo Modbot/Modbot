@@ -1,0 +1,86 @@
+---
+title: Roles and channels
+description: Two read-only lists for tidying up your Discord server, on the Discord page's Roles and Channels tabs - roles nobody holds or that look alike, and channels nobody writes in.
+---
+
+The **Discord** page has two tabs for tidying up your server: **Roles** and **Channels**. They are
+in the row under the server's header, between **Events** and **Members**, and **Discord** stays lit
+in the sidebar while they are open. The command palette finds them as **Discord roles** and
+**Discord channels**. Their addresses are `/discord/roles` and `/discord/channels`.
+
+Both only show things. Nothing on them changes your server: you rename, merge, archive or delete in
+Discord itself.
+
+Both need **See analytics**, the same as the Discord page. They show counts and dates about the
+server, never who holds a role or who wrote a message. The bot must be set up and connected
+([Setting up the bot](/discord/bot-setup)).
+
+Modbot asks Discord for nothing to make them. They are built from what the bot already keeps: the
+role and channel lists it reads when it connects and keeps up to date, the member list, and the
+messages it stores.
+
+## Roles
+
+Every role in your server except @everyone, with how many people in the server hold it.
+
+| Column | What it shows |
+|---|---|
+| **Role** | The role's name, with a square in its colour if it has one. |
+| **Members** | How many people in the server hold it, from Modbot's copy of the member list. People who left are not counted. |
+| **Marked as** | Why the role might be worth a look, if there is a reason (below). |
+
+A role can be marked as:
+
+| Mark | Means |
+|---|---|
+| **No members** | Nobody in the server holds it. |
+| **Same name as another role** | Another role has the same name. Capital letters and spaces at either end do not count, so "Zuelbot" and "ZuelBot" match. |
+| **Same permissions and colour as another role** | Another role has exactly the same permissions and the same colour: maybe the same role made twice. Point at the mark to see which roles. |
+| **Bot role** | A role Discord made for a bot or an integration: a bot's own role, the booster role, a Twitch or other subscriber role. Nobody can give these out by hand. |
+
+**Same permissions and colour** leaves out roles that have no colour and give nothing beyond what
+@everyone already has, such as most pronoun, time zone and hobby roles. Every one of those would
+match every other, and the pairs that matter would be lost among them. Bot roles are left out of
+it too.
+
+Marked roles come first: the most marks first, then the fewest members, then your server's own role
+order.
+
+Until the bot has read the whole member list, **Members** shows **—**, nothing is marked **No
+members**, and the list says **The Discord member list has not been read yet.** Reading the list
+needs the **Server Members Intent** (see
+[Intents the bot asks for](/discord/bot-setup#intents-the-bot-asks-for)).
+
+## Channels
+
+Your server's text, announcement and forum channels, the quietest first.
+
+| Column | What it shows |
+|---|---|
+| **Channel** | The channel's name, with a lock if @everyone cannot see it (a staff-only channel). |
+| **Category** | The category it sits in. |
+| **Last message** | The day of the newest message in the channel, or in any of its threads or forum posts. |
+| **Quiet for** | How long ago that was, in Modbot's units: **5h**, **21d**, **3mth**, **5y**. |
+
+Instead of a time, **Quiet for** can say:
+
+- **No messages**: nobody has ever written there, as far as the bot can see.
+- **Still reading**: the bot is still reading the channel's history and has found nothing yet.
+- **Can't read**: the bot is not allowed to see the channel or read its history. Give the bot's role
+  **View Channel** and **Read Message History** there to include it.
+
+The order is: channels with no messages, then the longest quiet, then channels still being read,
+then channels the bot cannot read.
+
+Above the list, **All channels** shows every channel; **Hide staff-only** leaves out the ones
+@everyone cannot see.
+
+### Where the time comes from
+
+The last message is the newest one Modbot has stored for that channel. The bot reads each channel's
+history back to its first message when it is set up, and stores every new message as it arrives, so
+this is the same as Discord's own. A message deleted since still counts: somebody wrote there then.
+
+If you set Discord messages to be deleted after a while (see
+[Data retention](/self-hosting/data-retention)), a channel quiet for longer than that shows **No
+messages**.

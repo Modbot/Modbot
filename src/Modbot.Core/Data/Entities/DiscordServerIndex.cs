@@ -152,6 +152,19 @@ public class DiscordChannel
 
     public bool BotCanManageMessages { get; set; }
 
+    /// <summary>
+    /// Whether the @everyone role may see the channel: the channel's own overwrite for @everyone,
+    /// else @everyone's server-wide permission. False is a staff-only channel. Null until the bot
+    /// has read the channel since this was added.
+    /// </summary>
+    /// <remarks>
+    /// The channel's own overwrites are enough: Discord copies a category's overwrites into a
+    /// channel when it is synced, and a category never changes what its channels allow by itself.
+    /// Read for the quiet channels list, which can leave staff-only channels out (Discord tidy-up
+    /// design §3).
+    /// </remarks>
+    public bool? EveryoneCanView { get; set; }
+
     public DateTimeOffset FirstSeenAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -191,6 +204,17 @@ public class DiscordRole
     /// the bot's highest role, and the role is neither managed nor @everyone.
     /// </summary>
     public bool BotCanAssign { get; set; }
+
+    /// <summary>
+    /// The role's server-wide permissions, Discord's bitfield as it sends it. Null until the bot has
+    /// read the role since this was added.
+    /// </summary>
+    /// <remarks>
+    /// Only ever compared whole, never read bit by bit: the roles report puts two roles side by side
+    /// when their permissions and colour are the same (Discord tidy-up design §2). Discord sends it
+    /// as an unsigned 64-bit number; it is kept as the same 64 bits in a signed column.
+    /// </remarks>
+    public long? Permissions { get; set; }
 
     public DateTimeOffset FirstSeenAt { get; set; }
 

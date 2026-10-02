@@ -212,6 +212,7 @@ public sealed class DiscordServerIndex
             && row.BotCanEmbedLinks == permissions.EmbedLinks
             && row.BotCanAttachFiles == permissions.AttachFiles
             && row.BotCanManageMessages == permissions.ManageMessages
+            && row.EveryoneCanView == (snapshot.EveryoneCanView ?? row.EveryoneCanView)
             && row.RemovedAt is null;
 
         if (same)
@@ -229,6 +230,9 @@ public sealed class DiscordServerIndex
         row.BotCanEmbedLinks = permissions.EmbedLinks;
         row.BotCanAttachFiles = permissions.AttachFiles;
         row.BotCanManageMessages = permissions.ManageMessages;
+
+        // Not known is not "staff-only": a snapshot that could not tell keeps what was known.
+        row.EveryoneCanView = snapshot.EveryoneCanView ?? row.EveryoneCanView;
         row.RemovedAt = null;
         row.UpdatedAt = now;
     }
@@ -242,6 +246,7 @@ public sealed class DiscordServerIndex
             && row.Managed == snapshot.Managed
             && row.Everyone == snapshot.Everyone
             && row.BotCanAssign == snapshot.BotCanAssign
+            && row.Permissions == (snapshot.Permissions ?? row.Permissions)
             && row.RemovedAt is null;
 
         if (same)
@@ -254,6 +259,7 @@ public sealed class DiscordServerIndex
         row.Managed = snapshot.Managed;
         row.Everyone = snapshot.Everyone;
         row.BotCanAssign = snapshot.BotCanAssign;
+        row.Permissions = snapshot.Permissions ?? row.Permissions;
         row.RemovedAt = null;
         row.UpdatedAt = now;
     }

@@ -212,6 +212,19 @@ test('Discord members is off the page list, shown as part of Discord, which the 
   assert.equal(mayOpen(person('ViewMembers'), 'discord-members'), true)
 })
 
+test('the Discord Roles and Channels tabs are off the page list, light Discord, and need See analytics', () => {
+  for (const id of ['discord-roles', 'discord-channels'] as const) {
+    const item = NAV.find((n) => n.id === id)
+
+    assert.ok(item && 'hidden' in item && item.hidden, `${id} is in the page list`)
+    assert.ok(item && goesByName(item), `${id} is not offered by name`)
+    assert.equal(sidebarEntry(id), 'analytics-server')
+    assert.equal(mayOpen(person('ViewAnalytics'), id), true)
+    assert.equal(mayOpen(person('ViewMembers'), id), false)
+    assert.equal(mayOpen(person('ManageSettings'), id), false)
+  }
+})
+
 test('Discord members is still offered by name and keeps its chord', () => {
   const discordMembers = NAV.find((n) => n.id === 'discord-members')
 

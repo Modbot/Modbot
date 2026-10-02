@@ -365,6 +365,7 @@ public sealed record DiscordChannelPermissions(
 /// <summary>One channel as the bot sees it right now.</summary>
 /// <param name="Type">One of <c>DiscordChannelTypes</c>.</param>
 /// <param name="CategoryId">The category it sits under, or null.</param>
+/// <param name="EveryoneCanView">Whether @everyone may see it; false for a staff-only channel. Null when not known.</param>
 public sealed record DiscordChannelSnapshot(
     string Id,
     string Name,
@@ -372,11 +373,13 @@ public sealed record DiscordChannelSnapshot(
     string? CategoryId,
     int Position,
     bool Nsfw,
-    DiscordChannelPermissions BotPermissions);
+    DiscordChannelPermissions BotPermissions,
+    bool? EveryoneCanView = null);
 
 /// <summary>One role as the bot sees it right now.</summary>
 /// <param name="Color">0xRRGGBB, zero for none.</param>
 /// <param name="BotCanAssign">Manage Roles held, role below the bot's highest, not managed, not @everyone.</param>
+/// <param name="Permissions">The role's server-wide permission bits, as Discord sends them. Null when not known.</param>
 public sealed record DiscordRoleSnapshot(
     string Id,
     string Name,
@@ -384,7 +387,8 @@ public sealed record DiscordRoleSnapshot(
     int Position,
     bool Managed,
     bool Everyone,
-    bool BotCanAssign);
+    bool BotCanAssign,
+    long? Permissions = null);
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>

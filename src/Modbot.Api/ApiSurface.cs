@@ -19,6 +19,7 @@ using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordSync;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
+using Modbot.Api.Features.DiscordReports;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Mcp;
 using Modbot.Api.Features.DiscordRoutes;
@@ -386,6 +387,10 @@ public static class ApiSurface
 
         // The Discord server's members, current and past, as the bot keeps them.
         app.MapDiscordMembers();
+
+        // The Discord page's Roles and Channels tabs: read-only reports for tidying the server
+        // (Discord tidy-up design).
+        app.MapDiscordReports();
 
         // The Discord server's bans, standing and lifted, as the bot keeps them.
         app.MapDiscordBans();

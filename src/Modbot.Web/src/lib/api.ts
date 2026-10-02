@@ -2041,6 +2041,57 @@ export type ServerProfile = {
   boostLevel: number | null
 }
 
+/**
+ * What the Discord roles report marks on a role: nobody holds it, another role has its name,
+ * another has its permissions and colour, or it belongs to a bot or an integration.
+ */
+export type RoleFlag = 'no-members' | 'same-name' | 'same-permissions-and-colour' | 'bot-role'
+
+/** One role in the Discord roles report. */
+export type RoleReportRow = {
+  id: string
+  name: string
+  /** 0xRRGGBB, zero for none. */
+  color: number
+  position: number
+  /** Null until the member list has been read. */
+  members: number | null
+  flags: RoleFlag[]
+  /** The other roles behind `same-permissions-and-colour`, highest first. */
+  samePermissionsAndColourAs: string[]
+}
+
+/** The Discord page's Roles tab: every role but @everyone, marked roles first. */
+export type RoleReport = {
+  guildId: string | null
+  membersListedAt: string | null
+  rolesReadAt: string | null
+  roles: RoleReportRow[]
+}
+
+/** One channel in the Discord quiet channels list. */
+export type QuietChannelRow = {
+  id: string
+  name: string
+  type: 'text' | 'announcement' | 'forum'
+  categoryName: string | null
+  /** @everyone cannot see it. */
+  staffOnly: boolean
+  /** The bot may see it and read its history. */
+  canRead: boolean
+  /** Its history is still being read back. */
+  stillReading: boolean
+  /** The newest message in it or its threads. Null when none is known. */
+  lastMessageAt: string | null
+}
+
+/** The Discord page's Channels tab: quietest first, against the server's clock. */
+export type QuietChannelList = {
+  guildId: string | null
+  now: string
+  channels: QuietChannelRow[]
+}
+
 /** One number for the last seven days and the seven before them. */
 export type WeekPair = { thisWeek: number; lastWeek: number }
 
@@ -4958,6 +5009,13 @@ export const api = {
 
   /** The server itself, for the header over the member list: the Discord page's own header. */
   discordServer: () => request<ServerProfile>('/api/discord/server'),
+
+  /** The Discord page's Roles tab. */
+  discordRoleReport: () => request<RoleReport>('/api/discord/reports/roles'),
+
+  /** The Discord page's Channels tab, without the channels @everyone cannot see when `hideStaffOnly`. */
+  discordQuietChannels: (hideStaffOnly: boolean) =>
+    request<QuietChannelList>(`/api/discord/reports/quiet-channels${hideStaffOnly ? '?hideStaffOnly=true' : ''}`),
 
   /** `at` is a message id to open on: the page holding it comes back, whatever `page` says. */
   discordMemberMessages: (id: string, page: number, pageSize: number, at?: string) =>

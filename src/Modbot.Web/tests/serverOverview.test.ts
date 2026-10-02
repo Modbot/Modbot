@@ -27,6 +27,8 @@ test('the links are named and ordered the way Discord’s server column has them
     [
       ['Overview', 'analytics-server'],
       ['Events', 'calendar'],
+      ['Channels', 'discord-channels'],
+      ['Roles', 'discord-roles'],
       ['Members', 'discord-members'],
       ['Bans', 'bans'],
     ],
@@ -34,11 +36,12 @@ test('the links are named and ordered the way Discord’s server column has them
 })
 
 test('a link the person may not open is not offered, the same as in the sidebar', () => {
-  assert.deepEqual(serverTabs(person('ViewAnalytics')).map((t) => t.label), ['Overview'])
+  assert.deepEqual(serverTabs(person('ViewAnalytics')).map((t) => t.label), ['Overview', 'Channels', 'Roles'])
   assert.deepEqual(
     serverTabs(person('ViewAnalytics', 'ViewMembers', 'ViewAuditLog')).map((t) => t.label),
-    ['Overview', 'Members', 'Bans'],
+    ['Overview', 'Channels', 'Roles', 'Members', 'Bans'],
   )
+  assert.deepEqual(serverTabs(person('ViewMembers')).map((t) => t.label), ['Members'])
 })
 
 test('Bans opens the Discord ban list under the server’s header; the other links are left as they are', () => {

@@ -51,6 +51,12 @@ export const NAV = [
   // the Discord page's header, so the sidebar lights Discord while it is open. The palette and
   // `g d` still reach it, and its address is unchanged.
   { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers', hidden: true, under: 'analytics-server' },
+  // The Discord page's Roles and Channels tabs (Discord tidy-up design, 2026-10-02): every role
+  // with what is worth a look about it, and the channels nobody has written in for longest. Read
+  // only. Under See analytics, which the Discord page itself needs: both are counts and dates about
+  // the server and name nobody.
+  { id: 'discord-roles', label: 'Discord roles', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['unused roles', 'tidy up'] },
+  { id: 'discord-channels', label: 'Discord channels', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['quiet channels', 'tidy up'] },
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
@@ -180,6 +186,8 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   members: 'm',
   requests: 'j',
   'discord-members': 'd',
+  'discord-roles': '',
+  'discord-channels': '',
   people: 'n',
   live: 'l',
   calendar: 'e',

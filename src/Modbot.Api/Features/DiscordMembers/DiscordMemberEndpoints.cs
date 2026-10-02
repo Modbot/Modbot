@@ -410,9 +410,10 @@ public static class DiscordMemberEndpoints
 
     /// <summary>
     /// How many people in the server hold each role, counted from the roles column: a short JSON
-    /// array per member, read once per page so a filter can say what it will show.
+    /// array per member, read once per page so a filter can say what it will show. The roles report
+    /// counts with it too, so the two never disagree.
     /// </summary>
-    private static async Task<Dictionary<string, int>> RoleCountsAsync(IQueryable<DiscordMember> inGuild, CancellationToken ct)
+    internal static async Task<Dictionary<string, int>> RoleCountsAsync(IQueryable<DiscordMember> inGuild, CancellationToken ct)
     {
         var rows = await inGuild
             .Where(m => m.LeftAt == null && m.Roles != "[]")

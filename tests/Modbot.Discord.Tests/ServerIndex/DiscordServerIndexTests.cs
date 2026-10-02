@@ -379,4 +379,57 @@ public class DiscordServerIndexTests
         Assert.False(await db.DiscordServers.AnyAsync(Ct));
         Assert.False(await db.DiscordChannels.AnyAsync(Ct));
     }
+
+    [Fact]
+    public async Task ARolesPermissions_AndWhetherEveryoneSeesAChannel_AreStored_ForTheTidyUpReports()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next(g => g.Server = Server(
+            channels:
+            [
+                Channel("101", "general") with { EveryoneCanView = true },
+                Channel("102", "mod-chat") with { EveryoneCanView = false },
+            ],
+            roles:
+            [
+                new DiscordRoleSnapshot(Guild, "@everyone", 0, 0, Managed: false, Everyone: true, BotCanAssign: false, Permissions: 0x6_4000),
+                Role("201", "Member", 1) with { Permissions = 0x2_0000_0006 },
+            ]));
+        var bot = Service(services, gateways);
+
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordBotTokenEncrypted = services.Protector.Protect("token");
+            s.DiscordGuildId = Guild;
+        }, Ct);
+
+        await bot.TickAsync(Ct);
+        await gateway.RaiseReadyAsync();
+
+        Assert.True((await ChannelRowAsync(services, "101")).EveryoneCanView);
+        Assert.False((await ChannelRowAsync(services, "102")).EveryoneCanView);
+        Assert.Equal(0x6_4000, (await RoleRowAsync(services, Guild)).Permissions);
+        Assert.Equal(0x2_0000_0006, (await RoleRowAsync(services, "201")).Permissions);
+
+        // A channel opened to everybody is saved as such.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseChannelChangedAsync(Guild, Channel("102", "mod-chat") with { EveryoneCanView = true });
+        var opened = await ChannelRowAsync(services, "102");
+        Assert.True(opened.EveryoneCanView);
+        Assert.Equal(services.Clock.UtcNow, opened.UpdatedAt);
+
+        // A reading that could not tell keeps what was known, and changes nothing.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseChannelChangedAsync(Guild, Channel("102", "mod-chat"));
+        var unknown = await ChannelRowAsync(services, "102");
+        Assert.True(unknown.EveryoneCanView);
+        Assert.Equal(services.Clock.UtcNow.AddMinutes(-1), unknown.UpdatedAt);
+
+        gateway.Server = Server(
+            channels: [Channel("101", "general"), Channel("102", "mod-chat")],
+            roles: [Role("201", "Member", 1)]);
+        await gateway.RaiseResumedAsync();
+        Assert.Equal(0x2_0000_0006, (await RoleRowAsync(services, "201")).Permissions);
+    }
 }

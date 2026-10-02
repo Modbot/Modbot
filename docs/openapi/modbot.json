@@ -9884,6 +9884,115 @@
         ]
       }
     },
+    "/api/discord/reports/roles": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Get the Discord roles report",
+        "description": "Every role in the Discord server but @everyone, with how many members hold it and what the report marks on it: `no-members`, `same-name` (another role has the same name), `same-permissions-and-colour` (another role has the same permissions and colour; roles with no colour and nothing beyond @everyone's permissions, and bot roles, are left out of this one) and `bot-role` (owned by a bot or an integration). Marked roles come first, the most marks first, then the fewest members, then Discord's order. Counts are null until the member list has been read. Read from what the bot already stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetDiscordRoleReport",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleReport"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/reports/quiet-channels": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Get the Discord quiet channels list",
+        "description": "The server's text, announcement and forum channels with when anybody last wrote in each (in the channel or any of its threads), quietest first: channels with no message at all, then the longest since the last message, then channels still being read back with nothing found yet, then channels the bot cannot read. `hideStaffOnly=true` leaves out channels @everyone cannot see. Read from the messages Modbot stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetDiscordQuietChannels",
+        "parameters": [
+          {
+            "name": "hideStaffOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuietChannelList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord/bans/{id}": {
       "delete": {
         "tags": [
@@ -43251,6 +43360,78 @@
           }
         }
       },
+      "QuietChannelList": {
+        "required": [
+          "guildId",
+          "now",
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "guildId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuietChannelRow"
+            }
+          }
+        }
+      },
+      "QuietChannelRow": {
+        "required": [
+          "id",
+          "name",
+          "type",
+          "categoryName",
+          "staffOnly",
+          "canRead",
+          "stillReading",
+          "lastMessageAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "staffOnly": {
+            "type": "boolean"
+          },
+          "canRead": {
+            "type": "boolean"
+          },
+          "stillReading": {
+            "type": "boolean"
+          },
+          "lastMessageAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "RawProfile": {
         "required": [
           "userId",
@@ -43895,6 +44076,90 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "RoleReport": {
+        "required": [
+          "guildId",
+          "membersListedAt",
+          "rolesReadAt",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "guildId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "membersListedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "rolesReadAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleReportRow"
+            }
+          }
+        }
+      },
+      "RoleReportRow": {
+        "required": [
+          "id",
+          "name",
+          "color",
+          "position",
+          "members",
+          "flags",
+          "samePermissionsAndColourAs"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "members": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "samePermissionsAndColourAs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

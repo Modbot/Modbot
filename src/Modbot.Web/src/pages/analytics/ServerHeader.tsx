@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, ChartColumn, Gavel, Users, type LucideIcon } from 'lucide-react'
+import { CalendarDays, ChartColumn, Gavel, Hash, Shield, Users, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { api, type CurrentUser, type ServerProfile } from '@/lib/api'
 import { formatDay, plural } from '@/lib/format'
@@ -147,6 +147,8 @@ export function ServerHeader({
 const TAB_ICONS: Partial<Record<PageId, LucideIcon>> = {
   'analytics-server': ChartColumn,
   calendar: CalendarDays,
+  'discord-channels': Hash,
+  'discord-roles': Shield,
   'discord-members': Users,
   bans: Gavel,
 }
