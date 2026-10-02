@@ -602,8 +602,16 @@ as [instance announcements](/discord/instance-announcements).
 - **A repeating event gets a new post each time it happens.** The old post keeps its last word
   (**Finished**, or **Cancelled** for a date cancelled on its own) and a new one is posted for the
   next time.
+- **Old posts are deleted a day after the event, or that date, was due to end.** That covers every
+  card, whether it says **Finished** or **Cancelled**, and the short **Cancelled** messages from
+  [cancelling](#cancel). Modbot only deletes messages it posted for the calendar. It never
+  touches anyone else's messages, or its own instance announcements and giveaway posts.
 - Turning off **Discord channel post**, or picking a different channel, deletes the post.
 - If someone deletes the post in Discord, Modbot does not post it again until the event changes.
+
+Cards from before October 2026 are not deleted, because Modbot did not keep track of them once they
+said **Finished** or **Cancelled**. Delete those by hand. Older **Cancelled** messages are deleted,
+a couple at a time.
 
 The bot needs View Channel, Send Messages and Embed Links in the channel.
 
@@ -741,7 +749,8 @@ channel, the question has a tick, **Post that it's cancelled in the channel**. I
 the event has **Discord channel post** on. Leave it ticked, and Modbot posts a short message in that
 channel: the event's title, its date and time (in each reader's own time zone), and **Cancelled**.
 It is posted once, within about 20 seconds, and never again for that event. On the event it shows as
-**Cancelled post: Published**. Untick it to cancel without a message.
+**Cancelled post: Published**. A day after the event was due to end, Modbot deletes it, together with
+the old card, and it shows as **Cancelled post: Removed**. Untick it to cancel without a message.
 
 A cancelled event no longer appears on the calendar, and cannot be un-cancelled. To run it again,
 plan a new event.
@@ -777,7 +786,7 @@ What happens to that one date:
 | Calendar page | Shown struck through, with a **Cancelled** badge when opened. | Shown at its new time; opening it shows **Moved from …**. |
 | VRChat calendar | That date is removed. | That date is changed. |
 | Discord event | Ended; the next date gets its own. | Changed to the new time and words. |
-| Channel post | Its last word is **Cancelled**. | Edited to match. |
+| Channel post | Its last word is **Cancelled**. Deleted a day after the date was due to end, with the short **Cancelled** message. | Edited to match. |
 | Opening the instance | No instance opens. | Opens **Minutes early** before the new start. |
 | Calendar feed | Left out. | Shown at the new time, with its own title and description. |
 | Past events | Not listed. | Listed at the time it ran. |
@@ -798,7 +807,8 @@ as they ran.
 
 **Delete** is shown for every event, including drafts. For an event that is still **Scheduled** or
 **Open**, deleting does everything cancelling does, and also hides it from the Calendar page and
-takes it out of the calendar feed at once. A
+takes it out of the calendar feed at once. Its channel post changes to **Cancelled** straight away,
+and is deleted a day after the event was due to end, like any other old post. A
 deleted **Finished** event is also removed from VRChat's calendar.
 
 Modbot asks **Delete “…”?** first; click **Delete** to go ahead. There is no way to bring a deleted

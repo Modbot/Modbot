@@ -53,11 +53,30 @@ public sealed record CalendarDiscordPass(int Calls, string? Error = null);
 /// itself makes, only when the moderator ticked it. It is posted once: the row then holds the
 /// message's id, and nothing edits or posts it again.
 /// </para>
+/// <para>
+/// <strong>Modbot's own posts come down a day after their event or date was due to end</strong>
+/// (<see cref="PostKeptFor"/>, added 2026-10-01): the cards, kept in <see cref="CalendarOldPost"/>
+/// once they have their last word, and both kinds of "Cancelled" line. Before, nothing ever removed
+/// them, and a busy channel filled with old cards. Removing is the last thing a pass does, with
+/// what is left of its calls and at most <see cref="RemovalsPerPass"/>, so posting and editing come
+/// first and a long list -- an install that had cancel lines before this -- is worked through
+/// slowly. Each removal is written on its own row and nowhere else: a fact for every old card would
+/// bury the log the calendar's real changes are in.
+/// </para>
 /// </remarks>
 public sealed class CalendarDiscordPublisher
 {
     /// <summary>How many Discord calls one pass may make.</summary>
     public const int CallsPerPass = 5;
+
+    /// <summary>How long after its event or date was due to end a post Modbot made in the channel stays up.</summary>
+    public static readonly TimeSpan PostKeptFor = TimeSpan.FromDays(1);
+
+    /// <summary>How many old posts one pass may take down, at most, out of <see cref="CallsPerPass"/>.</summary>
+    public const int RemovalsPerPass = 2;
+
+    /// <summary>The reason Discord's audit log shows for an old post Modbot took down.</summary>
+    public const string OldPostReason = "Calendar event is over";
 
     /// <summary>Discord refuses a server event that starts in the past; one that is late starts this far ahead.</summary>
     public static readonly TimeSpan LateStartAhead = TimeSpan.FromMinutes(1);
@@ -129,6 +148,8 @@ public sealed class CalendarDiscordPublisher
             .ToDictionary<CalendarEventPlace, CalendarEventPlace, (string State, bool InDiscord)>(
                 p => p, p => (p.State, p.ExternalId is not null), ReferenceEqualityComparer.Instance);
 
+        var oldPosts = await OldPostsDueAsync(now, ct).ConfigureAwait(false);
+
         var withPlaces = places.Select(p => p.EventId).Distinct().ToList();
 
         var events = await _db.CalendarEvents
@@ -139,7 +160,7 @@ public sealed class CalendarDiscordPublisher
             .OrderBy(e => e.UpdatedAt)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        if (events.Count == 0 && cancelPosts.Count == 0 && dateCancelPosts.Count == 0)
+        if (events.Count == 0 && cancelPosts.Count == 0 && dateCancelPosts.Count == 0 && oldPosts.Count == 0)
             return new CalendarDiscordPass(0);
 
         var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
@@ -178,6 +199,9 @@ public sealed class CalendarDiscordPublisher
 
             await SyncPostAsync(pass, calendarEvent, postPlace, joinLink).ConfigureAwait(false);
         }
+
+        // Last, with what is left: taking an old post down is never more urgent than a change.
+        await RemoveOldPostsAsync(pass, oldPosts).ConfigureAwait(false);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
@@ -452,11 +476,7 @@ public sealed class CalendarDiscordPublisher
                     && e.DateChanges.Any(c => c.Cancelled && c.PlannedStartsAt == posted);
                 var state = removedInModbot || dateCancelled ? CalendarCardState.Cancelled : CalendarCardState.Finished;
                 // At the times the post last showed: a date moved and then cancelled keeps its move.
-                var occurrence = place.OccurrenceStartsAt is { } was
-                    ? e.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == was) is { } change
-                        ? CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e))
-                        : new CalendarOccurrence(was, was + CalendarRepeat.LengthOf(e))
-                    : current;
+                var occurrence = place.OccurrenceStartsAt is { } was ? DateOf(e, was) : current;
 
                 // The picture is already on the message and stays there, so the last word costs
                 // no upload.
@@ -477,6 +497,27 @@ public sealed class CalendarDiscordPublisher
                 {
                     Fail(pass, e, place, edited, fingerprint: null);
                     return;
+                }
+
+                // The place forgets the card now, and a repeating event's place moves on to the next
+                // date, so the card is kept here until it comes down a day after its date ended. A
+                // card Discord no longer has is not kept.
+                if (edited.Sent)
+                {
+                    _db.CalendarOldPosts.Add(new CalendarOldPost
+                    {
+                        Id = Guid.CreateVersion7(pass.Now),
+                        EventId = e.Id,
+                        ChannelId = postedIn,
+                        MessageId = messageId,
+                        EndsAt = occurrence.EndsAt,
+                    });
+                }
+                else
+                {
+                    _log.Information(
+                        "The channel post for the event {EventId} could not be given its last word: {Reason}",
+                        e.Id, edited.Error);
                 }
 
                 Forget(place, movedOn ? CalendarPlaceStates.Waiting : CalendarPlaceStates.Removed, pass.Now);
@@ -626,13 +667,17 @@ public sealed class CalendarDiscordPublisher
     }
 
     /// <summary>
+    /// How long after a cancelled date ended its cancel post is still worth posting: as long as a
+    /// posted one stays up (<see cref="PostKeptFor"/>), so a late one is not posted only to be taken
+    /// down on the next pass.
+    /// </summary>
+    public static readonly TimeSpan DateCancelPostKeptFor = PostKeptFor;
+
+    /// <summary>
     /// The cancel post for one date cancelled on its own, when the moderator ticked it: the same
     /// message a whole-event cancel posts, with that date's time, posted once. A refusal is not
     /// sent again; anything else is tried on the next pass.
     /// </summary>
-    /// <summary>How long after a cancelled date ended its cancel post is still worth posting.</summary>
-    public static readonly TimeSpan DateCancelPostKeptFor = TimeSpan.FromDays(1);
-
     private async Task SyncDateCancelPostsAsync(Pass pass, List<CalendarDateChange> dates)
     {
         if (dates.Count == 0)
@@ -686,6 +731,139 @@ public sealed class CalendarDiscordPublisher
             pass.Written++;
         }
     }
+
+    // ── Old posts ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>One post Modbot made in a channel that is due to come down, and how to mark it done.</summary>
+    private sealed record OldPost(string ChannelId, string MessageId, DateTimeOffset EndsAt, Action<DateTimeOffset> Removed);
+
+    /// <summary>
+    /// The posts whose event or date was due to end more than <see cref="PostKeptFor"/> ago and are
+    /// still up, oldest first, at most <see cref="RemovalsPerPass"/>: cards that had their last word,
+    /// whole-event "Cancelled" lines and one-date "Cancelled" lines.
+    /// </summary>
+    /// <remarks>
+    /// Only rows that hold a message id Modbot was given when it posted, so nothing anyone else
+    /// posted is ever touched. A line Discord gave no id for cannot be found again, and stays.
+    /// </remarks>
+    private async Task<List<OldPost>> OldPostsDueAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var due = now - PostKeptFor;
+
+        var cards = await _db.CalendarOldPosts
+            .Where(p => p.RemovedAt == null && p.EndsAt <= due)
+            .OrderBy(p => p.EndsAt)
+            .Take(RemovalsPerPass)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        // A date ends after it starts, so a start past the line is the first sift; the end, which
+        // can be moved or follow the event's length, is worked out below.
+        var lines = await _db.CalendarEventPlaces
+            .Where(p => p.Place == CalendarPlaces.CancelPost
+                && p.State == CalendarPlaceStates.Published
+                && p.ExternalId != null && p.ExternalId != string.Empty
+                && p.ChannelId != null && p.ChannelId != string.Empty
+                && p.OccurrenceStartsAt != null && p.OccurrenceStartsAt <= due)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var dateLines = await _db.CalendarDateChanges
+            .Where(c => c.CancelPostRemovedAt == null
+                && c.CancelPostId != null && c.CancelPostId != string.Empty
+                && c.CancelPostChannelId != null && c.CancelPostChannelId != string.Empty
+                && (c.StartsAt ?? c.PlannedStartsAt) <= due)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var posts = cards
+            .Select(p => new OldPost(p.ChannelId, p.MessageId, p.EndsAt, at => p.RemovedAt = at))
+            .ToList();
+
+        if (lines.Count > 0 || dateLines.Count > 0)
+        {
+            var ids = lines.Select(p => p.EventId).Concat(dateLines.Select(c => c.EventId)).Distinct().ToList();
+            var owners = await _db.CalendarEvents
+                .Where(e => ids.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, ct).ConfigureAwait(false);
+
+            foreach (var line in lines)
+            {
+                if (!owners.TryGetValue(line.EventId, out var e))
+                    continue;
+
+                // The cancel keeps the date it named by its start as it was then, moves included.
+                var startsAt = line.OccurrenceStartsAt!.Value;
+                var endsAt = (CalendarRepeat.StartingAt(e, startsAt)
+                    ?? new CalendarOccurrence(startsAt, startsAt + CalendarRepeat.LengthOf(e))).EndsAt;
+
+                posts.Add(new OldPost(line.ChannelId!, line.ExternalId!, endsAt, at =>
+                {
+                    line.State = CalendarPlaceStates.Removed;
+                    line.UpdatedAt = at;
+                }));
+            }
+
+            foreach (var date in dateLines)
+            {
+                if (!owners.TryGetValue(date.EventId, out var e))
+                    continue;
+
+                posts.Add(new OldPost(
+                    date.CancelPostChannelId!,
+                    date.CancelPostId!,
+                    CalendarRepeat.Changed(date, CalendarRepeat.LengthOf(e)).EndsAt,
+                    at => date.CancelPostRemovedAt = at));
+            }
+        }
+
+        return posts
+            .Where(p => p.EndsAt <= due)
+            .OrderBy(p => p.EndsAt)
+            .Take(RemovalsPerPass)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Deletes each old post from Discord with what is left of the pass's calls. A post that is gone
+    /// already -- deleted by hand -- counts as done, and so does any other refusal that will not
+    /// change on its own: the post is not asked about again. Anything else is tried on the next pass.
+    /// </summary>
+    private async Task RemoveOldPostsAsync(Pass pass, List<OldPost> posts)
+    {
+        foreach (var post in posts)
+        {
+            if (pass.Calls >= CallsPerPass)
+                return;
+
+            var deleted = await pass
+                .Call(g => g.DeleteMessageAsync(post.ChannelId, post.MessageId, OldPostReason, pass.Ct))
+                .ConfigureAwait(false);
+
+            if (deleted.Sent || deleted.Permanent)
+            {
+                post.Removed(pass.Now);
+
+                if (!deleted.Sent)
+                {
+                    _log.Information(
+                        "An old calendar post was not taken down, and will not be asked about again: {Reason}",
+                        deleted.Error);
+                }
+
+                continue;
+            }
+
+            _log.Warning("Could not take down an old calendar post; it will be tried again: {Reason}", deleted.Error);
+        }
+    }
+
+    /// <summary>
+    /// The date a post was made for, known by its planned start, at the times it has now: its own
+    /// when it was moved on its own (§2.2), the event's length otherwise. A cancelled date keeps the
+    /// times it had.
+    /// </summary>
+    private static CalendarOccurrence DateOf(CalendarEvent e, DateTimeOffset plannedStartsAt) =>
+        e.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == plannedStartsAt) is { } change
+            ? CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e))
+            : new CalendarOccurrence(plannedStartsAt, plannedStartsAt + CalendarRepeat.LengthOf(e));
 
     // ── Shared ───────────────────────────────────────────────────────────────────────────
 

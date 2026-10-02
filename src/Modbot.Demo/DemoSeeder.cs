@@ -130,6 +130,7 @@ public sealed class DemoSeeder
         await _db.WorldLists.ExecuteDeleteAsync(ct);
         await _db.CalendarOpenings.ExecuteDeleteAsync(ct);
         await _db.CalendarEventPlaces.ExecuteDeleteAsync(ct);
+        await _db.CalendarOldPosts.ExecuteDeleteAsync(ct);
         await _db.CalendarEvents.ExecuteDeleteAsync(ct);
         await _db.CalendarFeeds.ExecuteDeleteAsync(ct);
 

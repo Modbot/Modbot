@@ -341,8 +341,17 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Every timeout, in order.</summary>
     public List<(string GuildId, string UserId, TimeSpan Duration, string Reason)> TimedOut { get; } = [];
 
+    /// <summary>Makes the next delete fail. Its own queue, apart from posting and editing.</summary>
+    public void FailNextDelete(string error, bool permanent = false)
+        => _deleteOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+
+    private readonly Queue<DiscordPostOutcome> _deleteOutcomes = new();
+
     public Task<DiscordPostOutcome> DeleteMessageAsync(string channelId, string messageId, string reason, CancellationToken ct)
     {
+        if (_deleteOutcomes.Count > 0)
+            return Task.FromResult(_deleteOutcomes.Dequeue());
+
         Deleted.Add((channelId, messageId, reason));
         return Task.FromResult(DiscordPostOutcome.Ok);
     }

@@ -6,7 +6,8 @@
   channel, opening the instance on time, and a calendar feed; reading VRChat's calendar back in
   (§12, added 2026-09-27); where an event goes, its preview, places not set up and the cancel
   post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
-  added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01)
+  added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01); taking Modbot's old
+  channel posts down (§3.3, added 2026-10-01)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -268,6 +269,39 @@ event finishing and cancelling: each changes what the place should say.
   each occurrence, the way a notice board would.
 - Unticking the channel post deletes the post. Mentions are off, as on every message the bot sends.
 - The channel picker marks a channel missing View Channel, Send Messages or Embed Links.
+- **Deleting an event ends its post as "Cancelled"**, the same last word a cancel gives it, at once;
+  the Discord event is ended as for a cancel. A delete is a cancel that is also hidden, so the post
+  goes through the cancel's path.
+
+**Old posts come down (added 2026-10-01).** Nothing ever removed Modbot's posts, so a channel with a
+weekly event filled with old cards and "Cancelled" lines, a card per date and a line per cancel.
+
+- **Every post Modbot made in the channel is deleted a day after its event or date was due to end**
+  (`CalendarDiscordPublisher.PostKeptFor`): the cards, whatever their last word (finished, cancelled
+  or deleted), one per date of a repeating event; the whole-event "Cancelled" line (§14.4); the
+  one-date "Cancelled" line (§2.2). "Due to end" is the end the post showed: a moved date's own end,
+  the event's length otherwise. A day lets a member who looks the morning after still see what
+  happened. A deleted event's card stays red until then too.
+- **Only messages Modbot holds the id of from posting them** are deleted, so nothing anyone else
+  posted, and none of the bot's other posts (instance cards, giveaways), is ever touched. A card's
+  id is kept in `calendar_old_post` when it gets its last word, because the card's place row moves on
+  to the next date of a repeating event and forgets it. A whole-event line is marked on its place row
+  (its state turns to removed; the message id stays, so it is never posted again), a one-date line
+  on its date's row (`cancel_post_removed_at`).
+- **Last in a pass, with what is left of its 5 calls, and at most 2 a pass**
+  (`RemovalsPerPass`). Posting and editing come first; an install that already had many old lines
+  works through them slowly, about six a minute at most.
+- A post that is already gone -- someone deleted it by hand -- is marked done and not asked about
+  again; so is any other refusal that will not change on its own. Anything else is tried on the next
+  pass.
+- **No fact for each removal.** The removal is written on its row and logged. A fact per old card
+  would bury the calendar's real changes in the log; the post's last word already had its
+  `publish.remove`.
+- **Cards from before this change stay.** Until then a card's id was forgotten once it had its last
+  word, and nothing else keeps it, so those cards can only be deleted by hand. Cancel lines kept
+  their ids, so older ones are taken down.
+- A one-date "Cancelled" line that could not be posted until after the time it would come down is
+  not posted at all (it was a fixed day before; it is now the same `PostKeptFor`).
 
 ## 4. Opening the instance
 
@@ -675,7 +709,8 @@ Discord:
   occurrence. The calendar's Discord loop posts it **once**: the title, the time as a Discord
   timestamp, and "Cancelled", as a plain message with mentions off. The row then holds the message's
   id and is published; nothing edits or posts it again. A refusal is not sent again; a failure that
-  was not a refusal is tried on the next pass.
+  was not a refusal is tried on the next pass. It is deleted a day after the date it names was due
+  to end, and the row turns to removed (§3.3, "Old posts come down").
 - A second cancel of a cancelled event changes nothing and never makes a second post. A tick on an
   event with no channel is refused. The body may be left out, as before: nothing is posted.
 - Discord scheduled events still end and vanish on a cancel, as before.

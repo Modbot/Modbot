@@ -242,6 +242,12 @@ public class CalendarDateChange
     /// <summary>The cancel post's message id once it is posted. Posted once, never again.</summary>
     public string? CancelPostId { get; set; }
 
+    /// <summary>
+    /// When the cancel post was taken off Discord, a day after the date was due to end, or found
+    /// already gone (added 2026-10-01). Null while it is still up, or was never posted.
+    /// </summary>
+    public DateTimeOffset? CancelPostRemovedAt { get; set; }
+
     /// <summary>VRChat's id for this one date of the series, once Modbot has found it.</summary>
     public string? VRChatId { get; set; }
 
@@ -271,9 +277,46 @@ public static class CalendarPlaces
 
     /// <summary>
     /// The short message in the event's channel that says it is cancelled. Made by the cancel, only
-    /// when the moderator ticked it, and posted once (added 2026-10-01).
+    /// when the moderator ticked it, and posted once (added 2026-10-01). Its state turns to
+    /// <see cref="CalendarPlaceStates.Removed"/> once the message is taken off Discord, a day after
+    /// the date it named was due to end; the message id stays, so it is never posted again.
     /// </summary>
     public const string CancelPost = "cancelPost";
+}
+
+/// <summary>
+/// A channel card whose event or date is over, kept until Modbot takes it off Discord. The table is
+/// <c>calendar_old_post</c> (added 2026-10-01).
+/// </summary>
+/// <remarks>
+/// <para>
+/// A card's place row is about the date the event is on now, and a repeating event's row moves on
+/// to the next date, so the old card's message id would be lost. It is written here when the card
+/// gets its last word (Finished or Cancelled), and the card is deleted from Discord a day after
+/// <see cref="EndsAt"/> (calendar design §3.3).
+/// </para>
+/// <para>
+/// Only cards Modbot posted are ever written here. Cards that got their last word before this list
+/// existed were not kept anywhere, and stay up.
+/// </para>
+/// </remarks>
+public class CalendarOldPost
+{
+    public Guid Id { get; set; }
+
+    public Guid EventId { get; set; }
+
+    /// <summary>The channel the card is in.</summary>
+    public string ChannelId { get; set; } = string.Empty;
+
+    /// <summary>The card's message id.</summary>
+    public string MessageId { get; set; } = string.Empty;
+
+    /// <summary>When the event, or the date the card was about, was due to end.</summary>
+    public DateTimeOffset EndsAt { get; set; }
+
+    /// <summary>When it was taken off Discord, or found already gone. Null while it is still up.</summary>
+    public DateTimeOffset? RemovedAt { get; set; }
 }
 
 /// <summary>The words stored in <see cref="CalendarEventPlace.State"/>.</summary>

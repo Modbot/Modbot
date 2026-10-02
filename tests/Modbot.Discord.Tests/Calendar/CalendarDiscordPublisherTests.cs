@@ -726,4 +726,330 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         Assert.Contains("Manage Events", place.Error, StringComparison.Ordinal);
         Assert.Equal(1, await context.Events.CountAsync(f => f.Type == FactType.PlannedEventPublishFailed, Ct));
     }
+
+    // ── Deleting, and old posts coming down (2026-10-01) ────────────────────────────────
+
+    private static async Task FinishAsync(TestServices services, Guid id, TimeSpan after)
+    {
+        services.Clock.Advance(after);
+        await ChangeAsync(services, id, x => CalendarTimeline.Advance(x, services.Clock.UtcNow));
+    }
+
+    [Fact]
+    public async Task DeletingAnEventMarksItsPostCancelled_AndEndsItsServerEvent()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+        var post = Assert.Single(gateway.Messages);
+
+        // What the delete endpoint leaves.
+        await ChangeAsync(services, e.Id, x =>
+        {
+            x.State = CalendarEventStates.Cancelled;
+            x.CancelledAt = services.Clock.UtcNow;
+            x.DeletedAt = services.Clock.UtcNow;
+        });
+
+        await RunAsync(services, gateway);
+
+        Assert.True(Assert.Single(gateway.ServerEvents.Values).Ended);
+
+        var edit = Assert.Single(gateway.Edits);
+        Assert.Equal(post.MessageId, edit.MessageId);
+        Assert.Equal("Cancelled", edit.Embeds[0].Footer);
+        Assert.Empty(edit.Links);
+
+        // Not taken down yet: it stays until a day after the date it was for.
+        Assert.Empty(gateway.Deleted);
+
+        await using var context = services.Database.NewContext();
+        var kept = await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == e.Id, Ct);
+        Assert.Equal(post.MessageId, kept.MessageId);
+        Assert.Equal(e.EndsAt, kept.EndsAt);
+        Assert.Null(kept.RemovedAt);
+    }
+
+    [Fact]
+    public async Task AFinishedEventsCardComesDownADayAfterItEnded_Once_AndWithoutAFact()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromHours(1), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var post = Assert.Single(gateway.Messages);
+
+        await FinishAsync(services, e.Id, TimeSpan.FromHours(3));
+        await RunAsync(services, gateway);
+        Assert.Equal("Finished", Assert.Single(gateway.Edits).Embeds[0].Footer);
+
+        await using var context = services.Database.NewContext();
+        var facts = await context.Events.CountAsync(Ct);
+
+        // A minute short of a day after the end: still up.
+        services.Clock.UtcNow = e.EndsAt + CalendarDiscordPublisher.PostKeptFor - TimeSpan.FromMinutes(1);
+        await RunAsync(services, gateway);
+        Assert.Empty(gateway.Deleted);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(2));
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        var deleted = Assert.Single(gateway.Deleted);
+        Assert.Equal(Channel, deleted.ChannelId);
+        Assert.Equal(post.MessageId, deleted.MessageId);
+        Assert.Equal(CalendarDiscordPublisher.OldPostReason, deleted.Reason);
+
+        Assert.Equal(facts, await context.Events.CountAsync(Ct));
+        Assert.NotNull((await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == e.Id, Ct)).RemovedAt);
+    }
+
+    [Fact]
+    public async Task AWholeEventCancelLineComesDownWithItsCard_ADayAfterTheDateWasDueToEnd()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var card = Assert.Single(gateway.Messages);
+
+        await CancelAsync(services, e, post: true);
+        await RunAsync(services, gateway);
+        var line = Assert.Single(gateway.Messages, m => m.Text is not null);
+
+        services.Clock.UtcNow = e.EndsAt + CalendarDiscordPublisher.PostKeptFor - TimeSpan.FromMinutes(1);
+        await RunAsync(services, gateway);
+        Assert.Empty(gateway.Deleted);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(2));
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(
+            new[] { card.MessageId, line.MessageId }.Order(StringComparer.Ordinal),
+            gateway.Deleted.Select(d => d.MessageId).Order(StringComparer.Ordinal));
+
+        // Taken down, and never posted again: the row keeps the message id.
+        Assert.Equal(2, gateway.Messages.Count);
+
+        await using var context = services.Database.NewContext();
+        var place = await context.CalendarEventPlaces.AsNoTracking()
+            .SingleAsync(p => p.EventId == e.Id && p.Place == CalendarPlaces.CancelPost, Ct);
+        Assert.Equal(CalendarPlaceStates.Removed, place.State);
+        Assert.Equal(line.MessageId, place.ExternalId);
+    }
+
+    [Fact]
+    public async Task AOneDateCancelLineComesDownADayAfterThatDateWasDueToEnd()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1), x =>
+        {
+            x.Repeat = CalendarRepeats.Weekly;
+            x.PostToChannel = false;
+            x.PublishToDiscord = false;
+        });
+
+        // The second date, moved an hour later before it was cancelled: it ends an hour later too.
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        await ChangeAsync(services, e.Id, x => x.DateChanges.Add(new CalendarDateChange
+        {
+            Id = Guid.CreateVersion7(),
+            EventId = x.Id,
+            PlannedStartsAt = second,
+            StartsAt = second + TimeSpan.FromHours(1),
+            EndsAt = second + TimeSpan.FromHours(3),
+            Cancelled = true,
+            CancelPostChannelId = Channel,
+            CreatedAt = services.Clock.UtcNow,
+            UpdatedAt = services.Clock.UtcNow,
+        }));
+
+        await RunAsync(services, gateway);
+        var line = Assert.Single(gateway.Messages);
+
+        services.Clock.UtcNow = second + TimeSpan.FromHours(3) + CalendarDiscordPublisher.PostKeptFor - TimeSpan.FromMinutes(1);
+        await RunAsync(services, gateway);
+        Assert.Empty(gateway.Deleted);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(2));
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(line.MessageId, Assert.Single(gateway.Deleted).MessageId);
+
+        await using var context = services.Database.NewContext();
+        var date = await context.CalendarDateChanges.AsNoTracking().SingleAsync(c => c.EventId == e.Id, Ct);
+        Assert.NotNull(date.CancelPostRemovedAt);
+        Assert.Equal(line.MessageId, date.CancelPostId);
+    }
+
+    [Fact]
+    public async Task EachDateOfARepeatingEventHasItsCardTakenDownADayAfterThatDate()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromHours(1), x =>
+        {
+            x.Repeat = CalendarRepeats.Daily;
+            x.PublishToDiscord = false;
+        });
+
+        await RunAsync(services, gateway);
+        var first = Assert.Single(gateway.Messages);
+
+        // The first date ends: its card gets its last word, and the second date gets a card.
+        await FinishAsync(services, e.Id, TimeSpan.FromHours(3));
+        await RunAsync(services, gateway);
+        var second = gateway.Messages[1];
+
+        // A day later the second date has just ended too: the first card comes down, the second
+        // gets its last word and stays.
+        await FinishAsync(services, e.Id, CalendarDiscordPublisher.PostKeptFor);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(first.MessageId, Assert.Single(gateway.Deleted).MessageId);
+        Assert.Equal(3, gateway.Messages.Count);
+
+        await FinishAsync(services, e.Id, CalendarDiscordPublisher.PostKeptFor);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(new[] { first.MessageId, second.MessageId }, gateway.Deleted.Select(d => d.MessageId));
+
+        await using var context = services.Database.NewContext();
+        var kept = await context.CalendarOldPosts.AsNoTracking().Where(p => p.EventId == e.Id).ToListAsync(Ct);
+        Assert.Equal(3, kept.Count);
+        Assert.Single(kept, p => p.RemovedAt is null);
+    }
+
+    [Fact]
+    public async Task APostSomeoneDeletedByHandIsForgotten_AndAFailureThatMayPassIsTriedAgain()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        // One pass each, so which post is which is known.
+        var gone = await AddEventAsync(services, TimeSpan.FromHours(1), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var later = await AddEventAsync(services, TimeSpan.FromHours(2), x => x.PublishToDiscord = false);
+        await RunAsync(services, gateway);
+        var laterPost = gateway.Messages[1].MessageId;
+
+        await FinishAsync(services, gone.Id, TimeSpan.FromHours(5));
+        await ChangeAsync(services, later.Id, x => CalendarTimeline.Advance(x, services.Clock.UtcNow));
+        await RunAsync(services, gateway);
+        Assert.Equal(2, gateway.Edits.Count);
+
+        services.Clock.Advance(CalendarDiscordPublisher.PostKeptFor);
+
+        // The older one is gone already (a 404); the other meets a failure that may pass.
+        gateway.FailNextDelete("Discord does not know that message.", permanent: true);
+        gateway.FailNextDelete("Discord is rate limiting the bot; it will try again shortly.");
+        await RunAsync(services, gateway);
+        Assert.Empty(gateway.Deleted);
+
+        await using var context = services.Database.NewContext();
+        Assert.NotNull((await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == gone.Id, Ct)).RemovedAt);
+        Assert.Null((await context.CalendarOldPosts.AsNoTracking().SingleAsync(p => p.EventId == later.Id, Ct)).RemovedAt);
+
+        // The next passes ask only about the second one.
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(laterPost, Assert.Single(gateway.Deleted).MessageId);
+    }
+
+    [Fact]
+    public async Task OldPostsComeDownAFewAPass_AndOnlyWithWhatPostingLeaves()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        // An install that already had old cards and cancel lines: five, long over.
+        var quiet = await AddEventAsync(services, TimeSpan.FromDays(1), x =>
+        {
+            x.PostToChannel = false;
+            x.PublishToDiscord = false;
+        });
+
+        var seeded = new List<string>();
+        var longAgo = services.Clock.UtcNow - TimeSpan.FromDays(30);
+
+        await using (var context = services.Database.NewContext())
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var id = (9000 + i).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                seeded.Add(id);
+                context.CalendarOldPosts.Add(new CalendarOldPost
+                {
+                    Id = Guid.CreateVersion7(),
+                    EventId = quiet.Id,
+                    ChannelId = Channel,
+                    MessageId = id,
+                    EndsAt = longAgo.AddMinutes(i),
+                });
+            }
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            var id = (9100 + i).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            seeded.Add(id);
+
+            var cancelled = await AddEventAsync(services, -TimeSpan.FromDays(30), x =>
+            {
+                x.State = CalendarEventStates.Cancelled;
+                x.CancelledAt = longAgo;
+            });
+
+            await using var context = services.Database.NewContext();
+            context.CalendarEventPlaces.Add(new CalendarEventPlace
+            {
+                EventId = cancelled.Id,
+                Place = CalendarPlaces.CancelPost,
+                State = CalendarPlaceStates.Published,
+                ExternalId = id,
+                ChannelId = Channel,
+                OccurrenceStartsAt = cancelled.StartsAt,
+                UpdatedAt = longAgo,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await RunAsync(services, gateway);
+        Assert.Equal(CalendarDiscordPublisher.RemovalsPerPass, gateway.Deleted.Count);
+
+        // Five new events want their posts: they take the whole pass, and nothing comes down.
+        for (var i = 0; i < 5; i++)
+            await AddEventAsync(services, TimeSpan.FromDays(2 + i));
+
+        var before = gateway.Deleted.Count;
+        await RunAsync(services, gateway);
+        Assert.Equal(before, gateway.Deleted.Count);
+
+        for (var i = 0; i < 10; i++)
+            await RunAsync(services, gateway);
+
+        // Every one of them, and nothing else: no card of the new events, no message Modbot did not post.
+        Assert.Equal(
+            seeded.Order(StringComparer.Ordinal),
+            gateway.Deleted.Select(d => d.MessageId).Order(StringComparer.Ordinal));
+    }
 }

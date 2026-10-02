@@ -286,6 +286,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Where each event is published and what was last written there (calendar design §3).</summary>
     public DbSet<CalendarEventPlace> CalendarEventPlaces => Set<CalendarEventPlace>();
 
+    public DbSet<CalendarOldPost> CalendarOldPosts => Set<CalendarOldPost>();
+
     /// <summary>One row per occurrence whose instance Modbot tried to open (calendar design §4).</summary>
     public DbSet<CalendarOpening> CalendarOpenings => Set<CalendarOpening>();
 
@@ -2278,6 +2280,26 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.MissingGroupPermission).HasMaxLength(64);
             entity.Property(e => e.VRChatUpdatedAt).HasColumnName("vrchat_updated_at");
             entity.Property(e => e.CreateSent).HasColumnType("jsonb");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CalendarOldPost>(entity =>
+        {
+            entity.ToTable("calendar_old_post");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.MessageId).HasColumnType("text");
+
+            // The Discord loop's question every pass: which cards still up are due to come down.
+            entity.HasIndex(e => e.EndsAt)
+                .HasDatabaseName("ix_calendar_old_post_up")
+                .HasFilter("removed_at IS NULL");
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()
