@@ -476,6 +476,8 @@ public class StaffRolesTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        // Somebody has to stay able to administer Modbot, or any change of roles is refused.
+        await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
         await ServerAsync(host, on: true);
         var staff = await StaffMemberAsync(host, Member);
 
@@ -507,6 +509,8 @@ public class StaffRolesTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        // Somebody has to stay able to administer Modbot, or any change of roles is refused.
+        await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
         await ServerAsync(host, on: true);
         var staff = await StaffMemberAsync(host, Member);
 
