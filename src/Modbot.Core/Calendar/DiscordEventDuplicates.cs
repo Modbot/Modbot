@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text;
 using Modbot.Core.Discord;
+using Modbot.Shared.Names;
 
 namespace Modbot.Core.Calendar;
 
@@ -162,16 +162,14 @@ public static class DiscordEventDuplicates
 
     private static string Letters(string text)
     {
-        // Compatibility form turns styled letters (𝐌, Ｍ) into plain ones and splits accents off,
-        // so "Café" and "Cafe" read the same.
-        var decomposed = text.Normalize(NormalizationForm.FormKD);
-        var kept = new StringBuilder(decomposed.Length);
+        // Modbot's own name folding turns styled letters (𝐌, Ｍ) into plain ones and drops accents, so
+        // "Café" and "Cafe" read the same. It stands in for string.Normalize, which hands non-ASCII
+        // text back unchanged under invariant globalization.
+        var folded = NameNormalizer.Searchable(text);
+        var kept = new StringBuilder(folded.Length);
 
-        foreach (var rune in decomposed.EnumerateRunes())
+        foreach (var rune in folded.EnumerateRunes())
         {
-            if (Rune.GetUnicodeCategory(rune) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
-                continue;
-
             if (Rune.IsLetterOrDigit(rune))
                 kept.Append(Rune.ToLowerInvariant(rune).ToString());
         }

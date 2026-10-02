@@ -78,7 +78,9 @@ public class CalendarFeedKeepsTests
         var e = Ended(-TimeSpan.FromDays(3), CalendarEventStates.Scheduled);
 
         var linked = CalendarFeedWriter.Write("Night Owls", [e], new Dictionary<string, string>(), Now, "https://modbot.example/");
-        Assert.Contains($"URL:https://modbot.example/calendar?event={e.Id:D}\r\n", linked, StringComparison.Ordinal);
+        // The line is longer than 75 bytes, so it is folded (RFC 5545 §3.1); unfolding gives the address back whole.
+        var unfolded = linked.Replace("\r\n ", string.Empty, StringComparison.Ordinal);
+        Assert.Contains($"URL:https://modbot.example/calendar?event={e.Id:D}\r\n", unfolded, StringComparison.Ordinal);
 
         var unlinked = CalendarFeedWriter.Write("Night Owls", [e], new Dictionary<string, string>(), Now, publicAddress: null);
         Assert.DoesNotContain("URL:", unlinked, StringComparison.Ordinal);

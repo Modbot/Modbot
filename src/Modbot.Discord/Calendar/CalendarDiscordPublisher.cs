@@ -96,6 +96,12 @@ public sealed class CalendarDiscordPublisher
     /// <summary>Places this pass made, for the state-change facts.</summary>
     private readonly List<CalendarEventPlace> _added = [];
 
+    /// <summary>
+    /// Places that were taken down and are now wanted again. A place is one row per event and
+    /// kind of place, so the row left behind is reused rather than a second one made.
+    /// </summary>
+    private readonly Dictionary<(Guid EventId, string Place), CalendarEventPlace> _removed = [];
+
     public CalendarDiscordPublisher(
         ModbotContext db,
         IModbotClock clock,
@@ -168,6 +174,17 @@ public sealed class CalendarDiscordPublisher
 
         if (events.Count == 0 && cancelPosts.Count == 0 && dateCancelPosts.Count == 0 && oldPosts.Count == 0)
             return new CalendarDiscordPass(0);
+
+        var eventIds = events.Select(e => e.Id).ToList();
+        var takenDown = await _db.CalendarEventPlaces
+            .Where(p => eventIds.Contains(p.EventId)
+                && (p.Place == CalendarPlaces.DiscordEvent || p.Place == CalendarPlaces.ChannelPost)
+                && p.State == CalendarPlaceStates.Removed)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        _removed.Clear();
+        foreach (var row in takenDown)
+            _removed[(row.EventId, row.Place)] = row;
 
         var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
         var worlds = await _db.VRChatWorlds.AsNoTracking()
@@ -984,6 +1001,17 @@ public sealed class CalendarDiscordPublisher
 
     private CalendarEventPlace AddPlace(CalendarEvent e, string place)
     {
+        // Turned off and on again: the row from before is wanted again, from the start. Making a
+        // second one broke the key (event, place) and stopped the whole pass saving.
+        if (_removed.Remove((e.Id, place), out var again))
+        {
+            Forget(again, CalendarPlaceStates.Waiting, _clock.UtcNow);
+            again.ChannelId = null;
+            again.OccurrenceStartsAt = null;
+            _added.Add(again);
+            return again;
+        }
+
         var row = new CalendarEventPlace
         {
             EventId = e.Id,

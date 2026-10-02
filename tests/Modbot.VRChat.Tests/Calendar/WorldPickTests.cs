@@ -175,6 +175,10 @@ public class WorldPickTests(PostgresFixture fixture) : CalendarTestBase(fixture)
         var listId = await AddListAsync();
         var e = await AddDailyEventAsync(listId);
 
+        // The event went into the database without the API's first step, which sets the date it is
+        // on. That first pass counts as a change (an event moved to a date); the passes after it
+        // have nothing to change, and an empty list gives them nothing to pick.
+        await ScheduleAsync();
         Assert.Equal(0, await ScheduleAsync());
         Assert.Equal(0, await ScheduleAsync());
         Assert.Null((await EventAsync(e.Id)).WorldId);
