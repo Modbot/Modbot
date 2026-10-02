@@ -1628,15 +1628,15 @@ public static class CalendarEndpoints
         // Only a repeating event has them; a one-off ignores whatever the form still held.
         var every = repeat == CalendarRepeats.None ? 1 : body.RepeatEvery ?? 1;
         if (every is < 1 or > CalendarRepeats.MaxEvery)
-            return $"Repeat every must be between 1 and {CalendarRepeats.MaxEvery}.";
+            problems.Add($"Repeat every must be between 1 and {CalendarRepeats.MaxEvery}.");
 
         var times = repeat == CalendarRepeats.None ? null : body.RepeatTimes;
         if (times is < 1 or > CalendarRepeats.MaxTimes)
-            return $"The number of times must be between 1 and {CalendarRepeats.MaxTimes}.";
+            problems.Add($"The number of times must be between 1 and {CalendarRepeats.MaxTimes}.");
 
         // One end or the other, as iCalendar's UNTIL and COUNT and VRChat's own end are.
         if (until is not null && times is not null)
-            return "Pick a last date or a number of times, not both.";
+            problems.Add("Pick a last date or a number of times, not both.");
 
         var access = body.AccessType?.Trim() ?? "members";
         if (!AccessTypes.Contains(access))
