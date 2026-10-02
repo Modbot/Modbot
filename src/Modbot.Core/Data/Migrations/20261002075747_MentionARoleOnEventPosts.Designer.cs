@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261002074513_MentionARoleOnEventPosts")]
+    [Migration("20261002075747_MentionARoleOnEventPosts")]
     partial class MentionARoleOnEventPosts
     {
         /// <inheritdoc />
@@ -2054,6 +2054,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("category_id");
 
+                    b.Property<bool?>("EveryoneCanView")
+                        .HasColumnType("boolean")
+                        .HasColumnName("everyone_can_view");
+
                     b.Property<DateTimeOffset>("FirstSeenAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("first_seen_at");
@@ -2120,6 +2124,46 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<long>("PostedThrough")
                         .HasColumnType("bigint")
                         .HasColumnName("posted_through");
+
+                    b.Property<string>("RepeatActorId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_actor_id");
+
+                    b.Property<short?>("RepeatActorPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("repeat_actor_platform");
+
+                    b.Property<int>("RepeatCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("repeat_count");
+
+                    b.Property<string>("RepeatFields")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_fields");
+
+                    b.Property<DateTimeOffset?>("RepeatFirstAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_first_at");
+
+                    b.Property<DateTimeOffset?>("RepeatLastAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("repeat_last_at");
+
+                    b.Property<string>("RepeatPostId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_post_id");
+
+                    b.Property<string>("RepeatSubjectId")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_subject_id");
+
+                    b.Property<short?>("RepeatSubjectPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("repeat_subject_platform");
+
+                    b.Property<string>("RepeatType")
+                        .HasColumnType("text")
+                        .HasColumnName("repeat_type");
 
                     b.Property<DateTimeOffset?>("RetryAt")
                         .HasColumnType("timestamp with time zone")
@@ -2599,6 +2643,10 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
+
+                    b.Property<long?>("Permissions")
+                        .HasColumnType("bigint")
+                        .HasColumnName("permissions");
 
                     b.Property<int>("Position")
                         .HasColumnType("integer")
