@@ -1,13 +1,15 @@
 # Modbot — The join gate (Discord)
 
 - **Date:** 2026-10-02
-- **Status:** Proposed. Not built. The choices marked **(owner)** in §12 are open.
+- **Status:** Built with this document. The owner answered the four open choices on 2026-10-02
+  (§12); everything else was the builder's call and is open to the owner.
 - **Covers:** a gate for people joining the Discord server: what they see, what they must do to get
-  in, the waiting time and the removal, the staff list, join spikes, running beside an older captcha
-  bot, permissions, Discord's limits, what is stored, and what happens when Modbot is down
+  in, the waiting time, the warning and the removal, the staff list, join spikes, running beside an
+  older captcha bot, permissions, Discord's limits, what is stored, and what happens when Modbot is
+  down
 - **Depends on:** Discord account linking (2026-09-15), `/me` (2026-09-30), AI alerts ("People
-  joining Discord" watcher), AutoMod's runaway guard (2026-09-17), M5 §7 (bot permissions)
-- **Narrows:** the "Not built yet" page's "captcha / join gate" line, which this replaces once built
+  joining Discord" watcher), M5 §7 (bot permissions), API conventions §8 (Discord member actions)
+- **Narrows:** the "Not built yet" page's "captcha / join gate" line, which this replaces
 
 ---
 
@@ -20,7 +22,7 @@ the hour. None of it knows the person's VRChat account, and 0 of the 759 are lin
 
 Modbot already has every piece but the gate itself: it sees joins (Server Members intent), DMs a
 joiner with a button (`LinkPrompt`), proves a VRChat account (the bio code), knows VRChat's 18+ mark,
-gives roles (`LinkedRoleService`), and watches join counts (alerts). The gate joins them up.
+gives roles, and watches join counts (alerts). The gate joins them up.
 
 ## 2. What Discord already does, and why it is not enough
 
@@ -37,155 +39,196 @@ So the gate is still Modbot's job, but it **stacks on top** of these. Discord's 
 verification level keep catching scripted accounts; Modbot's gate is about *who* the person is.
 A button alone is not a captcha, and this design does not pretend it is.
 
+The two support pages refused to be fetched while this was written; what is said about them comes
+from Discord's own search snippets. The developer docs were read directly.
+
 ## 3. The shape: Modbot gives the member role
 
-The operator picks two things on a new **Join gate** card (Settings → Discord):
+A **Join gate** card on Settings → Discord holds:
 
-- **Member role**: the role that opens the server (on the reviewed server, "Villager").
-- **Gate channel**: the one channel `@everyone` can see.
+| Setting | Stored as | Notes |
+|---|---|---|
+| Join gate | `discord_gate_mode` | **Off**, **Watch only** or **On**. Off by default |
+| Member role | `discord_gate_member_role_id` | The role that opens the server (on the reviewed server, "Villager"). Must be one the bot can assign |
+| Gate channel | `discord_gate_channel_id` | The one channel `@everyone` can see |
+| Message | `discord_gate_message` | The operator's own words (their rules), above the button in the gate channel |
+| Link VRChat account | `discord_gate_needs_link` | A step, off by default |
+| 18+ on VRChat | `discord_gate_needs_eighteen_plus` | A step, off by default; needs the link step |
+| Remove after | `discord_gate_remove_after_minutes` | **Never**, 30 minutes, 1, 6, 12 or 24 hours, 2, 3 or 7 days. Never by default |
+| Hold new joiners on a join spike | `discord_gate_hold_on_spike` | Automatic protection, off by default (§8) |
+| Allow pausing invites | `discord_gate_pause_invites` | Off by default; needs Manage Server (§8) |
 
 The operator sets channel permissions in Discord: `@everyone` sees the gate channel only, the member
-role sees the rest. Modbot never rewrites channel permissions; the card checks them and says which
-channel is wrong.
+role sees the rest. Modbot never rewrites channel permissions.
 
 Modbot **gives the member role when the steps are done**. It does not put a "waiting" role on people
-and take it off. The difference is what happens when Modbot is down (§10): with Modbot giving the
-member role, new joiners wait and nobody is let in unchecked. **(owner, Q3)**
+and take it off. So when Modbot is down, new joiners wait and nobody is let in unchecked (§10).
 
-Everyone who was in the server when the gate was switched on is left alone. A member who already
-holds the member role is never gated.
+**Who is gated.** Only people who join while the gate is on, and who do not hold the member role.
+Everyone already in the server is left alone. Somebody who joined before the gate was on and presses
+**Get in** anyway is gated from that moment.
 
 ## 4. What a new member sees
 
-1. They join. If Rules Screening is on, Discord shows its rules first; Modbot starts only once
-   `pending` is false.
-2. **A DM** from the bot (the one `LinkPrompt` sends today, widened): the server's name and a
-   **Get in** button. DMs closed (error 50007): one mention of only that member in the gate channel,
-   the same as the linking backup channel. No other pings. No public "do this now" roll call.
-3. **The gate channel** holds one message Modbot posts and keeps: the operator's own text (their
-   rules) and a **Get in** button.
-4. **Get in** answers privately (ephemeral) with the steps still to do, each a label and a button:
+1. They join. If Rules Screening is on, Discord shows its rules first. Modbot gives the member role
+   only once Discord says `pending` is false.
+2. **A DM** from the bot: "Welcome to **server**!" and a **Get in** button. DMs closed (error
+   50007): one mention of only that member in the gate channel, with the same button. No other
+   pings. The link prompt is not sent as well while the gate is on: one message, not two.
+3. **The gate channel** holds one message Modbot posts and keeps up to date: the operator's message
+   and a **Get in** button. Changing the message or the channel rewrites or moves it.
+4. **Get in** answers privately with the steps, each a line and, while not done, a button:
    - **Rules**: **I agree**
-   - **VRChat account**: **Link** (opens the existing `/link` page)
-   - **18+**: shows "Not verified on VRChat" until VRChat's 18+ mark is on the linked account
-5. When the last step is done: the member role, and a private "You're in." Rejoining a server they
-   already passed, with an active link: straight in, no steps.
+   - **VRChat account**: **Link VRChat account** (opens the existing `/link` page)
+   - **18+**: "Not verified on VRChat" until VRChat's 18+ mark is on the linked account
+   - and **Check** to read the steps again after linking on the page.
+5. When the last step is done: the member role, and a private "You're in." The steps are also
+   checked once a minute, so somebody who links on the page and never comes back still gets in.
+6. Back again after passing once, with the steps still done (an active link, for a gate that needs
+   one): straight in, with no steps to repeat.
 
-No explanation text in any of these (CLAUDE.md "controls, not explanations"); the operator's own
-text in the gate message is theirs.
+No explanation text in any of these (CLAUDE.md "controls, not explanations"); the operator's message
+is theirs.
 
 ## 5. The steps
 
 | Step | Done when | Cost |
 |---|---|---|
 | **I agree** | The button is pressed | Nothing |
-| **Link VRChat** | An active `discord_account_link` exists for the Discord id | The existing bio-code check and its limits (30 checks a minute across the deployment) |
-| **18+ on VRChat** | The linked VRChat account has the 18+ verified flag (the same flag the 18+ role follows) | Nothing new: the bio check already records the profile |
+| **Link VRChat account** | An active `discord_account_link` exists for the Discord id | The existing bio-code check and its limits |
+| **18+ on VRChat** | The linked VRChat account has the 18+ verified flag (the one the 18+ role follows) | Nothing new |
 
-The operator ticks which steps the gate needs. **I agree** is always on; 18+ needs the link step.
-**(owner, Q1)**
+Each server picks its steps (owner, Q1: C). **I agree** is always one of them; 18+ needs the link
+step. A server that is not set up for linking cannot save the link step.
 
 ## 6. Not finishing
 
-Three settings: **Remind after** (hours), **Remove after** (hours, or **Never**), and the gate's
-on/off. Default proposal: one reminder DM at half time, removal at 24 hours. **(owner, Q2)**
+**Remove after** is the operator's (owner, Q2), with **Never** among the choices.
 
-- Removal is a **kick**, never a ban: they can come back. The kick carries `X-Audit-Log-Reason`
-  "Did not finish the join gate" ([docs][guild]).
-- **Never removed when the hold-up is Modbot's**: the bot cannot give the member role, VRChat checks
-  are failing (a 429 cold stop, VRChat down), or the bot was offline for part of their time. Their
-  clock restarts when the fault clears.
-- **Runaway guard**, as AutoMod's: at most 10 removals a minute, and if removals in an hour pass a
-  share of joins that is far above the server's normal, removals stop and staff get an alert.
+- **One warning, halfway.** At half the removal time the bot DMs once: "You have not finished
+  getting in to **server**. Get in by <time>, or you will be removed." with **Get in**. DMs closed:
+  one mention in the gate channel. No warning when removal is Never.
+- Removal is a **kick**, never a ban: they can come back. Discord's audit log says "Modbot: did not
+  finish the join gate".
+- **Time counts only while the hold-up is theirs.** Each open entry keeps the minutes it has been
+  counted. A pass adds the minutes since the last pass, at most two, and only when:
+  - the bot is connected (a pass needs a ready session at all);
+  - the bot could give the member role at its last try;
+  - VRChat is answering, for a gate with the link step (no rate-limit stop in the last hour);
+  - linking is set up, for a gate with the link step;
+  - the person has steps left to do (somebody done and waiting on a hold is waiting on staff).
+  A Modbot down for a day counts as two minutes. Nobody is removed while Modbot is the reason.
+- **Runaway guard.** At most 10 removals in a pass, and none once 30 people were removed in the last
+  hour; the gate then says so on Health and stops removing until the hour has passed.
 
 ## 7. What staff see
 
-- **Discord → Members**, a new filter **At the gate**: joined, time left, steps done, and two
-  actions: **Let in** (gives the member role; needs a new permission, Manage the join gate) and
-  **Remove**.
-- **Giving the member role by hand in Discord counts as let in.** Modbot sees the role change and
-  closes the gate entry with "let in by hand".
-- New event types for event channels and the audit log: **Passed the join gate**, **Let in at the
-  join gate**, **Removed at the join gate**, **Reminded at the join gate**.
-- A count on **Health** (Discord bot card): how many are waiting, and any reason the gate is stuck.
+- **Discord → Members** opens with an **At the gate** card while the gate is not off: who is
+  waiting, joined when, which steps are done, when they will be removed (or "would be", in Watch
+  only), and **Let in** and **Remove** (both need **Manage the join gate**, a new permission; seeing
+  the card needs See members). The card also says whether new joiners are held, with **Hold new
+  joiners**, **Lift hold** and, when allowed, **Pause invites**.
+- **Giving the member role by hand in Discord counts as let in.** Modbot sees the role arrive and
+  closes the entry as "Let in in Discord".
+- Facts, which event channels and the audit log can show: **Passed the join gate**, **Let in at the
+  join gate**, **Removed at the join gate**, **Warned at the join gate**, **New joiners held**,
+  **Hold lifted**, **Discord invites paused**.
+- Health (the Discord bot card) says when the gate cannot do its job: the member role cannot be
+  given, the gate message cannot be posted, removals stopped by the runaway guard.
 
 ## 8. Join spikes
 
-The trigger is the existing **People joining Discord** alert watcher, which already compares the
-hour with the same hour on past days (no fixed number, as the alerts design requires). When it
-fires, the gate can, on top of the alert **(owner, Q4)**:
+The trigger is the existing **People joining Discord** alert watcher, which compares the hour with the
+same hour on past days (no fixed number, as the alerts design requires). The alert itself is posted
+as before, and the gate keeps handling people as usual (owner, Q4). Protection is not automatic
+unless the operator asks for it:
 
-| Option | What happens | Needs |
-|---|---|---|
-| A | Alert only | nothing new |
-| B | **Hold**: nobody new gets the member role by themselves until staff lift the hold; removals keep running | nothing new |
-| C | B, and pause the server's invites through Discord's incident actions (at most 24 hours) | **Manage Server**, a big permission |
+- **Hold new joiners on a join spike** on: when the watcher fires, new joiners are held — nobody gets
+  the member role by themselves until staff lift the hold. With **Allow pausing invites** on as
+  well, Modbot also pauses the server's invites through Discord's incident actions for 24 hours, the
+  most Discord allows ([docs][guild]).
+- Off (the default): the alert's Discord post carries **Hold new joiners**, and **Pause invites**
+  when allowed. Staff press them.
+- **Lift hold**: on the alert's reply after a hold, on the At the gate card, and on the Join gate
+  card. Lifting lets everyone who is done in on the next pass.
 
-Staff lift a hold with one button on the Join gate card or on the alert.
+A press in Discord is taken as the Modbot account that proved that Discord account (accounts and
+access §4.6), and needs **Manage the join gate**; anybody else is told so. Every hold, lift and pause
+is a fact naming who did it, or "join spike" when it was automatic. Removals keep running during a
+hold for people with steps left, as they would without one.
 
 ## 9. Running beside the old captcha bot
 
-1. **Watch only** (like AutoMod's trial): Modbot records who would have passed, been reminded and
-   been removed, and does nothing in Discord: no DM, no role, no kick. The old bot keeps working.
-   The At the gate list shows "would have" outcomes beside what the old bot did.
+1. **Watch only**: Modbot records who joined, which steps they did not do, when it would have warned
+   and removed them, and whether they got the member role from somebody else — and does nothing in
+   Discord: no DM, no gate message, no role, no kick, no hold. The old bot keeps working. The At the
+   gate card shows "Would remove" beside each person.
 2. **On**: point the gate at the same member role the old bot gives, then turn the old bot's
    verification off in its own dashboard. Remove its "Needs to do Captcha" role and the `do-this-now`
    ping bot.
-3. If anything goes wrong, turning the gate off stops Modbot at once; nobody is stripped of a role.
-
-Two bots must never both kick: Watch only is the only mode allowed while another bot does the job.
+3. Turning the gate off stops Modbot at once; nobody loses a role. Entries made under one mode are
+   closed when the mode changes, so Watch only never turns into removals.
 
 ## 10. When things fail
 
 | Failure | What happens |
 |---|---|
-| Modbot or the bot is down | New joiners stay in the gate channel. Nobody is let in, nobody is removed. On reconnect Modbot reads the member list, finds joiners without the member role who joined after the gate was switched on, and starts their clock from the reconnect. |
-| Bot loses Manage Roles, or the member role moves above the bot's | No one can pass; removals stop; Health says why; staff can still let people in by hand in Discord |
-| VRChat checks failing | Link and 18+ steps cannot finish; removals stop until checks work again |
+| Modbot or the bot is down | New joiners stay in the gate channel. Nobody is let in, nobody is removed, and the time does not count (§6). On reconnect a pass reads the stored member list: anybody who joined after the gate went on and has no member role and no entry gets one, from that moment |
+| Bot loses Manage Roles, or the member role moves above the bot's | No one can pass; time stops counting; Health says why; staff can still let people in by hand in Discord |
+| VRChat checks failing | Time stops counting for a gate with the link step |
 | Gate channel deleted or unreadable | Health says so; DMs still carry the button |
-| Discord intent for members refused | The gate cannot see joins: the card refuses to turn on |
+| Server Members intent refused | The gate cannot see joins or roles: Health says the intent is off, which it already does |
 
-Chosen: **people wait rather than walk in** when Modbot is down, and **nobody is removed for
-Modbot's fault**. **(owner, Q3)**
+Chosen by the owner (Q3: A): people wait rather than walk in, and staff giving the role by hand
+counts as let in.
 
 ## 11. Permissions, Discord limits, privacy
 
-**Bot permissions** (one line each in `DiscordInvite.PermissionsFor`, only while the gate is on):
-Manage Roles (bot's role above the member role), View Channel, Send Messages, Embed Links in the gate
-channel, Kick Members only while **Remove after** is not **Never**, Manage Server only for option C.
-**Intent:** Server Members, already asked for.
+**Bot permissions** (`DiscordInvite.PermissionsFor`, only while the gate is on): Manage Roles (the
+bot's role above the member role); View Channel, Send Messages, Embed Links and Read Message History
+in the gate channel (the message is fetched by id before each rewrite); Kick Members while **Remove
+after** is not Never; Manage Server only while **Allow pausing invites** is on. **Intent:** Server
+Members, already asked for.
+
+**Modbot permission:** **Manage the join gate** (bit 51): let somebody in, remove them at the gate,
+hold, lift the hold, pause invites. Not in the built-in Moderator or Viewer roles; Administrator holds
+it. Changing the gate's settings is Change settings, as for every other card.
 
 **Discord limits:**
 
-- 50 requests a second for the whole bot, plus per-route limits read from the response headers;
-  10,000 refused requests (401, 403, 429) in 10 minutes gets the bot's address blocked ([docs][rates]).
-  So a 403 stops that action and is reported, never retried in a loop.
-- A button press must be answered within 3 seconds; the steps reply is built from stored rows only.
-- DMs to strangers are what spam looks like: one DM on join and one reminder, never more.
-- **To check during the build** (not confirmed in Discord's docs): whether a role can be given to a
-  `pending` member, and whether a member held by verification level "in the server 10 minutes" can
-  press buttons. Test both on the test server before relying on them.
+- 50 requests a second for the whole bot, plus per-route limits; 10,000 refused requests (401, 403,
+  429) in 10 minutes gets the bot's address blocked ([docs][rates]). A refused role change stops time
+  counting and is not retried until the next pass; at most 10 removals and 25 role changes a pass.
+- A button press must be answered within 3 seconds; the steps are read from stored rows only.
+- DMs to strangers are what spam looks like: one DM on join and one warning, never more.
+- **Checked during the test, not from docs:** whether a role can be given to a `pending` member (the
+  gate waits for `pending` to be false either way), and whether a member held by verification level
+  "in the server 10 minutes" can press buttons.
 
-**What is stored** (new table `discord_gate_entry`, one row per join while the gate is on): Discord
-id, joined at, each step's time, the outcome (passed, let in by whom, removed, left), and reminder
-time. Nothing about the person beyond what linking already keeps. Facts as in §7; reminders take the
-short retention class. The privacy policy, `WhatModbotKeeps` and the `/me` docs list gain one line:
-"Whether you passed the Discord server's join gate, and when". `/me` shows nothing new.
+**What is stored** (`discord_gate_entry`, one row per person per time through the gate): Discord id
+and name, when they joined, Watch only or not, when they agreed, minutes counted, when they were
+warned, how it ended (passed, let in, let in in Discord, removed, left, gate changed) and when, who let
+them in or removed them, the last problem. Nothing about the person beyond what linking already keeps.
+The warning facts take the short retention class; the rest are moderation history.
+`WhatModbotKeeps` and the `/me` docs gain one line, "Whether you got in through the server's join
+gate, and when". The privacy policy on modbot.co lives outside this repository and needs the same
+line.
 
-## 12. Open for the owner
+## 12. The owner's answers (2026-10-02)
 
-1. **Q1** Which steps can an operator require: agree only, agree + link, agree + link + 18+?
-2. **Q2** Remove people who do not finish, and after how long, or never?
-3. **Q3** When Modbot is down: new joiners wait (Modbot gives the member role) or walk in (Modbot
-   takes a waiting role away)?
-4. **Q4** On a join spike: alert, hold, or hold and pause invites?
+1. **Q1 Steps:** C. Each server picks: agree, plus optionally link VRChat, plus optionally 18+.
+   Thy Kingdom would start on agree only.
+2. **Q2 Not finishing:** the removal time is a per-server setting with Never; a warning before
+   removal (halfway, §6); nobody removed while Modbot is the reason.
+3. **Q3 Modbot down:** A. Joiners wait; nobody let in or removed; a role given by hand counts.
+4. **Q4 Join spike:** alert as before; protection is a setting, off by default; otherwise buttons on
+   the alert; a clear Lift hold; the buttons need a Modbot permission and are recorded.
 
 ## 13. What else changes
 
-- Docs: a new `discord/join-gate.mdx`; the captcha line comes off "Not built yet"; `bot-setup.mdx`
-  permission table; privacy page and `WhatModbotKeeps` (the docs test enforces the match).
-- `LinkPrompt` is widened rather than duplicated: one DM on join, with **Get in** when the gate is on
-  and **Link VRChat account** when only linking is.
+- Docs: `discord/join-gate.mdx`; the captcha line comes off "Not built yet"; `bot-setup.mdx`
+  permission table; `WhatModbotKeeps` and the matching docs list.
+- `LinkPrompt` stays as it is while the gate is off. While the gate is on, the gate's DM replaces it.
 
 [guild]: https://docs.discord.com/developers/resources/guild
 [rates]: https://docs.discord.com/developers/topics/rate-limits
