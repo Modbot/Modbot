@@ -332,7 +332,10 @@ title that is too long.
 | **Time zone** | The time zone **Starts** and **Ends** are in. |
 | **Repeat** | **Does not repeat**, **Daily**, **Weekly** or **Monthly**. |
 | Days of the week | Only for **Weekly**: tick **Mon** to **Sun**. The day of the first start is always included, even if you leave it unticked. |
-| **Last date** | Only for repeating events. The last day it may start on. Leave it empty to repeat with no end. It cannot be before the start. |
+| **Every** | Only for repeating events. How many days, weeks or months apart it happens, from 1 to 52: **Weekly** with **Every 2 weeks** is every other week. |
+| **Ends** | Only for repeating events. **Never**, **On a date** or **After a number of times**. |
+| **Last date** | For **Ends: On a date**. The last day it may start on. It cannot be before the start. |
+| **Times** | For **Ends: After a number of times**. How many times it happens, from 1 to 500, the first one included. After the last one the event is finished. |
 
 The time zone matters for repeating events. A weekly event at 20:00 in `Europe/London` stays at
 20:00 London time in both summer and winter, even though that is a different time for someone in
@@ -340,6 +343,14 @@ another country.
 
 A **Monthly** event happens on the same day of the month as its first start. An event on the 31st
 skips months that have no 31st.
+
+**Every 2 weeks** counts weeks from Monday to Sunday, starting with the week of the first start. A
+Monday and Thursday event that starts on a Thursday happens that Thursday, skips the next week, then
+happens on the Monday and Thursday of the week after. A skipped month still counts for **Every 2
+months**.
+
+**After a number of times** counts every time the repeat gives, including a date you
+[cancelled on its own](#changing-one-date-of-a-repeating-event): cancel one of six and five are left.
 
 ### Where
 
@@ -364,6 +375,12 @@ Shown while the **VRChat calendar** chip is on.
 | **VRChat picture** | Optional. The picture on VRChat's calendar. See [The VRChat picture](#the-vrchat-picture). |
 | **PC**, **Android**, **iOS** | The platforms the event is for. |
 | **Notify group members** | Asks VRChat to tell your group members about the event. VRChat is only asked this when the event is first put on its calendar, not when you edit it later. |
+| **Featured** | Asks VRChat to show the event as featured. Off for a new event. If VRChat refuses an event with it on, the event's **VRChat calendar** status shows VRChat's words followed by **(sent with Featured on)**; turn it off and save to send the event without it. |
+
+Some of VRChat's own event settings are not in the form: how early hosts and guests may join, closing
+the instance after the end, instance overflow and which group roles see the event. For an event
+[made on VRChat](#events-made-on-vrchat), Modbot keeps what VRChat has for them and sends them back
+with every change.
 
 ### The VRChat picture
 
@@ -447,6 +464,8 @@ The form shows what is wrong, for example:
 - **The end must be after the start.**
 - **An event can last at most 7 days.**
 - **The last date is before the start.**
+- **Pick a last date or a number of times, not both.**
+- **Repeat every must be between 1 and 52.** or **The number of times must be between 1 and 500.**
 - **The picture link must start with https://.** or **The picture link points at a private address.**
 - **Pick a channel to post to.**
 - **Pick a world to open the instance in.**
@@ -461,7 +480,9 @@ chosen as **Managed group** (**Settings**, **Modbot's VRChat login**). With no m
 nothing is sent.
 
 - **A repeating event is one entry on VRChat**, using VRChat's own repeat, in the event's time zone,
-  with the last date when there is one. It is not one entry per week.
+  with **Every**, and the last date or the number of times when there is one. It is not one entry
+  per week. Once some of its times have passed, VRChat's entry starts at the next one, so VRChat is
+  sent only the number of times that are left: six times with two over shows as four on VRChat.
 - **One date cancelled or changed on its own** is sent to that one date on VRChat. Modbot reads that
   month of your calendar (up to three pages) before each change to find VRChat's id for the date, then removes it
   (a cancel) or changes its time, title and description. If Modbot cannot find that date on its own,
@@ -502,8 +523,9 @@ first time Modbot sees it, and again after it is changed on VRChat, to read how 
 ordinary Modbot event: with **Manage calendar** you can open, edit, drag, cancel and delete it, and
 your change is sent to that same event on VRChat, never as a second copy. It arrives with
 **VRChat calendar** and **Discord event** on, and **Discord channel post** and **Open the
-instance** off; turn them on if you want them. VRChat settings the Modbot form does not
-have, such as **Featured** or how early hosts may join, are kept as they are when you edit it.
+instance** off; turn them on if you want them. **Featured** is copied in with the rest. VRChat
+settings the Modbot form does not have, such as how early hosts may join, are kept as they are when
+you edit it.
 
 **Changed on VRChat.** The newest change wins. Modbot copies in a change made on VRChat, for any
 event, including ones planned in Modbot. If you changed the event in Modbot more recently and Modbot
@@ -522,8 +544,11 @@ had not reached VRChat yet, the edit is newer, so Modbot puts the event back on 
 
 - a change on VRChat to **one date only** of a repeating event is left on VRChat, and Modbot keeps
   the series as it was;
-- an event repeating **every second week** (or every third, and so on) or **every year** is not
-  brought in.
+- an event repeating **every year**, or more than 52 days, weeks or months apart, or more than 500
+  times, is not brought in.
+
+An event that repeats **every second week** (or every third, and so on) or **a number of times** on
+VRChat is brought in with the same **Every** and **Times**.
 
 If the read fails, a red line under the page's controls says why, for example
 **VRChat's calendar is waiting on its rate limit.** Modbot's own events still show.

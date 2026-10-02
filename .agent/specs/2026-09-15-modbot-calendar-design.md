@@ -8,7 +8,9 @@
   post (§14, added 2026-10-01); cancelling or changing one date of a repeating event (§2.2,
   added 2026-10-01); uploading the VRChat picture (§15, added 2026-10-01); taking Modbot's old
   channel posts down (§3.3, added 2026-10-01); mentioning a role on the channel post (§3.3.1,
-  added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02)
+  added 2026-10-02); copies of an event in Discord (§16, added 2026-10-02); every few weeks, a
+  number of times and Featured ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md),
+  added 2026-10-02)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -39,11 +41,11 @@ the access the event names — never public by default, and never for an event n
 |---|---|
 | Title, description | Title up to 100 characters (Discord's limit for an event name), description up to 1000. An event going to VRChat needs a description: VRChat answers an empty one with a 400 (seen 2026-09-25). A draft may stay empty until it is published. |
 | Start, end, time zone | Stored as the first start and end (UTC instants) plus an IANA time zone. The time zone is what keeps a weekly 20:00 event at 20:00 through daylight-saving changes. |
-| Repeat | `none`, `daily`, `weekly` on chosen days, or `monthly` on the same day of the month. An optional last date. **The rule is stored, not the occurrences.** A monthly event on the 31st skips months without one, the same as iCalendar. |
+| Repeat | `none`, `daily`, `weekly` on chosen days, or `monthly` on the same day of the month; every 1 to 52 days, weeks or months; ending never, on a last date, or after 1 to 500 times (every and times added 2026-10-02: [calendar repeats design](2026-10-02-calendar-repeats-and-vrchat-settings-design.md) §2). **The rule is stored, not the occurrences.** A monthly event on the 31st skips months without one, the same as iCalendar. |
 | World | Picked from worlds Modbot knows, or typed as an id. Never checked for shape (foundation §3.1.1). Or picked from a world list, date by date (world lists design, added 2026-10-01): `WorldId` is then the current date's pick. |
 | Instance access, region | `members`, `plus` or `public`; `us`, `use`, `eu` or `jp`. |
 | Image | Two fields, kept apart on purpose: a picture link for Discord, and a VRChat picture for VRChat's calendar, stored as its VRChat file id. The VRChat picture is uploaded from the form (§15, changed 2026-10-01). Before that the form took a typed `file_…` id and Modbot uploaded nothing, because the upload endpoint had no rate limit set. |
-| VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), and whether VRChat notifies group members. Exactly the fields `CreateCalendarEventRequest` has that make sense to set. |
+| VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), whether VRChat notifies group members, and Featured (added 2026-10-02). Exactly the fields `CreateCalendarEventRequest` has that make sense to set; the others, field by field, are in the [calendar repeats design](2026-10-02-calendar-repeats-and-vrchat-settings-design.md) §6. |
 | Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). A new event starts with VRChat calendar and Discord event ticked (changed 2026-09-27: with only VRChat ticked, events reached one side unless someone remembered the second box). The channel post starts off, since it needs a channel picked. In the form these are one row of chips, with the calendar feed shown and always on (§14). |
 
 ### 2.1 States
@@ -150,8 +152,10 @@ event finishing and cancelling: each changes what the place should say.
   unchanged for 20 seconds, and then its latest version is sent. With one write a minute allowed,
   a moderator fixing a typo three times costs one write, not three.
 - A repeating event is sent as **one VRChat series** with VRChat's own recurrence (daily, weekly
-  on days, monthly; interval 1; the event's time zone; an end date when there is one), not one
-  VRChat event per occurrence.
+  on days, monthly; its interval; the event's time zone; an end date or a number of times when
+  there is one), not one VRChat event per occurrence. Until 2026-10-02 the interval was always 1;
+  a number of times is counted from where the series sent starts ([calendar repeats
+  design](2026-10-02-calendar-repeats-and-vrchat-settings-design.md) §3).
 - **One date changed on its own (§2.2)** is sent to that date, not the series. VRChat lists a
   series' dates as `occurrenceKind: occurrence` rows with an `id` of their own and the series' id as
   `seriesId` (the SDK's `CalendarEvent`); a cancelled date is deleted by that id and a moved or
@@ -599,15 +603,18 @@ in September, a weekly series, none from Modbot).
   so an event made on VRChat never reached the Discord server unless a moderator opened it and ticked
   the box. The first read of a group with many upcoming VRChat events makes a Discord event for each,
   five Discord calls a pass at most.)
-- **VRChat's settings the form does not have** -- featured, host and guest early join, closing the
-  instance after the end, roles, instance overflow -- are kept on the event and sent back with every
-  create and update. The SDK's update body sends `featured` and `usesInstanceOverflow` as false when
-  they are left out (checked 2026-09-27), so without this an edit from Modbot would switch them off.
-  Events made in Modbot keep sending what they always did.
+- **VRChat's settings the form does not have** -- host and guest early join, closing the instance
+  after the end, roles, instance overflow -- are kept on the event and sent back with every create
+  and update. The SDK's update body sends `featured` and `usesInstanceOverflow` as false when they
+  are left out (checked 2026-09-27), so without this an edit from Modbot would switch them off.
+  Events made in Modbot keep sending what they always did. Featured was one of them until
+  2026-10-02; it is a form field now, copied in like the rest.
 - A one-off event from VRChat has no time zone; it is kept as UTC until a moderator picks one.
-  VRChat's "after N times" end is counted out to a last date.
-- **Not taken in:** drafts; a series every second week or more, or yearly (Modbot's rule has
-  neither); and a row with the title of a Modbot event whose create has no id yet, or whose VRChat
+  VRChat's "after N times" end is kept as a number of times (until 2026-10-02 it was counted out to
+  a last date), and its interval as every N.
+- **Not taken in:** drafts; a yearly series, or one more than 52 apart or more than 500 times
+  (Modbot's rule has neither; every second week and more was added 2026-10-02); and a row with the
+  title of a Modbot event whose create has no id yet, or whose VRChat
   place was just removed -- it may be that very event, and taking it in would make a second.
   Titles are compared by their letters and digits only, since VRChat changes the text it is sent
   (2026-10-01). A row that is the copy of a create with no answer is adopted instead (§3.1).
