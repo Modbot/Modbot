@@ -2944,6 +2944,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("staff_roles_held_count");
 
+                    b.Property<DateTimeOffset?>("StaffRolesMembersCurrentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("staff_roles_members_current_at");
+
+                    b.Property<DateTimeOffset?>("StaffRolesMembersOffAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("staff_roles_members_off_at");
+
                     b.Property<string>("StaffRolesProblem")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")

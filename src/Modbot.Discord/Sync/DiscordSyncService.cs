@@ -80,15 +80,6 @@ public sealed class DiscordSyncService : BackgroundService
 
                     if (rolePass.Problem is { } roleProblem)
                         _status.Problem($"Could not change a paired role: {roleProblem}", _clock.UtcNow);
-
-                    var staff = scope.ServiceProvider.GetRequiredService<StaffRoleSync>();
-                    var staffPass = await staff.RunAsync(gateway, _bot.MembersRead, pastBrake: false, stoppingToken).ConfigureAwait(false);
-
-                    if (staffPass.Given + staffPass.Taken > 0)
-                        _log.Information("Gave {Given} and took away {Taken} staff roles from Discord roles", staffPass.Given, staffPass.Taken);
-
-                    if (staffPass.Problem is { } staffProblem)
-                        _status.Problem($"Staff roles from Discord: {staffProblem}", _clock.UtcNow);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -98,6 +89,30 @@ public sealed class DiscordSyncService : BackgroundService
                 {
                     _log.Warning(e, "The role and ban sync pass failed; trying again shortly");
                 }
+            }
+
+            // The staff role pass runs with the bot down as well: it gives and takes nothing then,
+            // and after a while says that member updates are missing (staff roles design §6.1).
+            try
+            {
+                using var scope = _scopes.CreateScope();
+
+                var staff = scope.ServiceProvider.GetRequiredService<StaffRoleSync>();
+                var staffPass = await staff.RunAsync(_bot.ReadyGateway, _bot.MemberUpdatesCurrent, pastBrake: false, stoppingToken).ConfigureAwait(false);
+
+                if (staffPass.Given + staffPass.Taken > 0)
+                    _log.Information("Gave {Given} and took away {Taken} staff roles from Discord roles", staffPass.Given, staffPass.Taken);
+
+                if (staffPass.Problem is { } staffProblem)
+                    _status.Problem($"Staff roles from Discord: {staffProblem}", _clock.UtcNow);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception e)
+            {
+                _log.Warning(e, "The staff role pass failed; trying again shortly");
             }
 
             try

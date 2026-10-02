@@ -26,6 +26,6 @@ public sealed class StaffRoleRunner : IStaffRoleRunner
         using var scope = _scopes.CreateScope();
         var sync = scope.ServiceProvider.GetRequiredService<StaffRoleSync>();
 
-        return await sync.RunAsync(_bot.ReadyGateway, _bot.MembersRead, pastBrake: true, ct, plan).ConfigureAwait(false);
+        return await sync.RunAsync(_bot.ReadyGateway, _bot.MemberUpdatesCurrent, pastBrake: true, ct, plan).ConfigureAwait(false);
     }
 }

@@ -37,6 +37,18 @@ namespace Modbot.Core.Data.Migrations
                 type: "integer",
                 nullable: true);
 
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "staff_roles_members_current_at",
+                table: "discord_sync_state",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "staff_roles_members_off_at",
+                table: "discord_sync_state",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.AddColumn<string>(
                 name: "staff_roles_problem",
                 table: "discord_sync_state",
@@ -150,6 +162,14 @@ namespace Modbot.Core.Data.Migrations
 
             migrationBuilder.DropColumn(
                 name: "staff_roles_held_count",
+                table: "discord_sync_state");
+
+            migrationBuilder.DropColumn(
+                name: "staff_roles_members_current_at",
+                table: "discord_sync_state");
+
+            migrationBuilder.DropColumn(
+                name: "staff_roles_members_off_at",
                 table: "discord_sync_state");
 
             migrationBuilder.DropColumn(

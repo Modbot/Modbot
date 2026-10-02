@@ -169,6 +169,22 @@ public static class StaffRoles
         ArgumentNullException.ThrowIfNull(role);
         return role.Permissions is not { } permissions || (permissions & PowerfulDiscordPermissions) != 0;
     }
+    /// <summary>What every link says while member updates are missing.</summary>
+    public const string NoMemberUpdates = "Modbot isn't receiving member updates from Discord.";
+
+    /// <summary>How long the pass waits for member updates before it calls them missing: a reconnect takes a minute or two.</summary>
+    public static readonly TimeSpan MemberUpdatesWait = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Whether the stored member roles can be trusted now (design §6.1): the pass found the bot
+    /// receiving member updates within <see cref="MemberUpdatesWait"/>, and has not found them
+    /// missing since. A pass that has not run lately -- the bot is stopped -- counts as missing too.
+    /// </summary>
+    public static bool MemberUpdatesMissing(DiscordSyncState? state, DateTimeOffset now)
+        => state?.StaffRolesMembersOffAt is not null
+           || state?.StaffRolesMembersCurrentAt is not { } current
+           || now - current > MemberUpdatesWait + MemberUpdatesWait;
+
     /// <summary>The advisory lock every save of a linked role or a VRChat role pair takes.</summary>
     public const string SaveLock = "modbot.staff-roles.save";
 
@@ -224,10 +240,11 @@ public static class StaffRoles
 
         var discordRoles = await DiscordRolesAsync(db, settings.DiscordGuildId, ct).ConfigureAwait(false);
         var rolesChangedAt = LatestChange(discordRoles);
+        var missing = MemberUpdatesMissing(await SyncStateAsync(db, ct).ConfigureAwait(false), now);
 
         var locked = rules
             .GroupBy(r => r.RoleId)
-            .Where(g => !g.Any(r => Works(r, discordRoles.GetValueOrDefault(r.DiscordRoleId), rolesChangedAt, now)))
+            .Where(g => missing || !g.Any(r => Works(r, discordRoles.GetValueOrDefault(r.DiscordRoleId), rolesChangedAt, now)))
             .Select(g => g.Key)
             .ToHashSet();
 
@@ -291,6 +308,10 @@ public static class StaffRoles
         var discordRoles = await DiscordRolesAsync(db, guildId, ct).ConfigureAwait(false);
         var rolesChangedAt = LatestChange(discordRoles);
         var problems = new List<string>();
+
+        // Worked out all the same, for the preview: what would happen once updates come back.
+        if (MemberUpdatesMissing(await SyncStateAsync(db, ct).ConfigureAwait(false), now))
+            problems.Add("Not set up: " + NoMemberUpdates);
 
         // Each Modbot role with the mappings that give it. A role that has come to carry the
         // Administrator permission since it was mapped is skipped and named, never given.
@@ -601,6 +622,9 @@ public static class StaffRoles
 
         return notes;
     }
+
+    private static Task<DiscordSyncState?> SyncStateAsync(ModbotContext db, CancellationToken ct)
+        => db.DiscordSyncState.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
     private static DateTimeOffset? LatestChange(Dictionary<string, DiscordRole> roles)
         => roles.Count == 0 ? null : roles.Values.Max(r => r.UpdatedAt);

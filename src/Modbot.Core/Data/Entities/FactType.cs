@@ -431,6 +431,7 @@ public static class FactType
     public const string StaffRoleUnmapped = "modbot.role.discord.unmap";
     public const string StaffRolesHeld = "modbot.role.discord.held";
     public const string StaffRolesApplied = "modbot.role.discord.apply";
+    public const string StaffRolesNoMemberUpdates = "modbot.role.discord.no-member-updates";
 
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";

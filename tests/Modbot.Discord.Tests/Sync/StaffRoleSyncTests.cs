@@ -93,11 +93,11 @@ public class StaffRoleSyncTests
     }
 
     private static async Task<StaffRolePass> PassAsync(
-        TestServices services, IDiscordGateway? gateway = null, bool membersRead = true, bool pastBrake = false)
+        TestServices services, IDiscordGateway? gateway = null, bool memberUpdatesCurrent = true, bool pastBrake = false)
     {
         using var scope = services.Scope();
         return await scope.ServiceProvider.GetRequiredService<StaffRoleSync>()
-            .RunAsync(gateway ?? new FakeGateway(), membersRead, pastBrake, Ct);
+            .RunAsync(gateway ?? new FakeGateway(), memberUpdatesCurrent, pastBrake, Ct);
     }
 
     // ── Discord decides ────────────────────────────────────────────────────────────────────
@@ -357,7 +357,7 @@ public class StaffRoleSyncTests
         var account = await AccountAsync(services, Member);
         await InServerAsync(services, Member, SyncSetUp.DiscordRole);
 
-        await PassAsync(services, membersRead: false);
+        await PassAsync(services, memberUpdatesCurrent: false);
 
         Assert.Null(await HeldAsync(services, account.Id, Moderator));
     }
@@ -866,6 +866,65 @@ public class StaffRoleSyncTests
         await PassAsync(services, gateway);
 
         Assert.Empty(gateway.RoleChanges);
+    }
+
+    // ── Member updates ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Without member updates the stored roles go stale, and somebody taken off staff in Discord
+    /// would keep their Modbot role. So nothing is given or taken; within the wait it is quiet (a
+    /// reconnect), past it every link is Not set up and one fact says why; and when updates come
+    /// back the pass carries on.
+    /// </summary>
+    [Fact]
+    public async Task WithoutMemberUpdatesNothingIsGivenOrTakenAndItSaysSoOnce()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+
+        var gains = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+
+        var loses = await AccountAsync(services, "5002");
+        await GiveByHandAsync(services, loses.Id, Moderator);
+        await InServerAsync(services, "5002");
+
+        // Current once, then the updates stop.
+        await PassAsync(services, memberUpdatesCurrent: true);
+        await TakeByHandAsync(services, gains.Id, Moderator);
+        await GiveByHandAsync(services, loses.Id, Moderator);
+
+        // Within the wait: nothing, quietly.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        var quiet = await PassAsync(services, memberUpdatesCurrent: false);
+        Assert.Equal(0, quiet.Given + quiet.Taken);
+        Assert.Null(quiet.Problem);
+
+        // Past it: nothing, Not set up, one fact however many passes.
+        services.Clock.Advance(TimeSpan.FromMinutes(10));
+        var stopped = await PassAsync(services, memberUpdatesCurrent: false);
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await PassAsync(services, memberUpdatesCurrent: false);
+
+        Assert.Equal(StaffRoles.NoMemberUpdates, stopped.Problem);
+        Assert.Null(await HeldAsync(services, gains.Id, Moderator));
+        Assert.NotNull(await HeldAsync(services, loses.Id, Moderator));
+        Assert.Single(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
+
+        await using (var db = services.Database.NewContext())
+        {
+            var plan = await StaffRoles.PlanAsync(db, null, withNotes: false, services.Clock.UtcNow, Ct);
+            Assert.Contains(plan.Problems, p => p.Contains(StaffRoles.NoMemberUpdates, StringComparison.Ordinal));
+
+            var user = await db.Users.Include(u => u.Roles).ThenInclude(r => r.Role).FirstAsync(u => u.Id == loses.Id, Ct);
+            var locked = await StaffRoles.FollowingDiscordAsync(db, [user], services.Clock.UtcNow, Ct);
+            Assert.Contains(Moderator, locked[loses.Id]);
+        }
+
+        // Updates back: the pass carries on.
+        var back = await PassAsync(services, memberUpdatesCurrent: true);
+        Assert.Equal(1, back.Given);
+        Assert.Equal(1, back.Taken);
     }
 
     // ── Deleted Discord roles and the member row ──────────────────────────────────────────

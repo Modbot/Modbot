@@ -19,7 +19,10 @@ namespace Modbot.Api.Features.DiscordStaffRoles;
 
 /// <summary>One mapping: a Discord role that gives a Modbot role.</summary>
 /// <param name="Direction">discord (Discord decides) or both (both ways).</param>
-/// <param name="NotSetUp">A both-ways mapping the bot cannot give the Discord role for. It works as Discord decides until it can.</param>
+/// <param name="NotSetUp">
+/// A both-ways link the bot cannot give the Discord role for, which works as Discord decides until it
+/// can; or any link while Modbot is not receiving member updates, when nothing is given or taken.
+/// </param>
 /// <param name="CanChange">Whether the caller may change or remove it: the Modbot role is below their highest role.</param>
 /// <param name="Problem">The last change in Discord it asked for that was refused.</param>
 public sealed record StaffRoleView(
@@ -539,6 +542,9 @@ public static class StaffRoleEndpoints
         var now = http.RequestServices.GetRequiredService<IModbotClock>().UtcNow;
         var rolesChangedAt = discordRoles.Count == 0 ? (DateTimeOffset?)null : discordRoles.Values.Max(r => r.UpdatedAt);
 
+        // Without member updates the stored roles go stale, so every link is Not set up and says why.
+        var noMemberUpdates = StaffRoles.MemberUpdatesMissing(state, now);
+
         var roles = await db.Roles.AsNoTracking().ToListAsync(ct);
         var callerIsAdministrator = RoleOrder.IsAdministrator(http);
         var callerRank = await RoleOrder.CallerRankAsync(http, accounts, ct);
@@ -555,7 +561,7 @@ public static class StaffRoleEndpoints
         return new StaffRolesView(
             settings.DiscordStaffRolesOn,
             state?.StaffRolesRanAt,
-            state?.StaffRolesProblem,
+            noMemberUpdates ? StaffRoles.NoMemberUpdates : state?.StaffRolesProblem,
             state?.StaffRolesHeldAt,
             state?.StaffRolesHeldCount,
             mappings
@@ -572,7 +578,8 @@ public static class StaffRoleEndpoints
                         role.Id,
                         role.Name,
                         m.Direction,
-                        m.Direction == StaffRoleDirections.Both && !StaffRoles.Works(Rule(m), discordRole, rolesChangedAt, now),
+                        noMemberUpdates
+                            || (m.Direction == StaffRoleDirections.Both && !StaffRoles.Works(Rule(m), discordRole, rolesChangedAt, now)),
                         Below(role),
                         m.Problem);
                 })

@@ -210,6 +210,7 @@ public static class AuditVisibility
         [FactType.StaffRoleUnmapped] = AuditCategory.Operational,
         [FactType.StaffRolesHeld] = AuditCategory.Operational,
         [FactType.StaffRolesApplied] = AuditCategory.Operational,
+        [FactType.StaffRolesNoMemberUpdates] = AuditCategory.Operational,
         [FactType.ApiKeyCreated] = AuditCategory.Operational,
         [FactType.ApiKeyRevoked] = AuditCategory.Operational,
         [FactType.McpConnected] = AuditCategory.Operational,

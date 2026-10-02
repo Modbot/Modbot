@@ -225,4 +225,16 @@ public class DiscordSyncState
 
     /// <summary>How many accounts the held pass would have taken roles from.</summary>
     public int? StaffRolesHeldCount { get; set; }
+
+    /// <summary>
+    /// The last time a staff role pass found the bot receiving member updates: connected, Server
+    /// Members allowed, and the member list read since it connected (staff roles from Discord §6.1).
+    /// </summary>
+    public DateTimeOffset? StaffRolesMembersCurrentAt { get; set; }
+
+    /// <summary>
+    /// Since when the pass has found member updates missing for longer than it waits, or null. While
+    /// set, every link is Not set up and nothing is given or taken.
+    /// </summary>
+    public DateTimeOffset? StaffRolesMembersOffAt { get; set; }
 }

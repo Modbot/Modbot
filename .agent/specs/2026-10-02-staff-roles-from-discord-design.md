@@ -203,6 +203,29 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
 - Each pass re-checks §2's Administrator rule: a mapped role later edited to carry Administrator is
   skipped, with a health problem, until the mapping is removed.
 
+### 6.1 Only while member updates arrive
+
+*Added 2026-10-02, after the live server's member list was found 17 days stale (member events
+stop when the Server Members intent is off or refused).* Every decision here reads the member roles
+Modbot has stored. If those stop changing while Discord's go on, somebody taken off staff in
+Discord keeps their Modbot role. So the pass acts only while they are kept current:
+
+- **Current** (`DiscordBotService.MemberUpdatesCurrent`): the bot is connected, the session asked
+  for member events and Discord did not refuse them, and the member list was compared since it
+  connected. A quiet server sends no member events, so their being allowed is as far as Modbot can
+  see; that is the signal.
+- The pass runs every minute with the bot down too. Each run notes the last time member updates
+  were current (`discord_sync_state.staff_roles_members_current_at`). While they are not, it gives
+  and takes nothing. Within 10 minutes of the last current run it says nothing (a reconnect); past
+  that it sets `staff_roles_members_off_at`, puts "Modbot isn't receiving member updates from
+  Discord." on the card and on the Discord health row, and records one
+  `modbot.role.discord.no-member-updates` fact. When updates are back, it carries on.
+- `StaffRoles.MemberUpdatesMissing` is the one rule the screens read: missing while that mark is
+  set, or when no run has found them current in the last 20 minutes (the pass itself is not
+  running). Then every link is **Not set up**, the card says why, the preview lists it as a
+  problem, and every linked role is locked against hand changes, since the pass would otherwise
+  undo them once updates return.
+
 ## 7. Facts
 
 | Fact | When | Actor | Payload |
@@ -214,6 +237,7 @@ and a both-ways change made in Modbot reaches Discord within about a minute.
 | `modbot.role.discord.unmap` | a mapping was removed | the remover | the same, without counts |
 | `modbot.role.discord.held` | the brake stopped a pass | none | how many would have lost a role |
 | `modbot.role.discord.apply` | somebody pressed Apply | the person | given, taken, left, the problem if any |
+| `modbot.role.discord.no-member-updates` | member updates went missing past the wait (§6.1) | none | when they were last current |
 | `modbot.settings.change` (existing) | the switch turned on or off | the person | the switch |
 
 All operational log, moderation retention, like every other account fact. Reusing the existing

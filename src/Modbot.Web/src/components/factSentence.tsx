@@ -995,6 +995,9 @@ const SENTENCES: Record<string, Sentence> = {
       {typeof p.entry.data?.given === 'number' ? <> and giving {p.entry.data.given}</> : null}.
     </>
   ),
+  'modbot.role.discord.no-member-updates': () => (
+    <>Modbot stopped giving Modbot roles from Discord roles: it isn't receiving member updates from Discord.</>
+  ),
   'modbot.role.discord.held': (p) => (
     <>
       Modbot stopped giving Modbot roles from Discord roles: it would have taken roles from{' '}

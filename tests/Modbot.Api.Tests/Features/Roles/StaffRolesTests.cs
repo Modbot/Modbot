@@ -38,7 +38,8 @@ public class StaffRolesTests
     private static object Mapping(string discordRoleId, Guid roleId, string direction = "discord")
         => new { discordRoleId, roleId, direction };
 
-    private static async Task ServerAsync(ApiTestHost host, bool on = false)
+    /// <param name="memberUpdates">Whether the staff role pass last found member updates arriving.</param>
+    private static async Task ServerAsync(ApiTestHost host, bool on = false, bool memberUpdates = true)
     {
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
@@ -46,6 +47,9 @@ public class StaffRolesTests
         var settings = await db.GetSettingsAsync(Ct);
         settings.DiscordGuildId = Guild;
         settings.DiscordStaffRolesOn = on;
+
+        if (memberUpdates)
+            db.DiscordSyncState.Add(new DiscordSyncState { Id = 1, StaffRolesMembersCurrentAt = host.Clock.UtcNow });
 
         db.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "The server", BotCanManageRoles = true });
         db.DiscordRoles.Add(new DiscordRole { RoleId = Guild, GuildId = Guild, Name = "@everyone", Everyone = true });
@@ -377,6 +381,28 @@ public class StaffRolesTests
         var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
         var response = await host.SendJsonAsync(HttpMethod.Post, Path + "/apply", null, cookie, Ct);
 
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>Without member updates every link is Not set up, says why, and follows Discord on the users page.</summary>
+    [Fact]
+    public async Task WithoutMemberUpdatesEveryLinkIsNotSetUp()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        await ServerAsync(host, on: true, memberUpdates: false);
+        var staff = await StaffMemberAsync(host, Member);
+
+        var saved = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Post, Path, Mapping(Staff, BuiltInRoles.ModeratorId, "both"), cookie, Ct), Ct);
+
+        Assert.True(saved.GetProperty("mappings")[0].GetProperty("notSetUp").GetBoolean());
+        Assert.Equal("Modbot isn't receiving member updates from Discord.", saved.GetProperty("problem").GetString());
+
+        // A both-ways role that works could be changed by hand; while updates are missing it cannot.
+        var response = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/users/{staff.Id}/roles", new { roleIds = new[] { BuiltInRoles.ModeratorId } }, cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 

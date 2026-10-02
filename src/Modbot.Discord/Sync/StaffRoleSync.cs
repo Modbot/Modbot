@@ -70,20 +70,24 @@ public sealed class StaffRoleSync
     }
 
     /// <summary>One pass.</summary>
-    /// <param name="membersRead">This connection has compared the member list. Nothing happens until it has.</param>
+    /// <param name="memberUpdatesCurrent">
+    /// The bot is connected, Discord lets it receive member updates, and it has compared the member
+    /// list since it connected. Until then nothing is given or taken; past
+    /// <see cref="StaffRoles.MemberUpdatesWait"/> every link is Not set up and one fact says why.
+    /// </param>
     /// <param name="pastBrake">Carry it out even when it would take roles from many accounts: the Apply button.</param>
     /// <param name="checkedPlan">
     /// The plan the Apply button checked the presser against, carried out as it is rather than
     /// worked out again, so what was checked is what runs. Null works it out now.
     /// </param>
     public async Task<StaffRolePass> RunAsync(
-        IDiscordGateway? gateway, bool membersRead, bool pastBrake, CancellationToken ct, StaffRolePlan? checkedPlan = null)
+        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, CancellationToken ct, StaffRolePlan? checkedPlan = null)
     {
         await OnePass.WaitAsync(ct).ConfigureAwait(false);
 
         try
         {
-            return await RunOnceAsync(gateway, membersRead, pastBrake, checkedPlan, ct).ConfigureAwait(false);
+            return await RunOnceAsync(gateway, memberUpdatesCurrent, pastBrake, checkedPlan, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -92,7 +96,7 @@ public sealed class StaffRoleSync
     }
 
     private async Task<StaffRolePass> RunOnceAsync(
-        IDiscordGateway? gateway, bool membersRead, bool pastBrake, StaffRolePlan? checkedPlan, CancellationToken ct)
+        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, StaffRolePlan? checkedPlan, CancellationToken ct)
     {
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -100,11 +104,19 @@ public sealed class StaffRoleSync
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        if (settings is not { DiscordStaffRolesOn: true } || string.IsNullOrWhiteSpace(settings.DiscordGuildId))
+        if (string.IsNullOrWhiteSpace(settings?.DiscordGuildId)
+            || !await _db.DiscordStaffRoles.AsNoTracking().AnyAsync(ct).ConfigureAwait(false))
+        {
             return StaffRolePass.Nothing;
+        }
 
-        if (!membersRead)
-            return StaffRolePass.Nothing with { Problem = pastBrake ? "The bot has not read the server's member list yet." : null };
+        // Whether the stored member roles can be trusted is noted whether or not the switch is on,
+        // so the screen can say so before somebody turns it on.
+        if (await NoteMemberUpdatesAsync(memberUpdatesCurrent, ct).ConfigureAwait(false) is { } waiting)
+            return waiting;
+
+        if (!settings!.DiscordStaffRolesOn)
+            return StaffRolePass.Nothing;
 
         var guildId = settings.DiscordGuildId.Trim();
         var plan = checkedPlan ?? await StaffRoles.PlanAsync(_db, null, withNotes: false, _clock.UtcNow, ct).ConfigureAwait(false);
@@ -505,6 +517,52 @@ public sealed class StaffRoleSync
         // Said once when it stops, not every minute while it waits.
         if (first)
             await WriteAsync(FactType.StaffRolesHeld, FactPlatform.Modbot, Subject, new JsonObject { ["accounts"] = losing }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Notes whether member updates are arriving, and answers the pass to return when they are not:
+    /// nothing given or taken. Within <see cref="StaffRoles.MemberUpdatesWait"/> of the last time they
+    /// were, it waits quietly (a reconnect); past it, it records one fact and says why, on the card
+    /// and on Health, until they are back.
+    /// </summary>
+    /// <remarks>
+    /// Staff roles act on the member roles Modbot has stored. With the Server Members intent off or
+    /// refused, those stop changing while Discord's go on, and somebody taken off staff in Discord
+    /// would keep their Modbot role. So the pass acts only while the stored roles are kept current.
+    /// </remarks>
+    private async Task<StaffRolePass?> NoteMemberUpdatesAsync(bool current, CancellationToken ct)
+    {
+        var state = await StateAsync(ct).ConfigureAwait(false);
+        var now = _clock.UtcNow;
+
+        if (current)
+        {
+            state.StaffRolesMembersCurrentAt = now;
+            state.StaffRolesMembersOffAt = null;
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return null;
+        }
+
+        if (state.StaffRolesMembersCurrentAt is { } last && now - last <= StaffRoles.MemberUpdatesWait)
+            return StaffRolePass.Nothing;
+
+        if (state.StaffRolesMembersOffAt is null)
+        {
+            state.StaffRolesMembersOffAt = now;
+            state.StaffRolesProblem = StaffRoles.NoMemberUpdates;
+            state.StaffRolesRanAt = now;
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            await WriteAsync(
+                    FactType.StaffRolesNoMemberUpdates,
+                    FactPlatform.Modbot,
+                    Subject,
+                    new JsonObject { ["lastCurrentAt"] = state.StaffRolesMembersCurrentAt },
+                    ct)
+                .ConfigureAwait(false);
+        }
+
+        return StaffRolePass.Nothing with { Problem = StaffRoles.NoMemberUpdates };
     }
 
     /// <summary>A held pass ran: the gives went ahead, the hold stays until Apply.</summary>

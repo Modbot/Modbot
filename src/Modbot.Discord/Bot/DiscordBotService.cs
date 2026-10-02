@@ -160,6 +160,17 @@ public sealed class DiscordBotService : BackgroundService
     /// <summary>Whether the session is ready and has compared the member list since it connected.</summary>
     public bool MembersRead => _membersRead && ReadyGateway is not null;
 
+    /// <summary>
+    /// Whether the stored member roles are being kept current: the session is ready, Discord lets
+    /// it receive member updates (the Server Members intent was asked for and not refused), and it
+    /// has compared the member list since it connected. Staff roles act only while this holds.
+    /// </summary>
+    /// <remarks>
+    /// Granted is as far as Modbot can see: a quiet server sends no member events, so their
+    /// arriving cannot be told from their being allowed.
+    /// </remarks>
+    public bool MemberUpdatesCurrent => MembersRead && _sessionOptions.MemberEvents;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
