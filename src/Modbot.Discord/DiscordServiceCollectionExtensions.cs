@@ -91,6 +91,13 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkedRoles>();
         services.AddScoped<LinkPrompt>();
 
+        // The join gate (join gate design). Its own loop as well; the state is shared by the loop,
+        // the buttons and the API's actions, so one change to a person's row happens at a time.
+        services.TryAddSingleton<Gate.JoinGateState>();
+        services.AddScoped<Gate.JoinGate>();
+        services.AddHostedService<Gate.JoinGateService>();
+        services.AddSingleton<IJoinGateActions, Gate.JoinGateActions>();
+
         // Role and ban sync (M5 §3 and §4). Its own loop again, and everything it does is off
         // until somebody switches a direction on.
         services.AddScoped<Sync.CopyRecords>();

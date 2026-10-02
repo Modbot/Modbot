@@ -83,6 +83,7 @@ public static class WhatModbotKeeps
             "If you are banned: your name, avatar link and the ban reason",
             "When you joined, moved between and left voice channels, and for how long. Never the audio",
             "Your account link, with both names",
+            "Whether you got in through the server's join gate, and when",
             "Your giveaway entries, with your name and account ids",
             "Each time you use /me, and any request to delete your data",
         ]),

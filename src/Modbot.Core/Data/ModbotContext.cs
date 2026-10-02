@@ -250,6 +250,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>VRChat bio codes waiting to be checked, one per signed-in Discord account.</summary>
     public DbSet<DiscordLinkCode> DiscordLinkCodes => Set<DiscordLinkCode>();
 
+    /// <summary>People's time at the join gate, open while they wait (join gate design §11).</summary>
+    public DbSet<DiscordGateEntry> DiscordGateEntries => Set<DiscordGateEntry>();
+
     /// <summary>
     /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
     /// deletes change the row, and a deleted message keeps it.
@@ -448,6 +451,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // the column is added to a row that already exists, and without it every Modbot that
             // upgraded would silently have the listing off.
             entity.Property(e => e.SharePublicInstances).HasDefaultValue(true);
+
+            // Off, for the row that exists already as much as for a new one.
+            entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);
         });
 
         builder.Entity<ProtectorKey>(entity =>
@@ -1975,6 +1981,29 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .IsUnique()
                 .HasFilter("unlinked_at IS NULL")
                 .HasDatabaseName("ux_discord_account_link_vrchat_active");
+        });
+
+        builder.Entity<DiscordGateEntry>(entity =>
+        {
+            entity.ToTable("discord_gate_entry");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.DiscordUsername).HasColumnType("text");
+            entity.Property(e => e.Outcome).HasMaxLength(32);
+            entity.Property(e => e.Problem).HasColumnType("text");
+
+            // One open row per person; closed rows are history and may repeat.
+            entity.HasIndex(e => new { e.GuildId, e.DiscordUserId })
+                .IsUnique()
+                .HasFilter("closed_at IS NULL")
+                .HasDatabaseName("ux_discord_gate_entry_open");
+
+            // The At the gate card and the pass both read the open rows, newest joiner first.
+            entity.HasIndex(e => e.JoinedAt)
+                .HasFilter("closed_at IS NULL")
+                .HasDatabaseName("ix_discord_gate_entry_waiting");
         });
 
         builder.Entity<DiscordLinkCode>(entity =>

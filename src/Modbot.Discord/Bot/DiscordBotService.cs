@@ -834,11 +834,26 @@ public sealed class DiscordBotService : BackgroundService
         if (gateway is null || !IsOurServer(member.GuildId))
             return;
 
+        // The join gate first: while it is on, its own message is the only one a new member gets.
+        var gateTookIt = false;
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            if (scope.ServiceProvider.GetService<Gate.JoinGate>() is { } gate)
+                gateTookIt = await gate.JoinedAsync(gateway, member, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "The join gate could not take a new Discord member");
+            _status.Problem($"The join gate could not take a new member: {e.Message}", _clock.UtcNow);
+        }
+
         try
         {
             using var scope = _scopes.CreateScope();
             var prompt = scope.ServiceProvider.GetRequiredService<Linking.LinkPrompt>();
-            await prompt.HandleAsync(gateway, member, CancellationToken.None).ConfigureAwait(false);
+            await prompt.HandleAsync(gateway, member, CancellationToken.None, ask: !gateTookIt).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -946,8 +961,14 @@ public sealed class DiscordBotService : BackgroundService
         try
         {
             using var scope = _scopes.CreateScope();
-            var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
-            var reply = await handler.HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+
+            // The join gate's buttons: a member's Get in, I agree and Check, and staff's Hold, Lift
+            // hold and Pause invites on an alert (join gate design §4 and §8).
+            var reply = Gate.JoinGateButtons.Is(press.ButtonId) && scope.ServiceProvider.GetService<Gate.JoinGate>() is { } gate
+                ? await gate.PressAsync(ReadyGateway, press, CancellationToken.None).ConfigureAwait(false)
+                : await scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>()
+                    .HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+
             await press.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e)

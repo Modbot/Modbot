@@ -144,12 +144,16 @@ role and channel settings.
 | **Embed Links** | Event posts, instance announcements and insights, which are sent as cards. |
 | **Read Message History** | Reading back each channel's older messages, and updating instance announcement cards. |
 | **View Audit Log** | Knowing *who* banned, kicked, timed out or changed somebody's roles, and catching up on what happened while the bot was offline. |
-| **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking. The bot's own role must also sit above those roles. |
+| **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking, or turn on the [join gate](/discord/join-gate). The bot's own role must also sit above those roles and the gate's **Member role**. |
+| **Kick Members** | Only if the [join gate](/discord/join-gate) removes people who do not finish (**Remove after** is not **Never**). |
+| **Manage Server** | Only if the [join gate](/discord/join-gate) may pause your server's invites (**Allow pausing invites**). |
 | **Manage Events** | Only if a [calendar](/moderation/calendar) event has **Discord event** ticked. The invite link Modbot builds does not ask for it. |
 | **Manage Messages** and **Timeout Members** | Only if you set [AutoMod rules](/moderation/automod) to delete messages or time people out. The invite link Modbot builds does not ask for these. |
 
 The **Bot invite link** asks for View Channels, Send Messages, Embed Links, Read Message History and
-View Audit Log. It adds Manage Roles once a linked role or 18+ role is saved. If you turn on a
+View Audit Log. It adds Manage Roles once a linked role or 18+ role is saved or the join gate is
+turned on, Kick Members once the join gate removes people, and Manage Server once it may pause
+invites. If you turn on a
 feature later that needs more, open the link again to give the bot the new permission.
 
 Whenever you pick a channel in **Settings → Discord**, a channel where the bot lacks a permission

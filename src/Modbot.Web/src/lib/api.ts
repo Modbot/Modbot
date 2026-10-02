@@ -319,6 +319,71 @@ export type DiscordLinkingSettingsInput = {
   meCommand: boolean
 }
 
+export type DiscordGateMode = 'off' | 'watch' | 'on'
+
+/** Settings → Discord → Join gate (join gate design §3). */
+export type DiscordGateSettings = {
+  mode: DiscordGateMode
+  memberRoleId: string | null
+  channelId: string | null
+  message: string | null
+  needsLink: boolean
+  needsEighteenPlus: boolean
+  /** Null is never. */
+  removeAfterMinutes: number | null
+  /** The lengths Remove after may be, in minutes. */
+  removeChoices: number[]
+  holdOnSpike: boolean
+  pauseInvites: boolean
+  heldSince: string | null
+  /** Account linking is set up, so the link step can be asked for. */
+  linkingReady: boolean
+  inviteUrl: string | null
+}
+
+export type DiscordGateSettingsInput = {
+  mode: DiscordGateMode
+  memberRoleId: string
+  channelId: string
+  message: string
+  needsLink: boolean
+  needsEighteenPlus: boolean
+  removeAfterMinutes: number | null
+  holdOnSpike: boolean
+  pauseInvites: boolean
+}
+
+/** One person at the join gate. */
+export type DiscordGateRow = {
+  discordUserId: string
+  username: string
+  displayName: string | null
+  avatarUrl: string | null
+  joinedAt: string
+  agreed: boolean
+  /** Null without See profiles. */
+  linked: boolean | null
+  eighteenPlus: boolean | null
+  minutesCounted: number
+  warnedAt: string | null
+  /** When they will be removed if nothing changes; null when never or Watch only. */
+  removedAt: string | null
+  /** Watch only: when they would have been removed. */
+  wouldRemoveAt: string | null
+  problem: string | null
+}
+
+/** The join gate as staff see it. */
+export type DiscordGate = {
+  mode: DiscordGateMode
+  heldSince: string | null
+  pauseInvites: boolean
+  needsLink: boolean
+  needsEighteenPlus: boolean
+  removeAfterMinutes: number | null
+  waiting: DiscordGateRow[]
+}
+
 /** One VRChat group role paired with one Discord role (M5 §3). */
 export type RolePair = {
   id: string
@@ -4561,6 +4626,26 @@ export const api = {
 
   setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
     put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
+
+  discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
+
+  setDiscordGateSettings: (body: DiscordGateSettingsInput) =>
+    put<DiscordGateSettings>('/api/settings/discord-gate', body),
+
+  /** Who is waiting at the join gate, and whether new joiners are held. */
+  discordGate: () => request<DiscordGate>('/api/discord/gate'),
+
+  letInAtDiscordGate: (discordUserId: string) =>
+    post<{ done: boolean }>(`/api/discord/gate/${encodeURIComponent(discordUserId)}/let-in`),
+
+  removeAtDiscordGate: (discordUserId: string) =>
+    post<{ done: boolean }>(`/api/discord/gate/${encodeURIComponent(discordUserId)}/remove`),
+
+  holdDiscordGate: () => post<{ done: boolean }>('/api/discord/gate/hold'),
+
+  liftDiscordGateHold: () => post<{ done: boolean }>('/api/discord/gate/lift'),
+
+  pauseDiscordInvites: () => post<{ done: boolean }>('/api/discord/gate/pause-invites'),
 
   discordSync: () => request<DiscordSyncSettings>('/api/discord-sync'),
 

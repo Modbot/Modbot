@@ -414,6 +414,14 @@ public enum ModbotPermissions : long
     DiscordTimeOut = 1L << 50,
 
     /// <summary>
+    /// Let somebody in at the Discord join gate, remove them there, hold new joiners, lift the hold
+    /// and pause the server's invites (join gate design §11). Its own flag: deciding who gets into
+    /// the server is not the same as removing one person from it. Not in the built-in Moderator or
+    /// Viewer roles; Administrator holds it.
+    /// </summary>
+    ManageJoinGate = 1L << 51,
+
+    /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go
     /// ungranted to the one account that is supposed to have everything.

@@ -9,7 +9,8 @@
   down
 - **Depends on:** Discord account linking (2026-09-15), `/me` (2026-09-30), AI alerts ("People
   joining Discord" watcher), M5 §7 (bot permissions), API conventions §8 (Discord member actions)
-- **Narrows:** the "Not built yet" page's "captcha / join gate" line, which this replaces
+- **Related:** the 2026-10-02 review of a real server, which listed a join gate among what Modbot
+  does not do. No docs page named it as missing, so none changes for that
 
 ---
 
@@ -113,7 +114,9 @@ step. A server that is not set up for linking cannot save the link step.
 - **Time counts only while the hold-up is theirs.** Each open entry keeps the minutes it has been
   counted. A pass adds the minutes since the last pass, at most two, and only when:
   - the bot is connected (a pass needs a ready session at all);
-  - the bot could give the member role at its last try;
+  - the bot can give the member role: no refusal in the last ten minutes, and the bot's stored role
+    list does not say it cannot assign it (a refusal nobody tried again since ages out, so a fixed
+    role is found without anybody having to finish first);
   - VRChat is answering, for a gate with the link step (no rate-limit stop in the last hour);
   - linking is set up, for a gate with the link step;
   - the person has steps left to do (somebody done and waiting on a hold is waiting on staff).
@@ -149,8 +152,9 @@ unless the operator asks for it:
   most Discord allows ([docs][guild]).
 - Off (the default): the alert's Discord post carries **Hold new joiners**, and **Pause invites**
   when allowed. Staff press them.
-- **Lift hold**: on the alert's reply after a hold, on the At the gate card, and on the Join gate
-  card. Lifting lets everyone who is done in on the next pass.
+- **Lift hold**: on the bot's reply after a hold in Discord, and on the At the gate card. The Join
+  gate card says whether new joiners are held. Lifting lets everyone who is done in on the next
+  pass. Changing the gate's mode ends a hold too.
 
 A press in Discord is taken as the Modbot account that proved that Discord account (accounts and
 access §4.6), and needs **Manage the join gate**; anybody else is told so. Every hold, lift and pause
@@ -226,8 +230,8 @@ line.
 
 ## 13. What else changes
 
-- Docs: `discord/join-gate.mdx`; the captcha line comes off "Not built yet"; `bot-setup.mdx`
-  permission table; `WhatModbotKeeps` and the matching docs list.
+- Docs: `discord/join-gate.mdx`; the `bot-setup.mdx` permission table; `roles-and-permissions.mdx`;
+  `WhatModbotKeeps` and the matching docs list.
 - `LinkPrompt` stays as it is while the gate is off. While the gate is on, the gate's DM replaces it.
 
 [guild]: https://docs.discord.com/developers/resources/guild

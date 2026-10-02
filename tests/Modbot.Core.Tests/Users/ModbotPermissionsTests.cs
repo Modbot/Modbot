@@ -40,6 +40,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 42, (long)ModbotPermissions.ManageGroupGallery);
         Assert.Equal(1L << 43, (long)ModbotPermissions.PairCompanion);
         Assert.Equal(1L << 44, (long)ModbotPermissions.ManageLists);
+        Assert.Equal(1L << 51, (long)ModbotPermissions.ManageJoinGate);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }

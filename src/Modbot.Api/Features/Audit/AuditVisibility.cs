@@ -166,6 +166,17 @@ public static class AuditVisibility
         [FactType.DiscordLinkRoleRemoved] = AuditCategory.Moderation,
         [FactType.DiscordLinkPrompted] = AuditCategory.Operational,
 
+        // Getting in, being let in and being removed at the join gate are member history; so are
+        // holds and paused invites, which decide who gets in. The warning is plumbing, like the
+        // link prompt.
+        [FactType.DiscordGatePassed] = AuditCategory.Moderation,
+        [FactType.DiscordGateLetIn] = AuditCategory.Moderation,
+        [FactType.DiscordGateRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordGateWarned] = AuditCategory.Operational,
+        [FactType.DiscordGateHeld] = AuditCategory.Moderation,
+        [FactType.DiscordGateHoldLifted] = AuditCategory.Moderation,
+        [FactType.DiscordGateInvitesPaused] = AuditCategory.Moderation,
+
         // A copied ban is a ban and a copied role is a role change, so they sit with the rest of
         // a person's moderation history. A copy that failed and a disagreement nobody resolved
         // are about the sync rather than about the person, and belong in the operational log.

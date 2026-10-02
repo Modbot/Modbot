@@ -115,6 +115,24 @@ public sealed record DiscordLinkButton(string Label, string Url);
 public sealed record DiscordActionButton(string Label, string Id)
 {
     public const string Prefix = "modbot:";
+
+    /// <summary>
+    /// What a button in a direct message ends with: this mark and the server's id. A press in a
+    /// direct message carries no server, so the mark is how the one Modbot it belongs to knows it
+    /// among several sharing one bot (the join gate's Get in, join gate design §4).
+    /// </summary>
+    public const string ServerMark = "@";
+
+    /// <summary>The id with the server mark taken off, for comparing with a button's plain id.</summary>
+    public static string Plain(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        var at = id.IndexOf(ServerMark, StringComparison.Ordinal);
+        return at < 0 ? id : id[..at];
+    }
+
+    /// <summary>An id that a press in a direct message can be traced back to this server by.</summary>
+    public static string Marked(string id, string guildId) => id + ServerMark + guildId;
 }
 
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
@@ -639,6 +657,58 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<DiscordPostOutcome> MentionAsync(
         string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct);
+
+    /// <summary>
+    /// A direct message with buttons the bot answers when pressed as well as link buttons (join
+    /// gate design §4). Refusals as <see cref="SendDirectMessageAsync(string, string, IReadOnlyList{DiscordLinkButton}?, CancellationToken)"/>.
+    /// </summary>
+    Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>A mention of one person, with buttons the bot answers when pressed. Pings nobody else.</summary>
+    Task<DiscordPostOutcome> MentionAsync(
+        string channelId,
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Posts a message with buttons the bot answers when pressed: the join gate's message, and an
+    /// alert with Hold new joiners on it. Mentions are off, whatever the text says.
+    /// </summary>
+    Task<DiscordPostOutcome> PostWithActionsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites a message the bot posted with <see cref="PostWithActionsAsync"/>. A message that is
+    /// gone comes back as a permanent failure with <see cref="DiscordPostOutcome.NotFound"/>.
+    /// </summary>
+    Task<DiscordPostOutcome> EditWithActionsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Pauses the server's invites until <paramref name="until"/>, at most 24 hours ahead, through
+    /// Discord's incident actions (join gate design §8). Needs Manage Server. A DM pause already set
+    /// is kept.
+    /// </summary>
+    Task<DiscordPostOutcome> PauseInvitesAsync(string guildId, DateTimeOffset until, CancellationToken ct);
 
     // ── Server events (calendar design §3.2) ─────────────────────────────────────────────
     //

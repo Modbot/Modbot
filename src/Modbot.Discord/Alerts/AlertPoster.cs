@@ -68,9 +68,15 @@ public sealed class AlertPoster
 
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.PublicAddress, s.ManagedGroupName })
+            .Select(s => new { s.PublicAddress, s.ManagedGroupName, s.DiscordGuildId, s.DiscordGateMode, s.DiscordGatePauseInvites })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
+
+        // A join spike, while the join gate is on, carries the buttons staff press to hold new
+        // joiners and, when allowed, to pause invites (join gate design §8).
+        var spikeButtons = settings is { DiscordGateMode: DiscordGateModes.On, DiscordGuildId: { Length: > 0 } guild }
+            ? SpikeButtons(guild, settings.DiscordGatePauseInvites)
+            : null;
 
         var style = new CardStyle(
             settings?.PublicAddress,
@@ -89,7 +95,9 @@ public sealed class AlertPoster
                 continue;
             }
 
-            var outcome = await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, style)], ct).ConfigureAwait(false);
+            var outcome = alert.Watcher == AlertWatchers.DiscordJoins && spikeButtons is not null
+                ? await gateway.PostWithActionsAsync(alert.DiscordChannelId!, null, [Card(alert, style)], null, spikeButtons, ct).ConfigureAwait(false)
+                : await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, style)], ct).ConfigureAwait(false);
 
             if (outcome.Sent)
             {
@@ -114,6 +122,20 @@ public sealed class AlertPoster
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return new AlertPostPass(posted, error);
+    }
+
+    /// <summary>Hold new joiners, and Pause invites when the operator allowed it.</summary>
+    public static IReadOnlyList<DiscordActionButton> SpikeButtons(string guildId, bool pauseInvites)
+    {
+        var buttons = new List<DiscordActionButton>
+        {
+            new("Hold new joiners", DiscordActionButton.Marked(Gate.JoinGateButtons.Hold, guildId)),
+        };
+
+        if (pauseInvites)
+            buttons.Add(new("Pause invites", DiscordActionButton.Marked(Gate.JoinGateButtons.PauseInvites, guildId)));
+
+        return buttons;
     }
 
     public static DiscordEmbedContent Card(Alert alert, string? publicAddress)

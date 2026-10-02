@@ -904,8 +904,16 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
-    public async Task<DiscordPostOutcome> SendDirectMessageAsync(
+    public Task<DiscordPostOutcome> SendDirectMessageAsync(
         string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+        => SendDirectMessageAsync(userId, text, links, actions: null, ct);
+
+    public async Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
@@ -922,7 +930,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             var sent = await channel.SendMessageAsync(
                     text: text,
                     allowedMentions: AllowedMentions.None,
-                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
+                    components: Buttons(links, actions) is { Components.Count: > 0 } buttons ? buttons : null)
                 .ConfigureAwait(false);
 
             return DiscordPostOutcome.Posted(Text(sent.Id));
@@ -945,6 +953,15 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     public Task<DiscordPostOutcome> MentionAsync(
         string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+        => MentionAsync(channelId, userId, text, links, actions: null, ct);
+
+    public Task<DiscordPostOutcome> MentionAsync(
+        string channelId,
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
@@ -957,11 +974,104 @@ public sealed class DiscordNetGateway : IDiscordGateway
             var sent = await channel.SendMessageAsync(
                     text: $"<@{Text(id)}> {text}",
                     allowedMentions: new AllowedMentions { UserIds = [id] },
-                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
+                    components: Buttons(links, actions) is { Components.Count: > 0 } buttons ? buttons : null)
                 .ConfigureAwait(false);
 
             return DiscordPostOutcome.Posted(Text(sent.Id));
         });
+    }
+
+    public Task<DiscordPostOutcome> PostWithActionsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            var sent = await channel.SendMessageAsync(
+                    text: text,
+                    embeds: embeds.Select(ToEmbed).ToArray(),
+                    allowedMentions: AllowedMentions.None,
+                    components: Buttons(links, actions) is { Components.Count: > 0 } buttons ? buttons : null)
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        });
+    }
+
+    public Task<DiscordPostOutcome> EditWithActionsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            if (await channel.GetMessageAsync(message).ConfigureAwait(false) is not IUserMessage mine)
+                return DiscordPostOutcome.Failed("That message is gone, or was not posted by the bot.", permanent: true, notFound: true);
+
+            await mine.ModifyAsync(m =>
+            {
+                m.Content = text;
+                m.Embeds = embeds.Select(ToEmbed).ToArray();
+                m.AllowedMentions = AllowedMentions.None;
+                m.Components = Buttons(links, actions);
+            }).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(messageId);
+        });
+    }
+
+    public async Task<DiscordPostOutcome> PauseInvitesAsync(string guildId, DateTimeOffset until, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordPostOutcome.Failed("That is not a Discord server id.", permanent: true);
+
+        try
+        {
+            var guild = await _client.Rest.GetGuildAsync(id).ConfigureAwait(false);
+            if (guild is null)
+                return DiscordPostOutcome.Failed("The bot is not in that server.", permanent: true);
+
+            // Both times are sent together; the DM pause the server already has is sent back as it
+            // was, so pausing invites never lifts a DM pause somebody set in Discord.
+            var dms = guild.IncidentsData?.DmsDisabledUntil;
+
+            await guild.ModifyIncidentActionsAsync(p =>
+                {
+                    p.InvitesDisabledUntil = until;
+                    p.DmsDisabledUntil = dms;
+                })
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Ok;
+        }
+        catch (HttpException e)
+        {
+            var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
+            return DiscordPostOutcome.Failed(
+                e.HttpCode == HttpStatusCode.Forbidden
+                    ? "The bot needs Manage Server to pause invites."
+                    : $"Could not pause invites: Discord answered {(int)e.HttpCode}.",
+                permanent);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordPostOutcome.Failed($"Could not pause invites: {e.Message}");
+        }
     }
 
     public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
@@ -1954,11 +2064,19 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// can share one bot, and only the one whose server it came from may answer. A button from
     /// another bot, or from before Modbot used the prefix, is left alone too; Discord shows the
     /// presser "This interaction failed", which is right.
+    /// <para>
+    /// A press in a direct message carries no server. It is ours only when its id ends with
+    /// <see cref="DiscordActionButton.ServerMark"/> and this server's id, which only the join gate's
+    /// buttons do.
+    /// </para>
     /// </remarks>
     public static bool IsOurButton(string? ourGuildId, ulong? fromGuildId, string? buttonId)
-        => IsForThisServer(ourGuildId, fromGuildId)
-            && buttonId is { } id
-            && id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal);
+        => buttonId is { } id
+            && id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal)
+            && (IsForThisServer(ourGuildId, fromGuildId)
+                || (fromGuildId is null
+                    && ourGuildId is { Length: > 0 } ours
+                    && id.EndsWith(DiscordActionButton.ServerMark + ours, StringComparison.Ordinal)));
 
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {

@@ -1,0 +1,164 @@
+---
+title: Join gate
+description: Let new members into your Discord server only once they have agreed to your rules, and if you like linked their VRChat account or shown they are 18+ on VRChat. Remove the ones who never finish.
+---
+
+The join gate decides when somebody who joins your Discord server gets in. Until they do the steps
+you ask for, they see one channel, the **gate channel**. When they are done, the bot gives them the
+**member role**, the role that opens the rest of the server.
+
+It can replace a captcha bot. It is not a captcha: a button does not prove a person is human.
+Discord's own verification level and Raid Protection keep doing that job alongside it.
+
+Everything is off until you turn it on.
+
+## Set it up
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+<Steps>
+
+<Step>
+
+### Make the member role and the gate channel in Discord
+
+In your server's settings, give `@everyone` access to one channel only, the gate channel, and give
+the member role access to the rest. Modbot never changes channel permissions; this is yours to set.
+
+The bot needs **Manage Roles**, and its own role must sit above the member role in **Server Settings
+→ Roles**.
+
+</Step>
+
+<Step>
+
+### Fill in the Join gate card
+
+Open **Settings → Discord** and find the **Join gate** card.
+
+| Setting | What it does |
+|---|---|
+| **Join gate** | **Off**, **Watch only** or **On**. See [Running it beside another bot](#running-it-beside-another-bot) for Watch only. |
+| **Member role** | The role the bot gives when somebody is done. A role the bot cannot give is marked **Bot cannot assign** and is not saved. |
+| **Gate channel** | Where the bot posts one message with a **Get in** button, and keeps it there. |
+| **Message** | Your own words above the button, such as your rules. Empty shows your server's name. |
+| **Link VRChat account** | A step: link a VRChat account on the [link page](/discord/account-linking). Needs account linking to be set up. |
+| **18+ on VRChat** | A step: the linked VRChat account is marked 18+ verified. Needs **Link VRChat account**. |
+| **Remove after** | How long somebody may take before the bot removes them: **Never**, 30 minutes, 1, 6, 12 or 24 hours, or 2, 3 or 7 days. |
+| **Hold new joiners on a join spike** | See [Join spikes](#join-spikes). |
+| **Allow pausing invites** | See [Join spikes](#join-spikes). Needs **Manage Server** for the bot. |
+
+**I agree** is always a step. Press **Save join gate**.
+
+</Step>
+
+</Steps>
+
+Only people who join after you turn the gate on are gated. Everybody already in your server is left
+alone.
+
+## What a new member sees
+
+1. The bot sends them a direct message, "Welcome to" your server, with a **Get in** button. If they
+   do not accept direct messages, the bot mentions them once in the gate channel instead.
+2. **Get in** (in the message, or in the gate channel) shows them, privately, each step and whether
+   it is done: **Rules**, and if you ask for them **VRChat account** and **18+**. Buttons for what is
+   left: **I agree**, **Link VRChat account**, and **Check** to look again after linking.
+3. When the last step is done, they get the member role and see "You're in."
+
+If your server has Discord's own rules screening, they accept that first; the bot waits for it.
+Somebody who got in through the gate before and comes back has already agreed.
+
+While the gate is on, it sends this message instead of the
+[account linking prompt](/discord/account-linking#asking-new-joiners-to-link), so a new member gets
+one message, not two.
+
+## Not finishing
+
+With **Remove after** set, the bot warns somebody once, halfway through: a direct message saying when
+they will be removed, with the **Get in** button. At the end, the bot removes them from the server.
+They are not banned, and can join again.
+
+**Time only counts while the hold-up is theirs.** It stops while:
+
+- the bot is offline, or Modbot is down;
+- the bot cannot give the member role (it lost Manage Roles, or the role moved above the bot's);
+- VRChat is refusing Modbot's requests, for a gate that asks for a linked account;
+- they have done every step and are waiting on a hold.
+
+So nobody is removed because Modbot could not let them in. When Modbot is down, new members wait in
+the gate channel; nobody gets in and nobody is removed until it is back.
+
+The bot removes at most 10 people a minute and stops removing once 30 were removed in an hour. The
+**Discord bot** card on **Health** then says so.
+
+## Seeing who is waiting
+
+**Discord → Members** shows an **At the gate** card above the member list while the gate is not
+off: who is waiting, when they joined, which steps they have done, and when they will be removed.
+
+With the **Manage the join gate** permission you also see:
+
+- **Let in**: gives them the member role now, whatever steps they have left.
+- **Remove**: removes them from the server now.
+- **Hold new joiners**, or **Lift hold** while they are held.
+- **Pause invites**, when allowed.
+
+Seeing the card needs **See members**; whether each person has linked needs **See profiles** as
+well. **Manage the join gate** is not in the built-in Moderator or Viewer roles.
+
+**Giving the member role by hand in Discord counts as let in.** The person leaves the list, recorded
+as let in in Discord.
+
+## Join spikes
+
+When the **People joining Discord** [alert](/ai/alerts) fires, the alert is posted as usual and the
+gate keeps working. What else happens is your choice:
+
+- With **Hold new joiners on a join spike** on, the bot holds new joiners by itself: nobody gets the
+  member role until staff lift the hold. With **Allow pausing invites** on as well, it also pauses
+  your server's invites for 24 hours, the most Discord allows.
+- With it off, the alert's Discord post carries a **Hold new joiners** button, and **Pause invites**
+  when allowed, for staff to press.
+
+The hold is lifted with **Lift hold**, on the At the gate card or on the bot's reply after a hold.
+Everybody who is done then gets in within a minute. A button pressed in Discord counts as the Modbot
+account that connected that Discord account, and needs **Manage the join gate**.
+
+## Running it beside another bot
+
+**Watch only** does nothing in Discord: no message, no role, no removal, no hold. It records who
+joined, which steps they did not do, when they would have been warned and removed, and whether they
+got the member role some other way. Run it next to your old captcha bot for a while and compare,
+with the same member role on both.
+
+When you are happy, set the gate to **On**, then turn the old bot's verification off in its own
+dashboard. Changing the mode ends everybody's current time at the gate, so Watch only never turns
+into removals.
+
+## What is recorded
+
+These appear in the audit log and can be sent to [event channels](/discord/event-channels):
+
+| Event | When |
+|---|---|
+| **Passed the join gate** | Somebody did the steps and got the member role. |
+| **Let in at the join gate** | A moderator let them in from Modbot, or they got the member role in Discord. |
+| **Removed at the join gate** | The bot removed them for not finishing, or a moderator removed them. |
+| **Warned at the join gate** | They were warned halfway. |
+| **New joiners held** | A moderator, or a join spike, held new joiners. |
+| **Hold on new joiners lifted** | A moderator lifted the hold. |
+| **Discord invites paused** | A moderator, or a join spike, paused the server's invites. |
+
+For each person at the gate Modbot keeps their Discord id and name, when they joined, when they
+agreed, how long has counted against them, when they were warned, and how it ended.
+
+## If something is wrong
+
+| Problem | What to do |
+|---|---|
+| Nobody gets the member role | Give the bot **Manage Roles** and move its role above the member role. **Health** says why. |
+| There is no message in the gate channel | Check the bot has View Channel, Send Messages, Embed Links and Read Message History there, and that the gate is **On**. |
+| **Link VRChat account** cannot be turned on | Set up [account linking](/discord/account-linking) first. |
+| New members are not seen | Turn on the **Server Members Intent** (see [Intents the bot asks for](/discord/bot-setup#intents-the-bot-asks-for)). |

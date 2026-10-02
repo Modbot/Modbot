@@ -86,6 +86,8 @@ public sealed class TestServices : IAsyncDisposable
         services.AddSingleton<Modbot.Core.Discord.DiscordLinkSignal>();
         services.AddScoped<Modbot.Discord.Linking.LinkedRoles>();
         services.AddScoped<Modbot.Discord.Linking.LinkPrompt>();
+        services.AddSingleton<Modbot.Discord.Gate.JoinGateState>();
+        services.AddScoped<Modbot.Discord.Gate.JoinGate>();
         services.AddScoped<Modbot.Analytics.Messages.MessagePartitionMaintainer>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageStore>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageHandler>();

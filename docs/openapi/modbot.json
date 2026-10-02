@@ -11315,6 +11315,554 @@
         ]
       }
     },
+    "/api/settings/discord-gate": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get join gate settings",
+        "description": "The Discord join gate's settings: its mode, the member role, the gate channel and message, the steps, the removal time and join spike protection.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordGateSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update join gate settings",
+        "description": "Save the join gate's settings. `mode` is off, watch (record what would happen, do nothing in Discord) or on. Changing the mode ends everybody's current time at the gate and gates only people who join from then on. `removeAfterMinutes` is one of `removeChoices`, or null for never. `needsEighteenPlus` needs `needsLink`, and `needsLink` needs account linking to be set up.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordGateSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordGateSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Who is at the join gate",
+        "description": "The Discord join gate's mode, whether new joiners are held, and everybody waiting at it, oldest joiner first (at most 200). `linked` and `eighteenPlus` need See profiles and are null without it. `removedAt` is when somebody will be removed if nothing changes; `wouldRemoveAt` is when Watch only would have removed them.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "GetDiscordGate",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate/{id}/let-in": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Let somebody in at the join gate",
+        "description": "Give one person waiting at the join gate the member role now, whatever steps they have left. The address names their Discord id. 404 when they are not at the gate.\n\nNeeds the `ManageJoinGate` permission.",
+        "operationId": "LetInAtDiscordGate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateDone"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate/{id}/remove": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Remove somebody at the join gate",
+        "description": "Remove one person waiting at the join gate from the Discord server. They can join again. The address names their Discord id. 404 when they are not at the gate.\n\nNeeds the `ManageJoinGate` permission.",
+        "operationId": "RemoveAtDiscordGate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateDone"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate/hold": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Hold new joiners",
+        "description": "Nobody gets the member role by themselves until the hold is lifted. Needs the gate to be on.\n\nNeeds the `ManageJoinGate` permission.",
+        "operationId": "HoldDiscordGate",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateDone"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate/lift": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Lift the hold",
+        "description": "Let everybody who has done the steps in on the next pass.\n\nNeeds the `ManageJoinGate` permission.",
+        "operationId": "LiftDiscordGateHold",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateDone"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/gate/pause-invites": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Pause invites",
+        "description": "Pause the Discord server's invites for 24 hours, the most Discord allows. Needs the gate to be on, Allow pausing invites, and Manage Server for the bot.\n\nNeeds the `ManageJoinGate` permission.",
+        "operationId": "PauseDiscordInvites",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGateDone"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-sync": {
       "get": {
         "tags": [
@@ -33336,6 +33884,290 @@
             "items": {
               "$ref": "#/components/schemas/DiscordChannelView"
             }
+          }
+        }
+      },
+      "DiscordGateDone": {
+        "required": [
+          "done"
+        ],
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordGateResponse": {
+        "required": [
+          "mode",
+          "heldSince",
+          "pauseInvites",
+          "needsLink",
+          "needsEighteenPlus",
+          "removeAfterMinutes",
+          "waiting"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "heldSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "pauseInvites": {
+            "type": "boolean"
+          },
+          "needsLink": {
+            "type": "boolean"
+          },
+          "needsEighteenPlus": {
+            "type": "boolean"
+          },
+          "removeAfterMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordGateRow"
+            }
+          }
+        }
+      },
+      "DiscordGateRow": {
+        "required": [
+          "discordUserId",
+          "username",
+          "displayName",
+          "avatarUrl",
+          "joinedAt",
+          "agreed",
+          "linked",
+          "eighteenPlus",
+          "minutesCounted",
+          "warnedAt",
+          "removedAt",
+          "wouldRemoveAt",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "discordUserId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "agreed": {
+            "type": "boolean"
+          },
+          "linked": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "eighteenPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "minutesCounted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "warnedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "removedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "wouldRemoveAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordGateSettingsResponse": {
+        "required": [
+          "mode",
+          "memberRoleId",
+          "channelId",
+          "message",
+          "needsLink",
+          "needsEighteenPlus",
+          "removeAfterMinutes",
+          "removeChoices",
+          "holdOnSpike",
+          "pauseInvites",
+          "heldSince",
+          "linkingReady",
+          "inviteUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "memberRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "needsLink": {
+            "type": "boolean"
+          },
+          "needsEighteenPlus": {
+            "type": "boolean"
+          },
+          "removeAfterMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "removeChoices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "holdOnSpike": {
+            "type": "boolean"
+          },
+          "pauseInvites": {
+            "type": "boolean"
+          },
+          "heldSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "linkingReady": {
+            "type": "boolean"
+          },
+          "inviteUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordGateSettingsUpdate": {
+        "required": [
+          "mode",
+          "memberRoleId",
+          "channelId",
+          "message",
+          "needsLink",
+          "needsEighteenPlus",
+          "removeAfterMinutes",
+          "holdOnSpike",
+          "pauseInvites"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "memberRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "needsLink": {
+            "type": "boolean"
+          },
+          "needsEighteenPlus": {
+            "type": "boolean"
+          },
+          "removeAfterMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "holdOnSpike": {
+            "type": "boolean"
+          },
+          "pauseInvites": {
+            "type": "boolean"
           }
         }
       },

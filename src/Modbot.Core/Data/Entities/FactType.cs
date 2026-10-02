@@ -275,6 +275,32 @@ public static class FactType
     /// </summary>
     public const string DiscordLinkPrompted = "discord.link.prompt";
 
+    // ── The join gate (join gate design §7) ────────────────────────────────────────────────
+    //
+    // Subject is the Discord account at the gate. A person who let somebody in, removed them, held
+    // new joiners or lifted the hold is the actor (a Modbot account); the automatic ones have none.
+
+    /// <summary>They did the steps and Modbot gave them the member role. Payload: the role, the steps.</summary>
+    public const string DiscordGatePassed = "discord.gate.pass";
+
+    /// <summary>A moderator let them in from Modbot, or they got the member role in Discord. Payload: <c>by</c>.</summary>
+    public const string DiscordGateLetIn = "discord.gate.let-in";
+
+    /// <summary>Removed at the gate: for not finishing, or by a moderator. Payload: <c>by</c>, minutes counted.</summary>
+    public const string DiscordGateRemoved = "discord.gate.remove";
+
+    /// <summary>Warned once, halfway to removal. Payload: <c>dm</c>, <c>channel</c> or <c>none</c>. Short retention.</summary>
+    public const string DiscordGateWarned = "discord.gate.warn";
+
+    /// <summary>New joiners are held at the gate. Subject is the server. Payload: <c>by</c> (<c>person</c> or <c>spike</c>).</summary>
+    public const string DiscordGateHeld = "discord.gate.hold";
+
+    /// <summary>The hold was lifted. Subject is the server.</summary>
+    public const string DiscordGateHoldLifted = "discord.gate.hold-lift";
+
+    /// <summary>The server's invites were paused through Discord. Subject is the server. Payload: until when.</summary>
+    public const string DiscordGateInvitesPaused = "discord.gate.invites-pause";
+
     // ── Role and ban sync (M5 §3 and §4; Discord sync design) ──────────────────────────────
     //
     // Modbot changed somebody's standing on one platform because of something that happened on the

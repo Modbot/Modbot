@@ -21,6 +21,7 @@ public static class DiscordInvite
     public const long SendMessages = 1L << 11;
     public const long EmbedLinks = 1L << 14;
     public const long ReadMessageHistory = 1L << 16;
+    public const long ManageGuild = 1L << 5;
     public const long ManageRoles = 1L << 28;
 
     /// <summary>The permissions the bot needs with these settings.</summary>
@@ -46,6 +47,20 @@ public static class DiscordInvite
             permissions |= settings.DiscordBanCopyAction == DiscordBanCopyActions.Remove
                 ? RemoveMembers
                 : BanMembers;
+        }
+
+        // The join gate gives the member role, removes people who do not finish when the operator
+        // set a removal time, and pauses invites only when the operator allowed it (join gate
+        // design §11). Watch only does nothing in Discord, but asks now so switching it on works.
+        if (settings.DiscordGateMode is DiscordGateModes.Watch or DiscordGateModes.On)
+        {
+            permissions |= ManageRoles;
+
+            if (settings.DiscordGateRemoveAfterMinutes is not null)
+                permissions |= RemoveMembers;
+
+            if (settings.DiscordGatePauseInvites)
+                permissions |= ManageGuild;
         }
 
         return permissions;

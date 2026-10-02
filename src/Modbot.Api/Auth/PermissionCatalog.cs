@@ -47,6 +47,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.DiscordBan, "Ban on Discord", "Ban somebody from the Discord server.", "Moderation"),
         Describe(ModbotPermissions.DiscordUnban, "Unban on Discord", "Lift a Discord ban.", "Moderation"),
         Describe(ModbotPermissions.DiscordTimeOut, "Time out on Discord", "Stop somebody talking in the Discord server for a while.", "Moderation"),
+        Describe(ModbotPermissions.ManageJoinGate, "Manage the join gate", "Let people in at the Discord join gate or remove them, hold new joiners and pause invites.", "Moderation"),
         Describe(ModbotPermissions.AnswerJoinRequests, "Answer join requests", "Approve or reject somebody asking to join the group.", "Moderation"),
         Describe(ModbotPermissions.BulkAction, "Act on many at once", "Does nothing.", "Moderation"),
         Describe(ModbotPermissions.ReviewTickets, "Review tickets", "Close the reviews that open when a moderator's pattern looks unusual, and dismiss moderation flags.", "Moderation"),

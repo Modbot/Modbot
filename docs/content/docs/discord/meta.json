@@ -1,4 +1,4 @@
 {
   "title": "Discord",
-  "pages": ["bot-setup", "event-channels", "instance-announcements", "account-linking", "role-and-ban-sync", "staff-roles", "messages-and-analytics", "members", "tidy-up"]
+  "pages": ["bot-setup", "event-channels", "instance-announcements", "account-linking", "join-gate", "role-and-ban-sync", "staff-roles", "messages-and-analytics", "members", "tidy-up"]
 }

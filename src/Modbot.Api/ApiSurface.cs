@@ -15,6 +15,7 @@ using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.DiscordGate;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordSync;
 using Modbot.Api.Features.DiscordStaffRoles;
@@ -108,6 +109,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordServerEvents, NoDiscordServerEvents>();
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
+        services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
@@ -414,6 +416,10 @@ public static class ApiSurface
         app.MapDiscordLink();
         app.MapDiscordLinkModeration();
         app.MapDiscordLinkingSettings();
+
+        // The join gate: its settings, who is waiting, and what staff do there (join gate design).
+        app.MapDiscordGateSettings();
+        app.MapDiscordGate();
 
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).

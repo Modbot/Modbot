@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { dateTime } from '@/components/charts'
+import { AtTheGateCard } from '@/components/discord/AtTheGateCard'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
@@ -87,6 +88,7 @@ export function DiscordMembers({ me, pathOf }: { me: CurrentUser; pathOf: (id: P
   return (
     <div className="flex flex-col gap-3">
       {server && <ServerHeader server={server} me={me} pathOf={pathOf} active="discord-members" />}
+      <AtTheGateCard me={me} />
       <MemberList me={me} />
     </div>
   )

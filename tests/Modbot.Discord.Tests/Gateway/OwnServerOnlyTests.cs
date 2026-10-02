@@ -48,6 +48,19 @@ public class OwnServerOnlyTests
     public void AButtonInADirectMessage_IsLeftAlone()
         => Assert.False(DiscordNetGateway.IsOurButton("424242", null, "modbot:me:keeps"));
 
+    /// <summary>The join gate's Get in, in a direct message, carries this server's mark (join gate design §4).</summary>
+    [Fact]
+    public void AButtonInADirectMessage_MarkedWithThisServer_IsOurs()
+        => Assert.True(DiscordNetGateway.IsOurButton("424242", null, DiscordActionButton.Marked("modbot:gate:in", "424242")));
+
+    [Fact]
+    public void AButtonInADirectMessage_MarkedWithAnotherServer_IsLeftAlone()
+        => Assert.False(DiscordNetGateway.IsOurButton("424242", null, DiscordActionButton.Marked("modbot:gate:in", "999999")));
+
+    [Fact]
+    public void TheServerMark_ComesOffForComparing()
+        => Assert.Equal("modbot:gate:in", DiscordActionButton.Plain(DiscordActionButton.Marked("modbot:gate:in", "424242")));
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

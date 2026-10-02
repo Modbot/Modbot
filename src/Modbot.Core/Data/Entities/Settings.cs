@@ -396,6 +396,61 @@ public class Settings
     /// </summary>
     public bool DiscordMeCommand { get; set; }
 
+    // --- The join gate (join gate design §3) ---
+
+    /// <summary>
+    /// <see cref="DiscordGateModes.Off"/>, <see cref="DiscordGateModes.Watch"/> (record what would
+    /// happen, do nothing in Discord) or <see cref="DiscordGateModes.On"/>. Off by default.
+    /// </summary>
+    public string DiscordGateMode { get; set; } = DiscordGateModes.Off;
+
+    /// <summary>When the gate last went from off to watching or on. Only people who join after it are gated by themselves.</summary>
+    public DateTimeOffset? DiscordGateStartedAt { get; set; }
+
+    /// <summary>The role that opens the server. Modbot gives it when the steps are done.</summary>
+    public string? DiscordGateMemberRoleId { get; set; }
+
+    /// <summary>The one channel everybody can see, where the gate's message with its button sits.</summary>
+    public string? DiscordGateChannelId { get; set; }
+
+    /// <summary>The operator's own words above the button in the gate channel. Sent with mentions off.</summary>
+    public string? DiscordGateMessage { get; set; }
+
+    /// <summary>The gate message Modbot posted and keeps up to date, and the channel it is in.</summary>
+    public string? DiscordGateMessageId { get; set; }
+
+    public string? DiscordGateMessageChannelId { get; set; }
+
+    /// <summary>What the gate message last said, so it is rewritten only when that changes.</summary>
+    public string? DiscordGateMessagePosted { get; set; }
+
+    /// <summary>The step "Link VRChat account". Off by default.</summary>
+    public bool DiscordGateNeedsLink { get; set; }
+
+    /// <summary>The step "18+ on VRChat". Needs <see cref="DiscordGateNeedsLink"/>.</summary>
+    public bool DiscordGateNeedsEighteenPlus { get; set; }
+
+    /// <summary>Minutes before somebody who has not finished is removed. Null is never.</summary>
+    public int? DiscordGateRemoveAfterMinutes { get; set; }
+
+    /// <summary>Hold new joiners by itself when the "People joining Discord" alert fires. Off by default.</summary>
+    public bool DiscordGateHoldOnSpike { get; set; }
+
+    /// <summary>
+    /// Pausing the server's invites is allowed: the button on the alert and the At the gate card, and,
+    /// with <see cref="DiscordGateHoldOnSpike"/>, on a join spike by itself. Needs Manage Server.
+    /// </summary>
+    public bool DiscordGatePauseInvites { get; set; }
+
+    /// <summary>
+    /// Since when new joiners are held: nobody gets the member role by themselves until staff lift
+    /// the hold. Null while not held.
+    /// </summary>
+    public DateTimeOffset? DiscordGateHeldAt { get; set; }
+
+    /// <summary>The newest "People joining Discord" alert the gate has looked at, so each is acted on once.</summary>
+    public DateTimeOffset? DiscordGateSpikeSeenAt { get; set; }
+
     // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
     //
     // Three switches, all off, because each one is a different decision. Turning any of them on

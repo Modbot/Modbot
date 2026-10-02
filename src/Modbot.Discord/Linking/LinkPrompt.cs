@@ -64,7 +64,11 @@ public sealed class LinkPrompt
     }
 
     /// <summary>Handles one member joining. Returns how they were asked, or null when they were not.</summary>
-    public async Task<string?> HandleAsync(IDiscordGateway gateway, DiscordMemberJoin member, CancellationToken ct)
+    /// <param name="ask">
+    /// False when the join gate already sent the member its own message (join gate design §4): the
+    /// roles are still put right, but the member gets one message, not two.
+    /// </param>
+    public async Task<string?> HandleAsync(IDiscordGateway gateway, DiscordMemberJoin member, CancellationToken ct, bool ask = true)
     {
         ArgumentNullException.ThrowIfNull(gateway);
         ArgumentNullException.ThrowIfNull(member);
@@ -92,6 +96,9 @@ public sealed class LinkPrompt
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             _signal.Changed();
         }
+
+        if (!ask)
+            return null;
 
         var settings = await _db.Settings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == 1, ct)

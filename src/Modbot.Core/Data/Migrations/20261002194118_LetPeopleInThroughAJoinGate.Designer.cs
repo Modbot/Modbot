@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261002194118_LetPeopleInThroughAJoinGate")]
+    partial class LetPeopleInThroughAJoinGate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2893,102 +2896,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("discord_server", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRole", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_id");
-
-                    b.Property<string>("Direction")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("direction");
-
-                    b.Property<string>("DiscordRoleId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("discord_role_id");
-
-                    b.Property<string>("DiscordRoleName")
-                        .HasColumnType("text")
-                        .HasColumnName("discord_role_name");
-
-                    b.Property<string>("Problem")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("problem");
-
-                    b.Property<DateTimeOffset?>("RefusedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("refused_at");
-
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_discord_staff_role");
-
-                    b.HasIndex("DiscordRoleId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_discord_staff_role_discord");
-
-                    b.HasIndex(new[] { "RoleId" }, "ix_discord_staff_role_role")
-                        .HasDatabaseName("ix_discord_staff_role_role");
-
-                    b.HasIndex(new[] { "RoleId" }, "ux_discord_staff_role_both_ways")
-                        .IsUnique()
-                        .HasDatabaseName("ux_discord_staff_role_both_ways")
-                        .HasFilter("direction = 'both'");
-
-                    b.ToTable("discord_staff_role", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRoleState", b =>
-                {
-                    b.Property<Guid>("MappingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("mapping_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset>("AgreedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("agreed_at");
-
-                    b.Property<string>("DiscordUserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("discord_user_id");
-
-                    b.Property<bool>("Held")
-                        .HasColumnType("boolean")
-                        .HasColumnName("held");
-
-                    b.HasKey("MappingId", "UserId")
-                        .HasName("pk_discord_staff_role_state");
-
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("ix_discord_staff_role_state_user_id");
-
-                    b.ToTable("discord_staff_role_state", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordSyncState", b =>
                 {
                     b.Property<int>("Id")
@@ -3016,31 +2923,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("RolesRanAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("roles_ran_at");
-
-                    b.Property<DateTimeOffset?>("StaffRolesHeldAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("staff_roles_held_at");
-
-                    b.Property<int?>("StaffRolesHeldCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("staff_roles_held_count");
-
-                    b.Property<DateTimeOffset?>("StaffRolesMembersCurrentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("staff_roles_members_current_at");
-
-                    b.Property<DateTimeOffset?>("StaffRolesMembersOffAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("staff_roles_members_off_at");
-
-                    b.Property<string>("StaffRolesProblem")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("staff_roles_problem");
-
-                    b.Property<DateTimeOffset?>("StaffRolesRanAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("staff_roles_ran_at");
 
                     b.HasKey("Id")
                         .HasName("pk_discord_sync_state");
@@ -4922,10 +4804,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uuid")
                         .HasColumnName("role_id");
-
-                    b.Property<bool>("FromDiscord")
-                        .HasColumnType("boolean")
-                        .HasColumnName("from_discord");
 
                     b.HasKey("UserId", "RoleId")
                         .HasName("pk_modbot_user_role");
@@ -6938,10 +6816,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("discord_role_sync_on");
 
-                    b.Property<bool>("DiscordStaffRolesOn")
-                        .HasColumnType("boolean")
-                        .HasColumnName("discord_staff_roles_on");
-
                     b.Property<int>("EmailLimitPer24Hours")
                         .HasColumnType("integer")
                         .HasColumnName("email_limit_per24hours");
@@ -8314,35 +8188,6 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_role_ping_calendar_event_event_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRole", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotRole", "Role")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_discord_staff_role_modbot_role_role_id");
-
-                    b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRoleState", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.DiscordStaffRole", null)
-                        .WithMany()
-                        .HasForeignKey("MappingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_discord_staff_role_state_discord_staff_role_mapping_id");
-
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_discord_staff_role_state_modbot_user_user_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayDraw", b =>

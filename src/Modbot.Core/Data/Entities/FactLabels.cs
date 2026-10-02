@@ -97,6 +97,13 @@ public static class FactLabels
         [FactType.DiscordLinkRoleGranted] = "Discord role given for a link",
         [FactType.DiscordLinkRoleRemoved] = "Discord role taken away for a link",
         [FactType.DiscordLinkPrompted] = "Asked to link on Discord",
+        [FactType.DiscordGatePassed] = "Passed the join gate",
+        [FactType.DiscordGateLetIn] = "Let in at the join gate",
+        [FactType.DiscordGateRemoved] = "Removed at the join gate",
+        [FactType.DiscordGateWarned] = "Warned at the join gate",
+        [FactType.DiscordGateHeld] = "New joiners held",
+        [FactType.DiscordGateHoldLifted] = "Hold on new joiners lifted",
+        [FactType.DiscordGateInvitesPaused] = "Discord invites paused",
 
         [FactType.CopiedBan] = "Ban copied from the other platform",
         [FactType.CopiedUnban] = "Unban copied from the other platform",

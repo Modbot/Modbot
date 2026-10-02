@@ -76,6 +76,91 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Posted((_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture)));
     }
 
+    /// <summary>The action buttons on each direct message and mention, by the text it was sent with.</summary>
+    public List<(string UserId, string Text, IReadOnlyList<DiscordActionButton> Actions)> ActionMessages { get; } = [];
+
+    public async Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        var outcome = await SendDirectMessageAsync(userId, text, links, ct);
+        if (outcome.Sent)
+            ActionMessages.Add((userId, text, actions ?? []));
+
+        return outcome;
+    }
+
+    public async Task<DiscordPostOutcome> MentionAsync(
+        string channelId,
+        string userId,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        var outcome = await MentionAsync(channelId, userId, text, links, ct);
+        if (outcome.Sent)
+            ActionMessages.Add((userId, text, actions ?? []));
+
+        return outcome;
+    }
+
+    /// <summary>Every message posted or rewritten with action buttons: channel, message, text, buttons.</summary>
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordActionButton> Actions)> ActionPosts { get; } = [];
+
+    public Task<DiscordPostOutcome> PostWithActionsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Posts.Add((channelId, embeds));
+        ActionPosts.Add((channelId, messageId, text, actions ?? []));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public Task<DiscordPostOutcome> EditWithActionsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        ActionPosts.Add((channelId, messageId, text, actions ?? []));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    /// <summary>Every invite pause asked for: server and until when.</summary>
+    public List<(string GuildId, DateTimeOffset Until)> InvitePauses { get; } = [];
+
+    /// <summary>Set to make pausing invites fail with this sentence.</summary>
+    public string? PauseInvitesError { get; set; }
+
+    public Task<DiscordPostOutcome> PauseInvitesAsync(string guildId, DateTimeOffset until, CancellationToken ct)
+    {
+        if (PauseInvitesError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        InvitePauses.Add((guildId, until));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
     public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
         => RoleAsync(true, guildId, userId, roleId);
 

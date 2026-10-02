@@ -386,6 +386,15 @@ Time a member of the Discord server out for up to 28 days through the API
 (`POST /api/discord/members/{id}/timeout`). The bot needs Discord's **Timeout Members** and a role
 above the person's.
 
+### Manage the join gate
+
+Name: `ManageJoinGate`
+
+At the [join gate](/discord/join-gate): **Let in** and **Remove** on the **At the gate** card,
+**Hold new joiners**, **Lift hold** and **Pause invites**, there and on the buttons under a join
+spike alert in Discord. Each is written to the audit log with who did it. Not in the built-in
+Moderator or Viewer roles.
+
 ### Act on many at once
 
 Name: `BulkAction`
