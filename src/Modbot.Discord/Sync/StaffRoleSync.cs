@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
@@ -384,7 +385,7 @@ public sealed class StaffRoleSync
         // until a day has passed or a role in the server has changed. Nothing is agreed.
         refused.Add(mappingId);
         var error = outcome.Error ?? "Discord refused the change.";
-        var sentence = $"Not set up: Discord refused to change {change.DiscordRoleName ?? discordRoleId}: {error}";
+        var sentence = Fit($"Not set up: Discord refused to change {change.DiscordRoleName ?? discordRoleId}: {error}");
         await SetProblemAsync(mappingId, sentence, _clock.UtcNow, ct).ConfigureAwait(false);
 
         data["error"] = error;
@@ -499,8 +500,26 @@ public sealed class StaffRoleSync
             .AnyAsync(m => m.Id == mappingId && m.RoleId == change.RoleId && m.DiscordRoleId == change.DiscordRoleId, ct)
             .ConfigureAwait(false);
 
-        return mapped && await SwitchOnAsync(ct).ConfigureAwait(false);
+        if (!mapped || !await SwitchOnAsync(ct).ConfigureAwait(false))
+            return false;
+
+        // And the member still holds the Discord role, in the server, as the row says now.
+        if (change.DiscordRoleId is not { } discordRoleId)
+            return false;
+
+        var guildId = await _db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.DiscordGuildId).FirstOrDefaultAsync(ct).ConfigureAwait(false);
+        var roleJson = JsonSerializer.Serialize(new[] { discordRoleId });
+
+        return await _db.DiscordMembers.AsNoTracking()
+            .AnyAsync(
+                m => m.GuildId == guildId && m.UserId == user.DiscordUserId && m.LeftAt == null
+                     && EF.Functions.JsonContains(m.Roles, roleJson),
+                ct)
+            .ConfigureAwait(false);
     }
+
+    /// <summary>The problem columns hold 1000 characters; Discord's words are cut to fit.</summary>
+    private static string Fit(string sentence) => sentence.Length <= 1000 ? sentence : sentence[..999] + "…";
 
     private async Task HoldAsync(int losing, CancellationToken ct)
     {
@@ -537,6 +556,10 @@ public sealed class StaffRoleSync
 
         if (current)
         {
+            // Back: the "no member updates" sentence goes with the mark, switch on or off.
+            if (state.StaffRolesProblem == StaffRoles.NoMemberUpdates)
+                state.StaffRolesProblem = null;
+
             state.StaffRolesMembersCurrentAt = now;
             state.StaffRolesMembersOffAt = null;
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);

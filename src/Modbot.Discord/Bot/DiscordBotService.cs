@@ -365,6 +365,9 @@ public sealed class DiscordBotService : BackgroundService
 
     private async Task OnReadyAsync()
     {
+        // A new session has compared nothing yet, whatever an earlier one did.
+        _membersRead = false;
+
         var gateway = _gateway;
         var guildId = _guildId;
         if (gateway is null || guildId is null)
@@ -447,6 +450,9 @@ public sealed class DiscordBotService : BackgroundService
     /// </remarks>
     private async Task OnResumedAsync()
     {
+        // Resumed: the member list is compared again before the stored roles count as current.
+        _membersRead = false;
+
         if (_gateway is null)
             return;
 
@@ -524,13 +530,17 @@ public sealed class DiscordBotService : BackgroundService
         if (await gateway.ReadMembersAsync(guildId, ct).ConfigureAwait(false) is { } members)
         {
             var compared = false;
-            await RecordAsync("compare the member list", async (recorder, token) =>
+            await RecordAsync("compare the member list", async (recorder, _) =>
             {
-                await recorder.MembersListedAsync(guildId, members, seenThrough, token).ConfigureAwait(false);
+                // This session's token: a compare outliving its session stops rather than finishes.
+                await recorder.MembersListedAsync(guildId, members, seenThrough, ct).ConfigureAwait(false);
                 compared = true;
             }).ConfigureAwait(false);
 
-            _membersRead = compared;
+            // Only this session's own compare counts, and only while it is still the session: an
+            // old one finishing after a disconnect cleared the flag must not set it again.
+            if (compared && !ct.IsCancellationRequested && ReferenceEquals(_gateway, gateway))
+                _membersRead = true;
         }
 
         await ReadAuditLogAsync(gateway, guildId, ct).ConfigureAwait(false);
