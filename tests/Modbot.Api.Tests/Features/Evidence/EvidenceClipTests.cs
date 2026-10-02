@@ -21,7 +21,7 @@ public class EvidenceClipTests(PostgresFixture db)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private const ModbotPermissions Moderator =
-        ModbotPermissions.ManageSettings | ModbotPermissions.UploadEvidence | ModbotPermissions.ViewEvidence;
+        ModbotPermissions.ManageSettings | ModbotPermissions.UploadEvidence | ModbotPermissions.ViewEvidence | ModbotPermissions.ViewProfile;
 
     /// <summary>The account the reporting device was paired to, as the ingest endpoint writes it onto the fact.</summary>
     private static readonly Guid Owner = Guid.Parse("0192d4a0-0000-7000-8000-00000000a1e5");
@@ -234,6 +234,12 @@ public class EvidenceClipTests(PostgresFixture db)
     public async Task TheCaseFileOffersAClipOfAnInstanceThePersonWasInUntilItHoldsIt()
     {
         await EvidenceApiTestHost.ResetAsync(db, Ct);
+
+        // The reset clears the evidence, not the facts: the clips the other tests here saved in this
+        // same instance are still on record, and would be offered too.
+        await using (var context = db.NewContext())
+            await context.Events.Where(e => e.Type == FactType.InstanceClipSaved).ExecuteDeleteAsync(Ct);
+
         await using var host = await EvidenceApiTestHost.StartAsync(db);
 
         var cookie = await host.SignedInAsync(Moderator, Ct);

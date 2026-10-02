@@ -157,6 +157,10 @@ public class CalendarPictureTests(PostgresFixture db)
         await using var host = await StartAsync(gate);
         var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
 
+        // The database is shared with the tests around this one, which upload "file_test" and leave
+        // a fact behind; only a fact this request adds counts.
+        var before = (await host.FactsAsync(FactType.PlannedEventPictureUploaded, "file_test", Ct)).Count;
+
         var response = await UploadAsync(host, manager, Png());
 
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
@@ -165,7 +169,7 @@ public class CalendarPictureTests(PostgresFixture db)
             (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
 
         Assert.Single(gate.Calls);
-        Assert.Empty(await host.FactsAsync(FactType.PlannedEventPictureUploaded, "file_test", Ct));
+        Assert.Equal(before, (await host.FactsAsync(FactType.PlannedEventPictureUploaded, "file_test", Ct)).Count);
     }
 
     [Fact]

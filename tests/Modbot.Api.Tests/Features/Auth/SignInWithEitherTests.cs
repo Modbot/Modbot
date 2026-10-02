@@ -85,10 +85,15 @@ public class SignInWithEitherTests
 
         // Byte for byte the same answer, or the sign-in form becomes a way to find out both which
         // usernames are real and who has an account here.
+        // Every API error now carries the same problem body for its status (error format, 2026-10-01),
+        // so "the same answer" is the same body, not no body.
+        var expected = await wrongPassword.Content.ReadAsStringAsync(Ct);
+        Assert.NotEmpty(expected);
+
         foreach (var response in new[] { wrongPassword, unknownName, unknownAddress })
         {
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-            Assert.Equal(string.Empty, await response.Content.ReadAsStringAsync(Ct));
+            Assert.Equal(expected, await response.Content.ReadAsStringAsync(Ct));
             Assert.DoesNotContain("Set-Cookie", response.Headers.Select(h => h.Key));
         }
 

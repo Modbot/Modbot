@@ -237,6 +237,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.VRChatWorlds.ExecuteDeleteAsync(ct);
         await context.GroupMembers.ExecuteDeleteAsync(ct);
         await context.GroupBans.ExecuteDeleteAsync(ct);
+        await context.GroupAutoInvites.ExecuteDeleteAsync(ct);
         await context.DailyTotals.ExecuteDeleteAsync(ct);
         await context.DailyTotalsState.ExecuteDeleteAsync(ct);
         await context.Reviews.ExecuteDeleteAsync(ct);

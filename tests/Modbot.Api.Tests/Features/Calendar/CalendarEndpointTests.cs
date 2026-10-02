@@ -197,6 +197,10 @@ public class CalendarEndpointTests(PostgresFixture db)
         var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
         var id = await CreateAsync(host, manager, Body(host));
 
+        // The database is shared with the other tests in this class, and some of them make a link
+        // too; only the two made here count.
+        var regeneratedBefore = (await host.FactsAsync(FactType.CalendarFeedRegenerated, "calendar-feed", Ct)).Count;
+
         Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Get, "/api/calendar/feed", null, viewer, Ct)).StatusCode);
 
         var first = (await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/feed", null, manager, Ct), Ct))
@@ -222,7 +226,7 @@ public class CalendarEndpointTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(first, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(second, Ct)).StatusCode);
 
-        Assert.Equal(2, (await host.FactsAsync(FactType.CalendarFeedRegenerated, "calendar-feed", Ct)).Count);
+        Assert.Equal(regeneratedBefore + 2, (await host.FactsAsync(FactType.CalendarFeedRegenerated, "calendar-feed", Ct)).Count);
     }
 
     [Fact]

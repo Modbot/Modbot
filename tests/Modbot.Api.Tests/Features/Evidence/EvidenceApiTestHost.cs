@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Auth.Login;
+using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
@@ -19,7 +20,7 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Evidence;
 
 /// <summary>
-/// A host that maps the evidence slice and nothing else.
+/// A host that maps the evidence slice, and the case file read the clip tests need, and nothing else.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -106,6 +107,9 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
 
         app.MapLogin();
         app.MapEvidence();
+
+        // A case file's own page lists the clips it could be given (clips design), so the clip tests read it.
+        app.MapCaseFiles();
 
         await app.StartAsync();
         await app.Services.LoadEvidenceSettingsAsync(TestContext.Current.CancellationToken);
