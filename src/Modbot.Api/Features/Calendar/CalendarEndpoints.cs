@@ -1922,7 +1922,7 @@ public static class CalendarEndpoints
             : Core.Files.VRChatFileIds.Find(typedPicture);
 
         if (typedPicture is not null && vrchatImageId is null)
-            return Core.Files.VRChatFileIds.NotFound;
+            problems.Add(Core.Files.VRChatFileIds.NotFound);
 
         var worldId = string.IsNullOrWhiteSpace(body.WorldId) ? null : body.WorldId.Trim();
         var channelId = string.IsNullOrWhiteSpace(body.ChannelId) ? null : body.ChannelId.Trim();
