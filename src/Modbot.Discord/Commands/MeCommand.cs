@@ -251,11 +251,12 @@ public sealed class MeCommand
     /// The Discord roles Modbot gave this account and it still holds, by name.
     /// </summary>
     /// <remarks>
-    /// Two sources, the same two the role jobs use to decide what they may take back. The linked
-    /// and 18+ roles recorded on the link are the ones Modbot gave and believes they still hold.
-    /// A role from role sync counts when Modbot's own copy records say the newest thing it did with
-    /// that role for this account was to give it, and the member list says they still have it. A
-    /// role somebody gave them by hand is never listed.
+    /// Three sources, the same three the role jobs use to decide what they may take back. The
+    /// linked and 18+ roles recorded on the link are the ones Modbot gave and believes they still
+    /// hold. A role from role sync counts when Modbot's own copy records say the newest thing it did
+    /// with that role for this account was to give it, and a role from a list when the list's
+    /// given-row stands; either only while the member list says they still have it. A role somebody
+    /// gave them by hand is never listed.
     /// </remarks>
     private async Task<IReadOnlyList<string>> RolesAsync(
         string guildId, string discordUserId, string? linkedRoleId, string? eighteenPlusRoleId, CancellationToken ct)
@@ -283,6 +284,15 @@ public sealed class MeCommand
             .Where(g => g.OrderByDescending(c => c.StartedAt).ThenBy(c => c.Kind == CopyKinds.RoleGiven).First().Kind == CopyKinds.RoleGiven)
             .Select(g => g.Key)
             .ToList();
+
+        // And the roles a saved list gave them and has not taken back (roles from lists design §3).
+        var fromLists = await _db.DiscordListRolesGiven.AsNoTracking()
+            .Where(g => g.DiscordUserId == discordUserId)
+            .Join(_db.DiscordListRoles.AsNoTracking(), g => g.ListRoleId, p => p.Id, (g, p) => p.DiscordRoleId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        given.AddRange(fromLists.Where(id => !given.Contains(id, StringComparer.Ordinal)));
 
         if (given.Count > 0)
         {

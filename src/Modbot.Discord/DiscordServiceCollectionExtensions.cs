@@ -105,6 +105,9 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Sync.CopyRecords>();
         services.AddScoped<Sync.RoleSync>();
         services.AddScoped<Sync.BanSync>();
+
+        // Discord roles from saved lists, on the same loop, off until its own switch is on.
+        services.AddScoped<Sync.ListRoleSync>();
         services.AddHostedService<Sync.DiscordSyncService>();
         services.AddSingleton<IDiscordSyncRunner, Sync.DiscordSyncRunner>();
 

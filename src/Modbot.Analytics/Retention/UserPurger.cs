@@ -250,6 +250,16 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // Which Discord roles a list gave them names them too (roles from lists design §8).
+            // Without the row Modbot no longer knows it gave the role, so it never takes it away:
+            // the role stays in Discord until somebody removes it there.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM discord_list_role_given WHERE discord_user_id = @subject"
+                    : "DELETE FROM discord_list_role_given WHERE vrchat_user_id = @subject",
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // And whether they are a friend of the group's VRChat account, which names them too.
             if (platform == FactPlatform.VRChat)
             {

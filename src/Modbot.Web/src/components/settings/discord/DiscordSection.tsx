@@ -9,6 +9,7 @@ import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
 import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
+import { ListRolesCard } from './ListRolesCard'
 import { SyncCard } from './SyncCard'
 
 /**
@@ -49,6 +50,7 @@ export function DiscordSection({
           <JoinGateCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}
+          <ListRolesCard />
         </>
       ) : (
         <Placeholder tone={statusError ? 'danger' : 'loading'} onTryAgain={refresh}>{statusError}</Placeholder>

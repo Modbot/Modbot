@@ -101,6 +101,8 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Discord.Sync.RoleSync>();
         services.AddScoped<Modbot.Discord.Sync.BanSync>();
         services.AddScoped<Modbot.Discord.Sync.StaffRoleSync>();
+        services.AddScoped<Modbot.Analytics.Lists.ListRolePlanner>();
+        services.AddScoped<Modbot.Discord.Sync.ListRoleSync>();
 
         var provider = services.BuildServiceProvider();
         var built = new TestServices(database, provider, clock, status, checker, vrchat);

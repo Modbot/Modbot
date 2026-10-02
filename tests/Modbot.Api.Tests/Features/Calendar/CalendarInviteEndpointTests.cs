@@ -27,6 +27,7 @@ public class CalendarInviteEndpointTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.DiscordListRoles.ExecuteDeleteAsync(Ct);
             await context.SavedLists.ExecuteDeleteAsync(Ct);
         }
 

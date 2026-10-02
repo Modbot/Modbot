@@ -49,6 +49,9 @@ const HISTORY_TYPES = [
   'modbot.copy.role.give',
   'modbot.copy.role.take',
   'modbot.copy.failed',
+  // A role a saved list gave or took, for the same reason.
+  'modbot.list.role.give',
+  'modbot.list.role.take',
 ]
 
 /** Who they are in the server: picture, names and the marks. Somebody the bot never saw says so. */

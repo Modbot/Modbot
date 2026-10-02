@@ -147,6 +147,10 @@ public static class FactSubjects
         [FactType.ListDeleted] = SubjectKind.Other,
         [FactType.ListExported] = SubjectKind.Other,
 
+        // The pairing's id. A role given or taken is about the person on Discord, so those two
+        // keep the default.
+        [FactType.ListRoleStopped] = SubjectKind.Other,
+
         // A rule that paused itself, and a watcher that saw something unusual. Neither is anybody.
         [FactType.AutoModRulePaused] = SubjectKind.Other,
         [FactType.InsightAlert] = SubjectKind.Other,

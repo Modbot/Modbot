@@ -1,0 +1,531 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Lists;
+using Modbot.Core.Data.Entities;
+using Modbot.Discord.Sync;
+using Modbot.Discord.Tests.Fakes;
+using Modbot.TestSupport;
+
+namespace Modbot.Discord.Tests.Sync;
+
+/// <summary>
+/// Roles from lists: everybody in the list who is in the server gets the role, only a role the
+/// pairing gave is ever taken away, a VRChat account with no linked Discord is skipped, a staff role
+/// is never given, many removals at once stop and wait, and with the switch off nothing happens
+/// (roles from lists design).
+/// </summary>
+[Collection(nameof(PostgresCollection))]
+public class ListRoleSyncTests
+{
+    /// <summary>The role a list gives. A community role: View Channels and Send Messages.</summary>
+    private const string Regular = "802";
+
+    private const long Community = (1L << 10) | (1L << 11);
+
+    /// <summary>"In the VRChat group": who is in the list is decided by a group member row.</summary>
+    private const string InGroup = """{"kind":"allOf","rules":[{"kind":"inGroup"}]}""";
+
+    private readonly PostgresFixture _db;
+
+    public ListRoleSyncTests(PostgresFixture db) => _db = db;
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private sealed record Setup(TestServices Services, Guid ListId, Guid PairingId) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => Services.DisposeAsync();
+    }
+
+    private async Task<Setup> SetUpAsync(
+        bool on = true,
+        long? permissions = Community,
+        string rules = InGroup,
+        Action<Settings>? settings = null)
+    {
+        var services = await SyncSetUp.CreateAsync(_db, s =>
+        {
+            s.DiscordListRolesOn = on;
+            settings?.Invoke(s);
+        }, Ct);
+
+        await using var db = services.Database.NewContext();
+        var now = services.Clock.UtcNow;
+
+        db.DiscordRoles.Add(new DiscordRole
+        {
+            RoleId = Regular,
+            GuildId = SyncSetUp.Guild,
+            Name = "Regular",
+            BotCanAssign = true,
+            Permissions = permissions,
+            FirstSeenAt = now,
+            UpdatedAt = now,
+        });
+
+        var list = new SavedList { Id = Guid.CreateVersion7(), Name = "Regulars", Rules = rules, CreatedAt = now, UpdatedAt = now };
+        db.SavedLists.Add(list);
+
+        var pairing = new DiscordListRole
+        {
+            ListId = list.Id,
+            DiscordRoleId = Regular,
+            DiscordRoleName = "Regular",
+            Enabled = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+        db.DiscordListRoles.Add(pairing);
+
+        await db.SaveChangesAsync(Ct);
+        return new Setup(services, list.Id, pairing.Id);
+    }
+
+    private static async Task<ListRolePass> PassAsync(TestServices services, FakeGateway gateway)
+    {
+        using var scope = services.Scope();
+        return await scope.ServiceProvider.GetRequiredService<ListRoleSync>().RunAsync(gateway, Ct);
+    }
+
+    private static async Task<ListRolePlan> PlanAsync(TestServices services, Guid pairingId)
+    {
+        using var scope = services.Scope();
+        var provider = scope.ServiceProvider;
+        var pairing = await provider.GetRequiredService<Modbot.Core.Data.ModbotContext>().DiscordListRoles
+            .AsNoTracking()
+            .SingleAsync(p => p.Id == pairingId, Ct);
+
+        return await provider.GetRequiredService<ListRolePlanner>().PlanAsync(pairing, Ct);
+    }
+
+    private static async Task<List<DiscordListRoleGiven>> GivenAsync(TestServices services)
+    {
+        await using var db = services.Database.NewContext();
+        return await db.DiscordListRolesGiven.AsNoTracking().ToListAsync(Ct);
+    }
+
+    private static async Task<DiscordListRole> PairingAsync(TestServices services, Guid id)
+    {
+        await using var db = services.Database.NewContext();
+        return await db.DiscordListRoles.AsNoTracking().SingleAsync(p => p.Id == id, Ct);
+    }
+
+    /// <summary>Somebody leaves the VRChat group, and so the "in the group" list.</summary>
+    private static async Task LeaveGroupAsync(TestServices services, string vrchatUserId)
+    {
+        await using var db = services.Database.NewContext();
+        var at = services.Clock.UtcNow;
+
+        await db.GroupMembers
+            .Where(m => m.UserId == vrchatUserId)
+            .ExecuteUpdateAsync(u => u.SetProperty(m => m.LeftAt, at), Ct);
+    }
+
+    private static async Task GivenRowAsync(TestServices services, Guid pairingId, string discordUserId)
+    {
+        await using var db = services.Database.NewContext();
+
+        db.DiscordListRolesGiven.Add(new DiscordListRoleGiven
+        {
+            ListRoleId = pairingId,
+            DiscordUserId = discordUserId,
+            GivenAt = services.Clock.UtcNow,
+        });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    // ── Matching ───────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SomebodyInTheListIsGivenTheRole_AndItIsWrittenDown()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(1, pass.Given);
+        var (added, _, userId, roleId) = Assert.Single(gateway.RoleChanges);
+        Assert.True(added);
+        Assert.Equal("5001", userId);
+        Assert.Equal(Regular, roleId);
+        Assert.Contains("Regulars", Assert.Single(gateway.RoleReasons), StringComparison.Ordinal);
+
+        var row = Assert.Single(await GivenAsync(services));
+        Assert.Equal(pairingId, row.ListRoleId);
+        Assert.Equal("5001", row.DiscordUserId);
+        Assert.Equal("usr_in", row.VRChatUserId);
+
+        var fact = Assert.Single(await services.FactsOfTypeAsync(FactType.ListRoleGiven, Ct));
+        Assert.Equal("5001", fact.SubjectId);
+    }
+
+    /// <summary>A second pass finds them holding it and does nothing.</summary>
+    [Fact]
+    public async Task APassThatHasDoneItsWorkFindsNothingToDo()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+        await SyncSetUp.SetServerRolesAsync(services, "5001", [Regular], Ct);
+        var second = await PassAsync(services, gateway);
+
+        Assert.Equal(0, second.Given + second.Taken);
+        Assert.Single(gateway.RoleChanges);
+    }
+
+    [Fact]
+    public async Task WithTheSwitchOffNothingHappens()
+    {
+        await using var setup = await SetUpAsync(on: false);
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+        await SyncSetUp.UnlinkedMemberAsync(services, "5009", [Regular], Ct);
+        await GivenRowAsync(services, pairingId, "5009");
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(ListRolePass.Nothing, pass);
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.ListRoleGiven, Ct));
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.ListRoleTaken, Ct));
+    }
+
+    [Fact]
+    public async Task APairingSwitchedOffChangesNothing()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        await using (var db = services.Database.NewContext())
+            await db.DiscordListRoles.Where(p => p.Id == pairingId).ExecuteUpdateAsync(u => u.SetProperty(p => p.Enabled, false), Ct);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    /// <summary>A Discord role can only go to a Discord member: a VRChat account needs a linked one.</summary>
+    [Fact]
+    public async Task AVRChatAccountWithNoLinkedDiscordIsSkipped_AndCounted()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.GroupMembers.Add(new GroupMember
+            {
+                GroupId = SyncSetUp.Group,
+                UserId = "usr_alone",
+                Roles = "[]",
+                FirstSeenAt = services.Clock.UtcNow,
+                LastSeenAt = services.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var plan = await PlanAsync(services, pairingId);
+        Assert.Equal(1, plan.NoLinkedDiscord);
+        Assert.Empty(plan.Changes);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    [Fact]
+    public async Task ALinkedAccountNotInTheServerIsSkipped_AndCounted()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_away", "5002", inGroup: [], inServer: null, ct: Ct);
+
+        var plan = await PlanAsync(services, pairingId);
+
+        Assert.Equal(1, plan.NotInServer);
+        Assert.Empty(plan.Changes);
+    }
+
+    // ── Only what it gave ──────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Design §3: leaving the list takes the role from somebody the pairing gave it to, and never
+    /// from somebody who was given it by hand.
+    /// </summary>
+    [Fact]
+    public async Task OnlyARoleThePairingGaveIsTakenAway()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        await SyncSetUp.LinkAsync(services, "usr_given", "5001", inGroup: [], inServer: [], ct: Ct);
+        await SyncSetUp.UnlinkedMemberAsync(services, "5003", [Regular], Ct);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+        await SyncSetUp.SetServerRolesAsync(services, "5001", [Regular], Ct);
+
+        await LeaveGroupAsync(services, "usr_given");
+        gateway.RoleChanges.Clear();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(1, pass.Taken);
+        var (added, _, userId, _) = Assert.Single(gateway.RoleChanges);
+        Assert.False(added);
+        Assert.Equal("5001", userId);
+
+        Assert.Empty(await GivenAsync(services));
+        Assert.Single(await services.FactsOfTypeAsync(FactType.ListRoleTaken, Ct));
+    }
+
+    [Fact]
+    public async Task SomebodyWhoAlreadyHasTheRoleIsNotWrittenDown()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_has", "5004", inGroup: [], inServer: [Regular], ct: Ct);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Empty(await GivenAsync(services));
+        Assert.Equal(1, (await PlanAsync(services, pairingId)).AlreadyHave);
+    }
+
+    /// <summary>A moderator who takes the role off by hand is not overruled a minute later.</summary>
+    [Fact]
+    public async Task ARoleTakenOffByHandIsNotGivenAgain()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        // The role event came back, and then a moderator took the role off in Discord.
+        await SyncSetUp.SetServerRolesAsync(services, "5001", [Regular], Ct);
+        await SyncSetUp.SetServerRolesAsync(services, "5001", [], Ct);
+
+        gateway.RoleChanges.Clear();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Equal(1, (await PlanAsync(services, pairingId)).TakenByHand);
+    }
+
+    [Fact]
+    public async Task SomebodyWhoLeftTheServerIsForgotten_WithNothingSent()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await GivenRowAsync(services, pairingId, "5005");
+
+        var gateway = new FakeGateway();
+        await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Empty(await GivenAsync(services));
+    }
+
+    // ── Which roles ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A role that gained a staff permission after it was paired stops being given.</summary>
+    [Fact]
+    public async Task ARoleWithAStaffPermissionIsNeverGiven()
+    {
+        await using var setup = await SetUpAsync(permissions: Community | (1L << 2));
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_in", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Contains("Ban Members", pass.Problem, StringComparison.Ordinal);
+        Assert.Contains("Ban Members", (await PairingAsync(services, pairingId)).Problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A list that cannot be answered is never read as "nobody", which would take the role from
+    /// everybody it was given to.
+    /// </summary>
+    [Fact]
+    public async Task AListThatCannotBeAnsweredChangesNothing()
+    {
+        await using var setup = await SetUpAsync(
+            rules: """{"kind":"allOf","rules":[{"kind":"notSeenWithinDays","amount":30}]}""",
+            settings: s => s.PresenceFactRetentionDays = 90);
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.UnlinkedMemberAsync(services, "5006", [Regular], Ct);
+        await GivenRowAsync(services, pairingId, "5006");
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.NotNull(pass.Problem);
+        Assert.Single(await GivenAsync(services));
+    }
+
+    // ── The brake ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Design §5: taking the role from most of its holders at once stops the pairing, says so once,
+    /// and waits; Apply allows that many, and the next pass carries on.
+    /// </summary>
+    [Fact]
+    public async Task ManyRemovalsAtOnceStop_UntilApplyAllowsThem()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+
+        foreach (var id in new[] { "5101", "5102", "5103", "5104" })
+        {
+            await SyncSetUp.UnlinkedMemberAsync(services, id, [Regular], Ct);
+            await GivenRowAsync(services, pairingId, id);
+        }
+
+        // Somebody new in the list is not given the role while the pairing is stopped either.
+        await SyncSetUp.LinkAsync(services, "usr_new", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        var first = await PassAsync(services, gateway);
+        var second = await PassAsync(services, gateway);
+
+        Assert.Equal(1, first.Stopped);
+        Assert.Equal(1, second.Stopped);
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Single(await services.FactsOfTypeAsync(FactType.ListRoleStopped, Ct));
+
+        var stopped = await PairingAsync(services, pairingId);
+        Assert.NotNull(stopped.StoppedAt);
+        Assert.Equal(4, stopped.StoppedTaking);
+
+        // What Apply writes: the removals somebody looked at.
+        await using (var db = services.Database.NewContext())
+            await db.DiscordListRoles.Where(p => p.Id == pairingId).ExecuteUpdateAsync(u => u.SetProperty(p => p.RemovalsAllowed, 4), Ct);
+
+        var applied = await PassAsync(services, gateway);
+
+        Assert.Equal(4, applied.Taken);
+        Assert.Equal(1, applied.Given);
+        Assert.Equal(0, applied.Stopped);
+        Assert.Null((await PairingAsync(services, pairingId)).StoppedAt);
+    }
+
+    [Fact]
+    public async Task MoreRemovalsThanApplyAllowedStopAgain()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+
+        foreach (var id in new[] { "5101", "5102", "5103", "5104" })
+        {
+            await SyncSetUp.UnlinkedMemberAsync(services, id, [Regular], Ct);
+            await GivenRowAsync(services, pairingId, id);
+        }
+
+        await using (var db = services.Database.NewContext())
+            await db.DiscordListRoles.Where(p => p.Id == pairingId).ExecuteUpdateAsync(u => u.SetProperty(p => p.RemovalsAllowed, 3), Ct);
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(1, pass.Stopped);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    /// <summary>A few people drifting out of a big role is normal and is not braked.</summary>
+    [Fact]
+    public async Task AFewRemovalsFromABigRoleGoThrough()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+
+        for (var i = 0; i < 10; i++)
+            await SyncSetUp.LinkAsync(services, $"usr_stay{i}", $"52{i:00}", inGroup: [], inServer: [Regular], ct: Ct);
+
+        await SyncSetUp.UnlinkedMemberAsync(services, "5301", [Regular], Ct);
+        await GivenRowAsync(services, pairingId, "5301");
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(0, pass.Stopped);
+        Assert.Equal(1, pass.Taken);
+    }
+
+    // ── The preview ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>The preview is the pass's own plan: what it lists is what the pass does.</summary>
+    [Fact]
+    public async Task ThePreviewListsWhatThePassDoes()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_a", "5001", inGroup: [], inServer: [], ct: Ct);
+        await SyncSetUp.LinkAsync(services, "usr_b", "5002", inGroup: [], inServer: [], ct: Ct);
+        await SyncSetUp.UnlinkedMemberAsync(services, "5003", [Regular], Ct);
+        await GivenRowAsync(services, pairingId, "5003");
+
+        var plan = await PlanAsync(services, pairingId);
+
+        // Nothing was sent or written by looking.
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.ListRoleGiven, Ct));
+        Assert.Single(await GivenAsync(services));
+
+        var gateway = new FakeGateway();
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal(plan.Giving, pass.Given);
+        Assert.Equal(plan.Taking, pass.Taken);
+        Assert.Equal(
+            plan.Changes.Select(c => (c.What == ListRoleChangeKinds.Give, c.DiscordUserId)).Order(),
+            gateway.RoleChanges.Select(c => (c.Added, c.UserId)).Order());
+    }
+
+    /// <summary>A pairing not saved yet has given nothing, so its preview only gives.</summary>
+    [Fact]
+    public async Task ANewPairingsPreviewOnlyGives()
+    {
+        await using var setup = await SetUpAsync();
+        var services = setup.Services;
+        var listId = setup.ListId;
+        var pairingId = setup.PairingId;
+        await SyncSetUp.LinkAsync(services, "usr_a", "5001", inGroup: [], inServer: [], ct: Ct);
+
+        await using (var db = services.Database.NewContext())
+            await db.DiscordListRoles.Where(p => p.Id == pairingId).ExecuteDeleteAsync(Ct);
+
+        using var scope = services.Scope();
+        var plan = await scope.ServiceProvider.GetRequiredService<ListRolePlanner>().PlanNewAsync(listId, Regular, Ct);
+
+        Assert.Null(plan.Problem);
+        Assert.Equal(1, plan.Giving);
+        Assert.Equal(0, plan.Taking);
+    }
+}

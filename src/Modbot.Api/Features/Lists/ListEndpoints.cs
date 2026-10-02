@@ -46,6 +46,12 @@ public static class ListEndpoints
     /// <summary>What seeing a list, who is in it, or an export of it needs.</summary>
     public const ModbotPermissions ToSee = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
 
+    /// <summary>
+    /// What setting up a Discord role from a list needs: the Discord settings tab it lives on, and
+    /// the role pairs' own permission (roles from lists design §9).
+    /// </summary>
+    public const ModbotPermissions ToGiveRoles = ModbotPermissions.ManageSettings | ModbotPermissions.ManageDiscordSync;
+
     public const int DefaultPageSize = 50;
 
     public const int MaxPageSize = 200;
@@ -66,9 +72,12 @@ public static class ListEndpoints
                     .OrderBy(l => l.Name)
                     .ToListAsync(ct);
 
+                var held = ModbotAuth.PermissionsOf(http.User);
+
                 return Results.Ok(new ListsView(
                     await ViewsAsync(db, lists, ct),
-                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageLists)));
+                    ModbotAuth.Allows(held, ModbotPermissions.ManageLists),
+                    ModbotAuth.Allows(held, ToGiveRoles)));
             })
             .RequiresFlag(ToSee)
             .WithName("ListLists")
@@ -270,7 +279,8 @@ public static class ListEndpoints
             .WithSummary("Update list")
             .WithDescription(
                 "Change a list's name or rules. A list a giveaway still being run names needs Run "
-                + "giveaways as well; one auto-invites names needs Set up auto-invites.")
+                + "giveaways as well; one auto-invites names needs Set up auto-invites; one a Discord "
+                + "role is given from needs Manage role and ban sync.")
             .Produces<ListView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -312,8 +322,8 @@ public static class ListEndpoints
             .WithName("DeleteList")
             .WithSummary("Delete list")
             .WithDescription(
-                "Delete a list. Refused while a giveaway still being run, auto-invites, or an event still "
-                + "being run names it.")
+                "Delete a list. Refused while a giveaway still being run, auto-invites, an event still "
+                + "being run, or a Discord role given from the list names it.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -452,6 +462,15 @@ public static class ListEndpoints
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
+        // Changing a list a Discord role is given from changes who holds the role (roles from lists
+        // design §9), so it takes the role pairs' permission.
+        if (use.DiscordRoles.Count > 0 && !ModbotAuth.Allows(held, ModbotPermissions.ManageDiscordSync))
+        {
+            return Results.Json(
+                new { error = $"The Discord role “{use.DiscordRoles[0]}” is given from this list. Changing it needs Manage role and ban sync." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
         return null;
     }
 
@@ -466,6 +485,13 @@ public static class ListEndpoints
 
         if (use.AutoInvites)
             return "Auto-invites use this list.";
+
+        if (use.DiscordRoles.Count > 0)
+        {
+            return use.DiscordRoles.Count == 1
+                ? $"The Discord role “{use.DiscordRoles[0]}” is given from this list."
+                : $"The Discord roles “{use.DiscordRoles[0]}” and {use.DiscordRoles.Count - 1} more are given from this list.";
+        }
 
         return use.Events.Count == 1
             ? $"The event “{use.Events[0]}” invites this list."
@@ -531,7 +557,7 @@ public static class ListEndpoints
                 list.CreatedByUserId is { } by && names.TryGetValue(by, out var username) ? username : null,
                 list.CreatedAt,
                 list.UpdatedAt,
-                new ListUseView(use.Giveaways, use.AutoInvites, use.Events));
+                new ListUseView(use.Giveaways, use.AutoInvites, use.Events, use.DiscordRoles));
         })];
     }
 

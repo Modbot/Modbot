@@ -189,6 +189,12 @@ public static class AuditVisibility
         [FactType.CopyFailed] = AuditCategory.Operational,
         [FactType.RolesDisagree] = AuditCategory.Operational,
 
+        // A role a list gave or took is a role change, member history like a copied one. A pairing
+        // that stopped is about the setup, not about anybody.
+        [FactType.ListRoleGiven] = AuditCategory.Moderation,
+        [FactType.ListRoleTaken] = AuditCategory.Moderation,
+        [FactType.ListRoleStopped] = AuditCategory.Operational,
+
         // Auth and config: spec 5.9.2's first two rows, and the reason the split exists.
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,

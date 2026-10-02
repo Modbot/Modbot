@@ -293,8 +293,9 @@ public enum ModbotPermissions : long
     // Bits 31 to 34 belong to work landing alongside this; these two are 35 and 36.
 
     /// <summary>
-    /// Pair VRChat group roles with Discord roles, say which side decides each pair, and switch
-    /// each direction of ban sync on and off. Includes seeing what a sync would do.
+    /// Pair VRChat group roles with Discord roles, say which side decides each pair, give Discord
+    /// roles from saved lists, and switch each direction of ban sync on and off. Includes seeing
+    /// what a sync would do.
     /// </summary>
     /// <remarks>
     /// Its own flag rather than part of <see cref="ManageSettings"/>. Everything else under
@@ -305,7 +306,8 @@ public enum ModbotPermissions : long
     ManageDiscordSync = 1L << 35,
 
     /// <summary>
-    /// Run a sync now, including copying the bans and roles that are already different.
+    /// Run a sync now, including copying the bans and roles that are already different, and let a
+    /// list that stopped carry on taking its Discord role from many people at once.
     /// </summary>
     /// <remarks>
     /// Separate from <see cref="ManageDiscordSync"/> because the first run against an established

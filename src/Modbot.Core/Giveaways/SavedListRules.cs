@@ -10,9 +10,17 @@ namespace Modbot.Core.Giveaways;
 /// <param name="Events">
 /// The titles of events still being run that invite the list (calendar auto-invite design §9).
 /// </param>
-public sealed record SavedListUse(IReadOnlyList<string> Giveaways, bool AutoInvites, IReadOnlyList<string> Events)
+/// <param name="DiscordRoles">
+/// The names of the Discord roles the list gives (roles from lists design §9), switched on or not:
+/// a pairing switched off still names the list.
+/// </param>
+public sealed record SavedListUse(
+    IReadOnlyList<string> Giveaways,
+    bool AutoInvites,
+    IReadOnlyList<string> Events,
+    IReadOnlyList<string> DiscordRoles)
 {
-    public bool Any => Giveaways.Count > 0 || AutoInvites || Events.Count > 0;
+    public bool Any => Giveaways.Count > 0 || AutoInvites || Events.Count > 0 || DiscordRoles.Count > 0;
 }
 
 /// <summary>
@@ -146,8 +154,8 @@ public static class SavedListRules
     }
 
     /// <summary>
-    /// What would change if this list changed: the giveaways still being run that name it, and
-    /// auto-invites.
+    /// What would change if this list changed: the giveaways still being run that name it,
+    /// auto-invites, events that invite it, and the Discord roles it gives.
     /// </summary>
     /// <remarks>
     /// A drawn or cancelled giveaway is left out. A draw keeps its own copy of the rules with every
@@ -160,7 +168,7 @@ public static class SavedListRules
     }
 
     /// <summary>A list nothing names.</summary>
-    public static SavedListUse Unused { get; } = new([], false, []);
+    public static SavedListUse Unused { get; } = new([], false, [], []);
 
     /// <summary><see cref="UseOfAsync"/> for every list at once, by id. A list nothing names is left out.</summary>
     public static async Task<Dictionary<string, SavedListUse>> UsesAsync(ModbotContext db, CancellationToken ct)
@@ -210,14 +218,32 @@ public static class SavedListRules
             .GroupBy(e => e.ListId.ToString("D"), StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Select(e => e.Title).ToList(), StringComparer.Ordinal);
 
-        return giveaways.Keys.Concat(invited).Concat(events.Keys)
+        // Discord roles a list gives. The live name from the server's role list where there is
+        // one, else the name kept when the pairing was saved.
+        var roleRows = await db.DiscordListRoles.AsNoTracking()
+            .OrderBy(p => p.CreatedAt)
+            .Select(p => new
+            {
+                p.ListId,
+                Name = db.DiscordRoles.Where(r => r.RoleId == p.DiscordRoleId).Select(r => r.Name).FirstOrDefault()
+                       ?? p.DiscordRoleName
+                       ?? p.DiscordRoleId,
+            })
+            .ToListAsync(ct);
+
+        var roles = roleRows
+            .GroupBy(r => r.ListId.ToString("D"), StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.Name).ToList(), StringComparer.Ordinal);
+
+        return giveaways.Keys.Concat(invited).Concat(events.Keys).Concat(roles.Keys)
             .Distinct(StringComparer.Ordinal)
             .ToDictionary(
                 id => id,
                 id => new SavedListUse(
                     giveaways.GetValueOrDefault(id) ?? [],
                     invited.Contains(id),
-                    events.GetValueOrDefault(id) ?? []),
+                    events.GetValueOrDefault(id) ?? [],
+                    roles.GetValueOrDefault(id) ?? []),
                 StringComparer.Ordinal);
     }
 

@@ -8,6 +8,8 @@ export type ListUse = {
   autoInvites: boolean
   /** Titles of events still being run that invite the list. */
   events?: string[] | null
+  /** Names of the Discord roles the list gives. */
+  discordRoles?: string[] | null
 }
 
 /** A saved list: a name and the rules that decide who is in it (lists design). */
@@ -25,6 +27,8 @@ export type SavedList = {
 export type SavedLists = {
   lists: SavedList[]
   canManage: boolean
+  /** May set up a Discord role from a list (Settings → Discord). */
+  canGiveRoles?: boolean
 }
 
 export type ListPerson = {

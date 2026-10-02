@@ -206,6 +206,12 @@ public class DiscordSyncState
     /// <summary>The last thing ban sync could not do, as a sentence.</summary>
     public string? BansProblem { get; set; }
 
+    /// <summary>When the roles from lists pass last ran.</summary>
+    public DateTimeOffset? ListRolesRanAt { get; set; }
+
+    /// <summary>The last thing the roles from lists pass could not do, as a sentence.</summary>
+    public string? ListRolesProblem { get; set; }
+
     public DateTimeOffset? RolesRanAt { get; set; }
 
     /// <summary>The last thing role sync could not do, as a sentence.</summary>

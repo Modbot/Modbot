@@ -208,6 +208,9 @@ public static class FactLabels
         [FactType.ListChanged] = "List changed",
         [FactType.ListDeleted] = "List deleted",
         [FactType.ListExported] = "List exported",
+        [FactType.ListRoleGiven] = "Discord role given for a list",
+        [FactType.ListRoleTaken] = "Discord role taken away for a list",
+        [FactType.ListRoleStopped] = "Role from a list stopped",
 
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
         [FactType.ReviewOpened] = "Review opened",

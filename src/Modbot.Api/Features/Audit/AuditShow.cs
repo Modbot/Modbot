@@ -116,9 +116,11 @@ public static class AuditShow
             Presence => PresenceTypes.Contains(type),
             // Everything Discord's own log and the bot recorded, and every copy Modbot made between
             // the two platforms, whichever way it went: the copies are how a Discord ban follows a
-            // VRChat one, and a Discord history without them reads as bans from nowhere.
+            // VRChat one, and a Discord history without them reads as bans from nowhere. Roles a
+            // list gave are here for the same reason.
             Discord => type.StartsWith("discord.", StringComparison.Ordinal)
                 || type.StartsWith("modbot.copy.", StringComparison.Ordinal)
+                || type.StartsWith("modbot.list.role.", StringComparison.Ordinal)
                 || type == FactType.DiscordCommandRun,
             _ => true,
         };

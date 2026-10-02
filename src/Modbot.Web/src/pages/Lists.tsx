@@ -18,7 +18,7 @@ import type { GiveawayBuilder, GiveawayRule } from '@/lib/giveaways'
 import { usePageState } from '@/lib/listPage'
 import { listApi, type ListPeople, type ListPerson, type SavedList, type SavedLists } from '@/lib/lists'
 import { EXPORT_FORMATS, EXPORT_LABEL, countWords, peopleWords, type ExportFormat } from '@/lib/listWords'
-import { useLocation } from '@/lib/router'
+import { go, useLocation } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -112,6 +112,7 @@ export function Lists() {
         <ListDialog
           list={opened}
           canManage={data.canManage}
+          canGiveRoles={data.canGiveRoles ?? false}
           onClose={() => setOpenId(null)}
           onEdit={() => {
             setEditing(opened)
@@ -191,6 +192,11 @@ function UseBadges({ use }: { use: SavedList['usedBy'] }) {
           Event: {title}
         </Badge>
       ))}
+      {(use.discordRoles ?? []).map((name, i) => (
+        <Badge key={`role:${i}`} variant="secondary">
+          Discord role: {name}
+        </Badge>
+      ))}
     </span>
   )
 }
@@ -199,12 +205,14 @@ function UseBadges({ use }: { use: SavedList['usedBy'] }) {
 function ListDialog({
   list,
   canManage,
+  canGiveRoles,
   onClose,
   onEdit,
   onDeleted,
 }: {
   list: SavedList
   canManage: boolean
+  canGiveRoles: boolean
   onClose: () => void
   onEdit: () => void
   onDeleted: () => void
@@ -234,7 +242,11 @@ function ListDialog({
     }
   }, [list.id, list.updatedAt, at.page, attempt])
 
-  const inUse = list.usedBy.giveaways.length > 0 || list.usedBy.autoInvites || (list.usedBy.events ?? []).length > 0
+  const inUse =
+    list.usedBy.giveaways.length > 0 ||
+    list.usedBy.autoInvites ||
+    (list.usedBy.events ?? []).length > 0 ||
+    (list.usedBy.discordRoles ?? []).length > 0
 
   return (
     <>
@@ -253,6 +265,11 @@ function ListDialog({
               {canManage && (
                 <Button size="sm" variant="outline" onClick={onEdit}>
                   Edit
+                </Button>
+              )}
+              {canGiveRoles && (
+                <Button size="sm" variant="outline" onClick={() => go(`/settings#discord/lists/${encodeURIComponent(list.id)}`)}>
+                  Give a Discord role
                 </Button>
               )}
               <Button

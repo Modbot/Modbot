@@ -32,6 +32,7 @@ public class ListEndpointTests(PostgresFixture db)
         {
             // Lists are read across the whole table, and who is in one across every member, so
             // another suite's leftovers would change the answers here.
+            await context.DiscordListRoles.ExecuteDeleteAsync(Ct);
             await context.SavedLists.ExecuteDeleteAsync(Ct);
             await context.Giveaways.ExecuteDeleteAsync(Ct);
             await context.DiscordAccountLinks.ExecuteDeleteAsync(Ct);

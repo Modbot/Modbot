@@ -500,6 +500,13 @@ public class Settings
     /// </remarks>
     public string DiscordBanCopyAction { get; set; } = DiscordBanCopyActions.Ban;
 
+    /// <summary>
+    /// Whether saved lists give their paired Discord roles (roles from lists design §5). Off by
+    /// default: off gives and takes nothing, while the preview still answers, because seeing what
+    /// would happen is how somebody decides to turn it on.
+    /// </summary>
+    public bool DiscordListRolesOn { get; set; }
+
     // --- Webhooks (API keys design §6.7) ---
 
     /// <summary>

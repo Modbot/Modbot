@@ -188,6 +188,7 @@ public sealed class ApiTestHost : IAsyncDisposable
         // AddModbotAnalytics.
         builder.Services.AddScoped<Modbot.Analytics.Giveaways.GiveawayRuleChecker>();
         builder.Services.AddScoped<Modbot.Analytics.Giveaways.GiveawayDrawer>();
+        builder.Services.AddScoped<Modbot.Analytics.Lists.ListRolePlanner>();
 
         // The one writer of vrchat_user rows, without the hosted sync that would drain its queue:
         // linking a VRChat account records the fetched profile as a sighting, and the test host

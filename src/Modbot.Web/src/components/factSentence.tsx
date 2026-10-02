@@ -1679,6 +1679,33 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // A Discord role a saved list gave or took (roles from lists design §7).
+  'modbot.list.role.give': (p) => (
+    <>
+      Modbot gave {p.subject} {named(p.text('roleName'), 'Discord role')}, because they are in the list
+      <Quoted value={p.text('listName')} />.
+    </>
+  ),
+
+  'modbot.list.role.take': (p) => (
+    <>
+      Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject}, because they are no longer in the
+      list<Quoted value={p.text('listName')} />.
+    </>
+  ),
+
+  'modbot.list.role.stop': (p) => {
+    const taking = p.entry.data?.['taking']
+
+    return (
+      <>
+        Modbot stopped giving {named(p.text('roleName'), 'Discord role')} from the list
+        <Quoted value={p.text('listName')} />
+        {typeof taking === 'number' ? <>: it would take it from {taking.toLocaleString()} people at once</> : null}.
+      </>
+    )
+  },
+
   // The payload names the format and the count, never the people in the file.
   'modbot.list.export': (p) => {
     const count = p.entry.data?.['count']

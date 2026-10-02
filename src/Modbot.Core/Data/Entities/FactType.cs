@@ -725,6 +725,27 @@ public static class FactType
     /// </summary>
     public const string ListExported = "modbot.list.export";
 
+    // ── Discord roles from saved lists (roles from lists design §7) ────────────────────────
+    //
+    // Modbot gave or took a Discord role because somebody joined or left a list paired with it.
+    // The subject is the Discord account; there is no actor, because nobody pressed anything at
+    // that moment. The payload names the list and the role by id and name, and the linked VRChat
+    // account when there is one -- never a display name. Moderation retention: a role change is
+    // membership history.
+
+    /// <summary>Given a Discord role because they are in the list paired with it.</summary>
+    public const string ListRoleGiven = "modbot.list.role.give";
+
+    /// <summary>A Discord role this pairing gave was taken away, because they are no longer in the list.</summary>
+    public const string ListRoleTaken = "modbot.list.role.take";
+
+    /// <summary>
+    /// A pairing stopped because a pass would take its role from too many people at once, and waits
+    /// for somebody to press Apply. Subject is the pairing's id on the Modbot platform. Payload: the
+    /// list and role names and how many it would take. Said once when it stops.
+    /// </summary>
+    public const string ListRoleStopped = "modbot.list.role.stop";
+
     // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────
     //
     // The subject is the moderator being reviewed, on the VRChat platform, because the review is

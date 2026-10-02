@@ -281,6 +281,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>What Modbot copied from one platform to the other, and how the loop is broken (M5 §4.2).</summary>
     public DbSet<CopiedAction> CopiedActions => Set<CopiedAction>();
 
+    /// <summary>Saved lists paired with Discord roles (roles from lists design).</summary>
+    public DbSet<DiscordListRole> DiscordListRoles => Set<DiscordListRole>();
+
+    /// <summary>Who each list pairing gave its role to, and has not taken back (roles from lists design §3).</summary>
+    public DbSet<DiscordListRoleGiven> DiscordListRolesGiven => Set<DiscordListRoleGiven>();
+
     /// <summary>How far the role and ban sync have got. One row.</summary>
     public DbSet<DiscordSyncState> DiscordSyncState => Set<DiscordSyncState>();
 
@@ -1508,6 +1514,46 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<DiscordListRole>(entity =>
+        {
+            entity.ToTable("discord_list_role");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.Problem).HasMaxLength(1000);
+
+            // One list per Discord role: two lists giving one role would take away what the other
+            // gives, every minute (roles from lists design §4).
+            entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_list_role_role");
+            entity.HasIndex(e => e.ListId).HasDatabaseName("ix_discord_list_role_list");
+
+            // Lists are only ever soft-deleted, and one a pairing uses cannot be deleted at all.
+            entity.HasOne<SavedList>()
+                .WithMany()
+                .HasForeignKey(e => e.ListId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<DiscordListRoleGiven>(entity =>
+        {
+            entity.ToTable("discord_list_role_given");
+            entity.HasKey(e => new { e.ListRoleId, e.DiscordUserId });
+
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnName("vrchat_user_id").HasColumnType("text");
+
+            // Removing a pairing forgets what it gave; the roles stay in Discord.
+            entity.HasOne<DiscordListRole>()
+                .WithMany()
+                .HasForeignKey(e => e.ListRoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // What an erase has to find again.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_discord_list_role_given_discord");
+            entity.HasIndex(e => e.VRChatUserId).HasDatabaseName("ix_discord_list_role_given_vrchat");
+        });
+
         builder.Entity<CopiedAction>(entity =>
         {
             entity.ToTable("discord_copied_action");
@@ -1543,6 +1589,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.BansProblem).HasMaxLength(1000);
             entity.Property(e => e.RolesProblem).HasMaxLength(1000);
             entity.Property(e => e.StaffRolesProblem).HasMaxLength(1000);
+            entity.Property(e => e.ListRolesProblem).HasMaxLength(1000);
         });
 
         builder.Entity<Insight>(entity =>

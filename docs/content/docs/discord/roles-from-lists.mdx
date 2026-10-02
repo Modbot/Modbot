@@ -1,0 +1,134 @@
+---
+title: Roles from lists
+description: Give a Discord role to everybody in a saved list, such as @Regular for "visited 5 or more times", and take it away again when they leave the list.
+---
+
+Pair a [saved list](/moderation/lists) with a Discord role, and everybody in the list who is in your
+Discord server gets the role. When somebody stops being in the list, Modbot takes the role away
+again. "Visited 5 or more times" can give **@Regular**; "18+ on VRChat" can give **@18+**.
+
+## What Modbot changes in Discord
+
+One thing: whether a member holds a role you paired here. Modbot gives it, and takes it away, and
+nothing else. No other role, no nickname, no message.
+
+- **It only takes away a role it gave.** Modbot writes down everybody it gives the role to. Somebody
+  who already had the role, or was given it by hand, keeps it whatever the list says.
+- **It does not fight your moderators.** If somebody takes the role off a member by hand, Modbot
+  does not give it back while they are still in the list.
+- **Each change says why in Discord's audit log**: `Modbot: in the list “Regulars”` or
+  `Modbot: no longer in the list “Regulars”`.
+- **Everything is off until you switch it on**, and each list's role has its own switch too.
+
+## Who gets the role
+
+A Discord role can only go to somebody in your Discord server. A list can hold VRChat accounts,
+Discord members, or both:
+
+| Somebody in the list who is | Gets the role? |
+| --- | --- |
+| In your Discord server | Yes |
+| A VRChat account with no [linked](/discord/account-linking) Discord account | No |
+| Linked, but not in your Discord server | No |
+
+**Show who would change** counts the last two as **No linked Discord** and **Not in the server**.
+Somebody who unlinks their accounts is no longer in a list that asks about their VRChat account, and
+loses the role the next minute.
+
+## Which roles a list can give
+
+Lists are for community roles. A list cannot give:
+
+- **@everyone**, or a role that belongs to a bot or an integration;
+- a role the bot cannot give: it needs **Manage Roles**, and its own role above that one;
+- a role with any staff permission: Administrator, Manage Server, Manage Roles, Manage Channels,
+  Manage Messages, Ban Members, Kick Members, Timeout Members, Mention @everyone, @here and All
+  Roles, Manage Webhooks, Manage Nicknames, Manage Threads, Manage Events, Manage Expressions, View
+  Audit Log, Mute Members, Deafen Members or Move Members;
+- a role something else already gives: a role paired with a group role in
+  [role sync](/discord/role-and-ban-sync), the linked role and the 18+ role from
+  [account linking](/discord/account-linking), or a role another list gives.
+
+If somebody adds a staff permission to a role after you paired it, Modbot stops giving it and says
+why on the card.
+
+## Before you start
+
+| To do this | You need |
+| --- | --- |
+| Set it up, switch it on and off | **Manage role and ban sync** and **Manage settings** |
+| See who would change | **See members** and **See profiles** as well |
+| **Apply**, when a list stopped | **Run role and ban sync**, with **See members** and **See profiles** |
+
+## Give a role from a list
+
+**Settings → Discord → Roles from lists**. From a list, **Give a Discord role** opens the same card
+with the list picked.
+
+<Steps>
+
+<Step>
+
+### Pick the list and the role
+
+Pick a **List** and a **Discord role**.
+
+</Step>
+
+<Step>
+
+### Look first
+
+**Show who would change** lists everybody who would be given the role, and counts who already has it
+and who cannot get it. Nothing changes. **Give this role** appears once you have looked.
+
+</Step>
+
+<Step>
+
+### Switch it on
+
+Switch on **Give roles from lists**. The first time, **Save** becomes **Show who would change**:
+it lists what every list's role would do, then **Turn on** makes it happen. Modbot checks once a
+minute from then on, and changes at most 50 roles a minute.
+
+</Step>
+
+</Steps>
+
+## When a list would take the role from many people
+
+If one check would take the role from more than 25 people at once, or from more than half of the
+people who hold it, Modbot changes nothing for that list and the card says **Stopped**. That usually
+means the list's rules changed, or something went wrong: it is a chance to look before anybody
+loses a role.
+
+Press **Show who would change** on that list, read who would lose the role, then press **Apply**.
+Modbot carries on, taking the role from the people you saw. If more people would lose it than you
+saw, Apply is refused; look again.
+
+Giving the role is never stopped this way. Look before you switch a list's role on.
+
+## Removing one, or switching it off
+
+Switching a list's role off, or removing it, takes nothing away. Everybody keeps the role they have.
+Once it is removed, Modbot forgets who it gave the role to, so it will never take those away.
+
+A list that gives a role cannot be deleted, and changing its rules needs **Manage role and ban sync**
+as well as **Manage lists**, because changing the list changes who holds the role.
+
+## Erasing somebody
+
+[Erasing a person](/moderation/purge) also erases Modbot's note that it gave them the role. The role
+stays with them in Discord, and Modbot will not take it away. Remove it in Discord if you want it
+gone.
+
+## What goes in the audit log
+
+| Entry | When |
+| --- | --- |
+| **Discord role given for a list** | Modbot gave somebody the role. Names the list and the role. |
+| **Discord role taken away for a list** | Modbot took it away, because they left the list. |
+| **Role from a list stopped** | A list would have taken its role from many people at once, and is waiting for **Apply**. Operational log. |
+
+Setting up, switching on and off, removing and **Apply** are settings changes, with who did them.

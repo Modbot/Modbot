@@ -428,6 +428,9 @@ public static class ApiSurface
         // Which Discord roles give which Modbot roles (staff roles from Discord design).
         app.MapStaffRoles();
 
+        // Which saved list gives which Discord role (roles from lists design).
+        app.MapListRoles();
+
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the
         // producers still starts and still answers -- it reports that nothing is syncing here

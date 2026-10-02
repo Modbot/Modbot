@@ -216,6 +216,11 @@ public static class DiscordSyncEndpoints
                     return Results.BadRequest(new { error = LinkedBothWays });
                 }
 
+                // A list giving the same role would undo what the pair decides every minute (roles
+                // from lists design §4).
+                if (await db.DiscordListRoles.AsNoTracking().AnyAsync(p => p.DiscordRoleId == discordRoleId, ct))
+                    return Results.BadRequest(new { error = "A list already gives that Discord role." });
+
                 var now = clock.UtcNow;
 
                 var pair = new DiscordRolePair
@@ -285,6 +290,11 @@ public static class DiscordSyncEndpoints
                 {
                     return Results.BadRequest(new { error = LinkedBothWays });
                 }
+
+                // A list giving the same role would undo what the pair decides every minute (roles
+                // from lists design §4).
+                if (await db.DiscordListRoles.AsNoTracking().AnyAsync(p => p.DiscordRoleId == discordRoleId, ct))
+                    return Results.BadRequest(new { error = "A list already gives that Discord role." });
 
                 var pairBefore = Describe(pair);
 

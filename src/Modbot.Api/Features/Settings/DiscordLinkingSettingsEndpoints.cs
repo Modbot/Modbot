@@ -116,6 +116,11 @@ public static class DiscordLinkingSettingsEndpoints
 
                     if (role is { BotCanAssign: false })
                         return Results.BadRequest(new { error = $"The bot cannot assign {role.Name}." });
+
+                    // A list giving the same role would take it from linked members who are not in
+                    // the list (roles from lists design §4).
+                    if (await db.DiscordListRoles.AsNoTracking().AnyAsync(p => p.DiscordRoleId == roleId, ct))
+                        return Results.BadRequest(new { error = $"A list already gives {role?.Name ?? "that role"}." });
                 }
 
                 var newSecret = Blank(body.ClientSecret);

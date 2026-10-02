@@ -8,8 +8,8 @@ using Serilog;
 namespace Modbot.Discord.Sync;
 
 /// <summary>
-/// Runs the role and ban sync passes, and the staff role pass, once a minute while the bot has a
-/// ready session.
+/// Runs the role and ban sync passes, the staff role pass, and the roles from lists pass, once a
+/// minute while the bot has a ready session.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -80,6 +80,16 @@ public sealed class DiscordSyncService : BackgroundService
 
                     if (rolePass.Problem is { } roleProblem)
                         _status.Problem($"Could not change a paired role: {roleProblem}", _clock.UtcNow);
+
+                    // Its own switch; while it is off the pass reads one settings row and stops.
+                    var lists = scope.ServiceProvider.GetRequiredService<ListRoleSync>();
+                    var listPass = await lists.RunAsync(gateway, stoppingToken).ConfigureAwait(false);
+
+                    if (listPass.Given + listPass.Taken > 0)
+                        _log.Information("Gave {Given} and took away {Taken} Discord roles from lists", listPass.Given, listPass.Taken);
+
+                    if (listPass.Problem is { } listProblem)
+                        _status.Problem($"Roles from lists: {listProblem}", _clock.UtcNow);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

@@ -17,7 +17,12 @@ public sealed record ListExportRequest(string? Format);
 /// <param name="Giveaways">Giveaways still being run that name the list among their rules.</param>
 /// <param name="AutoInvites">Auto-invites name the list among their rules.</param>
 /// <param name="Events">Titles of events still being run that invite the list.</param>
-public sealed record ListUseView(IReadOnlyList<string> Giveaways, bool AutoInvites, IReadOnlyList<string>? Events = null);
+/// <param name="DiscordRoles">Names of the Discord roles the list gives.</param>
+public sealed record ListUseView(
+    IReadOnlyList<string> Giveaways,
+    bool AutoInvites,
+    IReadOnlyList<string>? Events = null,
+    IReadOnlyList<string>? DiscordRoles = null);
 
 /// <param name="RuleLines">The rules in plain words, one line each.</param>
 /// <param name="CreatedBy">The username of the account that made it, while that account exists.</param>
@@ -32,9 +37,11 @@ public sealed record ListView(
     ListUseView UsedBy);
 
 /// <param name="CanManage">Whether the person asking may make, change and delete lists.</param>
+/// <param name="CanGiveRoles">Whether the person asking may set up a Discord role from a list.</param>
 public sealed record ListsView(
     IReadOnlyList<ListView> Lists,
-    bool CanManage);
+    bool CanManage,
+    bool CanGiveRoles = false);
 
 /// <summary>One person in a list.</summary>
 /// <param name="Key">How Modbot names them: <c>vrchat:usr_…</c>, or <c>discord:…</c> with no VRChat account.</param>
