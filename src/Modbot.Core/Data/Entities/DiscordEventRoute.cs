@@ -105,4 +105,31 @@ public class DiscordEventChannel
 
     /// <summary>After a refusal, the channel is not tried again before this.</summary>
     public DateTimeOffset? RetryAt { get; set; }
+
+    // ── The post repeats can still go into (Discord event repeats design) ──────────────────
+    //
+    // Set when the newest message posted here is one card for an event whose repeats are folded
+    // into one post (DiscordEventTypes.FoldsRepeats). Cleared by any other message posted here.
+    // Kept on the row so a restart carries on editing the same message instead of starting a new one.
+
+    /// <summary>The Discord message the next repeat may be written into, or null for none.</summary>
+    public string? RepeatPostId { get; set; }
+
+    /// <summary>The fact type the post is about.</summary>
+    public string? RepeatType { get; set; }
+
+    /// <summary>Who or what the post is about: the fact's subject.</summary>
+    public string? RepeatSubjectId { get; set; }
+
+    /// <summary>Who did it, or null for events nobody did. A repeat must have the same one.</summary>
+    public string? RepeatActorId { get; set; }
+
+    /// <summary>How many events the post stands for.</summary>
+    public int RepeatCount { get; set; }
+
+    /// <summary>When the first of them happened. A repeat goes in only while the post covers less than the window.</summary>
+    public DateTimeOffset? RepeatFirstAt { get; set; }
+
+    /// <summary>When the latest of them happened.</summary>
+    public DateTimeOffset? RepeatLastAt { get; set; }
 }

@@ -26,4 +26,14 @@ public sealed class ModerationLogOptions
     /// messages stays under that without depending on the library's queue to smooth it.
     /// </summary>
     public TimeSpan GapBetweenMessages { get; init; } = TimeSpan.FromMilliseconds(1200);
+
+    /// <summary>
+    /// The longest one post of repeats may cover, from the first to the latest. A change that comes
+    /// later starts a new post, so the channel still shows roughly when things happened: a group
+    /// whose details change every five minutes is one post an hour rather than twelve.
+    /// </summary>
+    public TimeSpan RepeatWindow { get; init; } = DefaultRepeatWindow;
+
+    /// <summary>One hour (Discord event repeats design §3).</summary>
+    public static readonly TimeSpan DefaultRepeatWindow = TimeSpan.FromHours(1);
 }

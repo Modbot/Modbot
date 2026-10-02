@@ -95,6 +95,40 @@ public static class DiscordEventTypes
         return FollowedTypes.GetValueOrDefault(type, type);
     }
 
+    /// <summary>
+    /// Changes to one thing that keep coming: the group's details, a person's profile, a role's
+    /// settings. A repeat of one of these -- same type, same subject, same person who did it -- is
+    /// written into the post before it rather than posted again (Discord event repeats design §2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only types whose subject is the thing that changed. Modbot's own group role and group post
+    /// edits are left out because their subject is the group, so two different roles would read as
+    /// one. Bans, kicks, joins, notes and every other action stay one post each: each of those is
+    /// something a moderator reads a channel for, and a count would hide it.
+    /// </para>
+    /// <para>
+    /// Modbot's own accounts, roles and settings are left out too. Who changed what in Modbot is a
+    /// record people may need to read line by line.
+    /// </para>
+    /// </remarks>
+    private static readonly HashSet<string> RepeatsFolded = new(StringComparer.Ordinal)
+    {
+        FactType.GroupInfoChanged,
+        FactType.GroupProfileChanged,
+        FactType.RoleUpdated,
+        FactType.GroupInstanceUpdated,
+        FactType.CalendarEventSeriesUpdated,
+        FactType.UserProfileChanged,
+        FactType.AvatarChanged,
+        FactType.DiscordMemberNicknameChanged,
+        FactType.DiscordChannelChanged,
+        FactType.DiscordRoleChanged,
+    };
+
+    /// <summary>Whether a repeat of this type goes into the post before it instead of a new one.</summary>
+    public static bool FoldsRepeats(string? type) => type is not null && RepeatsFolded.Contains(type);
+
     /// <summary>Every type a route may name, in <see cref="FactType"/>'s declaration order.</summary>
     public static IReadOnlyList<string> Sendable { get; } = FactType.All
         .Where(t => CanSend(t) && !FollowedTypes.ContainsKey(t))

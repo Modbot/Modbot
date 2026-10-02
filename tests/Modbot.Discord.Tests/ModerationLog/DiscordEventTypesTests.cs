@@ -103,4 +103,27 @@ public class DiscordEventTypesTests
 
         Assert.Equal([FactType.MemberBanned, FactType.RoleRevoked], cleaned);
     }
+
+    [Theory]
+    [InlineData(FactType.GroupInfoChanged)]
+    [InlineData(FactType.UserProfileChanged)]
+    [InlineData(FactType.RoleUpdated)]
+    [InlineData(FactType.DiscordRoleChanged)]
+    [InlineData(FactType.DiscordMemberNicknameChanged)]
+    public void ChangesToOneThing_FoldTheirRepeats(string type)
+        => Assert.True(DiscordEventTypes.FoldsRepeats(type));
+
+    [Theory]
+    [InlineData(FactType.MemberBanned)]
+    [InlineData(FactType.MemberKicked)]
+    [InlineData(FactType.MemberJoined)]
+    [InlineData(FactType.MemberLeft)]
+    [InlineData(FactType.NoteAdded)]
+    [InlineData(FactType.RoleGranted)]
+    [InlineData(FactType.SettingsChanged)]
+    [InlineData(FactType.GroupRoleEdited)]
+    [InlineData(FactType.GroupPostChanged)]
+    [InlineData(null)]
+    public void ActionsAndChangesWhoseSubjectIsTheGroup_AreNeverFolded(string? type)
+        => Assert.False(DiscordEventTypes.FoldsRepeats(type));
 }

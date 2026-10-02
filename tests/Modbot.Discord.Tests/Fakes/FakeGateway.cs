@@ -236,8 +236,8 @@ public sealed class FakeGateway : IDiscordGateway
         => _outcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
 
     /// <summary>Makes the next rewrite fail. Separate queue: posting and editing fail apart.</summary>
-    public void FailNextEdit(string error, bool permanent = false)
-        => _editOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+    public void FailNextEdit(string error, bool permanent = false, bool notFound = false)
+        => _editOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent, notFound));
 
     private readonly Queue<DiscordPostOutcome> _editOutcomes = new();
 

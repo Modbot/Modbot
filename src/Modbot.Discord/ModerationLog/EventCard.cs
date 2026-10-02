@@ -1,5 +1,6 @@
 using System.Text;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 
@@ -107,6 +108,29 @@ public static class EventCard
     /// </summary>
     public static DiscordEmbedContent Plain(ModerationEventView e, CardStyle style, CardPicture picture)
         => Titled(e, style, picture, ModerationEventEmbed.LabelFor(e.Type));
+
+    /// <summary>
+    /// A card that stands for several of the same change: its title says how many, and over how
+    /// long, as in "Group details changed · 12 times in 55m". Everything else is the latest one's.
+    /// </summary>
+    /// <remarks>
+    /// The span is from the first to the latest, which stays true however late the card is read.
+    /// "Last 5m ago" would be wrong a minute after the edit; the card's <c>When</c> already says when
+    /// the latest one happened, in each reader's own clock and kept up to date by Discord.
+    /// </remarks>
+    public static DiscordEmbedContent Repeated(DiscordEmbedContent card, int count, TimeSpan span)
+    {
+        ArgumentNullException.ThrowIfNull(card);
+
+        if (count < 2)
+            return card;
+
+        var suffix = span >= TimeSpan.FromSeconds(1)
+            ? $" · {count} times in {TimeWords.Length(span)}"
+            : $" · {count} times";
+
+        return card with { Title = CardText.Plain(card.Title, 256 - suffix.Length) + suffix };
+    }
 
     // ── The cards ────────────────────────────────────────────────────────────────────────────
 

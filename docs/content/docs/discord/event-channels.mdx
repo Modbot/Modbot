@@ -156,11 +156,30 @@ Modbot looks for new events every few seconds. When many events arrive at once, 
 ten cards in one message and spaces messages out, so it stays within Discord's limits. Events go
 out in the order they happened, and none are skipped.
 
+### Repeats are folded into one post
+
+When the same thing changes again, the bot edits its last post instead of posting a new one. The
+title then says how many times and over how long, for example **Group details changed · 12 times
+in 55m**, and the card shows the latest change and when it happened. This happens only when:
+
+- it is the same kind of change, to the same thing, by the same person (or by nobody, for changes
+  Modbot noticed on its own);
+- the post would cover no more than an hour, from the first change to the latest;
+- the bot's post is still the last message in the channel. If anyone posted after it, the change
+  gets a post of its own, so the channel still reads in order.
+
+The changes that fold this way are **Group details changed**, **Group profile changed**, **Role
+changed**, **Group instance changed**, **Recurring calendar entry changed**, **Profile changed**,
+**Changed avatar**, **Discord nickname changed**, **Discord channel changed** and **Discord role
+changed**. Bans, kicks, joins, leaves, notes and every other action always get a post each. If you
+delete a folded post, the next change starts a new one.
+
 ## What the bot needs in the channel
 
 The bot needs **View Channel**, **Send Messages** and **Embed Links** in each channel it posts
 to. These can be taken away by a channel's or category's own permission settings, even when the
-bot's role has them.
+bot's role has them. To fold repeats into one post it also needs **Read Message History**; without
+it, every repeat is posted on its own.
 
 If Discord refuses a post, that channel waits 30 seconds and tries again from the same event, so
 nothing is lost. Other channels keep posting in the meantime. The **Discord bot** card on the

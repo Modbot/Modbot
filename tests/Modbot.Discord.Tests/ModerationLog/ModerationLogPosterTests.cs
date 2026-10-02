@@ -151,13 +151,16 @@ public class ModerationLogPosterTests
         Assert.Equal(join, (await services.ChannelPlaceAsync(Channel, ct))!.PostedThrough);
     }
 
-    private static Task<long> WriteGroupUpdateAsync(TestServices services, string field, object before, object after, CancellationToken ct)
+    private static Task<long> WriteGroupUpdateAsync(
+        TestServices services, string field, object before, object after, CancellationToken ct, string? actor = null)
         => services.WriteFactAsync(new FactRecord
         {
             Type = FactType.GroupInfoChanged,
             OccurredAt = services.Clock.UtcNow,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = Group,
+            ActorPlatform = actor is null ? null : FactPlatform.VRChat,
+            ActorId = actor,
             Source = FactSource.SyncDiff,
             Data = new System.Text.Json.Nodes.JsonObject
             {
@@ -188,7 +191,9 @@ public class ModerationLogPosterTests
         await RunAsync(services, gateway, ct);
 
         await WriteGroupUpdateAsync(services, "OnlineMemberCount", 260, 263, ct);
-        var last = await WriteGroupUpdateAsync(services, "Rules", "Be kind", "Be kind. No crashers.", ct);
+        // A person's edit, as the audit log records it: somebody did it, so it is not a repeat of
+        // the poll's reading before it and gets a card of its own.
+        var last = await WriteGroupUpdateAsync(services, "Rules", "Be kind", "Be kind. No crashers.", ct, actor: Actor);
 
         var pass = await RunAsync(services, gateway, ct);
 

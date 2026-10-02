@@ -86,6 +86,12 @@ public sealed record ModerationLogPass(
 /// place at the last event that did go out, so nothing is skipped and nothing is repeated, and the
 /// channel is left alone for a while before it is tried again.
 /// </para>
+/// <para>
+/// <strong>Repeats of one change share a post.</strong> The same change to the same thing by the
+/// same person, inside an hour, is written into the post before it while that post is still the
+/// channel's newest message, and its title says how many (Discord event repeats design). The
+/// channel's row remembers that post, so a restart carries on with it.
+/// </para>
 /// </remarks>
 public sealed class ModerationLogPoster
 {
@@ -280,36 +286,94 @@ public sealed class ModerationLogPoster
         var posted = 0;
         var postedThrough = cursor;
         var messages = 0;
+
+        // Every post and edit sent, the refused ones too, for the gap between them: an edit counts
+        // against the channel's rate limit as a post does.
+        var sent = 0;
         string? error = null;
 
-        foreach (var chunk in matching.Chunk(_options.EmbedsPerMessage))
+        // Repeats of one change, one after another, are one card (Discord event repeats design §2).
+        // The first card may also carry on the post already at the bottom of the channel.
+        var window = _options.RepeatWindow;
+        var open = OpenPost.Of(place);
+        var cards = new List<Repeats>();
+
+        foreach (var fact in matching)
+        {
+            if (cards.Count > 0 && cards[^1].Takes(fact, window))
+            {
+                cards[^1].Add(fact);
+                continue;
+            }
+
+            cards.Add(new Repeats(fact, cards.Count == 0 && open is not null && open.Takes(fact, window) ? open : null));
+        }
+
+        if (cards[0].Earlier is { } earlier
+            && !await StillNewestAsync(gateway, channelId, earlier.MessageId, ct).ConfigureAwait(false))
+        {
+            cards[0].Earlier = null;
+        }
+
+        // The message the channel ends with once this pass is done: its id, and its card when it
+        // has only one. Null while nothing has gone out.
+        (string? MessageId, Repeats? Only)? newest = null;
+        var next = 0;
+
+        if (cards[0].Earlier is { } post)
+        {
+            var (embeds, files) = await DrawAsync([cards[0]], names, worlds, faces, style, showPictures, ct)
+                .ConfigureAwait(false);
+
+            // The files are sent again rather than left as they were, so a person whose picture
+            // changed since the first post is shown with the new one.
+            var outcome = await gateway
+                .EditAsync(channelId, post.MessageId, null, embeds, null, files, ct)
+                .ConfigureAwait(false);
+            sent++;
+
+            if (outcome.Sent)
+            {
+                messages++;
+                posted += cards[0].Count;
+                postedThrough = cards[0].Latest.Id;
+                newest = (post.MessageId, cards[0]);
+                next = 1;
+            }
+            else if (outcome.Permanent || outcome.NotFound)
+            {
+                // Deleted by hand, or no longer the bot's to change: the repeats start a post of
+                // their own, counted from this pass.
+                _log.Information(
+                    "The Discord post {Message} in channel {Channel} could not take a repeat ({Reason}); posting a new one",
+                    post.MessageId, channelId, outcome.Error);
+                cards[0].Earlier = null;
+                OpenPost.Forget(place);
+            }
+            else
+            {
+                error = outcome.Error ?? "Discord refused the edit.";
+            }
+        }
+
+        var toPost = error is null ? cards.Skip(next).Chunk(_options.EmbedsPerMessage) : [];
+
+        foreach (var chunk in toPost)
         {
             if (messages >= _options.MessagesPerPass)
                 break;
 
-            if (messages > 0)
+            if (sent > 0)
                 await delay(_options.GapBetweenMessages, ct).ConfigureAwait(false);
 
-            // The faces are collected per message, because Discord counts files by the message and
-            // two cards about the same person then cost one upload rather than two.
-            var pictures = _pictures.ForMessage(showPictures);
-            var cards = new List<DiscordEmbedContent>(chunk.Length);
-
-            foreach (var fact in chunk)
-            {
-                var view = ModerationEventView.From(fact, names, worlds);
-                var face = faces.GetValueOrDefault(view.SubjectId);
-
-                cards.Add(EventCard.For(
-                    view,
-                    style,
-                    new CardPicture(AuthorIcon: await pictures.AddAsync(face, ct).ConfigureAwait(false))));
-            }
+            var (embeds, files) = await DrawAsync(chunk, names, worlds, faces, style, showPictures, ct)
+                .ConfigureAwait(false);
 
             var outcome = await gateway
-                .PostAsync(channelId, null, cards, null, pictures.Files, ct)
+                .PostAsync(channelId, null, embeds, null, files, ct)
                 .ConfigureAwait(false);
             messages++;
+            sent++;
 
             if (!outcome.Sent)
             {
@@ -317,8 +381,23 @@ public sealed class ModerationLogPoster
                 break;
             }
 
-            posted += chunk.Length;
-            postedThrough = chunk[^1].Id;
+            posted += chunk.Sum(c => c.Count);
+            postedThrough = chunk[^1].Latest.Id;
+            newest = (outcome.MessageId, chunk.Length == 1 ? chunk[0] : null);
+        }
+
+        if (newest is { } last)
+        {
+            if (last.MessageId is { } messageId
+                && last.Only is { } only
+                && DiscordEventTypes.FoldsRepeats(only.Latest.Type))
+            {
+                OpenPost.Remember(place, messageId, only);
+            }
+            else
+            {
+                OpenPost.Forget(place);
+            }
         }
 
         var now = _clock.UtcNow;
@@ -372,5 +451,187 @@ public sealed class ModerationLogPoster
         _status.Posted(posted, now);
 
         return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.Posted, rows.Count, posted, error);
+    }
+
+    /// <summary>The cards for one message, and the pictures they point at.</summary>
+    /// <remarks>
+    /// The faces are collected per message, because Discord counts files by the message and two
+    /// cards about the same person then cost one upload rather than two.
+    /// </remarks>
+    private async Task<(List<DiscordEmbedContent> Embeds, IReadOnlyList<DiscordPicture> Files)> DrawAsync(
+        IReadOnlyList<Repeats> cards,
+        IReadOnlyDictionary<string, string?> names,
+        IReadOnlyDictionary<string, string?> worlds,
+        IReadOnlyDictionary<string, string?> faces,
+        CardStyle style,
+        bool showPictures,
+        CancellationToken ct)
+    {
+        var pictures = _pictures.ForMessage(showPictures);
+        var embeds = new List<DiscordEmbedContent>(cards.Count);
+
+        foreach (var card in cards)
+        {
+            var view = ModerationEventView.From(card.Latest, names, worlds);
+            var face = faces.GetValueOrDefault(view.SubjectId);
+
+            var embed = EventCard.For(
+                view,
+                style,
+                new CardPicture(AuthorIcon: await pictures.AddAsync(face, ct).ConfigureAwait(false)));
+
+            embeds.Add(EventCard.Repeated(embed, card.Total, card.TotalLastAt - card.TotalFirstAt));
+        }
+
+        return (embeds, pictures.Files);
+    }
+
+    /// <summary>
+    /// Whether the post is still the newest message in the channel, so that a repeat written into
+    /// it is still read last. Anybody's message after it -- a person's, another bot's, another of
+    /// Modbot's own features' -- means the repeat is posted on its own instead.
+    /// </summary>
+    /// <remarks>
+    /// One request, made only when a repeat could go into the post. A channel that cannot be read
+    /// counts as "something came after": a new post is never wrong, an edit out of order is. Discord
+    /// answers a bot without Read Message History with no messages rather than a refusal; the edit
+    /// itself then fails, and the repeat is posted on its own.
+    /// </remarks>
+    private async Task<bool> StillNewestAsync(
+        IDiscordGateway gateway, string channelId, string messageId, CancellationToken ct)
+    {
+        var after = await gateway.ReadMessagesAsync(channelId, null, messageId, ct).ConfigureAwait(false);
+
+        if (after.Error is not null)
+        {
+            _log.Debug(
+                "Could not check whether post {Message} is still the newest in channel {Channel}: {Reason}",
+                messageId, channelId, after.Error);
+            return false;
+        }
+
+        return after.Messages.Count == 0 && after.NewestId is null;
+    }
+
+    /// <summary>
+    /// One card's worth of events: one event, or a run of repeats of one change, perhaps going on
+    /// from the post already at the bottom of the channel.
+    /// </summary>
+    private sealed class Repeats
+    {
+        public Repeats(ModbotEvent first, OpenPost? earlier)
+        {
+            Latest = first;
+            Count = 1;
+            FirstAt = first.OccurredAt;
+            LastAt = first.OccurredAt;
+            Earlier = earlier;
+        }
+
+        /// <summary>The newest event, which the card is drawn from.</summary>
+        public ModbotEvent Latest { get; private set; }
+
+        /// <summary>The events from this pass.</summary>
+        public int Count { get; private set; }
+
+        private DateTimeOffset FirstAt { get; set; }
+
+        private DateTimeOffset LastAt { get; set; }
+
+        /// <summary>The post these go into, when they carry it on rather than start one.</summary>
+        public OpenPost? Earlier { get; set; }
+
+        /// <summary>The events the card stands for, the earlier post's included.</summary>
+        public int Total => Count + (Earlier?.Count ?? 0);
+
+        public DateTimeOffset TotalFirstAt => Earlier is { } e && e.FirstAt < FirstAt ? e.FirstAt : FirstAt;
+
+        public DateTimeOffset TotalLastAt => Earlier is { } e && e.LastAt > LastAt ? e.LastAt : LastAt;
+
+        /// <summary>
+        /// Whether the event is a repeat of these: the same change to the same thing by the same
+        /// person, and the card would still cover no more than the window.
+        /// </summary>
+        public bool Takes(ModbotEvent fact, TimeSpan window)
+            => OpenPost.Same(fact, Latest.Type, Latest.SubjectId, Latest.ActorId)
+               && OpenPost.Within(fact, TotalFirstAt, TotalLastAt, window);
+
+        public void Add(ModbotEvent fact)
+        {
+            Latest = fact;
+            Count++;
+
+            if (fact.OccurredAt < FirstAt)
+                FirstAt = fact.OccurredAt;
+
+            if (fact.OccurredAt > LastAt)
+                LastAt = fact.OccurredAt;
+        }
+    }
+
+    /// <summary>
+    /// The post at the bottom of a channel that repeats can still go into, as the channel's row
+    /// remembers it across restarts.
+    /// </summary>
+    private sealed record OpenPost(
+        string MessageId,
+        string Type,
+        string SubjectId,
+        string? ActorId,
+        int Count,
+        DateTimeOffset FirstAt,
+        DateTimeOffset LastAt)
+    {
+        public static OpenPost? Of(DiscordEventChannel place)
+            => place is
+            {
+                RepeatPostId: { Length: > 0 } id,
+                RepeatType: { Length: > 0 } type,
+                RepeatSubjectId: { } subject,
+                RepeatCount: > 0,
+                RepeatFirstAt: { } first,
+                RepeatLastAt: { } last,
+            }
+                ? new OpenPost(id, type, subject, place.RepeatActorId, place.RepeatCount, first, last)
+                : null;
+
+        public bool Takes(ModbotEvent fact, TimeSpan window)
+            => Same(fact, Type, SubjectId, ActorId) && Within(fact, FirstAt, LastAt, window);
+
+        public static bool Same(ModbotEvent fact, string type, string subjectId, string? actorId)
+            => DiscordEventTypes.FoldsRepeats(fact.Type)
+               && string.Equals(fact.Type, type, StringComparison.Ordinal)
+               && string.Equals(fact.SubjectId, subjectId, StringComparison.Ordinal)
+               && string.Equals(fact.ActorId, actorId, StringComparison.Ordinal);
+
+        /// <summary>Whether the post would still cover no more than the window with this event in it.</summary>
+        public static bool Within(ModbotEvent fact, DateTimeOffset firstAt, DateTimeOffset lastAt, TimeSpan window)
+        {
+            var first = fact.OccurredAt < firstAt ? fact.OccurredAt : firstAt;
+            var last = fact.OccurredAt > lastAt ? fact.OccurredAt : lastAt;
+            return last - first <= window;
+        }
+
+        public static void Remember(DiscordEventChannel place, string messageId, Repeats card)
+        {
+            place.RepeatPostId = messageId;
+            place.RepeatType = card.Latest.Type;
+            place.RepeatSubjectId = card.Latest.SubjectId;
+            place.RepeatActorId = card.Latest.ActorId;
+            place.RepeatCount = card.Total;
+            place.RepeatFirstAt = card.TotalFirstAt;
+            place.RepeatLastAt = card.TotalLastAt;
+        }
+
+        public static void Forget(DiscordEventChannel place)
+        {
+            place.RepeatPostId = null;
+            place.RepeatType = null;
+            place.RepeatSubjectId = null;
+            place.RepeatActorId = null;
+            place.RepeatCount = 0;
+            place.RepeatFirstAt = null;
+            place.RepeatLastAt = null;
+        }
     }
 }

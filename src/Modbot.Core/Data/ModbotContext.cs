@@ -1885,6 +1885,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.ChannelId);
             entity.Property(e => e.ChannelId).HasColumnType("text");
             entity.Property(e => e.LastError).HasColumnType("text");
+            entity.Property(e => e.RepeatPostId).HasColumnType("text");
+            entity.Property(e => e.RepeatType).HasColumnType("text");
+            entity.Property(e => e.RepeatSubjectId).HasColumnType("text");
+            entity.Property(e => e.RepeatActorId).HasColumnType("text");
         });
 
         builder.Entity<DiscordAccountLink>(entity =>

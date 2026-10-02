@@ -507,6 +507,36 @@ public class EventCardTests
         Details: new EventDetails(Changed: changes));
 
     [Fact]
+    public void ARepeatedCard_SaysHowManyAndOverHowLong_InItsTitle()
+    {
+        var card = EventCard.For(GroupDetails(new EventChange("OnlineMemberCount", "1", "2")), Style, CardPicture.None);
+
+        Assert.Same(card, EventCard.Repeated(card, 1, TimeSpan.Zero));
+        Assert.Equal("Group details changed · 12 times in 55m", EventCard.Repeated(card, 12, TimeSpan.FromMinutes(55)).Title);
+        Assert.Equal("Group details changed · 2 times in 1h 5m", EventCard.Repeated(card, 2, TimeSpan.FromMinutes(65)).Title);
+
+        // All at once: no length to give.
+        Assert.Equal("Group details changed · 3 times", EventCard.Repeated(card, 3, TimeSpan.Zero).Title);
+
+        // Everything but the title is the card's own.
+        var repeated = EventCard.Repeated(card, 3, TimeSpan.FromMinutes(10));
+        Assert.Equal(card.Fields, repeated.Fields);
+        Assert.Equal(card.Timestamp, repeated.Timestamp);
+    }
+
+    [Fact]
+    public void ARepeatedCard_WithALongTitle_KeepsTheCountAndStaysInsideDiscordsLimit()
+    {
+        var card = EventCard.For(GroupDetails(new EventChange("Rules", "a", "b")), Style, CardPicture.None)
+            with { Title = new string('x', 256) };
+
+        var title = EventCard.Repeated(card, 40, TimeSpan.FromMinutes(59)).Title;
+
+        Assert.True(title.Length <= 256);
+        Assert.EndsWith(" · 40 times in 59m", title, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AGroupUpdate_IsHeadedByTheGroupsName_NotItsId()
     {
         var card = EventCard.For(

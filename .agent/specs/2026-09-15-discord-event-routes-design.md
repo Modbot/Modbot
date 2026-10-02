@@ -178,6 +178,9 @@ the settings row.
 - **A refused channel is left alone for 30 seconds** (`retry_at`), and the refusal is kept on the
   row (`last_error`, `last_error_at`) until a post succeeds.
 - Each posted batch is still recorded as `modbot.discord.posted`, subject the channel.
+- **Since 2026-10-02, a repeat of the same change is written into the post before it** while that
+  post is still the channel's newest message: see
+  [Repeats in Discord event channels](2026-10-02-discord-event-repeats-design.md).
 
 ## 6. Health
 
