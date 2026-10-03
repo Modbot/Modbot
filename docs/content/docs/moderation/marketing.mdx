@@ -55,7 +55,7 @@ Each post shows:
 | **Waiting** | Not its time yet. |
 | **Paused** | **Pause all posting** is on, so nothing is sent. |
 | **Off** | **Discord posts**, **VRChat posts** or **Bluesky posts** is off in Settings. |
-| **Not set up** | Discord: Modbot has no Discord server id, or the bot is not connected. VRChat: no group is picked, or Modbot has no VRChat login. Bluesky: no account has passed **Check**, or Bluesky refused its app password since. |
+| **Not set up** | Discord: Modbot has no Discord server id, or the bot is not connected. VRChat: no group is picked, or Modbot has no VRChat login. Bluesky: no account has passed **Check**, or Bluesky refused its app password or ended its sign-in since. |
 | **Sending…** | On its way, or Modbot is checking whether the site took it. |
 | **Posted** | On the site. **Open** opens it there: the message on Discord, the group's posts on VRChat, the post on Bluesky. |
 | **Not published** | In the channel, but publishing it to followers did not go through. |
@@ -101,7 +101,9 @@ Then:
 
 If something is wrong, the form lists every problem at once, such as "Pick a channel.", "VRChat
 needs a title.", "The Discord text is longer than 2000 characters." or "The Bluesky text is longer
-than 300 characters.".
+than 300 characters.". With **Bluesky** ticked before Modbot has found the account, it says
+"Bluesky is off." while **Posting** is off in Settings, and "Bluesky is not set up." otherwise, as
+the chip does.
 
 ### Discord
 
@@ -288,8 +290,8 @@ In the post's channel the bot needs:
 
 ## What the Bluesky account needs
 
-An app password, saved in **Settings**, **Bluesky**, and a **Check** that passed. See
-[Bluesky](/moderation/bluesky).
+An app password, saved in **Settings**, **Bluesky**, and a **Check** that passed, or, when your
+Modbot has a public `https://` address, a sign-in with Bluesky. See [Bluesky](/moderation/bluesky).
 
 ## What Modbot's VRChat account needs
 

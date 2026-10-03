@@ -228,7 +228,7 @@ Built from the Bluesky design report (2026-10-03, §3.1, §3.4, §3.5), mapped o
 as the marketing report's §2.6 says: `record_key` is `client_key`, `account_did` is `target`, the
 post's `at://` address is `external_id` and its content id `options.cid`.
 
-- **Sign-in: an app password only** (decision 15; OAuth is step 3b). A value not shaped like one
+- **Sign-in: an app password**, or a sign-in with Bluesky (OAuth, step 3b, below). A value not shaped like one
   (four groups of four letters or digits, case ignored) is refused with "Use an app password.", so
   the main password is never kept. Settings → Bluesky (Connections, Manage settings):
   `GET/PUT/DELETE /api/settings/bluesky` and `POST …/check`, audited as `bluesky` with the app
@@ -298,13 +298,62 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   ("That post is on another Bluesky account." otherwise), one call at once, a refused token
   refreshed and asked once more, `RecordNotFound` counted as done, written with
   `WriteAfterSiteAsync`. **No edit**: Bluesky cannot edit posts.
+- **Sign in with Bluesky (step 3b)**, built from the Bluesky design report's "Can a self-hosted
+  Modbot do OAuth?" (facts 4–7). Offered only when Settings → Server's public address is https with
+  the default port and a host name (`BlueskyOAuth.Offered`); otherwise Settings → Bluesky shows only
+  the app password, with no words about it. Modbot is a **confidential client**: its client document
+  is `{public}/oauth/bluesky/client-metadata.json` (also its client id; a web client,
+  `private_key_jwt` with ES256, `dpop_bound_access_tokens`, one redirect
+  `{public}/api/bluesky/callback`, and `jwks` with the public half of Modbot's own signing key). That
+  key is made on first use and kept encrypted in `settings.bluesky_oauth_key_encrypted`; only its
+  public half is ever served. `POST /api/settings/bluesky/sign-in` (Manage settings) finds the
+  account from the handle both ways, as Check does, reads the account server's
+  `/.well-known/oauth-protected-resource` for its sign-in server, whose own
+  `/.well-known/oauth-authorization-server` must name the same issuer, and pushes the request (PAR)
+  with PKCE (S256), a state, `login_hint`, a client assertion (`iss`/`sub` the client id, `aud` the
+  issuer, fresh `jti`, `iat`/`exp` from `IModbotClock`) and a DPoP proof made with a new key for this
+  sign-in. The waiting sign-in (state, verifier, DPoP key, issuer, token address, DID, handle,
+  server, scope, who started it, when) is one encrypted JSON in
+  `settings.bluesky_oauth_pending_encrypted`, good for ten minutes and taken by the first callback
+  whatever it brings. `GET /api/bluesky/callback` finishes only with the same state, `iss` equal to
+  the issuer, the same signed-in Modbot account still holding Manage settings, and a token answer
+  whose `sub` is the DID the handle named ("Bluesky signed in another account than this handle."
+  otherwise); it then writes the session under the session owner's lock
+  (`BlueskySession.SignedInWithBlueskyAsync`: tokens, DID, handle, server, `bluesky_oauth_signed_in`,
+  the app password forgotten), reads the profile as Check does, and sends the browser to
+  `/settings?bluesky=<word>#bluesky`. One way of signing in at a time: saving an app password, or
+  another handle, ends a sign-in with Bluesky.
+  - **Scopes**: `atproto repo:app.bsky.feed.post?action=create&action=update&action=delete
+    blob:image/*` (`putRecord` needs both create and update in the reference server; the card
+    picture is an image blob). A sign-in server that answers `invalid_scope` is asked once more with
+    `atproto transition:generic`. The client document lists both. **Whether bsky.social takes the
+    narrow scopes is unchecked.**
+  - **DPoP**: every call with a sign-in-with-Bluesky token goes as `Authorization: DPoP` with a
+    proof (`htm`, `htu`, `iat`, `jti`, `ath`, the server's last nonce) signed with the sign-in's own
+    key. A server answering `use_dpop_nonce` (400 from the sign-in server, 401 with
+    `WWW-Authenticate` from the account's server) gets the same call once more with the nonce it
+    gave; that is the protocol, not a retry, and a 429 is still never sent again. Nonces are kept in
+    memory by server.
+  - **One session owner for both**: the tokens go in the same `bluesky_session_encrypted`, with the
+    issuer, token address, client id, DPoP key, `expires_in` end and granted scope beside them. A
+    token in its last minute is renewed at the token address (`grant_type=refresh_token`, the same
+    DPoP key, a new client assertion) and the new pair written before it is used, as the
+    app-password session does. A renewal refused ends the sign-in: `sign_in_refused` set, the tokens
+    gone, "The Bluesky sign-in has ended.", and nothing signs in with a password in its place. The
+    sign-in guard counts app-password sign-ins only. Posting itself is unchanged.
+  - Every call, the two documents included, is on the guarded `bluesky` client; an endpoint must be
+    https on 443 on a public host. `LogSecrets` also blanks `dpop`, `verifier` and `jwk` fields and
+    `DPoP` values.
 - **Composer**: a Bluesky chip (Off / Not set up, both leading to Settings → Bluesky), a Bluesky
   section with Own text (prefilled with the title and text) and a "Bluesky 212 / 300" counter
   counted with `Intl.Segmenter` (the server decides), and a preview drawn from `POST
   /api/posts/preview`'s `bluesky`: the account's name and handle, the text with links and tags
-  coloured, the card. Settings → Posts mirrors the Posting switch as "Bluesky posts".
-- **Not in 3a**: `langs` (no language picker), pictures beyond the card, OAuth (3b), the event
-  kinds and the Cancelled reply (step 4).
+  coloured, the card. Settings → Posts mirrors the Posting switch as "Bluesky posts". With Bluesky
+  ticked and no account found yet, the preview and the save say "Bluesky is off." while Posting is
+  off and "Bluesky is not set up." otherwise, in the chip's own order (phase-2 finding of 3a: it
+  used to say "No Bluesky account is set up yet." even while the chip said Off).
+- **Not in 3a or 3b**: `langs` (no language picker), pictures beyond the card, the event kinds and
+  the Cancelled reply (step 4).
 
 ### 4.3 Edits and the version
 
@@ -423,6 +472,7 @@ Operational category, moderation retention (kept).
 | Discord | title, text, picture file, one role mention | the channel's readers; followers' servers if published |
 | VRChat | title, text, picture (uploaded to Modbot's VRChat account, only while uploads are on), roles, visibility, notify | group members (or the roles picked), or everyone on vrchat.com |
 | Bluesky (step 3a) | the handle to Bluesky's public API, the DID to plc.directory, the app password and session to the account's server; a post's text (its own, or title and text) and, with a link, a card with the title, the link and a small copy of the picture | public, and permanent once copied |
+| Bluesky sign-in (step 3b) | to the sign-in server the account's server names: Modbot's client id (its public address), the handle as a hint, PKCE, signed client assertions and DPoP proofs; that server reads the client document (name, addresses, the public half of Modbot's key) | the sign-in server |
 
 Never sent: member names, user names or ids, counts of people, moderation data. Operator switches:
 the per-post ticks (all unticked to start), the per-site switches, Pause all posting, VRChat picture
@@ -434,7 +484,7 @@ uploads, removing the Bluesky account.
   pages until the whole window was read (at most five of 20), the same discipline as the Discord
   look, so a post VRChat made late, or a busy group, can never be missed and then sent again.
 - **Step 3, Bluesky**: app password first (3a, built, §4.2c), OAuth for installs with a public
-  address (3b, decision 15); a fixed record key with `swapRecord: null`; Cancelled as a reply under
+  address (3b, decision 15, built, §4.2c); a fixed record key with `swapRecord: null`; Cancelled as a reply under
   Announced (decision 7, with step 4's event kinds); Check shows whether the account is marked
   automated (decision 10).
 - **Step 4, event posts**: `post_plan` and `post_texts` on the event; `CalendarPosts.Plan` (Announced
@@ -456,6 +506,11 @@ uploads, removing the Bluesky account.
   lists newest first (the Posts tab and the look both rely on it); and whether Modbot's account sees
   a post limited to roles it does not hold when it reads the list.
 - Everything the report lists as not checked for Bluesky.
+- Bluesky sign-in (3b): whether bsky.social takes the narrow scopes (`repo:…?action=create&…`,
+  `blob:image/*`) or only `transition:generic`; how long its access tokens last (`expires_in` is
+  read; five minutes when absent); whether it always sends a new `DPoP-Nonce` (a response without one
+  is not refused); and whether `getSession` answers a narrow-scope token (the reference server's
+  allows any scope). None of it was tried against Bluesky: only against a scripted sign-in server.
 
 ## 10. Decisions (owner, 2026-10-03; every one the recommended answer)
 

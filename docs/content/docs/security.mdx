@@ -115,7 +115,8 @@ Modbot stores several secrets for you so it can do its job:
 - the private key from your [Google Calendar](/moderation/google-calendar) key file, if you gave
   Modbot one,
 - your [Bluesky](/moderation/bluesky) app password, and the sign-in Modbot keeps for that account
-  (its access and refresh tokens).
+  (its access and refresh tokens, and for a sign-in with Bluesky its own signing key),
+- Modbot's own Bluesky signing key, if you use **Sign in with Bluesky**.
 
 These are encrypted with **AES-256-GCM** before they are written to the database.
 
@@ -196,8 +197,8 @@ sent to the browser. They go only to the account's own server, the one the accou
 names, and only over `https://` to a public address. When Modbot renews the sign-in, the new tokens
 are written to the database before they are used, because the old refresh token stops working.
 
-Modbot keeps secrets out of its log, and the words `token`, `password` and `jwt` in a log field's
-name are enough for it to be blanked.
+Modbot keeps secrets out of its log, and the words `token`, `password`, `jwt`, `dpop`, `verifier`
+and `jwk` in a log field's name are enough for it to be blanked, as is a `Bearer` or `DPoP` value.
 
 To remove them:
 
@@ -206,6 +207,33 @@ To remove them:
    That ends the sign-in too, everywhere, including any copy someone else kept.
 
 If you think it leaked, do step 2 first, then make a new app password and save it in Modbot.
+
+### Sign in with Bluesky: Modbot's signing key and the tokens
+
+With a public `https://` address, Modbot can [sign in with Bluesky](/moderation/bluesky#sign-in-with-bluesky)
+instead of using an app password. Modbot never sees the account's password then. Three things are
+kept, all encrypted like every secret above, never shown and never sent to the browser:
+
+- **Modbot's own signing key** (an ES256 key), made the first time it is needed. Bluesky's sign-in
+  server reads its public half from Modbot's client document at
+  `/oauth/bluesky/client-metadata.json` on your public address; the private half never leaves your
+  server. Modbot signs each request to Bluesky's sign-in server with it, so nobody else can renew
+  Modbot's sign-in, even with its tokens.
+- **The sign-in's tokens**: a short access token and a refresh token, renewed as they run out. As
+  with an app password, the new pair is written to the database before it is used.
+- **The sign-in's own key** (DPoP). Every request with the tokens carries a proof signed with it,
+  so a token copied off the server is no use without the key.
+
+While a sign-in is under way, Modbot also keeps what it needs to finish it for ten minutes: the
+values it checks when Bluesky sends you back, and that key. Only the person who started the
+sign-in, still signed in to Modbot with **Change settings**, can finish it, and only for the account
+the handle names.
+
+Modbot asks Bluesky only for what posting needs (making and deleting posts, and uploading the link
+card's picture). When Bluesky does not offer that, it asks for what an app password can do.
+
+**Remove** forgets the sign-in, its tokens and its key. Modbot's own signing key stays: it belongs
+to your server, not to the account, and a later sign-in uses it again.
 
 ## API keys
 

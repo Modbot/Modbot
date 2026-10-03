@@ -150,6 +150,11 @@ wherever you choose to store them. These pages describe what is kept and how it 
   others already took. Modbot never mentions anyone in a Bluesky post, so nobody is notified. Never
   sent: member names, VRChat or Discord ids, head counts, and anything about moderation. **Posting**,
   **Bluesky posts** and **Remove** stop it; Remove also forgets the app password.
+  With **Sign in with Bluesky** (only when your Modbot has a public `https://` address), there is no
+  app password: Modbot finds the account the same way, then asks the sign-in server the account's own
+  server names for a sign-in, with the handle and Modbot's public address, and sends you to Bluesky's
+  page to allow it. That server reads Modbot's client document on your public address (Modbot's
+  name, its address and the public half of its signing key), and Modbot renews the sign-in with it.
 - [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
   to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops
