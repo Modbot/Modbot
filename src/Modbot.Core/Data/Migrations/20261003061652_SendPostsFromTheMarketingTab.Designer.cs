@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261003055550_SendPostsFromTheMarketingTab")]
+    [Migration("20261003061652_SendPostsFromTheMarketingTab")]
     partial class SendPostsFromTheMarketingTab
     {
         /// <inheritdoc />
@@ -7424,6 +7424,54 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("FlagRules")
                         .HasColumnType("jsonb")
                         .HasColumnName("flag_rules");
+
+                    b.Property<string>("GoogleCalendarId")
+                        .HasColumnType("text")
+                        .HasColumnName("google_calendar_id");
+
+                    b.Property<string>("GoogleCalendarName")
+                        .HasColumnType("text")
+                        .HasColumnName("google_calendar_name");
+
+                    b.Property<string>("GoogleCalendarTimeZone")
+                        .HasColumnType("text")
+                        .HasColumnName("google_calendar_time_zone");
+
+                    b.Property<bool>("GoogleCanChange")
+                        .HasColumnType("boolean")
+                        .HasColumnName("google_can_change");
+
+                    b.Property<DateTimeOffset?>("GoogleCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("google_checked_at");
+
+                    b.Property<string>("GoogleClientEmail")
+                        .HasColumnType("text")
+                        .HasColumnName("google_client_email");
+
+                    b.Property<string>("GoogleKeyId")
+                        .HasColumnType("text")
+                        .HasColumnName("google_key_id");
+
+                    b.Property<string>("GooglePrivateKeyEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("google_private_key_encrypted");
+
+                    b.Property<string>("GoogleProblem")
+                        .HasColumnType("text")
+                        .HasColumnName("google_problem");
+
+                    b.Property<string>("GoogleProjectId")
+                        .HasColumnType("text")
+                        .HasColumnName("google_project_id");
+
+                    b.Property<string>("GooglePublic")
+                        .HasColumnType("text")
+                        .HasColumnName("google_public");
+
+                    b.Property<DateTimeOffset?>("GoogleStoppedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("google_stopped_until");
 
                     b.Property<int>("GroupAutoInviteAgainAfterDays")
                         .ValueGeneratedOnAdd()
