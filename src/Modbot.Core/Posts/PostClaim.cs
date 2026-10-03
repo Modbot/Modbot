@@ -128,6 +128,7 @@ public static class PostChanges
                 destination.Error = null;
                 destination.ErrorAt = null;
                 destination.MissingPermission = null;
+                destination.CheckAt = null;
                 destination.UpdatedAt = now;
             }
         }

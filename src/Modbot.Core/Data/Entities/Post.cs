@@ -215,7 +215,10 @@ public class PostDestination
     /// <summary>When Modbot deletes it by itself, for the calendar's cancel line.</summary>
     public DateTimeOffset? RemoveAt { get; set; }
 
-    /// <summary>When Modbot next looks on the site for a post that got no clear answer.</summary>
+    /// <summary>
+    /// When Modbot next looks on the site for a post that got no clear answer; or, for a waiting one
+    /// the site turned away without making anything, when it may be tried again.
+    /// </summary>
     public DateTimeOffset? CheckAt { get; set; }
 
     /// <summary>
@@ -227,6 +230,10 @@ public class PostDestination
     /// <summary>A person pressed Try again: when the look finds nothing, send.</summary>
     public bool SendIfMissing { get; set; }
 
+    /// <summary>
+    /// For a waiting row, when it started waiting (the late rule counts from it); for a checking
+    /// row, when the looking began (Modbot gives up looking an hour after).
+    /// </summary>
     public DateTimeOffset UpdatedAt { get; set; }
 }
 

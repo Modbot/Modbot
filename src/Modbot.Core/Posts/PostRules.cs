@@ -72,7 +72,10 @@ public static class PostRules
     /// <summary>How long to wait before looking again when the look could not be made.</summary>
     public static readonly TimeSpan LookAgainAfter = TimeSpan.FromMinutes(15);
 
-    /// <summary>How long after the attempt Modbot gives up looking and calls it Failed.</summary>
+    /// <summary>
+    /// How long after the looking began (the unclear answer, or a person's Try again) Modbot gives up
+    /// looking and calls it Failed, still as one the site may have.
+    /// </summary>
     public static readonly TimeSpan StopLookingAfter = TimeSpan.FromHours(1);
 
     /// <summary>
@@ -214,13 +217,34 @@ public static class PostRules
     }
 
     /// <summary>
+    /// How long after the attempt a message the attempt made can carry as its time. The look has
+    /// read the whole window only once it has seen a message later than this, or the channel's end:
+    /// until then, "not found" is not an answer, and nothing that would let it be sent again is done.
+    /// </summary>
+    public static readonly TimeSpan LookWindowAfter = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// A waiting destination the site turned away without making anything (a rate limit, a channel
+    /// that could not be looked up) is tried again after this, so it does not hold up the posts
+    /// behind it every pass.
+    /// </summary>
+    public static readonly TimeSpan NotSentRetryAfter = TimeSpan.FromMinutes(2);
+
+    private const long DiscordEpoch = 1420070400000L;
+
+    /// <summary>
     /// The smallest Discord message id that could have been made at <paramref name="at"/>: the
     /// look reads the channel after this (Discord's ids carry their time).
     /// </summary>
     public static string DiscordIdAt(DateTimeOffset at)
     {
-        const long DiscordEpoch = 1420070400000L;
         var ms = Math.Max(0, at.ToUnixTimeMilliseconds() - DiscordEpoch);
         return ((ulong)ms << 22).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
+
+    /// <summary>When a Discord message id was made, or null for one that is not a Discord id.</summary>
+    public static DateTimeOffset? DiscordTimeOf(string? id) =>
+        ulong.TryParse(id, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? DateTimeOffset.FromUnixTimeMilliseconds((long)(value >> 22) + DiscordEpoch)
+            : null;
 }

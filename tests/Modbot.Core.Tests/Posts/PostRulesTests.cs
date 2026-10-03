@@ -245,6 +245,16 @@ public class PostRulesTests
     }
 
     [Fact]
+    public void ADiscordIdSaysWhenItWasMade()
+    {
+        var at = new DateTimeOffset(2026, 10, 3, 18, 0, 0, 123, TimeSpan.Zero);
+
+        Assert.Equal(at, PostRules.DiscordTimeOf(PostRules.DiscordIdAt(at)));
+        Assert.Null(PostRules.DiscordTimeOf("not an id"));
+        Assert.Null(PostRules.DiscordTimeOf(null));
+    }
+
+    [Fact]
     public void TheLookReadsFromADiscordIdMadeFromTheTime()
     {
         // Discord's own example: 175928847299117063 was made at 2016-04-30 11:18:25.796 UTC.

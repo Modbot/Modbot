@@ -52,8 +52,13 @@ public sealed class PostDiscordSender
     /// <summary>How many looks one pass makes, at most.</summary>
     public const int LooksPerPass = 3;
 
-    /// <summary>How many messages a look reads after the time of the attempt.</summary>
+    /// <summary>How many messages one page of a look reads.</summary>
     public const int LookSize = 50;
+
+    /// <summary>How many pages one look reads at most before it tries again later.</summary>
+    public const int LookPages = 4;
+
+    public const string TooBusy = "The channel was too busy to check yet.";
 
     public const string NotTaken = "Discord did not take the post.";
     public const string CouldNotCheck = "Could not check the channel.";
@@ -176,30 +181,9 @@ public sealed class PostDiscordSender
         var attempt = destination.SentAt ?? pass.Now;
         var bot = pass.Gateway.BotUserId;
 
-        var page = bot is null || destination.SentText is null
-            ? DiscordMessagePage.Failed("The bot's own id is not known yet.", noAccess: false)
-            : await pass.Gateway.ReadRecentAsync(
-                destination.Target,
-                PostRules.DiscordIdAt(attempt - PostRules.FirstLookAfter),
-                LookSize,
-                pass.Ct).ConfigureAwait(false);
-
-        if (page.Error is not null)
-        {
-            if (pass.Now - attempt >= PostRules.StopLookingAfter)
-            {
-                await FailAsync(pass, post, destination, CouldNotCheck, mayBeSent: true).ConfigureAwait(false);
-                return;
-            }
-
-            // Tried again later; the words are kept for Health.
-            destination.CheckAt = pass.Now + PostRules.LookAgainAfter;
-            destination.Error = page.Error.Length <= 1024 ? page.Error : page.Error[..1024];
-            destination.ErrorAt = pass.Now;
-            destination.UpdatedAt = pass.Now;
-            await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);
-            return;
-        }
+        var read = bot is null || destination.SentText is null
+            ? new Window([], "The bot's own id is not known yet.", Whole: false)
+            : await ReadWindowAsync(pass, destination.Target, attempt).ConfigureAwait(false);
 
         var files = post.PictureId is null ? 0 : 1;
         var held = await _db.PostDestinations.AsNoTracking()
@@ -207,7 +191,7 @@ public sealed class PostDiscordSender
             .Select(d => d.ExternalId!)
             .ToListAsync(pass.Ct).ConfigureAwait(false);
 
-        var found = page.Messages.FirstOrDefault(m =>
+        var found = read.Messages.FirstOrDefault(m =>
             string.Equals(m.AuthorId, bot, StringComparison.Ordinal)
             && string.Equals(m.Text, destination.SentText, StringComparison.Ordinal)
             && m.Attachments.Count == files
@@ -216,6 +200,27 @@ public sealed class PostDiscordSender
         if (found is not null)
         {
             await PostedAsync(pass, post, destination, found.Id, found.SentAt, adopted: true).ConfigureAwait(false);
+            return;
+        }
+
+        // Not found is an answer only once the whole window was read. A read that failed, or a
+        // channel so busy the pages ran out before the window did, is looked at again, and never
+        // turns into anything Try again would send.
+        if (read.Error is not null || !read.Whole)
+        {
+            // An hour from when the looking began: the unclear answer, or a person's Try again.
+            if (pass.Now - destination.UpdatedAt >= PostRules.StopLookingAfter)
+            {
+                await FailAsync(pass, post, destination, CouldNotCheck, mayBeSent: true).ConfigureAwait(false);
+                return;
+            }
+
+            // Tried again later; the words are kept for Health. UpdatedAt stays when the looking began.
+            var why = read.Error ?? TooBusy;
+            destination.CheckAt = pass.Now + PostRules.LookAgainAfter;
+            destination.Error = why.Length <= 1024 ? why : why[..1024];
+            destination.ErrorAt = pass.Now;
+            await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);
             return;
         }
 
@@ -234,6 +239,42 @@ public sealed class PostDiscordSender
         }
 
         await FailAsync(pass, post, destination, NotTaken, mayBeSent: true).ConfigureAwait(false);
+    }
+
+    /// <summary>What a look read, and whether it covered the whole window the post could be in.</summary>
+    private sealed record Window(IReadOnlyList<DiscordMessageSnapshot> Messages, string? Error, bool Whole);
+
+    /// <summary>
+    /// Reads the channel from a minute before the attempt, a page at a time, until it has seen a
+    /// message later than <see cref="PostRules.LookWindowAfter"/> after the attempt or the channel's
+    /// newest message, at most <see cref="LookPages"/> pages. Whole when either was reached.
+    /// </summary>
+    private static async Task<Window> ReadWindowAsync(Pass pass, string channelId, DateTimeOffset attempt)
+    {
+        var after = PostRules.DiscordIdAt(attempt - PostRules.FirstLookAfter);
+        var windowEnds = attempt + PostRules.LookWindowAfter;
+        var messages = new List<DiscordMessageSnapshot>();
+
+        for (var i = 0; i < LookPages; i++)
+        {
+            var page = await pass.Gateway.ReadRecentAsync(channelId, after, LookSize, pass.Ct).ConfigureAwait(false);
+
+            if (page.Error is not null)
+                return new Window(messages, page.Error, Whole: false);
+
+            messages.AddRange(page.Messages);
+
+            // A short page is the channel's newest message: everything since the attempt was read.
+            if (!page.Full || page.NewestId is null)
+                return new Window(messages, null, Whole: true);
+
+            if (PostRules.DiscordTimeOf(page.NewestId) is { } newest && newest > windowEnds)
+                return new Window(messages, null, Whole: true);
+
+            after = page.NewestId;
+        }
+
+        return new Window(messages, null, Whole: false);
     }
 
     // ── Too late ─────────────────────────────────────────────────────────────────────────
@@ -272,7 +313,9 @@ public sealed class PostDiscordSender
                 && x.Destination.State == PostDestinationStates.Waiting
                 && x.Post.Status == PostStatuses.Scheduled
                 && x.Post.SendAt != null
-                && x.Post.SendAt <= pass.Now)
+                && x.Post.SendAt <= pass.Now
+                // One Discord just turned away waits its turn, so the posts behind it go.
+                && (x.Destination.CheckAt == null || x.Destination.CheckAt <= pass.Now))
             .OrderBy(x => x.Post.SendAt)
             .FirstOrDefaultAsync(pass.Ct).ConfigureAwait(false);
 
@@ -337,12 +380,14 @@ public sealed class PostDiscordSender
 
         if (!outcome.Permanent)
         {
-            // Nothing was made: a rate limit, or the channel could not be looked up. It waits for a
-            // later pass. Its waiting time is left as it was, so a post that never gets through
-            // still turns Failed once it is an hour late.
+            // Nothing was made: a rate limit, or the channel could not be looked up. It waits, and
+            // is not tried again for a while, so the posts behind it are not held up. Its waiting
+            // time is left as it was, so a post that never gets through still turns Failed once it
+            // is an hour late.
             destination.State = PostDestinationStates.Waiting;
             destination.Error = Trim(outcome.Error);
             destination.ErrorAt = pass.Now;
+            destination.CheckAt = pass.Now + PostRules.NotSentRetryAfter;
             destination.UpdatedAt = waitingSince;
             await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);
             return;

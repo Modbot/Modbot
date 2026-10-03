@@ -299,8 +299,124 @@ public class PostDiscordSenderTests(PostgresFixture db)
         await RunAsync(services, gateway);
         Assert.Equal(PostDestinationStates.Waiting, (await DestinationAsync(services, post.Id)).State);
 
+        // Not again on the very next pass: it waits its turn.
+        await RunAsync(services, gateway);
+        Assert.Single(gateway.PostSends);
+
+        services.Clock.Advance(PostRules.NotSentRetryAfter);
         await RunAsync(services, gateway);
         Assert.Equal(PostDestinationStates.Posted, (await DestinationAsync(services, post.Id)).State);
+    }
+
+    /// <summary>A post Discord keeps turning away for now does not hold up the posts due after it.</summary>
+    [Fact]
+    public async Task APostTurnedAwayForNowDoesNotHoldUpTheOnesBehindIt()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var first = await AddPostAsync(services, dueIn: TimeSpan.FromMinutes(-1));
+        var second = await AddPostAsync(services);
+
+        gateway.AnswerNextPost(DiscordPostOutcome.Failed("Could not find the channel: timed out"));
+        await RunAsync(services, gateway);
+        services.Clock.Advance(TimeSpan.FromSeconds(20));
+        await RunAsync(services, gateway);
+
+        Assert.Equal(PostDestinationStates.Waiting, (await DestinationAsync(services, first.Id)).State);
+        Assert.Equal(PostDestinationStates.Posted, (await DestinationAsync(services, second.Id)).State);
+    }
+
+    /// <summary>
+    /// Fifty other messages in the minutes after the attempt fill the first page: the look reads on
+    /// until the window ends, finds the post on the second page and keeps it. Nothing is sent again.
+    /// </summary>
+    [Fact]
+    public async Task ABusyChannelIsReadPageByPage_AndThePostFoundOnALaterPage()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var post = await AddPostAsync(services);
+
+        gateway.NoClearAnswerToNextPost(landed: false);
+        await RunAsync(services, gateway);
+        var sentText = (await DestinationAsync(services, post.Id)).SentText!;
+
+        for (var i = 0; i < 60; i++)
+            gateway.Land(Channel, $"chatter {i}", [], authorId: "555");
+        var ours = gateway.Land(Channel, sentText, []);
+
+        services.Clock.Advance(PostRules.FirstLookAfter);
+        await RunAsync(services, gateway);
+
+        var destination = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Posted, destination.State);
+        Assert.Equal(ours, destination.ExternalId);
+        Assert.Equal(2, gateway.RecentReads.Count);
+        Assert.Single(gateway.PostSends);
+    }
+
+    [Fact]
+    public async Task AFullPageThenTheChannelsEnd_IsAWholeRead()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var post = await AddPostAsync(services);
+
+        gateway.NoClearAnswerToNextPost(landed: false);
+        await RunAsync(services, gateway);
+
+        for (var i = 0; i < PostDiscordSender.LookSize; i++)
+            gateway.Land(Channel, $"chatter {i}", [], authorId: "555");
+
+        services.Clock.Advance(PostRules.FirstLookAfter);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(PostDiscordSender.NotTaken, (await DestinationAsync(services, post.Id)).Error);
+    }
+
+    /// <summary>
+    /// A channel so busy that the look's pages run out before the window does is not "not found":
+    /// the post stays Sending and is looked at again, and after the hour it fails as one that could
+    /// not be checked, which Try again looks for before it ever sends.
+    /// </summary>
+    [Fact]
+    public async Task AWindowNotReadToItsEndIsNeverAReasonToSendAgain()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var post = await AddPostAsync(services);
+
+        gateway.NoClearAnswerToNextPost(landed: false);
+        await RunAsync(services, gateway);
+
+        for (var i = 0; i < (PostDiscordSender.LookSize * PostDiscordSender.LookPages) + 10; i++)
+            gateway.Land(Channel, $"chatter {i}", [], authorId: "555");
+
+        services.Clock.Advance(PostRules.FirstLookAfter);
+        await RunAsync(services, gateway);
+
+        var still = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Checking, still.State);
+        Assert.Equal(PostDiscordSender.TooBusy, still.Error);
+        Assert.Equal(PostDiscordSender.LookPages, gateway.RecentReads.Count);
+
+        for (var i = 0; i < 5; i++)
+        {
+            services.Clock.Advance(PostRules.LookAgainAfter);
+            await RunAsync(services, gateway);
+        }
+
+        var failed = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.Equal(PostDiscordSender.CouldNotCheck, failed.Error);
+        Assert.True(failed.MayBeSent);
+
+        // Try again looks first, finds the window still unread, and sends nothing.
+        await ChangeDestinationAsync(services, post.Id, (p, d) => PostChanges.TryAgain(p, d, services.Clock.UtcNow));
+        await RunAsync(services, gateway);
+
+        Assert.Equal(PostDestinationStates.Checking, (await DestinationAsync(services, post.Id)).State);
+        Assert.Single(gateway.PostSends);
     }
 
     [Fact]
