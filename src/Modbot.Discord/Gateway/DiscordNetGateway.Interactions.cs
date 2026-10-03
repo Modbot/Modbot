@@ -103,11 +103,31 @@ public sealed partial class DiscordNetGateway
             await handler(call).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Whether a press may be answered with a form or by rewriting the message its button sits on,
+    /// and so must not be acknowledged before the handler runs: the staff buttons under cards,
+    /// lookups and confirmations (acting from Discord design §11).
+    /// </summary>
+    /// <remarks>
+    /// Every other button -- the join gate's, in the server and in a direct message, and
+    /// <c>/me</c>'s -- answers with a new private message, so it is acknowledged the moment it
+    /// arrives, as it always was. The join gate takes a lock and reads the settings, the member and
+    /// their row before it answers; the acknowledge-after-two-seconds rule would leave it a second
+    /// of Discord's three.
+    /// </remarks>
+    public static bool AnswersInPlace(string buttonId)
+        => buttonId is { Length: > 0 } && Interactions.StaffMenus.IsStaffButton(buttonId);
+
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {
-        // Not acknowledged first: the press may open a form, which has to be the first answer.
         var answer = new InteractionAnswer(press, _log);
-        answer.AcknowledgeIfSilent();
+
+        // A staff button may open a form, which has to be the first answer, so it is not
+        // acknowledged first; everything else is, straight away.
+        if (AnswersInPlace(id))
+            answer.AcknowledgeIfSilent();
+        else
+            await answer.AcknowledgeNowAsync().ConfigureAwait(false);
 
         // A card in a channel, as opposed to a reply only the presser sees: only a card can be
         // marked as dealt with afterwards.
@@ -296,6 +316,32 @@ public sealed partial class DiscordNetGateway
                     log.Debug(e, "Could not acknowledge a slow interaction");
                 }
             });
+
+        /// <summary>
+        /// Acknowledges now, before the handler runs: the answer then arrives as a new private
+        /// message, after Discord's "thinking…". For a press that never shows a form.
+        /// </summary>
+        public async Task AcknowledgeNowAsync()
+        {
+            await _gate.WaitAsync().ConfigureAwait(false);
+
+            try
+            {
+                if (_answered)
+                    return;
+
+                if (interaction is SocketMessageComponent press)
+                    await press.DeferLoadingAsync(ephemeral: true).ConfigureAwait(false);
+                else
+                    await interaction.DeferAsync(ephemeral: true).ConfigureAwait(false);
+
+                _answered = true;
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
 
         public async Task ShowFormAsync(DiscordForm form)
         {

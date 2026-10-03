@@ -160,10 +160,19 @@ Modbot's own permission check (§3) is what decides.
 ## 11. The gateway
 
 Discord wants an answer within three seconds, and a form must be that first answer: it cannot follow
-a "thinking…" reply. So right-click menus, buttons and form submissions are no longer deferred before
-the handler runs. The handler shows a form, replies, or changes the message the button sits on; if it
-has done none of these after two seconds, the gateway defers on its behalf and the answer arrives as
-a follow-up. Slash commands still defer first, as before.
+a "thinking…" reply. So right-click menus, the staff buttons (§7's, and a confirmation's) and form
+submissions are no longer deferred before the handler runs. The handler shows a form, replies, or
+changes the message the button sits on; if it has done none of these after two seconds, the gateway
+defers on its behalf and the answer arrives as a follow-up. Slash commands still defer first, as
+before.
+
+**Every other button is still acknowledged the moment it arrives** (added 2026-10-03, when this was
+brought onto staging beside the join gate). The join gate's buttons -- a member's Get in, I agree and
+Check, in the server or in the direct message the gate sent, and staff's Hold, Lift hold and Pause
+invites on an alert -- and `/me`'s never show a form, and the gate takes a lock and reads the
+settings, the member and their row before it answers; waiting two seconds first would leave it one.
+`DiscordNetGateway.AnswersInPlace` says which presses wait. The bot routes a press to the join gate
+first, then to the staff buttons, then to `/me`'s.
 
 The own-server guard runs before any of this, unchanged: a menu, a button or a form from another
 server, or whose id does not start with `modbot:`, is left completely alone.
