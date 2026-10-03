@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   blankPost,
+  blueskyCardPictureWanted,
+  blueskyCount,
+  blueskyText,
+  graphemes,
   canCancel,
   canEditWhole,
   discordCount,
@@ -339,4 +343,66 @@ test('who sees a VRChat post is said as Everyone, Group, or its roles', () => {
   assert.equal(vrchatAudience('public', ['Members']), 'Everyone')
   assert.equal(vrchatAudience('group', []), 'Group')
   assert.equal(vrchatAudience('group', ['Members', 'Staff']), 'Members, Staff')
+})
+
+test('Bluesky counts characters as a reader sees them, not as UTF-16 units', () => {
+  assert.equal(graphemes('Café'), 4)
+  assert.equal(graphemes('\u{1F44D}\u{1F3FD}'), 1)
+  assert.equal(graphemes('\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}'), 1)
+  assert.equal(graphemes('映画の夜'), 4)
+  assert.equal(graphemes(''), 0)
+})
+
+test('Bluesky gets the title on its own line, then the text, or its own text alone', () => {
+  const input = { ...blankPost(now, 'UTC'), title: 'Movie night', text: 'Friday at eight.\r\nBring snacks.' }
+
+  assert.equal(blueskyText(input), 'Movie night\nFriday at eight.\nBring snacks.')
+  assert.equal(blueskyText({ ...input, bluesky: { ...input.bluesky, ownText: true, text: '  Just this. ' } }), 'Just this.')
+})
+
+test('the Bluesky counter says 300 and turns red past it, or past 3000 bytes', () => {
+  const input = { ...blankPost(now, 'UTC'), title: '', text: '\u{1F44D}\u{1F3FD}'.repeat(300) }
+  assert.deepEqual(blueskyCount(input), { label: 'Bluesky 300 / 300', over: false })
+
+  assert.equal(blueskyCount({ ...input, text: 'a'.repeat(301) }).over, true)
+
+  // 121 family emoji: 121 characters, 3025 bytes.
+  const families = '\u{1F468}‍\u{1F469}‍\u{1F467}‍\u{1F466}'.repeat(121)
+  assert.deepEqual(blueskyCount({ ...input, text: families }), { label: 'Bluesky 121 / 300', over: true })
+})
+
+test("a ticked Bluesky sends its section, its own text only when ticked, and the card picture only for the post's picture", () => {
+  const input = { ...blankPost(now, 'UTC'), pictureId: 'pic-1' }
+  assert.equal(requestOf(input, false).bluesky, null)
+
+  const ticked = { ...input, bluesky: { ...input.bluesky, on: true, cardPictureId: 'copy-1', cardPictureFrom: 'pic-1' } }
+  assert.deepEqual(requestOf(ticked, false).bluesky, { text: null, cardPictureId: 'copy-1', cardPictureFrom: 'pic-1' })
+
+  const stale = { ...ticked, pictureId: 'pic-2' }
+  assert.deepEqual(requestOf(stale, false).bluesky, { text: null, cardPictureId: null, cardPictureFrom: null })
+  assert.equal(blueskyCardPictureWanted(stale), true)
+  assert.equal(blueskyCardPictureWanted(ticked), false)
+
+  const own = { ...ticked, bluesky: { ...ticked.bluesky, ownText: true, text: 'Mine' } }
+  assert.equal(requestOf(own, false).bluesky?.text, 'Mine')
+})
+
+test('a saved Bluesky destination comes back into the composer, and a duplicate unticks it', () => {
+  const saved = post('scheduled', [
+    destination('waiting', {
+      network: 'bluesky',
+      target: 'did:plc:ewvi7nxzyoun6zhxrhs64oiz',
+      targetName: null,
+      textOverride: 'Our own words',
+      bluesky: { cardPictureId: 'copy-1', cardPictureFrom: 'pic-1' },
+    }),
+  ])
+
+  const input = inputFrom(saved, now, 'UTC')
+  assert.equal(input.bluesky.on, true)
+  assert.equal(input.bluesky.ownText, true)
+  assert.equal(input.bluesky.text, 'Our own words')
+  assert.equal(input.bluesky.cardPictureId, 'copy-1')
+
+  assert.equal(duplicateOf(saved, now, 'UTC').bluesky.on, false)
 })

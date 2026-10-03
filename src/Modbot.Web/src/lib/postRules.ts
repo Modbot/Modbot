@@ -29,6 +29,14 @@ export type VRChatDestination = {
   pictureId: string | null
 }
 
+/** A Bluesky destination's own choices. */
+export type BlueskyDestination = {
+  /** The small copy of the post's picture the link card carries, or null for none. */
+  cardPictureId: string | null
+  /** The post's picture the copy was made from. */
+  cardPictureFrom: string | null
+}
+
 export type PostDestination = {
   id: string
   network: PostNetwork
@@ -55,6 +63,8 @@ export type PostDestination = {
   vrChat: VRChatDestination | null
   /** The VRChat group permission Modbot's account was refused for lacking. */
   missingPermission: string | null
+  /** A Bluesky destination's own choices; null (or missing, from an older server) for another site. */
+  bluesky?: BlueskyDestination | null
 }
 
 export type Post = {
@@ -88,6 +98,10 @@ export type PostSites = {
   vrChatSetUp: boolean
   /** VRChat picture uploads are on, so a VRChat post can carry the picture. */
   vrChatPictures: boolean
+  /** The Bluesky Posting switch. Missing from an older server: off. */
+  blueskyOn?: boolean
+  /** A Bluesky account passed Check and its app password works. */
+  blueskySetUp?: boolean
 }
 
 /** A role of the VRChat group, for choosing who a VRChat post is for. */
@@ -129,7 +143,30 @@ export type VRChatPostPreview = {
   length: number
 }
 
-export type PostPreview = { discord: DiscordPostPreview | null; vrChat: VRChatPostPreview | null; problems: string[] }
+/** One stretch of a Bluesky post's text, as Bluesky colours it. */
+export type BlueskyTextPart = { kind: 'text' | 'link' | 'tag'; text: string }
+
+export type BlueskyPostPreview = {
+  /** The whole text, exactly as it is sent. */
+  text: string
+  parts: BlueskyTextPart[]
+  /** Characters the way Bluesky counts them; the server's count. */
+  graphemes: number
+  bytes: number
+  limit: number
+  /** The link card, when the text has a link. */
+  card: { uri: string; title: string; description: string; host: string; pictureUrl: string | null } | null
+  /** The account it goes out as. */
+  handle: string | null
+  displayName: string | null
+}
+
+export type PostPreview = {
+  discord: DiscordPostPreview | null
+  vrChat: VRChatPostPreview | null
+  bluesky?: BlueskyPostPreview | null
+  problems: string[]
+}
 
 export type PostHealthProblem = {
   postId: string
@@ -147,7 +184,15 @@ export type PostsHealth = {
   holds: { network: PostNetwork; hold: 'off' | 'notSetUp'; waiting: number }[]
 }
 
-export type PostSettings = { paused: boolean; discord: boolean; vrChat: boolean }
+export type PostSettings = {
+  paused: boolean
+  discord: boolean
+  vrChat: boolean
+  /** Bluesky posts: the Bluesky topic's Posting switch, mirrored. */
+  bluesky?: boolean
+  /** A Bluesky account passed Check, so Bluesky posts may be turned on. Read only. */
+  blueskyCanPost?: boolean
+}
 
 /** The Discord section of the composer. */
 export type DiscordInput = {
@@ -181,6 +226,18 @@ export type VRChatInput = {
   imagePictureId: string | null
 }
 
+/** The Bluesky section of the composer (posts design §4.2c). */
+export type BlueskyInput = {
+  /** The chip: off when the composer opens, every time, for a new post. */
+  on: boolean
+  /** "Own text" ticked: Bluesky gets `text`, every word of it, instead of the post's title and text. */
+  ownText: boolean
+  text: string
+  /** The small JPEG copy of the picture for the link card, made in the browser from `cardPictureFrom`. */
+  cardPictureId: string | null
+  cardPictureFrom: string | null
+}
+
 /** The composer's state. */
 export type PostInput = {
   title: string
@@ -193,6 +250,7 @@ export type PostInput = {
   eventId: string | null
   discord: DiscordInput
   vrChat: VRChatInput
+  bluesky: BlueskyInput
 }
 
 /** What the server takes for a new post or a change. */
@@ -214,11 +272,21 @@ export type PostRequest = {
     text: string | null
     imageId: string | null
   } | null
+  bluesky: { text: string | null; cardPictureId: string | null; cardPictureFrom: string | null } | null
   version: number | null
 }
 
 /** Discord's limit, in UTF-16 units as the server counts (posts design §4.3). */
 export const DISCORD_LIMIT = 2000
+
+/** Bluesky's limit, in characters as a reader sees them (graphemes). The server also holds it to 3000 bytes. */
+export const BLUESKY_LIMIT = 300
+
+/** Bluesky's limit in UTF-8 bytes. */
+export const BLUESKY_BYTE_LIMIT = 3000
+
+/** The largest card picture Bluesky takes: the server's `BlueskyText.CardPictureMaxBytes`. */
+export const BLUESKY_CARD_PICTURE_MAX_BYTES = 1_000_000
 
 export const NETWORK_LABEL: Record<PostNetwork, string> = {
   discord: 'Discord',
@@ -380,6 +448,46 @@ export function vrchatAudience(visibility: VRChatVisibility, roleNames: readonly
   return roleNames.length > 0 ? roleNames.join(', ') : 'Group'
 }
 
+/**
+ * How many characters a reader sees in `text`: an emoji with its skin tone, or a family joined into
+ * one picture, is one. Counted with `Intl.Segmenter` for the counter while typing; the server counts
+ * again and decides.
+ */
+export function graphemes(text: string): number {
+  if (!text) return 0
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text)).length
+  }
+  return Array.from(text).length
+}
+
+/**
+ * What Bluesky gets, the server's `PostTexts.Bluesky` word for word: its own text as it is when
+ * "Own text" is ticked, otherwise the title on its own line and then the text.
+ */
+export function blueskyText(input: Pick<PostInput, 'title' | 'text' | 'bluesky'>): string {
+  if (input.bluesky.ownText) return tidy(input.bluesky.text)
+  const lines: string[] = []
+  const heading = tidy(input.title).replace(/\n/g, ' ')
+  if (heading) lines.push(heading)
+  const body = tidy(input.text)
+  if (body) lines.push(body)
+  return lines.join('\n')
+}
+
+/** The counter for Bluesky: "Bluesky 212 / 300", red once over either limit. */
+export function blueskyCount(input: Pick<PostInput, 'title' | 'text' | 'bluesky'>): { label: string; over: boolean } {
+  const text = blueskyText(input)
+  const count = graphemes(text)
+  const bytes = new TextEncoder().encode(text).length
+  return { label: `Bluesky ${count} / ${BLUESKY_LIMIT}`, over: count > BLUESKY_LIMIT || bytes > BLUESKY_BYTE_LIMIT }
+}
+
+/** Whether a small copy of the post's picture still has to be made for Bluesky's link card. */
+export function blueskyCardPictureWanted(input: Pick<PostInput, 'pictureId' | 'bluesky'>): boolean {
+  return input.bluesky.on && input.pictureId !== null && input.bluesky.cardPictureFrom !== input.pictureId
+}
+
 /** `yyyy-MM-ddTHH:mm` for `at` in `zone`, as a datetime-local field holds it. */
 export function localInput(at: Date, zone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -408,7 +516,12 @@ export function blankPost(now: Date, zone: string): PostInput {
     eventId: null,
     discord: { on: false, channelId: '', roleId: '', publish: false, ownText: false, text: '' },
     vrChat: blankVRChat(),
+    bluesky: blankBluesky(),
   }
+}
+
+function blankBluesky(): BlueskyInput {
+  return { on: false, ownText: false, text: '', cardPictureId: null, cardPictureFrom: null }
 }
 
 function blankVRChat(): VRChatInput {
@@ -430,6 +543,7 @@ function blankVRChat(): VRChatInput {
 export function inputFrom(post: Post, now: Date, zone: string): PostInput {
   const discord = post.destinations.find((d) => d.network === 'discord')
   const vrchat = post.destinations.find((d) => d.network === 'vrchat')
+  const bluesky = post.destinations.find((d) => d.network === 'bluesky')
   const blank = blankPost(now, zone)
 
   return {
@@ -464,6 +578,15 @@ export function inputFrom(post: Post, now: Date, zone: string): PostInput {
           imagePictureId: vrchat.vrChat?.pictureId ?? null,
         }
       : blank.vrChat,
+    bluesky: bluesky
+      ? {
+          on: true,
+          ownText: bluesky.textOverride !== null,
+          text: bluesky.textOverride ?? '',
+          cardPictureId: bluesky.bluesky?.cardPictureId ?? null,
+          cardPictureFrom: bluesky.bluesky?.cardPictureFrom ?? null,
+        }
+      : blank.bluesky,
   }
 }
 
@@ -480,6 +603,7 @@ export function duplicateOf(post: Post, now: Date, zone: string): PostInput {
     timeZone: zone,
     discord: { ...copy.discord, on: false },
     vrChat: { ...copy.vrChat, on: false, notify: false },
+    bluesky: { ...copy.bluesky, on: false },
   }
 }
 
@@ -513,6 +637,14 @@ export function requestOf(input: PostInput, draft: boolean, version: number | nu
           title: input.vrChat.ownTitle ? input.vrChat.title : null,
           text: input.vrChat.ownText ? input.vrChat.text : null,
           imageId: vrchatImage(input, vrChatPictures),
+        }
+      : null,
+    bluesky: input.bluesky.on
+      ? {
+          text: input.bluesky.ownText ? input.bluesky.text : null,
+          // Only a copy of the picture the post has now.
+          cardPictureId: input.pictureId && input.bluesky.cardPictureFrom === input.pictureId ? input.bluesky.cardPictureId : null,
+          cardPictureFrom: input.pictureId && input.bluesky.cardPictureFrom === input.pictureId ? input.pictureId : null,
         }
       : null,
     version,

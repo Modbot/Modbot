@@ -68,3 +68,42 @@ export async function cropToFile(picture: OpenPicture, box: CropBox, aspect: num
 
   throw new Error(`The picture is larger than ${maxBytes / (1024 * 1024)} MB.`)
 }
+
+/** The longest side of Bluesky's card picture: a link card is drawn small, so more is only bytes. */
+const CARD_PICTURE_SIDE = 1200
+
+/**
+ * A small JPEG copy of a kept picture for Bluesky's link card (posts design §4.2c): at most
+ * `maxBytes` (Bluesky takes 1,000,000), at most 1200 pixels on its longer side, made smaller and
+ * plainer step by step until it fits. Made here because the server has no image library. Throws a
+ * plain sentence when even the smallest step does not fit.
+ */
+export async function smallJpeg(file: Blob, maxBytes: number): Promise<Blob> {
+  const picture = await openPicture(file)
+
+  try {
+    const longer = Math.max(picture.width, picture.height)
+    const steps: [number, number][] = [
+      [1, 0.85],
+      [1, 0.7],
+      [0.75, 0.7],
+      [0.5, 0.7],
+      [0.35, 0.6],
+    ]
+
+    for (const [scale, quality] of steps) {
+      const factor = Math.min(1, CARD_PICTURE_SIDE / longer) * scale
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(picture.width * factor))
+      canvas.height = Math.max(1, Math.round(picture.height * factor))
+      drawCrop(canvas, picture, { x: 0, y: 0, width: picture.width, height: picture.height })
+
+      const jpeg = await toBlob(canvas, 'image/jpeg', quality)
+      if (jpeg && jpeg.type === 'image/jpeg' && jpeg.size <= maxBytes) return jpeg
+    }
+  } finally {
+    closePicture(picture)
+  }
+
+  throw new Error('Could not make the picture small enough for Bluesky.')
+}

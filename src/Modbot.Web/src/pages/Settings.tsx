@@ -6,6 +6,7 @@ import { IamSection } from '@/components/settings/iam/IamSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { GoogleCalendarSection } from '@/components/settings/google/GoogleCalendarSection'
+import { BlueskySection } from '@/components/settings/bluesky/BlueskySection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { AutoModSection } from '@/components/settings/automod/AutoModSection'
 import { AutoInvitesSection } from '@/components/settings/AutoInvitesSection'
@@ -46,6 +47,7 @@ const TABS = [
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'google', label: 'Google Calendar', group: 'Connections', needs: ['ManageSettings'] },
+  { value: 'bluesky', label: 'Bluesky', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'posts', label: 'Posts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'integrations', label: 'Email and alerts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'ai', label: 'AI', group: 'Connections', needs: ['ManageSettings'] },
@@ -266,6 +268,8 @@ function Panel({
       return <DiscordSection me={me} status={status} statusError={statusError} refresh={refresh} />
     case 'google':
       return <GoogleCalendarSection />
+    case 'bluesky':
+      return <BlueskySection />
     case 'posts':
       return <PostsSection />
     case 'moderation':

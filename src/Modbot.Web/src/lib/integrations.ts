@@ -1,5 +1,5 @@
 // Relative, with the extension, so the Node test runner loads it as it is (see lib/nav.ts).
-import type { DiscordBotHealth, GoogleCalendarSettings } from './api.ts'
+import type { BlueskySettings, DiscordBotHealth, GoogleCalendarSettings } from './api.ts'
 import { discordState, vrchatState, type State } from './status.ts'
 
 /** The bot's one word, as the bot state read and the Health read both say it. */
@@ -14,7 +14,7 @@ export type DiscordBotState = DiscordBotHealth['state']
  */
 
 /** A Settings topic, as `/settings#<topic>` names it (pages/Settings.tsx). */
-export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy' | 'google'
+export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy' | 'google' | 'bluesky'
 
 /** The address that opens a Settings topic. */
 export function settingsPath(topic: SettingsTopic): string {
@@ -27,7 +27,7 @@ export function settingsPath(topic: SettingsTopic): string {
  */
 export type Part = { name: string; topic?: SettingsTopic }
 
-export type IntegrationId = 'vrchat' | 'discord' | 'email' | 'google'
+export type IntegrationId = 'vrchat' | 'discord' | 'email' | 'google' | 'bluesky'
 
 export type Integration = {
   id: IntegrationId
@@ -62,11 +62,17 @@ export type IntegrationReading = {
    * Undefined when that read was not made or has not answered.
    */
   googleCalendar: Pick<GoogleCalendarSettings, 'keyStored' | 'calendarId' | 'check' | 'sending'> | undefined
+  /**
+   * Settings → Bluesky, from its own read (it needs Change settings, as the page does). Undefined
+   * when that read was not made or has not answered. Optional, so a reading made before Bluesky
+   * came is still one.
+   */
+  bluesky?: Pick<BlueskySettings, 'handle' | 'appPasswordStored' | 'check' | 'posting'> | undefined
 }
 
 /**
- * The integrations, in the order the sidebar puts VRChat and Discord, with Email and Google Calendar
- * after them.
+ * The integrations, in the order the sidebar puts VRChat and Discord, with Email, Google Calendar
+ * and Bluesky after them.
  *
  * Each status in the sidebar's own words, starting with a capital as a label does, except that a
  * part that is not set up says "Needs setup" on every card alike.
@@ -101,7 +107,27 @@ export function integrations(reading: IntegrationReading): Integration[] {
       topic: 'google',
       state: googleStatus(reading.googleCalendar),
     },
+    {
+      id: 'bluesky',
+      name: 'Bluesky',
+      parts: [{ name: 'Account' }, { name: 'Posting' }],
+      topic: 'bluesky',
+      state: blueskyStatus(reading.bluesky),
+    },
   ]
+}
+
+/**
+ * Needs setup until a handle and an app password are saved and Check has run on them; then Failed
+ * when Check, or a sign-in since, found a problem (a refused app password, a handle that leads
+ * nowhere), Off while Posting is off, and Working while posts go to Bluesky.
+ */
+function blueskyStatus(bluesky: IntegrationReading['bluesky']): State {
+  if (bluesky === undefined) return UNKNOWN
+  if (!bluesky.handle || !bluesky.appPasswordStored || !bluesky.check) return NEEDS_SETUP
+  if (bluesky.check.problem) return { label: 'Failed', tone: 'bad' }
+  if (!bluesky.posting) return { label: 'Off', tone: 'muted' }
+  return { label: 'Working', tone: 'ok' }
 }
 
 /**

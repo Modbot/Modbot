@@ -7,6 +7,8 @@ import {
   postsApi,
   requestOf,
   vrchatAudience,
+  BLUESKY_BYTE_LIMIT,
+  type BlueskyPostPreview,
   type DiscordPostPreview,
   type PostInput,
   type PostPreview,
@@ -66,7 +68,57 @@ export function PostPreviewPanel({
       )}
       {preview.discord && <DiscordMessage message={preview.discord} picture={croppedPicture} />}
       {preview.vrChat && <VRChatPost post={preview.vrChat} />}
+      {preview.bluesky && <BlueskyPost post={preview.bluesky} />}
     </div>
+  )
+}
+
+/**
+ * A Bluesky post as Bluesky shows it: the account's name and handle, the exact text with its links
+ * and tags coloured (never a mention), and the link card Modbot builds, with its picture when it has
+ * one. The counter is the server's count.
+ */
+export function BlueskyPost({ post }: { post: BlueskyPostPreview }) {
+  const over = post.graphemes > post.limit || post.bytes > BLUESKY_BYTE_LIMIT
+
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="font-label text-muted-foreground">Bluesky</h3>
+      <article className="flex flex-col gap-2 rounded-sm border-(length:--hairline) bg-card p-3">
+        {(post.displayName || post.handle) && (
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+            {post.displayName && <span className="font-semibold [overflow-wrap:anywhere]">{post.displayName}</span>}
+            {post.handle && <span className="text-muted-foreground [overflow-wrap:anywhere]">@{post.handle}</span>}
+          </div>
+        )}
+        {post.text && (
+          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+            {post.parts.map((part, i) =>
+              part.kind === 'text' ? (
+                <span key={i}>{part.text}</span>
+              ) : (
+                <span key={i} className="text-link">
+                  {part.text}
+                </span>
+              ),
+            )}
+          </p>
+        )}
+        {post.card && (
+          <div className="flex flex-col overflow-hidden rounded-sm border border-(length:--hairline)">
+            {post.card.pictureUrl && <img src={post.card.pictureUrl} alt="" className="max-h-60 w-full object-cover" loading="lazy" />}
+            <div className="flex flex-col gap-0.5 p-2">
+              <span className="font-medium [overflow-wrap:anywhere]">{post.card.title}</span>
+              {post.card.description && <span className="text-muted-foreground [overflow-wrap:anywhere]">{post.card.description}</span>}
+              <span className="border-t border-(length:--hairline) pt-1 text-muted-foreground">{post.card.host}</span>
+            </div>
+          </div>
+        )}
+      </article>
+      <span className={cn('font-mono', over ? 'text-destructive' : 'text-muted-foreground')}>
+        {post.graphemes} / {post.limit}
+      </span>
+    </section>
   )
 }
 

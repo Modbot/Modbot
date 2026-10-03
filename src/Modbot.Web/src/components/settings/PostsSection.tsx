@@ -5,9 +5,10 @@ import { ApiError } from '@/lib/api'
 import { postsApi, type PostSettings } from '@/lib/posts'
 
 /**
- * Settings, Posts (posts design §4.6): Pause all posting, and whether posts go to Discord and to the
- * VRChat group. Each
- * switch saves at once: one yes or no with nothing to save beside it.
+ * Settings, Posts (posts design §4.6): Pause all posting, and whether posts go to Discord, to the
+ * VRChat group and to Bluesky. Bluesky posts are the Bluesky topic's Posting switch, shown here too,
+ * and go on only once that account passed Check. Each switch saves at once: one yes or no with
+ * nothing to save beside it.
  */
 export function PostsSection() {
   const [settings, setSettings] = useState<PostSettings | null>(null)
@@ -56,6 +57,13 @@ export function PostsSection() {
           </Switch>
           <Switch checked={settings.vrChat} disabled={busy} onChange={(vrChat) => change({ vrChat })}>
             VRChat posts
+          </Switch>
+          <Switch
+            checked={!!settings.bluesky}
+            disabled={busy || (!settings.bluesky && !settings.blueskyCanPost)}
+            onChange={(bluesky) => change({ bluesky })}
+          >
+            Bluesky posts
           </Switch>
         </div>
       </SettingsCard>

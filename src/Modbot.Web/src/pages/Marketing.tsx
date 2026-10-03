@@ -82,7 +82,7 @@ type Confirming =
   | { kind: 'delete-on-site'; post: Post; destination: PostDestination }
 
 /**
- * Marketing (posts design §4): posts sent to Discord and the VRChat group at a time, in four lists, with where each went
+ * Marketing (posts design §4): posts sent to Discord, the VRChat group and Bluesky at a time, in four lists, with where each went
  * and how. New post opens the composer; each row carries what can be done to it now. The list
  * redraws when a post's facts arrive, so Sending turns Posted without a reload.
  */

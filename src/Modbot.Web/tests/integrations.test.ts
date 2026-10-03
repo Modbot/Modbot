@@ -22,6 +22,15 @@ const CHECKED: GoogleReading = {
   sending: true,
 }
 
+type BlueskyReading = NonNullable<IntegrationReading['bluesky']>
+
+const BLUESKY: BlueskyReading = {
+  handle: 'ourgroup.bsky.social',
+  appPasswordStored: true,
+  check: { at: '2026-10-03T12:00:00Z', handle: 'ourgroup.bsky.social', displayName: 'Our group', automated: true, problem: null },
+  posting: true,
+}
+
 function reading(over: Partial<IntegrationReading> = {}): IntegrationReading {
   return {
     gate: 'Working',
@@ -29,6 +38,7 @@ function reading(over: Partial<IntegrationReading> = {}): IntegrationReading {
     discordBot: bot('Connected'),
     smtpConfigured: true,
     googleCalendar: CHECKED,
+    bluesky: BLUESKY,
     ...over,
   }
 }
@@ -37,10 +47,10 @@ function stateOf(id: string, over: Partial<IntegrationReading> = {}) {
   return integrations(reading(over)).find((i) => i.id === id)?.state
 }
 
-test('VRChat, Discord, Email and Google Calendar, in that order', () => {
+test('VRChat, Discord, Email, Google Calendar and Bluesky, in that order', () => {
   assert.deepEqual(
     integrations(reading()).map((i) => i.name),
-    ['VRChat', 'Discord', 'Email', 'Google Calendar'],
+    ['VRChat', 'Discord', 'Email', 'Google Calendar', 'Bluesky'],
   )
 })
 
@@ -55,6 +65,7 @@ test('nothing set up says Needs setup on every card', () => {
     discordBot: null,
     smtpConfigured: false,
     googleCalendar: { keyStored: false, calendarId: null, check: null },
+    bluesky: { handle: null, appPasswordStored: false, check: null, posting: false },
   })
   for (const item of integrations(none)) assert.equal(item.state.label, 'Needs setup')
 })
@@ -85,6 +96,7 @@ test('each Set up leads to the Settings topic where it is set up', () => {
     discord: '/settings#discord',
     email: '/settings#integrations',
     google: '/settings#google',
+    bluesky: '/settings#bluesky',
   })
 })
 
@@ -119,4 +131,29 @@ test('Google Calendar says Off while Sending is off, and Failed over Off when se
 
   const refused = { ...CHECKED, sending: false, check: { ...CHECKED.check!, problem: 'Google did not accept the key.' } }
   assert.equal(stateOf('google', { googleCalendar: refused })?.label, 'Failed')
+})
+
+test('the Bluesky card names its account and posting', () => {
+  const bluesky = integrations(reading()).find((i) => i.id === 'bluesky')
+
+  assert.deepEqual(bluesky?.parts.map((p) => p.name), ['Account', 'Posting'])
+})
+
+test('Bluesky needs setup until a handle and an app password are saved and Check has run on them', () => {
+  assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, handle: null } })?.label, 'Needs setup')
+  assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, appPasswordStored: false } })?.label, 'Needs setup')
+  assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, check: null } })?.label, 'Needs setup')
+})
+
+test('Bluesky says Failed when Check found a problem, Off while Posting is off, Working while it posts', () => {
+  const refused = { ...BLUESKY, check: { ...BLUESKY.check!, problem: 'Bluesky did not accept the handle or app password.' } }
+
+  assert.deepEqual(stateOf('bluesky', { bluesky: refused }), { label: 'Failed', tone: 'bad' })
+  assert.deepEqual(stateOf('bluesky', { bluesky: { ...BLUESKY, posting: false } }), { label: 'Off', tone: 'muted' })
+  assert.deepEqual(stateOf('bluesky'), { label: 'Working', tone: 'ok' })
+  assert.equal(stateOf('bluesky', { bluesky: { ...refused, posting: false } })?.label, 'Failed')
+})
+
+test('Bluesky says Unknown when its settings could not be read', () => {
+  assert.equal(stateOf('bluesky', { bluesky: undefined })?.label, 'Unknown')
 })

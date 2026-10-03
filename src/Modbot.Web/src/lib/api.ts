@@ -3723,6 +3723,34 @@ export type GoogleCalendarSettings = {
   canSend?: boolean
 }
 
+/** What the last Bluesky Check found (Bluesky design §3.1). */
+export type BlueskyCheck = {
+  at: string
+  /** The handle the account answered to. */
+  handle: string | null
+  displayName: string | null
+  /** The account is marked as automated. */
+  automated: boolean
+  /** What went wrong, in a sentence. Null when Check passed. */
+  problem: string | null
+}
+
+/** Settings → Bluesky as stored. The app password and the session are never sent to the browser. */
+export type BlueskySettings = {
+  handle: string | null
+  appPasswordStored: boolean
+  /** Posts go to Bluesky. Off until turned on after a good Check. */
+  posting: boolean
+  /** The last Check passed and the app password has not been refused since. */
+  canPost: boolean
+  /** Null when Check has not run since the handle or the app password changed. */
+  check: BlueskyCheck | null
+  /** Nothing goes to Bluesky before this, Check included. */
+  limitedUntil: string | null
+  /** Modbot's own sign-in guard held the last Check back until this. */
+  signInAfter: string | null
+}
+
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
 export type AiProviderOption = { id: string; label: string; endpoint: string; recommended: boolean }
 
@@ -4839,6 +4867,20 @@ export const api = {
 
   /** Turns Sending off and deletes every event Modbot put on the calendar, through the sending loop. */
   removeGoogleCalendarEvents: () => post<GoogleCalendarSettings>('/api/settings/google-calendar/remove-events'),
+
+  // ── Bluesky ─────────────────────────────────────────────────────────────────────────────
+
+  blueskySettings: () => request<BlueskySettings>('/api/settings/bluesky'),
+
+  /** A field left out keeps what is stored. Anything but an app password is refused. */
+  setBlueskySettings: (body: { handle?: string; appPassword?: string; posting?: boolean }) =>
+    put<BlueskySettings>('/api/settings/bluesky', body),
+
+  /** Forgets the account, the app password and the session, and turns Posting off. */
+  removeBlueskySettings: () => del<BlueskySettings>('/api/settings/bluesky'),
+
+  /** Finds the account and signs in. Never posts. A 200 either way; `check.problem` says what went wrong. */
+  checkBluesky: () => post<BlueskySettings>('/api/settings/bluesky/check'),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

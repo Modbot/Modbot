@@ -16,7 +16,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api'
 import { useDiscordChannels } from '@/lib/discordLists'
 import { useCanManageSettings } from '@/lib/manageSettings'
+import { smallJpeg } from '@/lib/pictureFiles'
 import {
+  BLUESKY_CARD_PICTURE_MAX_BYTES,
+  blueskyCardPictureWanted,
+  blueskyCount,
+  blueskyText,
   discordCount,
   pictureAddress,
   POST_PICTURE_MAX_BYTES,
@@ -25,6 +30,7 @@ import {
   vrchatCount,
   vrchatNeedsTitle,
   vrchatPictureWanted,
+  type BlueskyInput,
   type Post,
   type PostInput,
   type PostRoleChoice,
@@ -49,6 +55,9 @@ const ASPECT: Record<Shape, number | null> = { wide: 16 / 9, square: 1, whole: n
 
 /** A post's picture as VRChat has it. */
 type VRChatPictureSent = { imageId: string; pictureId: string }
+
+/** The small copy of a post's picture made for Bluesky's link card, and the picture it was made from. */
+type BlueskyCardPicture = { cardPictureId: string; cardPictureFrom: string }
 
 /**
  * Writing a post, or changing one before it goes (posts design §4.3).
@@ -90,6 +99,8 @@ export function PostComposer({
     setInput((current) => ({ ...current, discord: { ...current.discord, [key]: value } }))
   const setVRChat = (change: Partial<VRChatInput>) =>
     setInput((current) => ({ ...current, vrChat: { ...current.vrChat, ...change } }))
+  const setBluesky = (change: Partial<BlueskyInput>) =>
+    setInput((current) => ({ ...current, bluesky: { ...current.bluesky, ...change } }))
 
   // The picture goes to VRChat when VRChat is ticked with one, while VRChat picture uploads are on
   // (decision 14): once per picture, since VRChat takes one upload a minute and none is sent again.
@@ -131,6 +142,50 @@ export function PostComposer({
   // The error shown is the one for the picture the post has now.
   const vrchatPictureError = input.pictureId ? (vrchatErrors[input.pictureId] ?? null) : null
 
+  // Bluesky's link card takes a picture of at most 1,000,000 bytes, so a small JPEG copy of the
+  // post's picture is made here, in the browser, and kept beside it: once per picture, the making
+  // itself kept so a second ask waits on the first.
+  const blueskyMakes = useRef(new Map<string, Promise<BlueskyCardPicture | null>>())
+  const [blueskyErrors, setBlueskyErrors] = useState<Record<string, string>>({})
+  const [blueskyMaking, setBlueskyMaking] = useState(false)
+
+  const makeBlueskyPicture = (pictureId: string): Promise<BlueskyCardPicture | null> => {
+    const making = blueskyMakes.current.get(pictureId)
+    if (making) return making
+
+    setBlueskyMaking(true)
+
+    const make = fetch(pictureAddress(pictureId))
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not read the picture.')
+        return response.blob()
+      })
+      .then((picture) => smallJpeg(picture, BLUESKY_CARD_PICTURE_MAX_BYTES))
+      .then((jpeg) => postsApi.uploadPicture(jpeg))
+      .then(({ pictureId: copy }) => {
+        const made = { cardPictureId: copy, cardPictureFrom: pictureId }
+        setInput((current) => ({ ...current, bluesky: { ...current.bluesky, ...made } }))
+        return made
+      })
+      .catch((e: unknown) => {
+        const said = e instanceof ApiError || e instanceof Error ? e.message : 'Could not make the picture for Bluesky.'
+        setBlueskyErrors((current) => ({ ...current, [pictureId]: said }))
+        return null
+      })
+      .finally(() => setBlueskyMaking(false))
+
+    blueskyMakes.current.set(pictureId, make)
+    return make
+  }
+
+  // Only when the tick or the picture changes; the function itself is new every render.
+  const wantsBlueskyPicture = blueskyCardPictureWanted(input)
+  useEffect(() => {
+    if (wantsBlueskyPicture && input.pictureId) void makeBlueskyPicture(input.pictureId)
+  }, [wantsBlueskyPicture, input.pictureId])
+
+  const blueskyPictureError = input.pictureId ? (blueskyErrors[input.pictureId] ?? null) : null
+
   const picture = useCroppedPicture({
     aspect: ASPECT[shape],
     maxBytes: POST_PICTURE_MAX_BYTES,
@@ -160,6 +215,7 @@ export function PostComposer({
 
   const count = discordCount(input)
   const vrchatCounter = vrchatCount(input)
+  const blueskyCounter = blueskyCount(input)
   const needsTitle = vrchatNeedsTitle(input)
   const isDraft = !post || post.status === 'draft'
 
@@ -190,10 +246,29 @@ export function PostComposer({
         }
         saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
       }
-    } else if (input.pictureId && vrchatPictureWanted(saving, sites.vrChatPictures) && vrchatSends.current.has(input.pictureId)) {
-      // A send to VRChat still on its way is waited for, so the post goes with what it answers.
-      const sent = await vrchatSends.current.get(input.pictureId)
-      if (sent) saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
+
+      // Bluesky's small copy of it, the same way: made once, here, and a failure stops the save.
+      if (blueskyCardPictureWanted(saving)) {
+        const made = await makeBlueskyPicture(id)
+        if (!made) {
+          setBusy(false)
+          setTab('write')
+          return
+        }
+        saving = { ...saving, bluesky: { ...saving.bluesky, ...made } }
+      }
+    } else {
+      if (input.pictureId && vrchatPictureWanted(saving, sites.vrChatPictures) && vrchatSends.current.has(input.pictureId)) {
+        // A send to VRChat still on its way is waited for, so the post goes with what it answers.
+        const sent = await vrchatSends.current.get(input.pictureId)
+        if (sent) saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
+      }
+
+      if (input.pictureId && blueskyCardPictureWanted(saving) && blueskyMakes.current.has(input.pictureId)) {
+        // Bluesky's copy still being made is waited for, so the post goes with it.
+        const made = await blueskyMakes.current.get(input.pictureId)
+        if (made) saving = { ...saving, bluesky: { ...saving.bluesky, ...made } }
+      }
     }
 
     const body = requestOf(saving, draft, post?.version ?? null, sites.vrChatPictures)
@@ -237,11 +312,16 @@ export function PostComposer({
               Cancel
             </Button>
             {isDraft && (
-              <Button size="sm" variant="outline" disabled={busy || picture.uploading || vrchatUploading} onClick={() => void save(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || picture.uploading || vrchatUploading || blueskyMaking}
+                onClick={() => void save(true)}
+              >
                 Save draft
               </Button>
             )}
-            <Button size="sm" disabled={busy || picture.uploading || vrchatUploading} onClick={() => void save(false)}>
+            <Button size="sm" disabled={busy || picture.uploading || vrchatUploading || blueskyMaking} onClick={() => void save(false)}>
               {input.when === 'now' ? 'Post now' : isDraft ? 'Schedule' : 'Save'}
             </Button>
           </DialogFoot>
@@ -278,6 +358,18 @@ export function PostComposer({
                 </span>
               )}
             </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Chip on={input.bluesky.on} onClick={() => setBluesky({ on: !input.bluesky.on })}>
+                {input.bluesky.on && <Check className="size-3.5" />}
+                Bluesky
+              </Chip>
+              {input.bluesky.on && !sites.blueskyOn ? (
+                <SiteState label="Off" to="/settings#bluesky" link={mayOpenSettings} />
+              ) : (
+                input.bluesky.on &&
+                !sites.blueskySetUp && <SiteState label="Not set up" to="/settings#bluesky" link={mayOpenSettings} />
+              )}
+            </span>
           </div>
 
           <Tabs
@@ -303,6 +395,7 @@ export function PostComposer({
                   <div className="flex flex-wrap gap-x-3">
                     {input.discord.on && !input.discord.ownText && <Counter count={count} />}
                     {input.vrChat.on && !input.vrChat.ownText && <Counter count={vrchatCounter} />}
+                    {input.bluesky.on && !input.bluesky.ownText && <Counter count={blueskyCounter} />}
                   </div>
                 </div>
 
@@ -461,6 +554,52 @@ export function PostComposer({
                       </span>
                     )}
                     {vrchatPictureError && <Outcome tone="problem">{vrchatPictureError}</Outcome>}
+                  </Section>
+                )}
+
+                {input.bluesky.on && (
+                  <Section title="Bluesky">
+                    <Checkbox
+                      checked={input.bluesky.ownText}
+                      onChange={(v) =>
+                        setInput((current) => ({
+                          ...current,
+                          bluesky: {
+                            ...current.bluesky,
+                            ownText: v,
+                            text: v && !current.bluesky.text ? blueskyText({ ...current, bluesky: { ...current.bluesky, ownText: false } }) : current.bluesky.text,
+                          },
+                        }))
+                      }
+                    >
+                      Own text
+                    </Checkbox>
+                    {input.bluesky.ownText && (
+                      <div className="flex flex-col gap-1">
+                        <Textarea
+                          rows={5}
+                          aria-label="Bluesky text"
+                          value={input.bluesky.text}
+                          onChange={(e) => setBluesky({ text: e.target.value })}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <Counter count={blueskyCounter} />
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => setBluesky({ text: blueskyText({ ...input, bluesky: { ...input.bluesky, ownText: false } }) })}
+                          >
+                            Reset
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {blueskyMaking && (
+                      <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                        Making the picture for Bluesky…
+                      </span>
+                    )}
+                    {blueskyPictureError && <Outcome tone="problem">{blueskyPictureError}</Outcome>}
                   </Section>
                 )}
 

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { CalendarDays, Globe, Hash, Mail, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Cloud, Globe, Hash, Mail, type LucideIcon } from 'lucide-react'
 import { Empty } from '@/components/ListParts'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +18,7 @@ const ICONS: Record<IntegrationId, LucideIcon> = {
   discord: Hash,
   email: Mail,
   google: CalendarDays,
+  bluesky: Cloud,
 }
 
 const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
@@ -35,7 +36,7 @@ const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
  * shell's copy, so coming back from Settings shows what was just saved. VRChat's live status is the
  * gate read the sidebar already makes, shared rather than made again; Discord's is the bot state
  * read, because the sidebar's Health read needs See Modbot's log and this page only Change settings.
- * Google Calendar's is its own settings read, which needs Change settings too.
+ * Google Calendar's and Bluesky's are their own settings reads, which need Change settings too.
  */
 export function Integrations({ me }: { me: CurrentUser }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
@@ -81,14 +82,19 @@ const BOT_STATE_EVERY_MS = 30_000
 function WithBotState({ status }: { status: OnboardingStatus }) {
   const [bot, setBot] = useState<IntegrationReading['discordBot']>(undefined)
   const [google, setGoogle] = useState<IntegrationReading['googleCalendar']>(undefined)
+  const [bluesky, setBluesky] = useState<IntegrationReading['bluesky']>(undefined)
 
-  // Read once: it changes only when somebody saves or checks it in Settings.
+  // Read once: each changes only when somebody saves or checks it in Settings.
   useEffect(() => {
     let cancelled = false
     api
       .googleCalendarSettings()
       .then((view) => !cancelled && setGoogle(view))
       .catch(() => !cancelled && setGoogle(undefined))
+    api
+      .blueskySettings()
+      .then((view) => !cancelled && setBluesky(view))
+      .catch(() => !cancelled && setBluesky(undefined))
     return () => {
       cancelled = true
     }
@@ -110,17 +116,19 @@ function WithBotState({ status }: { status: OnboardingStatus }) {
     }
   }, [])
 
-  return <Cards status={status} discordBot={bot} googleCalendar={google} />
+  return <Cards status={status} discordBot={bot} googleCalendar={google} bluesky={bluesky} />
 }
 
 function Cards({
   status,
   discordBot,
   googleCalendar,
+  bluesky,
 }: {
   status: OnboardingStatus
   discordBot?: IntegrationReading['discordBot']
   googleCalendar?: IntegrationReading['googleCalendar']
+  bluesky?: IntegrationReading['bluesky']
 }) {
   const { gate, failed } = useGateHealth()
 
@@ -130,6 +138,7 @@ function Cards({
     discordBot,
     smtpConfigured: status.integrations.smtpConfigured,
     googleCalendar,
+    bluesky,
   })
 
   return (
