@@ -111,7 +111,9 @@ Modbot stores several secrets for you so it can do its job:
 - your SMTP password,
 - your AI provider's API key,
 - your S3 bucket's secret access key, if evidence is stored in a bucket,
-- each webhook's signing secret.
+- each webhook's signing secret,
+- the private key from your [Google Calendar](/moderation/google-calendar) key file, if you gave
+  Modbot one.
 
 These are encrypted with **AES-256-GCM** before they are written to the database.
 
@@ -155,6 +157,29 @@ second, weaker layer on top and was never meant to replace that. See
 
 `DATABASE_URL` contains your database password, so treat it as carefully as the database. See
 [Environment variables](/self-hosting/environment-variables).
+
+### The Google Calendar key
+
+The [Google Calendar](/moderation/google-calendar) key file is a key for a Google service account.
+Modbot keeps the private key from it, encrypted like every secret above, and the service account's
+address, the key's id and the project's id, which are not secret. The rest of the file is dropped.
+The private key is never shown again and never leaves the server: Google gets only signatures made
+with it. Modbot sends them only to `oauth2.googleapis.com`, whatever address the file names.
+
+Whoever has the key can change every calendar shared with that service account. So it is as safe as
+your database, and no safer: anyone who can read your whole database can use it.
+
+To remove it:
+
+1. In Modbot, **Settings**, **Google Calendar**, **Forget**. Modbot no longer has it.
+2. In [Google Cloud](https://console.cloud.google.com), **IAM & Admin**, **Service accounts**, open
+   the account, go to **Keys** and delete the key. It stops working everywhere, including any copy
+   you or someone else kept.
+3. In Google Calendar, remove the service account's address from the calendar's **Share with
+   specific people or groups**.
+
+If you think the key leaked, do step 2 first: it is the one that makes every copy useless. Then make
+a new key and choose it in Modbot.
 
 ## API keys
 

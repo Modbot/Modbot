@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Globe, Hash, Mail, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Globe, Hash, Mail, type LucideIcon } from 'lucide-react'
 import { Empty } from '@/components/ListParts'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,7 @@ const ICONS: Record<IntegrationId, LucideIcon> = {
   vrchat: Globe,
   discord: Hash,
   email: Mail,
+  google: CalendarDays,
 }
 
 const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
@@ -34,6 +35,7 @@ const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
  * shell's copy, so coming back from Settings shows what was just saved. VRChat's live status is the
  * gate read the sidebar already makes, shared rather than made again; Discord's is the bot state
  * read, because the sidebar's Health read needs See Modbot's log and this page only Change settings.
+ * Google Calendar's is its own settings read, which needs Change settings too.
  */
 export function Integrations({ me }: { me: CurrentUser }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
@@ -69,7 +71,7 @@ export function Integrations({ me }: { me: CurrentUser }) {
 
   // The Discord bot's state comes from its own small read, which needs Change settings like the page
   // (the full bot report in the Health read needs See Modbot's log). Without it the read is not made
-  // at all, and a saved bot says "Unknown" rather than a guess.
+  // at all, and a saved bot says "Unknown" rather than a guess. The same for Google Calendar.
   return can(me, 'ManageSettings') ? <WithBotState status={status} /> : <Cards status={status} />
 }
 
@@ -78,6 +80,19 @@ const BOT_STATE_EVERY_MS = 30_000
 
 function WithBotState({ status }: { status: OnboardingStatus }) {
   const [bot, setBot] = useState<IntegrationReading['discordBot']>(undefined)
+  const [google, setGoogle] = useState<IntegrationReading['googleCalendar']>(undefined)
+
+  // Read once: it changes only when somebody saves or checks it in Settings.
+  useEffect(() => {
+    let cancelled = false
+    api
+      .googleCalendarSettings()
+      .then((view) => !cancelled && setGoogle(view))
+      .catch(() => !cancelled && setGoogle(undefined))
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -95,15 +110,17 @@ function WithBotState({ status }: { status: OnboardingStatus }) {
     }
   }, [])
 
-  return <Cards status={status} discordBot={bot} />
+  return <Cards status={status} discordBot={bot} googleCalendar={google} />
 }
 
 function Cards({
   status,
   discordBot,
+  googleCalendar,
 }: {
   status: OnboardingStatus
   discordBot?: IntegrationReading['discordBot']
+  googleCalendar?: IntegrationReading['googleCalendar']
 }) {
   const { gate, failed } = useGateHealth()
 
@@ -112,6 +129,7 @@ function Cards({
     discordConfigured: status.integrations.discordConfigured,
     discordBot,
     smtpConfigured: status.integrations.smtpConfigured,
+    googleCalendar,
   })
 
   return (

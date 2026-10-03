@@ -3685,6 +3685,33 @@ export type EvidenceUploadTicket = {
 
 export type EvidenceCommitted = { hash: string; byteSize: number; contentType: string }
 
+/** What the last Google Calendar Check found (Google Calendar design §3.1). */
+export type GoogleCalendarCheck = {
+  at: string
+  calendarName: string | null
+  timeZone: string | null
+  canChangeEvents: boolean
+  /** `unknown` when Google would not say. */
+  public: 'all' | 'freeBusy' | 'no' | 'unknown'
+  /** What went wrong, in a sentence. Null when Check passed. */
+  problem: string | null
+}
+
+/** Settings → Google Calendar as stored. The key itself is never sent to the browser. */
+export type GoogleCalendarSettings = {
+  keyStored: boolean
+  /** Modbot's Google address: what the owner shares the calendar with. */
+  address: string | null
+  projectId: string | null
+  calendarId: string | null
+  /** Null when Check has not run since the key or the calendar changed. */
+  check: GoogleCalendarCheck | null
+  /** Nothing goes to Google before this, Check included. In the past once it has passed. */
+  limitedUntil: string | null
+  /** Google's own links, when Check found the calendar public. */
+  links: { subscribe: string; publicPage: string; iCal: string } | null
+}
+
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
 export type AiProviderOption = { id: string; label: string; endpoint: string; recommended: boolean }
 
@@ -4781,6 +4808,19 @@ export const api = {
 
   setEmailLimit: (limitPer24Hours: number) =>
     put<EmailSettings>('/api/settings/email/limit', { limitPer24Hours }),
+
+  // ── Google Calendar ─────────────────────────────────────────────────────────────────────
+
+  googleCalendarSettings: () => request<GoogleCalendarSettings>('/api/settings/google-calendar'),
+
+  /** A field left out keeps what is stored. An empty `calendarId` removes it. */
+  setGoogleCalendarSettings: (body: { keyFile?: string; calendarId?: string }) =>
+    put<GoogleCalendarSettings>('/api/settings/google-calendar', body),
+
+  forgetGoogleCalendarSettings: () => del<GoogleCalendarSettings>('/api/settings/google-calendar'),
+
+  /** Signs in and reads the calendar. A 200 either way; `check.problem` says what went wrong. */
+  checkGoogleCalendar: () => post<GoogleCalendarSettings>('/api/settings/google-calendar/check'),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

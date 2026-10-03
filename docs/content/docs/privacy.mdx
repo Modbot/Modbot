@@ -101,6 +101,13 @@ wherever you choose to store them. These pages describe what is kept and how it 
   their titles, descriptions, times, repeats and worlds, and the join link of those anyone can join.
   Nothing about your members, and no events visible only to your group. Turning it off makes the
   address answer "not found" at once.
+- [Google Calendar](/moderation/google-calendar): nothing until someone with **Change settings**
+  gives Modbot a key file and a calendar in **Settings**, **Google Calendar**. Then each **Check**
+  sends Google a sign-in request signed with the key, naming Modbot's Google address, to
+  `oauth2.googleapis.com`, and asks `www.googleapis.com` for that calendar's name, time zone, who it
+  is shared with and what Modbot may do on it. Nothing about your group, your events or your
+  members. The key's private part never leaves the server; only signatures made with it do. Modbot
+  does not put events on the calendar.
 - [Event invites](/moderation/calendar#inviting-people): for an event set to invite people, Modbot
   sends VRChat invites from the group's Modbot VRChat account, and Discord direct messages from the
   server's Modbot bot, to the host, staff and list the organiser picked, and can post in the group

@@ -1,0 +1,147 @@
+---
+title: Google Calendar
+description: Connecting Modbot to a Google calendar your group owns, checking the connection, and handing out the calendar's public links.
+---
+
+Modbot can connect to a Google calendar that your group's owner owns. You give Modbot a key for its
+own Google address, share the calendar with that address, and press **Check**: Modbot signs in to
+Google and tells you whether it can see the calendar, whether it may change its events, and whether
+the calendar is public. When it is public, Modbot shows the calendar's own links, ready to copy.
+
+<Callout type="warn" title="Modbot does not put events on Google Calendar yet">
+Today Modbot only checks the connection and shows the calendar's links. It does not add, change or
+remove events on the calendar. What is on it is what you put there yourself.
+</Callout>
+
+Everything here is in **Settings**, **Google Calendar**, and needs
+[**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+## What you need
+
+- A Google account that owns the calendar, or can share it. A personal Gmail account works.
+- A Google Cloud project, with the Google Calendar API turned on. It costs nothing.
+- A **service account** in that project, and a **JSON key** for it. The service account is the
+  Google address Modbot signs in as. It is not a person, and it has no Gmail inbox.
+
+### Google Workspace accounts
+
+If the calendar belongs to a school or company Google account, its admin decides two things that can
+stop this working:
+
+- whether calendars may be shared with addresses outside the organisation;
+- whether keys may be made for service accounts at all. Organisations made since May 2024 block
+  this until an admin allows it.
+
+If either is blocked, ask the admin, or use a calendar on a personal account.
+
+## Set it up
+
+### 1. Make the key in Google Cloud
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and make a new project, or pick
+   one you already have.
+2. Open **APIs & Services**, **Library**, find **Google Calendar API** and click **Enable**.
+3. Open **IAM & Admin**, **Service accounts**, and click **Create service account**. Give it a name
+   such as `modbot`. It needs no roles in the project: skip those steps.
+4. Open the new service account, go to **Keys**, **Add key**, **Create new key**, choose **JSON** and
+   click **Create**. Your browser downloads a `.json` file.
+
+That file is the key. Anyone who has it can change any calendar shared with that service account, so
+keep it like a password, and delete your downloaded copy once Modbot has it.
+
+### 2. Give the key to Modbot
+
+In Modbot, go to **Settings**, **Google Calendar**, and click **Choose key file**. Pick the `.json`
+file. Modbot keeps only the parts it needs: the service account's address, the key's id, the
+project's id and the private key, which is encrypted and never shown again. The page then shows
+**Key file: Saved** and **Modbot's Google address**, which ends in `iam.gserviceaccount.com`. Click
+**Copy** beside it.
+
+Modbot refuses a file that is not a service account key with **This is not a Google key file.**
+
+### 3. Share the calendar with Modbot
+
+In [Google Calendar](https://calendar.google.com) on a computer:
+
+1. Make a new calendar for your group's events, or pick one. A calendar of its own is best, so
+   Modbot never sees your personal events.
+2. Hover over it under **My calendars**, click the three dots, and choose **Settings and sharing**.
+3. Under **Share with specific people or groups**, click **Add people and groups**, paste **Modbot's
+   Google address**, and set it to **Make changes to events**. Click **Send**.
+4. Further down, under **Integrate calendar**, copy the **Calendar ID**. It looks like
+   `c_…@group.calendar.google.com`, or your Gmail address for your main calendar.
+
+### 4. Enter the calendar and Check
+
+Back in Modbot, paste the **Calendar ID** and click **Save**. The calendar's public address, its
+embed link or its iCal address work too: Modbot takes the ID out of them.
+
+Then click **Check**.
+
+## What Check shows
+
+Check signs in to Google with the key and reads the calendar. It changes nothing on Google.
+
+| Line | What it means |
+|---|---|
+| **Calendar** | The calendar's name on Google. |
+| **Time zone** | The calendar's own time zone, set in its **Settings and sharing**. |
+| **Can change events** | **Yes** when the calendar is shared with Modbot's Google address with **Make changes to events** or more. |
+| **Public** | **Yes** when it is public with every detail, **Free or busy only** when the public sees only busy times, **No** when it is not public. **Unknown** when Google would not say. |
+
+What Check found stays on the page until you change the key or the calendar. Change either and Check
+again.
+
+### When Check finds a problem
+
+| Modbot says | What to do |
+|---|---|
+| **Google did not accept the key.** | The key was deleted or disabled in Google Cloud, or the service account was. Make a new key and choose it again. |
+| **The server's clock is off.** | Google refuses a sign-in whose times are more than a few minutes out. Set the clock on the machine Modbot runs on. |
+| **Modbot can't see this calendar.** | The calendar is not shared with Modbot's Google address, or the Calendar ID is wrong. Check both. |
+| **Modbot can only read this calendar.** | It is shared as **See all event details**. Change that to **Make changes to events**. |
+| **Google is limiting Modbot. Try again after …** | Google answered that Modbot was asking too often. Modbot sends nothing to Google until that time, Check included, and **Check** comes back by itself. |
+| **Google did not answer.** | Google could not be reached. Try again later. |
+
+Anything else is Google's own words.
+
+## Making it public, and the links
+
+To let anyone see the calendar, open its **Settings and sharing** in Google Calendar and tick **Make
+available to public**, with **See all event details**. Press **Check** again in Modbot: **Public**
+says **Yes**, and a **Links** card appears with three of Google's own links, each with **Copy**:
+
+| Link | What it is for |
+|---|---|
+| **Subscribe** | Adds the calendar to someone's own Google Calendar. It works on a computer, not in Google's phone apps. |
+| **Public page** | The calendar as a web page anyone can open, in the calendar's time zone. |
+| **iCal address** | For any calendar app that subscribes by address: Outlook, Apple Calendar, event directories. It works only while the calendar is public. |
+
+These links show what is on the Google calendar and nothing else. They are safe to hand to members,
+put on a website or give to an event directory. Calendar apps that subscribe by address, Google's
+own included, check it on their own schedule, so a change can take hours to show there.
+
+A public calendar can be found by search engines once it is embedded on a website they read.
+
+Modbot has a public address of its own too: the calendar's [public feed](/moderation/calendar#the-public-feed),
+which lists the public events you plan in Modbot. The Google links list what is on the Google
+calendar.
+
+## Forget
+
+**Forget** removes the key, the Calendar ID and what Check found from Modbot. Modbot asks first:
+click **Forget** again to go ahead. It changes nothing on Google: the calendar stays shared with
+Modbot's Google address until you remove that in **Settings and sharing**, and the key keeps working
+until you delete it in Google Cloud. See [Removing the key](/security#the-google-calendar-key).
+
+## What leaves your server
+
+Check sends Google a request signed with the key, naming Modbot's Google address, and the Calendar
+ID. Nothing about your group, your events or your members. See
+[What leaves your server](/privacy#what-leaves-your-server).
+
+## In the audit log
+
+Saving the key or the Calendar ID, **Forget**, and a **Check** that found something different from
+the last one are each a **Settings changed** entry in the [audit log](/moderation/audit-log). The key
+is recorded only as changed, never what it was.

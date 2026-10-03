@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated 1 October 2026.
+Last updated 3 October 2026.
 
 Modbot is a moderation tool for VRChat groups. Anyone can run a copy of it on their own server, and
 most copies are run by the moderators of one group, not by us.
@@ -613,6 +613,7 @@ encrypted in its own database.
 | **An AI provider** | AI moderation, chat, briefs, insights and alerts | See [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else) — off until you switch it on, and you choose the endpoint. While AI is on and the provider is OpenRouter, Modbot also asks `openrouter.ai` once a day for its list of model prices, with no data about your group. Picture downloads for AI come from Discord and VRChat addresses, public ones only |
 | **An AI app you connect through MCP** | Using Chat's lookups from another app | What the lookups return, for the person who connected it. Off until you switch MCP on |
 | **An SMTP relay** | Sending invitations and reset links | The emails it sends |
+| **Google Calendar** | Checking a Google calendar your group's owner shares with Modbot, if you give it a key | When someone presses **Check**: a sign-in request signed with the key, naming the key's Google address, to `oauth2.googleapis.com`, and the calendar's id to `www.googleapis.com`, to read the calendar's name, time zone and sharing. Nothing about your group, its events or its members. The key's private part never leaves your server |
 | **S3-compatible storage** | Evidence files, if you choose it over disk | The evidence files themselves |
 | **Seq** | A durable copy of the logs, if you set `SEQ_URL` | Modbot's own application logs |
 | **Webhook addresses you set** | Telling your own tools about events | The events you chose, as signed JSON |

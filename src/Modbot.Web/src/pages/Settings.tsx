@@ -5,6 +5,7 @@ import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { IamSection } from '@/components/settings/iam/IamSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
+import { GoogleCalendarSection } from '@/components/settings/google/GoogleCalendarSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { AutoModSection } from '@/components/settings/automod/AutoModSection'
 import { AutoInvitesSection } from '@/components/settings/AutoInvitesSection'
@@ -43,6 +44,7 @@ const TABS = [
   { value: 'purge', label: 'Purge a person', group: 'People', needs: ['Administrator'] },
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
+  { value: 'google', label: 'Google Calendar', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'integrations', label: 'Email and alerts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'ai', label: 'AI', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'data', label: 'Server', group: 'This install', needs: ['ManageSettings'] },
@@ -260,6 +262,8 @@ function Panel({
       return <IntegrationsSection status={status} statusError={statusError} refresh={refresh} />
     case 'discord':
       return <DiscordSection me={me} status={status} statusError={statusError} refresh={refresh} />
+    case 'google':
+      return <GoogleCalendarSection />
     case 'moderation':
       return <ModerationSection />
     case 'automod':

@@ -210,6 +210,60 @@ public class Settings
     /// </summary>
     public bool CalendarPublicFeed { get; set; }
 
+    // --- Google Calendar (Google Calendar design §3.1) ---
+
+    /// <summary>
+    /// The service account's address from its key file (<c>client_email</c>): Modbot's Google
+    /// address, which the owner shares the calendar with. Shown, not secret. Null with no key.
+    /// </summary>
+    public string? GoogleClientEmail { get; set; }
+
+    /// <summary>Which of the account's keys is stored (<c>private_key_id</c>). Not secret.</summary>
+    public string? GoogleKeyId { get; set; }
+
+    /// <summary>The Google Cloud project the account belongs to (<c>project_id</c>). Not secret.</summary>
+    public string? GoogleProjectId { get; set; }
+
+    /// <summary>
+    /// The key file's private key, PEM, encrypted like every other secret (see
+    /// <c>ISecretProtector</c>). The rest of the file is not kept. Never returned by the API.
+    /// </summary>
+    public string? GooglePrivateKeyEncrypted { get; set; }
+
+    /// <summary>The calendar Modbot uses, as Google names it (<c>…@group.calendar.google.com</c>).</summary>
+    public string? GoogleCalendarId { get; set; }
+
+    /// <summary>
+    /// When Check last ran. Null when it never has, or since the key or the calendar changed: the
+    /// Check fields below describe the key and calendar they were found with, and are cleared with
+    /// them.
+    /// </summary>
+    public DateTimeOffset? GoogleCheckedAt { get; set; }
+
+    /// <summary>The calendar's name, as Check found it.</summary>
+    public string? GoogleCalendarName { get; set; }
+
+    /// <summary>The calendar's IANA time zone, as Check found it.</summary>
+    public string? GoogleCalendarTimeZone { get; set; }
+
+    /// <summary>Whether Check found Modbot may change events on the calendar (Google's <c>writer</c> or <c>owner</c>).</summary>
+    public bool GoogleCanChange { get; set; }
+
+    /// <summary>
+    /// Whether Check found the calendar public: <c>all</c>, <c>freeBusy</c> or <c>no</c>. Null after
+    /// a Check when Google would not say.
+    /// </summary>
+    public string? GooglePublic { get; set; }
+
+    /// <summary>What went wrong at the last Check, as the sentence the operator reads. Null when nothing did.</summary>
+    public string? GoogleProblem { get; set; }
+
+    /// <summary>
+    /// No call of any kind goes to Google before this (design §3.7): set when Google answers with a
+    /// rate limit, and kept here so a restart cannot cut the wait short. Never retried early.
+    /// </summary>
+    public DateTimeOffset? GoogleStoppedUntil { get; set; }
+
     /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.

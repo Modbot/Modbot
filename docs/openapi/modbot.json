@@ -6327,6 +6327,232 @@
         ]
       }
     },
+    "/api/settings/google-calendar": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Google Calendar settings",
+        "description": "The Google Calendar connection: Modbot's Google address, the calendar, what the last Check found, and the calendar's public links when it is public. The key is never returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetGoogleCalendarSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Google Calendar settings",
+        "description": "Save the Google service account's key file, the calendar ID, or both. Only the key file's address, key id, project and private key are kept, the private key encrypted. Saving either clears what the last Check found.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetGoogleCalendarSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCalendarSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Forget Google Calendar settings",
+        "description": "Remove the key, the calendar ID and what Check found. Nothing on Google is changed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ForgetGoogleCalendarSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/google-calendar/check": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Check the Google Calendar connection",
+        "description": "Sign in to Google with the stored key and read the calendar's name, time zone, whether Modbot may change its events, and whether it is public. Writes nothing to Google. Answers 200 with what it found, a refusal included. While Google is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CheckGoogleCalendar",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/ai/chat": {
       "get": {
         "tags": [
@@ -38908,6 +39134,149 @@
             "items": {
               "$ref": "#/components/schemas/GiveawayDrawView"
             }
+          }
+        }
+      },
+      "GoogleCalendarCheckView": {
+        "required": [
+          "at",
+          "calendarName",
+          "timeZone",
+          "canChangeEvents",
+          "public",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calendarName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canChangeEvents": {
+            "type": "boolean"
+          },
+          "public": {
+            "type": "string"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GoogleCalendarLinksView": {
+        "required": [
+          "subscribe",
+          "publicPage",
+          "iCal"
+        ],
+        "type": "object",
+        "properties": {
+          "subscribe": {
+            "type": "string"
+          },
+          "publicPage": {
+            "type": "string"
+          },
+          "iCal": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleCalendarSettingsUpdate": {
+        "required": [
+          "keyFile",
+          "calendarId"
+        ],
+        "type": "object",
+        "properties": {
+          "keyFile": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "calendarId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GoogleCalendarSettingsView": {
+        "required": [
+          "keyStored",
+          "address",
+          "projectId",
+          "calendarId",
+          "check",
+          "limitedUntil",
+          "links"
+        ],
+        "type": "object",
+        "properties": {
+          "keyStored": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "projectId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "calendarId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "check": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GoogleCalendarCheckView"
+              }
+            ]
+          },
+          "limitedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "links": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GoogleCalendarLinksView"
+              }
+            ]
           }
         }
       },

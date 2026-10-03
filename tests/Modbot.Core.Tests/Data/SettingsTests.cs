@@ -59,4 +59,46 @@ public class SettingsTests
 
         Assert.Contains("ck_settings_singleton", ex.ToString());
     }
+
+    /// <summary>The Google Calendar columns (Google Calendar design §3.1) are written and read back.</summary>
+    [Fact]
+    public async Task TheGoogleCalendarColumnsRoundTrip()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var checkedAt = new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
+
+        await using (var write = _db.NewContext())
+        {
+            var settings = await write.GetSettingsAsync(ct);
+            settings.GoogleClientEmail = "modbot@test-project.iam.gserviceaccount.com";
+            settings.GoogleKeyId = "0123456789abcdef";
+            settings.GoogleProjectId = "test-project";
+            settings.GooglePrivateKeyEncrypted = "encrypted-pem";
+            settings.GoogleCalendarId = "c_abc123@group.calendar.google.com";
+            settings.GoogleCheckedAt = checkedAt;
+            settings.GoogleCalendarName = "Group events";
+            settings.GoogleCalendarTimeZone = "Europe/London";
+            settings.GoogleCanChange = true;
+            settings.GooglePublic = "all";
+            settings.GoogleProblem = "Google is limiting Modbot.";
+            settings.GoogleStoppedUntil = checkedAt.AddMinutes(15);
+            await write.SaveChangesAsync(ct);
+        }
+
+        await using var read = _db.NewContext();
+        var reloaded = await read.Settings.AsNoTracking().SingleAsync(ct);
+
+        Assert.Equal("modbot@test-project.iam.gserviceaccount.com", reloaded.GoogleClientEmail);
+        Assert.Equal("0123456789abcdef", reloaded.GoogleKeyId);
+        Assert.Equal("test-project", reloaded.GoogleProjectId);
+        Assert.Equal("encrypted-pem", reloaded.GooglePrivateKeyEncrypted);
+        Assert.Equal("c_abc123@group.calendar.google.com", reloaded.GoogleCalendarId);
+        Assert.Equal(checkedAt, reloaded.GoogleCheckedAt);
+        Assert.Equal("Group events", reloaded.GoogleCalendarName);
+        Assert.Equal("Europe/London", reloaded.GoogleCalendarTimeZone);
+        Assert.True(reloaded.GoogleCanChange);
+        Assert.Equal("all", reloaded.GooglePublic);
+        Assert.Equal("Google is limiting Modbot.", reloaded.GoogleProblem);
+        Assert.Equal(checkedAt.AddMinutes(15), reloaded.GoogleStoppedUntil);
+    }
 }

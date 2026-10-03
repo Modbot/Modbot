@@ -39,6 +39,10 @@ public static partial class LogSecrets
         "password", "passwd", "secret", "token", "apikey", "api_key", "authorization",
         "credential", "cookie", "privatekey", "private_key", "accesskey", "access_key",
         "sessionid", "session_id", "bearer", "signature", "passphrase",
+
+        // Google Calendar's sign-in (Google Calendar design §2): the token request's signed JWT
+        // goes in a form field called "assertion".
+        "assertion", "jwt",
     ];
 
     /// <summary>Whether a property with this name must never have its value stored.</summary>

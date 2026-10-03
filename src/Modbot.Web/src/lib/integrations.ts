@@ -1,5 +1,5 @@
 // Relative, with the extension, so the Node test runner loads it as it is (see lib/nav.ts).
-import type { DiscordBotHealth } from './api.ts'
+import type { DiscordBotHealth, GoogleCalendarSettings } from './api.ts'
 import { discordState, vrchatState, type State } from './status.ts'
 
 /** The bot's one word, as the bot state read and the Health read both say it. */
@@ -14,7 +14,7 @@ export type DiscordBotState = DiscordBotHealth['state']
  */
 
 /** A Settings topic, as `/settings#<topic>` names it (pages/Settings.tsx). */
-export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy'
+export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy' | 'google'
 
 /** The address that opens a Settings topic. */
 export function settingsPath(topic: SettingsTopic): string {
@@ -27,7 +27,7 @@ export function settingsPath(topic: SettingsTopic): string {
  */
 export type Part = { name: string; topic?: SettingsTopic }
 
-export type IntegrationId = 'vrchat' | 'discord' | 'email'
+export type IntegrationId = 'vrchat' | 'discord' | 'email' | 'google'
 
 export type Integration = {
   id: IntegrationId
@@ -57,10 +57,16 @@ export type IntegrationReading = {
   discordBot: DiscordBotState | null | undefined
   /** Whether a mail server is saved (the onboarding status, which the Email sending card reads). */
   smtpConfigured: boolean
+  /**
+   * Settings → Google Calendar, from its own read (it needs Change settings, as the page does).
+   * Undefined when that read was not made or has not answered.
+   */
+  googleCalendar: Pick<GoogleCalendarSettings, 'keyStored' | 'calendarId' | 'check'> | undefined
 }
 
 /**
- * The integrations, in the order the sidebar puts VRChat and Discord, with Email after them.
+ * The integrations, in the order the sidebar puts VRChat and Discord, with Email and Google Calendar
+ * after them.
  *
  * Each status in the sidebar's own words, starting with a capital as a label does, except that a
  * part that is not set up says "Needs setup" on every card alike.
@@ -88,7 +94,26 @@ export function integrations(reading: IntegrationReading): Integration[] {
       topic: 'integrations',
       state: reading.smtpConfigured ? { label: 'Working', tone: 'ok' } : NEEDS_SETUP,
     },
+    {
+      id: 'google',
+      name: 'Google Calendar',
+      parts: [{ name: 'Key' }, { name: 'Calendar' }],
+      topic: 'google',
+      state: googleStatus(reading.googleCalendar),
+    },
   ]
+}
+
+/**
+ * Needs setup until a key and a calendar are saved and Check has run on them; then Failed when
+ * Check found a problem (a refused key, a calendar Modbot cannot change, Google limiting it), and
+ * Working when it found none.
+ */
+function googleStatus(google: IntegrationReading['googleCalendar']): State {
+  if (google === undefined) return UNKNOWN
+  if (!google.keyStored || !google.calendarId || !google.check) return NEEDS_SETUP
+  if (google.check.problem) return { label: 'Failed', tone: 'bad' }
+  return { label: 'Working', tone: 'ok' }
 }
 
 function vrchatStatus(gate: string | null): State {

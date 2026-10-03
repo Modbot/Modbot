@@ -71,6 +71,8 @@ public class LogRowTests
     [InlineData("Authorization")]
     [InlineData("vrchat_auth_cookie")]
     [InlineData("RefreshToken")]
+    [InlineData("assertion")]
+    [InlineData("GoogleJwt")]
     public void APropertyWhoseNameLooksLikeASecretIsNeverStored(string name)
     {
         var row = LogRow.From(Event(properties: (name, "hunter2-the-real-one")));

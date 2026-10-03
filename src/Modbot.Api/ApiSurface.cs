@@ -104,6 +104,10 @@ public static class ApiSurface
         // The calendar's public feed as last written, kept a minute (calendar design §6.1).
         services.TryAddSingleton<Features.Calendar.PublicCalendarFeedCache>();
 
+        // Google Calendar: the service account sign-in and the Calendar API client, on their own
+        // HTTP client with no redirects and no proxy (Google Calendar design §2).
+        Core.Google.GoogleServices.AddGoogleCalendar(services);
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -380,6 +384,7 @@ public static class ApiSurface
         app.MapUpdateSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
+        app.MapGoogleCalendarSettings();
         app.MapAiChatSettings();
         app.MapAutoModSettings();
         app.MapModerationFlags();
