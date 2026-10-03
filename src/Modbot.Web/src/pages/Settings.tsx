@@ -15,6 +15,7 @@ import { ApiSection } from '@/components/settings/api/ApiSection'
 import { VRChatProxySection } from '@/components/settings/proxy/VRChatProxySection'
 import { PurgeSection } from '@/components/settings/PurgeSection'
 import { PairedCompanionsSection } from '@/components/settings/PairedCompanionsSection'
+import { PostsSection } from '@/components/settings/PostsSection'
 import { api, ApiError, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { canAny } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,7 @@ const TABS = [
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'google', label: 'Google Calendar', group: 'Connections', needs: ['ManageSettings'] },
+  { value: 'posts', label: 'Posts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'integrations', label: 'Email and alerts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'ai', label: 'AI', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'data', label: 'Server', group: 'This install', needs: ['ManageSettings'] },
@@ -264,6 +266,8 @@ function Panel({
       return <DiscordSection me={me} status={status} statusError={statusError} refresh={refresh} />
     case 'google':
       return <GoogleCalendarSection />
+    case 'posts':
+      return <PostsSection />
     case 'moderation':
       return <ModerationSection />
     case 'automod':

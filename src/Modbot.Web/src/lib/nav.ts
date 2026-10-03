@@ -84,6 +84,14 @@ export const NAV = [
   // Lists of worlds an event can pick its world from, each world with the players its game is for
   // (world lists design). Beside Calendar, whose events they are for, and under its permission.
   { id: 'world-lists', label: 'World lists', group: 'Community', needs: 'ViewCalendar', words: ['game night', 'worlds', 'shuffle', 'next game'] },
+  // Posts sent to Discord and later other sites at a time, each with where it went and how
+  // (posts design §4). After World lists and before Giveaways, beside the calendar it will post
+  // for. Its four lists live at addresses of their own (`/marketing/sent`) so one can be linked
+  // to; the Scheduled list is the page itself, the other three light Marketing.
+  { id: 'marketing', label: 'Marketing', group: 'Community', needs: 'ViewPosts', words: ['posts', 'announcements', 'bluesky', 'social', 'schedule post'] },
+  { id: 'marketing-sent', label: 'Sent posts', needs: 'ViewPosts', hidden: true, under: 'marketing' },
+  { id: 'marketing-drafts', label: 'Draft posts', needs: 'ViewPosts', hidden: true, under: 'marketing' },
+  { id: 'marketing-failed', label: 'Failed posts', needs: 'ViewPosts', hidden: true, under: 'marketing' },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
   // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
@@ -168,6 +176,8 @@ export const MOVED: Record<string, string> = {
   '/stats': '/stats/growth',
   '/analytics/team': '/stats/moderation',
   '/analytics/worlds': '/stats/activity',
+  // Marketing opens on its first list (posts design §4.1).
+  '/marketing': '/marketing/scheduled',
 }
 
 export type NavItem = (typeof NAV)[number]
@@ -192,6 +202,10 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   live: 'l',
   calendar: 'e',
   'world-lists': 'x',
+  marketing: 'q',
+  'marketing-sent': '',
+  'marketing-drafts': '',
+  'marketing-failed': '',
   giveaways: 'p',
   lists: 'u',
   chat: 'c',

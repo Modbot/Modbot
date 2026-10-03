@@ -34,6 +34,7 @@ import { NotSetUp } from '@/components/calendar/NotSetUp'
 import { madeByLabel } from '@/lib/calendar'
 import { followLink } from '@/lib/router'
 import type { CalendarSwitchable } from '@/lib/calendarPlaces'
+import { NETWORK_LABEL, postsApi, type PostsHealth } from '@/lib/posts'
 
 /**
  * What the gate and the producers would tell an operator about themselves (spec 4.2.3, 4.3.3).
@@ -203,6 +204,8 @@ export function Health() {
           (health.calendar.duplicates?.length ?? 0) > 0) && (
         <CalendarProblems calendar={health.calendar} now={health.now} />
       )}
+
+      <PostsCard now={health.now} />
 
       {health.pausedRules && health.pausedRules.length > 0 && (
         <PausedRules rules={health.pausedRules} now={health.now} />
@@ -721,6 +724,59 @@ function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: st
           </p>
         ),
       )}
+    </Part>
+  )
+}
+
+const HOLD_LABEL = { off: 'Off', notSetUp: 'Not set up' } as const
+
+/**
+ * Posts (posts design §5): Paused while all posting is, sites scheduled posts wait on that are off
+ * or not set up, failures in the last week and posts looked for longer than fifteen minutes, each
+ * leading to the Marketing list. Read with See posts, on its own; somebody without it sees nothing
+ * here, and neither does anybody when there is nothing to say.
+ */
+function PostsCard({ now }: { now: string }) {
+  const [health, setHealth] = useState<PostsHealth | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    postsApi
+      .health()
+      .then((next) => !cancelled && setHealth(next))
+      .catch(() => !cancelled && setHealth(null))
+    return () => {
+      cancelled = true
+    }
+  }, [now])
+
+  if (!health || (!health.paused && health.holds.length === 0 && health.problems.length === 0)) return null
+
+  return (
+    <Part id="posts" title="Posts" state={health.paused ? <State tone="warn">Paused</State> : undefined}>
+      {health.holds.map((h) => (
+        <p key={`${h.network}-${h.hold}`} className="max-w-3xl text-warn">
+          {NETWORK_LABEL[h.network]} · {HOLD_LABEL[h.hold]} · {h.waiting} waiting
+        </p>
+      ))}
+      {health.problems.map((p) => (
+        <p key={`${p.postId}-${p.network}`} className="max-w-3xl text-warn">
+          <a
+            href={p.problem === 'failed' ? '/marketing/failed' : '/marketing/scheduled'}
+            onClick={followLink(p.problem === 'failed' ? '/marketing/failed' : '/marketing/scheduled')}
+            className="underline underline-offset-2"
+          >
+            {p.title || 'Untitled'}
+          </a>{' '}
+          · {NETWORK_LABEL[p.network]} · {p.problem === 'failed' ? (p.error ?? 'Failed') : 'Still looking'}
+          {p.at && (
+            <>
+              {' ('}
+              <Ago iso={p.at} now={now} />)
+            </>
+          )}
+        </p>
+      ))}
     </Part>
   )
 }

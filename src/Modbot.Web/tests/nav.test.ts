@@ -155,9 +155,35 @@ test('Community heads the pages from Requests to Lists, each of which names it',
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'giveaways', 'lists'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
+})
+
+test('Marketing sits after World lists and before Giveaways, opens with See posts, and goes by g q', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden)).map((n) => n.id)
+
+  assert.equal(shown.indexOf('marketing'), shown.indexOf('world-lists') + 1)
+  assert.equal(shown.indexOf('giveaways'), shown.indexOf('marketing') + 1)
+  assert.equal(mayOpen(person('ViewPosts'), 'marketing'), true)
+  assert.equal(mayOpen(person('ViewCalendar', 'ManageGroupPosts'), 'marketing'), false)
+  assert.equal(GO_TO_KEYS.marketing, 'q')
+  assert.equal(Object.values(GO_TO_KEYS).filter((k) => k === 'q').length, 1)
+})
+
+test("Marketing's lists light Marketing, and its bare address opens the first list", () => {
+  for (const id of ['marketing-sent', 'marketing-drafts', 'marketing-failed'] as const) {
+    assert.equal(sidebarEntry(id), 'marketing')
+    assert.equal(mayOpen(person('ViewPosts'), id), true)
+  }
+  assert.equal(MOVED['/marketing'], '/marketing/scheduled')
+})
+
+test('the palette finds Marketing by the words a moderator types', () => {
+  const marketing = NAV.find((n) => n.id === 'marketing')
+  assert.ok(marketing)
+  assert.notEqual(matchRank('announcements', marketing.label, otherWords(marketing)), null)
+  assert.notEqual(matchRank('schedule post', marketing.label, otherWords(marketing)), null)
 })
 
 test('Integrations follows Community and holds VRChat and Discord, whose tabs still light them', () => {

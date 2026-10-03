@@ -517,6 +517,14 @@ function Quoted({ value }: { value: string | null }) {
   return value ? <> “{value}”</> : null
 }
 
+/** A post's site by its own name: Discord, VRChat, Bluesky. */
+function siteName(network: string | null): string {
+  if (network === 'discord') return 'Discord'
+  if (network === 'vrchat') return 'VRChat'
+  if (network === 'bluesky') return 'Bluesky'
+  return network ?? 'a site'
+}
+
 /** The words "VRChat profile", opening the person at the version this fact recorded. */
 function VersionLink({ entry }: { entry: AuditEntry }) {
   return (
@@ -1651,6 +1659,60 @@ const SENTENCES: Record<string, Sentence> = {
     <>
       The giveaway<Quoted value={p.text('name')} /> ran into a problem
       {p.text('error') ? <>: {p.text('error')}</> : null}.
+    </>
+  ),
+
+  // ── Posts (posts design §5) ─────────────────────────────────────────────────────────────────
+  //
+  // The post is named by its title in quotes when it has one; a post with none is "a post".
+  'modbot.post.create': (p) => (
+    <>
+      {p.actor} {p.text('status') === 'draft' ? 'saved a draft post' : 'scheduled the post'}
+      <Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.post.change': (p) => (
+    <>
+      {p.actor}{' '}
+      {p.entry.data?.['postNow'] === true
+        ? 'sent the post now'
+        : p.text('tryAgain')
+          ? `tried the post again on ${siteName(p.text('tryAgain'))}`
+          : 'changed the post'}
+      <Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.post.cancel': (p) => (
+    <>
+      {p.actor} {p.entry.data?.['deleted'] === true ? 'deleted the draft post' : 'cancelled the post'}
+      <Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.post.send': (p) => (
+    <>
+      Posted<Quoted value={p.text('title')} /> on {siteName(p.text('network'))}.
+    </>
+  ),
+
+  'modbot.post.fail': (p) => (
+    <>
+      The post<Quoted value={p.text('title')} /> did not go to {siteName(p.text('network'))}
+      {p.text('error') ? <> ({p.text('error')})</> : null}.
+    </>
+  ),
+
+  'modbot.post.edit': (p) => (
+    <>
+      {p.actor} edited the post<Quoted value={p.text('title')} /> on {siteName(p.text('network'))}.
+    </>
+  ),
+
+  'modbot.post.remove': (p) => (
+    <>
+      {p.actor} deleted the post<Quoted value={p.text('title')} /> on {siteName(p.text('network'))}.
     </>
   ),
 

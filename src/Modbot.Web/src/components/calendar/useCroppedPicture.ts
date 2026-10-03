@@ -63,8 +63,13 @@ export function useCroppedPicture({
   send,
   onUploaded,
   initialLink,
+  fetchLink = calendarApi.pictureFromLink,
 }: {
-  aspect: number
+  /**
+   * Width ÷ height of the crop box, or null for the picture's own shape (the Marketing composer's
+   * "As it is", posts design §4.3). A change while a picture is open puts the box back in the middle.
+   */
+  aspect: number | null
   /** The largest file the upload takes. */
   maxBytes: number
   /** Uploads the cropped file and answers with the id to save. */
@@ -73,6 +78,8 @@ export function useCroppedPicture({
   onUploaded: (id: string, file: Blob) => void
   /** The picture link the form opened with, which is not opened on its own: only a link given here is. */
   initialLink: string | null
+  /** Fetches the picture behind a link through Modbot: the calendar's own unless told otherwise. */
+  fetchLink?: (link: string) => Promise<Blob>
 }): CroppedPicture {
   const [passed, setPassed] = useState<string | null>(initialLink)
   const [draft, setDraftState] = useState<PictureDraft | null>(null)
@@ -90,6 +97,16 @@ export function useCroppedPicture({
     latest.current = next
     setDraftState(next)
   }, [])
+
+  // The box's shape for one picture: the one asked for, or the picture's own.
+  const shapeOf = useCallback((picture: OpenPicture) => aspect ?? picture.width / picture.height, [aspect])
+
+  // A new shape while a picture is open puts the box back in the middle at that shape.
+  useEffect(() => {
+    const current = latest.current
+    if (!current) return
+    setDraft({ ...current, box: centredCrop(current.picture.width, current.picture.height, shapeOf(current.picture)) })
+  }, [shapeOf, setDraft])
 
   useEffect(
     () => () => {
@@ -113,7 +130,7 @@ export function useCroppedPicture({
             closePicture(picture)
             return
           }
-          setDraft({ picture, box: centredCrop(picture.width, picture.height, aspect), from })
+          setDraft({ picture, box: centredCrop(picture.width, picture.height, shapeOf(picture)), from })
         })
         .catch((e: unknown) => {
           if (ask === asked.current) setError(e instanceof Error ? e.message : 'Could not open the picture.')
@@ -122,7 +139,7 @@ export function useCroppedPicture({
           if (ask === asked.current) setOpening(false)
         })
     },
-    [setDraft, aspect],
+    [setDraft, shapeOf],
   )
 
   const upload = useCallback(async (): Promise<string | null> => {
@@ -133,7 +150,7 @@ export function useCroppedPicture({
     setUploading(true)
 
     try {
-      const file = await cropToFile(current.picture, current.box, aspect, maxBytes)
+      const file = await cropToFile(current.picture, current.box, shapeOf(current.picture), maxBytes)
       const id = await send(file)
       onUploaded(id, file)
       if (latest.current === current) setDraft(null)
@@ -144,17 +161,17 @@ export function useCroppedPicture({
     } finally {
       setUploading(false)
     }
-  }, [aspect, maxBytes, send, onUploaded, setDraft])
+  }, [shapeOf, maxBytes, send, onUploaded, setDraft])
 
   return useMemo<CroppedPicture>(
     () => ({
-      aspect,
+      aspect: draft ? shapeOf(draft.picture) : (aspect ?? 16 / 9),
       draft,
       setBox: (box) => {
         if (latest.current) setDraft({ ...latest.current, box })
       },
       openFile: (file) => open(() => Promise.resolve(file), 'file'),
-      openLink: (link) => open(() => calendarApi.pictureFromLink(link), 'link'),
+      openLink: (link) => open(() => fetchLink(link), 'link'),
       upload,
       cancel: () => {
         asked.current++
@@ -169,6 +186,6 @@ export function useCroppedPicture({
       passed,
       setPassed,
     }),
-    [aspect, draft, open, upload, opening, uploading, error, setDraft, passed],
+    [aspect, shapeOf, fetchLink, draft, open, upload, opening, uploading, error, setDraft, passed],
   )
 }

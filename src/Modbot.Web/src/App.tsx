@@ -57,6 +57,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Giveaways } from '@/pages/Giveaways'
+import { Marketing } from '@/pages/Marketing'
 import { Lists } from '@/pages/Lists'
 import { WorldLists } from '@/pages/WorldLists'
 import { Integrations } from '@/pages/Integrations'
@@ -101,6 +102,11 @@ const TITLES: Record<PageId, string> = {
   live: 'Live',
   calendar: 'Calendar',
   'world-lists': 'World lists',
+  // The lists of the Marketing page, so they carry its name, as the sidebar does.
+  marketing: 'Marketing',
+  'marketing-sent': 'Marketing',
+  'marketing-drafts': 'Marketing',
+  'marketing-failed': 'Marketing',
   giveaways: 'Giveaways',
   lists: 'Lists',
   chat: 'Chat',
@@ -149,6 +155,10 @@ const PATHS: Record<PageId, string> = {
   live: '/live',
   calendar: '/calendar',
   'world-lists': '/world-lists',
+  marketing: '/marketing/scheduled',
+  'marketing-sent': '/marketing/sent',
+  'marketing-drafts': '/marketing/drafts',
+  'marketing-failed': '/marketing/failed',
   giveaways: '/giveaways',
   lists: '/lists',
   chat: '/chat',
@@ -645,6 +655,10 @@ function Shell({
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
           {page === 'world-lists' && <WorldLists />}
+          {/* One element for the four lists, so an open composer stays open when the list changes. */}
+          {(page === 'marketing' || page === 'marketing-sent' || page === 'marketing-drafts' || page === 'marketing-failed') && (
+            <Marketing list={page} onList={(list) => navigate(PATHS[list])} />
+          )}
           {page === 'giveaways' && <Giveaways />}
           {page === 'lists' && <Lists />}
           {page === 'chat' && (

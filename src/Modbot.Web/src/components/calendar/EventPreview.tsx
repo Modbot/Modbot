@@ -101,7 +101,7 @@ function Place({ place, children }: { place: CalendarDestination; children: Reac
 }
 
 /** Discord's own text in a card: times in the viewer's time, links as links. */
-function DiscordText({ text, now }: { text: string; now: Date }) {
+export function DiscordText({ text, now }: { text: string; now: Date }) {
   return (
     <>
       {discordPieces(text).map((piece, i) =>
@@ -223,7 +223,7 @@ function ChannelPostCard({
 }
 
 /** A role mention as Discord draws it: the role's name in its colour, on a faint wash of it. */
-function RoleMention({ name, colour }: { name: string; colour: number }) {
+export function RoleMention({ name, colour }: { name: string; colour: number }) {
   if (!colour) {
     return <span className="rounded-sm bg-[#5865f2]/20 px-0.5 font-medium text-[#5865f2]">@{name}</span>
   }

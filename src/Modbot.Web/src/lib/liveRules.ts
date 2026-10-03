@@ -56,7 +56,11 @@ export const changesDiscordBans = (e: LiveEvent) => startsWithAny(e.type, DISCOR
 export const changesCases = (e: LiveEvent) => startsWithAny(e.type, CASE_TYPES) && !(LOOKS_AT_EVIDENCE as readonly string[]).includes(e.type)
 export const changesFlags = (e: LiveEvent) => startsWithAny(e.type, FLAG_TYPES)
 export const changesReviews = (e: LiveEvent) => startsWithAny(e.type, REVIEW_TYPES)
+/** Posts: written, changed, sent, failed, edited or deleted on a site (posts design §4.2). */
+export const POST_TYPES = ['modbot.post.'] as const
+
 export const changesCalendar = (e: LiveEvent) => startsWithAny(e.type, CALENDAR_TYPES)
+export const changesPosts = (e: LiveEvent) => startsWithAny(e.type, POST_TYPES)
 export const isAlert = (e: LiveEvent) => e.kind === 'alert'
 
 /** Anything recorded about one person: as the subject, or as the one who did it. */
