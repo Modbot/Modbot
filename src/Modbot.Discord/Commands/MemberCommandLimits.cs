@@ -4,7 +4,9 @@ namespace Modbot.Discord.Commands;
 
 /// <summary>
 /// How often one Discord account may use <c>/me</c> and its buttons: <see cref="PerMinute"/> in
-/// any minute (Discord /me design §6).
+/// any minute (Discord /me design §6). <c>/verify</c> has an instance of its own, registered under
+/// <see cref="VerifyCommand.LimitsKey"/>, so trying codes and using <c>/me</c> never eat into each
+/// other.
 /// </summary>
 /// <remarks>
 /// <para>

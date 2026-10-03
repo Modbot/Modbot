@@ -138,6 +138,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LookupQuery>();
         services.TryAddSingleton<MemberCommandLimits>();
         services.AddScoped<MeCommand>();
+
+        // /verify counts its own tries, apart from /me's (Discord account linking design §14).
+        services.TryAddKeyedSingleton<MemberCommandLimits>(VerifyCommand.LimitsKey);
+        services.AddScoped<VerifyCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

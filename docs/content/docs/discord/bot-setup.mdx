@@ -194,34 +194,47 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone who connected Discord to their Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **Members can use /me** is on; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
-| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+| `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
 
 ### Who sees the commands in Discord
 
 `/lookup`, `/recent` and `/modbot` are shown only to members who may time others out (Discord's
 **Timeout Members** permission). Everyone else does not see them in the command list. To change
 who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
-members for each command.
+members for each command. `/verify` is shown to everyone, because many moderators don't hold
+Timeout Members; without a code from a Modbot account it does nothing.
 
 Seeing a command does not let anyone use it: Modbot still checks the person's Modbot account and
 permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link`, `/me` and `/help` only answers people Modbot can match to a Modbot
-account. Each moderator opens their own **Your account** page in Modbot and presses **Connect Discord** under
-**Your Discord account**. Discord asks them to sign in and allow Modbot to see who they are, then
-sends them back, and the card says **Connected as** and their Discord name. Nobody can do this for
-somebody else, and nobody can type an id in: Modbot knows the Discord account is theirs because
-Discord told it.
+Every command except `/link`, `/me`, `/verify` and `/help` only answers people Modbot can match to
+a Modbot account. Each moderator connects their own Discord account from their **Your account**
+page in Modbot, under **Your Discord account**, in one of two ways. Either way, the card then says
+**Connected as** and their Discord name. Nobody can do this for somebody else, and nobody can type
+an id in: Modbot knows the Discord account is theirs because Discord told it.
 
-**Connect Discord** uses the same Discord application as [Account linking](/discord/account-linking),
-so set that up first: the **Account linking** card's client id, client secret and redirect address.
-Without them, the account page says "Discord sign-in is not set up on this server."
+- **Connect with a code** works once the bot is set up. The card shows a code such as `K7P-42Q`,
+  with **Copy**, and the command to run: `/verify K7P-42Q`. Run `/verify` in your Discord server and
+  paste the code into `code`. Discord tells Modbot which account ran the command, and the bot
+  replies "Your Discord account is now connected to Modbot." The card changes by itself within a few
+  seconds. A code works once, for 15 minutes; **New code** replaces it. A wrong or old code gets
+  "That code isn't right or has expired." Each Discord account can try five codes a minute, and a
+  code stops working after five wrong tries at it.
+- **Connect Discord** signs in to Discord: Discord asks them to sign in and allow Modbot to see who
+  they are, then sends them back. It uses the same Discord application as
+  [Account linking](/discord/account-linking), so it is only offered once the **Account linking**
+  card's client id, client secret and redirect address are saved.
+
+If the bot isn't set up either, **Connect Discord** stays, and pressing it says "Discord sign-in is
+not set up on this server."
 
 A Discord account can be connected to one Modbot account. If it is already connected to another
-one, the account page says so and nothing changes. **Disconnect** on the same card takes it off;
-the bot then treats that Discord account as nobody.
+one, nothing changes: the account page says so, or `/verify` replies "This Discord account is
+connected to another Modbot account." **Disconnect** on the same card takes it off; the bot then
+treats that Discord account as nobody.
 
 If someone without a connected Modbot account runs a command, the bot replies "Connect Discord on
 your account page in Modbot first." If they lack the permission, the reply names the permission they
@@ -229,11 +242,12 @@ need. Permissions come from the person's Modbot roles, the same as in the web ap
 [Roles and permissions](/accounts/roles-and-permissions).
 
 <Callout type="info">
-Before **Connect Discord** existed, moderators typed a **Discord user id** into their account, and
-an administrator could type one for them. Modbot never checked those. An account that still has one
+Before connecting existed, moderators typed a **Discord user id** into their account, and an
+administrator could type one for them. Modbot never checked those. An account that still has one
 shows it as **Not proven**, with the day it stops working: the bot answers it, and sends direct
-messages to it, until **1 November 2026**, and then never again. Pressing **Connect Discord** before
-then replaces it. Where two accounts typed the same id, the bot answers neither.
+messages to it, until **1 November 2026**, and then never again. Connecting before then, with
+**Connect with a code** or **Connect Discord**, replaces it. Where two accounts typed the same id,
+the bot answers neither.
 </Callout>
 
 Every command run, answered or refused, is recorded in the audit log as **Discord command used**.

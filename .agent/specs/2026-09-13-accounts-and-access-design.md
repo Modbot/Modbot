@@ -343,6 +343,10 @@ the wrong person. Anything that lets a person *act* from Discord has to know who
   Developer Portal; the sign-in cookie names the Modbot account it was started for, and the callback
   sends that attempt back to the account page. The browser coming back must still be signed in as
   that account, checked before Discord is asked anything.
+- **Or `/verify` with a code** from the account page, where sign-in is not set up and the bot is
+  (added 2026-10-03, Discord account linking design §14): Discord says who ran the command, the code
+  says which Modbot account asked. Both ways go through `StaffDiscordProof`, so every rule below is
+  the same for each.
 - The account keeps the id, the username Discord gave, and `discord_verified_at`. **Unique among
   proven ids** (a filtered index): one Discord account, one Modbot account. A Discord account another
   account proved is refused; one that other accounts only typed in comes off them, each with a

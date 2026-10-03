@@ -126,6 +126,20 @@ export type ServerInfo = {
   publicAddress: string | null
 }
 
+/**
+ * The account page's Discord card (Discord account linking design §14): the code to run as
+ * `/verify` in the Discord server, and which ways of connecting work on this server.
+ */
+export type DiscordCodeStatus = {
+  /** As people read it, `K7P-42Q`; null when there is no live code. */
+  code: string | null
+  expiresAt: string | null
+  /** Connect Discord (sign-in) works: the account linking card is filled in. */
+  signInSetUp: boolean
+  /** `/verify` can be answered: the bot is set up. */
+  commandSetUp: boolean
+}
+
 /** Settings → Host & Database → Public address. */
 export type ServerSettings = { showOwnerEmail: boolean }
 
@@ -4649,6 +4663,12 @@ export const api = {
   connectDiscordUrl: '/api/auth/discord/connect',
 
   disconnectDiscord: () => del<CurrentUser>('/api/auth/discord'),
+
+  /** The `/verify` code while one is live, and which ways of connecting Discord this server offers. */
+  discordCode: () => request<DiscordCodeStatus>('/api/auth/discord/code'),
+
+  /** A new `/verify` code, replacing any you had. */
+  newDiscordCode: () => post<DiscordCodeStatus>('/api/auth/discord/code'),
 
   signOutEverywhere: () => post<void>('/api/auth/sign-out-everywhere'),
 

@@ -41,7 +41,8 @@ The Discord access token is used for that one `users/@me` read, then revoked. It
 
 A slash command's caller is not taken as proof of the Discord side for a link. `/link` only answers
 with the link page's address, and the page asks for Discord sign-in: one path for every starting
-point, so there is one thing to secure.
+point, so there is one thing to secure. (Staff proving their own Discord account for their Modbot
+account is a different thing, and since 2026-10-03 it can be done with a command: §14.)
 
 ## 3. The member flow
 
@@ -264,3 +265,106 @@ the Discord server, and many Discord members are not in the VRChat group.
 Other features read it through `AccountLinkLookup` in `Modbot.Core.Discord`:
 `ActiveAccountLinks()`, `LinkedVRChatUserIdAsync(discordUserId)` and
 `LinkedDiscordUserIdAsync(vrchatUserId)`. A null answer means two separate people.
+
+## 14. Staff proving their Discord account with `/verify`
+
+*Added 2026-10-03.* Connect Discord on the account page (§3.2, accounts and access design §4.6)
+signs in to Discord through this page's OAuth client, so it needs the client id, the client secret
+and a public address saved. Most servers never set those up: there the account page answered
+"Discord sign-in is not set up on this server", and typed-in Discord ids stop counting on
+1 November 2026 (`StaffDiscord.TypedIdsEnd`). Staff needed a way to prove their Discord account
+with nothing more than the bot.
+
+**What proves it.** When somebody runs a slash command, Discord says which account ran it, and
+nobody can run one as somebody else. A short code says which Modbot account asked, because only that
+account, signed in, was shown it. Together they are the same proof sign-in gives, with no secret to
+set up: the same idea as the VRChat bio code, where the code goes somewhere only the account's owner
+can put it.
+
+### 14.1 The code
+
+- Six characters from the alphabet the companion's pairing codes use (no `0/O`, `1/I/L` or `U`),
+  shown as `K7P-42Q`. Typed with or without the dash, in either case.
+- **One per account**: `staff_discord_code`, keyed by the Modbot account. Asking again replaces it.
+- **Fifteen minutes**, from `IModbotClock`. **Works once**: the row goes when it is used, in the same
+  transaction that proves the account; of two runs of the same code at once, one is refused.
+- Stored as it is, like `discord_link_code`, so the account page shows it again after a reload. It is
+  worth nothing after fifteen minutes, and whoever can read the table can write the account row.
+- Codes that can no longer be used are deleted whenever a new one is made.
+
+`StaffDiscordCodes` (Modbot.Core) hands them out and finds them. It is separate from
+`discord_link_code`: that one ties a member's Discord account to their VRChat account; this one ties
+a Discord account to a staff account. Different promises, read by different code.
+
+### 14.2 The account page
+
+The **Your Discord account** card, while the account has no proven Discord account:
+
+| Server has | Card offers |
+|---|---|
+| Sign-in set up (client id, secret, public address) | **Connect Discord** |
+| The bot set up (token and server), not a demo | **Connect with a code** |
+| Both | both |
+| Neither | **Connect Discord**, which then says sign-in is not set up |
+
+**Connect with a code** shows the label **Code**, the code with **Copy**, and the command as a code
+chip, `/verify K7P-42Q`. The button becomes **New code**. No other text. While a code is up, the
+card asks the server every five seconds whether the account is proven yet, so it changes to
+**Connected as** by itself once `/verify` worked, and drops the code once it runs out.
+
+`GET /api/auth/discord/code` returns the live code and which ways the server offers;
+`POST /api/auth/discord/code` makes a new one, and refuses when the bot is not set up.
+
+### 14.3 The command
+
+`/verify code:` (required text). **Registered for everyone, always.** It cannot be staff-only: the
+staff-only commands are shown to members who hold Timeout Members, and many staff don't. It is not
+registered only "while there is something to verify" either: which accounts still need it changes
+with every new staff account and every disconnect, and registering again on each change would run
+into Discord's limit on how often a server's commands may be replaced, for a command that does
+nothing for a member without a code anyway. `/help` lists it to everybody.
+
+Like every command, it is registered on the server only and answered only by the Modbot whose
+server it came from (`IsForThisServer`); every reply is private.
+
+| What happened | Reply |
+|---|---|
+| Right code | "Your Discord account is now connected to Modbot." (also when it already was) |
+| Wrong, expired, used, worn out, or never issued | "That code isn't right or has expired." |
+| Right code, but another Modbot account proved this Discord account | "This Discord account is connected to another Modbot account." The code stays: run from the right Discord account, it still works. |
+| Over the per-person limit | "Slow down. Try again in a minute." |
+
+A code asked for by an account that has since been disabled or deleted proves nothing; it is
+deleted and the caller is told the code isn't right.
+
+### 14.4 Guessing
+
+- **Per Discord account**: five tries a minute, through `MemberCommandLimits`, with an instance of
+  its own so `/me` and `/verify` never eat into each other. Over it, nothing is read and nothing is
+  recorded.
+- **Per code**: the first three characters find a code, the last three are checked (in fixed time).
+  A wrong code whose first half matches a live code counts against that code, and after **five** it
+  stops working; the person asks for a new one. New codes never share a first half with a live one,
+  so one person's typing mistakes never count against another's code.
+- A wrong code that matches no live code costs nobody anything. That is on purpose: a member running
+  `/verify` with rubbish cannot wear down a moderator's code, while many Discord accounts guessing
+  together still use a real code up after five tries at its second half.
+
+Thirty characters, six of them, is about 729 million codes, each live for fifteen minutes.
+
+### 14.5 One proven Discord account, one Modbot account
+
+The same rules as sign-in, from the same code (`StaffDiscordProof`, Modbot.Core, which Connect
+Discord now uses too): a Discord account another Modbot account proved is refused, never moved; one
+that other accounts only typed in comes off them, each with a `modbot.user.discord.unlink` fact
+(`why: proven-by-another-account`); what both-ways linked roles agreed about these accounts is
+forgotten (staff roles from Discord design §3.1). The id, the username and `discord_verified_at`
+are stored exactly as sign-in stores them, so `StaffDiscord` counts the id as proven.
+
+### 14.6 Facts
+
+| Type | Subject | Actor | Payload |
+|---|---|---|---|
+| `modbot.user.discord.link` | the Modbot account | the same account | Discord id and username, the id it replaced, **`via: command`**. Facts from sign-in carry no `via`. |
+| `modbot.user.discord.unlink` | each account the typed id came off | the account that proved it | as for sign-in |
+| `modbot.discord.command` | the Discord account | the Modbot account, once connected | `command: verify`, `outcome`: `connected`, `wrong-code` or `taken`. Never the code. |

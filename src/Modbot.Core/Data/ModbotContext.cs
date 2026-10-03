@@ -250,6 +250,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>VRChat bio codes waiting to be checked, one per signed-in Discord account.</summary>
     public DbSet<DiscordLinkCode> DiscordLinkCodes => Set<DiscordLinkCode>();
 
+    /// <summary>
+    /// Codes staff run <c>/verify</c> with to prove their Discord account, one per account
+    /// (Discord account linking design §14).
+    /// </summary>
+    public DbSet<StaffDiscordCode> StaffDiscordCodes => Set<StaffDiscordCode>();
+
     /// <summary>People's time at the join gate, open while they wait (join gate design §11).</summary>
     public DbSet<DiscordGateEntry> DiscordGateEntries => Set<DiscordGateEntry>();
 
@@ -2074,6 +2080,24 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
             entity.Property(e => e.Code).HasMaxLength(32);
             entity.Property(e => e.StartedFrom).HasMaxLength(16);
+        });
+
+        builder.Entity<StaffDiscordCode>(entity =>
+        {
+            entity.ToTable("staff_discord_code");
+
+            // One code per account: asking again replaces it.
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).ValueGeneratedNever();
+            entity.Property(e => e.Code).HasMaxLength(16);
+
+            // /verify finds a code by what was typed, and no two accounts may hold the same one.
+            entity.HasIndex(e => e.Code).IsUnique();
+
+            entity.HasOne<ModbotUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<DiscordMessage>(entity =>

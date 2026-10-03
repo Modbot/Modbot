@@ -1,4 +1,5 @@
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 using Modbot.Discord.Gateway;
 
 namespace Modbot.Discord.Commands;
@@ -9,13 +10,16 @@ namespace Modbot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every command but <see cref="Link"/>, <see cref="Me"/> and <see cref="Help"/> needs a Modbot
-/// account linked to the caller's Discord user id. The permission on top of that is the same one the
+/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/> and
+/// <see cref="Help"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
 /// equivalent web page asks for, so the bot never shows anybody more than the web app would.
 /// <see cref="Link"/> is for every member: it answers with the link page's address and nothing else
 /// (Discord account linking design §2). <see cref="Me"/> is for every member too, and only ever about
 /// the member who ran it; it is registered only while the operator has switched it on (Discord /me
 /// design). <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
+/// <see cref="Verify"/> is how a staff member proves their Discord account with a code from their
+/// account page (Discord account linking design §14); it is for everybody because staff often do
+/// not hold Timeout Members, and it tells nobody anything without a right code.
 /// </para>
 /// <para>
 /// <strong>The staff commands are hidden from members.</strong> Before this, every member saw
@@ -34,6 +38,10 @@ public static class DiscordCommands
     public const string Link = "link";
     public const string Me = "me";
     public const string Help = "help";
+    public const string Verify = StaffDiscordCodes.Command;
+
+    /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
+    public const string VerifyCodeOption = "code";
 
     /// <summary>The VRChat side of <c>/lookup</c>: a name or an id, typed, with suggestions.</summary>
     public const string LookupUserOption = "user";
@@ -77,6 +85,10 @@ public static class DiscordCommands
             Help,
             "What the bot's commands do",
             []),
+        new(
+            Verify,
+            "Connect your Discord account to your Modbot account",
+            [new DiscordCommandOption(VerifyCodeOption, "The code from your account page in Modbot", DiscordOptionKind.Text, Required: true)]),
 
         // The right-click menus staff act from (acting from Discord design §2). Registered beside
         // the slash commands because Discord replaces the whole set in one call.
@@ -92,7 +104,7 @@ public static class DiscordCommands
         => meCommand ? All : [.. All.Where(c => c.Name != Me)];
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

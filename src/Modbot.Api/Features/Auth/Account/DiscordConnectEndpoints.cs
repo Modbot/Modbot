@@ -8,12 +8,12 @@ using Modbot.Api.Auth;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.Users;
+using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
-using Npgsql;
 
 namespace Modbot.Api.Features.Auth.Account;
 
@@ -41,6 +41,13 @@ namespace Modbot.Api.Features.Auth.Account;
 /// Modbot account has proven is refused. One that other accounts only typed in, before proving
 /// existed, comes off them: whoever proves it is the person it belongs to, and each of those
 /// accounts gets a <c>modbot.user.discord.unlink</c> fact saying so.
+/// </para>
+/// <para>
+/// <strong>Or a code and a command.</strong> Sign-in needs the account linking card's client id
+/// and secret, which many servers never set up. The same card hands out a code instead
+/// (<see cref="StaffDiscordCodes"/>), and <c>/verify</c> with it in the Discord server proves the
+/// Discord account that ran it (Discord account linking design §14). Both go through
+/// <see cref="StaffDiscordProof"/>, so the rules above are the same for each.
 /// </para>
 /// <para>
 /// Nobody sets anybody else's Discord account. The users page shows it and has no control for it.
@@ -89,6 +96,47 @@ public static class DiscordConnectEndpoints
             .ExcludeFromDescription()
             .Produces(StatusCodes.Status302Found);
 
+        group.MapGet("/code", async (
+                [FromServices] ModbotContext db,
+                [FromServices] ISecretProtector protector,
+                [FromServices] IModbotClock clock,
+                [FromServices] DemoMode? demo,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                var live = await StaffDiscordCodes.LiveAsync(db, ModbotAuth.UserIdOf(http.User)!.Value, clock.UtcNow, ct);
+                return Results.Ok(await CodeStatusAsync(db, protector, demo, live, ct));
+            })
+            .WithName("GetDiscordCode")
+            .WithSummary("Get your /verify code")
+            .WithDescription(
+                "The code you can run /verify with in the Discord server to connect your Discord account, "
+                + "while one is live, and which ways of connecting this server offers.")
+            .Produces<DiscordCodeStatus>();
+
+        group.MapPost("/code", async (
+                [FromServices] ModbotContext db,
+                [FromServices] ISecretProtector protector,
+                [FromServices] IModbotClock clock,
+                [FromServices] DemoMode? demo,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                if (!await CommandSetUpAsync(db, demo, ct))
+                    return Results.BadRequest(new { error = "The Discord bot is not set up on this server." });
+
+                var code = await StaffDiscordCodes.IssueAsync(db, ModbotAuth.UserIdOf(http.User)!.Value, clock.UtcNow, ct);
+                return Results.Ok(await CodeStatusAsync(db, protector, demo, code, ct));
+            })
+            .WithName("NewDiscordCode")
+            .WithSummary("Get a new /verify code")
+            .WithDescription(
+                "Make a code to run as /verify in the Discord server, which connects the Discord account "
+                + "that runs it to your Modbot account. It works once, for fifteen minutes, and replaces "
+                + "any code you had.")
+            .Produces<DiscordCodeStatus>()
+            .Produces(StatusCodes.Status400BadRequest);
+
         group.MapDelete("", async (
                 [FromServices] ModbotContext db,
                 [FromServices] UserAccountService accounts,
@@ -105,9 +153,9 @@ public static class DiscordConnectEndpoints
                     await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                     var proven = user.IsDiscordProven;
-                    Clear(user);
+                    StaffDiscordProof.Clear(user);
                     await db.SaveChangesAsync(ct);
-                    await ForgetAgreementsAsync(db, [user.Id], ct);
+                    await StaffDiscordProof.ForgetAgreementsAsync(db, [user.Id], ct);
 
                     await facts.RecordAsync(
                         FactType.DiscordDisconnected,
@@ -137,6 +185,32 @@ public static class DiscordConnectEndpoints
         return app;
     }
 
+    /// <summary>The code and the ways of connecting, for the account page.</summary>
+    private static async Task<DiscordCodeStatus> CodeStatusAsync(
+        ModbotContext db, ISecretProtector protector, DemoMode? demo, StaffDiscordCode? code, CancellationToken ct)
+        => new(
+            code is null ? null : StaffDiscordCodes.Show(code.Code),
+            code?.ExpiresAt,
+            await DiscordLinkEndpoints.ClientAsync(db, protector, ct) is not null,
+            await CommandSetUpAsync(db, demo, ct));
+
+    /// <summary>
+    /// Whether <c>/verify</c> can be answered: a bot token and a server are saved, and this is not a
+    /// demo, which never runs the bot.
+    /// </summary>
+    private static async Task<bool> CommandSetUpAsync(ModbotContext db, DemoMode? demo, CancellationToken ct)
+    {
+        if (DemoAuthentication.MayServeEveryoneAsAdministrator(demo))
+            return false;
+
+        var bot = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId })
+            .FirstOrDefaultAsync(ct);
+
+        return bot is { DiscordBotTokenEncrypted: not null } && !string.IsNullOrWhiteSpace(bot.DiscordGuildId);
+    }
+
     /// <summary>The account page, with what happened for it to say.</summary>
     public static string Back(string result) => $"{AccountPage}?{ResultParameter}={Uri.EscapeDataString(result)}";
 
@@ -162,49 +236,25 @@ public static class DiscordConnectEndpoints
         if (user is null || user.IsDisabled || user.IsDeleted)
             return Back("signed-out");
 
-        if (user.IsDiscordProven && user.DiscordUserId == identity.UserId && user.DiscordUsername == identity.Username)
-            return Back("connected");
-
-        var taken = await db.Users.AsNoTracking()
-            .AnyAsync(u => u.Id != user.Id && u.DiscordUserId == identity.UserId && u.DiscordVerifiedAt != null, ct);
-        if (taken)
-            return Back("taken");
-
-        var now = clock.UtcNow;
         var actor = new Actor(user.Id, user.Username);
-        var replaced = user.DiscordUserId != identity.UserId ? user.DiscordUserId : null;
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        // Typed in on other accounts, never proven: it is this person's, so it comes off them.
-        var typedElsewhere = await db.Users
-            .Where(u => u.Id != user.Id && u.DiscordUserId == identity.UserId && u.DiscordVerifiedAt == null)
-            .ToListAsync(ct);
+        var proof = await StaffDiscordProof.ProveAsync(db, user, identity.UserId, identity.Username, clock.UtcNow, ct);
 
-        foreach (var other in typedElsewhere)
-            Clear(other);
-
-        user.DiscordUserId = identity.UserId;
-        user.DiscordUsername = Fit(identity.Username);
-        user.DiscordVerifiedAt = now;
-
-        try
+        switch (proof.Outcome)
         {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-        {
-            // Another account proved it between the check above and here. Nothing of this attempt
-            // is kept: the typed ids taken off other accounts go back on with it.
-            await transaction.RollbackAsync(ct);
-            return Back("taken");
+            case StaffDiscordProofOutcome.AlreadyProven:
+                return Back("connected");
+
+            case StaffDiscordProofOutcome.Taken:
+                // Another account proved it first. Nothing of this attempt is kept: the typed ids
+                // taken off other accounts go back on with it.
+                await transaction.RollbackAsync(ct);
+                return Back("taken");
         }
 
-        // What both-ways linked roles agreed about this account's Discord account, and about the
-        // accounts it came off, no longer counts (staff roles from Discord design §3.1).
-        await ForgetAgreementsAsync(db, [user.Id, .. typedElsewhere.Select(o => o.Id)], ct);
-
-        foreach (var other in typedElsewhere)
+        foreach (var other in proof.TypedElsewhere)
         {
             await facts.RecordAsync(
                 FactType.DiscordDisconnected,
@@ -227,7 +277,7 @@ public static class DiscordConnectEndpoints
             {
                 ["discordUserId"] = identity.UserId,
                 ["discordUsername"] = identity.Username,
-                ["replaced"] = replaced,
+                ["replaced"] = proof.Replaced,
             },
             ct);
 
@@ -235,17 +285,15 @@ public static class DiscordConnectEndpoints
 
         return Back("connected");
     }
-
-    private static Task ForgetAgreementsAsync(ModbotContext db, IReadOnlyList<Guid> userIds, CancellationToken ct)
-        => db.DiscordStaffRoleStates.Where(s => userIds.Contains(s.UserId)).ExecuteDeleteAsync(ct);
-
-    private static void Clear(ModbotUser user)
-    {
-        user.DiscordUserId = null;
-        user.DiscordUsername = null;
-        user.DiscordVerifiedAt = null;
-    }
-
-    /// <summary>Discord usernames are 32 characters at most; the column takes 64, in case that changes.</summary>
-    private static string Fit(string username) => username.Length <= 64 ? username : username[..64];
 }
+
+/// <summary>The account page's Discord card: the <c>/verify</c> code, and which ways of connecting work here.</summary>
+/// <param name="Code">The live code as people read it, <c>K7P-42Q</c>; null when there is none.</param>
+/// <param name="ExpiresAt">When the code stops working.</param>
+/// <param name="SignInSetUp">Connect Discord works: the account linking card's client id and secret, and a public address, are saved.</param>
+/// <param name="CommandSetUp"><c>/verify</c> can be answered: the bot is set up.</param>
+public sealed record DiscordCodeStatus(
+    string? Code,
+    DateTimeOffset? ExpiresAt,
+    bool SignInSetUp,
+    bool CommandSetUp);

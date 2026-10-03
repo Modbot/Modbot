@@ -1809,6 +1809,88 @@
         ]
       }
     },
+    "/api/auth/discord/code": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get your /verify code",
+        "description": "The code you can run /verify with in the Discord server to connect your Discord account, while one is live, and which ways of connecting this server offers.",
+        "operationId": "GetDiscordCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordCodeStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get a new /verify code",
+        "description": "Make a code to run as /verify in the Discord server, which connects the Discord account that runs it to your Modbot account. It works once, for fifteen minutes, and replaces any code you had.",
+        "operationId": "NewDiscordCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordCodeStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/auth/discord": {
       "delete": {
         "tags": [
@@ -37440,6 +37522,36 @@
             "items": {
               "$ref": "#/components/schemas/DiscordChannelView"
             }
+          }
+        }
+      },
+      "DiscordCodeStatus": {
+        "required": [
+          "code",
+          "expiresAt",
+          "signInSetUp",
+          "commandSetUp"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "signInSetUp": {
+            "type": "boolean"
+          },
+          "commandSetUp": {
+            "type": "boolean"
           }
         }
       },

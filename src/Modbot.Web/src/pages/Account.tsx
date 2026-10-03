@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronRight, Rows2, Rows3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -8,7 +8,7 @@ import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
-import { ApiError, api, type CurrentUser } from '@/lib/api'
+import { ApiError, api, type CurrentUser, type DiscordCodeStatus } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { registerLink } from '@/lib/myModbot'
 import { useQueryParam } from '@/lib/router'
@@ -301,29 +301,109 @@ const DISCORD_PROBLEMS: Record<string, string> = {
   'signed-out': 'You were signed out of Modbot before Discord sent you back.',
 }
 
+/** How often the card looks for `/verify` having used the code it shows. */
+const CODE_POLL_MS = 5000
+
 /**
  * The Discord account the bot treats as this person (accounts and access design §4.6). Proven by
  * signing in to Discord: the button is a link to the server, which sends the browser to Discord
- * and back here with `?discord=` saying how it went. An id typed in before proving existed shows
- * as not proven, with the day it stops counting.
+ * and back here with `?discord=` saying how it went. Or proven with a code: the card shows one,
+ * the person runs `/verify` with it in the Discord server, and Discord says who ran it (Discord
+ * account linking design §14). An id typed in before proving existed shows as not proven, with the
+ * day it stops counting.
+ *
+ * Connect Discord is offered where sign-in is set up, the code where the bot is; where neither is,
+ * Connect Discord stays, so pressing it says what is missing. While a code is up the card asks
+ * every few seconds whether the account is connected yet, so it changes by itself once `/verify`
+ * worked, and drops the code once it runs out.
  */
 function YourDiscord({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
   const [result, setResult] = useQueryParam('discord')
   const [problem] = useState(() => (result ? (DISCORD_PROBLEMS[result] ?? null) : null))
   const [error, setError] = useState<string | null>(problem)
   const [busy, setBusy] = useState(false)
+  const [ways, setWays] = useState<DiscordCodeStatus | null>(null)
+  const [codeBusy, setCodeBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
 
   // Read once, then off the address, so a reload or a copied link does not say it again.
   useEffect(() => {
     if (result !== null) setResult(null)
   }, [result, setResult])
 
+  // What this server offers, and a code still live from before a reload.
+  useEffect(() => {
+    let current = true
+    api
+      .discordCode()
+      .then((status) => {
+        if (current) setWays(status)
+      })
+      .catch(() => undefined)
+    return () => {
+      current = false
+    }
+  }, [])
+
+  const code =
+    !me.discordProven && ways?.code && ways.expiresAt && new Date(ways.expiresAt).getTime() > now ? ways.code : null
+
+  const changed = useRef(onChanged)
+  useEffect(() => {
+    changed.current = onChanged
+  }, [onChanged])
+
+  useEffect(() => {
+    if (!code) return
+    const timer = window.setInterval(() => {
+      setNow(Date.now())
+      void api
+        .me()
+        .then((fresh) => {
+          if (fresh.discordProven) changed.current()
+        })
+        .catch(() => undefined)
+    }, CODE_POLL_MS)
+    return () => window.clearInterval(timer)
+  }, [code])
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 1500)
+    return () => window.clearTimeout(timer)
+  }, [copied])
+
+  const newCode = () => {
+    setCodeBusy(true)
+    setError(null)
+    api
+      .newDiscordCode()
+      .then((status) => {
+        setWays(status)
+        setNow(Date.now())
+      })
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not make a code.'))
+      .finally(() => setCodeBusy(false))
+  }
+
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text).then(() => setCopied(true))
+  }
+
+  const offerSignIn = !me.discordProven && (ways === null || ways.signInSetUp || !ways.commandSetUp)
+  const offerCode = !me.discordProven && ways?.commandSetUp === true
+
   const disconnect = () => {
     setBusy(true)
     setError(null)
     api
       .disconnectDiscord()
-      .then(onChanged)
+      .then(() => {
+        onChanged()
+        // A code shown before it was used is gone on the server; ask again rather than show it.
+        return api.discordCode().then(setWays)
+      })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not disconnect.'))
       .finally(() => setBusy(false))
   }
@@ -357,13 +437,37 @@ function YourDiscord({ me, onChanged }: { me: CurrentUser; onChanged: () => void
             'Not connected.'
           )}
         </div>
+        {code && (
+          <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="text-muted-foreground">Code</span>
+            <div className="flex items-center gap-2">
+              <code
+                className="rounded-sm border-(length:--hairline) bg-strip px-3 py-1.5 font-mono font-semibold select-all"
+                style={{ fontSize: 'calc(var(--text-base) + 2px)' }}
+              >
+                {code}
+              </code>
+              <Button type="button" variant="outline" size="sm" onClick={() => copy(code)}>
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+            <code className="w-fit rounded-sm border-(length:--hairline) bg-strip px-2 py-0.5 font-mono select-all">
+              /verify {code}
+            </code>
+          </div>
+        )}
         <ErrorText>{error}</ErrorText>
       </CardContent>
       <CardFooter className="flex-wrap gap-3">
-        {!me.discordProven && (
+        {offerSignIn && (
           <a href={api.connectDiscordUrl} className={buttonVariants({ size: 'xs' })}>
             Connect Discord
           </a>
+        )}
+        {offerCode && (
+          <Button size="xs" variant={offerSignIn ? 'outline' : 'default'} disabled={codeBusy} onClick={newCode}>
+            {codeBusy ? 'Making a code…' : code ? 'New code' : 'Connect with a code'}
+          </Button>
         )}
         {me.discordUserId && (
           <Button size="xs" variant="outline" disabled={busy} onClick={disconnect}>

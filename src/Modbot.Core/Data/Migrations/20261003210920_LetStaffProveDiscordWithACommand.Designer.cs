@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261003210920_LetStaffProveDiscordWithACommand")]
+    partial class LetStaffProveDiscordWithACommand
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6597,10 +6600,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("sent_title");
 
-                    b.Property<Guid?>("SitePictureId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("site_picture_id");
-
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -6628,9 +6627,6 @@ namespace Modbot.Core.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_post_destination");
-
-                    b.HasIndex("SitePictureId")
-                        .HasDatabaseName("ix_post_destination_site_picture_id");
 
                     b.HasIndex("Network", "State")
                         .HasDatabaseName("ix_post_destination_network_state");
@@ -7168,66 +7164,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("BanSweepStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ban_sweep_started_at");
-
-                    b.Property<string>("BlueskyAppPasswordEncrypted")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_app_password_encrypted");
-
-                    b.Property<bool>("BlueskyAutomated")
-                        .HasColumnType("boolean")
-                        .HasColumnName("bluesky_automated");
-
-                    b.Property<DateTimeOffset?>("BlueskyCheckedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("bluesky_checked_at");
-
-                    b.Property<string>("BlueskyDid")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_did");
-
-                    b.Property<string>("BlueskyDisplayName")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_display_name");
-
-                    b.Property<string>("BlueskyHandle")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_handle");
-
-                    b.Property<bool>("BlueskyPostingOn")
-                        .HasColumnType("boolean")
-                        .HasColumnName("bluesky_posting_on");
-
-                    b.Property<string>("BlueskyProblem")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_problem");
-
-                    b.Property<string>("BlueskyServer")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_server");
-
-                    b.Property<string>("BlueskySessionEncrypted")
-                        .HasColumnType("text")
-                        .HasColumnName("bluesky_session_encrypted");
-
-                    b.Property<bool>("BlueskySignInRefused")
-                        .HasColumnType("boolean")
-                        .HasColumnName("bluesky_sign_in_refused");
-
-                    b.Property<DateOnly?>("BlueskySignInsDay")
-                        .HasColumnType("date")
-                        .HasColumnName("bluesky_sign_ins_day");
-
-                    b.Property<int>("BlueskySignInsUsed")
-                        .HasColumnType("integer")
-                        .HasColumnName("bluesky_sign_ins_used");
-
-                    b.Property<DateTimeOffset?>("BlueskySignedInAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("bluesky_signed_in_at");
-
-                    b.Property<DateTimeOffset?>("BlueskyStoppedUntil")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("bluesky_stopped_until");
 
                     b.Property<bool>("CalendarPublicFeed")
                         .HasColumnType("boolean")
@@ -9122,12 +9058,6 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_post_destination_post_post_id");
-
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarCoverPicture", null)
-                        .WithMany()
-                        .HasForeignKey("SitePictureId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_post_destination_calendar_cover_picture_site_picture_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffDiscordCode", b =>

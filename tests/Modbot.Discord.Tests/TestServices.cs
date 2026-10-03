@@ -80,6 +80,8 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Analytics.Reviews.ReviewFacts>();
         services.AddSingleton<MemberCommandLimits>();
         services.AddScoped<MeCommand>();
+        services.AddKeyedSingleton<MemberCommandLimits>(VerifyCommand.LimitsKey);
+        services.AddScoped<VerifyCommand>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();

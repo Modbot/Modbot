@@ -29,9 +29,10 @@ namespace Modbot.Discord.Commands;
 /// </para>
 /// <para>
 /// <strong>Unlinked callers learn nothing.</strong> Not whether a name exists, not whether the bot
-/// is healthy: one sentence telling them to link, and that is all. The two exceptions are
+/// is healthy: one sentence telling them to link, and that is all. The exceptions are
 /// <c>/link</c> and <c>/me</c>, which are for every member and only ever about the caller
-/// (<see cref="MeCommand"/>). Every command, answered or
+/// (<see cref="MeCommand"/>), and <c>/verify</c>, which is how a staff member proves their
+/// Discord account in the first place (<see cref="VerifyCommand"/>). Every command, answered or
 /// refused, is a <c>modbot.discord.command</c> fact -- who looked at whom through Discord is an
 /// access record, like opening evidence.
 /// </para>
@@ -50,6 +51,7 @@ public sealed class DiscordCommandHandler
     private readonly LookupQuery _lookup;
     private readonly CardPictures _pictures;
     private readonly MeCommand? _me;
+    private readonly VerifyCommand? _verify;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -58,7 +60,8 @@ public sealed class DiscordCommandHandler
         DiscordBotStatus status,
         LookupQuery lookup,
         CardPictures? pictures = null,
-        MeCommand? me = null)
+        MeCommand? me = null,
+        VerifyCommand? verify = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -73,6 +76,7 @@ public sealed class DiscordCommandHandler
         _lookup = lookup;
         _pictures = pictures ?? new CardPictures();
         _me = me;
+        _verify = verify;
     }
 
     public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct)
@@ -84,6 +88,9 @@ public sealed class DiscordCommandHandler
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
+
+        if (call.CommandName == DiscordCommands.Verify)
+            return await VerifyAsync(call, ct).ConfigureAwait(false);
 
         if (DiscordCommands.IsForEveryone(call.CommandName))
         {
@@ -227,6 +234,39 @@ public sealed class DiscordCommandHandler
         var reply = await _me.AnswerAsync(call.DiscordUserId, call.DiscordUsername, ct).ConfigureAwait(false);
         await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
         return reply;
+    }
+
+    /// <summary>
+    /// <c>/verify code:</c>: proves the caller's Discord account is the Modbot account that was
+    /// shown the code (<see cref="VerifyCommand"/>). Recorded like every command, with the account
+    /// as the actor once it is connected and never with the code; a call over the per-person limit
+    /// is refused and not recorded, as with <c>/me</c>.
+    /// </summary>
+    private async Task<DiscordReply> VerifyAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_verify is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        var answer = await _verify
+            .RunAsync(call.DiscordUserId, call.DiscordUsername, call.Option(DiscordCommands.VerifyCodeOption), ct)
+            .ConfigureAwait(false);
+
+        if (answer.Outcome != VerifyOutcome.TooFast)
+        {
+            var outcome = answer.Outcome switch
+            {
+                VerifyOutcome.Connected => "connected",
+                VerifyOutcome.Taken => "taken",
+                _ => "wrong-code",
+            };
+
+            await RecordAsync(call, answer.Account, outcome, null, ct).ConfigureAwait(false);
+        }
+
+        return DiscordReply.Say(answer.Message);
     }
 
     /// <summary>
