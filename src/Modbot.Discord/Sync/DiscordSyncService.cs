@@ -122,7 +122,9 @@ public sealed class DiscordSyncService : BackgroundService
                 using var scope = _scopes.CreateScope();
 
                 var staff = scope.ServiceProvider.GetRequiredService<StaffRoleSync>();
-                var staffPass = await staff.RunAsync(_bot.ReadyGateway, _bot.MemberUpdatesCurrent, pastBrake: false, stoppingToken).ConfigureAwait(false);
+                var staffPass = await staff.RunAsync(
+                        _bot.ReadyGateway, _bot.MemberUpdatesCurrent, pastBrake: false, stoppingToken, startedAt: _bot.StartedAt)
+                    .ConfigureAwait(false);
 
                 if (staffPass.Given + staffPass.Taken > 0)
                     _log.Information("Gave {Given} and took away {Taken} staff roles from Discord roles", staffPass.Given, staffPass.Taken);

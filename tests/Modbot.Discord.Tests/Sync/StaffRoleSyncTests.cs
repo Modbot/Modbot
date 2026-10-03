@@ -93,11 +93,18 @@ public class StaffRoleSyncTests
     }
 
     private static async Task<StaffRolePass> PassAsync(
-        TestServices services, IDiscordGateway? gateway = null, bool memberUpdatesCurrent = true, bool pastBrake = false)
+        TestServices services, IDiscordGateway? gateway = null, bool memberUpdatesCurrent = true, bool pastBrake = false,
+        DateTimeOffset? startedAt = null)
     {
         using var scope = services.Scope();
         return await scope.ServiceProvider.GetRequiredService<StaffRoleSync>()
-            .RunAsync(gateway ?? new FakeGateway(), memberUpdatesCurrent, pastBrake, Ct);
+            .RunAsync(gateway ?? new FakeGateway(), memberUpdatesCurrent, pastBrake, Ct, startedAt: startedAt);
+    }
+
+    private static async Task<DiscordSyncState?> SyncStateAsync(TestServices services)
+    {
+        await using var db = services.Database.NewContext();
+        return await db.DiscordSyncState.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct);
     }
 
     // ── Discord decides ────────────────────────────────────────────────────────────────────
@@ -925,6 +932,65 @@ public class StaffRoleSyncTests
         var back = await PassAsync(services, memberUpdatesCurrent: true);
         Assert.Equal(1, back.Given);
         Assert.Equal(1, back.Taken);
+    }
+
+    /// <summary>
+    /// With no link yet, a pass still notes that member updates are current, so the card is right
+    /// before the first link is added; and while they are not, it records nothing, since there is no
+    /// link for them to stop.
+    /// </summary>
+    [Fact]
+    public async Task APassWithNoLinkStillNotesMemberUpdates()
+    {
+        await using var services = await OnAsync(_db, on: false);
+
+        var pass = await PassAsync(services, memberUpdatesCurrent: true);
+        Assert.Equal(StaffRolePass.Nothing, pass);
+
+        var state = await SyncStateAsync(services);
+        Assert.Equal(services.Clock.UtcNow, state?.StaffRolesMembersCurrentAt);
+        Assert.False(StaffRoles.MemberUpdatesMissing(state, services.Clock.UtcNow));
+
+        // Half an hour on, a pass finds them current again: the mark moves with it.
+        services.Clock.Advance(TimeSpan.FromMinutes(30));
+        await PassAsync(services, memberUpdatesCurrent: true);
+        state = await SyncStateAsync(services);
+        Assert.Equal(services.Clock.UtcNow, state?.StaffRolesMembersCurrentAt);
+        Assert.False(StaffRoles.MemberUpdatesMissing(state, services.Clock.UtcNow));
+
+        // Then they stop: nothing recorded while no link exists.
+        services.Clock.Advance(TimeSpan.FromMinutes(15));
+        var stopped = await PassAsync(services, memberUpdatesCurrent: false);
+        Assert.Null(stopped.Problem);
+        Assert.Null((await SyncStateAsync(services))?.StaffRolesMembersOffAt);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
+    }
+
+    /// <summary>
+    /// After a stop longer than the wait, the bot gets the same minutes to connect as after a
+    /// reconnect, counted from start-up: nothing is recorded in them. If updates are still not
+    /// current past them, the pass says so once, as before.
+    /// </summary>
+    [Fact]
+    public async Task ARestartGetsTheSameWaitAsAReconnect()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+        await PassAsync(services, memberUpdatesCurrent: true);
+
+        // Modbot was stopped for two hours, and has just started.
+        services.Clock.Advance(TimeSpan.FromHours(2));
+        var startedAt = services.Clock.UtcNow;
+
+        var connecting = await PassAsync(services, memberUpdatesCurrent: false, startedAt: startedAt);
+        Assert.Null(connecting.Problem);
+        Assert.Null((await SyncStateAsync(services))?.StaffRolesMembersOffAt);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
+
+        services.Clock.Advance(TimeSpan.FromMinutes(11));
+        var stopped = await PassAsync(services, memberUpdatesCurrent: false, startedAt: startedAt);
+        Assert.Equal(StaffRoles.NoMemberUpdates, stopped.Problem);
+        Assert.Single(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
     }
 
     // ── Deleted Discord roles and the member row ──────────────────────────────────────────

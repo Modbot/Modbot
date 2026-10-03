@@ -215,10 +215,13 @@ Discord keeps their Modbot role. So the pass acts only while they are kept curre
   connected. A quiet server sends no member events, so their being allowed is as far as Modbot can
   see; that is the signal.
 - The pass runs every minute with the bot down too. Each run notes the last time member updates
-  were current (`discord_sync_state.staff_roles_members_current_at`). While they are not, it gives
-  and takes nothing. Within 10 minutes of the last current run it says nothing (a reconnect); past
-  that it sets `staff_roles_members_off_at`, puts "Modbot isn't receiving member updates from
-  Discord." on the card and on the Discord health row, and records one
+  were current (`discord_sync_state.staff_roles_members_current_at`), with no link saved as well,
+  so the card is right before the first one is added. *Fixed 2026-10-02: the mark was only noted
+  once a link existed, so a server with none, or one just restarted, read as missing updates while
+  they arrived.* While they are not current, it gives and takes nothing. Within 10 minutes of the
+  last current run, or of Modbot starting, it says nothing (a reconnect or a restart); past that,
+  and only while a link exists, it sets `staff_roles_members_off_at`, puts "Modbot isn't receiving
+  member updates from Discord." on the card and on the Discord health row, and records one
   `modbot.role.discord.no-member-updates` fact. When updates are back, it carries on.
 - `StaffRoles.MemberUpdatesMissing` is the one rule the screens read: missing while that mark is
   set, or when no run has found them current in the last 20 minutes (the pass itself is not

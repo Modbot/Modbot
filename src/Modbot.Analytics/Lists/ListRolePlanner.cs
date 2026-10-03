@@ -507,8 +507,13 @@ public sealed class ListRolePlanner
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
 
-        // Compared whole in the bot's current connection, and the bot still listening.
-        var read = await _db.DiscordServers.AsNoTracking()
+        // Compared whole in the bot's current connection, and the bot still listening. Member
+        // updates need no check of their own here, unlike staff roles: the list is only read with
+        // the Server Members intent in the session (DiscordNetGateway.ReadMembersAsync answers null
+        // without it), every connection clears MembersReadAt before reading, and only a compare in
+        // that connection writes it again. So with member updates off or refused it stays empty,
+        // and lists refuse on the same signal staff roles do.
+        var read =await _db.DiscordServers.AsNoTracking()
             .Where(s => s.GuildId == guildId)
             .Select(s => new { s.MembersReadAt, s.SeenThrough })
             .FirstOrDefaultAsync(ct)

@@ -81,14 +81,19 @@ public sealed class StaffRoleSync
     /// The plan the Apply button checked the presser against, carried out as it is rather than
     /// worked out again, so what was checked is what runs. Null works it out now.
     /// </param>
+    /// <param name="startedAt">
+    /// When this Modbot started: the wait for member updates counts from here too, so the bot has
+    /// time to connect after a restart. Null counts only from the last time they were current.
+    /// </param>
     public async Task<StaffRolePass> RunAsync(
-        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, CancellationToken ct, StaffRolePlan? checkedPlan = null)
+        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, CancellationToken ct,
+        StaffRolePlan? checkedPlan = null, DateTimeOffset? startedAt = null)
     {
         await OnePass.WaitAsync(ct).ConfigureAwait(false);
 
         try
         {
-            return await RunOnceAsync(gateway, memberUpdatesCurrent, pastBrake, checkedPlan, ct).ConfigureAwait(false);
+            return await RunOnceAsync(gateway, memberUpdatesCurrent, pastBrake, checkedPlan, startedAt, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -97,7 +102,8 @@ public sealed class StaffRoleSync
     }
 
     private async Task<StaffRolePass> RunOnceAsync(
-        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, StaffRolePlan? checkedPlan, CancellationToken ct)
+        IDiscordGateway? gateway, bool memberUpdatesCurrent, bool pastBrake, StaffRolePlan? checkedPlan,
+        DateTimeOffset? startedAt, CancellationToken ct)
     {
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -105,15 +111,23 @@ public sealed class StaffRoleSync
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        if (string.IsNullOrWhiteSpace(settings?.DiscordGuildId)
-            || !await _db.DiscordStaffRoles.AsNoTracking().AnyAsync(ct).ConfigureAwait(false))
+        if (string.IsNullOrWhiteSpace(settings?.DiscordGuildId))
+            return StaffRolePass.Nothing;
+
+        // With no link yet, the mark is still kept while updates arrive, so the card is right
+        // before the first link is added: the screens read it whatever the links. Updates missing
+        // are only recorded (the card's sentence, Health, the fact) once there is a link they stop.
+        if (!await _db.DiscordStaffRoles.AsNoTracking().AnyAsync(ct).ConfigureAwait(false))
         {
+            if (memberUpdatesCurrent)
+                await NoteMemberUpdatesAsync(current: true, startedAt, ct).ConfigureAwait(false);
+
             return StaffRolePass.Nothing;
         }
 
         // Whether the stored member roles can be trusted is noted whether or not the switch is on,
         // so the screen can say so before somebody turns it on.
-        if (await NoteMemberUpdatesAsync(memberUpdatesCurrent, ct).ConfigureAwait(false) is { } waiting)
+        if (await NoteMemberUpdatesAsync(memberUpdatesCurrent, startedAt, ct).ConfigureAwait(false) is { } waiting)
             return waiting;
 
         if (!settings!.DiscordStaffRolesOn)
@@ -541,15 +555,23 @@ public sealed class StaffRoleSync
     /// <summary>
     /// Notes whether member updates are arriving, and answers the pass to return when they are not:
     /// nothing given or taken. Within <see cref="StaffRoles.MemberUpdatesWait"/> of the last time they
-    /// were, it waits quietly (a reconnect); past it, it records one fact and says why, on the card
-    /// and on Health, until they are back.
+    /// were, or of <paramref name="startedAt"/>, it waits quietly (a reconnect, or a restart);
+    /// past it, it records one fact and says why, on the card and on Health, until they are back.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Staff roles act on the member roles Modbot has stored. With the Server Members intent off or
     /// refused, those stop changing while Discord's go on, and somebody taken off staff in Discord
     /// would keep their Modbot role. So the pass acts only while the stored roles are kept current.
+    /// </para>
+    /// <para>
+    /// The wait counts from start-up too: after a stop of more than the wait, the mark is older than
+    /// the wait before the bot has had a chance to connect, and the first pass would otherwise record
+    /// updates as missing on every such restart. The screens still say they are missing until the
+    /// bot has read the member list, which is true: until then the stored roles are from before.
+    /// </para>
     /// </remarks>
-    private async Task<StaffRolePass?> NoteMemberUpdatesAsync(bool current, CancellationToken ct)
+    private async Task<StaffRolePass?> NoteMemberUpdatesAsync(bool current, DateTimeOffset? startedAt, CancellationToken ct)
     {
         var state = await StateAsync(ct).ConfigureAwait(false);
         var now = _clock.UtcNow;
@@ -567,6 +589,11 @@ public sealed class StaffRoleSync
         }
 
         if (state.StaffRolesMembersCurrentAt is { } last && now - last <= StaffRoles.MemberUpdatesWait)
+            return StaffRolePass.Nothing;
+
+        // A restart gets the same wait as a reconnect, unless they were found missing before it:
+        // then they still are, and it was said once already.
+        if (state.StaffRolesMembersOffAt is null && startedAt is { } started && now - started <= StaffRoles.MemberUpdatesWait)
             return StaffRolePass.Nothing;
 
         if (state.StaffRolesMembersOffAt is null)

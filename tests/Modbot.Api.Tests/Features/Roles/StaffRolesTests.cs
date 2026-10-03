@@ -406,6 +406,31 @@ public class StaffRolesTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// With no link yet and the pass finding member updates current, the card does not say they are
+    /// missing: not when the mark is fresh, and not in the first minutes after a restart, while the
+    /// mark from before it is still within the wait.
+    /// </summary>
+    [Fact]
+    public async Task WithNoLinkAndMemberUpdatesArrivingTheCardDoesNotSayTheyAreMissing()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
+        await ServerAsync(host, memberUpdates: true);
+
+        static string? Problem(JsonElement view)
+            => view.TryGetProperty("problem", out var problem) ? problem.GetString() : null;
+
+        var view = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.Equal(0, view.GetProperty("mappings").GetArrayLength());
+        Assert.Null(Problem(view));
+
+        host.Clock.Advance(TimeSpan.FromMinutes(15));
+        var afterRestart = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.Null(Problem(afterRestart));
+    }
+
     [Fact]
     public async Task ThePreviewListsWhoWouldChangeAndChangesNothing()
     {

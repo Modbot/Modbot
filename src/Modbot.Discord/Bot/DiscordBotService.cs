@@ -145,6 +145,7 @@ public sealed class DiscordBotService : BackgroundService
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
         _retry = _options.FirstRetry;
         _history = new DiscordHistoryReader(scopes, clock, _options, _delay, _log);
+        StartedAt = clock.UtcNow;
     }
 
     /// <summary>
@@ -170,6 +171,13 @@ public sealed class DiscordBotService : BackgroundService
     /// arriving cannot be told from their being allowed.
     /// </remarks>
     public bool MemberUpdatesCurrent => MembersRead && _sessionOptions.MemberEvents;
+
+    /// <summary>
+    /// When this Modbot started. The staff role pass gives the bot as long from here to connect and
+    /// read the member list as it gives a reconnect, so a restart after a long stop is not taken for
+    /// member updates being off.
+    /// </summary>
+    public DateTimeOffset StartedAt { get; }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
