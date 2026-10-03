@@ -12,6 +12,7 @@ import {
   localInput,
   inputFrom,
   requestOf,
+  shownHeadline,
   shownLabel,
   vrchatAudience,
   vrchatCount,
@@ -177,6 +178,53 @@ test('Cancel post is offered only while something has not gone', () => {
 test('a post with no title is named by its first line', () => {
   assert.equal(headline({ title: null, text: 'First line\nSecond' }), 'First line')
   assert.equal(headline({ title: '  Movie night ', text: 'x' }), 'Movie night')
+})
+
+test('a post that went out is named by what the sites show, once all of them agree', () => {
+  // Not sent yet: the post's own title, whatever a site's own title is.
+  assert.equal(shownHeadline(post('scheduled', [destination('waiting', { titleOverride: 'Own' })])), 'Movie night')
+
+  // Edited on its one site: the new title.
+  assert.equal(shownHeadline(post('scheduled', [destination('posted', { titleOverride: 'Movie night, edited' })])), 'Movie night, edited')
+
+  // Edited on both: the new title.
+  assert.equal(
+    shownHeadline(
+      post('scheduled', [
+        destination('posted', { titleOverride: 'Cinema' }),
+        destination('posted', { id: 'd2', network: 'vrchat', titleOverride: 'Cinema' }),
+      ]),
+    ),
+    'Cinema',
+  )
+
+  // Edited on one of two: the sites differ, so the post's own.
+  assert.equal(
+    shownHeadline(
+      post('scheduled', [
+        destination('posted', { titleOverride: 'Cinema' }),
+        destination('posted', { id: 'd2', network: 'vrchat' }),
+      ]),
+    ),
+    'Movie night',
+  )
+
+  // A site that is not posted has no say.
+  assert.equal(
+    shownHeadline(
+      post('scheduled', [
+        destination('posted', { titleOverride: 'Cinema' }),
+        destination('failed', { id: 'd2', network: 'vrchat' }),
+      ]),
+    ),
+    'Cinema',
+  )
+
+  // No title anywhere: the first line of what the site shows.
+  assert.equal(
+    shownHeadline(post('scheduled', [destination('posted', { textOverride: 'New first line\nMore' })], { title: null })),
+    'New first line',
+  )
 })
 
 test('a time is written as a datetime field holds it, in the zone asked for', () => {

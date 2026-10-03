@@ -21,12 +21,12 @@ import {
   canPostNow,
   discordMessage,
   duplicateOf,
-  headline,
   inputFrom,
   LIST_LABEL,
   listAfterSave,
   NETWORK_LABEL,
   postsApi,
+  shownHeadline,
   shownLabel,
   shownTone,
   tidy,
@@ -338,7 +338,7 @@ function PostRow({
         <span className="shrink-0 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {whenText(post, zone)}
         </span>
-        <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{headline(post) || 'Untitled'}</span>
+        <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{shownHeadline(post) || 'Untitled'}</span>
         {post.eventTitle && (
           <a href="/calendar" onClick={followLink('/calendar')} className="text-link hover:underline" style={{ fontSize: 'var(--text-small)' }}>
             {post.eventTitle}

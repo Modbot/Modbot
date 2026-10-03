@@ -259,6 +259,10 @@ Four lists with counts; each row the time in the viewer's zone (the post's zone 
 another), the title or first line, who wrote it, a badge per destination, the event's name when
 linked, and the actions open to the post now. **Cancelled** chip. **New post**.
 
+Once a post has gone out, the title or first line is what the sites show: Edit on a site (§5.5)
+writes that site's own title and text and leaves the post's alone, so when every site it is posted
+on shows the same one, the row shows that; when they differ, the post's own.
+
 ### 5.3 Composer
 
 A dialog in the event form's shape: Write · Preview, buttons pinned at the foot (Schedule, or Post

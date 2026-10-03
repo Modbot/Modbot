@@ -299,6 +299,23 @@ export function headline(post: Pick<Post, 'title' | 'text'>): string {
   return first.length <= 80 ? first : `${first.slice(0, 80)}…`
 }
 
+/**
+ * What the list calls a post once it has gone out: what the sites show. Edit on a site changes that
+ * site's own title and text and leaves the post's alone, so the list would otherwise keep the words
+ * as first written. When every site it is posted on shows the same headline, that one; when they
+ * differ, or it is on none, the post's own. A site's words are worked out as the server's
+ * `PostTexts.TitleFor` and `TextFor` do: its own, or the post's.
+ */
+export function shownHeadline(post: Pick<Post, 'title' | 'text' | 'destinations'>): string {
+  const onSites = new Set(
+    post.destinations
+      .filter((d) => d.state === 'posted')
+      .map((d) => headline({ title: d.titleOverride ?? post.title, text: d.textOverride ?? post.text })),
+  )
+
+  return onSites.size === 1 ? [...onSites][0] : headline(post)
+}
+
 /** The server's `PostTexts.Tidy`: line ends made `\n`, and the whole trimmed. */
 export function tidy(text: string | null | undefined): string {
   return (text ?? '').replace(/\r\n?/g, '\n').trim()
