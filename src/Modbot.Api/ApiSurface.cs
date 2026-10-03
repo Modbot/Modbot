@@ -101,6 +101,9 @@ public static class ApiSurface
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
 
+        // The calendar's public feed as last written, kept a minute (calendar design §6.1).
+        services.TryAddSingleton<Features.Calendar.PublicCalendarFeedCache>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -558,6 +561,8 @@ public static class ApiSurface
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
+        // The public feed: the events visible to everyone, behind a switch (calendar design §6.1).
+        Features.Calendar.PublicCalendarFeedEndpoints.MapPublicCalendarFeed(app);
         // What each time an event ran did: its instance, who came and who joined the group.
         Features.Calendar.CalendarResultsEndpoints.MapCalendarResults(app);
         // Lists of worlds, and an event's world picked from one: Pick again, and Next game during

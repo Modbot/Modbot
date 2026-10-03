@@ -15,6 +15,7 @@ import { ScheduleView } from '@/components/calendar/ScheduleView'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { Switch } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
@@ -30,6 +31,7 @@ import {
   type CalendarOccurrence,
   type CalendarOccurrenceResult,
   type CalendarView,
+  type PublicCalendarFeed,
   hasRun,
   vrchatReadProblem,
 } from '@/lib/calendar'
@@ -522,6 +524,7 @@ export function Calendar() {
       {data.view.canSeeResults && <PastEvents live={live} onOpen={openPast} />}
 
       {canManage && <FeedRow />}
+      {canManage && <PublicFeedRow />}
 
       {opened && detail && (
         <EventDetails
@@ -752,6 +755,61 @@ function FeedRow() {
         failed="Could not make a new link."
         onConfirm={() => calendarApi.regenerateFeed().then(setFeed)}
       />
+    </div>
+  )
+}
+
+/**
+ * The public feed (calendar design §6.1): one switch, saved at once, and the address with Copy
+ * while it is on. Off by default; off, the address answers 404.
+ */
+function PublicFeedRow() {
+  const [feed, setFeed] = useState<PublicCalendarFeed | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    calendarApi
+      .publicFeed()
+      .then(setFeed)
+      .catch(() => setError('Could not load the public feed.'))
+  }, [])
+
+  const link = feed ? (feed.url ?? `${window.location.origin}${feed.path}`) : null
+
+  const change = (on: boolean) => {
+    setBusy(true)
+    setError(null)
+    calendarApi
+      .setPublicFeed(on)
+      .then(setFeed)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  const copy = () => {
+    if (!link) return
+    void navigator.clipboard.writeText(link).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    })
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+      <Switch checked={feed?.on ?? false} disabled={busy || !feed} onChange={change}>
+        Public feed
+      </Switch>
+      {feed?.on && link && (
+        <>
+          <Input readOnly value={link} className="max-w-xl flex-1 font-mono" onFocus={(e) => e.target.select()} />
+          <Button size="sm" variant="outline" onClick={copy}>
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </>
+      )}
+      {error && <span className="text-destructive">{error}</span>}
     </div>
   )
 }

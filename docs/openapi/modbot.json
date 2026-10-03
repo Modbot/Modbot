@@ -25555,6 +25555,150 @@
         "security": [ ]
       }
     },
+    "/api/calendar/public-feed": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get public calendar feed",
+        "description": "Whether the public calendar feed is on, and its address.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "GetPublicCalendarFeed",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarFeedView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Set public calendar feed",
+        "description": "Turn the public calendar feed on or off. Off, its address answers 404.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "SetPublicCalendarFeed",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPublicCalendarFeedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCalendarFeedView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/public.ics": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get public calendar feed file",
+        "description": "The public calendar feed as iCalendar. No sign-in and no secret; 404 while it is off. Holds the events visible to everyone that are scheduled or open, and finished and cancelled ones for 30 days after. A join link only for an event anyone can join. Kept for a minute; send If-None-Match with the ETag to get 304 when it has not changed.",
+        "operationId": "GetPublicCalendarFeedFile",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/calendar": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
     "/api/calendar/events/{id}/results": {
       "get": {
         "tags": [
@@ -45899,6 +46043,28 @@
           }
         }
       },
+      "PublicCalendarFeedView": {
+        "required": [
+          "on",
+          "path",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "PublicInstancesView": {
         "required": [
           "shared",
@@ -48195,6 +48361,17 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SetPublicCalendarFeedRequest": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
           }
         }
       },

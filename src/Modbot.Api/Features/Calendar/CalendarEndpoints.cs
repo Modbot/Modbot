@@ -1261,39 +1261,13 @@ public static class CalendarEndpoints
                 if (!await db.CalendarFeeds.AsNoTracking().AnyAsync(f => f.TokenHash == hash, ct))
                     return Results.NotFound();
 
-                // Live events, and finished or cancelled ones for a while after (calendar design §6):
-                // the database narrows it to those states, and the writer's own rule decides.
                 var now = clock.UtcNow;
-                var since = now - CalendarFeedWriter.KeepEndedFor;
-
-                // A finished event's last date can only have ended inside the window when: a one-off
-                // ends in it; a repeat's last day is no earlier than the window's start, less the
-                // longest an event may last and a day for time zones; or one date was moved into it.
-                // Only those are loaded, so the feed does not read every event a group ever ran.
-                var lastDayFrom = DateOnly.FromDateTime((since - MaxLength - TimeSpan.FromDays(1)).UtcDateTime);
-
-                var candidates = await db.CalendarEvents.AsNoTracking()
-                    .Where(e => e.DeletedAt == null
-                        && (e.State == CalendarEventStates.Scheduled
-                            || e.State == CalendarEventStates.Open
-                            || (e.State == CalendarEventStates.Finished
-                                && ((e.Repeat == CalendarRepeats.None && e.EndsAt >= since)
-                                    || (e.Repeat != CalendarRepeats.None && (e.RepeatUntil == null || e.RepeatUntil >= lastDayFrom || e.RepeatTimes != null))
-                                    || e.DateChanges.Any(c => c.EndsAt >= since)))
-                            || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= since)))
-                    .ToListAsync(ct);
-
-                var events = candidates.Where(e => CalendarFeedWriter.Belongs(e, now)).ToList();
-
-                var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
-                var names = await db.VRChatWorlds.AsNoTracking()
-                    .Where(w => worldIds.Contains(w.WorldId) && w.Name != null)
-                    .ToDictionaryAsync(w => w.WorldId, w => w.Name!, StringComparer.Ordinal, ct);
+                var events = await FeedEventsAsync(db, now, publicOnly: false, ct);
+                var names = await FeedWorldNamesAsync(db, events, ct);
 
                 var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
-                var name = string.IsNullOrWhiteSpace(settings?.ManagedGroupName) ? "Modbot" : settings.ManagedGroupName;
 
-                var body = CalendarFeedWriter.Write(name, events, names, now, settings?.PublicAddress);
+                var body = CalendarFeedWriter.Write(FeedName(settings), events, names, now, settings?.PublicAddress);
                 return Results.Text(body, "text/calendar; charset=utf-8", Encoding.UTF8);
             })
             .AllowAnonymous()
@@ -1372,6 +1346,58 @@ public static class CalendarEndpoints
 
         return buffer.ToArray();
     }
+
+    /// <summary>
+    /// The events a feed lists at <paramref name="now"/>: live ones, and finished or cancelled ones
+    /// for a while after (calendar design §6). The database narrows it to those states, and the
+    /// writer's own rule decides. With <paramref name="publicOnly"/>, only the events the public feed
+    /// may list (§6.1).
+    /// </summary>
+    internal static async Task<List<CalendarEvent>> FeedEventsAsync(
+        ModbotContext db, DateTimeOffset now, bool publicOnly, CancellationToken ct)
+    {
+        var since = now - CalendarFeedWriter.KeepEndedFor;
+
+        // A finished event's last date can only have ended inside the window when: a one-off
+        // ends in it; a repeat's last day is no earlier than the window's start, less the
+        // longest an event may last and a day for time zones; or one date was moved into it.
+        // Only those are loaded, so the feed does not read every event a group ever ran.
+        var lastDayFrom = DateOnly.FromDateTime((since - MaxLength - TimeSpan.FromDays(1)).UtcDateTime);
+
+        var query = db.CalendarEvents.AsNoTracking()
+            .Where(e => e.DeletedAt == null
+                && (e.State == CalendarEventStates.Scheduled
+                    || e.State == CalendarEventStates.Open
+                    || (e.State == CalendarEventStates.Finished
+                        && ((e.Repeat == CalendarRepeats.None && e.EndsAt >= since)
+                            || (e.Repeat != CalendarRepeats.None && (e.RepeatUntil == null || e.RepeatUntil >= lastDayFrom || e.RepeatTimes != null))
+                            || e.DateChanges.Any(c => c.EndsAt >= since)))
+                    || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= since)));
+
+        if (publicOnly)
+            query = query.Where(e => e.Visibility == "public");
+
+        var candidates = await query.ToListAsync(ct);
+
+        return publicOnly
+            ? candidates.Where(e => CalendarFeedWriter.BelongsInPublic(e, now)).ToList()
+            : candidates.Where(e => CalendarFeedWriter.Belongs(e, now)).ToList();
+    }
+
+    /// <summary>The names Modbot knows for the worlds of <paramref name="events"/>, by world id.</summary>
+    internal static async Task<Dictionary<string, string>> FeedWorldNamesAsync(
+        ModbotContext db, IReadOnlyList<CalendarEvent> events, CancellationToken ct)
+    {
+        var worldIds = events.Where(e => e.WorldId != null).Select(e => e.WorldId!).Distinct().ToList();
+
+        return await db.VRChatWorlds.AsNoTracking()
+            .Where(w => worldIds.Contains(w.WorldId) && w.Name != null)
+            .ToDictionaryAsync(w => w.WorldId, w => w.Name!, StringComparer.Ordinal, ct);
+    }
+
+    /// <summary>The calendar's name in a feed: the managed group's, or Modbot.</summary>
+    internal static string FeedName(Modbot.Core.Data.Entities.Settings? settings) =>
+        string.IsNullOrWhiteSpace(settings?.ManagedGroupName) ? "Modbot" : settings.ManagedGroupName;
 
     /// <summary>SHA-256 of a feed token, hex. Only the hash is ever matched.</summary>
     public static string HashToken(string token) =>

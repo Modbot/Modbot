@@ -203,6 +203,14 @@ public class Settings
     public bool VRChatPictureUploads { get; set; }
 
     /// <summary>
+    /// Whether the calendar's public feed answers at <c>/api/calendar/public.ics</c> (calendar design
+    /// §6.1, added 2026-10-03): the events visible to everyone, with no secret in the address, for
+    /// event directories and websites. Off until someone with Manage calendar turns it on, because it
+    /// puts the group's public events on an address anyone can read; off, the address answers 404.
+    /// </summary>
+    public bool CalendarPublicFeed { get; set; }
+
+    /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>

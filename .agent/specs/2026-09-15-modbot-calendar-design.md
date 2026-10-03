@@ -465,12 +465,54 @@ existing `worlds.read` budget; nothing else new is called.
     without a public address. The page asks for a sign-in, and the event id is all it carries: the
     feed holds nothing about members.
 
+### 6.1 The public feed (added 2026-10-03)
+
+A second feed, with no secret in its address, for event directories, websites and Google
+Calendar's "From URL". Research on 2026-10-03 found that most directories read VRChat's group
+calendar or want a form filled in, while Mobilizon, Gancio and Google's "From URL" read iCalendar.
+
+- `GET /api/calendar/public.ics` — no sign-in, `text/calendar`. One fixed address: there is nothing
+  to replace, so turning it off is how it is stopped.
+- **Off by default**, in `Settings.CalendarPublicFeed`. Off, the address answers 404. The switch is
+  `GET`/`PUT /api/calendar/public-feed` under Manage calendar, the permission that manages the secret
+  feed, and each change is a `modbot.settings.change` fact with `setting: calendarPublicFeed`, before
+  and after, like any other setting. On the page it is a **Public feed** switch below the
+  **Calendar feed** row, with the address and **Copy** beside it while it is on.
+- **Which events:** those with `Visibility == public` ("Visible to: Everyone") and no
+  `VRChatRoleIds` (an event VRChat shows only to some roles is for members, whatever its visibility),
+  in the secret feed's window and states (`CalendarFeedWriter.BelongsInPublic`). Never drafts or
+  deleted events. The database query narrows on visibility, and `CalendarFeedWriter.WritePublic`
+  drops any event that is not public again, so a mistake in picking the events cannot put a
+  members-only one on a public address.
+- **What each entry carries** is the secret feed's entry, written by the same writer, less what is
+  only for members. Decided field by field:
+
+  | Field | Public feed | Why |
+  |---|---|---|
+  | `UID`, `SEQUENCE`, `DTSTAMP` | Kept | The stable id is what lets a program update the event it has; the version and stamp say when |
+  | `DTSTART`, `DTEND`, `RRULE`, `EXDATE`, `RECURRENCE-ID` copies, `VTIMEZONE` | Kept | When it happens; already on VRChat's public calendar |
+  | `SUMMARY`, `DESCRIPTION` (and a date's own) | Kept | The event's public words |
+  | `LOCATION` (world name, or its id) | Kept | The world is on VRChat's public calendar too; a world id is VRChat's, not Modbot's |
+  | `STATUS` | Kept | A cancelled event says so instead of vanishing |
+  | `X-WR-CALNAME` | Kept | The managed group's name, which is public |
+  | `URL` to Modbot's calendar page | **Left out** | It asks for a sign-in nobody reading a public feed has, and it is a Modbot address with an event id in it |
+  | `URL` join link | **Only for Who can join = Anyone** | `{public address}/api/calendar/join/{id}`, the address a Discord event carries; 404 while no instance is open. A members or members-and-friends instance gets none |
+
+  No member data of any kind is in either feed.
+- **Kept for a minute.** The endpoint is anonymous and the app has no request limit of its own for
+  anonymous routes (the secret feed has none either), so the written feed is kept in a singleton
+  (`PublicCalendarFeedCache`) for one minute and written by one request at a time; it carries an
+  `ETag` (a hash of the text) and `Cache-Control: public, max-age=60`, and a request with a matching
+  `If-None-Match` gets an empty 304. The switch is read on every request (one column of one row), so
+  off is a 404 at once whatever is kept; turning it on or off also empties the cache. An edited event
+  reaches the public feed within a minute.
+
 ## 7. Permissions
 
 | Permission | Bit | Allows |
 |---|---|---|
 | `ViewCalendar` — "See calendar" | 25 | The calendar page and every event's places and states. |
-| `ManageCalendar` — "Manage calendar" | 26 | Create, edit, cancel and delete events; see and regenerate the feed link. |
+| `ManageCalendar` — "Manage calendar" | 26 | Create, edit, cancel and delete events; see and regenerate the feed link; turn the public feed on or off (§6.1). |
 
 Neither is added to the built-in roles; Administrator holds both.
 

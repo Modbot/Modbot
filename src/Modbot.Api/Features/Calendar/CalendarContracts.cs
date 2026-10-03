@@ -443,3 +443,12 @@ public sealed record CalendarVRChatReadView(string Outcome, string? Error);
 /// <param name="Path">The feed's path on this server, always known.</param>
 /// <param name="Url">The whole address, when the public address is set.</param>
 public sealed record CalendarFeedView(string? Path, string? Url);
+
+/// <summary>The public feed's switch and address (calendar design §6.1).</summary>
+/// <param name="On">Whether the public feed answers. Off, its address answers 404.</param>
+/// <param name="Path">The public feed's path on this server, always known.</param>
+/// <param name="Url">The whole address, when the public address is set.</param>
+public sealed record PublicCalendarFeedView(bool On, string Path, string? Url);
+
+/// <param name="On">Turn the public feed on or off.</param>
+public sealed record SetPublicCalendarFeedRequest(bool On);

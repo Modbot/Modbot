@@ -34,6 +34,9 @@ public static class CalendarFeedWriter
 {
     private const string Crlf = "\r\n";
 
+    /// <summary>The word for everyone, in both <see cref="CalendarEvent.Visibility"/> and <see cref="CalendarEvent.AccessType"/>.</summary>
+    private const string PublicWord = "public";
+
     /// <summary>How far past the later of now and an event's last date a zone's changes are written.</summary>
     public static readonly Period ZoneYearsAhead = Period.FromYears(2);
 
@@ -67,6 +70,44 @@ public static class CalendarFeedWriter
         };
     }
 
+    /// <summary>
+    /// Whether an event may be in the public feed at all (calendar design §6.1): visible to everyone
+    /// on VRChat's calendar, and not narrowed to some of the group's roles there. Whether it is in it
+    /// now is <see cref="Belongs"/> as well.
+    /// </summary>
+    /// <remarks>
+    /// An event VRChat shows only to some roles is for members, whatever its visibility says, so it
+    /// is left out.
+    /// </remarks>
+    public static bool IsPublic(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.Visibility == PublicWord && calendarEvent.VRChatRoleIds is not { Count: > 0 };
+    }
+
+    /// <summary>
+    /// Whether an event belongs in the public feed at <paramref name="now"/>: <see cref="IsPublic"/>,
+    /// and in the time window and states of the secret feed (<see cref="Belongs"/>).
+    /// </summary>
+    public static bool BelongsInPublic(CalendarEvent calendarEvent, DateTimeOffset now) =>
+        IsPublic(calendarEvent) && Belongs(calendarEvent, now);
+
+    /// <summary>
+    /// The address that sends a person on to an event's open instance, for an event anyone can join;
+    /// null for one only members (or their friends) can join, or without a public address. The same
+    /// address a Discord event carries; it answers 404 while no instance is open.
+    /// </summary>
+    public static string? JoinLink(string? publicAddress, CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        if (calendarEvent.AccessType != PublicWord || string.IsNullOrWhiteSpace(publicAddress))
+            return null;
+
+        return $"{publicAddress.Trim().TrimEnd('/')}/api/calendar/join/{calendarEvent.Id:D}";
+    }
+
     /// <param name="calendarName">Shown by calendar programs as the calendar's name.</param>
     /// <param name="events">The events that <see cref="Belongs"/> in the feed; the caller picks them.</param>
     /// <param name="worldNames">World names by id, for <c>LOCATION</c>.</param>
@@ -81,6 +122,41 @@ public static class CalendarFeedWriter
         IReadOnlyDictionary<string, string> worldNames,
         DateTimeOffset now,
         string? publicAddress = null)
+    {
+        var address = string.IsNullOrWhiteSpace(publicAddress) ? null : publicAddress.Trim().TrimEnd('/');
+
+        return WriteFeed(calendarName, events, worldNames, now, e => address is null ? null : $"{address}/calendar?event={e.Id:D}");
+    }
+
+    /// <summary>
+    /// The public feed (calendar design §6.1): the same entries as the secret feed's, for the events
+    /// that <see cref="IsPublic"/> only, and a <c>URL</c> only where it is a <see cref="JoinLink"/>.
+    /// </summary>
+    /// <remarks>
+    /// The secret feed's link to Modbot's calendar page is left out: it asks for a sign-in nobody
+    /// reading a public feed has. An event that is not public is dropped here even if the caller
+    /// passed it, so a mistake in picking the events cannot put a members-only event on a public
+    /// address.
+    /// </remarks>
+    /// <param name="events">The events that <see cref="BelongsInPublic"/>; the caller picks them.</param>
+    public static string WritePublic(
+        string calendarName,
+        IReadOnlyList<CalendarEvent> events,
+        IReadOnlyDictionary<string, string> worldNames,
+        DateTimeOffset now,
+        string? publicAddress)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return WriteFeed(calendarName, [.. events.Where(IsPublic)], worldNames, now, e => JoinLink(publicAddress, e));
+    }
+
+    private static string WriteFeed(
+        string calendarName,
+        IReadOnlyList<CalendarEvent> events,
+        IReadOnlyDictionary<string, string> worldNames,
+        DateTimeOffset now,
+        Func<CalendarEvent, string?> linkOf)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(worldNames);
@@ -109,10 +185,8 @@ public static class CalendarFeedWriter
             WriteZone(output, zone, from, to);
         }
 
-        var address = string.IsNullOrWhiteSpace(publicAddress) ? null : publicAddress.Trim().TrimEnd('/');
-
         foreach (var calendarEvent in ordered)
-            WriteEvent(output, calendarEvent, worldNames, address is null ? null : $"{address}/calendar?event={calendarEvent.Id:D}");
+            WriteEvent(output, calendarEvent, worldNames, linkOf(calendarEvent));
 
         Line(output, "END:VCALENDAR");
 
@@ -179,9 +253,10 @@ public static class CalendarFeedWriter
 
     /// <summary>The title, description, world, link and status of one VEVENT.</summary>
     /// <remarks>
-    /// The link is to the event on Modbot's calendar page, which asks for a sign-in: nothing about
-    /// the group's members is in the feed, and following the link shows nobody anything they could
-    /// not already see in Modbot.
+    /// In the secret feed the link is to the event on Modbot's calendar page, which asks for a
+    /// sign-in: nothing about the group's members is in the feed, and following the link shows nobody
+    /// anything they could not already see in Modbot. In the public feed it is the join link, for an
+    /// event anyone can join, and nothing otherwise.
     /// </remarks>
     private static void WriteText(StringBuilder output, string title, string? notes, string? location, string? link, bool cancelled)
     {

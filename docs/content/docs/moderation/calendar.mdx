@@ -26,13 +26,14 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | See the **Calendar** page, every event, where each one is published and any errors | [**See calendar**](/accounts/roles-and-permissions#see-calendar) |
 | Plan, edit, cancel and delete events | [**Manage calendar**](/accounts/roles-and-permissions#manage-calendar) and **See calendar** |
 | See, copy or replace the calendar feed link | **Manage calendar** and **See calendar** |
+| Turn the [public feed](#the-public-feed) on or off, and copy its address | **Manage calendar** and **See calendar** |
 | See [what each event did](#what-an-event-did) and **Past events** | **See calendar** and [**See analytics**](/accounts/roles-and-permissions#see-analytics) |
 | See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
 | See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
 is not enough to open the page. Without **Manage calendar**, the page is read-only: there is no
-**New event** button, no feed link, an event shows no **Edit**, **Duplicate**, **Cancel event** or
+**New event** button, no feed link or **Public feed** switch, an event shows no **Edit**, **Duplicate**, **Cancel event** or
 **Delete** buttons, and nothing can be dragged or drawn on the calendar.
 
 Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
@@ -985,6 +986,55 @@ calendar app shows a cancelled event is up to the app: some strike it through, s
 Calendar apps check a feed on their own schedule, so a change can take a while to show up there.
 
 Reading the feed asks VRChat nothing, so it does not use any of your group's VRChat requests.
+
+## The public feed
+
+The public feed is a second feed that lists only your public events, at an address with no secret
+in it. Hand it to event directories, put it on your website, or add it in Google Calendar with
+**From URL**. Directories that only read VRChat's group calendar, or that want a form filled in, do
+not need it.
+
+It is **off** until someone with **Manage calendar** turns it on, with the **Public feed** switch
+below the **Calendar feed** row. While it is on, its address is beside the switch, with **Copy**:
+
+```text
+https://modbot.example.com/api/calendar/public.ics
+```
+
+Like the calendar feed's link, it starts with your **Public address** (**Settings**, **Server**), or
+the address you have open in your browser when that is not set.
+
+### Who can see it
+
+**Anyone.** Opening it needs no Modbot account, no sign-in and no secret. There is no link to replace:
+to stop it, turn the switch off. The address then answers "not found" at once, and calendar apps that
+read it stop getting updates. Turning it on or off is in the
+[audit log](/moderation/audit-log), like any other setting.
+
+### What it contains
+
+Only events with **Visible to** set to **Everyone**, in the form's [VRChat calendar](#vrchat-calendar)
+section. An event that VRChat shows only to some of your group's roles is left out too, whatever
+**Visible to** says.
+
+Of those, it lists the same events as the calendar feed: **Scheduled** and **Open** ones, **Finished**
+ones for 30 days after their last time, and **Cancelled** ones for 30 days after the cancel, marked
+as cancelled. Never drafts or deleted events.
+
+Each entry has the same title, description, times, repeat, changed and cancelled dates, world name
+and calendar name as in the calendar feed, with two differences:
+
+- **No link to your Modbot calendar page.** Nobody reading a public feed can sign in to it.
+- **The join link, only for an event anyone can join** (**Who can join** set to **Anyone**). It is
+  your **Public address** followed by `/api/calendar/join/` and the event, the same link a Discord
+  event shows. It leads to the instance while one Modbot opened is open, and to "not found" the rest
+  of the time. An event for **Group members** or **Members and their friends** has no link.
+
+It does **not** contain events visible only to your group, drafts, deleted events, the picture,
+anything about Discord, or anything about your members.
+
+Modbot writes the public feed at most once a minute, so a change can take a minute to reach it, and
+longer to reach a calendar app, which checks on its own schedule. Reading it asks VRChat nothing.
 
 ## Editing, cancelling and deleting
 

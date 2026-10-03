@@ -333,6 +333,9 @@ export type CalendarWorld = { worldId: string; name: string | null; thumbnailUrl
 
 export type CalendarFeed = { path: string | null; url: string | null }
 
+/** The public feed's switch and address (calendar design §6.1). `url` is null without a public address. */
+export type PublicCalendarFeed = { on: boolean; path: string; url: string | null }
+
 export type CalendarVRChatRead = {
   outcome: 'read' | 'remembered' | 'notConfigured' | 'waiting' | 'failed'
   error: string | null
@@ -541,6 +544,8 @@ export const calendarApi = {
   /** Discord server events, made by anyone, that look like copies of each other. Changes nothing. */
   discordDuplicates: () => http.request<CalendarDiscordDuplicates>(`${base}/discord-duplicates`),
   regenerateFeed: () => http.post<CalendarFeed>(`${base}/feed`),
+  publicFeed: () => http.request<PublicCalendarFeed>(`${base}/public-feed`),
+  setPublicFeed: (on: boolean) => http.put<PublicCalendarFeed>(`${base}/public-feed`, { on }),
   /**
    * Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar
    * (calendar design §12). Asks VRChat only for months not read in the last five minutes, unless
