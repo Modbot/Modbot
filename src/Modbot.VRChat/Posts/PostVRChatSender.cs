@@ -48,7 +48,7 @@ public sealed record PostVRChatPass(int Sent, int Looked, int Failed);
 /// </para>
 /// <para>
 /// <strong>A rate limit is never sent again by Modbot.</strong> A 429, or a call the gate never
-/// sent (a cold stop, a sign-in that is waiting, no account), made nothing: the destination waits
+/// sent (a cold stop, a sign-in that is waiting or was refused, no account), made nothing: the destination waits
 /// again, and the next attempt waits for the gate's own wait to be over (foundation §4.3.1).
 /// </para>
 /// <para>
@@ -80,6 +80,7 @@ public sealed class PostVRChatSender
     public const string NotTaken = "VRChat did not add the post.";
     public const string CouldNotCheck = "Could not check the group's posts.";
     public const string TooBusy = "The group posted too much to check yet.";
+    public const string NoTimeOnMatch = "A post with the same words in the group has no time on it.";
     public const string NoOwnId = "Modbot's own VRChat id is not known yet.";
     public const string NeedsTitle = "VRChat needs a title.";
     public const string NoText = "The post has no text.";
@@ -356,22 +357,27 @@ public sealed class PostVRChatSender
             return;
         }
 
+        // A post of Modbot's own with the same words that VRChat gave no time for: it may be this one
+        // or an older one, and nothing can tell. Not an answer either way, so never not found, and
+        // never a reason to send.
+        var undated = read.Error is null && read.Posts.Any(p => MayBeOurs(p, pass.AccountId, destination, held));
+
         // Not found is an answer only once the whole window was read. A read that failed, or a group
         // so busy the pages ran out before the window did, is looked at again, and never turns into
         // anything Try again would send without looking.
-        if (read.Error is not null || !read.Whole)
+        if (read.Error is not null || !read.Whole || undated)
         {
             // An hour from when the looking began: the unclear answer, or a person's Try again.
             if (pass.Now - destination.UpdatedAt >= PostRules.StopLookingAfter)
             {
-                await FailAsync(pass, post, destination, CouldNotCheck, mayBeSent: true).ConfigureAwait(false);
+                await FailAsync(pass, post, destination, undated ? NoTimeOnMatch : CouldNotCheck, mayBeSent: true).ConfigureAwait(false);
                 return;
             }
 
             // Tried again later; the words are kept for Health. UpdatedAt stays when the looking began.
             // A read the gate never sent (a cold stop, a sign-in waiting) is asked again sooner: the
             // gate refuses without sending until its own wait is over.
-            var why = read.Error ?? TooBusy;
+            var why = read.Error ?? (undated ? NoTimeOnMatch : TooBusy);
             destination.CheckAt = pass.Now + (read.Soon ? PostRules.NotSentRetryAfter : PostRules.LookAgainAfter);
             destination.Error = Trim(why);
             destination.ErrorAt = pass.Now;
@@ -412,6 +418,27 @@ public sealed class PostVRChatSender
             && string.Equals(post.AuthorId, accountId, StringComparison.Ordinal)
             && post.CreatedAt != default
             && AsUtc(post.CreatedAt) >= attempt - ClockSlack
+            && PostTexts.SameWords(post.Title, destination.SentTitle)
+            && PostTexts.SameWords(post.Text, destination.SentText)
+            && !held.Contains(post.Id);
+    }
+
+    /// <summary>
+    /// Whether a post read from the group could be the one an attempt made, with nothing to tell by:
+    /// by Modbot's own account, the same words, held by no other destination, and no time from
+    /// VRChat to check against the attempt. Never adopted, since an older post with the same words
+    /// looks the same; never "not found" either.
+    /// </summary>
+    public static bool MayBeOurs(GroupPost post, string? accountId, PostDestination destination, IReadOnlySet<string> held)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(held);
+
+        return !string.IsNullOrEmpty(post.Id)
+            && accountId is not null
+            && string.Equals(post.AuthorId, accountId, StringComparison.Ordinal)
+            && post.CreatedAt == default
             && PostTexts.SameWords(post.Title, destination.SentTitle)
             && PostTexts.SameWords(post.Text, destination.SentText)
             && !held.Contains(post.Id);
@@ -485,7 +512,21 @@ public sealed class PostVRChatSender
             .ToListAsync(pass.Ct).ConfigureAwait(false);
 
         foreach (var row in waiting.Where(x => PostRules.IsLate(x.Post, x.Destination, pass.Now)))
-            await FailAsync(pass, row.Post, row.Destination, PostRules.NotSentOnTime, mayBeSent: false).ConfigureAwait(false);
+            await FailAsync(pass, row.Post, row.Destination, LateReason(row.Destination), mayBeSent: false).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// "Not sent on time.", followed by why the last attempt made nothing when one did while it
+    /// waited (a sign-in VRChat refused, a cold stop), so the post says the real reason rather than
+    /// only that it was late. Words from before it last started waiting are left out.
+    /// </summary>
+    internal static string LateReason(PostDestination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        return destination is { Error: { Length: > 0 } why, ErrorAt: { } at } && at >= destination.UpdatedAt
+            ? $"{PostRules.NotSentOnTime} {why}"
+            : PostRules.NotSentOnTime;
     }
 
     // ── The send ─────────────────────────────────────────────────────────────────────────
@@ -619,13 +660,30 @@ public sealed class PostVRChatSender
 
     /// <summary>
     /// Nothing reached VRChat, or VRChat made nothing: a 429, or a call the gate never sent (a cold
-    /// stop, a sign-in that is waiting, no account) or that could not find VRChat's address.
+    /// stop, a sign-in that is waiting, no account, a sign-in VRChat refused or that needs a
+    /// two-factor code nobody can give) or that could not find VRChat's address.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The sign-in kinds count whatever the status. The gate gives them only when it has no session
+    /// to send the call with: before the call, or after the call came back 401 and signing in again
+    /// failed. A 401 made nothing either. Their status is the sign-in's, not the call's, so a refused
+    /// password arrives as a 401 and must not read as this post being refused.
+    /// </para>
+    /// <para>
+    /// Left out on purpose, because the call may have reached VRChat: a timeout, a connection lost
+    /// or reset (<see cref="VRChatFailureKind.Network"/>), and a Cloudflare page
+    /// (<see cref="VRChatFailureKind.WafBlocked"/>), which is also what Cloudflare sends when VRChat
+    /// itself timed out behind it.
+    /// </para>
+    /// </remarks>
     internal static bool NothingMade<T>(VRChatResult<T> result) =>
         result.IsRateLimited
-        || (result.WasNotSent && result.Kind is VRChatFailureKind.RateLimited
-            or VRChatFailureKind.SignInWaiting
+        || result.Kind is VRChatFailureKind.SignInWaiting
             or VRChatFailureKind.NotConfigured
+            or VRChatFailureKind.CredentialsRejected
+            or VRChatFailureKind.TwoFactorMissing
+        || (result.WasNotSent && result.Kind is VRChatFailureKind.RateLimited
             or VRChatFailureKind.NameResolution);
 
     /// <summary>An answer that does not say whether the post was made: a 5xx, a 408, a timeout, a lost connection.</summary>

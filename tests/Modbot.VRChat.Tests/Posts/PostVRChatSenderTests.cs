@@ -6,6 +6,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Posts;
 using Modbot.TestSupport;
 using Modbot.VRChat.Posts;
+using Modbot.VRChat.Tests.Fakes;
 using Modbot.VRChat.Tests.Sync;
 using VRChat.API.Model;
 
@@ -37,11 +38,11 @@ public class PostVRChatSenderTests(PostgresFixture fixture) : SyncTestBase(fixtu
         await context.SaveChangesAsync(Ct);
     }
 
-    private async Task<PostVRChatPass> RunAsync()
+    private async Task<PostVRChatPass> RunAsync(IVRChatGate? gate = null)
     {
         await using var context = Database.NewContext();
         var sender = new PostVRChatSender(
-            Gate,
+            gate ?? Gate,
             context,
             Clock,
             new FactWriter(context, Clock),
@@ -311,6 +312,156 @@ public class PostVRChatSenderTests(PostgresFixture fixture) : SyncTestBase(fixtu
 
         Assert.Single(VRChat.Groups.Posts);
         Assert.Equal(PostDestinationStates.Waiting, (await DestinationAsync(destinationId)).State);
+    }
+
+    /// <summary>
+    /// A sign-in VRChat refuses means the post was never sent: it waits, with the reason, instead of
+    /// sitting in Checking for an hour as one VRChat may have. Once it is an hour late it is Failed,
+    /// and the words say why it never went.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedSignInWaitsAndTheLateFailureSaysWhy()
+    {
+        await SetUpAsync();
+        var (_, destinationId) = await AddPostAsync();
+
+        var refusing = new FakeVRChat().RespondsWith(FakeVRChat.Status(HttpStatusCode.Unauthorized));
+        using var gate = new VRChatGate(
+            new FakeClientFactory(refusing.Client),
+            new FakeConnectionStore(),
+            Limiter.Limiter,
+            Clock,
+            new FakeMonotonicClock());
+
+        await RunAsync(gate);
+
+        var waiting = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Waiting, waiting.State);
+        Assert.False(waiting.MayBeSent);
+        Assert.Contains("rejected the credentials", waiting.Error, StringComparison.Ordinal);
+        Assert.Empty(refusing.Groups.Posts);
+
+        // Still refused an hour on: Failed, with the reason after "Not sent on time.", and nothing
+        // that Try again would have to look for first.
+        Clock.Advance(PostRules.LateLimit + TimeSpan.FromMinutes(1));
+        await RunAsync(gate);
+
+        var failed = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.False(failed.MayBeSent);
+        Assert.StartsWith(PostRules.NotSentOnTime + " ", failed.Error, StringComparison.Ordinal);
+        Assert.Contains("rejected the credentials", failed.Error, StringComparison.Ordinal);
+        Assert.Empty(refusing.Groups.Posts);
+    }
+
+    /// <summary>
+    /// What the gate's answer says about whether VRChat may have made the post. Only answers that
+    /// prove the call never reached VRChat, or made nothing there, count as not sent; a timeout, a
+    /// lost connection and a Cloudflare page may have reached it, and are looked for.
+    /// </summary>
+    [Theory]
+    [InlineData(0, VRChatFailureKind.CredentialsRejected, true)]
+    [InlineData(401, VRChatFailureKind.CredentialsRejected, true)]
+    [InlineData(200, VRChatFailureKind.CredentialsRejected, true)]
+    [InlineData(0, VRChatFailureKind.TwoFactorMissing, true)]
+    [InlineData(0, VRChatFailureKind.SignInWaiting, true)]
+    [InlineData(0, VRChatFailureKind.NotConfigured, true)]
+    [InlineData(0, VRChatFailureKind.RateLimited, true)]
+    [InlineData(429, VRChatFailureKind.RateLimited, true)]
+    [InlineData(0, VRChatFailureKind.NameResolution, true)]
+    [InlineData(0, VRChatFailureKind.Timeout, false)]
+    [InlineData(0, VRChatFailureKind.Network, false)]
+    [InlineData(0, VRChatFailureKind.Other, false)]
+    [InlineData(503, VRChatFailureKind.WafBlocked, false)]
+    [InlineData(500, VRChatFailureKind.Other, false)]
+    public void OnlyACallThatNeverReachedVRChatIsNotSent(int status, VRChatFailureKind kind, bool notSent)
+    {
+        var result = VRChatResult<GroupPost>.Failure(status, "no", kind: kind);
+
+        Assert.Equal(notSent, PostVRChatSender.NothingMade(result));
+
+        // Never both: a call that made nothing is never looked for.
+        if (notSent)
+            Assert.False(PostVRChatSender.Unclear(result));
+    }
+
+    [Theory]
+    [InlineData(0, VRChatFailureKind.Timeout)]
+    [InlineData(0, VRChatFailureKind.Network)]
+    [InlineData(0, VRChatFailureKind.Other)]
+    [InlineData(500, VRChatFailureKind.Other)]
+    [InlineData(408, VRChatFailureKind.Other)]
+    [InlineData(503, VRChatFailureKind.WafBlocked)]
+    public void ACallThatMayHaveReachedVRChatIsLookedFor(int status, VRChatFailureKind kind) =>
+        Assert.True(PostVRChatSender.Unclear(VRChatResult<GroupPost>.Failure(status, "no", kind: kind)));
+
+    /// <summary>
+    /// The late words carry the reason only when it came from this wait: words from before a
+    /// person sent it on its way again are about an attempt that no longer matters.
+    /// </summary>
+    [Fact]
+    public void TheLateWordsCarryOnlyThisWaitsReason()
+    {
+        var now = new DateTimeOffset(2026, 10, 3, 20, 0, 0, TimeSpan.Zero);
+
+        var fresh = new PostDestination { Error = "Signed out.", ErrorAt = now, UpdatedAt = now - TimeSpan.FromHours(1) };
+        var stale = new PostDestination { Error = "Old words.", ErrorAt = now - TimeSpan.FromHours(2), UpdatedAt = now - TimeSpan.FromHours(1) };
+        var none = new PostDestination { UpdatedAt = now };
+
+        Assert.Equal($"{PostRules.NotSentOnTime} Signed out.", PostVRChatSender.LateReason(fresh));
+        Assert.Equal(PostRules.NotSentOnTime, PostVRChatSender.LateReason(stale));
+        Assert.Equal(PostRules.NotSentOnTime, PostVRChatSender.LateReason(none));
+    }
+
+    /// <summary>
+    /// A post of Modbot's own with the same words but no time from VRChat may be this one or an
+    /// older one. It is never adopted, and never "not found": the post stays Checking with the
+    /// reason, and after the hour of looking it is Failed as one VRChat may have, so Try again looks
+    /// again rather than sending a second copy.
+    /// </summary>
+    [Fact]
+    public async Task AMatchWithNoTimeIsNeverNotFound()
+    {
+        await SetUpAsync();
+        VRChatAnswers(HttpStatusCode.InternalServerError, lands: false);
+        var (postId, destinationId) = await AddPostAsync();
+
+        await RunAsync();
+
+        VRChat.Groups.GroupPostList.Add(Listed("not_undated", "Movie night", "Friday at eight. Bring snacks.", default));
+
+        Clock.Advance(PastTheWindow);
+        await RunAsync();
+
+        var checking = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Checking, checking.State);
+        Assert.Equal(PostVRChatSender.NoTimeOnMatch, checking.Error);
+        Assert.True(checking.MayBeSent);
+        Assert.Null(checking.ExternalId);
+
+        Clock.Advance(PostRules.StopLookingAfter);
+        await RunAsync();
+
+        var failed = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.Equal(PostVRChatSender.NoTimeOnMatch, failed.Error);
+        Assert.True(failed.MayBeSent);
+
+        // Try again looks first, finds the same undated post, and sends nothing.
+        await using (var context = Database.NewContext())
+        {
+            var post = await context.Posts.Include(p => p.Destinations).SingleAsync(p => p.Id == postId, Ct);
+            PostChanges.TryAgain(post, post.Destinations.Single(), Clock.UtcNow);
+            await context.SaveChangesAsync(Ct);
+        }
+
+        VRChatAnswers(HttpStatusCode.OK, lands: true, id: "not_second");
+        await RunAsync();
+        Clock.Advance(PostRules.NotSentRetryAfter);
+        await RunAsync();
+
+        Assert.Equal(PostDestinationStates.Checking, (await DestinationAsync(destinationId)).State);
+        Assert.Single(VRChat.Groups.Posts);
     }
 
     [Fact]

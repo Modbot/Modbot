@@ -177,9 +177,13 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   1. Claim (`PostClaim`: `sending`, `sent_at`, `sent_title`, `sent_text`), then send.
   2. An id: `posted`, with the group's posts page as the link (its shape not checked, §9).
   3. A 429, or a call the gate never sent (a cold stop, a sign-in waiting, not configured, a name
-     that did not resolve): nothing was made; back to `waiting`, its waiting time unchanged, not
-     tried for two minutes, and then only as the gate allows. Modbot never sends a 429 again; the
-     gate's cold stop decides.
+     that did not resolve, a sign-in VRChat refused, one that needs a two-factor code): nothing was
+     made; back to `waiting`, its waiting time unchanged, not tried for two minutes, and then only
+     as the gate allows. Modbot never sends a 429 again; the gate's cold stop decides. The sign-in
+     answers count whatever their status, since it is the sign-in's (a refused password is a 401);
+     a timeout, a lost connection and a Cloudflare page do not, since the call may have reached
+     VRChat. When one that waits turns late, its Failed words are "Not sent on time." and then the
+     reason from this wait (added 2026-10-03, after a refused sign-in sat in Checking for an hour).
   4. A 5xx, a 408, a timeout or lost connection, or success with no id: `checking`, `may_be_sent`.
   5. Any other 4xx: `failed` with VRChat's `error.message`; a 403 for a missing group permission
      also writes `missing_permission` (`group-announcement-manage`), shown on the post and on Health.
@@ -194,7 +198,11 @@ sends nothing now, `paused`, `off` or `notSetUp`.
      `may_be_sent`. A look that could not be made, or pages that ran out first: stays `checking`,
      looked at again in 15 minutes (two when the gate never sent the read), and an hour after the
      looking began `failed`, "Could not check the group's posts.". Not found is never an answer
-     until the whole window was read.
+     until the whole window was read. A post by Modbot's account with the same words and no
+     `createdAt` may be this one or an older one: never adopted and never not found; it is treated
+     as a look that could not be made, with "A post with the same words in the group has no time on
+     it.", so Try again looks again rather than sending a second copy. Every post read on localhost
+     carried `createdAt`; this guards the case where one does not.
   8. **The audit log adopts too**: each pass, a destination `checking`, or `failed` and
      `may_be_sent`, sent in the last day, is matched by the same rule against the audit-log sync's
      `vrchat.group.post.create` facts (author, title, text, time; the post's `not_` id is the
