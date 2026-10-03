@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Calendar;
+using Modbot.Core.Bluesky;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -43,7 +44,22 @@ internal static class PostRequests
         string TimeZone,
         Guid? EventId,
         CheckedDiscord? Discord,
-        CheckedVRChat? VRChat = null);
+        CheckedVRChat? VRChat = null,
+        CheckedBluesky? Bluesky = null);
+
+    /// <summary>The Bluesky section, checked.</summary>
+    /// <param name="Did">The account it goes to: the one in Settings when it was saved.</param>
+    /// <param name="OwnText">Bluesky's own text, or null for the post's title and text.</param>
+    /// <param name="Text">The whole text Bluesky gets.</param>
+    /// <param name="CardPictureId">The small copy of the picture for the card, kept only when it is of the post's picture.</param>
+    /// <param name="Card">The link card, when the text has a link.</param>
+    public sealed record CheckedBluesky(
+        string? Did,
+        string? OwnText,
+        string Text,
+        Guid? CardPictureId,
+        Guid? CardPictureFrom,
+        BlueskyCard? Card);
 
     /// <summary>The VRChat section, checked.</summary>
     /// <param name="GroupId">The group it goes to: the managed group when it was saved.</param>
@@ -92,13 +108,16 @@ internal static class PostRequests
         var ownText = body.Discord?.Text is { } own ? PostTexts.Tidy(own) : null;
         var vrchatOwnTitle = body.VRChat?.Title is { } ownTitle ? PostTexts.TidyTitle(ownTitle) : null;
         var vrchatOwnText = body.VRChat?.Text is { } ownVRChat ? PostTexts.Tidy(ownVRChat) : null;
+        var blueskyOwnText = body.Bluesky?.Text is { } ownBluesky ? PostTexts.Tidy(ownBluesky) : null;
 
         // The text each ticked site gets: its own, or the post's.
-        var siteTexts = new List<string>(2);
+        var siteTexts = new List<string>(3);
         if (body.Discord is not null)
             siteTexts.Add(ownText ?? text);
         if (body.VRChat is not null)
             siteTexts.Add(vrchatOwnText ?? text);
+        if (body.Bluesky is not null)
+            siteTexts.Add(blueskyOwnText ?? text);
 
         if (body.Draft)
         {
@@ -161,7 +180,7 @@ internal static class PostRequests
                 problems.Add("That event does not exist.");
         }
 
-        if (!body.Draft && body.Discord is null && body.VRChat is null)
+        if (!body.Draft && body.Discord is null && body.VRChat is null && body.Bluesky is null)
             problems.Add("Pick where it goes.");
 
         CheckedDiscord? discord = null;
@@ -175,7 +194,72 @@ internal static class PostRequests
             vrchat = CheckVRChat(vrchatSection, settings, title, text, vrchatOwnTitle, vrchatOwnText, body.PictureId, body.Draft, problems);
         }
 
-        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord, vrchat), problems);
+        CheckedBluesky? bluesky = null;
+        if (body.Bluesky is { } blueskySection)
+            bluesky = await CheckBlueskyAsync(db, blueskySection, title, text, blueskyOwnText, body.PictureId, body.Draft, problems, ct);
+
+        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord, vrchat, bluesky), problems);
+    }
+
+    /// <summary>
+    /// The Bluesky section (posts design §4.2c): its own text, the 300-character and 3000-byte limits
+    /// counted the way Bluesky counts, and the card picture. The account is the one in Settings when
+    /// the post is saved. The card picture is kept only when it is a small enough copy of the post's
+    /// own picture; Bluesky gets it only when the text has a link for the card.
+    /// </summary>
+    private static async Task<CheckedBluesky> CheckBlueskyAsync(
+        ModbotContext db,
+        PostBlueskyRequest section,
+        string? title,
+        string text,
+        string? ownText,
+        Guid? pictureId,
+        bool draft,
+        List<string> problems,
+        CancellationToken ct)
+    {
+        var did = (await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.BlueskyDid)
+            .FirstOrDefaultAsync(ct))?.Trim();
+
+        if (string.IsNullOrEmpty(did))
+        {
+            did = null;
+            if (!draft)
+                problems.Add("No Bluesky account is set up yet.");
+        }
+
+        if (ownText is { Length: > Post.MaxTextLength })
+            problems.Add($"The Bluesky text is longer than {Post.MaxTextLength} characters.");
+
+        var sent = ownText ?? PostTexts.Bluesky(title, text);
+
+        if (!BlueskyText.Fits(sent))
+            problems.Add(BlueskyText.TooLong);
+
+        Guid? cardPicture = null;
+
+        if (section.CardPictureId is { } copy && pictureId is { } picture && section.CardPictureFrom == picture)
+        {
+            var size = await db.CalendarCoverPictures.AsNoTracking()
+                .Where(c => c.Id == copy)
+                .Select(c => (int?)c.Bytes.Length)
+                .FirstOrDefaultAsync(ct);
+
+            if (size is > BlueskyText.CardPictureMaxBytes)
+                problems.Add("The Bluesky picture is larger than 1 MB.");
+            else if (size is not null)
+                cardPicture = copy;
+        }
+
+        return new CheckedBluesky(
+            did,
+            ownText,
+            sent,
+            cardPicture,
+            cardPicture is null ? null : pictureId,
+            BlueskyPostRecord.CardFor(title, sent));
     }
 
     /// <summary>
@@ -438,6 +522,42 @@ internal static class PostRequests
         {
             post.Destinations.Remove(vrchat);
         }
+
+        var bluesky = post.Destinations.FirstOrDefault(d => d.Network == PostNetworks.Bluesky);
+
+        if (request.Bluesky is { } wantedBluesky)
+        {
+            if (bluesky is null)
+            {
+                bluesky = new PostDestination
+                {
+                    Id = Guid.CreateVersion7(),
+                    PostId = post.Id,
+                    Network = PostNetworks.Bluesky,
+                };
+                post.Destinations.Add(bluesky);
+            }
+
+            // The record key (ClientKey) is kept: a row only changes whole when no try of it may be
+            // on Bluesky, and sending again under the same key can never make a second post.
+            bluesky.Target = wantedBluesky.Did ?? string.Empty;
+            bluesky.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(wantedBluesky.CardPictureFrom));
+            bluesky.SitePictureId = wantedBluesky.CardPictureId;
+            bluesky.TitleOverride = null;
+            bluesky.TextOverride = wantedBluesky.OwnText;
+            bluesky.State = PostDestinationStates.Waiting;
+            bluesky.Error = null;
+            bluesky.ErrorAt = null;
+            bluesky.MissingPermission = null;
+            bluesky.CheckAt = null;
+            bluesky.MayBeSent = false;
+            bluesky.SendIfMissing = false;
+            bluesky.UpdatedAt = now;
+        }
+        else if (bluesky is not null)
+        {
+            post.Destinations.Remove(bluesky);
+        }
     }
 
     /// <summary>What still stops a draft being sent now, one sentence each.</summary>
@@ -477,6 +597,20 @@ internal static class PostRequests
                 problems.Add("Write some text.");
         }
 
+        foreach (var destination in live.Where(d => d.Network == PostNetworks.Bluesky))
+        {
+            var sent = PostTexts.Bluesky(post, destination);
+
+            if (string.IsNullOrWhiteSpace(destination.Target))
+                problems.Add("No Bluesky account is set up yet.");
+
+            if (sent.Length == 0)
+                problems.Add("Write some text.");
+
+            if (!BlueskyText.Fits(sent))
+                problems.Add(BlueskyText.TooLong);
+        }
+
         return [.. problems.Distinct(StringComparer.Ordinal)];
     }
 
@@ -509,6 +643,10 @@ internal static class PostRequests
                     // VRChat has its own title too; Discord does not.
                     if (d.Network == PostNetworks.VRChat)
                         row["title"] = d.TitleOverride;
+
+                    // Bluesky's card picture, the small copy of the post's.
+                    if (d.Network == PostNetworks.Bluesky)
+                        row["cardPictureId"] = d.SitePictureId?.ToString();
 
                     return (JsonNode)row;
                 })]),
@@ -546,11 +684,13 @@ internal static class PostRequests
             settings?.DiscordPostsOn ?? true,
             CalendarReadiness.Discord(settings, bot),
             settings?.VRChatPostsOn ?? true,
-            PostSites.VRChatReady(settings));
+            PostSites.VRChatReady(settings),
+            settings?.BlueskyPostingOn ?? false,
+            PostSites.BlueskyReady(settings));
     }
 
     public static PostSitesView SitesView(PostSites sites, bool vrchatPictures) =>
-        new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp, sites.VRChatOn, sites.VRChatSetUp, vrchatPictures);
+        new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp, sites.VRChatOn, sites.VRChatSetUp, vrchatPictures, sites.BlueskyOn, sites.BlueskySetUp);
 
     /// <summary>The posts as the page draws them, with the names Modbot has for their channels, roles, events and writers.</summary>
     public static async Task<List<PostView>> ViewsAsync(
@@ -645,6 +785,11 @@ internal static class PostRequests
                             own.PictureId);
                     }
 
+                    BlueskyDestinationView? bluesky = null;
+
+                    if (d.Network == PostNetworks.Bluesky)
+                        bluesky = new BlueskyDestinationView(d.SitePictureId, d.SitePictureId is null ? null : PostTexts.BlueskyOptionsOf(d).PictureId);
+
                     return new PostDestinationView(
                         d.Id,
                         d.Network,
@@ -668,7 +813,8 @@ internal static class PostRequests
                         d.PostedAt,
                         d.PublishedAt,
                         vrchat,
-                        d.State is PostDestinationStates.Failed ? d.MissingPermission : null);
+                        d.State is PostDestinationStates.Failed ? d.MissingPermission : null,
+                        bluesky);
                 })]);
     }
 

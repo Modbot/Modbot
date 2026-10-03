@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Calendar;
 using Modbot.Api.Features.Users;
+using Modbot.Core.Bluesky;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -189,11 +190,13 @@ public static class PostEndpoints
             .WithSummary("Write post")
             .WithDescription(
                 "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in "
-                + "`timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`); none is "
-                + "ticked unless sent. VRChat needs a title, the post's or its own. Nothing is sent by "
-                + "this request: Modbot's Discord loop sends a post within about twenty seconds of its "
-                + "time and its VRChat loop within about fifteen, unless Pause all posting is on or that "
-                + "site's posts are off. A refusal (400) lists everything wrong at once, in `problems`.")
+                + "`timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`, "
+                + "`bluesky`); none is ticked unless sent. VRChat needs a title, the post's or its own. "
+                + "Bluesky gets the title and text, or its own text, of at most 300 characters and 3000 "
+                + "bytes. Nothing is sent by this request: Modbot's Discord loop sends a post within "
+                + "about twenty seconds of its time, its VRChat loop within about fifteen and its Bluesky "
+                + "loop within about thirty, unless Pause all posting is on or that site's posts are off. "
+                + "A refusal (400) lists everything wrong at once, in `problems`.")
             .Produces<PostView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -599,6 +602,7 @@ public static class PostEndpoints
                 [FromServices] IModbotClock clock,
                 [FromServices] IDiscordPostActions discord,
                 [FromServices] IVRChatPostActions vrchat,
+                [FromServices] IBlueskyPostActions bluesky,
                 [FromServices] IDiscordBotStatus? discordBot,
                 CancellationToken ct) =>
             {
@@ -610,12 +614,22 @@ public static class PostEndpoints
                 if (destination.State != PostDestinationStates.Posted || destination.ExternalId is not { } messageId)
                     return Conflict("Only a post that went out can be deleted there.");
 
-                var outcome = destination.Network == PostNetworks.VRChat
-                    ? await vrchat.DeleteAsync(destination.Target, messageId, ct)
-                    : await discord.DeleteAsync(destination.Target, messageId, "Post deleted from Modbot", ct);
+                var outcome = destination.Network switch
+                {
+                    PostNetworks.VRChat => await vrchat.DeleteAsync(destination.Target, messageId, ct),
+                    PostNetworks.Bluesky => await bluesky.DeleteAsync(destination.Target, BlueskyKeyOf(destination), ct),
+                    _ => await discord.DeleteAsync(destination.Target, messageId, "Post deleted from Modbot", ct),
+                };
 
                 if (outcome.BotOffline)
-                    return Unavailable(destination.Network == PostNetworks.VRChat ? outcome.Error ?? NoVRChatPostActions.NotSetUp : Offline);
+                {
+                    return Unavailable(destination.Network switch
+                    {
+                        PostNetworks.VRChat => outcome.Error ?? NoVRChatPostActions.NotSetUp,
+                        PostNetworks.Bluesky => outcome.Error ?? BlueskyPostActions.NotSetUp,
+                        _ => Offline,
+                    });
+                }
 
                 if (!outcome.Done)
                     return Results.Json(new { error = outcome.Error }, statusCode: StatusCodes.Status502BadGateway);
@@ -630,7 +644,8 @@ public static class PostEndpoints
             .WithDescription(
                 "Deletes a post that went out from that site, at once, and marks it deleted. One that "
                 + "is already gone there counts as deleted (VRChat's 404 too). One call to the site, "
-                + "never sent again.")
+                + "never sent again. A Bluesky post is deleted from the account in Settings; deleting "
+                + "removes it from Bluesky, not from copies others already took.")
             .Produces<PostView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -673,7 +688,37 @@ public static class PostEndpoints
                         PostTexts.VRChatLength(vrchatSection.Text))
                     : null;
 
-                return Results.Ok(new PostPreview(discord, problems, vrchatPreview));
+                BlueskyPostPreview? blueskyPreview = null;
+
+                if (request.Bluesky is { } blueskySection)
+                {
+                    var account = await db.Settings.AsNoTracking()
+                        .Where(s => s.Id == 1)
+                        .Select(s => new { s.BlueskyHandle, s.BlueskyDisplayName })
+                        .FirstOrDefaultAsync(ct);
+
+                    // The card picture is sent only with a card, as the sender does.
+                    var card = blueskySection.Card is { } built
+                        ? new BlueskyCardPreview(
+                            built.Uri,
+                            built.Title,
+                            built.Description,
+                            BlueskyText.CardHost(built.Uri),
+                            blueskySection.CardPictureId is { } copy ? PicturePath + copy : null)
+                        : null;
+
+                    blueskyPreview = new BlueskyPostPreview(
+                        blueskySection.Text,
+                        [.. BlueskyText.Parts(blueskySection.Text).Select(p => new BlueskyTextPartView(p.Kind, p.Text))],
+                        BlueskyText.Graphemes(blueskySection.Text),
+                        BlueskyText.Bytes(blueskySection.Text),
+                        BlueskyText.GraphemeLimit,
+                        card,
+                        account?.BlueskyHandle,
+                        account?.BlueskyDisplayName);
+                }
+
+                return Results.Ok(new PostPreview(discord, problems, vrchatPreview, blueskyPreview));
             })
             .RequiresFlag(ModbotPermissions.ManagePosts)
             .WithName("PreviewPost")
@@ -1087,6 +1132,15 @@ public static class PostEndpoints
         db.ChangeTracker.Clear();
         return null;
     }
+
+    /// <summary>
+    /// A Bluesky post's record key: the one Modbot made, or the last part of its <c>at://</c> address
+    /// for a row that somehow lacks it.
+    /// </summary>
+    private static string BlueskyKeyOf(PostDestination destination) =>
+        destination.ClientKey is { Length: > 0 } key
+            ? key
+            : destination.ExternalId?.Split('/').LastOrDefault() ?? string.Empty;
 
     private static IResult Refused(IReadOnlyList<string> problems) =>
         Results.BadRequest(new { error = string.Join(" ", problems), problems });

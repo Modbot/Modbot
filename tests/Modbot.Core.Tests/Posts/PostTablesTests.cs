@@ -193,4 +193,74 @@ public class PostTablesTests(PostgresFixture db)
         Assert.True(await read.CalendarCoverPictures.AnyAsync(c => c.Id == used, Ct));
         Assert.False(await read.CalendarCoverPictures.AnyAsync(c => c.Id == unused, Ct));
     }
+
+    /// <summary>
+    /// The sweep keeps a site's own copy of a post's picture too: Bluesky's small card picture, which
+    /// lives on the destination, not the post (posts design §4.2c).
+    /// </summary>
+    [Fact]
+    public async Task TheSweepKeepsBlueskysCardPicture()
+    {
+        var copy = Guid.NewGuid();
+
+        await using (var context = db.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture
+            {
+                Id = copy,
+                Bytes = [0xFF, 0xD8, 0xFF, 0xE0],
+                ContentType = "image/jpeg",
+                CreatedAt = Now - TimeSpan.FromDays(3),
+            });
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await AddPostAsync(p =>
+        {
+            var destination = p.Destinations[0];
+            destination.Network = PostNetworks.Bluesky;
+            destination.Target = "did:plc:ewvi7nxzyoun6zhxrhs64oiz";
+            destination.SitePictureId = copy;
+        });
+
+        await using (var context = db.NewContext())
+            await new CalendarCoverSweep(context, new FakeClock(Now)).RunOnceAsync(Ct);
+
+        await using var read = db.NewContext();
+        Assert.True(await read.CalendarCoverPictures.AnyAsync(c => c.Id == copy, Ct));
+    }
+
+    /// <summary>A card picture deleted under a destination leaves it with none, as a post's own picture does.</summary>
+    [Fact]
+    public async Task ACardPictureDeletedLeavesTheDestinationWithNone()
+    {
+        var copy = Guid.NewGuid();
+
+        await using (var context = db.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture
+            {
+                Id = copy,
+                Bytes = [0xFF, 0xD8, 0xFF, 0xE0],
+                ContentType = "image/jpeg",
+                CreatedAt = Now,
+            });
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var post = await AddPostAsync(p =>
+        {
+            p.Destinations[0].Network = PostNetworks.Bluesky;
+            p.Destinations[0].SitePictureId = copy;
+        });
+
+        await using (var context = db.NewContext())
+            await context.CalendarCoverPictures.Where(c => c.Id == copy).ExecuteDeleteAsync(Ct);
+
+        await using var read = db.NewContext();
+        var destination = await read.PostDestinations.AsNoTracking().SingleAsync(d => d.PostId == post.Id, Ct);
+        Assert.Null(destination.SitePictureId);
+    }
 }

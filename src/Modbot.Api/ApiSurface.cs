@@ -118,6 +118,15 @@ public static class ApiSurface
             sp.GetRequiredService<Core.Google.GoogleCalendarClient>(),
             sp.GetRequiredService<Modbot.VRChat.Calendar.CalendarFacts>()));
 
+        // Bluesky (posts design §4.2c): the client, the account lookup and the one session owner, on
+        // the guarded HTTP client, because the account's owner chooses the addresses it calls. The
+        // sending pass is scoped; its timer is the host's, with AddBlueskyPosting, so a test host runs
+        // the pass itself.
+        Core.Bluesky.BlueskyServices.AddBluesky(services);
+        services.TryAddScoped<Core.Posts.PostClaim>();
+        services.TryAddScoped<Features.Posts.PostBlueskySender>();
+        services.TryAddScoped<Core.Posts.IBlueskyPostActions, Core.Bluesky.BlueskyPostActions>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -243,6 +252,17 @@ public static class ApiSurface
     public static IServiceCollection AddGoogleCalendarSending(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.Calendar.CalendarGoogleService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Sends posts to Bluesky every thirty seconds (posts design §4.2c). Needs the fact writer the
+    /// analytics services register.
+    /// </summary>
+    public static IServiceCollection AddBlueskyPosting(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Posts.PostBlueskyService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }
@@ -408,6 +428,7 @@ public static class ApiSurface
         app.MapEmailSettings();
         app.MapAiSettings();
         app.MapGoogleCalendarSettings();
+        app.MapBlueskySettings();
         app.MapAiChatSettings();
         app.MapAutoModSettings();
         app.MapModerationFlags();

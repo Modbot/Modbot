@@ -13,7 +13,7 @@ public static class PostHolds
 
     /// <summary>
     /// The site is not set up: for Discord, no server id or no connected bot; for VRChat, no group
-    /// or no VRChat account to sign in as.
+    /// or no VRChat account to sign in as; for Bluesky, no account that passed Check.
     /// </summary>
     public const string NotSetUp = "notSetUp";
 }
@@ -24,7 +24,16 @@ public static class PostHolds
 /// <param name="DiscordSetUp">A server id is saved and the bot is connected.</param>
 /// <param name="VRChatOn">The VRChat posts switch.</param>
 /// <param name="VRChatSetUp">A group is chosen and a VRChat account is saved (<see cref="PostSites.VRChatReady"/>).</param>
-public sealed record PostSites(bool Paused, bool DiscordOn, bool DiscordSetUp, bool VRChatOn = false, bool VRChatSetUp = false)
+/// <param name="BlueskyOn">The Bluesky Posting switch.</param>
+/// <param name="BlueskySetUp">A Bluesky account passed Check and its app password works (<see cref="PostSites.BlueskyReady"/>).</param>
+public sealed record PostSites(
+    bool Paused,
+    bool DiscordOn,
+    bool DiscordSetUp,
+    bool VRChatOn = false,
+    bool VRChatSetUp = false,
+    bool BlueskyOn = false,
+    bool BlueskySetUp = false)
 {
     /// <summary>Why nothing goes to <paramref name="network"/> right now, or null when it may.</summary>
     /// <remarks>Sites not built yet are never set up, so nothing is ever sent there by mistake.</remarks>
@@ -41,9 +50,27 @@ public sealed record PostSites(bool Paused, bool DiscordOn, bool DiscordSetUp, b
             PostNetworks.VRChat when !VRChatOn => PostHolds.Off,
             PostNetworks.VRChat when !VRChatSetUp => PostHolds.NotSetUp,
             PostNetworks.VRChat => null,
+            PostNetworks.Bluesky when !BlueskyOn => PostHolds.Off,
+            PostNetworks.Bluesky when !BlueskySetUp => PostHolds.NotSetUp,
+            PostNetworks.Bluesky => null,
             _ => PostHolds.NotSetUp,
         };
     }
+
+    /// <summary>
+    /// Whether Bluesky can take posts: an account, its server and an app password saved, a Check
+    /// that passed, and an app password Bluesky has not refused since. Read from settings alone,
+    /// never by asking Bluesky; a limit or a sign-in held back is the session's business: the post
+    /// waits.
+    /// </summary>
+    public static bool BlueskyReady(Data.Entities.Settings? settings) =>
+        settings is not null
+        && !string.IsNullOrWhiteSpace(settings.BlueskyDid)
+        && !string.IsNullOrWhiteSpace(settings.BlueskyServer)
+        && !string.IsNullOrWhiteSpace(settings.BlueskyAppPasswordEncrypted)
+        && settings.BlueskyCheckedAt is not null
+        && settings.BlueskyProblem is null
+        && !settings.BlueskySignInRefused;
 
     /// <summary>
     /// Whether VRChat can take posts: a managed group, and a VRChat account Modbot signs in as. The

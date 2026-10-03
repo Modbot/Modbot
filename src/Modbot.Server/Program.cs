@@ -430,6 +430,11 @@ try
     // and Sending is on.
     builder.Services.AddGoogleCalendarSending();
 
+    // Sends Marketing posts to Bluesky (posts design §4.2c). Reads the settings row and the waiting
+    // posts every thirty seconds, and asks Bluesky nothing until an account passed Check and Posting
+    // is on.
+    builder.Services.AddBlueskyPosting();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();

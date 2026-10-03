@@ -2359,6 +2359,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Error).HasMaxLength(1024);
             entity.Property(e => e.MissingPermission).HasMaxLength(128);
 
+            // The site's own copy of the post's picture (Bluesky's small card picture): kept with
+            // the other post pictures, and a picture deleted leaves the destination with none.
+            entity.HasOne<CalendarCoverPicture>()
+                .WithMany()
+                .HasForeignKey(e => e.SitePictureId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // One Discord channel per post in the first step (decision 16).
             entity.HasIndex(e => new { e.PostId, e.Network })
                 .IsUnique()

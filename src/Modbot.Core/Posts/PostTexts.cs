@@ -223,4 +223,81 @@ public static class PostTexts
     /// <summary>Whether two texts are the same once VRChat's changes to them are set aside.</summary>
     public static bool SameWords(string? a, string? b) =>
         string.Equals(LettersAndDigits(a), LettersAndDigits(b), StringComparison.Ordinal);
+
+    // ── Bluesky (posts design §4.2c) ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// What Bluesky gets when it has no text of its own: the title on its own line when there is one,
+    /// then the text, the way Discord's message reads without the bold. Bluesky has no title of its
+    /// own, and a post read without it would lose what it is about.
+    /// </summary>
+    public static string Bluesky(string? title, string text)
+    {
+        var lines = new List<string>(2);
+
+        if (TidyTitle(title) is { } heading)
+            lines.Add(heading);
+
+        var body = Tidy(text);
+        if (body.Length > 0)
+            lines.Add(body);
+
+        return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// The text one Bluesky destination sends: its own text as it is when it has one (the writer
+    /// chose every word, title or none), otherwise the post's title and text.
+    /// </summary>
+    public static string Bluesky(Post post, PostDestination destination)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(destination);
+
+        return destination.TextOverride is { } own ? Tidy(own) : Bluesky(post.Title, post.Text);
+    }
+
+    /// <summary>A Bluesky destination's own choices. A row with none, or with words it cannot read, has the defaults.</summary>
+    public static BlueskyPostOptions BlueskyOptionsOf(PostDestination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return ParseBlueskyOptions(destination.Options);
+    }
+
+    /// <summary>Reads <see cref="BlueskyPostOptions"/> from their JSON.</summary>
+    public static BlueskyPostOptions ParseBlueskyOptions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new BlueskyPostOptions();
+
+        try
+        {
+            return JsonSerializer.Deserialize<BlueskyPostOptions>(json, Json) ?? new BlueskyPostOptions();
+        }
+        catch (JsonException)
+        {
+            return new BlueskyPostOptions();
+        }
+    }
+
+    /// <summary>Writes <see cref="BlueskyPostOptions"/> as the JSON a destination keeps.</summary>
+    public static string WriteBlueskyOptions(BlueskyPostOptions options) =>
+        JsonSerializer.Serialize(options ?? new BlueskyPostOptions(), Json);
+
+    /// <summary>
+    /// The card picture a Bluesky post goes with, or null for none: only when the text has a link for
+    /// the card, and only when the small copy was made from the picture the post has now.
+    /// </summary>
+    public static Guid? BlueskyPictureFor(Post post, PostDestination destination, string text)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(destination);
+
+        return destination.SitePictureId is { } copy
+            && post.PictureId is { } picture
+            && BlueskyOptionsOf(destination).PictureId == picture
+            && global::Modbot.Core.Bluesky.BlueskyText.CardLink(text) is not null
+                ? copy
+                : null;
+    }
 }

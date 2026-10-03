@@ -25,6 +25,19 @@ public sealed record PostVRChatRequest(
     string? Text = null,
     string? ImageId = null);
 
+/// <summary>A post's Bluesky destination, as the composer sends it. Present means Bluesky is ticked.</summary>
+/// <param name="Text">
+/// Bluesky's own text, every word of it, or null for the post's title and text. Bluesky has no
+/// title, so its own text replaces both.
+/// </param>
+/// <param name="CardPictureId">
+/// A small JPEG copy of the post's picture, of at most 1,000,000 bytes, kept with
+/// <c>POST /api/posts/picture</c>, for the link card. Null for none. Sent only while the text has a
+/// link for the card.
+/// </param>
+/// <param name="CardPictureFrom">The post's picture the copy was made from; a copy of another picture is not kept.</param>
+public sealed record PostBlueskyRequest(string? Text = null, Guid? CardPictureId = null, Guid? CardPictureFrom = null);
+
 /// <summary>A new post, or the whole of a post being changed before it goes.</summary>
 /// <param name="Title">Shown in bold on Discord's first line. Null or empty for none.</param>
 /// <param name="Text">The words.</param>
@@ -38,6 +51,7 @@ public sealed record PostVRChatRequest(
 /// <param name="EventId">A calendar event this post is about, or null.</param>
 /// <param name="Discord">Discord's section when Discord is ticked; null when it is not.</param>
 /// <param name="VRChat">VRChat's section when VRChat is ticked; null when it is not.</param>
+/// <param name="Bluesky">Bluesky's section when Bluesky is ticked; null when it is not.</param>
 /// <param name="Version">On a change: the version it was read at. A post changed since, or being sent, is refused.</param>
 public sealed record PostRequest(
     string? Title,
@@ -50,7 +64,8 @@ public sealed record PostRequest(
     Guid? EventId = null,
     PostDiscordRequest? Discord = null,
     int? Version = null,
-    PostVRChatRequest? VRChat = null);
+    PostVRChatRequest? VRChat = null,
+    PostBlueskyRequest? Bluesky = null);
 
 /// <summary>New words for a post already on a site (posts design §4.5).</summary>
 /// <param name="Title">The title, or null for none.</param>
@@ -72,9 +87,14 @@ public sealed record VRChatDestinationView(
     string? ImageId,
     Guid? PictureId);
 
+/// <summary>A Bluesky destination's own choices.</summary>
+/// <param name="CardPictureId">The small copy of the post's picture the link card carries, or null for none.</param>
+/// <param name="CardPictureFrom">The post's picture the copy was made from.</param>
+public sealed record BlueskyDestinationView(Guid? CardPictureId, Guid? CardPictureFrom);
+
 /// <summary>One site a post goes to, and how it went there.</summary>
-/// <param name="Network"><c>discord</c> or <c>vrchat</c>.</param>
-/// <param name="Target">Where on the site: the Discord channel id, or the VRChat group id.</param>
+/// <param name="Network"><c>discord</c>, <c>vrchat</c> or <c>bluesky</c>.</param>
+/// <param name="Target">Where on the site: the Discord channel id, the VRChat group id, or the Bluesky account's DID.</param>
 /// <param name="TargetName">The channel's name as Modbot last saw it, or null.</param>
 /// <param name="RoleId">The Discord role mentioned, or null.</param>
 /// <param name="RoleName">That role's name as Modbot last saw it, or null.</param>
@@ -95,6 +115,7 @@ public sealed record VRChatDestinationView(
 /// <param name="SentText">Exactly what went out.</param>
 /// <param name="VRChat">A VRChat destination's own choices; null for another site.</param>
 /// <param name="MissingPermission">The VRChat group permission Modbot's account was refused for lacking, when VRChat said so.</param>
+/// <param name="Bluesky">A Bluesky destination's own choices; null for another site.</param>
 public sealed record PostDestinationView(
     Guid Id,
     string Network,
@@ -118,7 +139,8 @@ public sealed record PostDestinationView(
     DateTimeOffset? PostedAt,
     DateTimeOffset? PublishedAt,
     VRChatDestinationView? VRChat = null,
-    string? MissingPermission = null);
+    string? MissingPermission = null,
+    BlueskyDestinationView? Bluesky = null);
 
 /// <summary>One post, with where it goes.</summary>
 /// <param name="Status"><c>draft</c>, <c>scheduled</c> or <c>cancelled</c>.</param>
@@ -160,7 +182,17 @@ public sealed record PostCounts(int Scheduled, int Sent, int Drafts, int Failed,
 /// <param name="VRChatOn">The VRChat posts switch.</param>
 /// <param name="VRChatSetUp">A VRChat group is chosen and a VRChat account is saved.</param>
 /// <param name="VRChatPictures">VRChat picture uploads are on, so a VRChat post can carry the picture.</param>
-public sealed record PostSitesView(bool Paused, bool DiscordOn, bool DiscordSetUp, bool VRChatOn, bool VRChatSetUp, bool VRChatPictures);
+/// <param name="BlueskyOn">The Bluesky Posting switch.</param>
+/// <param name="BlueskySetUp">A Bluesky account passed Check and its app password works.</param>
+public sealed record PostSitesView(
+    bool Paused,
+    bool DiscordOn,
+    bool DiscordSetUp,
+    bool VRChatOn,
+    bool VRChatSetUp,
+    bool VRChatPictures,
+    bool BlueskyOn = false,
+    bool BlueskySetUp = false);
 
 /// <summary>A role of the VRChat group, for choosing who a VRChat post is for.</summary>
 public sealed record PostRoleChoice(string Id, string Name);
@@ -222,9 +254,44 @@ public sealed record VRChatPostPreview(
     string? PictureUrl,
     int Length);
 
+/// <summary>One stretch of a Bluesky post's text: plain words, a link or a tag.</summary>
+/// <param name="Kind"><c>text</c>, <c>link</c> or <c>tag</c>.</param>
+public sealed record BlueskyTextPartView(string Kind, string Text);
+
+/// <summary>The link card under a Bluesky post, as Modbot builds it.</summary>
+/// <param name="Uri">The link it opens: the first link in the text.</param>
+/// <param name="Title">The post's title, or the link's host when there is none.</param>
+/// <param name="Description">The line under the title. May be empty.</param>
+/// <param name="Host">The link's host, as the card shows it.</param>
+/// <param name="PictureUrl">Modbot's own address for the card picture, or null for a card with none.</param>
+public sealed record BlueskyCardPreview(string Uri, string Title, string Description, string Host, string? PictureUrl);
+
+/// <summary>What the Bluesky post will be, built by the code that sends it.</summary>
+/// <param name="Text">The whole text, exactly as it is sent.</param>
+/// <param name="Parts">The text cut into plain words, links and tags, as Bluesky colours it. Never mentions.</param>
+/// <param name="Graphemes">How many characters the text holds, the way Bluesky counts them.</param>
+/// <param name="Bytes">How many UTF-8 bytes the text holds.</param>
+/// <param name="Limit">Bluesky's limit: 300 characters (and 3000 bytes).</param>
+/// <param name="Card">The link card, when the text has a link; null otherwise.</param>
+/// <param name="Handle">The account it goes out as, or null when none is set up.</param>
+/// <param name="DisplayName">That account's display name as the last Check found it.</param>
+public sealed record BlueskyPostPreview(
+    string Text,
+    IReadOnlyList<BlueskyTextPartView> Parts,
+    int Graphemes,
+    int Bytes,
+    int Limit,
+    BlueskyCardPreview? Card,
+    string? Handle,
+    string? DisplayName);
+
 /// <summary>What each ticked site would be sent. Null for a site not ticked.</summary>
 /// <param name="Problems">What would stop it being scheduled, one sentence each. Empty when none.</param>
-public sealed record PostPreview(DiscordPostPreview? Discord, IReadOnlyList<string> Problems, VRChatPostPreview? VRChat = null);
+public sealed record PostPreview(
+    DiscordPostPreview? Discord,
+    IReadOnlyList<string> Problems,
+    VRChatPostPreview? VRChat = null,
+    BlueskyPostPreview? Bluesky = null);
 
 /// <summary>A picture kept for a post.</summary>
 public sealed record PostPictureView(Guid PictureId);
@@ -245,10 +312,13 @@ public sealed record PostPictureLinkRequest(string? Url);
 /// <param name="Paused">Pause all posting.</param>
 /// <param name="Discord">Discord posts.</param>
 /// <param name="VRChat">VRChat posts.</param>
-public sealed record PostSettingsView(bool Paused, bool Discord, bool VRChat);
+/// <param name="Bluesky">Bluesky posts: the Bluesky topic's Posting switch, mirrored here.</param>
+/// <param name="BlueskyCanPost">A Bluesky account passed Check, so Bluesky posts may be turned on.</param>
+public sealed record PostSettingsView(bool Paused, bool Discord, bool VRChat, bool Bluesky = false, bool BlueskyCanPost = false);
 
 /// <summary>A change to the posts switches. A switch left null stays as it is.</summary>
-public sealed record PostSettingsRequest(bool? Paused = null, bool? Discord = null, bool? VRChat = null);
+/// <param name="Bluesky">Bluesky posts. On needs a Bluesky account that passed Check.</param>
+public sealed record PostSettingsRequest(bool? Paused = null, bool? Discord = null, bool? VRChat = null, bool? Bluesky = null);
 
 /// <summary>One destination worth a look on Health.</summary>
 /// <param name="Problem"><c>failed</c>, or <c>checking</c> for one still looked for after 15 minutes.</param>

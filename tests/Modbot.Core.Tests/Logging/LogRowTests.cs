@@ -73,6 +73,8 @@ public class LogRowTests
     [InlineData("RefreshToken")]
     [InlineData("assertion")]
     [InlineData("GoogleJwt")]
+    [InlineData("accessJwt")]
+    [InlineData("refreshJwt")]
     public void APropertyWhoseNameLooksLikeASecretIsNeverStored(string name)
     {
         var row = LogRow.From(Event(properties: (name, "hunter2-the-real-one")));

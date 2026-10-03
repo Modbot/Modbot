@@ -301,6 +301,80 @@ public class Settings
     /// </summary>
     public bool GoogleRemovingEvents { get; set; }
 
+    // --- Bluesky (Bluesky design §3.1, posts design §4.2c) ---
+
+    /// <summary>
+    /// The account's handle as the operator typed it, without the <c>@</c>: <c>ourgroup.bsky.social</c>
+    /// or <c>ourgroup.com</c>. Shown, not secret. Check reads it again from the account each time.
+    /// </summary>
+    public string? BlueskyHandle { get; set; }
+
+    /// <summary>
+    /// The account's lasting id (its DID), found from the handle by Check. What Modbot keys on, so a
+    /// handle changed on Bluesky does not stop posting. Never shown in the app.
+    /// </summary>
+    public string? BlueskyDid { get; set; }
+
+    /// <summary>
+    /// The account's own server (its PDS), an https address with no path, found by Check from the
+    /// account's DID document. Every sign-in and post goes there.
+    /// </summary>
+    public string? BlueskyServer { get; set; }
+
+    /// <summary>
+    /// The app password, encrypted like every other secret (see <c>ISecretProtector</c>). Only a value
+    /// shaped like an app password is taken, so the account's main password is never kept. Never
+    /// returned by the API.
+    /// </summary>
+    public string? BlueskyAppPasswordEncrypted { get; set; }
+
+    /// <summary>
+    /// The signed-in session's access and refresh tokens, as one encrypted JSON. A refresh replaces
+    /// both, and the new ones are written here before they are used, because the old refresh token
+    /// stops working. Never returned by the API.
+    /// </summary>
+    public string? BlueskySessionEncrypted { get; set; }
+
+    /// <summary>When Check last ran. Null when it never has, or since the handle or app password changed.</summary>
+    public DateTimeOffset? BlueskyCheckedAt { get; set; }
+
+    /// <summary>The account's display name as Check found it.</summary>
+    public string? BlueskyDisplayName { get; set; }
+
+    /// <summary>Whether Check found the account marked as automated (decision 10).</summary>
+    public bool BlueskyAutomated { get; set; }
+
+    /// <summary>What went wrong at the last Check or sign-in, as the sentence the operator reads. Null when nothing did.</summary>
+    public string? BlueskyProblem { get; set; }
+
+    /// <summary>
+    /// Whether posts go to Bluesky (Bluesky design §3.1). The one place that stops all Bluesky
+    /// posting, mirrored in Settings → Posts. Off until turned on after a good Check.
+    /// </summary>
+    public bool BlueskyPostingOn { get; set; }
+
+    /// <summary>
+    /// No call goes to the account's server before this: set when Bluesky answers with a rate limit,
+    /// to the time it says the limit resets, and kept here so a restart cannot cut the wait short.
+    /// Never retried early (CLAUDE.md).
+    /// </summary>
+    public DateTimeOffset? BlueskyStoppedUntil { get; set; }
+
+    /// <summary>
+    /// Bluesky refused the app password at sign-in. Nothing signs in again until a new app password
+    /// is saved, so a revoked password cannot become a loop of refused sign-ins.
+    /// </summary>
+    public bool BlueskySignInRefused { get; set; }
+
+    /// <summary>When Modbot last signed in with the app password: at most one sign-in every 10 minutes.</summary>
+    public DateTimeOffset? BlueskySignedInAt { get; set; }
+
+    /// <summary>The UTC day <see cref="BlueskySignInsUsed"/> counts.</summary>
+    public DateOnly? BlueskySignInsDay { get; set; }
+
+    /// <summary>Sign-ins with the app password on <see cref="BlueskySignInsDay"/>: at most 20 a day.</summary>
+    public int BlueskySignInsUsed { get; set; }
+
     /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.

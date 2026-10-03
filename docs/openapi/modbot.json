@@ -6683,6 +6683,232 @@
         ]
       }
     },
+    "/api/settings/bluesky": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Bluesky settings",
+        "description": "The Bluesky account Modbot posts as: its handle, whether an app password is saved, Posting, and what the last Check found. The app password and the session are never returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetBlueskySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskySettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Bluesky settings",
+        "description": "Save the handle, an app password, Posting, or any of them. Only an app password is taken (four groups of four letters or digits, made in Bluesky's settings); anything else is refused with \"Use an app password.\". It is kept encrypted and never returned. Saving the handle or the app password clears what the last Check found, and posts wait until Check passes again. Posting on needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetBlueskySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlueskySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskySettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Remove the Bluesky account",
+        "description": "Forget the handle, the app password, the session and what Check found, and turn Posting off. Nothing on Bluesky is changed: posts already sent stay.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "RemoveBlueskySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskySettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/bluesky/check": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Check the Bluesky account",
+        "description": "Find the account from the handle, sign in (the saved session when it still works, otherwise the app password, at most once every 10 minutes and 20 times a day), and read the account's display name and whether it is marked as automated. Never posts and writes nothing to the account. Answers 200 with what it found, a refusal included. While Bluesky is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CheckBluesky",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskySettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/ai/chat": {
       "get": {
         "tags": [
@@ -28518,7 +28744,7 @@
           "Posts"
         ],
         "summary": "Write post",
-        "description": "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in `timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`); none is ticked unless sent. VRChat needs a title, the post's or its own. Nothing is sent by this request: Modbot's Discord loop sends a post within about twenty seconds of its time and its VRChat loop within about fifteen, unless Pause all posting is on or that site's posts are off. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in `timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`, `bluesky`); none is ticked unless sent. VRChat needs a title, the post's or its own. Bluesky gets the title and text, or its own text, of at most 300 characters and 3000 bytes. Nothing is sent by this request: Modbot's Discord loop sends a post within about twenty seconds of its time, its VRChat loop within about fifteen and its Bluesky loop within about thirty, unless Pause all posting is on or that site's posts are off. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "CreatePost",
         "requestBody": {
           "content": {
@@ -29292,7 +29518,7 @@
           "Posts"
         ],
         "summary": "Delete post on site",
-        "description": "Deletes a post that went out from that site, at once, and marks it deleted. One that is already gone there counts as deleted (VRChat's 404 too). One call to the site, never sent again.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Deletes a post that went out from that site, at once, and marks it deleted. One that is already gone there counts as deleted (VRChat's 404 too). One call to the site, never sent again. A Bluesky post is deleted from the account in Settings; deleting removes it from Bluesky, not from copies others already took.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "DeletePostOnSite",
         "parameters": [
           {
@@ -29841,7 +30067,7 @@
           "Settings"
         ],
         "summary": "Get posts settings",
-        "description": "Whether all posting is paused, and whether posts go to Discord and to the VRChat group.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Whether all posting is paused, and whether posts go to Discord, to the VRChat group and to Bluesky.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetPostSettings",
         "responses": {
           "200": {
@@ -29889,7 +30115,7 @@
           "Settings"
         ],
         "summary": "Set posts settings",
-        "description": "Pauses or resumes all posting, and turns Discord posts and VRChat posts on or off. A switch left out stays as it is. Paused, nothing is sent to any site and posts wait; a site switched off, its posts wait. One more than an hour late is not sent and turns Failed, with Post now.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Pauses or resumes all posting, and turns Discord, VRChat and Bluesky posts on or off. A switch left out stays as it is. Paused, nothing is sent to any site and posts wait; a site switched off, its posts wait. One more than an hour late is not sent and turns Failed, with Post now. Bluesky posts are the Bluesky topic's Posting switch, and go on only for an account that passed Check.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetPostSettings",
         "requestBody": {
           "content": {
@@ -29908,6 +30134,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PostSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -33211,6 +33447,245 @@
           "liftedWithoutReason": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "BlueskyCardPreview": {
+        "required": [
+          "uri",
+          "title",
+          "description",
+          "host",
+          "pictureUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BlueskyCheckView": {
+        "required": [
+          "at",
+          "handle",
+          "displayName",
+          "automated",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "automated": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BlueskyDestinationView": {
+        "required": [
+          "cardPictureId",
+          "cardPictureFrom"
+        ],
+        "type": "object",
+        "properties": {
+          "cardPictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "cardPictureFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "BlueskyPostPreview": {
+        "required": [
+          "text",
+          "parts",
+          "graphemes",
+          "bytes",
+          "limit",
+          "card",
+          "handle",
+          "displayName"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BlueskyTextPartView"
+            }
+          },
+          "graphemes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "card": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyCardPreview"
+              }
+            ]
+          },
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BlueskySettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "appPassword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "posting": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "BlueskySettingsView": {
+        "required": [
+          "handle",
+          "appPasswordStored",
+          "posting",
+          "canPost",
+          "check",
+          "limitedUntil",
+          "signInAfter"
+        ],
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "appPasswordStored": {
+            "type": "boolean"
+          },
+          "posting": {
+            "type": "boolean"
+          },
+          "canPost": {
+            "type": "boolean"
+          },
+          "check": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyCheckView"
+              }
+            ]
+          },
+          "limitedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "signInAfter": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "BlueskyTextPartView": {
+        "required": [
+          "kind",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -48029,6 +48504,31 @@
           }
         }
       },
+      "PostBlueskyRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cardPictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "cardPictureFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "PostCounts": {
         "required": [
           "scheduled",
@@ -48208,6 +48708,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "bluesky": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyDestinationView"
+              }
             ]
           }
         }
@@ -48443,6 +48953,16 @@
                 "$ref": "#/components/schemas/VRChatPostPreview"
               }
             ]
+          },
+          "bluesky": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyPostPreview"
+              }
+            ]
           }
         }
       },
@@ -48527,6 +49047,16 @@
                 "$ref": "#/components/schemas/PostVRChatRequest"
               }
             ]
+          },
+          "bluesky": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PostBlueskyRequest"
+              }
+            ]
           }
         }
       },
@@ -48565,6 +49095,12 @@
               "null",
               "boolean"
             ]
+          },
+          "bluesky": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -48584,6 +49120,14 @@
           },
           "vrChat": {
             "type": "boolean"
+          },
+          "bluesky": {
+            "type": "boolean",
+            "default": false
+          },
+          "blueskyCanPost": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -48615,6 +49159,14 @@
           },
           "vrChatPictures": {
             "type": "boolean"
+          },
+          "blueskyOn": {
+            "type": "boolean",
+            "default": false
+          },
+          "blueskySetUp": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

@@ -161,13 +161,25 @@ public class PostDestination
     public string Network { get; set; } = PostNetworks.Discord;
 
     /// <summary>
-    /// Where on the site: the Discord channel id, or the VRChat group id. Kept so a later edit or
-    /// delete goes to the same place after the settings change. Opaque, never checked for shape.
+    /// Where on the site: the Discord channel id, the VRChat group id, or the Bluesky account's DID.
+    /// Kept so a later edit or delete goes to the same place after the settings change. Opaque,
+    /// never checked for shape.
     /// </summary>
     public string Target { get; set; } = string.Empty;
 
-    /// <summary>The site's own choices, as JSON: <see cref="DiscordPostOptions"/> or <see cref="VRChatPostOptions"/>.</summary>
+    /// <summary>
+    /// The site's own choices, as JSON: <see cref="DiscordPostOptions"/>, <see cref="VRChatPostOptions"/>
+    /// or <see cref="BlueskyPostOptions"/>.
+    /// </summary>
     public string Options { get; set; } = "{}";
+
+    /// <summary>
+    /// The site's own copy of the post's picture, kept in <c>calendar_cover_picture</c> beside it:
+    /// Bluesky's card picture, a small JPEG the browser made (posts design §4.2c). Null for none.
+    /// A real column rather than a word in <see cref="Options"/>, so the hourly picture sweep sees
+    /// that a post still uses it.
+    /// </summary>
+    public Guid? SitePictureId { get; set; }
 
     /// <summary>This site's own title, or null for the post's.</summary>
     public string? TitleOverride { get; set; }
@@ -181,7 +193,10 @@ public class PostDestination
     /// <summary>An id Modbot makes once and the site keeps (Bluesky's record key; later, Discord's nonce).</summary>
     public string? ClientKey { get; set; }
 
-    /// <summary>The post's id on the site: the Discord message id, or VRChat's <c>not_…</c> id. Opaque.</summary>
+    /// <summary>
+    /// The post's id on the site: the Discord message id, VRChat's <c>not_…</c> id, or Bluesky's
+    /// <c>at://</c> address. Opaque.
+    /// </summary>
     public string? ExternalId { get; set; }
 
     /// <summary>The post's https address on the site.</summary>
@@ -270,3 +285,11 @@ public sealed record VRChatPostOptions(
     bool Notify = false,
     string? ImageId = null,
     Guid? PictureId = null);
+
+/// <summary>A Bluesky destination's own choices (posts design §4.2c), stored as JSON in <see cref="PostDestination.Options"/>.</summary>
+/// <param name="PictureId">
+/// The post's picture the card picture (<see cref="PostDestination.SitePictureId"/>) was made from,
+/// so a picture changed since is not sent.
+/// </param>
+/// <param name="Cid">The post's content id on Bluesky, once it went out, as Bluesky answered or as read back.</param>
+public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null);
