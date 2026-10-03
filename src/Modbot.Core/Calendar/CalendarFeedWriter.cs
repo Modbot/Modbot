@@ -71,19 +71,29 @@ public static class CalendarFeedWriter
     }
 
     /// <summary>
-    /// Whether an event may be in the public feed at all (calendar design §6.1): visible to everyone
-    /// on VRChat's calendar, and not narrowed to some of the group's roles there. Whether it is in it
-    /// now is <see cref="Belongs"/> as well.
+    /// Whether an event may be in the public feed at all (calendar design §6.1): on VRChat's
+    /// calendar, visible to everyone there, and not narrowed to some of the group's roles. Whether it
+    /// is in it now is <see cref="Belongs"/> as well.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <see cref="CalendarEvent.Visibility"/> is only in force while the event goes to VRChat's
+    /// calendar: the form shows "Visible to" only while that chip is on, and turning the chip off
+    /// leaves the hidden word as it was. An event made Discord-only after being set to Everyone, or
+    /// duplicated from one, still says <c>public</c>; it is left out.
+    /// </para>
+    /// <para>
     /// An event VRChat shows only to some roles is for members, whatever its visibility says, so it
-    /// is left out.
+    /// is left out too.
+    /// </para>
     /// </remarks>
     public static bool IsPublic(CalendarEvent calendarEvent)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        return calendarEvent.Visibility == PublicWord && calendarEvent.VRChatRoleIds is not { Count: > 0 };
+        return calendarEvent.PublishToVRChat
+            && calendarEvent.Visibility == PublicWord
+            && calendarEvent.VRChatRoleIds is not { Count: > 0 };
     }
 
     /// <summary>

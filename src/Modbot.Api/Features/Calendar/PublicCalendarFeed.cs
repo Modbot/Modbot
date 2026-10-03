@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Users;
@@ -30,7 +31,13 @@ namespace Modbot.Api.Features.Calendar;
 /// <para>
 /// Anybody can ask for it as often as they like, so it is kept for <see cref="PublicCalendarFeedCache.KeepFor"/>
 /// once written, with an <c>ETag</c> that lets a calendar app ask "has it changed?" and get an empty
-/// 304. Each request still reads the switch, so turning it off takes effect on the next one.
+/// 304. Each request still reads the switch, so turning it off takes effect on the next one. A change
+/// made in Modbot empties what is kept (<see cref="PublicCalendarFeedCache.ClearsPublicFeed{TBuilder}"/>),
+/// so it shows on the next request; one read from VRChat, or an event finishing, within a minute.
+/// </para>
+/// <para>
+/// <c>Cache-Control: no-cache</c>: a calendar app or a cache between may keep a copy, but asks again
+/// every time, so the feed turned off is never served from a copy, and asking again is a cheap 304.
 /// </para>
 /// </remarks>
 public static class PublicCalendarFeedEndpoints
@@ -123,10 +130,9 @@ public static class PublicCalendarFeedEndpoints
                 var feed = await cache.GetAsync(clock.UtcNow, () => WriteAsync(db, clock.UtcNow, ct), ct);
 
                 http.Response.Headers[HeaderNames.ETag] = feed.ETag;
-                http.Response.Headers[HeaderNames.CacheControl] =
-                    $"public, max-age={(int)PublicCalendarFeedCache.KeepFor.TotalSeconds}";
+                http.Response.Headers[HeaderNames.CacheControl] = "no-cache";
 
-                if (http.Request.Headers.IfNoneMatch.Any(v => v is not null && v.Split(',').Any(t => t.Trim() == feed.ETag)))
+                if (Matches(http.Request.Headers.IfNoneMatch, feed.ETag))
                     return Results.StatusCode(StatusCodes.Status304NotModified);
 
                 return Results.Text(feed.Body, "text/calendar; charset=utf-8", Encoding.UTF8);
@@ -138,12 +144,41 @@ public static class PublicCalendarFeedEndpoints
                 "The public calendar feed as iCalendar. No sign-in and no secret; 404 while it is off. "
                 + "Holds the events visible to everyone that are scheduled or open, and finished and "
                 + "cancelled ones for 30 days after. A join link only for an event anyone can join. "
-                + "Kept for a minute; send If-None-Match with the ETag to get 304 when it has not changed.")
+                + "Send If-None-Match with the ETag to get 304 when it has not changed.")
             .Produces<string>(StatusCodes.Status200OK, "text/calendar")
             .Produces(StatusCodes.Status304NotModified)
             .Produces(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    /// <summary>
+    /// Whether an <c>If-None-Match</c> names <paramref name="etag"/>: in a list, weak (<c>W/</c>) or
+    /// strong alike, as RFC 9110 §13.1.2 compares them for this header; <c>*</c> matches any.
+    /// </summary>
+    internal static bool Matches(Microsoft.Extensions.Primitives.StringValues ifNoneMatch, string etag)
+    {
+        foreach (var value in ifNoneMatch)
+        {
+            if (value is null)
+                continue;
+
+            foreach (var part in value.Split(','))
+            {
+                var tag = part.Trim();
+
+                if (tag == "*")
+                    return true;
+
+                if (tag.StartsWith("W/", StringComparison.Ordinal))
+                    tag = tag[2..];
+
+                if (tag == etag)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static async Task<string> WriteAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
@@ -170,13 +205,20 @@ public static class PublicCalendarFeedEndpoints
 /// The public feed as last written, kept for <see cref="KeepFor"/> so a crowd of requests reads the
 /// database once a minute at most (calendar design §6.1). One per process: a singleton.
 /// </summary>
+/// <remarks>
+/// Every change made to the calendar in Modbot empties it (<see cref="ClearsPublicFeed{TBuilder}"/>),
+/// so an event saved, cancelled or deleted leaves the public feed on the next request, not a minute
+/// later. A feed being written while a change is saved is handed to the request that wrote it but
+/// not kept, so it cannot outlive the change.
+/// </remarks>
 public sealed class PublicCalendarFeedCache
 {
-    /// <summary>How long a written feed is served before it is written again; also the <c>max-age</c> sent.</summary>
+    /// <summary>How long a written feed is served before it is written again.</summary>
     public static readonly TimeSpan KeepFor = TimeSpan.FromMinutes(1);
 
     private readonly SemaphoreSlim _writing = new(1, 1);
     private Kept? _kept;
+    private long _cleared;
 
     /// <summary>The kept feed while it is younger than <see cref="KeepFor"/>; otherwise <paramref name="write"/>'s, kept.</summary>
     public async Task<Kept> GetAsync(DateTimeOffset now, Func<Task<string>> write, CancellationToken ct)
@@ -194,10 +236,16 @@ public sealed class PublicCalendarFeedCache
             if (Fresh(now) is { } written)
                 return written;
 
+            // Taken before reading the database: a clear while it reads means what it read may be
+            // from before a change, so it is not kept.
+            var clearedBefore = Interlocked.Read(ref _cleared);
+
             var body = await write();
             var made = new Kept(body, ETagOf(body), now);
 
-            Volatile.Write(ref _kept, made);
+            if (Interlocked.Read(ref _cleared) == clearedBefore)
+                Volatile.Write(ref _kept, made);
+
             return made;
         }
         finally
@@ -207,7 +255,35 @@ public sealed class PublicCalendarFeedCache
     }
 
     /// <summary>Forgets the kept feed, so the next request writes it again.</summary>
-    public void Clear() => Volatile.Write(ref _kept, null);
+    public void Clear()
+    {
+        Interlocked.Increment(ref _cleared);
+        Volatile.Write(ref _kept, null);
+    }
+
+    /// <summary>
+    /// Empties the public feed after every request to these endpoints that is not a read: an event
+    /// saved, cancelled or deleted, a date changed or cancelled, a world picked again. The handler
+    /// has committed by the time it returns, so the next feed request reads the change. A refused
+    /// request empties it too; that only costs one more write of the feed.
+    /// </summary>
+    public static TBuilder ClearsPublicFeed<TBuilder>(TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            var result = await next(context);
+
+            if (!HttpMethods.IsGet(context.HttpContext.Request.Method) && !HttpMethods.IsHead(context.HttpContext.Request.Method))
+                context.HttpContext.RequestServices.GetService<PublicCalendarFeedCache>()?.Clear();
+
+            return result;
+        });
+
+        return builder;
+    }
 
     private Kept? Fresh(DateTimeOffset now) =>
         Volatile.Read(ref _kept) is { } kept && now >= kept.WrittenAt && now - kept.WrittenAt < KeepFor ? kept : null;

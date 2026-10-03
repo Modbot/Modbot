@@ -1013,9 +1013,10 @@ read it stop getting updates. Turning it on or off is in the
 
 ### What it contains
 
-Only events with **Visible to** set to **Everyone**, in the form's [VRChat calendar](#vrchat-calendar)
-section. An event that VRChat shows only to some of your group's roles is left out too, whatever
-**Visible to** says.
+Only events that go to your group's VRChat calendar (the **VRChat calendar** chip is on) with
+**Visible to** set to **Everyone**, in the form's [VRChat calendar](#vrchat-calendar) section. Turn
+the chip off and the event leaves the public feed, whatever **Visible to** said. An event that VRChat
+shows only to some of your group's roles is left out too.
 
 Of those, it lists the same events as the calendar feed: **Scheduled** and **Open** ones, **Finished**
 ones for 30 days after their last time, and **Cancelled** ones for 30 days after the cancel, marked
@@ -1033,8 +1034,9 @@ and calendar name as in the calendar feed, with two differences:
 It does **not** contain events visible only to your group, drafts, deleted events, the picture,
 anything about Discord, or anything about your members.
 
-Modbot writes the public feed at most once a minute, so a change can take a minute to reach it, and
-longer to reach a calendar app, which checks on its own schedule. Reading it asks VRChat nothing.
+A change you make in Modbot is in the public feed at once. A change made on VRChat, or an event
+finishing, can take up to a minute. Calendar apps check a feed on their own schedule, so it can take
+longer to show there. Reading the feed asks VRChat nothing.
 
 ## Editing, cancelling and deleting
 

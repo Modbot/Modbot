@@ -25669,7 +25669,7 @@
           "Calendar"
         ],
         "summary": "Get public calendar feed file",
-        "description": "The public calendar feed as iCalendar. No sign-in and no secret; 404 while it is off. Holds the events visible to everyone that are scheduled or open, and finished and cancelled ones for 30 days after. A join link only for an event anyone can join. Kept for a minute; send If-None-Match with the ETag to get 304 when it has not changed.",
+        "description": "The public calendar feed as iCalendar. No sign-in and no secret; 404 while it is off. Holds the events visible to everyone that are scheduled or open, and finished and cancelled ones for 30 days after. A join link only for an event anyone can join. Send If-None-Match with the ETag to get 304 when it has not changed.",
         "operationId": "GetPublicCalendarFeedFile",
         "responses": {
           "200": {

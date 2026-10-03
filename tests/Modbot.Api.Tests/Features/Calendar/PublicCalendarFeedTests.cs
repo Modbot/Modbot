@@ -42,7 +42,8 @@ public class PublicCalendarFeedTests(PostgresFixture db)
     }
 
     private static object Body(
-        ApiTestHost host, string title, string visibility = "public", string accessType = "members", bool draft = false)
+        ApiTestHost host, string title, string visibility = "public", string accessType = "members", bool draft = false,
+        bool vrchat = true)
     {
         var start = host.Clock.UtcNow.AddDays(2);
 
@@ -65,8 +66,8 @@ public class PublicCalendarFeedTests(PostgresFixture db)
             tags = Array.Empty<string>(),
             visibility,
             notifyMembers = false,
-            publishToVRChat = true,
-            publishToDiscord = false,
+            publishToVRChat = vrchat,
+            publishToDiscord = !vrchat,
             postToChannel = false,
             autoOpen = false,
             openMinutesBefore = 10,
@@ -207,11 +208,101 @@ public class PublicCalendarFeedTests(PostgresFixture db)
         var first = await host.Client.GetAsync(FeedPath, Ct);
         var tag = first.Headers.ETag?.Tag;
         Assert.NotNull(tag);
-        Assert.Contains("max-age=", first.Headers.CacheControl?.ToString() ?? string.Empty, StringComparison.Ordinal);
+
+        // Asked again every time, never served from a copy: a feed turned off must not live on in one.
+        Assert.True(first.Headers.CacheControl?.NoCache);
+        Assert.Null(first.Headers.CacheControl?.MaxAge);
+        Assert.False(first.Headers.CacheControl?.Public);
 
         using var again = new HttpRequestMessage(HttpMethod.Get, FeedPath);
         again.Headers.TryAddWithoutValidation("If-None-Match", tag);
-
         Assert.Equal(HttpStatusCode.NotModified, (await host.Client.SendAsync(again, Ct)).StatusCode);
+
+        // A weak tag, in a list, matches as well.
+        using var weak = new HttpRequestMessage(HttpMethod.Get, FeedPath);
+        weak.Headers.TryAddWithoutValidation("If-None-Match", $"\"other\", W/{tag}");
+        Assert.Equal(HttpStatusCode.NotModified, (await host.Client.SendAsync(weak, Ct)).StatusCode);
+
+        using var other = new HttpRequestMessage(HttpMethod.Get, FeedPath);
+        other.Headers.TryAddWithoutValidation("If-None-Match", "\"other\"");
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(other, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AnEventMadeDiscordOnlyLeaves_EvenThoughItsHiddenVisibilityStillSaysEveryone()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        // Set to Everyone with the VRChat chip on, then saved with the chip off: the form hides
+        // "Visible to" and sends the word it had.
+        var id = await CreateAsync(host, manager, Body(host, "Was public"));
+        Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(host, manager, on: true)).StatusCode);
+        Assert.Contains($"UID:{id:D}@modbot", await FeedAsync(host), StringComparison.Ordinal);
+
+        var saved = await host.SendJsonAsync(HttpMethod.Put, $"/api/calendar/events/{id}", Body(host, "Was public", vrchat: false), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        // At once: the save emptied what was kept.
+        Assert.DoesNotContain(id.ToString("D"), await FeedAsync(host), StringComparison.Ordinal);
+
+        // And one made that way from the start is never in it.
+        var duplicate = await CreateAsync(host, manager, Body(host, "Duplicated", vrchat: false));
+        Assert.DoesNotContain(duplicate.ToString("D"), await FeedAsync(host), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task APublicEventVRChatShowsOnlyToSomeRolesIsLeftOut()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var roles = await CreateAsync(host, manager, Body(host, "Staff social", accessType: "public"));
+        var open = await CreateAsync(host, manager, Body(host, "Open night"));
+
+        // The form has no roles; an event read from VRChat's calendar keeps the ones VRChat had.
+        await using (var context = db.NewContext())
+        {
+            var stored = await context.CalendarEvents.SingleAsync(e => e.Id == roles, Ct);
+            stored.VRChatRoleIds = ["grol_staff"];
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(host, manager, on: true)).StatusCode);
+
+        var feed = await FeedAsync(host);
+        Assert.DoesNotContain(roles.ToString("D"), feed, StringComparison.Ordinal);
+        Assert.DoesNotContain("Staff social", feed, StringComparison.Ordinal);
+        Assert.Contains($"UID:{open:D}@modbot", feed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ACancelOrADeleteLeavesThePublicFeedAtOnce()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var cancelled = await CreateAsync(host, manager, Body(host, "Cancelled night"));
+        var deleted = await CreateAsync(host, manager, Body(host, "Deleted night"));
+        Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(host, manager, on: true)).StatusCode);
+
+        var before = await FeedAsync(host);
+        Assert.Contains($"UID:{cancelled:D}@modbot", before, StringComparison.Ordinal);
+        Assert.Contains($"UID:{deleted:D}@modbot", before, StringComparison.Ordinal);
+        Assert.DoesNotContain("STATUS:CANCELLED", before, StringComparison.Ordinal);
+
+        // No time passes on the clock: only emptying what was kept can show these.
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(HttpMethod.Post, $"/api/calendar/events/{cancelled}/cancel", null, manager, Ct)).StatusCode);
+        Assert.Contains("STATUS:CANCELLED", await FeedAsync(host), StringComparison.Ordinal);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(HttpMethod.Delete, $"/api/calendar/events/{deleted}", null, manager, Ct)).StatusCode);
+        Assert.DoesNotContain(deleted.ToString("D"), await FeedAsync(host), StringComparison.Ordinal);
+    }
+
+    private static async Task<string> FeedAsync(ApiTestHost host)
+    {
+        var response = await host.Client.GetAsync(FeedPath, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return await response.Content.ReadAsStringAsync(Ct);
     }
 }

@@ -23,6 +23,7 @@ public class CalendarPublicFeedWriterTests
             EndsAt = Now.AddDays(2).AddHours(2),
             TimeZone = "UTC",
             WorldId = "wrld_1",
+            PublishToVRChat = true,
             Visibility = visibility,
             AccessType = access,
             State = state,
@@ -59,6 +60,76 @@ public class CalendarPublicFeedWriterTests
         Assert.DoesNotContain(members.Id.ToString("D"), feed, StringComparison.Ordinal);
         Assert.DoesNotContain("Members' meeting", feed, StringComparison.Ordinal);
         Assert.Contains($"UID:{open.Id:D}@modbot", feed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEventNotGoingToVRChatIsLeftOut_WhateverItsHiddenVisibilitySays()
+    {
+        // Set to Everyone with the VRChat chip on, then made Discord-only: the form hides "Visible
+        // to" and leaves the word as it was.
+        var discordOnly = Event("Discord-only night");
+        discordOnly.PublishToVRChat = false;
+
+        Assert.False(CalendarFeedWriter.IsPublic(discordOnly));
+        Assert.False(CalendarFeedWriter.BelongsInPublic(discordOnly, Now));
+        Assert.DoesNotContain("Discord-only night", Write(discordOnly), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AChangedDateOfAPublicSeriesCarriesNothingTheSecretFeedLeavesOut()
+    {
+        var series = WeeklyWithAChangedDate(access: "members");
+
+        var publicFeed = Write(series);
+
+        // With no address the secret feed has no link either: everything else is the same, line for
+        // line, the changed date's own VEVENT included.
+        var secret = CalendarFeedWriter.Write(
+            "Night Owls", [series], new Dictionary<string, string> { ["wrld_1"] = "The Black Cat" }, Now);
+
+        Assert.Equal(secret, publicFeed);
+        Assert.Contains("RECURRENCE-ID:", publicFeed, StringComparison.Ordinal);
+        Assert.Contains("SUMMARY:Movie night: the finale", publicFeed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AChangedDateOfASeriesAnyoneCanJoinCarriesOnlyTheJoinLinkMore()
+    {
+        var series = WeeklyWithAChangedDate(access: "public");
+
+        var lines = Write(series).Split("\r\n");
+        var secret = CalendarFeedWriter.Write(
+            "Night Owls", [series], new Dictionary<string, string> { ["wrld_1"] = "The Black Cat" }, Now).Split("\r\n");
+
+        var extra = lines.Where(l => l.StartsWith("URL:", StringComparison.Ordinal)).ToList();
+
+        // One link on the series and one on its changed date, both the join link.
+        Assert.Equal(2, extra.Count);
+        Assert.All(extra, l => Assert.Equal($"URL:{Address}/api/calendar/join/{series.Id:D}", l));
+        Assert.Equal(secret, lines.Where(l => !l.StartsWith("URL:", StringComparison.Ordinal)));
+    }
+
+    private static CalendarEvent WeeklyWithAChangedDate(string access)
+    {
+        var series = Event("Movie night", access: access);
+        series.Repeat = CalendarRepeats.Weekly;
+        series.RepeatTimes = 4;
+
+        var planned = series.StartsAt.AddDays(7);
+        series.DateChanges.Add(new CalendarDateChange
+        {
+            Id = Guid.NewGuid(),
+            EventId = series.Id,
+            PlannedStartsAt = planned,
+            StartsAt = planned.AddHours(1),
+            EndsAt = planned.AddHours(3),
+            Title = "Movie night: the finale",
+            Description = "The last one",
+            CreatedAt = Now,
+            UpdatedAt = Now,
+        });
+
+        return series;
     }
 
     [Fact]

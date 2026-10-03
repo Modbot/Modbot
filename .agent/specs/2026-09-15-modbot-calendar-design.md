@@ -478,12 +478,19 @@ calendar or want a form filled in, while Mobilizon, Gancio and Google's "From UR
   feed, and each change is a `modbot.settings.change` fact with `setting: calendarPublicFeed`, before
   and after, like any other setting. On the page it is a **Public feed** switch below the
   **Calendar feed** row, with the address and **Copy** beside it while it is on.
-- **Which events:** those with `Visibility == public` ("Visible to: Everyone") and no
-  `VRChatRoleIds` (an event VRChat shows only to some roles is for members, whatever its visibility),
-  in the secret feed's window and states (`CalendarFeedWriter.BelongsInPublic`). Never drafts or
-  deleted events. The database query narrows on visibility, and `CalendarFeedWriter.WritePublic`
-  drops any event that is not public again, so a mistake in picking the events cannot put a
-  members-only one on a public address.
+- **Which events:** those with `PublishToVRChat` on, `Visibility == public` ("Visible to:
+  Everyone") and no `VRChatRoleIds`, in the secret feed's window and states
+  (`CalendarFeedWriter.IsPublic`, `BelongsInPublic`). Never drafts or deleted events.
+  - `PublishToVRChat` because the visibility is only in force while the event goes to VRChat's
+    calendar: the form shows "Visible to" only while that chip is on, and turning the chip off
+    leaves the hidden word as it was. Without this, an event set to Everyone and then made
+    Discord-only, or duplicated from one, went out on the anonymous feed (review, 2026-10-03). An
+    event made on VRChat is read in with the chip on, so it needs nothing more.
+  - No roles because an event VRChat shows only to some roles is for members, whatever its
+    visibility.
+  - The database query narrows on the chip and the visibility, and `CalendarFeedWriter.WritePublic`
+    drops any event that is not public by the whole rule again, so a mistake in picking the events
+    cannot put a members-only one on a public address.
 - **What each entry carries** is the secret feed's entry, written by the same writer, less what is
   only for members. Decided field by field:
 
@@ -501,11 +508,17 @@ calendar or want a form filled in, while Mobilizon, Gancio and Google's "From UR
   No member data of any kind is in either feed.
 - **Kept for a minute.** The endpoint is anonymous and the app has no request limit of its own for
   anonymous routes (the secret feed has none either), so the written feed is kept in a singleton
-  (`PublicCalendarFeedCache`) for one minute and written by one request at a time; it carries an
-  `ETag` (a hash of the text) and `Cache-Control: public, max-age=60`, and a request with a matching
-  `If-None-Match` gets an empty 304. The switch is read on every request (one column of one row), so
-  off is a 404 at once whatever is kept; turning it on or off also empties the cache. An edited event
-  reaches the public feed within a minute.
+  (`PublicCalendarFeedCache`) for one minute and written by one request at a time. The switch is read
+  on every request (one column of one row), so off is a 404 at once whatever is kept.
+  - **Changes made in Modbot show at once.** Every request to the calendar's endpoints that is not a
+    read (`ClearsPublicFeed` on the `/api/calendar` groups: save, cancel, delete, a date changed or
+    cancelled, a world picked again) and the switch empty the cache once the handler has committed.
+    A feed being written while one of them lands is served to its own request but not kept. Changes
+    read from VRChat (§12) and an event finishing on its own reach it within the minute.
+  - **`ETag` and `Cache-Control: no-cache`.** The `ETag` is a hash of the text; `If-None-Match` with
+    it, weak (`W/`) or strong, or `*`, gets an empty 304. `no-cache` rather than a `max-age`, so a
+    calendar app or a cache between asks again every time: a feed turned off is never served from a
+    copy, and asking again costs a 304.
 
 ## 7. Permissions
 

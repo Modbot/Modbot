@@ -73,7 +73,8 @@ public static class CalendarEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/calendar").WithTags("Calendar");
+        // Every change made here empties the public feed, so it shows there at once (§6.1).
+        var group = PublicCalendarFeedCache.ClearsPublicFeed(app.MapGroup("/api/calendar").WithTags("Calendar"));
 
         group.MapGet("/", async (
                 HttpContext http,
@@ -1374,8 +1375,11 @@ public static class CalendarEndpoints
                             || e.DateChanges.Any(c => c.EndsAt >= since)))
                     || (e.State == CalendarEventStates.Cancelled && e.CancelledAt >= since)));
 
+        // The same rule as CalendarFeedWriter.IsPublic, so far as the database can say it: the
+        // visibility only counts while the event goes to VRChat's calendar. The roles are checked
+        // by the writer's rule below.
         if (publicOnly)
-            query = query.Where(e => e.Visibility == "public");
+            query = query.Where(e => e.PublishToVRChat && e.Visibility == "public");
 
         var candidates = await query.ToListAsync(ct);
 

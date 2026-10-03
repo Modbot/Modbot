@@ -32,7 +32,8 @@ public static class WorldPickEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/calendar").WithTags("Calendar");
+        // A world picked again is the public feed's location: empty it (calendar design §6.1).
+        var group = PublicCalendarFeedCache.ClearsPublicFeed(app.MapGroup("/api/calendar").WithTags("Calendar"));
 
         group.MapPost("/events/{id:guid}/pick-again", async (
                 HttpContext http,
