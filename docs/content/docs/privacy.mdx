@@ -119,6 +119,13 @@ wherever you choose to store them. These pages describe what is kept and how it 
   account (nobody else's friends): from the invites it sends, and from the friends list VRChat sends
   with that account when Modbot signs in. A [purge](/moderation/purge) deletes a person's note, but
   if they are still a friend of that account, the next sign-in notes them again.
+- [Posts](/moderation/marketing): a post written on the **Marketing** page goes only to the sites
+  ticked on it, and every site starts unticked. For **Discord**, Modbot's bot sends the post's
+  title, text and picture to the channel picked, mentions the role picked if any, and publishes it
+  to the servers that follow the channel if **Publish to followers** is ticked. Its readers, and
+  those servers' readers, see it. Nothing about your members goes in a post: no names, no ids, no
+  counts. The picture is kept in Modbot's database while a post uses it. **Pause all posting** and
+  **Discord posts**, under **Settings**, **Posts**, stop every post from going out.
 - [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
   to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops

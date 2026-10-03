@@ -1,0 +1,217 @@
+---
+title: Marketing
+description: Write a post once, pick when it goes, and let Modbot send it to your Discord server at that time, with a preview of exactly what goes out.
+---
+
+The **Marketing** page is where you write posts for your community and send them at a time you
+pick: an announcement, a reminder, news. You write a post once, tick where it goes, and Modbot sends
+it at its time.
+
+In this version a post can go to a **Discord channel**. VRChat group posts and Bluesky are planned
+and come later; until then the VRChat page's own [**Posts**](/analytics#posts) tab posts in your
+group on VRChat.
+
+## Who can use it
+
+| To do this | You need |
+|---|---|
+| See the **Marketing** page, every post, where each one goes and how it went | [**See posts**](/accounts/roles-and-permissions#see-posts) |
+| Write, schedule, change, cancel and send posts, and **Try again** | [**Manage posts**](/accounts/roles-and-permissions#manage-posts) and **See posts** |
+| **Edit** or **Delete** a post on Discord after it went out | **Manage posts** and **See posts** |
+| Turn **Pause all posting** and **Discord posts** on or off | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+| See the **Posts** card on **Health** | **See posts** and [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
+
+Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
+both. Give them on purpose: a post goes out in your group's name, in public.
+
+**Manage group posts**, the permission for the VRChat page's **Posts** tab, does not open this page.
+
+## The page
+
+**Marketing** is in the sidebar under **Community**, after **World lists**. `g` then `q` goes there.
+
+The page has four lists, each with how many posts are in it:
+
+- **Scheduled**: posts waiting for their time, or on their way, soonest first.
+- **Sent**: posts that went out, newest first.
+- **Drafts**: posts saved without a time.
+- **Failed**: posts that did not go out somewhere. A post that went to one place and failed on
+  another is here as well as in the list it would otherwise be in.
+
+Each list has its own address, such as `/marketing/sent`, so you can send a link to one.
+**Cancelled** at the top shows the posts that were called off instead.
+
+Each post shows:
+
+- when it goes, in your own time, with the time zone it was written in after it when that is
+  another;
+- its title, or the first line of its text;
+- who wrote it;
+- a badge for each place it goes, with how it stands there:
+
+| Badge | What it means |
+|---|---|
+| **Waiting** | Not its time yet. |
+| **Paused** | **Pause all posting** is on, so nothing is sent. |
+| **Off** | **Discord posts** is off in Settings. |
+| **Not set up** | Modbot has no Discord server id, or the bot is not connected. |
+| **Sending…** | On its way, or Modbot is checking whether Discord took it. |
+| **Posted** | In the channel. **Open** opens it in Discord. |
+| **Not published** | In the channel, but publishing it to followers did not go through. |
+| **Failed** | Not in the channel, with Discord's own words, or Modbot's. |
+| **Deleted** | Was in the channel and was deleted from Modbot. |
+| **Skipped** | Never went: the post was cancelled first. |
+
+The page updates by itself when a post is sent or fails, so **Sending…** turns into **Posted**
+without reloading.
+
+## Writing a post
+
+**New post** opens the form. It has two tabs, **Write** and **Preview**, and its buttons stay at the
+bottom.
+
+- **Title** is shown in bold on the first line on Discord. You can leave it empty.
+- **Text** is what the post says. Under it a counter shows how long the Discord message will be,
+  such as **Discord 212 / 2000**. Discord takes at most 2000 characters, and the counter turns red
+  past that. The title and a mentioned role count too.
+- **Picture**: **Choose picture** to pick one on your computer, or paste a **Picture link**. It
+  opens in a crop box. Pick its shape: **16:9**, **1:1**, or **As it is** for the whole picture.
+  Move and size the box, then **Upload**. A picture up to 8 MB is kept by Modbot and sent to Discord
+  as a file with the post. Modbot fetches a picture link from your server, so the website it points
+  at sees a request from your server; it fetches only `https://` links on public websites.
+- **Where it goes**: a chip for each place a post can go. **Discord** is the only one in this version.
+  **It is off every time you open the form for a new post.** A post goes nowhere unless you tick it.
+  A chip that is on but cannot send says **Off** or **Not set up**, linking to where you fix that.
+- **When**: **Now** sends it as soon as you press **Post now**. **Later** sends it at the date and
+  time you pick. The time zone is your browser's to start with; pick another and the time is that
+  zone's.
+
+Then:
+
+- **Schedule** saves it to go at its time. With **Now** picked, the button says **Post now**.
+- **Save draft** keeps it in **Drafts**, with nothing sent.
+- **Cancel** closes the form without saving.
+
+If something is wrong, the form lists every problem at once, such as "Pick a channel." or "The
+Discord text is longer than 2000 characters.".
+
+### Discord
+
+With **Discord** ticked:
+
+- **Channel**: the one channel the post goes to. A channel where the bot lacks something it needs
+  is marked with what is missing.
+- **Mention role**: one role to mention on the first line. It is pinged once, when the post first
+  goes out, never on an edit. The bot cannot mention @everyone. A role marked **Bot cannot mention**
+  will not be pinged unless you let anyone mention it in Discord, or give the bot **Mention
+  @everyone, @here and All Roles**.
+- **Publish to followers**: only for an **Announcement** channel. Once the post is in, Modbot
+  publishes it to the servers that follow the channel.
+- **Own text**: tick it to give Discord words of its own. It starts as the post's text, has its own
+  counter, and **Reset** puts the post's text back.
+
+### Preview
+
+**Preview** shows the Discord message the way the channel will show it: the role, the title in
+bold, the text with its links, and the picture. It is built by the same code that sends the post, so
+it is exactly what goes out. If something would stop the post being scheduled, it is listed above.
+
+## Before it goes
+
+Each post in **Scheduled** or **Drafts** has buttons:
+
+- **Edit** opens the form to change the whole post. A post that is on its way cannot be changed: it
+  says "This post is being sent.".
+- **Post now** sends it now, whatever time it had.
+- **Cancel post** asks first, then calls it off. Nothing more is sent, and it moves to **Cancelled**.
+- **Delete draft** asks first, then deletes a draft.
+- **Duplicate** starts a new draft from the post: the same words, picture and Discord choices, with
+  every place unticked again.
+
+There is no repeat. For a post every week, **Duplicate** it. For reminders about an event, the
+calendar will make them in a later version.
+
+## After it goes
+
+A post in the channel shows **Open**, **Edit** and **Delete** beside its badge:
+
+- **Edit** changes its title and text on Discord. The picture stays, and nobody is pinged again.
+- **Delete** asks "Delete this post on Discord?", then deletes it there. A message already gone
+  from Discord counts as deleted.
+
+Both happen at once; the bot has to be connected.
+
+## When a post fails
+
+A failed post shows why, and **Try again**.
+
+| What it says | What happened | What **Try again** does |
+|---|---|---|
+| Discord's own words, such as "Missing Permissions" | Discord refused it. Nothing was posted. | Sends it again. Fix what Discord said first. |
+| Not sent on time. | It was more than an hour late, because Modbot was off, posting was paused or Discord was not set up. It was not sent. | Sends it now. **Post now** does the same. |
+| Discord did not take the post. | Discord gave no clear answer, and the post was not in the channel a minute later. | Looks in the channel once more, and sends it only if it is not there. |
+| Could not check the channel. | Discord gave no clear answer, and Modbot could not read the channel to look. | Looks again first, the same way. |
+
+A post that is in the channel but was not published to followers shows **Not published**, and **Try
+again** publishes it.
+
+### Never posted twice
+
+Modbot writes down that it is sending a post, and exactly what, before it asks Discord. It asks
+Discord with the library's own retries turned off, so nothing is sent twice behind its back.
+
+When Discord gives no clear answer (no answer, a timeout, a Discord error), the post shows
+**Sending…** and Modbot does not send it again. A minute later it reads the channel for a message by
+the bot with the same text and the same picture, sent from a minute before the attempt. If it finds
+one, that message is the post: it shows **Posted** with an **Open** link. If not, it is **Failed**
+with "Discord did not take the post.". If Modbot cannot read the channel, it tries again every 15
+minutes for an hour, then shows "Could not check the channel.". **Modbot never sends a post again by
+itself.** Only **Try again** does, and it looks first.
+
+## What the bot needs in Discord
+
+In the post's channel the bot needs:
+
+- **View Channel** and **Send Messages**, to post;
+- **Attach Files**, for a post with a picture;
+- **Read Message History**, to look for a post Discord gave no clear answer to.
+
+## Settings
+
+**Settings**, **Posts** has two switches:
+
+- **Pause all posting**: while it is on, no post is sent anywhere. Posts wait and show **Paused**; one
+  more than an hour late is not sent and shows "Not sent on time." with **Post now**. It does not
+  stop the calendar's own Discord event, channel card or VRChat calendar entry.
+- **Discord posts**: off, no post goes to Discord; Discord posts wait and show **Off**. It is on
+  to start with, because nothing goes out unless somebody ticks **Discord** on a post.
+
+Each change is written to the audit log with who made it.
+
+Modbot sends at most one post a pass, every 20 seconds or so, and at most 10 posts an hour to
+Discord, so a mistake cannot flood a channel.
+
+## Health
+
+The **Posts** card on **Health** shows:
+
+- **Paused** while all posting is paused;
+- Discord, when posts are waiting on it and it is **Off** or **Not set up**;
+- posts that failed in the last 7 days, each leading to **Failed**;
+- posts Modbot has been looking for in the channel for more than 15 minutes.
+
+When there is nothing to say, the card is not shown.
+
+## The audit log
+
+Everything done to a post is written to the audit log, under the operational log: who wrote,
+changed, cancelled or sent it now, each post Modbot sent with its link and exactly what it said,
+each post that failed with the reason, and each edit and delete on Discord with who did it.
+
+## What leaves your server
+
+A post goes only where it is ticked, and every place starts unticked. For Discord, the bot sends the
+post's title, text and picture to the channel, mentions the role if one was picked, and publishes it
+to the channel's followers if that was ticked. The channel's readers see it, and so do the following
+servers' readers. Nothing about your members goes in a post: no names, no ids, no counts. See
+[Privacy](/privacy#what-leaves-your-server).
