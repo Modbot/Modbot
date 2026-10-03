@@ -9,7 +9,7 @@ Modbot can run a Discord bot for your community's server. Once it is connected i
 - announces your group's open instances in a channel ([Instance announcements](/discord/instance-announcements));
 - lets members link their Discord and VRChat accounts, and gives linked members a role ([Account linking](/discord/account-linking));
 - keeps a copy of the server's messages, members and voice time, for the **Discord members** list and the **Discord** analytics page ([Messages and analytics](/discord/messages-and-analytics));
-- answers four slash commands, and a fifth for members when you switch it on (see [Slash commands](#slash-commands));
+- answers five slash commands, and a sixth for members when you switch it on (see [Slash commands](#slash-commands));
 - lets moderators look people up, write notes, report messages, and kick, ban or answer join requests from right-click menus and buttons under cards ([Acting from Discord](/discord/acting-from-discord)).
 
 The bot is optional. Until you give Modbot a token and a server id, the bot does not start and the
@@ -189,16 +189,27 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 
 | Command | What it does | Who can use it |
 |---|---|---|
-| `/lookup user:` | Looks up a VRChat user, by id or display name, in what Modbot has stored. The reply is their profile as VRChat shows it — their name, their picture, their banner, and the group they represent — with whether they have been seen as 18+ verified, when the profile was last refreshed, ban status, how many bans, kicks and warns, and their latest moderation events. Nothing is fetched from VRChat. If several people match, it lists them with their ids so you can run it again with one. | **See profiles** |
-| `/recent count:` | The latest moderation events, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
+| `/lookup user: discord:` | Looks up one person in what Modbot has stored. Fill in one of the two: `user` takes a VRChat display name or id, and suggests names from Modbot's records as you type; `discord` takes a member picked from Discord's list. If the person [linked their accounts](/discord/account-linking), the reply covers both. It shows their VRChat profile as VRChat shows it — their name, their picture, their banner, and the group they represent — with whether they have been seen as 18+ verified and when the profile was last refreshed; their Discord account; whether they are banned in the group and on Discord (with the reason Discord holds), or timed out on Discord; how many bans, kicks and warns in the group; how many bans, kicks and timeouts on Discord; how many times Modbot's rules flagged them; and their latest moderation events, with the reason where there is one. Notes are included for people with **See the audit log**, and join requests for people with **See join requests**. Somebody known only on Discord gets a reply headed by their Discord name and picture. Nothing is fetched from VRChat or Discord. If several VRChat names match, it lists them with their ids so you can run it again with one. | **See profiles** |
+| `/recent count:` | The latest moderation events, in the group and on Discord, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone who connected Discord to their Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **Members can use /me** is on; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+
+### Who sees the commands in Discord
+
+`/lookup`, `/recent` and `/modbot` are shown only to members who may time others out (Discord's
+**Timeout Members** permission). Everyone else does not see them in the command list. To change
+who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
+members for each command.
+
+Seeing a command does not let anyone use it: Modbot still checks the person's Modbot account and
+permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link` and `/me` only answers people Modbot can match to a Modbot account. Each
-moderator opens their own **Your account** page in Modbot and presses **Connect Discord** under
+Every command except `/link`, `/me` and `/help` only answers people Modbot can match to a Modbot
+account. Each moderator opens their own **Your account** page in Modbot and presses **Connect Discord** under
 **Your Discord account**. Discord asks them to sign in and allow Modbot to see who they are, then
 sends them back, and the card says **Connected as** and their Discord name. Nobody can do this for
 somebody else, and nobody can type an id in: Modbot knows the Discord account is theirs because
@@ -226,6 +237,8 @@ then replaces it. Where two accounts typed the same id, the bot answers neither.
 </Callout>
 
 Every command run, answered or refused, is recorded in the audit log as **Discord command used**.
+The names suggested while you type into `/lookup user:` are not recorded; the `/lookup` you then
+run is. Names are only suggested to people `/lookup` would answer.
 
 ### Right-click menus
 
@@ -251,4 +264,5 @@ Start with the **Discord bot** card on **Health**.
 | **reconnecting** for a long time | Check whether Discord is having problems. After a few minutes Modbot signs in again from scratch by itself. |
 | **connected**, but no slash commands appear in Discord | The bot was invited without the **applications.commands** scope. Invite it again with it. |
 | A problem registering the slash commands | Check that **Server id** is your server's id and that the bot is in that server. |
+| A moderator does not see `/lookup`, `/recent` or `/modbot` | They lack Discord's **Timeout Members** permission. Show them the commands under **Server Settings → Integrations → Modbot** in Discord; see [Who sees the commands in Discord](#who-sees-the-commands-in-discord). |
 | A channel marked **Missing** … or **Removed** | Give the bot the named permissions in that channel, or pick a different channel. |

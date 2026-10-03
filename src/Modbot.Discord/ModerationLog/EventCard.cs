@@ -43,6 +43,12 @@ public static partial class EventCard
     /// </remarks>
     private const int DescriptionLength = 300;
 
+    /// <summary>
+    /// The most of a reason a card shows: a Discord moderator's own words, in a field of their own.
+    /// Discord lets a reason run to 512 characters; most are a few words.
+    /// </summary>
+    private const int ReasonLength = 300;
+
     /// <summary>The most of one field a card shows. Discord's own limit is 1024.</summary>
     private const int FieldLength = 900;
 
@@ -70,9 +76,13 @@ public static partial class EventCard
 
         return e.Type switch
         {
-            FactType.MemberBanned => Titled(e, style, picture, "Banned from the group"),
-            FactType.MemberUnbanned => Titled(e, style, picture, "Unbanned from the group"),
-            FactType.MemberKicked => Titled(e, style, picture, "Kicked from the group"),
+            FactType.MemberBanned => Decided(e, style, picture, "Banned from the group"),
+            FactType.MemberUnbanned => Decided(e, style, picture, "Unbanned from the group"),
+            FactType.MemberKicked => Decided(e, style, picture, "Kicked from the group"),
+
+            FactType.ActionBan or FactType.ActionKick or FactType.ActionUnban
+                or FactType.ActionJoinRequestApproved or FactType.ActionJoinRequestRejected
+                => ModbotAction(e, style, picture),
 
             FactType.GroupInstanceWarn => InAnInstance(e, style, picture, "Warned in an instance"),
             FactType.GroupInstanceKick => InAnInstance(e, style, picture, "Kicked from an instance"),
@@ -99,7 +109,7 @@ public static partial class EventCard
             FactType.GroupProfileChanged => GroupDetails(e, style),
 
             _ when IsPlannedEvent(e.Type) => PlannedEvent(e, style, picture),
-            _ when e.SubjectPlatform == FactPlatform.Discord => DiscordCard(e, style),
+            _ when e.SubjectPlatform == FactPlatform.Discord => DiscordCard(e, style, picture),
             _ when AboutAThing(e) => Thing(e, style),
 
             _ => Plain(e, style, picture),
@@ -166,6 +176,54 @@ public static partial class EventCard
     private static DiscordEmbedContent Titled(
         ModerationEventView e, CardStyle style, CardPicture picture, string title)
         => Build(e, style, picture, title, Quoted(e.Description), []);
+
+    /// <summary>
+    /// A group ban, kick or unban from VRChat's log. When Modbot made it, Modbot's own record of
+    /// the press says who decided it and why, which VRChat's entry never can: it names Modbot's own
+    /// account as the one who did it.
+    /// </summary>
+    private static DiscordEmbedContent Decided(
+        ModerationEventView e, CardStyle style, CardPicture picture, string title)
+    {
+        if (e.Decision is not { } decision)
+            return Titled(e, style, picture, title);
+
+        var fields = new List<DiscordEmbedField>();
+
+        if (decision.ById is { Length: > 0 } byId)
+            fields.Add(new DiscordEmbedField("Decided by", CardLink.Account(decision.ByName, byId, style.PublicAddress), Inline: true));
+
+        fields.AddRange(ReasonFields(decision.Reasons));
+
+        return Build(e, style, picture, title, Quoted(e.Description), fields);
+    }
+
+    /// <summary>
+    /// An action taken from Modbot, as Modbot recorded it: the reasons picked, in a field of their own.
+    /// </summary>
+    /// <remarks>
+    /// The description Modbot writes on these facts is one sentence made of the same things -- the
+    /// action, who, the reasons -- for the audit log's one-line view. On a card, <c>By</c> already
+    /// says who and the title says what, so the sentence is left off rather than said twice.
+    /// </remarks>
+    private static DiscordEmbedContent ModbotAction(ModerationEventView e, CardStyle style, CardPicture picture)
+        => Build(e, style, picture, ModerationEventEmbed.LabelFor(e.Type), null, ReasonFields(e.What.Reasons));
+
+    /// <summary>The reasons picked in Modbot, when there are any.</summary>
+    /// <remarks>
+    /// The reasons only, never the note a moderator wrote beside them. A note is one moderator's own
+    /// words, which the web app shows only to people who may read the audit log; a Discord channel
+    /// has no such gate, and nothing lets an operator choose to send them there.
+    /// </remarks>
+    private static IReadOnlyList<DiscordEmbedField> ReasonFields(IReadOnlyList<string> reasons)
+        => reasons.Count == 0
+            ? []
+            :
+            [
+                new DiscordEmbedField(
+                    reasons.Count == 1 ? "Reason" : "Reasons",
+                    CardText.Fit(CardText.EscapeText(string.Join(", ", reasons.Select(r => r.Trim()))), FieldLength)),
+            ];
 
     /// <summary>
     /// A warn or an instance kick: where it happened, when Modbot knows the world's name.
@@ -454,7 +512,8 @@ public static partial class EventCard
         string? description,
         IReadOnlyList<DiscordEmbedField> extra)
     {
-        var link = CardLink.UrlFor(CardSubject.Person, e.SubjectId, style.PublicAddress);
+        var link = CardLink.UrlFor(
+            e.OnDiscord ? CardSubject.DiscordPerson : CardSubject.Person, e.SubjectId, style.PublicAddress);
 
         return new DiscordEmbedContent(
             CardText.Plain(title, 256),
@@ -520,11 +579,7 @@ public static partial class EventCard
         if (e.ActorId is not null)
         {
             fields.Add(new DiscordEmbedField(
-                "By",
-                e.ActorPlatform == FactPlatform.Discord
-                    ? DiscordPerson(e.ActorName, e.ActorId, style)
-                    : CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress),
-                Inline: true));
+                "By", CardLink.Who(e.ActorPlatform, e.ActorName, e.ActorId, style.PublicAddress), Inline: true));
         }
 
         fields.Add(new DiscordEmbedField(
@@ -669,6 +724,12 @@ public static partial class EventCard
         => string.IsNullOrWhiteSpace(value)
             ? null
             : CardText.Fit(CardText.EscapeText(value.Trim()), ValueLength);
+
+    /// <summary>Somebody's own words in a field of their own, made inert and cut.</summary>
+    private static string? Words(string? text)
+        => string.IsNullOrWhiteSpace(text)
+            ? null
+            : CardText.Fit(CardText.EscapeText(text.Trim()), ReasonLength);
 
     /// <summary>The event's own words as the card's body.</summary>
     private static string? FreeText(string? text)

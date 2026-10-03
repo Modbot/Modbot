@@ -99,6 +99,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.UserCommandExecuted += OnUserCommand;
         _client.MessageCommandExecuted += OnMessageCommand;
         _client.ModalSubmitted += OnFormSubmitted;
+        _client.AutocompleteExecuted += OnSuggestionAsked;
 
         _client.ChannelCreated += OnChannelCreated;
         _client.ChannelUpdated += OnChannelUpdated;
@@ -152,6 +153,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     public event Func<DiscordCommandCall, Task>? CommandReceived;
 
     public event Func<DiscordButtonPress, Task>? ButtonPressed;
+
+    public event Func<DiscordSuggestionAsk, Task>? SuggestionAsked;
 
     public event Func<DiscordMessageSnapshot, Task>? MessageReceived;
 
@@ -1394,6 +1397,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.UserCommandExecuted -= OnUserCommand;
         _client.MessageCommandExecuted -= OnMessageCommand;
         _client.ModalSubmitted -= OnFormSubmitted;
+        _client.AutocompleteExecuted -= OnSuggestionAsked;
         _client.ChannelCreated -= OnChannelCreated;
         _client.ChannelUpdated -= OnChannelUpdated;
         _client.ChannelDestroyed -= OnChannelDestroyed;
@@ -2257,10 +2261,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         await command.DeferAsync(ephemeral: true).ConfigureAwait(false);
 
         var options = command.Data.Options
-            .ToDictionary(
-                o => o.Name,
-                o => Convert.ToString(o.Value, CultureInfo.InvariantCulture) ?? string.Empty,
-                StringComparer.Ordinal);
+            .ToDictionary(o => o.Name, OptionText, StringComparer.Ordinal);
 
         var call = new DiscordCommandCall(
             command.User.Id.ToString(CultureInfo.InvariantCulture),
@@ -2272,6 +2273,50 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         var handler = CommandReceived;
         if (handler is not null)
             await handler(call).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One option's value as the text a <see cref="DiscordCommandCall"/> carries. A member picked
+    /// from Discord's list arrives as the account itself, and is carried by its id: the name it
+    /// shows is the person's to change, the id is not.
+    /// </summary>
+    private static string OptionText(SocketSlashCommandDataOption option) => option.Value switch
+    {
+        IUser user => Text(user.Id),
+        var value => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty,
+    };
+
+    private Task OnSuggestionAsked(SocketAutocompleteInteraction ask)
+    {
+        if (!IsForThisServer(_guildId, ask.GuildId))
+        {
+            // Not even answered: another Modbot on the same bot may own it (see IsForThisServer).
+            _log.Debug("Ignored a request for suggestions that is not this Modbot's to answer");
+            return Task.CompletedTask;
+        }
+
+        _ = Task.Run(() => Guard(DispatchSuggestionAsync(ask), "suggestion"));
+        return Task.CompletedTask;
+    }
+
+    private async Task DispatchSuggestionAsync(SocketAutocompleteInteraction ask)
+    {
+        var handler = SuggestionAsked;
+        if (handler is null)
+            return;
+
+        var call = new DiscordSuggestionAsk(
+            ask.User.Id.ToString(CultureInfo.InvariantCulture),
+            ask.Data.CommandName,
+            ask.Data.Current?.Name ?? string.Empty,
+            Convert.ToString(ask.Data.Current?.Value, CultureInfo.InvariantCulture) ?? string.Empty,
+            (suggestions, _) => ask.RespondAsync(suggestions
+                .Where(s => s.Name.Length is > 0 and <= DiscordSuggestion.Longest
+                            && s.Value.Length is > 0 and <= DiscordSuggestion.Longest)
+                .Take(DiscordSuggestion.Most)
+                .Select(s => new AutocompleteResult(s.Name, s.Value))));
+
+        await handler(call).ConfigureAwait(false);
     }
 
     private Task OnButton(SocketMessageComponent press)
@@ -2534,13 +2579,19 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 
         foreach (var option in command.Options)
         {
+            var type = option.Kind switch
+            {
+                DiscordOptionKind.WholeNumber => ApplicationCommandOptionType.Integer,
+                DiscordOptionKind.Member => ApplicationCommandOptionType.User,
+                _ => ApplicationCommandOptionType.String,
+            };
+
             builder.AddOption(
                 option.Name,
-                option.Kind == DiscordOptionKind.WholeNumber
-                    ? ApplicationCommandOptionType.Integer
-                    : ApplicationCommandOptionType.String,
+                type,
                 option.Description,
                 isRequired: option.Required,
+                isAutocomplete: option.Suggests && type == ApplicationCommandOptionType.String,
                 minValue: option.Min,
                 maxValue: option.Max);
         }

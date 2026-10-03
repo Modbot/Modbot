@@ -1,3 +1,5 @@
+using Modbot.Core.Data.Entities;
+
 namespace Modbot.Discord.Cards;
 
 /// <summary>What a card's link opens, matching the popup kinds the web app's <c>?subject=</c> reads.</summary>
@@ -7,6 +9,9 @@ public enum CardSubject
     World = 1,
     Instance = 2,
     DiscordPerson = 3,
+
+    /// <summary>A Modbot account: the moderator who did something from Modbot.</summary>
+    Account = 4,
 }
 
 /// <summary>
@@ -34,7 +39,7 @@ public enum CardSubject
 /// as a stack of things to open over whatever page is underneath (foundation design §10.2), and
 /// since worlds and instances joined people in that stack the value carries a kind:
 /// <c>?subject=usr_…</c>, <c>?subject=world:wrld_…</c>, <c>?subject=instance:…</c>,
-/// <c>?subject=discord-person:…</c>. A person is written bare, which is what the format has always
+/// <c>?subject=discord-person:…</c>, <c>?subject=account:…</c>. A person is written bare, which is what the format has always
 /// said and what keeps links posted before this change opening the same person.
 /// </para>
 /// <para>
@@ -182,11 +187,41 @@ public static class CardLink
         return new string(id.Where(c => c is not ('<' or '>' or '`' or '@' or '#' or '&') && !char.IsWhiteSpace(c)).ToArray());
     }
 
+    /// <summary>
+    /// A Modbot account: the name, linked to the person behind it, whose view ties the account to
+    /// their VRChat and Discord accounts.
+    /// </summary>
+    /// <remarks>
+    /// Modbot's own actions name the account by its id, which is always one of Modbot's own account
+    /// ids. An id that is not one -- an actor carried in from another bot by an import -- is shown
+    /// by name alone rather than linked to an account that is not there.
+    /// </remarks>
+    public static string Account(string? name, string id, string? publicAddress)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        return For(CardSubject.Account, name, id, Guid.TryParse(id, out _) ? publicAddress : null);
+    }
+
+    /// <summary>
+    /// Anybody a fact names, linked to their own kind of view: a VRChat person, a Discord account
+    /// or a Modbot account. A fact that does not say which is a VRChat person, which is what every
+    /// fact from before the platforms were recorded is about.
+    /// </summary>
+    public static string Who(FactPlatform? platform, string? name, string id, string? publicAddress)
+        => platform switch
+        {
+            FactPlatform.Discord => string.IsNullOrWhiteSpace(name) ? DiscordMention(id) : DiscordPerson(name, id, publicAddress),
+            FactPlatform.Modbot => Account(name, id, publicAddress),
+            _ => Person(name, id, publicAddress),
+        };
+
     private static string Prefix(CardSubject kind) => kind switch
     {
         CardSubject.World => "world",
         CardSubject.Instance => "instance",
         CardSubject.DiscordPerson => "discord-person",
+        CardSubject.Account => "account",
         _ => "person",
     };
 }

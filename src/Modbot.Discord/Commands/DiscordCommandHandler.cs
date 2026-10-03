@@ -82,6 +82,9 @@ public sealed class DiscordCommandHandler
         if (call.CommandName == DiscordCommands.Me)
             return await MeAsync(call, ct).ConfigureAwait(false);
 
+        if (call.CommandName == DiscordCommands.Help)
+            return await HelpAsync(call, ct).ConfigureAwait(false);
+
         if (DiscordCommands.IsForEveryone(call.CommandName))
         {
             var linkReply = await LinkAsync(ct).ConfigureAwait(false);
@@ -89,11 +92,12 @@ public sealed class DiscordCommandHandler
             return linkReply;
         }
 
-        var user = await StaffDiscord.AccountForAsync(_db, call.DiscordUserId, _clock.UtcNow, ct).ConfigureAwait(false);
+        var user = await AccountAsync(call.DiscordUserId, ct).ConfigureAwait(false);
 
         DiscordReply reply;
         string outcome;
         string? target = null;
+        string? discordTarget = null;
 
         if (user is null)
         {
@@ -119,16 +123,88 @@ public sealed class DiscordCommandHandler
         else
         {
             outcome = "answered";
-            (reply, target) = call.CommandName switch
+            (reply, target, discordTarget) = call.CommandName switch
             {
-                DiscordCommands.Lookup => await LookupAsync(call, ct).ConfigureAwait(false),
-                DiscordCommands.Recent => (await RecentAsync(call, ct).ConfigureAwait(false), null),
-                _ => (await StatusAsync(ct).ConfigureAwait(false), null),
+                DiscordCommands.Lookup => await LookupAsync(call, LookupSight.Of(user.EffectivePermissions), ct).ConfigureAwait(false),
+                DiscordCommands.Recent => (await RecentAsync(call, ct).ConfigureAwait(false), null, null),
+                _ => (await StatusAsync(ct).ConfigureAwait(false), null, null),
             };
         }
 
-        await RecordAsync(call, user, outcome, target, ct).ConfigureAwait(false);
+        await RecordAsync(call, user, outcome, target, ct, discordTarget).ConfigureAwait(false);
         return reply;
+    }
+
+    /// <summary>
+    /// The Modbot account that proved the caller's Discord account is theirs
+    /// (<see cref="StaffDiscord"/>), with its roles for the permission check, or null. The one
+    /// rule for every command, <c>/help</c> and the suggestions alike.
+    /// </summary>
+    private Task<ModbotUser?> AccountAsync(string discordUserId, CancellationToken ct)
+        => StaffDiscord.AccountForAsync(_db, discordUserId, _clock.UtcNow, ct);
+
+    /// <summary>
+    /// <c>/help</c>: the commands the caller can use, each with what it does, and no more.
+    /// </summary>
+    /// <remarks>
+    /// Any member may ask, and an unlinked one is told about <c>/link</c>, <c>/me</c> and
+    /// <c>/help</c> only: the staff commands would refuse them, and listing them would say the
+    /// server has staff tools to try. A linked moderator is told about the staff commands their
+    /// Modbot permissions let them run, so the list is the same answer each command would give.
+    /// </remarks>
+    private async Task<DiscordReply> HelpAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        var meOn = _me is not null && await _me.IsOnAsync(ct).ConfigureAwait(false);
+        var user = await AccountAsync(call.DiscordUserId, ct).ConfigureAwait(false);
+        var held = user is { IsDisabled: false } ? user.EffectivePermissions : (ModbotPermissions?)null;
+
+        var lines = DiscordCommands.For(meOn)
+            .Where(c => DiscordCommands.IsForEveryone(c.Name)
+                        || (held is { } permissions
+                            && DiscordCommands.Requires(c.Name) is { } required
+                            && DiscordCommands.Allows(permissions, required)))
+            .Select(HelpLine);
+
+        await RecordAsync(call, user, "answered", null, ct).ConfigureAwait(false);
+        return DiscordReply.Say(string.Join('\n', lines));
+    }
+
+    /// <summary><c>/lookup user: discord:</c> — Look up a person in Modbot's records.</summary>
+    private static string HelpLine(DiscordCommandDefinition command)
+    {
+        var usage = new StringBuilder("`/").Append(command.Name);
+
+        foreach (var option in command.Options)
+            usage.Append(' ').Append(option.Name).Append(':');
+
+        return usage.Append("` — ").Append(command.Description).ToString();
+    }
+
+    /// <summary>
+    /// Suggestions under <c>/lookup user:</c> while a name is typed. Nothing for anybody the
+    /// command itself would refuse, so the list cannot be used to read the records around it.
+    /// </summary>
+    /// <remarks>
+    /// Not recorded as a <c>modbot.discord.command</c> fact: Discord asks on every key press, and
+    /// a list of names is not a look at anybody. The <c>/lookup</c> that follows is recorded.
+    /// </remarks>
+    public async Task<IReadOnlyList<DiscordSuggestion>> SuggestAsync(DiscordSuggestionAsk ask, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(ask);
+
+        if (ask.CommandName != DiscordCommands.Lookup || ask.OptionName != DiscordCommands.LookupUserOption)
+            return [];
+
+        var user = await AccountAsync(ask.DiscordUserId, ct).ConfigureAwait(false);
+
+        if (user is null
+            || user.IsDisabled
+            || !DiscordCommands.Allows(user.EffectivePermissions, ModbotPermissions.ViewProfile))
+        {
+            return [];
+        }
+
+        return await _lookup.SuggestAsync(ask.Typed, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -188,51 +264,87 @@ public sealed class DiscordCommandHandler
         };
     }
 
-    private async Task<(DiscordReply Reply, string? Target)> LookupAsync(DiscordCommandCall call, CancellationToken ct)
+    /// <summary>
+    /// <c>/lookup</c>: one person, named by a VRChat name or id typed into <c>user</c>, or by a
+    /// Discord member picked in <c>discord</c>. Either way the answer is the whole person: the
+    /// other account through the link, and the history of both.
+    /// </summary>
+    /// <returns>
+    /// The reply, and the accounts it was about for the command fact: the VRChat id under
+    /// <c>target</c> as before, and the Discord id beside it.
+    /// </returns>
+    private async Task<(DiscordReply Reply, string? Target, string? DiscordTarget)> LookupAsync(
+        DiscordCommandCall call, LookupSight sight, CancellationToken ct)
     {
-        var query = call.Option(DiscordCommands.LookupUserOption) ?? string.Empty;
-        var matches = await _lookup.FindAsync(query, ct).ConfigureAwait(false);
+        var query = call.Option(DiscordCommands.LookupUserOption)?.Trim() ?? string.Empty;
+        var discordId = call.Option(DiscordCommands.LookupDiscordOption)?.Trim() ?? string.Empty;
         var (style, showPictures) = await StyleAsync(ct).ConfigureAwait(false);
 
-        if (matches.Count == 0)
-        {
-            return (DiscordReply.Say(
-                $"Nobody in Modbot's records matches \"{ModerationEventEmbed.Fit(ModerationEventEmbed.Escape(query), 80)}\". "
-                + "Modbot only knows people it has seen in the group's history."), null);
-        }
+        if (query.Length > 0 && discordId.Length > 0)
+            return (DiscordReply.Say("Pick a VRChat name or a Discord member, not both."), null, null);
 
-        if (matches.Count > 1)
-        {
-            var sb = new StringBuilder();
-            sb.Append(CultureInfo.InvariantCulture, $"Several people match \"{ModerationEventEmbed.Fit(ModerationEventEmbed.Escape(query), 80)}\". Run the command again with the id:");
+        if (query.Length == 0 && discordId.Length == 0)
+            return (DiscordReply.Say("Pick a VRChat name or a Discord member."), null, null);
 
-            // The one list of people that still carries ids: the moderator is being asked to run
-            // the command again with one, so here the id is the answer rather than decoration.
-            foreach (var match in matches)
+        string? vrchatId = null;
+
+        if (query.Length > 0)
+        {
+            var matches = await _lookup.FindAsync(query, ct).ConfigureAwait(false);
+
+            if (matches.Count == 0)
             {
-                sb.Append('\n').Append("• ")
-                    .Append(CardLink.Person(match.DisplayName, match.UserId, style.PublicAddress))
-                    .Append(" — `")
-                    .Append(match.UserId.Replace("`", string.Empty, StringComparison.Ordinal))
-                    .Append('`');
+                return (DiscordReply.Say(
+                    $"Nobody in Modbot's records matches \"{ModerationEventEmbed.Fit(ModerationEventEmbed.Escape(query), 80)}\". "
+                    + "Modbot only knows people it has seen in the group's history."), null, null);
             }
 
-            return (DiscordReply.Say(sb.ToString()), null);
+            if (matches.Count > 1)
+            {
+                var sb = new StringBuilder();
+                sb.Append(CultureInfo.InvariantCulture, $"Several people match \"{ModerationEventEmbed.Fit(ModerationEventEmbed.Escape(query), 80)}\". Run the command again with the id:");
+
+                // The one list of people that still carries ids: the moderator is being asked to run
+                // the command again with one, so here the id is the answer rather than decoration.
+                foreach (var match in matches)
+                {
+                    sb.Append('\n').Append("• ")
+                        .Append(CardLink.Person(match.DisplayName, match.UserId, style.PublicAddress))
+                        .Append(" — `")
+                        .Append(match.UserId.Replace("`", string.Empty, StringComparison.Ordinal))
+                        .Append('`');
+                }
+
+                return (DiscordReply.Say(sb.ToString()), null, null);
+            }
+
+            vrchatId = matches[0].UserId;
         }
 
-        var person = matches[0];
-        var summary = await _lookup.SummarizeAsync(person.UserId, ct).ConfigureAwait(false);
+        var summary = await _lookup
+            .SummarizeAsync(vrchatId, discordId.Length > 0 ? discordId : null, sight, ct)
+            .ConfigureAwait(false);
+
+        if (summary is null)
+            return (DiscordReply.Say("Modbot has no records of that Discord member."), null, null);
+
         var profile = summary.Profile;
 
         // Three pictures on one card, which is what the slots are for: the face beside the name,
-        // the banner across the bottom, and the group they represent above the lot.
+        // the banner across the bottom, and the group they represent above the lot. Somebody known
+        // only on Discord has Discord's own picture, which Discord loads itself.
         var pictures = _pictures.ForMessage(showPictures);
-        var picture = new CardPicture(
-            Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
-            Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
-            AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
+        var picture = summary.UserId is null
+            ? new CardPicture(Thumbnail: summary.Discord?.AvatarUrl)
+            : new CardPicture(
+                Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
+                Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
+                AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
 
-        return (DiscordReply.Card(ProfileCard(summary, style, picture), pictures.Files), person.UserId);
+        return (
+            DiscordReply.Card(ProfileCard(summary, style, picture), pictures.Files),
+            summary.UserId,
+            summary.Discord?.UserId);
     }
 
     public static DiscordEmbedContent ProfileCard(PersonSummary summary, string? publicAddress)
@@ -250,6 +362,13 @@ public sealed class DiscordCommandHandler
     /// which is the only place a card is about a group today.
     /// </para>
     /// <para>
+    /// <strong>Both accounts, one card.</strong> The Discord account they linked sits in a field of
+    /// its own, and the history under it is both accounts' together: Discord bans, kicks and
+    /// timeouts beside the group's, the flags Modbot's rules raised, and -- for a caller allowed to
+    /// read them -- notes and join requests. Somebody known only on Discord gets the same card,
+    /// headed by their Discord name and picture.
+    /// </para>
+    /// <para>
     /// <strong>The id is not on the card.</strong> The title links to them in Modbot, which is
     /// where a moderator gets the id with a control that copies it; printing it here put an opaque
     /// forty characters above every reply for the one reader in a hundred who wanted it.
@@ -261,47 +380,91 @@ public sealed class DiscordCommandHandler
         ArgumentNullException.ThrowIfNull(style);
 
         var profile = summary.Profile;
-        var title = string.IsNullOrWhiteSpace(profile?.DisplayName)
-            ? summary.UserId
-            : profile!.DisplayName!;
+        var discord = summary.Discord;
+        var onVRChat = summary.UserId is not null;
 
-        var description = profile is null
+        var title = !string.IsNullOrWhiteSpace(profile?.DisplayName) ? profile!.DisplayName!
+            : summary.UserId
+              ?? (string.IsNullOrWhiteSpace(discord?.Name) ? discord?.UserId : discord!.Name)
+              ?? string.Empty;
+
+        var description = onVRChat && profile is null
             ? "Modbot has seen this id in the group's history but has not read the profile yet."
             : null;
 
-        var eighteenPlus = profile is { Is18PlusVerified: true }
-            ? "Yes"
-              + (profile.Is18PlusVerifiedAt is { } since ? $", since {DiscordTime.Day(since)}" : string.Empty)
-              + (profile.Is18PlusVerifiedSource == AgeVerificationSource.Manual ? " (marked by a moderator)" : string.Empty)
-            : "Not seen as verified";
+        var fields = new List<DiscordEmbedField>();
 
-        var refreshed = profile?.LastRefreshedAt is { } at
-            ? DiscordTime.Relative(at)
-            : "Never";
+        if (onVRChat)
+        {
+            var eighteenPlus = profile is { Is18PlusVerified: true }
+                ? "Yes"
+                  + (profile.Is18PlusVerifiedAt is { } since ? $", since {DiscordTime.Day(since)}" : string.Empty)
+                  + (profile.Is18PlusVerifiedSource == AgeVerificationSource.Manual ? " (marked by a moderator)" : string.Empty)
+                : "Not seen as verified";
 
-        var banStatus = summary.IsBanned
-            ? $"Banned {DiscordTime.Relative(summary.LastBannedAt!.Value)}"
-            : summary.LastUnbannedAt is { } unbanned
-                ? $"Not banned (unbanned {DiscordTime.Relative(unbanned)})"
-                : "Not banned";
+            var refreshed = profile?.LastRefreshedAt is { } at
+                ? DiscordTime.Relative(at)
+                : "Never";
+
+            fields.Add(new DiscordEmbedField("18+ verified", eighteenPlus, Inline: true));
+            fields.Add(new DiscordEmbedField("Profile last refreshed", refreshed, Inline: true));
+            fields.Add(new DiscordEmbedField(
+                "Discord",
+                discord is null
+                    ? "Not linked"
+                    : CardLink.DiscordPerson(discord.Name, discord.UserId, style.PublicAddress)
+                      + (discord.InServer ? string.Empty : " (not in the server)"),
+                Inline: true));
+        }
+        else
+        {
+            fields.Add(new DiscordEmbedField("VRChat", "Not linked", Inline: true));
+
+            if (discord is { InServer: false })
+                fields.Add(new DiscordEmbedField("Discord", "Not in the server", Inline: true));
+        }
+
+        fields.Add(new DiscordEmbedField("Ban status", BanStatus(summary)));
+
+        if (onVRChat)
+        {
+            fields.Add(new DiscordEmbedField(
+                "Bans · kicks · warns", $"{summary.Bans} · {summary.Kicks} · {summary.Warns}", Inline: true));
+        }
+
+        if (discord is not null)
+        {
+            fields.Add(new DiscordEmbedField(
+                "Discord bans · kicks · timeouts",
+                $"{summary.DiscordBans} · {summary.DiscordKicks} · {summary.Timeouts}",
+                Inline: true));
+        }
+
+        fields.Add(new DiscordEmbedField("Flags", Number(summary.Flags), Inline: true));
+
+        if (summary.Notes is { } notes)
+            fields.Add(new DiscordEmbedField("Notes", Number(notes), Inline: true));
+
+        if (summary.JoinRequests is { } requests)
+            fields.Add(new DiscordEmbedField("Join requests", Number(requests), Inline: true));
 
         var recent = summary.Recent.Count == 0
             ? "None recorded"
-            : CardText.Fit(string.Join('\n', summary.Recent.Select(e => Line(e, style))), 1024);
+            : WholeLines(summary.Recent.Select(e => Line(e, style)), 1024);
+
+        fields.Add(new DiscordEmbedField("Recent moderation events", recent));
+
+        var banned = summary.IsBanned || discord is { Banned: true };
 
         return new DiscordEmbedContent(
             CardText.Plain(title, 256),
             description,
-            summary.IsBanned ? CardColour.Red : Violet,
-            [
-                new DiscordEmbedField("18+ verified", eighteenPlus, Inline: true),
-                new DiscordEmbedField("Profile last refreshed", refreshed, Inline: true),
-                new DiscordEmbedField("Ban status", banStatus),
-                new DiscordEmbedField("Bans · kicks · warns", $"{summary.Bans} · {summary.Kicks} · {summary.Warns}", Inline: true),
-                new DiscordEmbedField("Recent moderation events", recent),
-            ],
+            banned ? CardColour.Red : Violet,
+            fields,
             null,
-            CardLink.UrlFor(CardSubject.Person, summary.UserId, style.PublicAddress),
+            onVRChat
+                ? CardLink.UrlFor(CardSubject.Person, summary.UserId!, style.PublicAddress)
+                : CardLink.UrlFor(CardSubject.DiscordPerson, discord!.UserId, style.PublicAddress),
             style.GroupFooter,
             ThumbnailUrl: picture.Thumbnail,
             ImageUrl: picture.Image,
@@ -311,6 +474,51 @@ public sealed class DiscordCommandHandler
                 : null,
             AuthorIconUrl: picture.AuthorIcon);
     }
+
+    /// <summary>
+    /// Whether they are banned, one line per account: the group's as the Bans page reads it, then
+    /// Discord's with the reason Discord holds, or a timeout still running.
+    /// </summary>
+    private static string BanStatus(PersonSummary summary)
+    {
+        var lines = new List<string>(2);
+
+        if (summary.UserId is not null)
+        {
+            lines.Add(summary.IsBanned
+                ? $"Banned {DiscordTime.Relative(summary.LastBannedAt!.Value)}"
+                : summary.LastUnbannedAt is { } unbanned
+                    ? $"Not banned (unbanned {DiscordTime.Relative(unbanned)})"
+                    : "Not banned");
+        }
+
+        if (summary.Discord is { } discord)
+        {
+            if (discord.Banned)
+            {
+                var line = discord.BannedAt is { } at
+                    ? $"Banned on Discord {DiscordTime.Relative(at)}"
+                    : "Banned on Discord";
+
+                if (!string.IsNullOrWhiteSpace(discord.BanReason))
+                    line += ": " + CardText.Fit(CardText.EscapeText(discord.BanReason.Trim()), 300);
+
+                lines.Add(line);
+            }
+            else if (discord.TimedOutUntil is { } until)
+            {
+                lines.Add($"Timed out on Discord until {DiscordTime.Absolute(until)} ({DiscordTime.Relative(until)})");
+            }
+            else
+            {
+                lines.Add("Not banned on Discord");
+            }
+        }
+
+        return CardText.Fit(string.Join('\n', lines), 1024);
+    }
+
+    private static string Number(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
     private async Task<DiscordReply> RecentAsync(DiscordCommandCall call, CancellationToken ct)
     {
@@ -324,7 +532,7 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say("No moderation events are recorded yet.");
 
         var (style, _) = await StyleAsync(ct).ConfigureAwait(false);
-        var description = CardText.Fit(string.Join('\n', events.Select(e => Line(e, style))), 4096);
+        var description = WholeLines(events.Select(e => Line(e, style)), 4096);
 
         return DiscordReply.Card(new DiscordEmbedContent(
             events.Count == 1 ? "The latest moderation event" : $"The latest {events.Count} moderation events",
@@ -368,18 +576,73 @@ public sealed class DiscordCommandHandler
     /// One event as a line in a list: the time, what happened, and who -- each name a link.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The same rule as a card. A list of twenty of these used to carry forty ids, which made the
     /// reply four times as tall for nothing a moderator was going to read.
+    /// </para>
+    /// <para>
+    /// A Discord account is linked to its Discord view and a Modbot account to the person behind
+    /// it, the same as on a card. The words that say why -- the reason a Discord moderator typed,
+    /// a flag's reason, a note's own words -- follow, cut short, because the line is the only
+    /// place in a list they can go.
+    /// </para>
     /// </remarks>
     private static string Line(ModerationEventView e, CardStyle style)
     {
         var line = $"{DiscordTime.Absolute(e.OccurredAt)} **{ModerationEventEmbed.LabelFor(e.Type)}** — "
-            + CardLink.Person(e.SubjectName, e.SubjectId, style.PublicAddress);
+            + CardLink.Who(e.SubjectPlatform, e.SubjectName, e.SubjectId, style.PublicAddress);
 
         if (e.ActorId is not null)
-            line += " by " + CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress);
+            line += " by " + CardLink.Who(e.ActorPlatform, e.ActorName, e.ActorId, style.PublicAddress);
+
+        var why = e.Type == FactType.NoteAdded ? e.What.Text : e.What.Own.Reason;
+
+        if (!string.IsNullOrWhiteSpace(why))
+            line += ": “" + CardText.Fit(CardText.EscapeText(why.Trim()), LineWords) + "”";
 
         return line;
+    }
+
+    /// <summary>The most of somebody's words one line in a list shows.</summary>
+    private const int LineWords = 80;
+
+    /// <summary>
+    /// As many whole lines as fit, then an ellipsis line when some were left off.
+    /// </summary>
+    /// <remarks>
+    /// Every line carries links, and a list cut at a character count can stop inside one, which
+    /// puts half an address on screen. Lines are kept or left whole instead. A first line too long
+    /// for the space on its own -- none Modbot writes comes close -- is cut as before.
+    /// </remarks>
+    public static string WholeLines(IEnumerable<string> lines, int max)
+    {
+        var all = lines.ToList();
+        var text = new StringBuilder();
+        const string More = "\n…";
+
+        for (var i = 0; i < all.Count; i++)
+        {
+            var line = all[i];
+            var needed = (text.Length == 0 ? 0 : 1) + line.Length;
+
+            // Room is kept for the ellipsis line only while there are lines after this one.
+            var room = i == all.Count - 1 ? max : max - More.Length;
+
+            if (text.Length + needed > room)
+            {
+                if (text.Length == 0)
+                    return CardText.Fit(line, max);
+
+                return text.Append(More).ToString();
+            }
+
+            if (text.Length > 0)
+                text.Append('\n');
+
+            text.Append(line);
+        }
+
+        return text.ToString();
     }
 
     /// <summary>
@@ -436,7 +699,10 @@ public sealed class DiscordCommandHandler
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-    private async Task RecordAsync(DiscordCommandCall call, ModbotUser? user, string outcome, string? target, CancellationToken ct)
+    /// <param name="target">The VRChat account a command was about.</param>
+    /// <param name="discordTarget">The Discord account a command was about.</param>
+    private async Task RecordAsync(
+        DiscordCommandCall call, ModbotUser? user, string outcome, string? target, CancellationToken ct, string? discordTarget = null)
     {
         var data = new JsonObject
         {
@@ -446,6 +712,9 @@ public sealed class DiscordCommandHandler
 
         if (target is not null)
             data["target"] = target;
+
+        if (discordTarget is not null)
+            data["targetDiscord"] = discordTarget;
 
         await _facts.WriteAsync(new FactRecord
             {

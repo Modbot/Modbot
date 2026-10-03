@@ -8,12 +8,23 @@ namespace Modbot.Discord.Commands;
 /// each needs.
 /// </summary>
 /// <remarks>
-/// Every command but <see cref="Link"/> and <see cref="Me"/> needs a Modbot account linked to the
-/// caller's Discord user id. The permission on top of that is the same one the equivalent web page
-/// asks for, so the bot never shows anybody more than the web app would. <see cref="Link"/> is for
-/// every member: it answers with the link page's address and nothing else (Discord account linking
-/// design §2). <see cref="Me"/> is for every member too, and only ever about the member who ran it;
-/// it is registered only while the operator has switched it on (Discord /me design).
+/// <para>
+/// Every command but <see cref="Link"/>, <see cref="Me"/> and <see cref="Help"/> needs a Modbot
+/// account linked to the caller's Discord user id. The permission on top of that is the same one the
+/// equivalent web page asks for, so the bot never shows anybody more than the web app would.
+/// <see cref="Link"/> is for every member: it answers with the link page's address and nothing else
+/// (Discord account linking design §2). <see cref="Me"/> is for every member too, and only ever about
+/// the member who ran it; it is registered only while the operator has switched it on (Discord /me
+/// design). <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
+/// </para>
+/// <para>
+/// <strong>The staff commands are hidden from members.</strong> Before this, every member saw
+/// <c>/lookup</c>, <c>/recent</c> and <c>/modbot</c> in the command list and was refused when they
+/// tried one. They are now registered as <see cref="DiscordCommandDefinition.StaffOnly"/>, which
+/// Discord shows only to members who may time others out. That only hides them: the Modbot
+/// account and permission are checked on every run as before, so an owner who shows them to
+/// everybody under Server Settings → Integrations has given nobody anything.
+/// </para>
 /// </remarks>
 public static class DiscordCommands
 {
@@ -22,8 +33,13 @@ public static class DiscordCommands
     public const string Modbot = "modbot";
     public const string Link = "link";
     public const string Me = "me";
+    public const string Help = "help";
 
+    /// <summary>The VRChat side of <c>/lookup</c>: a name or an id, typed, with suggestions.</summary>
     public const string LookupUserOption = "user";
+
+    /// <summary>The Discord side of <c>/lookup</c>: a member, picked from Discord's own list.</summary>
+    public const string LookupDiscordOption = "discord";
     public const string RecentCountOption = "count";
 
     public const int RecentDefault = 10;
@@ -33,16 +49,22 @@ public static class DiscordCommands
     [
         new(
             Lookup,
-            "Look up a VRChat user in Modbot's records",
-            [new DiscordCommandOption(LookupUserOption, "VRChat user id or display name", DiscordOptionKind.Text, Required: true)]),
+            "Look up a person in Modbot's records",
+            [
+                new DiscordCommandOption(LookupUserOption, "VRChat user id or display name", DiscordOptionKind.Text, Required: false, Suggests: true),
+                new DiscordCommandOption(LookupDiscordOption, "Discord member", DiscordOptionKind.Member, Required: false),
+            ],
+            StaffOnly: true),
         new(
             Recent,
-            "The latest moderation events in the group",
-            [new DiscordCommandOption(RecentCountOption, $"How many, 1 to {RecentMax} (default {RecentDefault})", DiscordOptionKind.WholeNumber, Required: false, Min: 1, Max: RecentMax)]),
+            "The latest moderation events",
+            [new DiscordCommandOption(RecentCountOption, $"How many, 1 to {RecentMax} (default {RecentDefault})", DiscordOptionKind.WholeNumber, Required: false, Min: 1, Max: RecentMax)],
+            StaffOnly: true),
         new(
             Modbot,
             "Whether the bot is working, and where the Modbot web app is",
-            []),
+            [],
+            StaffOnly: true),
         new(
             Link,
             "Link your VRChat account",
@@ -50,6 +72,10 @@ public static class DiscordCommands
         new(
             Me,
             "What Modbot holds about you",
+            []),
+        new(
+            Help,
+            "What the bot's commands do",
             []),
 
         // The right-click menus staff act from (acting from Discord design §2). Registered beside
@@ -66,7 +92,7 @@ public static class DiscordCommands
         => meCommand ? All : [.. All.Where(c => c.Name != Me)];
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

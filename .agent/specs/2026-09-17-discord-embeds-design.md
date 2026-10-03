@@ -333,6 +333,24 @@ Recent moderation events: <t:…> **Banned** — [jessie](…) by [E-Ray](…)
 Red when they are banned, violet otherwise. The id line under the title is gone (§2.1). Somebody
 Modbot has never read a profile for is titled by their id and says so in one sentence.
 
+**2026-10-01: the whole person.** `/lookup` takes `user:` (a VRChat name or id, with names
+suggested as it is typed) or `discord:` (a member picked from Discord's own list), and answers for
+both accounts when the member linked them — only through the proved link, never a name that looks
+the same. The card gains a **Discord** field (the linked account, or "Not linked"), Discord's side
+of **Ban status** (banned with the reason Discord holds, or timed out until when), **Discord bans ·
+kicks · timeouts**, **Flags**, and — only for a caller with the permission the web page asks for —
+**Notes** (See the audit log) and **Join requests** (See join requests). The recent list takes in
+both accounts' history and puts the reason, a flag's reason or a note's words at the end of each
+line. Somebody known only on Discord gets the same card headed by their Discord name and picture,
+with **VRChat: Not linked**.
+
+The staff commands (`/lookup`, `/recent`, `/modbot`) are registered with Discord's default member
+permission set to Timeout Members, so ordinary members no longer see commands that only refuse
+them; the owner changes who sees them under Server Settings → Integrations, and Modbot's own check
+of the caller's account and permission is unchanged. `/help` lists, to anyone, the commands that
+caller can use. Suggestions are given only to a caller `/lookup` would answer, and are not recorded
+as command facts: Discord asks on every key press.
+
 ### 4.7 `/recent` and the several-people-match list
 
 Every name a link. The match list keeps its ids, for the reason in §2.1.

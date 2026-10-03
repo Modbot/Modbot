@@ -160,7 +160,7 @@ public static partial class EventCard
             [.. Field("Date", Time(e.What.Own.OccurrenceStartsAt)), .. (sent ? [] : Why(e.What.Own.Problem, null))];
 
         return e.SubjectPlatform == FactPlatform.Discord
-            ? DiscordPersonCard(e, style, title, extra)
+            ? DiscordPersonCard(e, style, CardPicture.None, title, extra)
             : Build(e, style, picture, title, null, extra);
     }
 

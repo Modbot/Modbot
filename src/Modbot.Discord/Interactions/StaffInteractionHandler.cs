@@ -161,10 +161,14 @@ public sealed class StaffInteractionHandler
         DiscordReply reply;
         var vrchatId = await _db.LinkedVRChatUserIdAsync(target.Id, ct).ConfigureAwait(false);
 
-        if (vrchatId is { Length: > 0 })
+        // Linked: the person is their VRChat profile, as /lookup shows it, with what the caller's
+        // permissions let /lookup show.
+        var summary = vrchatId is { Length: > 0 }
+            ? await _lookup.SummarizeAsync(vrchatId, null, LookupSight.Of(user.EffectivePermissions), ct).ConfigureAwait(false)
+            : null;
+
+        if (vrchatId is { Length: > 0 } && summary is not null)
         {
-            // Linked: the person is their VRChat profile, as /lookup shows it.
-            var summary = await _lookup.SummarizeAsync(vrchatId, ct).ConfigureAwait(false);
             var profile = summary.Profile;
 
             var pictures = _pictures.ForMessage(showPictures);

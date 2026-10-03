@@ -93,7 +93,10 @@ public static partial class EventCard
     // ── Discord ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>A Discord event, by kind: a person, a channel, a role or the server.</summary>
-    private static DiscordEmbedContent DiscordCard(ModerationEventView e, CardStyle style)
+    /// <param name="picture">
+    /// The member's own picture beside their name: Discord's own address, which Discord loads itself.
+    /// </param>
+    private static DiscordEmbedContent DiscordCard(ModerationEventView e, CardStyle style, CardPicture picture)
     {
         var own = e.What.Own;
         var label = ModerationEventEmbed.LabelFor(e.Type);
@@ -102,7 +105,7 @@ public static partial class EventCard
         {
             case FactType.DiscordVoiceJoined:
             case FactType.DiscordVoiceLeft:
-                return DiscordPersonCard(e, style, label, Field("Channel", Channel(own.ChannelId, own.ChannelName)));
+                return DiscordPersonCard(e, style, picture, label, Field("Channel", Channel(own.ChannelId, own.ChannelName)));
 
             case FactType.DiscordVoiceMoved:
             {
@@ -117,24 +120,31 @@ public static partial class EventCard
                     _ => null,
                 };
 
-                return DiscordPersonCard(e, style, label, Field("Channel", moved));
+                return DiscordPersonCard(e, style, picture, label, Field("Channel", moved));
             }
 
             // The fact kept the giveaway's name when it was written; its id alone says nothing here.
             case FactType.GiveawayEntered:
             case FactType.GiveawayWithdrawn:
                 return DiscordPersonCard(
-                    e, style, label,
+                    e, style, picture, label,
                     Field(
                         "Giveaway",
                         string.IsNullOrWhiteSpace(own.Name) ? null : CardText.Fit(CardText.EscapeText(own.Name.Trim()), ValueLength)));
 
+            // The reason the Discord moderator typed, which the recorder keeps from Discord's audit log.
+            case FactType.DiscordMemberBanned:
+            case FactType.DiscordMemberUnbanned:
+            case FactType.DiscordMemberKicked:
+            case FactType.DiscordMemberTimeoutRemoved:
+                return DiscordPersonCard(e, style, picture, label, DiscordReason(e));
+
             case FactType.DiscordMemberTimedOut:
-                return DiscordPersonCard(e, style, label, Field("Until", Time(own.Until)));
+                return DiscordPersonCard(e, style, picture, label, [.. Field("Until", Time(own.Until)), .. DiscordReason(e)]);
 
             case FactType.DiscordMemberNicknameChanged:
                 return DiscordPersonCard(
-                    e, style, label,
+                    e, style, picture, label,
                     Field("Nickname", $"{Quote(own.Old, ValueLength)} → {Quote(own.New, ValueLength)}"));
 
             case FactType.DiscordRoleGranted:
@@ -146,19 +156,19 @@ public static partial class EventCard
                 {
                     var role = e.What.RoleName.Trim();
                     return DiscordPersonCard(
-                        e, style,
+                        e, style, picture,
                         granted ? $"Given the {role} role on Discord" : $"Lost the {role} role on Discord",
                         []);
                 }
 
                 return DiscordPersonCard(
-                    e, style, label,
+                    e, style, picture, label,
                     Field("Role", string.IsNullOrWhiteSpace(e.What.RoleId) ? null : CardLink.RoleMention(e.What.RoleId)));
             }
 
             case FactType.DiscordMessagesRemoved:
                 return DiscordPersonCard(
-                    e, style, label,
+                    e, style, picture, label,
                     [.. Field("Channel", Channel(own.ChannelId, null)), .. Field("Messages", Word(own.Count))]);
 
             // The audit log names the channel as the subject of a bulk removal, not a person.
@@ -190,7 +200,7 @@ public static partial class EventCard
                 return AboutTheGroup(e, style, label, null, Field("Members", Word(own.Count)));
 
             default:
-                return DiscordPersonCard(e, style, label, []);
+                return DiscordPersonCard(e, style, picture, label, []);
         }
     }
 
@@ -217,7 +227,7 @@ public static partial class EventCard
     /// still says who.
     /// </summary>
     private static DiscordEmbedContent DiscordPersonCard(
-        ModerationEventView e, CardStyle style, string title, IReadOnlyList<DiscordEmbedField> extra)
+        ModerationEventView e, CardStyle style, CardPicture picture, string title, IReadOnlyList<DiscordEmbedField> extra)
     {
         // An invite written for a Discord account it never found has no id to name or link.
         var known = !string.IsNullOrWhiteSpace(e.SubjectId);
@@ -238,8 +248,13 @@ public static partial class EventCard
             style.GroupFooter,
             FooterIconUrl: style.FooterIconUrl,
             AuthorName: named ? CardText.Plain(e.SubjectName!, 256) : null,
-            AuthorUrl: named ? url : null);
+            AuthorUrl: named ? url : null,
+            AuthorIconUrl: named ? picture.AuthorIcon : null);
     }
+
+    /// <summary>The reason a Discord moderator typed into Discord, when they typed one.</summary>
+    private static IReadOnlyList<DiscordEmbedField> DiscordReason(ModerationEventView e)
+        => Words(e.What.Own.Reason) is { } reason ? [new DiscordEmbedField("Reason", reason)] : [];
 
     /// <summary>
     /// A Discord account in a field: their name, linked to them in Modbot, or Discord's own mention

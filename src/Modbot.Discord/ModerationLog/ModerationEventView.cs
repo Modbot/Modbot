@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Users;
@@ -70,6 +72,9 @@ public sealed record EventDetails(
 
     /// <summary>Modbot's own names, never null.</summary>
     public ModbotDetails Own => Modbot ?? ModbotDetails.None;
+
+    /// <summary>The reasons picked in Modbot, never null.</summary>
+    public IReadOnlyList<string> Reasons => Own.ReasonLabels ?? [];
 }
 
 /// <summary>
@@ -90,6 +95,15 @@ public sealed record EventDetails(
 /// value in them is skipped: no card draws one.
 /// </para>
 /// </remarks>
+/// <param name="Reason">
+/// The reason a Discord moderator gave in Discord's own audit log, as <c>DiscordEventRecorder</c>
+/// writes it.
+/// </param>
+/// <param name="ReasonLabels">
+/// The reasons a moderator picked for an action taken in Modbot, as
+/// <c>ModerationActionService</c> writes them. The note they may have written beside them is
+/// deliberately not read: a card goes to a channel with no audit-log gate on it.
+/// </param>
 public sealed record ModbotDetails(
     string? Name = null,
     string? DisplayName = null,
@@ -116,7 +130,9 @@ public sealed record ModbotDetails(
     string? List = null,
     string? EventId = null,
     IReadOnlyList<KeyValuePair<string, string?>>? Before = null,
-    IReadOnlyList<KeyValuePair<string, string?>>? After = null)
+    IReadOnlyList<KeyValuePair<string, string?>>? After = null,
+    string? Reason = null,
+    IReadOnlyList<string>? ReasonLabels = null)
 {
     public static ModbotDetails None { get; } = new();
 
@@ -130,6 +146,24 @@ public sealed record ModbotDetails(
             ? value
             : null;
 }
+
+/// <summary>
+/// Who decided an action in Modbot and why, carried onto VRChat's own record of the same action.
+/// </summary>
+/// <remarks>
+/// VRChat's audit log says "Modbot banned X" and nothing else: it cannot say which moderator pressed
+/// the button or what they picked as the reason. Modbot's own fact for the press can
+/// (<c>modbot.action.*</c>), and the two are one decision (<c>LinkedActions</c>), so the card for
+/// VRChat's record carries what Modbot's says.
+/// </remarks>
+/// <param name="ById">The Modbot account that decided it.</param>
+/// <param name="ByName">That account's name.</param>
+/// <param name="Reasons">The reasons picked from the group's list.</param>
+public sealed record EventDecision(string? ById, string? ByName, IReadOnlyList<string> Reasons);
+
+/// <summary>A Discord account as a card shows it: the name the server shows, and the picture.</summary>
+/// <param name="AvatarUrl">Discord's own address for the picture, which Discord can always load.</param>
+public sealed record DiscordFace(string? Name, string? AvatarUrl);
 
 /// <summary>
 /// One moderation event with the names filled in: what the embed and the lookup reply show.
@@ -155,6 +189,7 @@ public sealed record ModbotDetails(
 /// World names by id, for the worlds a payload names on its own (a calendar event's world, before
 /// and after a change) rather than in the fact's world column.
 /// </param>
+/// <param name="Decision">Modbot's record of the same action, on VRChat's record of one Modbot made.</param>
 public sealed record ModerationEventView(
     long Id,
     string Type,
@@ -170,10 +205,14 @@ public sealed record ModerationEventView(
     EventDetails? Details = null,
     FactPlatform SubjectPlatform = FactPlatform.VRChat,
     FactPlatform? ActorPlatform = null,
-    IReadOnlyDictionary<string, string?>? Worlds = null)
+    IReadOnlyDictionary<string, string?>? Worlds = null,
+    EventDecision? Decision = null)
 {
     /// <summary>The payload as a card reads it, never null.</summary>
     public EventDetails What => Details ?? EventDetails.None;
+
+    /// <summary>The event is about a Discord account, or the Discord server, rather than VRChat.</summary>
+    public bool OnDiscord => SubjectPlatform == FactPlatform.Discord;
 
     /// <summary>A world's name by its id, when Modbot has read that world.</summary>
     public string? WorldNamed(string? worldId)
@@ -187,11 +226,13 @@ public sealed record ModerationEventView(
     /// Discord. Looked up only for those: ids are opaque text, and a VRChat and a Discord id are
     /// never compared.
     /// </param>
+    /// <param name="decisions">Modbot's record of an action, by the id of VRChat's record of it.</param>
     public static ModerationEventView From(
         ModbotEvent fact,
         IReadOnlyDictionary<string, string?> names,
         IReadOnlyDictionary<string, string?>? worlds = null,
-        IReadOnlyDictionary<string, string?>? discordNames = null)
+        IReadOnlyDictionary<string, string?>? discordNames = null,
+        IReadOnlyDictionary<long, EventDecision>? decisions = null)
     {
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(names);
@@ -228,7 +269,8 @@ public sealed record ModerationEventView(
             details,
             fact.SubjectPlatform,
             fact.ActorPlatform,
-            worlds);
+            worlds,
+            decisions?.GetValueOrDefault(fact.Id));
     }
 
     /// <summary>
@@ -354,7 +396,9 @@ public sealed record ModerationEventView(
         List: Text(root, "list"),
         EventId: Text(root, "eventId"),
         Before: Members(root, "before"),
-        After: Members(root, "after"));
+        After: Members(root, "after"),
+        Reason: Text(root, "reason"),
+        ReasonLabels: Texts(root, "reasonLabels"));
 
     /// <summary>The scalar members of one object in the payload, as text, in the order written.</summary>
     private static IReadOnlyList<KeyValuePair<string, string?>>? Members(JsonElement root, string name)
@@ -397,6 +441,20 @@ public sealed record ModerationEventView(
         => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>A list of words, skipping anything in it that is not one.</summary>
+    private static IReadOnlyList<string>? Texts(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Array)
+            return null;
+
+        var words = value.EnumerateArray()
+            .Where(v => v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+            .Select(v => v.GetString()!.Trim())
+            .ToList();
+
+        return words.Count == 0 ? null : words;
+    }
 }
 
 /// <summary>
@@ -541,4 +599,144 @@ public static class PersonPictures
             r => ProfilePictures.Best(r.ProfilePictureUrl, r.IconUrl, r.CurrentAvatarThumbnailImageUrl),
             StringComparer.Ordinal);
     }
+}
+
+/// <summary>
+/// What a set of Discord accounts are called and look like, by Discord user id: from the server's
+/// member list, and from its ban list for somebody who is no longer a member.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A card about a Discord account used to be headed by the account's id and linked to a VRChat
+/// profile that could not exist: the names were only ever looked for among VRChat people. A Discord
+/// id is looked for here instead.
+/// </para>
+/// <para>
+/// The picture is Discord's own address. Discord loads its own pictures, so unlike a VRChat picture
+/// it needs no upload, and the operator's switch for fetching VRChat pictures has nothing to say
+/// about it.
+/// </para>
+/// </remarks>
+public static class DiscordPeople
+{
+    public static async Task<Dictionary<string, DiscordFace>> LoadAsync(
+        ModbotContext db, IEnumerable<string?> ids, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var wanted = ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).Distinct(StringComparer.Ordinal).ToArray();
+        if (wanted.Length == 0)
+            return new Dictionary<string, DiscordFace>(StringComparer.Ordinal);
+
+        // Newest row first, so a person in more than one server Modbot has watched is named the way
+        // they were seen last.
+        var members = await db.DiscordMembers.AsNoTracking()
+            .Where(m => wanted.Contains(m.UserId))
+            .OrderByDescending(m => m.UpdatedAt)
+            .Select(m => new { m.UserId, m.DisplayName, m.AvatarUrl })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var faces = new Dictionary<string, DiscordFace>(StringComparer.Ordinal);
+
+        foreach (var member in members)
+            faces.TryAdd(member.UserId, new DiscordFace(Blank(member.DisplayName), Blank(member.AvatarUrl)));
+
+        var missing = wanted.Where(id => !faces.ContainsKey(id)).ToArray();
+        if (missing.Length == 0)
+            return faces;
+
+        var bans = await db.DiscordBans.AsNoTracking()
+            .Where(b => missing.Contains(b.UserId))
+            .OrderByDescending(b => b.UpdatedAt)
+            .Select(b => new { b.UserId, b.DisplayName, b.Username, b.AvatarUrl })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var ban in bans)
+            faces.TryAdd(ban.UserId, new DiscordFace(Blank(ban.DisplayName) ?? Blank(ban.Username), Blank(ban.AvatarUrl)));
+
+        return faces;
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+}
+
+/// <summary>
+/// For VRChat's record of a ban, kick or unban that Modbot made, Modbot's own record of the same
+/// press: who decided it and why (<see cref="EventDecision"/>).
+/// </summary>
+/// <remarks>
+/// Paired the way the counts pair them (<see cref="LinkedActions"/>): the same person, within
+/// seconds, the actors not disagreeing. Read only for the facts that can have one, so a pass of
+/// joins and role changes reads nothing more.
+/// </remarks>
+public static class ModbotDecisions
+{
+    public static async Task<Dictionary<long, EventDecision>> LoadAsync(
+        ModbotContext db, IReadOnlyCollection<ModbotEvent> facts, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(facts);
+
+        var decisions = new Dictionary<long, EventDecision>();
+
+        var main = facts
+            .Where(f => f.SubjectPlatform == FactPlatform.VRChat && ActionsFor(f.Type).Length > 0)
+            .ToList();
+
+        if (main.Count == 0)
+            return decisions;
+
+        var types = main.SelectMany(f => ActionsFor(f.Type)).Distinct(StringComparer.Ordinal).ToArray();
+        var subjects = main.Select(f => f.SubjectId).Distinct(StringComparer.Ordinal).ToArray();
+        var from = main.Min(f => f.OccurredAt) - LinkedActions.Window;
+        var to = main.Max(f => f.OccurredAt) + LinkedActions.Window;
+
+        var actions = await db.Events.AsNoTracking()
+            .Where(e => types.Contains(e.Type)
+                        && e.SubjectPlatform == FactPlatform.VRChat
+                        && subjects.Contains(e.SubjectId)
+                        && e.OccurredAt >= from
+                        && e.OccurredAt <= to)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (actions.Count == 0)
+            return decisions;
+
+        var names = await DisplayNames.LoadAsync(db, actions.Select(a => a.ActorId), ct).ConfigureAwait(false);
+
+        foreach (var fact in main)
+        {
+            var wanted = ActionsFor(fact.Type);
+
+            var action = actions
+                .Where(a => wanted.Contains(a.Type, StringComparer.Ordinal) && LinkedActions.CouldBeOneDecision(fact, a))
+                .OrderBy(a => (a.OccurredAt - fact.OccurredAt).Duration())
+                .FirstOrDefault();
+
+            if (action is null)
+                continue;
+
+            var view = ModerationEventView.From(action, names);
+
+            decisions[fact.Id] = new EventDecision(
+                action.ActorId,
+                view.ActorName,
+                view.What.Reasons);
+        }
+
+        return decisions;
+    }
+
+    /// <summary>Modbot's action types that can be the other half of a fact of this type.</summary>
+    private static string[] ActionsFor(string type) => type switch
+    {
+        FactType.MemberBanned => [FactType.ActionBan],
+        FactType.MemberKicked => [FactType.ActionKick],
+        FactType.MemberUnbanned => [FactType.ActionUnban],
+        _ => [],
+    };
 }

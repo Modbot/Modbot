@@ -284,19 +284,27 @@ public sealed class ModerationLogPoster
                 ct)
             .ConfigureAwait(false);
 
-        // The Discord accounts the events are about or were done by, from Modbot's member list.
-        var discordNames = await DiscordNames.LoadAsync(
+        // Only the people a card is headed by, so a pass does not read pictures for the actors,
+        // whose names sit in a field and carry no picture.
+        var faces = showPictures
+            ? await PersonPictures.LoadAsync(
+                    _db, matching.Where(m => m.SubjectPlatform != FactPlatform.Discord).Select(m => m.SubjectId), ct)
+                .ConfigureAwait(false)
+            : [];
+
+        // The Discord accounts the events are about or were done by, by their own ids: the name the
+        // server shows (from Modbot's member list, else its ban list) and the picture, for the cards
+        // headed by a Discord member and for a Discord moderator in a By field.
+        var discord = await DiscordPeople.LoadAsync(
                 _db,
                 matching.Where(m => m.SubjectPlatform == FactPlatform.Discord).Select(m => m.SubjectId)
                     .Concat(matching.Where(m => m.ActorPlatform == FactPlatform.Discord).Select(m => m.ActorId)),
                 ct)
             .ConfigureAwait(false);
 
-        // Only the people a card is headed by, so a pass does not read pictures for the actors,
-        // whose names sit in a field and carry no picture.
-        var faces = showPictures
-            ? await PersonPictures.LoadAsync(_db, matching.Select(m => m.SubjectId), ct).ConfigureAwait(false)
-            : [];
+        // Who decided a ban, kick or unban that Modbot made, and why: VRChat's own entry for it
+        // only says Modbot did it.
+        var decisions = await ModbotDecisions.LoadAsync(_db, matching, ct).ConfigureAwait(false);
 
         var posted = 0;
         var postedThrough = cursor;
@@ -337,7 +345,7 @@ public sealed class ModerationLogPoster
 
         if (cards[0].Earlier is { } post)
         {
-            var (embeds, files) = await DrawAsync([cards[0]], names, worlds, discordNames, faces, style, showPictures, ct)
+            var (embeds, files) = await DrawAsync([cards[0]], names, worlds, discord, decisions, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
             embeds[0] = EmbedSize.Shorten(embeds[0]);
 
@@ -387,7 +395,7 @@ public sealed class ModerationLogPoster
             // Discord takes in one message. A card too big even alone is cut down, so the message
             // always goes out and the cards behind it are not held up by one that cannot.
             var chunk = toPost.GetRange(at, Math.Min(_options.EmbedsPerMessage, toPost.Count - at)).ToArray();
-            var (embeds, files) = await DrawAsync(chunk, names, worlds, discordNames, faces, style, showPictures, ct)
+            var (embeds, files) = await DrawAsync(chunk, names, worlds, discord, decisions, faces, style, showPictures, ct)
                 .ConfigureAwait(false);
 
             var fit = EmbedSize.HowManyFit(embeds);
@@ -395,7 +403,7 @@ public sealed class ModerationLogPoster
             if (fit < chunk.Length)
             {
                 chunk = chunk[..fit];
-                (embeds, files) = await DrawAsync(chunk, names, worlds, discordNames, faces, style, showPictures, ct)
+                (embeds, files) = await DrawAsync(chunk, names, worlds, discord, decisions, faces, style, showPictures, ct)
                     .ConfigureAwait(false);
             }
 
@@ -539,7 +547,8 @@ public sealed class ModerationLogPoster
         IReadOnlyList<Repeats> cards,
         IReadOnlyDictionary<string, string?> names,
         IReadOnlyDictionary<string, string?> worlds,
-        IReadOnlyDictionary<string, string?> discordNames,
+        IReadOnlyDictionary<string, DiscordFace> discord,
+        IReadOnlyDictionary<long, EventDecision> decisions,
         IReadOnlyDictionary<string, string?> faces,
         CardStyle style,
         bool showPictures,
@@ -547,16 +556,19 @@ public sealed class ModerationLogPoster
     {
         var pictures = _pictures.ForMessage(showPictures);
         var embeds = new List<DiscordEmbedContent>(cards.Count);
+        var discordNames = discord.ToDictionary(d => d.Key, d => d.Value.Name, StringComparer.Ordinal);
 
         foreach (var card in cards)
         {
-            var view = ModerationEventView.From(card.Latest, names, worlds, discordNames);
-            var face = faces.GetValueOrDefault(view.SubjectId);
+            var view = ModerationEventView.From(card.Latest, names, worlds, discordNames, decisions);
 
-            var embed = EventCard.For(
-                view,
-                style,
-                new CardPicture(AuthorIcon: await pictures.AddAsync(face, ct).ConfigureAwait(false)));
+            // A Discord picture is Discord's own address, which Discord loads itself; a VRChat one
+            // has to be fetched and sent with the message.
+            var icon = view.OnDiscord
+                ? discord.GetValueOrDefault(view.SubjectId)?.AvatarUrl
+                : await pictures.AddAsync(faces.GetValueOrDefault(view.SubjectId), ct).ConfigureAwait(false);
+
+            var embed = EventCard.For(view, style, new CardPicture(AuthorIcon: icon));
 
             embeds.Add(EventCard.Repeated(embed, card.Total, card.TotalLastAt - card.TotalFirstAt));
         }

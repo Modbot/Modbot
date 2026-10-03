@@ -207,3 +207,42 @@ way (`<#id>`, `<@&id>`), and a move shows where from and where to.
 **A thing Modbot keeps is titled by its name.** A list, a role, a giveaway, a webhook: the name the
 payload carries heads the card, under what happened. One with no name in its payload (the calendar
 feed, a settings change) is headed by the group with the event's label as its title.
+
+## 10. Discord's reasons, Modbot's decisions, and Discord pictures (TASK-039, merged 2026-10-03)
+
+§7's "there is no reason to show, and no field for one" was true of VRChat's log and wrong for
+everything else. TASK-039 was built beside §9 from an older base and also gave Discord accounts a
+card of their own. When the two met, §9's Discord cards were kept as they are (the name from the
+member list, then the name on the fact, then Discord's mention in **Who**; channels and roles by
+mention or name; **Until** and **Messages**), and only what §9 did not have was taken from TASK-039:
+
+**Discord's reason.** `DiscordEventRecorder` writes the audit log's `reason`. `ModbotDetails` reads
+it under that name, and the Discord ban, unban, kick, timeout and timeout-removed cards show
+**Reason** beside §9's fields.
+
+**A Discord member's picture.** A card headed by a Discord member's name carries their picture,
+which is Discord's own address: Discord loads it itself, so it is neither uploaded nor covered by
+the switch for fetching VRChat pictures. The name and picture come from the server's member list,
+then from its ban list for somebody who has left (`DiscordPeople`). A card with no name (§9's
+mention) has no picture either: Discord draws a picture only beside an author line.
+
+**Who decided a ban made from Modbot.** VRChat's entry says Modbot's account did it. Modbot's own
+`modbot.action.*` fact for the same press carries the moderator and the reasons picked, and the two
+are one decision by `LinkedActions`' rule (same person, within its window, actors not disagreeing).
+The poster pairs them, and VRChat's card gains **Decided by** and **Reason**. The
+`modbot.action.*` card itself shows **Reason** as a field and leaves off the description, which
+said the same things as one sentence. A Modbot account in `By` or **Decided by** opens that account
+(`?subject=account:…`); an id that is not a Modbot account is named without a link.
+
+**The note from a ban, kick or unban stays off its card.** The action's `note` is one moderator's
+free text, which the web app shows only to people who may read the audit log. A channel has no such
+gate and no route setting chooses to send that note with the action, so the view does not read it at
+all. A note reaches a channel only one way, unchanged by this: a route that takes "Note added"
+(`modbot.note.add`) posts that event's own card, which quotes its text, because the operator chose
+that type for that channel.
+
+TASK-039 also filled messages by size (`CardSize`); `EmbedSize`, built on staging for the same
+refusal, does that job and TASK-039's copy was dropped.
+
+The names read are, again, only the ones a producer writes: `reason` from `DiscordEventRecorder`,
+`reasonLabels` from `ModerationActionService`, both in `ModbotDetails` beside §9's names.

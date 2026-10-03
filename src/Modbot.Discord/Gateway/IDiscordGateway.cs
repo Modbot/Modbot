@@ -12,16 +12,27 @@ public enum DiscordOptionKind
 {
     Text = 1,
     WholeNumber = 2,
+
+    /// <summary>
+    /// A member of the server, picked from Discord's own list. The command receives the member's
+    /// Discord user id as text, never a name typed by hand.
+    /// </summary>
+    Member = 3,
 }
 
 /// <summary>One argument of a slash command, as Discord needs it described up front.</summary>
+/// <param name="Suggests">
+/// Discord asks the bot for suggestions while the option is being typed
+/// (<see cref="DiscordSuggestionAsk"/>). Text options only.
+/// </param>
 public sealed record DiscordCommandOption(
     string Name,
     string Description,
     DiscordOptionKind Kind,
     bool Required,
     long? Min = null,
-    long? Max = null);
+    long? Max = null,
+    bool Suggests = false);
 
 /// <summary>Where a command is run from.</summary>
 public enum DiscordCommandKind
@@ -43,9 +54,10 @@ public enum DiscordCommandKind
 /// </param>
 /// <param name="Description">A slash command's one line. Discord takes none for a right-click menu.</param>
 /// <param name="StaffOnly">
-/// Hidden from members who lack Discord's Timeout Members permission, until a server admin changes
-/// that in the server's Integrations settings (<c>default_member_permissions</c>). Only hides it:
-/// Modbot's own permission check is what decides.
+/// Discord shows it only to members who may time others out (Timeout Members), until a server admin
+/// changes who sees it under Server Settings → Integrations (<c>default_member_permissions</c>).
+/// Hiding is all it does: Modbot still checks the caller's Modbot account and permission on every
+/// run.
 /// </param>
 public sealed record DiscordCommandDefinition(
     string Name,
@@ -53,6 +65,60 @@ public sealed record DiscordCommandDefinition(
     IReadOnlyList<DiscordCommandOption> Options,
     DiscordCommandKind Kind = DiscordCommandKind.Slash,
     bool StaffOnly = false);
+
+/// <summary>One suggestion offered under an option while it is being typed.</summary>
+/// <param name="Name">What the person sees in the list. Discord allows 100 characters.</param>
+/// <param name="Value">What the option is filled with when it is picked. Discord allows 100 characters.</param>
+public sealed record DiscordSuggestion(string Name, string Value)
+{
+    /// <summary>The most suggestions Discord shows under one option.</summary>
+    public const int Most = 25;
+
+    /// <summary>The longest name or value Discord accepts.</summary>
+    public const int Longest = 100;
+}
+
+/// <summary>
+/// Somebody is typing into an option that suggests (<see cref="DiscordCommandOption.Suggests"/>).
+/// Discord gives three seconds to answer, and the answer cannot be put off, so the handler answers
+/// straight from the database or not at all.
+/// </summary>
+public sealed class DiscordSuggestionAsk
+{
+    private readonly Func<IReadOnlyList<DiscordSuggestion>, CancellationToken, Task> _answer;
+
+    public DiscordSuggestionAsk(
+        string discordUserId,
+        string commandName,
+        string optionName,
+        string typed,
+        Func<IReadOnlyList<DiscordSuggestion>, CancellationToken, Task> answer)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
+        ArgumentNullException.ThrowIfNull(optionName);
+        ArgumentNullException.ThrowIfNull(answer);
+
+        DiscordUserId = discordUserId;
+        CommandName = commandName;
+        OptionName = optionName;
+        Typed = typed ?? string.Empty;
+        _answer = answer;
+    }
+
+    public string DiscordUserId { get; }
+
+    public string CommandName { get; }
+
+    /// <summary>The option being typed into.</summary>
+    public string OptionName { get; }
+
+    /// <summary>What has been typed so far.</summary>
+    public string Typed { get; }
+
+    public Task AnswerAsync(IReadOnlyList<DiscordSuggestion> suggestions, CancellationToken ct = default)
+        => _answer(suggestions, ct);
+}
 
 public sealed record DiscordEmbedField(string Name, string Value, bool Inline = false);
 
@@ -737,6 +803,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// starts with <see cref="DiscordActionButton.Prefix"/> are raised, as for a button.
     /// </summary>
     event Func<DiscordFormSubmit, Task>? FormSubmitted;
+
+    /// <summary>
+    /// Somebody is typing into a command option that suggests, in the session's own server
+    /// (<see cref="DiscordGatewayOptions.GuildId"/>). From anywhere else it is never raised.
+    /// </summary>
+    event Func<DiscordSuggestionAsk, Task>? SuggestionAsked;
 
     /// <summary>
     /// A channel was created or changed -- renamed, moved, or its permission overwrites edited.

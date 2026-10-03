@@ -746,6 +746,11 @@ public sealed class FakeGateway : IDiscordGateway
     public Task RaiseButtonAsync(DiscordButtonPress press)
         => ButtonPressed?.Invoke(press) ?? Task.CompletedTask;
 
+    public event Func<DiscordSuggestionAsk, Task>? SuggestionAsked;
+
+    public Task RaiseSuggestionAskedAsync(DiscordSuggestionAsk ask)
+        => SuggestionAsked?.Invoke(ask) ?? Task.CompletedTask;
+
     // ── Messages ─────────────────────────────────────────────────────────────────────────────
 
     public event Func<DiscordMessageSnapshot, Task>? MessageReceived;

@@ -336,6 +336,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.CommandReceived += OnCommandAsync;
         gateway.ButtonPressed += OnButtonAsync;
         gateway.FormSubmitted += OnFormSubmittedAsync;
+        gateway.SuggestionAsked += OnSuggestionAskedAsync;
         gateway.ChannelChanged += OnChannelChangedAsync;
         gateway.ChannelRemoved += OnChannelRemovedAsync;
         gateway.ServerChanged += OnServerChangedAsync;
@@ -1052,6 +1053,38 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Suggestions while somebody types into an option that has them. Discord gives three seconds
+    /// and no way to put it off, so a failure answers with nothing rather than an error: an empty
+    /// list is what the person sees either way.
+    /// </summary>
+    private async Task OnSuggestionAskedAsync(DiscordSuggestionAsk ask)
+    {
+        IReadOnlyList<DiscordSuggestion> suggestions;
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
+            suggestions = await handler.SuggestAsync(ask, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _log.Warning(e, "Could not suggest names for /{Command}", ask.CommandName);
+            suggestions = [];
+        }
+
+        try
+        {
+            await ask.AnswerAsync(suggestions, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            // Too late, or the person moved on: Discord has already stopped waiting.
+            _log.Debug(e, "Could not send suggestions for /{Command}", ask.CommandName);
+        }
+    }
+
     /// <summary>A form the bot showed was sent: answered only to the person who sent it.</summary>
     private async Task OnFormSubmittedAsync(DiscordFormSubmit submit)
     {
@@ -1115,6 +1148,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.CommandReceived -= OnCommandAsync;
         gateway.ButtonPressed -= OnButtonAsync;
         gateway.FormSubmitted -= OnFormSubmittedAsync;
+        gateway.SuggestionAsked -= OnSuggestionAskedAsync;
         gateway.ChannelChanged -= OnChannelChangedAsync;
         gateway.ChannelRemoved -= OnChannelRemovedAsync;
         gateway.ServerChanged -= OnServerChangedAsync;
