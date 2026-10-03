@@ -59,12 +59,11 @@ public class StaffInteractionHandlerTests
         }
     }
 
-    private static DiscordCommandCall Menu(string discordUserId, string menu, Recorder recorder, DiscordTargetUser? user = null, DiscordTargetMessage? message = null)
+    private static DiscordCommandCall Menu(string discordUserId, string menu, Recorder recorder, DiscordTargetUser? user = null)
         => new(discordUserId, "moderator", menu, new Dictionary<string, string>(), recorder.Reply, recorder.Show)
         {
-            Kind = message is null ? DiscordCommandKind.User : DiscordCommandKind.Message,
+            Kind = DiscordCommandKind.User,
             TargetUser = user,
-            TargetMessage = message,
         };
 
     private static DiscordButtonPress Press(string discordUserId, string buttonId, Recorder recorder, bool onCard = false)
@@ -271,82 +270,6 @@ public class StaffInteractionHandlerTests
             Press("100", StaffMenus.NoteButtonFor(onDiscord: false, Target), recorder), null, ct);
 
         Assert.Equal(StaffInteractionHandler.TooLateMessage, reply?.Text);
-    }
-
-    // ── Reporting a message ──────────────────────────────────────────────────────────────────
-
-    private static DiscordTargetMessage Message(string text = "buy cheap avatars at example.test", bool bot = false)
-        => new(
-            "1111",
-            "2222",
-            "general",
-            Member,
-            "spammer",
-            bot,
-            text,
-            new DateTimeOffset(2026, 9, 13, 11, 30, 0, TimeSpan.Zero),
-            "https://discord.com/channels/1/2222/1111");
-
-    [Fact]
-    public async Task ReportThisMessage_WritesANoteAboutItsAuthor_KeepingTheMessage()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        await using var services = await TestServices.CreateAsync(_db, ct);
-        await services.LinkedAccountAsync("100", ModbotPermissions.WriteNotes, ct: ct);
-        var recorder = new Recorder();
-
-        using var scope = services.Scope();
-        var handler = Handler(scope);
-
-        Assert.Null(await handler.HandleMenuAsync(Menu("100", StaffMenus.Report, recorder, message: Message()), new FakeGateway(), ct));
-
-        var form = Assert.Single(recorder.Forms);
-        Assert.StartsWith(StaffMenus.ReportForm, form.Id, StringComparison.Ordinal);
-
-        var reply = await handler.HandleFormAsync(Submit("100", form.Id, ("note", ["Third time this week."])), null, ct);
-        Assert.Equal(StaffInteractionHandler.NoteAddedMessage, reply.Text);
-
-        var note = Assert.Single(services.Staff.Notes);
-        Assert.Equal(FactPlatform.Discord, note.Platform);
-        Assert.Equal(Member, note.UserId);
-        Assert.StartsWith("Third time this week.", note.Text, StringComparison.Ordinal);
-        Assert.Contains("#general", note.Text, StringComparison.Ordinal);
-        Assert.Contains("buy cheap avatars", note.Text, StringComparison.Ordinal);
-        Assert.EndsWith("https://discord.com/channels/1/2222/1111", note.Text, StringComparison.Ordinal);
-
-        var kept = note.Context!["reportedMessage"]!;
-        Assert.Equal("1111", kept["id"]!.GetValue<string>());
-        Assert.Equal("buy cheap avatars at example.test", kept["text"]!.GetValue<string>());
-
-        // Sent once: the same form again has run out.
-        var again = await handler.HandleFormAsync(Submit("100", form.Id, ("note", ["again"])), null, ct);
-        Assert.Single(services.Staff.Notes);
-        Assert.Contains("run out", again.Text, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task AMessageFromABot_CannotBeReported()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        await using var services = await TestServices.CreateAsync(_db, ct);
-        await services.LinkedAccountAsync("100", ModbotPermissions.WriteNotes, ct: ct);
-        var recorder = new Recorder();
-
-        using var scope = services.Scope();
-        var reply = await Handler(scope).HandleMenuAsync(Menu("100", StaffMenus.Report, recorder, message: Message(bot: true)), null, ct);
-
-        Assert.Equal(StaffInteractionHandler.BotMessage, reply?.Text);
-        Assert.Empty(recorder.Forms);
-    }
-
-    [Fact]
-    public void AReportedMessage_IsCutToFitTheNote_NeverItsLink()
-    {
-        var (text, _) = StaffInteractionHandler.ReportNote(new string('a', 900), Message(new string('b', 5000)));
-
-        Assert.True(text.Length <= StaffInteractionHandler.NoteLength);
-        Assert.EndsWith("https://discord.com/channels/1/2222/1111", text, StringComparison.Ordinal);
-        Assert.Contains("…", text, StringComparison.Ordinal);
     }
 
     // ── Ban: form, confirmation, once ────────────────────────────────────────────────────────
@@ -743,14 +666,19 @@ public class StaffInteractionHandlerTests
 
     // ── What is registered ───────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// The two member menus, hidden from members without Timeout Members. No message menu: the staff
+    /// one that wrote a note ("Report this message") was dropped before it shipped, for a "Report to
+    /// mods" open to everybody (Discord commands design, decision 3).
+    /// </summary>
     [Fact]
     public void TheMenus_AreRegistered_HiddenFromMembersWithoutTimeoutMembers()
     {
         var menus = DiscordCommands.All.Where(c => c.Kind != DiscordCommandKind.Slash).ToList();
 
-        Assert.Equal(new[] { StaffMenus.LookUp, StaffMenus.AddNote, StaffMenus.Report }, menus.Select(m => m.Name));
+        Assert.Equal(new[] { StaffMenus.LookUp, StaffMenus.AddNote }, menus.Select(m => m.Name));
         Assert.All(menus, m => Assert.True(m.StaffOnly));
-        Assert.Equal(DiscordCommandKind.Message, menus.Single(m => m.Name == StaffMenus.Report).Kind);
+        Assert.All(menus, m => Assert.Equal(DiscordCommandKind.User, m.Kind));
         Assert.Contains(DiscordCommands.For(meCommand: false), c => c.Name == StaffMenus.LookUp);
     }
 }

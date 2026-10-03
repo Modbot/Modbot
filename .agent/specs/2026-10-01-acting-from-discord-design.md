@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-01
 - **Status:** Built
-- **Covers:** three right-click menus in the Discord server, the forms they open, buttons under
+- **Covers:** two right-click menus in the Discord server, the forms they open, buttons under
   single-card log messages, and the confirmation step every action that changes VRChat goes
   through
 - **Depends on:** proving which Discord account a staff member is (accounts and access §4.6,
@@ -10,9 +10,10 @@
   design (2026-09-23 §5, buttons allowed on a message that is one card), the own-server guard that
   `/me` brought (`IsForThisServer`, the `modbot:` button prefix)
 - **Narrows:** nothing. Every rule the web app applies to these actions applies here unchanged.
-  Who sees `/lookup` and `/recent` in Discord (their `default_member_permissions`) is left to the
-  cards-and-commands work (TASK-039) running beside this; only the new right-click menus are set
-  here (§10).
+- **Updated 2026-10-03,** when this was brought onto staging with the cards-and-commands work
+  (TASK-039) as step 0 of the Discord commands design: **Report this message** is gone (§8), the
+  menus and the staff slash commands share one `StaffOnly` setting (§10), and the join gate's
+  buttons are still acknowledged first (§11).
 
 ---
 
@@ -28,7 +29,6 @@ warn, a kick or a join request had to open Modbot, find the person and press the
 |---|---|---|
 | Right-click a member → Apps → **Look up in Modbot** | A private card: the linked VRChat profile (the `/lookup` card), or, with no link, what Modbot has on the Discord account | See profiles |
 | Right-click a member → Apps → **Add a note** | A form with one text box; the note is written about that Discord account | Write notes |
-| Right-click a message → Apps → **Report this message** | A form with one text box; a note about the message's author, with the message kept in it | Write notes |
 | Button **Add note** under a card | The same note form, about the card's person | Write notes |
 | Button **Kick** / **Ban** under a card | A form with the group's reasons and a note, then a confirmation | Kick / Ban |
 | Button **Approve** / **Reject** under a join request card | Reject: the reasons form; both: a confirmation | Answer join requests |
@@ -131,31 +131,31 @@ post and the press; VRChat answers a kick of a non-member with "they are not in 
 A button id is `modbot:` plus the action and the id. An id that would make it longer than Discord's
 100 characters leaves that button off rather than cut an id.
 
-## 8. Reporting a message
+## 8. Reporting a message (dropped 2026-10-03)
 
-**Report this message** writes a note about the message's author. The note's text is what the
-moderator typed, then the channel, the time, the message's words (cut to fit the note's 2,000
-characters) and a link to the message. The fact also keeps the message as data
-(`reportedMessage`: id, channel, time, words, link), so a later case-file feature can lift it.
+This version had a staff-only message menu, **Report this message**, which wrote a note about the
+message's author with the message kept in it. It was taken out before it shipped (Discord commands
+design, decision 3): a **Report to mods** menu open to every member replaces it in a later step, and
+two report menus side by side would confuse staff. A note can be made from that report.
 
-Discord hands the bot a right-clicked message's words even without the Message Content intent, so
-this needs no new intent. A message from a bot, or from Modbot itself, cannot be reported.
+The gateway keeps what a message menu needs (`DiscordCommandKind.Message`, `DiscordTargetMessage`)
+for that menu. No message menu is registered until then, so Discord sends none.
 
 ## 9. Never on Modbot's own accounts
 
 - The VRChat account Modbot signs in as: refused by the service at step 2 of §4.
-- The bot's own Discord account: **Add a note** and **Look up in Modbot** on it, and **Report this
-  message** on its messages, are refused.
+- The bot's own Discord account: **Add a note** and **Look up in Modbot** on it are refused.
 
 ## 10. Who sees the menus
-
-The slash commands' own default permission is left to the work on cards and commands that runs
-beside this; only the new menus are set here.
 
 The menus are registered with **Timeout Members** as their default Discord permission
 (`default_member_permissions`), so ordinary members do not see them in the Apps menu. A server admin
 can change who sees them under Server Settings → Integrations → the bot. This only hides them:
 Modbot's own permission check (§3) is what decides.
+
+The staff slash commands (`/lookup`, `/recent`, `/modbot`) are hidden the same way, by the same
+`DiscordCommandDefinition.StaffOnly` (cards and commands, TASK-039): one setting, one Discord
+permission, for every staff command and menu.
 
 ## 11. The gateway
 
@@ -175,7 +175,9 @@ settings, the member and their row before it answers; waiting two seconds first 
 first, then to the staff buttons, then to `/me`'s.
 
 The own-server guard runs before any of this, unchanged: a menu, a button or a form from another
-server, or whose id does not start with `modbot:`, is left completely alone.
+server, or whose id does not start with `modbot:`, is left completely alone. A press in a direct
+message is this Modbot's only when its id ends with this server's mark (`@<server id>`), which only
+the join gate's buttons carry today.
 
 ## 12. Not in this version
 

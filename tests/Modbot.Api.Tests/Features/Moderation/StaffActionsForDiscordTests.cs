@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Tests.Fakes;
@@ -167,15 +166,14 @@ public class StaffActionsForDiscordTests
     }
 
     [Fact]
-    public async Task ANoteFromDiscord_IsTheSameNoteFact_WithTheReportedMessageKept()
+    public async Task ANoteFromDiscord_IsTheSameNoteFact()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
         await host.ResetAsync(ct);
         var by = await SeedAsync(host, ModbotPermissions.WriteNotes, ct);
 
-        var context = new JsonObject { ["reportedMessage"] = new JsonObject { ["id"] = "1111", ["text"] = "hello" } };
-        var written = await InScopeAsync(host, s => s.WriteNoteAsync(FactPlatform.Discord, "445566", "Spam.", context, by, ct));
+        var written = await InScopeAsync(host, s => s.WriteNoteAsync(FactPlatform.Discord, "445566", "Spam.", by, ct));
 
         Assert.True(written.Written);
 
@@ -185,7 +183,6 @@ public class StaffActionsForDiscordTests
 
         var data = JsonDocument.Parse(fact.Data).RootElement;
         Assert.Equal("Spam.", data.GetProperty("text").GetString());
-        Assert.Equal("1111", data.GetProperty("reportedMessage").GetProperty("id").GetString());
     }
 
     [Fact]
@@ -196,7 +193,7 @@ public class StaffActionsForDiscordTests
         await host.ResetAsync(ct);
         var by = await SeedAsync(host, ModbotPermissions.ViewAuditLog, ct);
 
-        var written = await InScopeAsync(host, s => s.WriteNoteAsync(FactPlatform.VRChat, Person, "Hi.", null, by, ct));
+        var written = await InScopeAsync(host, s => s.WriteNoteAsync(FactPlatform.VRChat, Person, "Hi.", by, ct));
 
         Assert.False(written.Written);
         Assert.Empty(await FactsAboutAsync(host, Person, ct));

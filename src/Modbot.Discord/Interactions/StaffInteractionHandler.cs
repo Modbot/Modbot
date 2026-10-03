@@ -49,7 +49,6 @@ public sealed class StaffInteractionHandler
     public const string RunOutMessage = "That has run out. Press the button on the card again.";
     public const string NotSetUpMessage = "This Modbot is not set up to act from Discord.";
     public const string OwnAccountMessage = "That is Modbot's own account.";
-    public const string BotMessage = "A message from a bot cannot be reported.";
     public const string TooManyMessage = "Too many things are waiting to be confirmed. Try again in a few minutes.";
     public const string NeedsVRChatMessage = "Link your VRChat account in Modbot first.";
     public const string NotYoursMessage = "Only the person who started this can confirm it.";
@@ -63,14 +62,8 @@ public sealed class StaffInteractionHandler
     /// <summary>The longest note, as the note service allows.</summary>
     public const int NoteLength = 2000;
 
-    /// <summary>The most a moderator types when reporting a message, so the message itself still fits in the note.</summary>
-    public const int ReportNoteLength = 1000;
-
     /// <summary>The longest note on an action, as the moderation service allows and a Discord text box takes.</summary>
     public const int ActionNoteLength = 4000;
-
-    /// <summary>The most of a reported message's words kept as data beside the note. Discord allows 4,000.</summary>
-    public const int ReportedTextLength = 4000;
 
     /// <summary>A Discord list offers at most this many.</summary>
     public const int MaxReasonsOffered = 25;
@@ -126,7 +119,7 @@ public sealed class StaffInteractionHandler
         if (StaffMenus.Requires(call.CommandName) is not { } required)
             return DiscordReply.Say("Modbot does not know that command.");
 
-        var target = call.TargetUser?.Id ?? call.TargetMessage?.AuthorId;
+        var target = call.TargetUser?.Id;
         var writes = call.CommandName != StaffMenus.LookUp;
 
         var (user, refusal, outcome) = await StaffAsync(call.DiscordUserId, required, writes, ct).ConfigureAwait(false);
@@ -139,8 +132,7 @@ public sealed class StaffInteractionHandler
         return call.CommandName switch
         {
             StaffMenus.LookUp => await LookUpAsync(call, user!, gateway, ct).ConfigureAwait(false),
-            StaffMenus.AddNote => await OpenNoteFromMenuAsync(call, user!, gateway, ct).ConfigureAwait(false),
-            _ => await OpenReportAsync(call, user!, gateway, ct).ConfigureAwait(false),
+            _ => await OpenNoteFromMenuAsync(call, user!, gateway, ct).ConfigureAwait(false),
         };
     }
 
@@ -258,33 +250,6 @@ public sealed class StaffInteractionHandler
             return DiscordReply.Say("That id is too long for a Discord form.");
 
         return await ShowAsync(call.ShowFormAsync, NoteForm(formId), ct).ConfigureAwait(false);
-    }
-
-    private async Task<DiscordReply?> OpenReportAsync(DiscordCommandCall call, ModbotUser user, IDiscordGateway? gateway, CancellationToken ct)
-    {
-        if (call.TargetMessage is not { } message)
-            return DiscordReply.Say("Discord did not say which message that was.");
-
-        if (message.AuthorIsBot || IsBot(message.AuthorId, gateway))
-        {
-            await RecordAsync(call.DiscordUserId, user, call.CommandName, "bot-message", message.AuthorId, ct).ConfigureAwait(false);
-            return DiscordReply.Say(BotMessage);
-        }
-
-        var report = new PendingReport(PendingStaffActions.NewToken(), call.DiscordUserId, message, _clock.UtcNow);
-        if (!_pending.TryAdd(report, _clock.UtcNow))
-            return DiscordReply.Say(TooManyMessage);
-
-        var form = new DiscordForm(
-            "Report a message",
-            StaffMenus.ReportForm + report.Token,
-            [new DiscordFormField(NoteField, "Note", DiscordFormFieldKind.LongText, Required: false, MaxLength: ReportNoteLength)]);
-
-        var shown = await ShowAsync(call.ShowFormAsync, form, ct).ConfigureAwait(false);
-        if (shown is not null)
-            _pending.Forget(report.Token);
-
-        return shown;
     }
 
     // ── Buttons ──────────────────────────────────────────────────────────────────────────────
@@ -524,7 +489,7 @@ public sealed class StaffInteractionHandler
 
     // ── Forms ────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>A form was sent: a note, a report, or the reasons for an action.</summary>
+    /// <summary>A form was sent: a note, or the reasons for an action.</summary>
     public async Task<DiscordReply> HandleFormAsync(DiscordFormSubmit submit, IDiscordGateway? gateway, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(submit);
@@ -533,9 +498,6 @@ public sealed class StaffInteractionHandler
 
         if (StaffMenus.TryReadPerson(id, StaffMenus.NoteForm, out var onDiscord, out var personId))
             return await WriteNoteAsync(submit, onDiscord, personId, gateway, ct).ConfigureAwait(false);
-
-        if (StaffMenus.TokenAfter(id, StaffMenus.ReportForm) is { } report)
-            return await WriteReportAsync(submit, report, ct).ConfigureAwait(false);
 
         if (StaffMenus.TokenAfter(id, StaffMenus.ActForm) is { } act)
             return await ReadReasonsAsync(submit, act, ct).ConfigureAwait(false);
@@ -564,99 +526,13 @@ public sealed class StaffInteractionHandler
             return DiscordReply.Say(NotSetUpMessage);
 
         var platform = onDiscord ? FactPlatform.Discord : FactPlatform.VRChat;
-        var written = await _staff.WriteNoteAsync(platform, personId, text, null, Member(user!), ct).ConfigureAwait(false);
+        var written = await _staff.WriteNoteAsync(platform, personId, text, Member(user!), ct).ConfigureAwait(false);
 
         await RecordAsync(submit.DiscordUserId, user, "note", written.Written ? "answered" : "refused", personId, ct).ConfigureAwait(false);
 
         return written.Written
             ? await NoteAddedAsync(onDiscord, personId, ct).ConfigureAwait(false)
             : DiscordReply.Say(written.Error ?? "The note could not be written.");
-    }
-
-    private async Task<DiscordReply> WriteReportAsync(DiscordFormSubmit submit, string token, CancellationToken ct)
-    {
-        if (_pending.Report(token, _clock.UtcNow) is not { } report)
-            return DiscordReply.Say("That has run out. Use Report this message again.");
-
-        if (report.DiscordUserId != submit.DiscordUserId)
-            return DiscordReply.Say(NotYoursMessage);
-
-        var message = report.Message;
-
-        var (user, refusal, outcome) = await StaffAsync(submit.DiscordUserId, ModbotPermissions.WriteNotes, writes: true, ct).ConfigureAwait(false);
-        if (refusal is not null)
-        {
-            await RecordAsync(submit.DiscordUserId, user, StaffMenus.Report, outcome, message.AuthorId, ct).ConfigureAwait(false);
-            return refusal;
-        }
-
-        if (_staff is null)
-            return DiscordReply.Say(NotSetUpMessage);
-
-        var (text, context) = ReportNote(submit.Text(NoteField), message);
-        var written = await _staff.WriteNoteAsync(FactPlatform.Discord, message.AuthorId, text, context, Member(user!), ct).ConfigureAwait(false);
-
-        if (written.Written)
-            _pending.Forget(token);
-
-        await RecordAsync(submit.DiscordUserId, user, StaffMenus.Report, written.Written ? "answered" : "refused", message.AuthorId, ct)
-            .ConfigureAwait(false);
-
-        return written.Written
-            ? await NoteAddedAsync(onDiscord: true, message.AuthorId, ct).ConfigureAwait(false)
-            : DiscordReply.Say(written.Error ?? "The note could not be written.");
-    }
-
-    /// <summary>
-    /// The note a report writes: what the moderator typed, then where and when the message was
-    /// sent, its words and its link, all inside the note's 2,000 characters; and the message again
-    /// as data, under <c>reportedMessage</c> (§8). Public so its wording is testable.
-    /// </summary>
-    public static (string Text, JsonObject Context) ReportNote(string typed, DiscordTargetMessage message)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-
-        typed = (typed ?? string.Empty).Trim();
-        if (typed.Length > ReportNoteLength)
-            typed = Cut(typed, ReportNoteLength);
-
-        var where = message.ChannelName is { Length: > 0 } channel ? $" in #{channel}" : string.Empty;
-        var when = message.SentAt.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC";
-        var head = $"Reported message{where}, sent {when}:";
-        var words = message.Text.Trim().Length == 0 ? "(no text)" : message.Text.Trim();
-
-        var sb = new StringBuilder();
-        if (typed.Length > 0)
-            sb.Append(typed).Append("\n\n");
-
-        sb.Append(head).Append('\n');
-
-        // The words are what is cut, never the link: the link is the way back to the whole message.
-        var room = NoteLength - sb.Length - message.Url.Length - 3;
-        var quoted = room <= 1 ? string.Empty : CardText.Fit(words, room);
-
-        sb.Append('“').Append(quoted).Append('”').Append('\n').Append(message.Url);
-
-        var text = sb.ToString();
-        if (text.Length > NoteLength)
-            text = Cut(text, NoteLength);
-
-        var context = new JsonObject
-        {
-            ["reportedMessage"] = new JsonObject
-            {
-                ["id"] = message.Id,
-                ["channelId"] = message.ChannelId,
-                ["channelName"] = message.ChannelName,
-                ["authorId"] = message.AuthorId,
-                ["authorName"] = message.AuthorName,
-                ["sentAt"] = message.SentAt.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
-                ["text"] = Cut(message.Text, ReportedTextLength),
-                ["url"] = message.Url,
-            },
-        };
-
-        return (text, context);
     }
 
     /// <summary>

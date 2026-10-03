@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Modbot.Core.Data.Entities;
 
 namespace Modbot.Core.Discord;
@@ -95,7 +94,6 @@ public interface IStaffActions
         CancellationToken ct = default);
 
     /// <summary>Writes a note about a person on VRChat or on Discord.</summary>
-    /// <param name="context">Kept on the note's fact beside the text, or null.</param>
     Task<StaffNoteAnswer> WriteNoteAsync(
-        FactPlatform platform, string userId, string text, JsonObject? context, StaffMember by, CancellationToken ct = default);
+        FactPlatform platform, string userId, string text, StaffMember by, CancellationToken ct = default);
 }

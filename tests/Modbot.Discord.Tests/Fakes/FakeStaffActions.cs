@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text.Json.Nodes;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 
@@ -40,7 +39,7 @@ public sealed class FakeStaffActions : IStaffActions
     public List<(string Action, string UserId, IReadOnlyList<Guid> ReasonIds, string Note)> Checks { get; } = [];
 
     /// <summary>Every note written.</summary>
-    public List<(FactPlatform Platform, string UserId, string Text, JsonObject? Context, StaffMember By)> Notes { get; } = [];
+    public List<(FactPlatform Platform, string UserId, string Text, StaffMember By)> Notes { get; } = [];
 
     public Task<StaffReasons> ReasonsAsync(string action, CancellationToken ct = default)
         => Task.FromResult(action == "approve" ? StaffReasons.None : new StaffReasons([.. Reasons], action == "ban" || ReasonRequired));
@@ -72,12 +71,12 @@ public sealed class FakeStaffActions : IStaffActions
     }
 
     public Task<StaffNoteAnswer> WriteNoteAsync(
-        FactPlatform platform, string userId, string text, JsonObject? context, StaffMember by, CancellationToken ct = default)
+        FactPlatform platform, string userId, string text, StaffMember by, CancellationToken ct = default)
     {
         if (!by.Held.HasFlag(ModbotPermissions.WriteNotes) && !by.Held.HasFlag(ModbotPermissions.Administrator))
             return Task.FromResult(new StaffNoteAnswer(null, "You do not have permission to write notes."));
 
-        Notes.Add((platform, userId, text, context, by));
+        Notes.Add((platform, userId, text, by));
         return Task.FromResult(new StaffNoteAnswer(_nextNoteId++, null));
     }
 }

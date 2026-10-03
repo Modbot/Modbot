@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
@@ -157,7 +156,7 @@ public sealed class StaffActionsForDiscord : IStaffActions
     }
 
     public async Task<StaffNoteAnswer> WriteNoteAsync(
-        FactPlatform platform, string userId, string text, JsonObject? context, StaffMember by, CancellationToken ct = default)
+        FactPlatform platform, string userId, string text, StaffMember by, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(by);
 
@@ -172,7 +171,6 @@ public sealed class StaffActionsForDiscord : IStaffActions
             var written = await notes.WriteAsync(
                 new WriteNoteRequest(userId, platform.ToString(), text),
                 new Caller(by.UserId, by.Username, by.Held),
-                context,
                 ct);
 
             return new StaffNoteAnswer(written.Id, null);

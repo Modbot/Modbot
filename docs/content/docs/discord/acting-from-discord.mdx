@@ -1,10 +1,10 @@
 ---
 title: Acting from Discord
-description: Look people up, write notes, report messages, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
+description: Look people up, write notes, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
 ---
 
-Moderators can act on what they see in Discord without opening Modbot: right-click a member or a
-message, or press a button under a card the bot posted. Everything happens as the moderator's own
+Moderators can act on what they see in Discord without opening Modbot: right-click a member, or
+press a button under a card the bot posted. Everything happens as the moderator's own
 Modbot account, with the same permissions, reasons and records as the web app.
 
 Every reply, form and confirmation is visible only to the person who pressed. The one thing the
@@ -19,7 +19,7 @@ permission it needs in the web app:
 | What | Needs |
 |---|---|
 | **Look up in Modbot** | **See profiles** |
-| **Add a note**, **Report this message**, the **Add note** button | **Write notes** |
+| **Add a note**, the **Add note** button | **Write notes** |
 | **Kick** | **Kick** |
 | **Ban** | **Ban** |
 | **Approve**, **Reject** | **Answer join requests** |
@@ -34,15 +34,14 @@ permission taken away in between stops the action.
 
 ## Right-click menus
 
-Right-click a member or a message, then **Apps**:
+Right-click a member, then **Apps**:
 
 | Menu | On | What it does |
 |---|---|---|
 | **Look up in Modbot** | a member | A card about them. For a member who has linked their VRChat account, it is their VRChat profile, the same card `/lookup` shows, with **Add note**, **Kick** and **Ban** buttons for the ones you may use (no **Kick** or **Ban** for somebody already banned). For a member with no link, it shows their Discord name, **VRChat: Not linked**, how many notes they have, and how many timeouts, Discord bans and kicks Modbot has recorded, with an **Add note** button. |
 | **Add a note** | a member | A form with one box. The note is written about their Discord account and shows on their person view in Modbot. |
-| **Report this message** | a message | A form with one box for what is wrong. It writes a note about whoever sent the message. The note holds what you typed, the channel, when it was sent, the message's words and a link to it, and Modbot keeps the message with the note. |
 
-A message from a bot cannot be reported, and the menus refuse Modbot's own Discord account.
+The menus refuse Modbot's own Discord account.
 
 ### Who sees the menus
 

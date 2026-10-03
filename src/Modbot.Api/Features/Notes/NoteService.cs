@@ -86,16 +86,7 @@ public sealed class NoteService
     // ── Writing ────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Writes one note about one person.</summary>
-    public Task<NoteView> WriteAsync(WriteNoteRequest request, Caller caller, CancellationToken ct)
-        => WriteAsync(request, caller, context: null, ct);
-
-    /// <summary>Writes one note about one person, keeping <paramref name="context"/> on its fact.</summary>
-    /// <param name="context">
-    /// What the note was written about, kept beside the text under its own keys: a reported Discord
-    /// message is <c>reportedMessage</c> (acting from Discord design §8). A key the note itself
-    /// uses is never overwritten.
-    /// </param>
-    public async Task<NoteView> WriteAsync(WriteNoteRequest request, Caller caller, JsonObject? context, CancellationToken ct)
+    public async Task<NoteView> WriteAsync(WriteNoteRequest request, Caller caller, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(caller);
@@ -124,7 +115,7 @@ public sealed class NoteService
 
         await partitions.EnsureForAsync(now, ct);
 
-        var written = await facts.WriteAsync(NoteFact(platform, userId, text, caller, now, fromBrief: null, context), ct);
+        var written = await facts.WriteAsync(NoteFact(platform, userId, text, caller, now, fromBrief: null), ct);
         await _db.SaveChangesAsync(ct);
 
         return Written(written.Id, now, platform, userId, text, caller, fromBrief: false);
@@ -233,8 +224,7 @@ public sealed class NoteService
     private const string BriefCallKey = "aiCallId";
 
     private static FactRecord NoteFact(
-        FactPlatform platform, string userId, string text, Caller caller, DateTimeOffset now, Guid? fromBrief,
-        JsonObject? context = null)
+        FactPlatform platform, string userId, string text, Caller caller, DateTimeOffset now, Guid? fromBrief)
     {
         var data = new JsonObject
         {
@@ -248,13 +238,6 @@ public sealed class NoteService
             // rather than as markup.
             ["description"] = text,
         };
-
-        // Never the brief's own marks: only a note saved from a brief may carry them.
-        foreach (var (key, value) in context ?? [])
-        {
-            if (!data.ContainsKey(key) && key is not (WrittenByKey or BriefCallKey))
-                data[key] = value?.DeepClone();
-        }
 
         if (fromBrief is { } callId)
         {

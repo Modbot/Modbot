@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using Modbot.Discord.Gateway;
 
 namespace Modbot.Discord.Interactions;
 
@@ -35,11 +34,8 @@ public sealed record PendingStaffAction(
     public string Key => "discord:" + Token;
 }
 
-/// <summary>A message somebody is reporting, held while they fill in the form.</summary>
-public sealed record PendingReport(string Token, string DiscordUserId, DiscordTargetMessage Message, DateTimeOffset StartedAt);
-
 /// <summary>
-/// The actions and reports started from Discord and not finished yet, held in memory for
+/// The actions started from Discord and not finished yet, held in memory for
 /// <see cref="Lifetime"/> (acting from Discord design §4).
 /// </summary>
 /// <remarks>
@@ -66,7 +62,6 @@ public sealed class PendingStaffActions
     public const int MaxHeld = 1000;
 
     private readonly ConcurrentDictionary<string, PendingStaffAction> _actions = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, PendingReport> _reports = new(StringComparer.Ordinal);
 
     /// <summary>A new token: 24 random hex characters, short enough to sit in a button id.</summary>
     public static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
@@ -82,24 +77,9 @@ public sealed class PendingStaffActions
         return _actions.TryAdd(action.Token, action);
     }
 
-    /// <summary>Holds a report. False when too many are held already.</summary>
-    public bool TryAdd(PendingReport report, DateTimeOffset now)
-    {
-        ArgumentNullException.ThrowIfNull(report);
-
-        if (!Room(now))
-            return false;
-
-        return _reports.TryAdd(report.Token, report);
-    }
-
     /// <summary>The action held under this token, or null when there is none or it has run out.</summary>
     public PendingStaffAction? Action(string token, DateTimeOffset now)
         => _actions.TryGetValue(token, out var held) && now - held.StartedAt < Lifetime ? held : null;
-
-    /// <summary>The report held under this token, or null when there is none or it has run out.</summary>
-    public PendingReport? Report(string token, DateTimeOffset now)
-        => _reports.TryGetValue(token, out var held) && now - held.StartedAt < Lifetime ? held : null;
 
     /// <summary>Replaces what is held under the action's token.</summary>
     public void Update(PendingStaffAction action)
@@ -108,15 +88,11 @@ public sealed class PendingStaffActions
         _actions[action.Token] = action;
     }
 
-    public void Forget(string token)
-    {
-        _actions.TryRemove(token, out _);
-        _reports.TryRemove(token, out _);
-    }
+    public void Forget(string token) => _actions.TryRemove(token, out _);
 
     private bool Room(DateTimeOffset now)
     {
-        if (_actions.Count + _reports.Count < MaxHeld)
+        if (_actions.Count < MaxHeld)
             return true;
 
         foreach (var (token, held) in _actions)
@@ -125,12 +101,6 @@ public sealed class PendingStaffActions
                 _actions.TryRemove(token, out _);
         }
 
-        foreach (var (token, held) in _reports)
-        {
-            if (now - held.StartedAt >= Lifetime)
-                _reports.TryRemove(token, out _);
-        }
-
-        return _actions.Count + _reports.Count < MaxHeld;
+        return _actions.Count < MaxHeld;
     }
 }

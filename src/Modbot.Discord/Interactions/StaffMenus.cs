@@ -27,22 +27,18 @@ public static class StaffMenus
     /// <summary>Right-click a member: a note about them.</summary>
     public const string AddNote = "Add a note";
 
-    /// <summary>Right-click a message: a note about whoever wrote it, keeping the message.</summary>
-    public const string Report = "Report this message";
-
-    /// <summary>The three menus, all hidden from members without Timeout Members until an admin says otherwise.</summary>
+    /// <summary>The two menus, both hidden from members without Timeout Members until an admin says otherwise.</summary>
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
         new(LookUp, string.Empty, [], DiscordCommandKind.User, StaffOnly: true),
         new(AddNote, string.Empty, [], DiscordCommandKind.User, StaffOnly: true),
-        new(Report, string.Empty, [], DiscordCommandKind.Message, StaffOnly: true),
     ];
 
     /// <summary>The permission each menu needs, as the web app's own page or button asks for it.</summary>
     public static ModbotPermissions? Requires(string menu) => menu switch
     {
         LookUp => ModbotPermissions.ViewProfile,
-        AddNote or Report => ModbotPermissions.WriteNotes,
+        AddNote => ModbotPermissions.WriteNotes,
         _ => null,
     };
 
@@ -64,9 +60,6 @@ public static class StaffMenus
 
     /// <summary>The note form: <c>modbot:form:note:v:&lt;id&gt;</c>.</summary>
     public const string NoteForm = P + "form:note:";
-
-    /// <summary>The report form: <c>modbot:form:report:&lt;token&gt;</c>.</summary>
-    public const string ReportForm = P + "form:report:";
 
     /// <summary>The reasons form: <c>modbot:form:act:&lt;token&gt;</c>.</summary>
     public const string ActForm = P + "form:act:";
