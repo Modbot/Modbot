@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261003194514_SendPostsToTheVRChatGroup")]
+    [Migration("20261003194755_SendPostsToTheVRChatGroup")]
     partial class SendPostsToTheVRChatGroup
     {
         /// <inheritdoc />
@@ -1322,6 +1322,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("GoogleCalendarId")
                         .HasColumnType("text")
                         .HasColumnName("google_calendar_id");
+
+                    b.Property<string>("GoogleLink")
+                        .HasColumnType("text")
+                        .HasColumnName("google_link");
 
                     b.Property<string>("MissingGroupPermission")
                         .HasMaxLength(64)
