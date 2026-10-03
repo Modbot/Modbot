@@ -1107,7 +1107,9 @@ send. The image id rule above is a save problem too, while VRChat calendar is ti
 hidden otherwise, and a problem in a hidden box could not be fixed): text with no file id in it is
 refused with an example (§15.1), and an id the event already holds is refused only for what the
 check above refuses. With VRChat calendar unticked, what was typed is kept as it is (the id in it,
-when it has one) and judged once the chip is turned on.
+when it has one) and never blocks the save. A changed value is checked when
+VRChat is on, and an id the event already holds is kept as it is. VRChat itself
+refuses a bad one at sending.
 
 ### 17.3 Being sent
 
