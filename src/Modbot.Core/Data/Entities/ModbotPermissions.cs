@@ -423,6 +423,28 @@ public enum ModbotPermissions : long
     /// </summary>
     ManageJoinGate = 1L << 51,
 
+    // --- Posts and the Marketing tab (posts design §4.1). Bits 52 and 53. ---
+
+    /// <summary>See the Marketing tab: every post, where it goes, and how each site took it.</summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewCalendar"/>: a post reaches beyond the
+    /// calendar, and the Marketing tab lists posts nobody tied to an event. Not in the built-in
+    /// roles; Administrator holds it.
+    /// </remarks>
+    ViewPosts = 1L << 52,
+
+    /// <summary>
+    /// Write, schedule, edit, cancel and send posts, try a failed one again, and edit or delete one
+    /// on the site it went to.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewPosts"/> for the reason the calendar's pair is separate: a post
+    /// goes out in the group's name, in public. Not <see cref="ManageGroupPosts"/>, which stays the
+    /// VRChat page's Posts tab (decision 17), and not <see cref="ManageCalendar"/>: ticking a post on
+    /// an event will need both. Not in the built-in roles; Administrator holds it.
+    /// </remarks>
+    ManagePosts = 1L << 53,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

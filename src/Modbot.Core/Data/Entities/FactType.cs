@@ -725,6 +725,35 @@ public static class FactType
     /// </summary>
     public const string ListExported = "modbot.list.export";
 
+    // ── Posts (posts design §5) ────────────────────────────────────────────────────────────
+    //
+    // The subject is the post's id on the Modbot platform. A person who wrote, changed, cancelled,
+    // edited or deleted a post is the actor; a send has none, because Modbot sent it at its time,
+    // and carries who scheduled it in `scheduledBy`. Nothing about a member is in any of them: a
+    // post is the group's own words. Moderation retention, kept: it is the record of what went out
+    // in public in the group's name.
+
+    /// <summary>A post was written. Payload: title, text, destinations and their options, <c>sendAt</c>, status, event.</summary>
+    public const string PostCreated = "modbot.post.create";
+
+    /// <summary>A post was changed before it went. Payload: <c>changed</c>, each field with its <c>old</c> and <c>new</c> value.</summary>
+    public const string PostChanged = "modbot.post.change";
+
+    /// <summary>A post was cancelled before it went, or a draft deleted (<c>deleted</c>: true).</summary>
+    public const string PostCancelled = "modbot.post.cancel";
+
+    /// <summary>A post went out on a site. No actor. Payload: network, link, external id, the text sent, <c>scheduledBy</c>.</summary>
+    public const string PostSent = "modbot.post.send";
+
+    /// <summary>A post did not go out on a site. No actor. Payload: network and the site's words.</summary>
+    public const string PostFailed = "modbot.post.fail";
+
+    /// <summary>A post was edited on a site after it went. Payload: network, the text before and after.</summary>
+    public const string PostEdited = "modbot.post.edit";
+
+    /// <summary>A post was deleted on a site after it went. Payload: network and who asked.</summary>
+    public const string PostRemoved = "modbot.post.remove";
+
     // ── Discord roles from saved lists (roles from lists design §7) ────────────────────────
     //
     // Modbot gave or took a Discord role because somebody joined or left a list paired with it.

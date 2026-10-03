@@ -384,6 +384,16 @@ public static class AuditVisibility
         [FactType.ListChanged] = AuditCategory.Operational,
         [FactType.ListDeleted] = AuditCategory.Operational,
         [FactType.ListExported] = AuditCategory.Operational,
+
+        // Posts: Modbot's own feature, gated by See posts and Manage posts on its own tab, the same
+        // shape as giveaways. Live updates reach somebody with See posts through LiveScope.
+        [FactType.PostCreated] = AuditCategory.Operational,
+        [FactType.PostChanged] = AuditCategory.Operational,
+        [FactType.PostCancelled] = AuditCategory.Operational,
+        [FactType.PostSent] = AuditCategory.Operational,
+        [FactType.PostFailed] = AuditCategory.Operational,
+        [FactType.PostEdited] = AuditCategory.Operational,
+        [FactType.PostRemoved] = AuditCategory.Operational,
     };
 
     /// <summary>

@@ -295,6 +295,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
 
+    /// <summary>Posts Modbot sends to Discord and other sites at a time (posts design §2.2).</summary>
+    public DbSet<Post> Posts => Set<Post>();
+
+    /// <summary>Each site a post goes to, and how it went there.</summary>
+    public DbSet<PostDestination> PostDestinations => Set<PostDestination>();
+
     /// <summary>Dates of repeating events cancelled or changed on their own (calendar design §2.2).</summary>
     public DbSet<CalendarDateChange> CalendarDateChanges => Set<CalendarDateChange>();
 
@@ -459,6 +465,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // the column is added to a row that already exists, and without it every Modbot that
             // upgraded would silently have the listing off.
             entity.Property(e => e.SharePublicInstances).HasDefaultValue(true);
+
+            // On for the row that exists already: nothing goes out without a person ticking it on
+            // a post, and the calendar's one-off Discord posts were already on (posts design §4.6).
+            entity.Property(e => e.DiscordPostsOn).HasDefaultValue(true);
 
             // Off, for the row that exists already as much as for a new one.
             entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);
@@ -2284,6 +2294,77 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.ContentType).HasMaxLength(32);
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_calendar_cover_picture_created_at");
+        });
+
+        // Posts (posts design §2.2). A picture deleted under a post leaves it with none, as an
+        // event's cover does; a post deleted takes its destinations with it.
+        builder.Entity<Post>(entity =>
+        {
+            entity.ToTable("post");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Title).HasMaxLength(Post.MaxTitleLength);
+            entity.Property(e => e.Text).HasMaxLength(Post.MaxTextLength);
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.TimeZone).HasMaxLength(64);
+            entity.Property(e => e.Kind).HasMaxLength(16);
+
+            // Raised by every write, the sender's claim included (§3.4).
+            entity.Property(e => e.Version).IsConcurrencyToken();
+
+            entity.HasOne<CalendarCoverPicture>()
+                .WithMany()
+                .HasForeignKey(e => e.PictureId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.Destinations)
+                .WithOne()
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // What the sender looks for each pass, and the list's tabs.
+            entity.HasIndex(e => new { e.Status, e.SendAt }).HasDatabaseName("ix_post_status_send_at");
+
+            // The calendar never makes a second post of the same kind for an event or a date (§2.2).
+            // Two partial indexes rather than NULLS NOT DISTINCT, which older PostgreSQL lacks.
+            entity.HasIndex(e => new { e.EventId, e.Kind })
+                .IsUnique()
+                .HasFilter("kind IS NOT NULL AND date_starts_at IS NULL")
+                .HasDatabaseName("ux_post_event_kind");
+            entity.HasIndex(e => new { e.EventId, e.Kind, e.DateStartsAt })
+                .IsUnique()
+                .HasFilter("kind IS NOT NULL")
+                .HasDatabaseName("ux_post_event_kind_date");
+        });
+
+        builder.Entity<PostDestination>(entity =>
+        {
+            entity.ToTable("post_destination");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Network).HasMaxLength(16);
+            entity.Property(e => e.Target).HasColumnType("text");
+            entity.Property(e => e.Options).HasColumnType("jsonb");
+            entity.Property(e => e.TitleOverride).HasMaxLength(Post.MaxTitleLength);
+            entity.Property(e => e.TextOverride).HasMaxLength(Post.MaxTextLength);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.ClientKey).HasColumnType("text");
+            entity.Property(e => e.ExternalId).HasColumnType("text");
+            entity.Property(e => e.Link).HasMaxLength(2048);
+            entity.Property(e => e.SentTitle).HasColumnType("text");
+            entity.Property(e => e.SentText).HasColumnType("text");
+            entity.Property(e => e.Error).HasMaxLength(1024);
+            entity.Property(e => e.MissingPermission).HasMaxLength(128);
+
+            // One Discord channel per post in the first step (decision 16).
+            entity.HasIndex(e => new { e.PostId, e.Network })
+                .IsUnique()
+                .HasDatabaseName("ux_post_destination_post_network");
+
+            // What each site's sender picks up: waiting, checking, sending.
+            entity.HasIndex(e => new { e.Network, e.State }).HasDatabaseName("ix_post_destination_network_state");
         });
 
         builder.Entity<CalendarEvent>(entity =>

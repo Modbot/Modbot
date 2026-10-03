@@ -265,6 +265,21 @@ public class Settings
     public DateTimeOffset? GoogleStoppedUntil { get; set; }
 
     /// <summary>
+    /// Pause all posting (posts design §4.6): while on, no post goes to any site, Marketing posts and
+    /// event posts alike. Posts wait, and one more than an hour late turns Failed with Post now.
+    /// The calendar's own copies (its VRChat entry, the Discord event and the channel card) are not
+    /// posts and carry on (decision 12). Off by default.
+    /// </summary>
+    public bool PostsPaused { get; set; }
+
+    /// <summary>
+    /// Whether posts go to Discord at all (posts design §4.6). On by default, new installs and old:
+    /// nothing goes out unless a person ticks Discord on a post, and the calendar's one-off Discord
+    /// posts were already on. Off, Discord destinations wait and show "Off".
+    /// </summary>
+    public bool DiscordPostsOn { get; set; } = true;
+
+    /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>

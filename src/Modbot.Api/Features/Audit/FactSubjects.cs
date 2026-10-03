@@ -147,6 +147,15 @@ public static class FactSubjects
         [FactType.ListDeleted] = SubjectKind.Other,
         [FactType.ListExported] = SubjectKind.Other,
 
+        // The subject is the post's id: the group's own words, about nobody.
+        [FactType.PostCreated] = SubjectKind.Other,
+        [FactType.PostChanged] = SubjectKind.Other,
+        [FactType.PostCancelled] = SubjectKind.Other,
+        [FactType.PostSent] = SubjectKind.Other,
+        [FactType.PostFailed] = SubjectKind.Other,
+        [FactType.PostEdited] = SubjectKind.Other,
+        [FactType.PostRemoved] = SubjectKind.Other,
+
         // The pairing's id. A role given or taken is about the person on Discord, so those two
         // keep the default.
         [FactType.ListRoleStopped] = SubjectKind.Other,
