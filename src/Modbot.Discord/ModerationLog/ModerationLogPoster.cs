@@ -349,10 +349,23 @@ public sealed class ModerationLogPoster
                 .ConfigureAwait(false);
             embeds[0] = EmbedSize.Shorten(embeds[0]);
 
+            // The same buttons the post was made with (acting from Discord design §7): an edit sets a
+            // message's buttons whole, and a repeat must not take away the ones a moderator acts
+            // from. The card is about the same person, so they are the same buttons.
+            var buttons = await ButtonsForAsync(cards[0].Latest, style, ct).ConfigureAwait(false);
+
             // The files are sent again rather than left as they were, so a person whose picture
             // changed since the first post is shown with the new one.
             var outcome = await gateway
-                .EditAsync(channelId, post.MessageId, null, embeds, null, files, ct)
+                .EditAsync(
+                    channelId,
+                    post.MessageId,
+                    null,
+                    embeds,
+                    buttons.Links.Count > 0 ? buttons.Links : null,
+                    files,
+                    buttons.Actions.Count > 0 ? buttons.Actions : null,
+                    ct)
                 .ConfigureAwait(false);
             sent++;
 

@@ -110,6 +110,13 @@ embed and its picture are left exactly as they were posted. Rewriting the embed 
 it back with the picture's Discord address, which Discord signs and lets run out. A second action
 on the same card adds a second line.
 
+**Repeats folded into a card** (Discord event repeats design, added 2026-10-03 when this met it on
+staging). A repeat of the same change is written into the post before it by rewriting that message
+whole, buttons included, so the fold sends the card's buttons again rather than taking them away.
+And a card somebody acted on takes no more repeats: rewriting it would take the line away and bring
+back the buttons the action removed. Marking a card forgets it as the channel's post for repeats, so
+the next repeat starts a post of its own.
+
 ## 7. Which cards carry buttons
 
 **Only a message that is one card.** Discord puts buttons under a message, not under an embed, and

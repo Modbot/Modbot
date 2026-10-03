@@ -345,6 +345,43 @@ public class StaffInteractionHandlerTests
         Assert.Equal("repeat", (await LastCommandFactAsync(services, ct)).GetProperty("outcome").GetString());
     }
 
+    /// <summary>
+    /// A card somebody acted on takes no more repeats: folding one in rewrites the message whole,
+    /// which would take the "Banned by" line away and bring back the buttons the ban took off.
+    /// </summary>
+    [Fact]
+    public async Task ACardSomebodyActedOn_TakesNoMoreRepeats()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.Ban, ct: ct);
+        await services.AddProfileAsync(Target, "jessie", ct: ct);
+        var gateway = new FakeGateway();
+        var recorder = new Recorder();
+
+        // The card is the post the channel's next repeat would be written into.
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordEventChannels.Add(new DiscordEventChannel { ChannelId = CardChannel, RepeatPostId = CardMessage });
+            await db.SaveChangesAsync(ct);
+        }
+
+        using var scope = services.Scope();
+        var handler = Handler(scope);
+
+        await handler.HandleButtonAsync(
+            Press("100", StaffMenus.ActButtonFor(StaffActionWords.Ban, Target), recorder, onCard: true), gateway, ct);
+        var form = Assert.Single(recorder.Forms);
+
+        var confirmation = await handler.HandleFormAsync(
+            Submit("100", form.Id, ("reasons", [services.Staff.Reasons[0].Id.ToString("N")]), ("note", [""])), gateway, ct);
+        await handler.HandleButtonAsync(Press("100", confirmation.Actions![0].Id, recorder), gateway, ct);
+
+        Assert.Single(services.Staff.Sent);
+        Assert.Single(gateway.Handled);
+        Assert.Null((await services.ChannelPlaceAsync(CardChannel, ct))!.RepeatPostId);
+    }
+
     [Fact]
     public async Task WithoutTheBanPermission_TheButtonOpensNothing()
     {

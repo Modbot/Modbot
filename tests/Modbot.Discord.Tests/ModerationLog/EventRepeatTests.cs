@@ -154,6 +154,35 @@ public class EventRepeatTests
     }
 
     /// <summary>
+    /// A repeat written into a one-card post keeps the buttons under it (acting from Discord design
+    /// §7): an edit sets a message's buttons whole, so the fold sends the same ones again.
+    /// </summary>
+    [Fact]
+    public async Task ARepeat_KeepsTheButtonsUnderThePost()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.UserProfileChanged], ct);
+
+        await ProfileChangedAsync(services, Person, "away", ct);
+        await RunAsync(services, gateway, ct);
+
+        var (_, messageId, _, _, _) = Assert.Single(gateway.Messages);
+        var posted = gateway.ActionsSent[messageId].Select(a => a.Id).ToList();
+        Assert.NotEmpty(posted);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await ProfileChangedAsync(services, Person, "back", ct);
+        await RunAsync(services, gateway, ct);
+
+        var edit = Assert.Single(gateway.Edits);
+        Assert.Equal(messageId, edit.MessageId);
+        Assert.Equal(posted, gateway.EditActions[^1].Select(a => a.Id));
+    }
+
+    /// <summary>
     /// Discord refuses a message whose cards hold more than six thousand characters between them,
     /// and a refused message is retried on every pass while the cards behind it wait.
     /// </summary>

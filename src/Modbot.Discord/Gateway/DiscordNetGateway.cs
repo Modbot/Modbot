@@ -352,6 +352,17 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
@@ -383,7 +394,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                     m.AllowedMentions = AllowedMentions.None;
 
                     // Always set, so an edit with no buttons takes away the ones the message had.
-                    m.Components = Buttons(links);
+                    m.Components = Buttons(links, actions);
 
                     // Left alone when the caller sent no list at all, which is what keeps the
                     // picture a rewritten card already paid for.

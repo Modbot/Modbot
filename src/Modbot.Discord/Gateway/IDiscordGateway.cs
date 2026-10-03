@@ -959,6 +959,23 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct);
 
+    /// <summary>
+    /// Rewrites a message the bot posted earlier, with buttons the bot answers after the links.
+    /// </summary>
+    /// <param name="actions">
+    /// Buttons whose presses arrive as <see cref="ButtonPressed"/>. The buttons are set whole, as
+    /// the links are: null or empty takes away any the message had.
+    /// </param>
+    Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
     // ── Posts (posts design §3.5) ────────────────────────────────────────────────────────
 
     /// <summary>

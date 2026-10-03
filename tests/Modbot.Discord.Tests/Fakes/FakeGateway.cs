@@ -480,6 +480,20 @@ public sealed class FakeGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text, embeds, links, pictures, actions: null, ct);
+
+    /// <summary>The buttons the bot answers that each edit set, in the order of <see cref="Edits"/>.</summary>
+    public List<IReadOnlyList<DiscordActionButton>> EditActions { get; } = [];
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
@@ -489,6 +503,7 @@ public sealed class FakeGateway : IDiscordGateway
 
         Edits.Add((channelId, messageId, text, embeds, links ?? []));
         EditPictures.Add(pictures);
+        EditActions.Add(actions ?? []);
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }

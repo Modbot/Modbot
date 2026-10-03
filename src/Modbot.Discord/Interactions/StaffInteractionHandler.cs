@@ -473,6 +473,13 @@ public sealed class StaffInteractionHandler
 
             if (!marked.Sent)
                 _log.Warning("Could not mark the card {Message} as handled: {Reason}", messageId, marked.Error);
+
+            // Repeats are never folded into a card somebody acted on: the fold rewrites the message
+            // whole, which would take this line away and bring back the buttons it took off.
+            await _db.DiscordEventChannels
+                .Where(c => c.RepeatPostId == messageId)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.RepeatPostId, (string?)null), ct)
+                .ConfigureAwait(false);
         }
 
         var result = answer switch
