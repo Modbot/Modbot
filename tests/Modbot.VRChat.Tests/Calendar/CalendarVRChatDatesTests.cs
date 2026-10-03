@@ -196,10 +196,11 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
         Clock.Advance(TimeSpan.FromMinutes(2));
         Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
 
-        // VRChat has the planned date back and holds nothing of it; the row stays for Google.
+        // VRChat has the planned date back and holds it as planned; the row stays for Google.
         var date = await DateAsync(e.Id);
-        Assert.Null(date.VRChatSentFingerprint);
+        Assert.Equal(Modbot.Core.Calendar.CalendarDates.VRChatHasPlannedDate, date.VRChatSentFingerprint);
         Assert.Null(date.VRChatId);
+        Assert.False(Modbot.Core.Calendar.CalendarDates.MayBeOnVRChat(date));
         Assert.Equal("sent-to-google", date.GoogleSentFingerprint);
 
         // And VRChat is not sent the plain date again and again.
@@ -207,6 +208,50 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
         Clock.Advance(TimeSpan.FromMinutes(2));
         Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
         Assert.Equal(updates, VRChat.Calendar.Updates.Count);
+
+        // A series write: the plain date is sent to VRChat again, as it always was, rather than
+        // assuming VRChat put it back on its own.
+        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        Clock.Advance(Settle + TimeSpan.FromMinutes(1));
+        Assert.Equal("update", (await PublishAsync()).Action);
+        Assert.Equal("cal_1", VRChat.Calendar.Updates[^1].Id);
+
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        var (id, body) = VRChat.Calendar.Updates[^1];
+        Assert.Equal("occ_2", id);
+        Assert.Equal(second.UtcDateTime, body.StartsAt);
+    }
+
+    /// <summary>
+    /// With Google not involved, VRChat behaves as it did before Google Calendar: after a series
+    /// write a put-back date is sent again, and its row goes once VRChat has it.
+    /// </summary>
+    [Fact]
+    public async Task APutBackDateIsSentAgainAfterASeriesWrite_ThenForgotten()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+
+        // Put back as planned, VRChat still holding the move: kept for VRChat.
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.VRChatSentStartsAt = second + TimeSpan.FromHours(1);
+            c.VRChatSentFingerprint = "sent before";
+        });
+
+        // The series is written first; the date is then looked for and sent again.
+        await EditAsync(e.Id, x => x.Description = "Bring snacks and a blanket");
+        Clock.Advance(Settle + TimeSpan.FromMinutes(1));
+        Assert.Equal("update", (await PublishAsync()).Action);
+
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal("occ_2", VRChat.Calendar.Updates[^1].Id);
+
+        await using var after = Database.NewContext();
+        Assert.False(await after.CalendarDateChanges.AnyAsync(c => c.EventId == e.Id, Ct));
     }
 
     [Fact]

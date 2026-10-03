@@ -34136,6 +34136,15 @@
           "publishToGoogle": {
             "type": "boolean",
             "default": false
+          },
+          "vrChatRoleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

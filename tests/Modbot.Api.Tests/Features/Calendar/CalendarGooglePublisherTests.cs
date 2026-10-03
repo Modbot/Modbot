@@ -550,6 +550,162 @@ public sealed class CalendarGooglePublisherTests(PostgresFixture db) : IDisposab
         Assert.Equal(CalendarPlaceStates.Published, (await PlaceAsync(e.Id))!.State);
     }
 
+    [Fact]
+    public async Task AnEventMadeMembersOnlyAfterPublishing_IsDeletedFromGoogle()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        await PassAsync();
+
+        await EditAsync(e.Id, x => x.Visibility = "group");
+        await PassAsync();
+
+        Assert.Equal(["POST", "DELETE"], Methods());
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id))!.State);
+        Assert.Equal("cancelled", _google.Events[(CalendarId, GoogleEventIds.For(e.Id, 0))]["status"]!.GetValue<string>());
+
+        // Narrowed to some of the group's roles is members-only too.
+        var roles = await AddEventAsync(x => x.Title = "Staff night");
+        await PassAsync();
+        await EditAsync(roles.Id, x => x.VRChatRoleIds = ["grol_staff"]);
+        await PassAsync();
+
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(roles.Id))!.State);
+    }
+
+    [Fact]
+    public async Task AnotherCalendarWhileAnInsertsAnswerIsUnknown_DeletesItFromTheOldOneByItsId()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        _google.DropAnswer = (method, _) => method == HttpMethod.Post;
+        await PassAsync();
+        _google.DropAnswer = null;
+
+        const string Other = "c_other@group.calendar.google.com";
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.GoogleCalendarId = Other;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await PassAsync();
+
+        // The copy the lost answer made is taken off the old calendar, by the id written first.
+        Assert.Equal(HttpMethod.Delete, _google.EventCalls[1].Method);
+        Assert.Equal("cancelled", _google.Events[(CalendarId, GoogleEventIds.For(e.Id, 0))]["status"]!.GetValue<string>());
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id))!.State);
+
+        await PassAsync();
+
+        Assert.True(_google.Events.ContainsKey((Other, GoogleEventIds.For(e.Id, 1))));
+        Assert.Equal(Other, (await PlaceAsync(e.Id))!.GoogleCalendarId);
+    }
+
+    [Fact]
+    public async Task A409ThatReadsBackAsA404_IsInsertedAgainOnceAPass()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        _google.Answer = (method, call) =>
+            method == HttpMethod.Post ? FakeGoogle.Error(HttpStatusCode.Conflict, "duplicate")
+            : method == HttpMethod.Get && !call.Instances ? FakeGoogle.Error(HttpStatusCode.NotFound, "notFound")
+            : null;
+
+        await PassAsync();
+
+        // 409, read back: not there; inserted again; 409 again, read back: not there; waits.
+        Assert.Equal(["POST", "GET", "POST", "GET"], Methods());
+
+        var place = await PlaceAsync(e.Id);
+        Assert.Equal(CalendarPlaceStates.Waiting, place!.State);
+        Assert.Null(place.SentFingerprint);
+        Assert.Equal(_clock.UtcNow, place.ErrorAt);
+    }
+
+    [Fact]
+    public async Task ADeleteAnswered404_WithTheCalendarUnreachable_IsNotTakenAsRemoved()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        await PassAsync();
+
+        // Unshared: Google answers 404 for the event and for the calendar alike.
+        _google.Events.Remove((CalendarId, GoogleEventIds.For(e.Id, 0)));
+        _google.CalendarStatus = HttpStatusCode.NotFound;
+        await EditAsync(e.Id, x => x.PublishToGoogle = false);
+        await PassAsync();
+
+        var place = await PlaceAsync(e.Id);
+        Assert.Equal(CalendarPlaceStates.Published, place!.State);
+        Assert.NotNull(place.SentFingerprint);
+        Assert.Equal(GoogleErrors.CannotSee, (await SettingsAsync()).GoogleProblem);
+    }
+
+    [Fact]
+    public async Task NoAnswerFromTheOldCalendar_IsTriedAgainForADay_ThenGivenUp()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        await PassAsync();
+
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.GoogleCalendarId = "c_other@group.calendar.google.com";
+            await context.SaveChangesAsync(Ct);
+        }
+
+        _google.Answer = (method, _) => method == HttpMethod.Delete ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) : null;
+
+        await PassAsync();
+        var place = await PlaceAsync(e.Id);
+        Assert.Equal(CalendarPlaceStates.Waiting, place!.State);
+        Assert.Equal(CalendarGooglePublisher.OldCalendarFingerprint, place.FailedFingerprint);
+
+        // Not before a minute; then again.
+        _clock.Advance(TimeSpan.FromSeconds(30));
+        await PassAsync();
+        Assert.Single(_google.EventCalls, c => c.Method == HttpMethod.Delete);
+
+        _clock.Advance(TimeSpan.FromSeconds(31));
+        await PassAsync();
+        Assert.Equal(2, _google.EventCalls.Count(c => c.Method == HttpMethod.Delete));
+        Assert.Equal(CalendarPlaceStates.Waiting, (await PlaceAsync(e.Id))!.State);
+
+        // A day on from the first try: noted, given up, and the event is made on the new calendar.
+        _clock.Advance(CalendarGooglePublisher.OldCalendarTriesFor);
+        await PassAsync();
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id))!.State);
+
+        await PassAsync();
+        Assert.Equal("c_other@group.calendar.google.com", (await PlaceAsync(e.Id))!.GoogleCalendarId);
+    }
+
+    [Fact]
+    public async Task AfterALimitATokenRequestIsTheWholeProbe()
+    {
+        await SetUpAsync(s => s.GoogleStoppedUntil = _clock.UtcNow.AddMinutes(-1));
+        var e = await AddEventAsync();
+
+        await PassAsync();
+
+        // The sign-in had no token: the probe is the token request alone.
+        Assert.Equal(1, _google.TokenRequests);
+        Assert.Empty(_google.EventCalls);
+        Assert.NotNull((await SettingsAsync()).GoogleStoppedUntil);
+        Assert.Null((await PlaceAsync(e.Id))?.ExternalId);
+
+        // With the token kept, the next probe is the insert, and once answered the stop is over.
+        _clock.Advance(TimeSpan.FromSeconds(20));
+        await PassAsync();
+
+        Assert.Equal(["POST"], Methods());
+        Assert.Null((await SettingsAsync()).GoogleStoppedUntil);
+        Assert.Equal(CalendarPlaceStates.Published, (await PlaceAsync(e.Id))!.State);
+    }
+
     private async Task AddDateChangeAsync(Guid id, DateTimeOffset planned, Action<CalendarDateChange> change)
     {
         await using var context = db.NewContext();

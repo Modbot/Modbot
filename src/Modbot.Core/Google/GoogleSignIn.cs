@@ -116,6 +116,19 @@ public sealed class GoogleSignIn(IHttpClientFactory http, IModbotClock clock)
         }
     }
 
+    /// <summary>
+    /// Whether <see cref="TokenAsync"/> would hand back a kept token for <paramref name="key"/> without
+    /// asking Google, so a caller with a budget of calls can count a token request as one.
+    /// </summary>
+    public bool HasToken(GoogleCredentials key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+
+        return Volatile.Read(ref _kept) is { Token: not null } kept
+            && kept.Who == Who(key)
+            && clock.UtcNow < kept.ExpiresAt - RenewBefore;
+    }
+
     /// <summary>Forgets the kept token, for a key that was removed or replaced.</summary>
     public void Forget() => Volatile.Write(ref _kept, null);
 

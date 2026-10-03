@@ -80,7 +80,31 @@ public static class CalendarDates
     public static bool MayBeOnVRChat(CalendarDateChange change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        return change.VRChatSentFingerprint is not null || change.VRChatId is not null || change.VRChatSentStartsAt is not null;
+        return (change.VRChatSentFingerprint is not null && change.VRChatSentFingerprint != VRChatHasPlannedDate)
+            || change.VRChatId is not null
+            || change.VRChatSentStartsAt is not null;
+    }
+
+    /// <summary>
+    /// The store marker for a date put back as planned that VRChat has been sent back (added
+    /// 2026-10-03): VRChat holds it as planned, not as changed. Kept in
+    /// <see cref="CalendarDateChange.VRChatSentFingerprint"/> only while another place (Google) still
+    /// holds the date and so keeps the row; VRChat is not sent it again until a write of the series
+    /// clears it, as every other date's sent state is cleared then.
+    /// </summary>
+    public const string VRChatHasPlannedDate = "planned";
+
+    /// <summary>VRChat was sent the planned date back: it holds nothing of this date as changed.</summary>
+    public static void PlannedOnVRChat(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        change.VRChatId = null;
+        change.VRChatSentStartsAt = null;
+        change.VRChatSentFingerprint = VRChatHasPlannedDate;
+        change.VRChatFailedFingerprint = null;
+        change.VRChatError = null;
+        change.VRChatErrorAt = null;
     }
 
     /// <summary>
@@ -103,19 +127,6 @@ public static class CalendarDates
     /// </summary>
     public static bool CanForget(CalendarDateChange change, TimeSpan length) =>
         IsPlain(change, length) && !MayBeOnVRChat(change) && !MayBeOnGoogle(change);
-
-    /// <summary>VRChat holds nothing of this date of its own any more.</summary>
-    public static void ForgetOnVRChat(CalendarDateChange change)
-    {
-        ArgumentNullException.ThrowIfNull(change);
-
-        change.VRChatId = null;
-        change.VRChatSentStartsAt = null;
-        change.VRChatSentFingerprint = null;
-        change.VRChatFailedFingerprint = null;
-        change.VRChatError = null;
-        change.VRChatErrorAt = null;
-    }
 
     /// <summary>Google holds nothing of this date of its own any more.</summary>
     public static void ForgetOnGoogle(CalendarDateChange change)

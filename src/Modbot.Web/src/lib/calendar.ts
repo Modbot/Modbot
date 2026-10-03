@@ -168,6 +168,8 @@ export type CalendarEvent = {
   coverPictureId?: string | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
+  /** The group roles VRChat shows the event to; null for everyone it is visible to. */
+  vrChatRoleIds?: string[] | null
 }
 
 /**

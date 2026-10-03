@@ -6,6 +6,7 @@ import {
   counted,
   DESCRIPTION_LIMIT,
   isSetUp,
+  membersOnly,
   missingChannel,
   notSetUp,
   placeLines,
@@ -154,6 +155,16 @@ test('an event ticked for Google Calendar shows it being sent, after the Discord
 test('a members-only event is never shown as going to Google Calendar, nor as not set up for it', () => {
   assert.deepEqual(placeLines(google({ visibility: 'group' }), { vrChat: true, discord: true, google: true }), [])
   assert.deepEqual(notSetUp(google({ visibility: 'group' }), { vrChat: true, discord: true, google: false }), [])
+})
+
+test('an event VRChat shows only to some roles is members-only, as the server says', () => {
+  const staff = { ...google(), vrChatRoleIds: ['grol_staff'] }
+
+  assert.equal(membersOnly({ visibility: 'public', vrChatRoleIds: ['grol_staff'] }), true)
+  assert.equal(membersOnly({ visibility: 'public', vrChatRoleIds: [] }), false)
+  assert.equal(membersOnly({ visibility: 'public', vrChatRoleIds: null }), false)
+  assert.deepEqual(placeLines(staff, { vrChat: true, discord: true, google: true }), [])
+  assert.deepEqual(notSetUp(staff, { vrChat: true, discord: true, google: false }), [])
 })
 
 test('Google Calendar not set up, or Sending off, says Not set up for a ticked event', () => {

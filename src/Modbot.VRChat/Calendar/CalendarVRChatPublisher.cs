@@ -474,10 +474,14 @@ public sealed class CalendarVRChatPublisher
                 if (IsOver(calendarEvent, change, now))
                     continue;
 
-                // Put back as planned, and VRChat holds nothing of it as its own: nothing to send.
-                // The row is kept for another place (Google) that still holds the change.
-                if (CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)) && !CalendarDates.MayBeOnVRChat(change))
+                // Put back as planned and already sent back to VRChat: the row is kept only for
+                // another place (Google) that still holds the change. A write of the series clears
+                // the marker, and the planned date is sent again then, as before 2026-10-03.
+                if (change.VRChatSentFingerprint == CalendarDates.VRChatHasPlannedDate
+                    && CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)))
+                {
                     continue;
+                }
 
                 var fingerprint = CalendarVRChatRequests.DateFingerprint(calendarEvent, change);
 
@@ -625,14 +629,15 @@ public sealed class CalendarVRChatPublisher
                 change.VRChatSentStartsAt = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent)).StartsAt;
 
             // A date put back as planned was kept only until VRChat had the planned date back: VRChat
-            // holds nothing of it as its own now. The row itself goes only when no other place
-            // still holds the date as changed (Google Calendar design §3.5); until 2026-10-03 it
-            // went here at once, which would have left Google's moved copy behind for good.
+            // holds it as planned now. The row itself goes only when no other place still holds the
+            // date as changed (Google Calendar design §3.5); until 2026-10-03 it went here at once,
+            // which would have left Google's moved copy behind for good. With Google not holding
+            // it, the row goes here as it always did.
             var length = CalendarRepeat.LengthOf(calendarEvent);
 
             if (CalendarDates.IsPlain(change, length))
             {
-                CalendarDates.ForgetOnVRChat(change);
+                CalendarDates.PlannedOnVRChat(change);
 
                 if (CalendarDates.CanForget(change, length))
                     calendarEvent.DateChanges.Remove(change);
@@ -1150,13 +1155,6 @@ public sealed class CalendarVRChatPublisher
                     change.VRChatError = null;
                     change.VRChatErrorAt = null;
                 }
-
-                // A date put back as planned is planned again in the series just sent: nothing of
-                // it is VRChat's own now, and the row goes unless another place still holds it.
-                var length = CalendarRepeat.LengthOf(calendarEvent);
-
-                foreach (var plain in calendarEvent.DateChanges.Where(c => CalendarDates.CanForget(c, length)).ToList())
-                    calendarEvent.DateChanges.Remove(plain);
             }
 
             place.FailedFingerprint = null;

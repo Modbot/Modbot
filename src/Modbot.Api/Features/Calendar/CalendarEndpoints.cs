@@ -2227,7 +2227,8 @@ public static class CalendarEndpoints
                 e.RepeatTimes,
                 e.Featured,
                 e.CoverPictureId,
-                e.PublishToGoogle);
+                e.PublishToGoogle,
+                e.VRChatRoleIds is { Count: > 0 } roles ? roles : null);
         })];
     }
 

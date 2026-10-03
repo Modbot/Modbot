@@ -130,6 +130,18 @@ public sealed class CalendarGooglePublisher
     private bool _wrote;
     private readonly List<(CalendarEvent Event, JsonObject Data)> _failures = [];
 
+    /// <summary>
+    /// Events whose insert was sent again after a read-back found nothing, this pass. Once a pass
+    /// each: a 409 then a 404 again waits for the next pass rather than going round.
+    /// </summary>
+    private readonly HashSet<Guid> _postedAfterReadBack = [];
+
+    /// <summary>Events made anew with the next id this pass, after Google had deleted them. Once a pass each.</summary>
+    private readonly HashSet<Guid> _madeAgain = [];
+
+    /// <summary>Whether the calendar in Settings answered a read this pass: null until asked.</summary>
+    private bool? _calendarThere;
+
     public CalendarGooglePublisher(
         ModbotContext db,
         IModbotClock clock,
@@ -349,7 +361,9 @@ public sealed class CalendarGooglePublisher
     private async Task InsertAsync(
         CalendarEvent calendarEvent, CalendarEventPlace place, CalendarGoogleBody body, string fingerprint, bool nextTurn, CancellationToken ct)
     {
-        if (OutOfCalls)
+        // The token first: a pass whose last call goes on a token request chooses no id, so the
+        // insert is not left waiting to be read back for nothing.
+        if (OutOfCalls || await TokenAsync(fresh: false, ct).ConfigureAwait(false) is null || OutOfCalls)
             return;
 
         place.ExternalId = nextTurn || place.ExternalId is not null
@@ -460,11 +474,29 @@ public sealed class CalendarGooglePublisher
 
         switch (failure.Problem)
         {
-            // Not made: the same id is inserted, unless the event no longer wants making.
+            // Not made: the same id is inserted, unless the event no longer wants making. A 404 is
+            // also what an unshared calendar answers, so the calendar is asked about first.
             case GoogleProblem.NotFound:
+                switch (await CalendarThereAsync(ct).ConfigureAwait(false))
+                {
+                    case null:
+                        NoAnswer(place);
+                        return;
+
+                    case false:
+                        return;
+                }
+
                 if (wants != CalendarGoogleWants.There)
                 {
                     MarkRemoved(calendarEvent, place);
+                    return;
+                }
+
+                // Once a pass: a 409 that reads back as a 404 again waits for the next pass.
+                if (!_postedAfterReadBack.Add(calendarEvent.Id))
+                {
+                    NoAnswer(place);
                     return;
                 }
 
@@ -514,8 +546,22 @@ public sealed class CalendarGooglePublisher
 
         switch (failure.Problem)
         {
-            // Deleted on Google while Modbot still wants it there: made again (§3.4).
+            // Deleted on Google while Modbot still wants it there: made again (§3.4). A 404 is also
+            // what an unshared calendar answers, so the calendar is asked about first.
             case GoogleProblem.NotFound or GoogleProblem.Gone:
+                if (failure.Problem == GoogleProblem.NotFound)
+                {
+                    switch (await CalendarThereAsync(ct).ConfigureAwait(false))
+                    {
+                        case null:
+                            NoAnswer(place);
+                            return;
+
+                        case false:
+                            return;
+                    }
+                }
+
                 await GoneOnGoogleAsync(calendarEvent, place, body, fingerprint, wants, ct).ConfigureAwait(false);
                 return;
 
@@ -538,13 +584,20 @@ public sealed class CalendarGooglePublisher
         CalendarGoogleWants wants,
         CancellationToken ct)
     {
-        ForgetDates(calendarEvent);
-
         if (wants != CalendarGoogleWants.There)
         {
             MarkRemoved(calendarEvent, place);
             return;
         }
+
+        // Once a pass: an id taken by a deleted copy again waits for the next pass.
+        if (!_madeAgain.Add(calendarEvent.Id))
+        {
+            NoAnswer(place);
+            return;
+        }
+
+        ForgetDates(calendarEvent);
 
         _log.Information("Google Calendar event for the event {EventId} was deleted on Google; it is made again", calendarEvent.Id);
         await InsertAsync(calendarEvent, place, body, fingerprint, nextTurn: true, ct).ConfigureAwait(false);
@@ -575,6 +628,23 @@ public sealed class CalendarGooglePublisher
         if (answer is not { } result)
             return;
 
+        // A 404 is what Google answers for an event already gone, and also for a calendar no longer
+        // shared with Modbot. Only the first is done: the calendar is asked about before the place
+        // is marked removed (added 2026-10-03). Not there, the place stays as it is and the lane
+        // says why; no answer, it is tried again later.
+        if (result.Failure is { Problem: GoogleProblem.NotFound })
+        {
+            switch (await CalendarThereAsync(ct).ConfigureAwait(false))
+            {
+                case null:
+                    NoAnswer(place);
+                    return;
+
+                case false:
+                    return;
+            }
+        }
+
         if (result.Value is not null || result.Failure!.Problem is GoogleProblem.NotFound or GoogleProblem.Gone)
         {
             MarkRemoved(calendarEvent, place);
@@ -595,12 +665,58 @@ public sealed class CalendarGooglePublisher
     }
 
     /// <summary>
-    /// Settings names another calendar: the copy on the old one is deleted, and anything but a limit
-    /// is only noted (§3.6). Modbot may not see the old calendar any more, so a refusal there must
-    /// not stop the lane for the new one.
+    /// Whether the calendar in Settings is there for Modbot to change, by the read Check makes
+    /// (<c>events.list</c> for one event). Asked once a pass at most, after a 404 that could mean
+    /// either "this event is gone" or "this calendar is not shared with Modbot any more". False
+    /// writes the lane's problem, so nothing more is sent until a good Check; null is no answer.
+    /// </summary>
+    private async Task<bool?> CalendarThereAsync(CancellationToken ct)
+    {
+        if (_calendarThere is { } known)
+            return known;
+
+        var answer = await CallAsync(token => _google.CalendarAsync(token, _calendarId, ct), ct).ConfigureAwait(false);
+
+        if (answer is not { } result)
+            return null;
+
+        if (result.Value is { } info)
+        {
+            if (info.CanChangeEvents)
+                return _calendarThere = true;
+
+            LaneProblem(info.CanRead ? GoogleErrors.ReadOnly : GoogleErrors.CannotSee);
+            return _calendarThere = false;
+        }
+
+        var failure = result.Failure!;
+
+        if (failure.Problem is GoogleProblem.NotFound or GoogleProblem.Forbidden)
+        {
+            // A 403 for who Modbot is has written the lane's problem already (CallAsync).
+            if (_settings.GoogleProblem is null)
+                LaneProblem(failure.Problem == GoogleProblem.NotFound ? GoogleErrors.CannotSee : GoogleErrors.Sentence(failure));
+
+            return _calendarThere = false;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Settings names another calendar: the copy on the old one is deleted (§3.6). Modbot may not
+    /// see the old calendar any more, so a refusal there is only noted and must not stop the lane for
+    /// the new one. No answer (a timeout, Google's 5xx) is tried again <see cref="NoAnswerWait"/>
+    /// later, for up to <see cref="OldCalendarTriesFor"/> from the first try; then it is noted and
+    /// given up (added 2026-10-03).
     /// </summary>
     private async Task MoveOffAsync(CalendarEvent calendarEvent, CalendarEventPlace place, string oldCalendarId, CancellationToken ct)
     {
+        var retrying = place.FailedFingerprint == OldCalendarFingerprint && place.ErrorAt is not null;
+
+        if (retrying && _now - place.UpdatedAt < NoAnswerWait)
+            return;
+
         var id = place.ExternalId!;
         var answer = await CallAsync(
             token => _google.DeleteEventAsync(token, oldCalendarId, id, ct), ct, laneProblems: false).ConfigureAwait(false);
@@ -608,7 +724,26 @@ public sealed class CalendarGooglePublisher
         if (answer is not { } result)
             return;
 
-        if (result.Failure is { } failure && failure.Problem is not (GoogleProblem.NotFound or GoogleProblem.Gone))
+        if (result.Failure is { Problem: GoogleProblem.Unavailable })
+        {
+            var firstTry = retrying ? place.ErrorAt!.Value : _now;
+
+            if (_now - firstTry < OldCalendarTriesFor)
+            {
+                // Waiting, with the first try's time kept, so the day is counted from it.
+                place.State = CalendarPlaceStates.Waiting;
+                place.FailedFingerprint = OldCalendarFingerprint;
+                place.Error = null;
+                place.ErrorAt = firstTry;
+                place.UpdatedAt = _now;
+                return;
+            }
+
+            _log.Warning(
+                "Gave up taking the event {EventId} off the Google calendar Modbot used before: no answer since {FirstTry}",
+                calendarEvent.Id, firstTry);
+        }
+        else if (result.Failure is { } failure && failure.Problem is not (GoogleProblem.NotFound or GoogleProblem.Gone))
         {
             _log.Warning(
                 "Could not take the event {EventId} off the Google calendar Modbot used before: {Status} {Reason}",
@@ -617,6 +752,12 @@ public sealed class CalendarGooglePublisher
 
         MarkRemoved(calendarEvent, place);
     }
+
+    /// <summary>How long a delete from the calendar Modbot used before is tried again when Google does not answer.</summary>
+    public static readonly TimeSpan OldCalendarTriesFor = TimeSpan.FromDays(1);
+
+    /// <summary>The store marker for a delete from the calendar Modbot used before that is being tried again.</summary>
+    public const string OldCalendarFingerprint = "old-calendar";
 
     // ── One date of a series (§3.5) ──────────────────────────────────────────────────────
 
@@ -700,6 +841,20 @@ public sealed class CalendarGooglePublisher
 
         if (answer is not { } result)
             return;
+
+        // A cancel answered 404 is done only while the calendar itself is still there (see TakeDownAsync).
+        if (date.Kind == CalendarGoogleDateKind.Cancel && result.Failure is { Problem: GoogleProblem.NotFound })
+        {
+            switch (await CalendarThereAsync(ct).ConfigureAwait(false))
+            {
+                case null:
+                    DateRefused(calendarEvent, change, GoogleErrors.NoAnswer(), date.Fingerprint);
+                    return;
+
+                case false:
+                    return;
+            }
+        }
 
         if (result.Value is not null
             || (date.Kind == CalendarGoogleDateKind.Cancel && result.Failure!.Problem is GoogleProblem.NotFound or GoogleProblem.Gone))
@@ -919,6 +1074,11 @@ public sealed class CalendarGooglePublisher
         if (await TokenAsync(fresh: false, ct).ConfigureAwait(false) is not { } token)
             return null;
 
+        // A token request counts as a call: the probe after a limit's wait may be that request
+        // alone, and the event call then waits for the next pass.
+        if (OutOfCalls)
+            return null;
+
         _calls++;
         var result = await call(token).ConfigureAwait(false);
 
@@ -932,7 +1092,7 @@ public sealed class CalendarGooglePublisher
             _signIn.Refused(token);
             _token = null;
 
-            if (await TokenAsync(fresh: true, ct).ConfigureAwait(false) is not { } renewed)
+            if (await TokenAsync(fresh: true, ct).ConfigureAwait(false) is not { } renewed || OutOfCalls)
                 return null;
 
             _calls++;
@@ -968,6 +1128,15 @@ public sealed class CalendarGooglePublisher
     {
         if (!fresh && _token is not null)
             return _token;
+
+        // A request to Google's token address is a call like any other, and counted as one.
+        if (fresh || !_signIn.HasToken(_key))
+        {
+            if (OutOfCalls)
+                return null;
+
+            _calls++;
+        }
 
         var answer = await _signIn.TokenAsync(_key, fresh, ct).ConfigureAwait(false);
 

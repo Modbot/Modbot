@@ -221,9 +221,14 @@ public class CalendarDatesTests
 
         CalendarDates.ForgetOnGoogle(change);
         change.VRChatSentFingerprint = "sent";
+        change.VRChatId = "occ_2";
         Assert.False(CalendarDates.CanForget(change, Two));
 
-        CalendarDates.ForgetOnVRChat(change);
+        // VRChat sent the planned date back: it holds it as planned, which does not keep the row.
+        CalendarDates.PlannedOnVRChat(change);
+        Assert.Equal(CalendarDates.VRChatHasPlannedDate, change.VRChatSentFingerprint);
+        Assert.Null(change.VRChatId);
+        Assert.False(CalendarDates.MayBeOnVRChat(change));
         Assert.True(CalendarDates.CanForget(change, Two));
     }
 

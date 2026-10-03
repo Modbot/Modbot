@@ -237,6 +237,11 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="RepeatTimes">How many dates the repeat has before it stops, or null.</param>
 /// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
 /// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
+/// <param name="VRChatRoleIds">
+/// The group roles VRChat shows the event to, kept as VRChat said them for an event read in from
+/// VRChat; null or empty for everyone it is visible to. An event narrowed to roles is for members
+/// only, and never goes to Google Calendar.
+/// </param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -295,7 +300,8 @@ public sealed record CalendarEventView(
     int? RepeatTimes = null,
     bool Featured = false,
     Guid? CoverPictureId = null,
-    bool PublishToGoogle = false);
+    bool PublishToGoogle = false,
+    IReadOnlyList<string>? VRChatRoleIds = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

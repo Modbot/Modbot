@@ -53,14 +53,19 @@ export const SET_UP_LINK: Record<CalendarSetUpPlace, string> = {
 
 /**
  * Whether an event is for the group's members only, and so never goes to Google Calendar (Google
- * Calendar design decision 1): not visible to everyone.
+ * Calendar design decision 1): not visible to everyone, or shown on VRChat only to some of the
+ * group's roles. The server's own rule (`CalendarGoogle.MembersOnly`), word for word.
  */
-export function membersOnly(e: Pick<CalendarEventInput, 'visibility'>): boolean {
-  return e.visibility !== 'public'
+export function membersOnly(e: { visibility: string; vrChatRoleIds?: readonly string[] | null }): boolean {
+  return e.visibility !== 'public' || (e.vrChatRoleIds?.length ?? 0) > 0
 }
 
 /** Whether an event is ticked for Google Calendar and may go there. */
-export function wantsGoogle(e: { publishToGoogle?: boolean | null; visibility: string }): boolean {
+export function wantsGoogle(e: {
+  publishToGoogle?: boolean | null
+  visibility: string
+  vrChatRoleIds?: readonly string[] | null
+}): boolean {
   return !!e.publishToGoogle && !membersOnly(e)
 }
 
@@ -88,11 +93,16 @@ export function notSetUp(
   e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'> & {
     publishToGoogle?: boolean | null
     visibility?: string
+    vrChatRoleIds?: readonly string[] | null
   },
   ready: CalendarReady | null | undefined,
 ): CalendarSetUpPlace[] {
   const missing: CalendarSetUpPlace[] = wantedPlaces(e).filter((p) => !isSetUp(p, ready))
-  if (ready && ready.google === false && wantsGoogle({ publishToGoogle: e.publishToGoogle, visibility: e.visibility ?? 'group' }))
+  if (
+    ready &&
+    ready.google === false &&
+    wantsGoogle({ publishToGoogle: e.publishToGoogle, visibility: e.visibility ?? 'group', vrChatRoleIds: e.vrChatRoleIds })
+  )
     missing.push('googleCalendar')
   return missing
 }
@@ -116,7 +126,7 @@ const LINE_ORDER: readonly CalendarPlaceName[] = ['vrchat', 'discordEvent', 'cha
  */
 export function placeLines(
   event: Pick<CalendarEvent, 'state' | 'places' | 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'channelId' | 'autoOpen'> &
-    Partial<Pick<CalendarEvent, 'publishToGoogle' | 'visibility'>>,
+    Partial<Pick<CalendarEvent, 'publishToGoogle' | 'visibility' | 'vrChatRoleIds'>>,
   ready: CalendarReady | null | undefined,
 ): PlaceLine[] {
   const live = event.state === 'scheduled' || event.state === 'open'
@@ -127,7 +137,11 @@ export function placeLines(
   if (live && event.publishToVRChat) wanted.add('vrchat')
   if (live && event.publishToDiscord) wanted.add('discordEvent')
   if (live && event.postToChannel && event.channelId) wanted.add('channelPost')
-  if (live && ready?.google && wantsGoogle({ publishToGoogle: event.publishToGoogle, visibility: event.visibility ?? 'group' }))
+  if (
+    live &&
+    ready?.google &&
+    wantsGoogle({ publishToGoogle: event.publishToGoogle, visibility: event.visibility ?? 'group', vrChatRoleIds: event.vrChatRoleIds })
+  )
     wanted.add('googleCalendar')
 
   const lines: PlaceLine[] = []

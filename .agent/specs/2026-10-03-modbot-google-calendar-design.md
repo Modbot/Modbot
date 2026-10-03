@@ -548,16 +548,31 @@ What step 2 built, and where it differs from the sections above.
   written to `GoogleProblem`, where Check writes it: Settings, the Integrations card and readiness all
   say so, and nothing more is sent until a new key or a good Check (§3.7's "held until the next good
   Check", for every event at once). A refusal on a calendar Settings no longer names is only logged.
+  Members-only is one rule everywhere: not visible to everyone, or narrowed to some of the group's
+  VRChat roles (the event view carries `vrChatRoleIds` so the web can say the same).
 - **One date.** As §3.5. A cancelled date with no copy of its own is the `EXDATE` alone. A cancel
   whose date Google no longer lists counts as done. After a series PUT the dates Google may hold are
   marked to be sent again; after an insert they are forgotten (the new event has none). A cancelled
   event's dates after the one it was cancelled on are cancelled too; its own date, if changed, gets
   "Cancelled: " in front like the series.
 - **The shared rule.** `CalendarDates.MayBeOnGoogle`, `CanForget` (plain, not on VRChat, not on Google),
-  `ForgetOnVRChat`/`ForgetOnGoogle`. The VRChat publisher, once VRChat has a put-back date, clears its
-  own state for it and removes the row only on `CanForget`; it skips a plain date it holds nothing
-  of; and after a series write it removes the plain rows nobody holds. `Rematch` keeps a plain row
-  Google holds and clears Google's state when the planned start moves.
+  `ForgetOnGoogle`. The VRChat publisher, once VRChat has a put-back date, marks it `planned`
+  (`PlannedOnVRChat`, which `MayBeOnVRChat` does not count) and removes the row only on `CanForget`;
+  it does not send a date marked `planned` again until a series write clears the mark. With Google
+  not involved VRChat behaves as before: after a series write it sends the plain date again and
+  removes the row once VRChat has it, never assuming VRChat reset a moved date. `Rematch` keeps a
+  plain row Google holds and clears Google's state when the planned start moves. Calendar design
+  §2.2 and §3.1 say the same.
+- **A 404 is not proof of gone.** Google answers 404 both for an event already deleted and for a
+  calendar no longer shared with Modbot. Before a delete, a read-back or an update answered 404 is
+  taken as "gone", the calendar is read once (Check's `events.list`, once a pass at most); not there,
+  the place stays as it is and the lane's problem says why. A delete from a calendar Settings no
+  longer names that gets no answer is tried again a minute later, for up to a day from the first
+  try, then noted and given up.
+- **Calls are counted with the token request.** A token request counts against the pass's ten
+  calls, so the probe after a limit is one request: the token request alone when one is needed. A
+  409 that reads back as a 404 is inserted again once a pass at most, and an event deleted on Google
+  is made with the next id once a pass at most.
 - **Cancel (decision 3 B).** The whole Google event, history included, reads "Cancelled: …" for the
   day it stays, not only the date it was cancelled on: the series is one Google event, and it is
   removed a day later anyway.

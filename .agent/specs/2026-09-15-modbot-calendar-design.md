@@ -97,10 +97,17 @@ the rule is still stored, plus **the dates changed on their own**.
   finished, only a date the rule has, only one that has not ended, and never onto another date's
   start (two dates starting together could not be told apart by an opening or the page). A date
   that has opened keeps its start (its Discord event has started, and Discord cannot move a started
-  event); its end can still change. A date put back exactly as planned loses its row -- once VRChat
-  has it back: while VRChat may still hold the change (something was sent, or its id was found) the
-  row stays with nothing of its own, the publisher sends the planned time and the event's words to
-  that date, and removes the row after. Removing it at once left VRChat showing the move for good.
+  event); its end can still change. A date put back exactly as planned loses its row -- once **every
+  place that may hold the change** has it back (`CalendarDates.CanForget`: plain, not on VRChat, not
+  on Google Calendar; changed 2026-10-03 with the [Google Calendar design](2026-10-03-modbot-google-calendar-design.md)
+  §3.5). While VRChat may still hold the change (something was sent, or its id was found) the row
+  stays with nothing of its own, the publisher sends the planned time and the event's words to that
+  date, and then marks VRChat as holding it as planned (`vrchat_sent_fingerprint` = `planned`, which
+  `MayBeOnVRChat` does not count). Google's publisher does the same for Google and clears its own
+  state. Whichever place gets it back last removes the row; with only VRChat involved that is the
+  VRChat write, as before. Removing it at once left VRChat showing the move for good, and one place
+  removing it while the other still held the move would leave that place's moved copy there for good.
+  Until a series write, VRChat is not sent a date it already has back as planned.
   **On an event that goes to VRChat, a date cannot move to or past its neighbours' planned
   starts** ("Can't move a date past the next date on VRChat"): Modbot keeps the dates in order
   either way, but whether VRChat takes one of a series' dates moved past another is not known, and
@@ -125,8 +132,10 @@ the rule is still stored, plus **the dates changed on their own**.
   write, on the read budget that is ten times the write one; a confirming read after each write
   was the other choice, and was not taken because a write by a freshly found id has not been seen
   to fail silently. After any series write, every changed date still to come -- cancelled, moved,
-  reworded or put back -- forgets its id, its sent fingerprint and where it was last sent, and is
-  looked for and sent again (a cancelled date before where the series now starts excepted). The row
+  reworded or put back, a put-back date already marked `planned` included -- forgets its id, its sent
+  fingerprint and where it was last sent, and is looked for and sent again (a cancelled date before
+  where the series now starts excepted); a put-back date's row goes once VRChat has it and
+  `CanForget` holds, so whether VRChat really reset a moved date is never assumed. The row
   keeps where the last update put the date on VRChat (`vrchat_sent_starts_at`), so a date put back
   as planned -- no times of its own any more -- is still looked for at the time VRChat has it.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A
@@ -174,7 +183,9 @@ event finishing and cancelling: each changes what the place should say.
   while the series itself has a write waiting, and after every create or update of the series each
   date still to come is looked for and sent again, since VRChat puts a moved date back at its
   planned time under a new id when the series is written (seen 2026-10-01) -- except a cancelled
-  date before where the series now starts, which the series no longer holds. A finished event's dates are still sent: an event finishes when its
+  date before where the series now starts, which the series no longer holds. A date put back as
+  planned is sent too, and its row removed only once no place holds it as changed (§2.2,
+  `CalendarDates.CanForget`). A finished event's dates are still sent: an event finishes when its
   last date is cancelled, and that date's delete has to go out. Settling (20 s), one write a pass,
   and the rules for refusals and no answers are the series' own.
 - **An update carries `accessType`** (added 2026-10-01). The SDK's `UpdateCalendarEventRequest` has

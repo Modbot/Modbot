@@ -72,9 +72,15 @@ public static class CalendarGoogle
     public static bool MembersOnly(CalendarEvent calendarEvent)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-
-        return calendarEvent.Visibility != PublicWord || calendarEvent.VRChatRoleIds is { Count: > 0 };
+        return MembersOnly(calendarEvent.Visibility, calendarEvent.VRChatRoleIds);
     }
+
+    /// <summary>
+    /// The same rule from the two fields alone, for a read that does not load the whole event:
+    /// not visible to everyone, or shown on VRChat only to some of the group's roles.
+    /// </summary>
+    public static bool MembersOnly(string? visibility, IReadOnlyCollection<string>? vrchatRoleIds) =>
+        visibility != PublicWord || vrchatRoleIds is { Count: > 0 };
 
     /// <summary>
     /// Whether a new event, or one read in from VRChat, starts ticked (decision 6 A): Google is set
