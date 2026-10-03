@@ -215,6 +215,14 @@ public static class CalendarEndpoints
                 if (await CheckInvitesAsync(http, db, body, keptListId: null, kept: [], ct) is { } refused)
                     return refused;
 
+                // Google Calendar starts ticked once it is set up, for an event everyone may see
+                // (Google Calendar design decision 6), unless the form says otherwise.
+                if (body.PublishToGoogle is null)
+                {
+                    var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+                    calendarEvent.PublishToGoogle = settings is not null && CalendarGoogle.TicksByDefault(settings, calendarEvent);
+                }
+
                 calendarEvent.State = body.Draft ? CalendarEventStates.Draft : CalendarEventStates.Scheduled;
 
                 if (!body.Draft && Place(calendarEvent, now) is { } ended)
@@ -512,6 +520,7 @@ public static class CalendarEndpoints
 
                 // A changed date shows being sent, not the failure of what it was before.
                 CalendarVRChatPublisher.TryDateAgain(change);
+                CalendarGooglePublisher.TryDateAgain(change);
                 await ClearFailuresAsync(db, calendarEvent.Id, now, ct);
 
                 // Put back exactly as planned: nothing of its own is left to keep -- unless VRChat
@@ -660,16 +669,16 @@ public static class CalendarEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
-                if (place != CalendarPlaces.VRChat && !CalendarDiscordRetry.IsDiscord(place))
+                if (place != CalendarPlaces.VRChat && place != CalendarPlaces.Google && !CalendarDiscordRetry.IsDiscord(place))
                     return Results.NotFound();
 
                 var now = clock.UtcNow;
 
-                // One date of a repeating event whose own VRChat write failed.
+                // One date of a repeating event whose own VRChat or Google write failed.
                 if (body?.PlannedStartsAt is { } planned)
                 {
-                    if (place != CalendarPlaces.VRChat)
-                        return Results.BadRequest(new { error = "Only VRChat's calendar has dates of their own to try again." });
+                    if (place != CalendarPlaces.VRChat && place != CalendarPlaces.Google)
+                        return Results.BadRequest(new { error = "Only VRChat's calendar and Google Calendar have dates of their own to try again." });
 
                     var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
                     var change = calendarEvent?.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == planned);
@@ -677,7 +686,11 @@ public static class CalendarEndpoints
                     if (change is null)
                         return Results.NotFound();
 
-                    if (!CalendarVRChatPublisher.TryDateAgain(change))
+                    var triedDate = place == CalendarPlaces.VRChat
+                        ? CalendarVRChatPublisher.TryDateAgain(change)
+                        : CalendarGooglePublisher.TryDateAgain(change);
+
+                    if (!triedDate)
                         return Results.Conflict(new { error = "There is nothing to try again." });
 
                     await db.SaveChangesAsync(ct);
@@ -690,9 +703,12 @@ public static class CalendarEndpoints
                     return Results.NotFound();
 
                 // A place that has not failed -- a second press finds it waiting -- is refused.
-                var tried = place == CalendarPlaces.VRChat
-                    ? CalendarVRChatPublisher.TryAgain(row, now)
-                    : CalendarDiscordRetry.TryAgain(row, now);
+                var tried = place switch
+                {
+                    CalendarPlaces.VRChat => CalendarVRChatPublisher.TryAgain(row, now),
+                    CalendarPlaces.Google => CalendarGooglePublisher.TryAgain(row, now),
+                    _ => CalendarDiscordRetry.TryAgain(row, now),
+                };
 
                 if (!tried)
                     return Results.Conflict(new { error = "There is nothing to try again." });
@@ -705,10 +721,11 @@ public static class CalendarEndpoints
             .WithSummary("Try a place again")
             .WithDescription(
                 "Send a failed place of an event again, as it is, without editing the event: place is "
-                + "vrchat, discordEvent, channelPost or cancelPost, and the place has canTryAgain. "
-                + "With plannedStartsAt, one date of a repeating event whose own change to VRChat's "
-                + "calendar failed. A VRChat event that got no answer and was not on VRChat's "
-                + "calendar is looked for once more before it is sent. Sent on the next pass; the "
+                + "vrchat, discordEvent, channelPost, cancelPost or googleCalendar, and the place has "
+                + "canTryAgain. With plannedStartsAt, one date of a repeating event whose own change to "
+                + "VRChat's calendar or Google Calendar failed. A VRChat event that got no answer and was "
+                + "not on VRChat's calendar is looked for once more before it is sent, and a Google "
+                + "event whose insert got no answer is read back first. Sent on the next pass; the "
                 + "place says waiting until then. 409 when there is no failure to try again, as on "
                 + "a second press. The body may be left out.")
             .Produces(StatusCodes.Status204NoContent)
@@ -1435,6 +1452,8 @@ public static class CalendarEndpoints
         {
             if (place.Place == CalendarPlaces.VRChat)
                 CalendarVRChatPublisher.ClearAfterEdit(place, now);
+            else if (place.Place == CalendarPlaces.Google)
+                CalendarGooglePublisher.ClearAfterEdit(place, now);
             else
                 CalendarDiscordRetry.ClearAfterEdit(place, now);
         }
@@ -1967,6 +1986,7 @@ public static class CalendarEndpoints
         target.Featured = body.Featured ?? target.Featured;
         target.PublishToVRChat = body.PublishToVRChat;
         target.PublishToDiscord = body.PublishToDiscord;
+        target.PublishToGoogle = body.PublishToGoogle ?? target.PublishToGoogle;
         target.PostToChannel = body.PostToChannel;
         target.ChannelId = channelId;
         target.MentionRoleId = string.IsNullOrWhiteSpace(body.MentionRoleId) ? null : body.MentionRoleId.Trim();
@@ -2206,7 +2226,8 @@ public static class CalendarEndpoints
                 CalendarRepeat.EveryOf(e),
                 e.RepeatTimes,
                 e.Featured,
-                e.CoverPictureId);
+                e.CoverPictureId,
+                e.PublishToGoogle);
         })];
     }
 
@@ -2216,7 +2237,8 @@ public static class CalendarEndpoints
         o.PlannedStartsAt,
         o.Change?.Title,
         o.Change?.Description,
-        o.Change?.VRChatError);
+        o.Change?.VRChatError,
+        o.Change?.GoogleError);
 
     private static string LocalText(DateTimeOffset at, DateTimeZone zone) =>
         LocalPattern.Format(Instant.FromDateTimeOffset(at).InZone(zone).LocalDateTime);

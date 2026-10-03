@@ -49,6 +49,7 @@ public static class CalendarEventFields
             ["state"] = e.State,
             ["publishToVRChat"] = e.PublishToVRChat,
             ["publishToDiscord"] = e.PublishToDiscord,
+            ["publishToGoogle"] = e.PublishToGoogle,
             ["postToChannel"] = e.PostToChannel,
             ["channelId"] = e.ChannelId,
             ["mentionRoleId"] = e.MentionRoleId,

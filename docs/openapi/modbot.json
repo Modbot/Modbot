@@ -6381,7 +6381,7 @@
           "Settings"
         ],
         "summary": "Update Google Calendar settings",
-        "description": "Save the Google service account's key file, the calendar ID, or both. Only the key file's address, key id, project and private key are kept, the private key encrypted. Saving either clears what the last Check found.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the Google service account's key file, the calendar ID, Sending, or any of them. Only the key file's address, key id, project and private key are kept, the private key encrypted. Saving the key or the calendar clears what the last Check found. Sending on needs a Check that passed; off leaves the events on Google as they are. A body over 64 KB is refused with 413.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetGoogleCalendarSettings",
         "requestBody": {
           "content": {
@@ -6424,6 +6424,16 @@
               }
             }
           },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Not signed in, or the API key is not valid.",
             "content": {
@@ -6449,7 +6459,7 @@
           "Settings"
         ],
         "summary": "Forget Google Calendar settings",
-        "description": "Remove the key, the calendar ID and what Check found. Nothing on Google is changed.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Remove the key, the calendar ID and what Check found, and turn Sending off. Nothing on Google is changed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ForgetGoogleCalendarSettings",
         "responses": {
           "200": {
@@ -6501,6 +6511,126 @@
         "summary": "Check the Google Calendar connection",
         "description": "Sign in to Google with the stored key and read the calendar's name, time zone, whether Modbot may change its events, and whether it is public. Writes nothing to Google. Answers 200 with what it found, a refusal included. While Google is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CheckGoogleCalendar",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/google-calendar/add-all": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Add every event to Google Calendar",
+        "description": "Tick Google Calendar on every scheduled or open event that everyone may see. Events only the group's members see are left as they are. They are sent once Sending is on. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "AddAllEventsToGoogleCalendar",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleCalendarAddAllView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/google-calendar/remove-events": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Remove Modbot's events from Google Calendar",
+        "description": "Turn Sending off and delete every event Modbot put on the Google calendar, through the sending loop, a few each pass. Events the calendar's owner made are left alone. The events stay ticked in Modbot. Needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "RemoveModbotEventsFromGoogleCalendar",
         "responses": {
           "200": {
             "description": "OK",
@@ -24851,7 +24981,7 @@
           "Calendar"
         ],
         "summary": "Try a place again",
-        "description": "Send a failed place of an event again, as it is, without editing the event: place is vrchat, discordEvent, channelPost or cancelPost, and the place has canTryAgain. With plannedStartsAt, one date of a repeating event whose own change to VRChat's calendar failed. A VRChat event that got no answer and was not on VRChat's calendar is looked for once more before it is sent. Sent on the next pass; the place says waiting until then. 409 when there is no failure to try again, as on a second press. The body may be left out.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Send a failed place of an event again, as it is, without editing the event: place is vrchat, discordEvent, channelPost, cancelPost or googleCalendar, and the place has canTryAgain. With plannedStartsAt, one date of a repeating event whose own change to VRChat's calendar or Google Calendar failed. A VRChat event that got no answer and was not on VRChat's calendar is looked for once more before it is sent, and a Google event whose insert got no answer is read back first. Sent on the next pass; the place says waiting until then. 409 when there is no failure to try again, as on a second press. The body may be left out.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "TryCalendarPlaceAgain",
         "parameters": [
           {
@@ -33658,6 +33788,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "publishToGoogle": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -33996,6 +34132,10 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "publishToGoogle": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -34266,6 +34406,12 @@
               "null",
               "string"
             ]
+          },
+          "googleError": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -34530,6 +34676,10 @@
           },
           "discord": {
             "type": "boolean"
+          },
+          "google": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -40595,6 +40745,22 @@
           }
         }
       },
+      "GoogleCalendarAddAllView": {
+        "required": [
+          "added",
+          "settings"
+        ],
+        "type": "object",
+        "properties": {
+          "added": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/GoogleCalendarSettingsView"
+          }
+        }
+      },
       "GoogleCalendarCheckView": {
         "required": [
           "at",
@@ -40673,6 +40839,12 @@
               "null",
               "string"
             ]
+          },
+          "sending": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -40735,6 +40907,18 @@
                 "$ref": "#/components/schemas/GoogleCalendarLinksView"
               }
             ]
+          },
+          "sending": {
+            "type": "boolean",
+            "default": false
+          },
+          "removing": {
+            "type": "boolean",
+            "default": false
+          },
+          "canSend": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

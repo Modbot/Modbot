@@ -42,8 +42,10 @@ public static class CalendarDates
                 continue;
             }
 
-            // Asked before anything below clears it: whether VRChat may hold this date as changed.
+            // Asked before anything below clears it: whether VRChat or Google may hold this date as
+            // changed.
             var sentToVRChat = MayBeOnVRChat(change);
+            var sentToGoogle = MayBeOnGoogle(change);
 
             var day = Instant.FromDateTimeOffset(change.PlannedStartsAt).InZone(zoneBefore).Date;
             var planned = calendarEvent.Repeat == CalendarRepeats.None ? null : DateOn(calendarEvent, zone, day);
@@ -62,9 +64,10 @@ public static class CalendarDates
                 change.VRChatFailedFingerprint = null;
                 change.VRChatError = null;
                 change.VRChatErrorAt = null;
+                ForgetOnGoogle(change);
             }
 
-            if (IsPlain(change, length) && !sentToVRChat)
+            if (IsPlain(change, length) && !sentToVRChat && !sentToGoogle)
                 calendarEvent.DateChanges.Remove(change);
         }
     }
@@ -81,10 +84,49 @@ public static class CalendarDates
     }
 
     /// <summary>
-    /// A change that can be forgotten: it changes nothing, and VRChat was never told of it.
+    /// Whether Google Calendar may still hold this date as it was changed: something was sent for it
+    /// on its own (Google Calendar design §3.5). Like VRChat, a date put back as planned keeps its
+    /// row until Google has been sent the planned time and words; the Google publisher clears this
+    /// then.
+    /// </summary>
+    public static bool MayBeOnGoogle(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        return change.GoogleSentFingerprint is not null;
+    }
+
+    /// <summary>
+    /// A change that can be forgotten: it changes nothing, and neither VRChat nor Google holds it as
+    /// changed. Every place that keeps a date of its own asks this before the row goes, so one
+    /// place dropping the row cannot leave the other's moved copy behind for good (Google Calendar
+    /// design §3.5; until 2026-10-03 VRChat removed the row as soon as it had the plain date).
     /// </summary>
     public static bool CanForget(CalendarDateChange change, TimeSpan length) =>
-        IsPlain(change, length) && !MayBeOnVRChat(change);
+        IsPlain(change, length) && !MayBeOnVRChat(change) && !MayBeOnGoogle(change);
+
+    /// <summary>VRChat holds nothing of this date of its own any more.</summary>
+    public static void ForgetOnVRChat(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        change.VRChatId = null;
+        change.VRChatSentStartsAt = null;
+        change.VRChatSentFingerprint = null;
+        change.VRChatFailedFingerprint = null;
+        change.VRChatError = null;
+        change.VRChatErrorAt = null;
+    }
+
+    /// <summary>Google holds nothing of this date of its own any more.</summary>
+    public static void ForgetOnGoogle(CalendarDateChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        change.GoogleSentFingerprint = null;
+        change.GoogleFailedFingerprint = null;
+        change.GoogleError = null;
+        change.GoogleErrorAt = null;
+    }
 
     /// <summary>A change that changes nothing: the planned time and the event's own words.</summary>
     public static bool IsPlain(CalendarDateChange change, TimeSpan length)

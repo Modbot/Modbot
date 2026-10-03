@@ -2948,10 +2948,15 @@ export type CalendarHealth = {
     at: string | null
     missingGroupPermission?: MissingGroupPermission | null
   }[]
-  /** Places scheduled or open events want that are not set up: `vrchat`, `instance`, `discordEvent`, `channelPost`. */
+  /**
+   * Places scheduled or open events want that are not set up: `vrchat`, `instance`, `discordEvent`,
+   * `channelPost`, `googleCalendar`.
+   */
   notSetUp?: string[] | null
   /** Discord server events, made by anyone, that look like copies of each other. */
   duplicates?: CalendarDuplicate[] | null
+  /** Google is limiting Modbot: nothing goes to Google Calendar before this. */
+  googleLimitedUntil?: string | null
 }
 
 /** The VRChat group permissions Modbot uses that its own VRChat account lacks. */
@@ -3710,6 +3715,12 @@ export type GoogleCalendarSettings = {
   limitedUntil: string | null
   /** Google's own links, when Check found the calendar public. */
   links: { subscribe: string; publicPage: string; iCal: string } | null
+  /** Events are sent to the calendar. Missing from an older server: off. */
+  sending?: boolean
+  /** Every event Modbot put on the calendar is being deleted. */
+  removing?: boolean
+  /** The last Check passed for this key and calendar: Sending, Add all and Remove may be used. */
+  canSend?: boolean
 }
 
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
@@ -4814,13 +4825,20 @@ export const api = {
   googleCalendarSettings: () => request<GoogleCalendarSettings>('/api/settings/google-calendar'),
 
   /** A field left out keeps what is stored. An empty `calendarId` removes it. */
-  setGoogleCalendarSettings: (body: { keyFile?: string; calendarId?: string }) =>
+  setGoogleCalendarSettings: (body: { keyFile?: string; calendarId?: string; sending?: boolean }) =>
     put<GoogleCalendarSettings>('/api/settings/google-calendar', body),
 
   forgetGoogleCalendarSettings: () => del<GoogleCalendarSettings>('/api/settings/google-calendar'),
 
   /** Signs in and reads the calendar. A 200 either way; `check.problem` says what went wrong. */
   checkGoogleCalendar: () => post<GoogleCalendarSettings>('/api/settings/google-calendar/check'),
+
+  /** Ticks Google Calendar on every scheduled or open event everyone may see. */
+  addAllToGoogleCalendar: () =>
+    post<{ added: number; settings: GoogleCalendarSettings }>('/api/settings/google-calendar/add-all'),
+
+  /** Turns Sending off and deletes every event Modbot put on the calendar, through the sending loop. */
+  removeGoogleCalendarEvents: () => post<GoogleCalendarSettings>('/api/settings/google-calendar/remove-events'),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

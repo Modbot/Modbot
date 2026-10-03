@@ -108,6 +108,16 @@ public static class ApiSurface
         // HTTP client with no redirects and no proxy (Google Calendar design §2).
         Core.Google.GoogleServices.AddGoogleCalendar(services);
 
+        // The pass that sends events to Google Calendar (step 2). Its timer is the host's, with
+        // AddGoogleCalendarSending, so a test host runs the pass itself.
+        services.TryAddScoped(sp => new Features.Calendar.CalendarGooglePublisher(
+            sp.GetRequiredService<Core.Data.ModbotContext>(),
+            sp.GetRequiredService<Core.Time.IModbotClock>(),
+            sp.GetRequiredService<Core.Security.ISecretProtector>(),
+            sp.GetRequiredService<Core.Google.GoogleSignIn>(),
+            sp.GetRequiredService<Core.Google.GoogleCalendarClient>(),
+            sp.GetRequiredService<Modbot.VRChat.Calendar.CalendarFacts>()));
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -222,6 +232,17 @@ public static class ApiSurface
 
         // Wakes WebSocket connections and long polls when a fact commits (API keys design §5.5).
         services.AddHostedService<FactFeedWatcher>();
+        return services;
+    }
+
+    /// <summary>
+    /// Sends the calendar's events to Google Calendar every twenty seconds (Google Calendar design,
+    /// step 2). Needs the VRChat calendar's facts writer, which the VRChat services register.
+    /// </summary>
+    public static IServiceCollection AddGoogleCalendarSending(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Calendar.CalendarGoogleService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }
 

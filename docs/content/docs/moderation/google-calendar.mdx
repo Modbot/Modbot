@@ -1,17 +1,13 @@
 ---
 title: Google Calendar
-description: Connecting Modbot to a Google calendar your group owns, checking the connection, and handing out the calendar's public links.
+description: Connecting Modbot to a Google calendar your group owns, putting your events on it, and handing out the calendar's public links.
 ---
 
-Modbot can connect to a Google calendar that your group's owner owns. You give Modbot a key for its
-own Google address, share the calendar with that address, and press **Check**: Modbot signs in to
-Google and tells you whether it can see the calendar, whether it may change its events, and whether
-the calendar is public. When it is public, Modbot shows the calendar's own links, ready to copy.
-
-<Callout type="warn" title="Modbot does not put events on Google Calendar yet">
-Today Modbot only checks the connection and shows the calendar's links. It does not add, change or
-remove events on the calendar. What is on it is what you put there yourself.
-</Callout>
+Modbot can put your group's events on a Google calendar that your group's owner owns. You give Modbot
+a key for its own Google address, share the calendar with that address, and press **Check**: Modbot
+signs in to Google and tells you whether it can see the calendar, whether it may change its events,
+and whether the calendar is public. Then you turn **Sending** on, and Modbot keeps the calendar in
+line with the events you plan. When the calendar is public, Modbot shows its own links, ready to copy.
 
 Everything here is in **Settings**, **Google Calendar**, and needs
 [**Change settings**](/accounts/roles-and-permissions#change-settings).
@@ -127,21 +123,75 @@ Modbot has a public address of its own too: the calendar's [public feed](/modera
 which lists the public events you plan in Modbot. The Google links list what is on the Google
 calendar.
 
+## Sending events
+
+Once **Check** says **Can change events: Yes**, a **Sending** card appears. Turn **Sending** on, and
+Modbot adds the events ticked for Google Calendar to the calendar, then keeps them in line: an edit
+reaches Google about twenty seconds after the last change, so several quick fixes are one change
+there.
+
+| On Google | What Modbot does |
+|---|---|
+| **New events** | An event everyone may see is ticked for Google Calendar when you make it, and so is one read in from VRChat's calendar. |
+| **Events planned before** | **Add all** ticks every scheduled or open event everyone may see. |
+| **Events only members see** | Never sent, ticked or not. A public Google calendar would show them to anyone. |
+| **A repeating event** | One Google event that repeats, as in Modbot. A date cancelled on its own is left out of it; a date moved or given its own title or description is changed on Google on its own. |
+| **An edit** | Sent again whole. A change made on Google itself is replaced by Modbot's next change, so edit events in Modbot. |
+| **A cancelled event** | Kept, with **Cancelled:** in front of its title, until a day after the date it was cancelled on; then removed. A repeating one stops at that date. |
+| **A deleted event** | Removed from Google at once. |
+| **A finished event** | Kept on Google as history. |
+| **Turning Sending off** | Nothing more is sent. What is on Google stays as it is. |
+
+What goes on each event: its title, its description, its times in its own time zone, its repeat, the
+world's name as the place, and the world's page on vrchat.com. No picture, no join link, and nobody
+is invited or emailed.
+
+### Remove Modbot's events
+
+**Remove Modbot's events** turns **Sending** off and deletes every event Modbot put on the calendar.
+Modbot asks first: click it again to go ahead. It deletes a few each pass, so a full calendar takes a
+minute or two. Events you made on the calendar yourself are left alone. Google keeps deleted events
+for a while as cancelled entries you do not see.
+
+### On each event
+
+Each event on the calendar page says how it went on Google: **Google Calendar: Sending…**,
+**Published**, **Failed** with Google's own words and **Try again**, or **Removed**. An event ticked
+for Google Calendar while Google is not set up, or while **Sending** is off, says **Not set up**.
+
+### When Google says no
+
+| What happens | What Modbot does |
+|---|---|
+| Google is asking Modbot to slow down | Modbot sends nothing to Google until the time Google asked for, at least 15 minutes, and **Health** says **Google Calendar · limited until …**. Nothing is lost: the events wait and go once it is over. |
+| The calendar is no longer shared with **Make changes to events** | The event says **Modbot can't change events on this calendar.**, and Modbot stops sending until you share it again and press **Check**. |
+| The key was deleted in Google Cloud | Check shows **Google did not accept the key.**, and Modbot stops sending until you give it a new key and press **Check**. |
+| Google did not answer | A minute later Modbot looks on the calendar for the event before adding it again, so it is not added twice. |
+
+### Changing the calendar
+
+Save a new **Calendar ID** and press **Check**: Modbot deletes its events from the old calendar and
+adds them to the new one.
+
 ## Forget
 
-**Forget** removes the key, the Calendar ID and what Check found from Modbot. Modbot asks first:
-click **Forget** again to go ahead. It changes nothing on Google: the calendar stays shared with
+**Forget** removes the key, the Calendar ID and what Check found from Modbot, and turns **Sending**
+off. Modbot asks first: click **Forget** again to go ahead. It changes nothing on Google: the events
+Modbot put there stay, unless you used **Remove Modbot's events** first, and the calendar stays shared with
 Modbot's Google address until you remove that in **Settings and sharing**, and the key keeps working
 until you delete it in Google Cloud. See [Removing the key](/security#the-google-calendar-key).
 
 ## What leaves your server
 
 Check sends Google a request signed with the key, naming Modbot's Google address, and the Calendar
-ID. Nothing about your group, your events or your members. See
-[What leaves your server](/privacy#what-leaves-your-server).
+ID. While **Sending** is on, Modbot also sends the calendar each event ticked for it, as listed above.
+Events only your members see, member names, ids, head counts, pictures and moderation data are never
+sent. See [What leaves your server](/privacy#what-leaves-your-server).
 
 ## In the audit log
 
-Saving the key or the Calendar ID, **Forget**, and a **Check** that found something different from
-the last one are each a **Settings changed** entry in the [audit log](/moderation/audit-log). The key
-is recorded only as changed, never what it was.
+Saving the key or the Calendar ID, turning **Sending** on or off, **Add all**, **Remove Modbot's
+events**, **Forget**, and a **Check** that found something different from the last one are each a
+**Settings changed** entry in the [audit log](/moderation/audit-log). The key is recorded only as
+changed, never what it was. Each event added to or removed from Google, and each failure, is an entry
+of its own on the event.

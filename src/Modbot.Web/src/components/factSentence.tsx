@@ -467,7 +467,7 @@ function changePhrase(key: string, pair: { old?: unknown; new?: unknown; secret?
 
   const say = (side: unknown) => {
     const value = nameOf(side)
-    return typeof value === 'string' && value && (NAMING_FIELD.test(key) || isNamedObject(side))
+    return typeof value === 'string' && value && (NAMING_FIELD.test(key) || isNamedObject(side) || SENTENCE.test(value))
       ? `“${clipped(value)}”`
       : clipped(shown(value))
   }
@@ -490,6 +490,12 @@ function empty(value: unknown): boolean {
 
 /** Fields whose value is somebody's own words, quoted so they cannot run into the sentence. */
 const NAMING_FIELD = /name|title|topic|description|bio|status|pronouns|rules/i
+
+/**
+ * A value that is a sentence of its own, ending in its own stop: quoted, so the stop that ends the
+ * entry's sentence after it does not read as a second one (a Check's problem, say).
+ */
+const SENTENCE = /[.!?]$/
 
 /** One entry of a changed list, said the way a person would: "new-member" as "new member". */
 function listItem(value: unknown): string {
@@ -2533,6 +2539,13 @@ function publishFailure(place: string | null, action: string | null, title: Reac
   if (place === 'discordEvent') return <>Modbot could not publish{title} as a Discord event</>
   if (place === 'channelPost') return <>Modbot could not post{title} in the Discord channel</>
 
+  if (place === 'googleCalendar') {
+    if (action === 'update') return <>Modbot could not update{title} on Google Calendar</>
+    if (action === 'delete') return <>Modbot could not take{title} off Google Calendar</>
+    if (action === 'date') return <>Modbot could not change one date of{title} on Google Calendar</>
+    return <>Modbot could not add{title} to Google Calendar</>
+  }
+
   if (action === 'update') return <>Modbot could not update{title} on VRChat's calendar</>
   if (action === 'delete') return <>Modbot could not take{title} off VRChat's calendar</>
   return <>Modbot could not add{title} to VRChat's calendar</>
@@ -2542,6 +2555,7 @@ function published(place: string | null, title: React.ReactNode): React.ReactNod
   if (place === 'discordEvent') return <>Modbot published{title} as a Discord event</>
   if (place === 'channelPost') return <>Modbot posted{title} in the Discord channel</>
   if (place === 'cancelPost') return <>Modbot posted in the Discord channel that{title} is cancelled</>
+  if (place === 'googleCalendar') return <>Modbot added{title} to Google Calendar</>
   return <>Modbot added{title} to VRChat's calendar</>
 }
 
@@ -2550,6 +2564,7 @@ function takenDown(place: string | null, title: React.ReactNode): React.ReactNod
   // A post is deleted when it is unticked and kept with its last word when the event ends, and
   // either way Modbot is done with it.
   if (place === 'channelPost') return <>Modbot stopped updating the post for{title} in the Discord channel</>
+  if (place === 'googleCalendar') return <>Modbot took{title} off Google Calendar</>
   return <>Modbot took{title} off VRChat's calendar</>
 }
 
@@ -2557,6 +2572,7 @@ function takenDown(place: string | null, title: React.ReactNode): React.ReactNod
 function placeName(place: string | null): string {
   if (place === 'discordEvent') return 'as a Discord event'
   if (place === 'channelPost' || place === 'cancelPost') return 'in the Discord channel'
+  if (place === 'googleCalendar') return 'on Google Calendar'
   return "on VRChat's calendar"
 }
 

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Google;
@@ -342,11 +344,190 @@ public class GoogleCalendarSettingsTests
         Assert.Contains(google, d => d.GetProperty("changed").GetProperty("googleCalendarId").GetProperty("new").GetString() == CalendarId);
     }
 
+    // ── Step 2: Sending, Add all, Remove Modbot's events ─────────────────────────────────
+
+    [Fact]
+    public async Task SendingGoesOnOnlyAfterACheckThatPassed_AndIsAudited()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+
+        var early = await host.SendJsonAsync(HttpMethod.Put, Path, new { sending = true }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, early.StatusCode);
+        Assert.Equal("Check the calendar first.", (await ApiTestHost.BodyOf(early, Ct)).GetProperty("error").GetString());
+
+        var checkedView = await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct));
+        Assert.True(checkedView.GetProperty("canSend").GetBoolean());
+        Assert.False(checkedView.GetProperty("sending").GetBoolean());
+
+        var on = await OkAsync(await host.SendJsonAsync(HttpMethod.Put, Path, new { sending = true }, cookie, Ct));
+        Assert.True(on.GetProperty("sending").GetBoolean());
+
+        // The key and the calendar are kept, and so is what Check found.
+        Assert.True(on.GetProperty("keyStored").GetBoolean());
+        Assert.NotEqual(JsonValueKind.Null, on.GetProperty("check").ValueKind);
+
+        var facts = await host.FactsAsync(FactType.SettingsChanged, "settings", Ct);
+        Assert.Contains(facts.Select(ApiTestHost.DataOf), d =>
+            d.GetProperty("changed").TryGetProperty("googleSending", out var sending) && sending.GetProperty("new").GetBoolean());
+
+        await using var context = _db.NewContext();
+        Assert.True((await context.GetSettingsAsync(Ct)).GoogleSendingOn);
+    }
+
+    [Fact]
+    public async Task ForgetTurnsSendingOff()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct));
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Put, Path, new { sending = true }, cookie, Ct));
+
+        var forgotten = await OkAsync(await host.SendJsonAsync(HttpMethod.Delete, Path, null, cookie, Ct));
+
+        Assert.False(forgotten.GetProperty("sending").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AddAllTicksEveryLiveEventEveryoneMaySee_AndLeavesMembersOnlyOnesAlone()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+
+        var refused = await host.SendJsonAsync(HttpMethod.Post, Path + "/add-all", null, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct));
+
+        await using (var clean = _db.NewContext())
+        {
+            await clean.CalendarDateChanges.ExecuteDeleteAsync(Ct);
+            await clean.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
+            await clean.CalendarEvents.ExecuteDeleteAsync(Ct);
+        }
+
+        var everyone = await AddEventAsync("public", CalendarEventStates.Scheduled);
+        var members = await AddEventAsync("group", CalendarEventStates.Scheduled);
+        var draft = await AddEventAsync("public", CalendarEventStates.Draft);
+
+        var body = await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/add-all", null, cookie, Ct));
+        Assert.Equal(1, body.GetProperty("added").GetInt32());
+
+        await using var context = _db.NewContext();
+        var ticked = await context.CalendarEvents.AsNoTracking()
+            .Where(e => e.PublishToGoogle)
+            .Select(e => e.Id)
+            .ToListAsync(Ct);
+
+        Assert.Equal([everyone], ticked);
+        Assert.DoesNotContain(members, ticked);
+        Assert.DoesNotContain(draft, ticked);
+    }
+
+    [Fact]
+    public async Task RemoveModbotsEventsTurnsSendingOffAndStartsTheRemoval()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct));
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Put, Path, new { sending = true }, cookie, Ct));
+
+        var body = await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/remove-events", null, cookie, Ct));
+
+        Assert.False(body.GetProperty("sending").GetBoolean());
+        Assert.True(body.GetProperty("removing").GetBoolean());
+
+        await using var context = _db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        Assert.True(settings.GoogleRemovingEvents);
+        Assert.False(settings.GoogleSendingOn);
+    }
+
+    [Fact]
+    public async Task ABodyFarPastAnyKeyFileIsRefusedUnread()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var huge = new string('a', GoogleCalendarSettingsEndpoints.MaxBodyBytes + 1);
+        var response = await host.SendJsonAsync(HttpMethod.Put, Path, new { keyFile = huge }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A403ThatIsNotAboutSharing_IsShownInGooglesOwnWords()
+    {
+        var (host, google, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+        google.CalendarStatus = HttpStatusCode.Forbidden;
+        google.CalendarError =
+            """{"error":{"code":403,"message":"Google Calendar API has not been used in project 123 before or it is disabled.","errors":[{"reason":"accessNotConfigured"}]}}""";
+
+        var check = (await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct))).GetProperty("check");
+
+        Assert.Equal("Google Calendar API has not been used in project 123 before or it is disabled.", check.GetProperty("problem").GetString());
+    }
+
+    [Fact]
+    public async Task A403ForSharingStillSaysModbotCannotSeeTheCalendar()
+    {
+        var (host, google, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+        google.CalendarStatus = HttpStatusCode.Forbidden;
+        google.CalendarError = """{"error":{"code":403,"message":"Forbidden","errors":[{"reason":"forbidden"}]}}""";
+
+        var check = (await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct))).GetProperty("check");
+
+        Assert.Equal("Modbot can't see this calendar.", check.GetProperty("problem").GetString());
+    }
+
+    private async Task<Guid> AddEventAsync(string visibility, string state)
+    {
+        var at = new DateTimeOffset(2030, 1, 1, 20, 0, 0, TimeSpan.Zero);
+        var e = new CalendarEvent
+        {
+            Id = Guid.CreateVersion7(),
+            Title = "Movie night",
+            StartsAt = at,
+            EndsAt = at.AddHours(2),
+            Visibility = visibility,
+            State = state,
+            CreatedAt = at,
+            UpdatedAt = at,
+        };
+
+        await using var context = _db.NewContext();
+        context.CalendarEvents.Add(e);
+        await context.SaveChangesAsync(Ct);
+        return e.Id;
+    }
+
     [Theory]
     [InlineData("GET", "")]
     [InlineData("PUT", "")]
     [InlineData("DELETE", "")]
     [InlineData("POST", "/check")]
+    [InlineData("POST", "/add-all")]
+    [InlineData("POST", "/remove-events")]
     public async Task WithoutTheSettingsPermission_EveryEndpointIsRefused(string method, string suffix)
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);

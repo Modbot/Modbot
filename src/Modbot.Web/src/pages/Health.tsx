@@ -33,7 +33,7 @@ import { Empty } from '@/components/ListParts'
 import { NotSetUp } from '@/components/calendar/NotSetUp'
 import { madeByLabel } from '@/lib/calendar'
 import { followLink } from '@/lib/router'
-import type { CalendarSwitchable } from '@/lib/calendarPlaces'
+import type { CalendarSetUpPlace } from '@/lib/calendarPlaces'
 import { NETWORK_LABEL, postsApi, type PostsHealth } from '@/lib/posts'
 
 /**
@@ -201,7 +201,8 @@ export function Health() {
       {health.calendar &&
         (health.calendar.problems.length > 0 ||
           (health.calendar.notSetUp?.length ?? 0) > 0 ||
-          (health.calendar.duplicates?.length ?? 0) > 0) && (
+          (health.calendar.duplicates?.length ?? 0) > 0 ||
+          !!health.calendar.googleLimitedUntil) && (
         <CalendarProblems calendar={health.calendar} now={health.now} />
       )}
 
@@ -660,11 +661,12 @@ const CALENDAR_PLACE: Record<string, string> = {
   discordEvent: 'Discord event',
   channelPost: 'Channel post',
   cancelPost: 'Cancelled post',
+  googleCalendar: 'Google Calendar',
   instance: 'Instance',
 }
 
-const isSwitchable = (place: string): place is CalendarSwitchable =>
-  place === 'vrchat' || place === 'instance' || place === 'discordEvent' || place === 'channelPost'
+const isSwitchable = (place: string): place is CalendarSetUpPlace =>
+  place === 'vrchat' || place === 'instance' || place === 'discordEvent' || place === 'channelPost' || place === 'googleCalendar'
 
 /**
  * Moderation rules that stopped themselves (AI moderation design §13.2).
@@ -692,6 +694,9 @@ function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
 function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: string }) {
   return (
     <Part title="Calendar">
+      {calendar.googleLimitedUntil && (
+        <p className="max-w-3xl text-warn">Google Calendar · limited until {timeOfDay(calendar.googleLimitedUntil)}</p>
+      )}
       {(calendar.notSetUp ?? []).filter(isSwitchable).map((place) => (
         <p key={`not-set-up-${place}`} className="max-w-3xl text-warn">
           {CALENDAR_PLACE[place] ?? place} · <NotSetUp place={place} />

@@ -208,6 +208,50 @@ public class CalendarDatesTests
     }
 
     [Fact]
+    public void APlainDateIsForgottenOnlyWhenNeitherVRChatNorGoogleHoldsIt()
+    {
+        var e = Weekly();
+        var change = Change(e, Sep27);
+
+        Assert.True(CalendarDates.CanForget(change, Two));
+
+        change.GoogleSentFingerprint = "sent";
+        Assert.True(CalendarDates.MayBeOnGoogle(change));
+        Assert.False(CalendarDates.CanForget(change, Two));
+
+        CalendarDates.ForgetOnGoogle(change);
+        change.VRChatSentFingerprint = "sent";
+        Assert.False(CalendarDates.CanForget(change, Two));
+
+        CalendarDates.ForgetOnVRChat(change);
+        Assert.True(CalendarDates.CanForget(change, Two));
+    }
+
+    [Fact]
+    public void MovingTheSeriesKeepsAPlainDateGoogleHolds_AndSendsItToGoogleAgain()
+    {
+        var e = Weekly();
+        var zone = CalendarRepeat.ZoneOf(e);
+        var change = Change(e, Oct4);
+        change.GoogleSentFingerprint = "sent";
+        change.GoogleError = "Refused";
+        change.GoogleErrorAt = Sep20;
+        e.DateChanges.Add(change);
+
+        e.StartsAt += TimeSpan.FromHours(1);
+        e.EndsAt += TimeSpan.FromHours(1);
+        CalendarDates.Rematch(e, zone, Sep20);
+
+        // Kept rather than dropped, so Google's copy is not left behind; matched to another date,
+        // Google's state for it is cleared like VRChat's.
+        var kept = Assert.Single(e.DateChanges);
+        Assert.Equal(Oct4 + TimeSpan.FromHours(1), kept.PlannedStartsAt);
+        Assert.Null(kept.GoogleSentFingerprint);
+        Assert.Null(kept.GoogleError);
+        Assert.Null(kept.GoogleErrorAt);
+    }
+
+    [Fact]
     public void AChangeThatChangesNothingIsPlain()
     {
         var e = Weekly();

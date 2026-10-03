@@ -27,7 +27,14 @@ namespace Modbot.Api.Features.Calendar;
 public static class CalendarReadiness
 {
     public static CalendarReadyView Of(Modbot.Core.Data.Entities.Settings? settings, IDiscordBotStatus? bot) =>
-        new(VRChat(settings), Discord(settings, bot));
+        new(VRChat(settings), Discord(settings, bot), Google(settings));
+
+    /// <summary>
+    /// Google Calendar (added 2026-10-03): a key and a calendar, a Check that passed and found Modbot
+    /// may change events, and Sending on. Off, nothing is sent, so a ticked event says so.
+    /// </summary>
+    public static bool Google(Modbot.Core.Data.Entities.Settings? settings) =>
+        settings is not null && Modbot.Core.Calendar.CalendarGoogle.Ready(settings);
 
     public static bool VRChat(Modbot.Core.Data.Entities.Settings? settings) =>
         settings is not null
@@ -42,10 +49,15 @@ public static class CalendarReadiness
 
     /// <summary>
     /// The places live events want that are not set up: <c>vrchat</c>, <c>instance</c>,
-    /// <c>discordEvent</c> and <c>channelPost</c>, in that order.
+    /// <c>discordEvent</c>, <c>channelPost</c> and <c>googleCalendar</c>, in that order.
     /// </summary>
     public static IReadOnlyList<string> NotSetUp(
-        CalendarReadyView ready, bool wantsVRChat, bool wantsInstance, bool wantsDiscordEvent, bool wantsChannelPost)
+        CalendarReadyView ready,
+        bool wantsVRChat,
+        bool wantsInstance,
+        bool wantsDiscordEvent,
+        bool wantsChannelPost,
+        bool wantsGoogle = false)
     {
         ArgumentNullException.ThrowIfNull(ready);
 
@@ -62,6 +74,9 @@ public static class CalendarReadiness
 
         if (!ready.Discord && wantsChannelPost)
             missing.Add(CalendarPlaces.ChannelPost);
+
+        if (!ready.Google && wantsGoogle)
+            missing.Add(CalendarPlaces.Google);
 
         return missing;
     }

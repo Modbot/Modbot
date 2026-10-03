@@ -162,6 +162,53 @@ public class CalendarVRChatDatesTests(PostgresFixture fixture) : CalendarTestBas
         Assert.False(await after.CalendarDateChanges.AnyAsync(c => c.EventId == e.Id, Ct));
     }
 
+    /// <summary>
+    /// Google Calendar design §3.5, the one shared-code trap: VRChat dropping a put-back date's row
+    /// as soon as it had the plain date would leave Google's moved copy there for good.
+    /// </summary>
+    [Fact]
+    public async Task ADatePutBackAsPlanned_KeepsItsRowWhileGoogleStillHoldsTheMove()
+    {
+        var e = await PublishedWeeklyAsync();
+        var second = e.StartsAt + TimeSpan.FromDays(7);
+        var moved = second + TimeSpan.FromHours(1);
+
+        await ChangeDateAsync(e.Id, second, c =>
+        {
+            c.StartsAt = moved;
+            c.EndsAt = moved + TimeSpan.FromHours(2);
+        });
+
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        // Google was sent the move too; then the date is put back as planned.
+        await using (var context = Database.NewContext())
+        {
+            var row = await context.CalendarDateChanges.SingleAsync(c => c.EventId == e.Id, Ct);
+            row.GoogleSentFingerprint = "sent-to-google";
+            row.StartsAt = null;
+            row.EndsAt = null;
+            row.UpdatedAt = Clock.UtcNow;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+
+        // VRChat has the planned date back and holds nothing of it; the row stays for Google.
+        var date = await DateAsync(e.Id);
+        Assert.Null(date.VRChatSentFingerprint);
+        Assert.Null(date.VRChatId);
+        Assert.Equal("sent-to-google", date.GoogleSentFingerprint);
+
+        // And VRChat is not sent the plain date again and again.
+        var updates = VRChat.Calendar.Updates.Count;
+        Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(updates, VRChat.Calendar.Updates.Count);
+    }
+
     [Fact]
     public async Task ADateVRChatDoesNotListOnItsOwnIsShownAsFailed_AndTheSeriesIsLeftAlone()
     {

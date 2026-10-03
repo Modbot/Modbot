@@ -2443,6 +2443,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatFailedFingerprint).HasMaxLength(64).HasColumnName("vrchat_failed_fingerprint");
             entity.Property(e => e.VRChatError).HasMaxLength(1024).HasColumnName("vrchat_error");
             entity.Property(e => e.VRChatErrorAt).HasColumnName("vrchat_error_at");
+            entity.Property(e => e.GoogleSentFingerprint).HasMaxLength(64);
+            entity.Property(e => e.GoogleFailedFingerprint).HasMaxLength(64);
+            entity.Property(e => e.GoogleError).HasMaxLength(1024);
 
             // One change per date.
             entity.HasIndex(e => new { e.EventId, e.PlannedStartsAt })
@@ -2524,6 +2527,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.ExternalId).HasColumnType("text");
             entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.GoogleCalendarId).HasColumnType("text");
             entity.Property(e => e.SentFingerprint).HasMaxLength(64);
             entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
             entity.Property(e => e.Error).HasMaxLength(1024);

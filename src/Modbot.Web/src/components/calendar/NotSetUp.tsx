@@ -1,4 +1,4 @@
-import { SET_UP_LINK, type CalendarSwitchable } from '@/lib/calendarPlaces'
+import { SET_UP_LINK, type CalendarSetUpPlace } from '@/lib/calendarPlaces'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ export function NotSetUp({
   newTab = false,
   className,
 }: {
-  place: CalendarSwitchable
+  place: CalendarSetUpPlace
   newTab?: boolean
   className?: string
 }) {

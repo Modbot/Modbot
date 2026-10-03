@@ -168,17 +168,45 @@ public static class GoogleErrors
 
         return failure.Problem switch
         {
-            GoogleProblem.KeyRefused => "Google did not accept the key.",
+            GoogleProblem.KeyRefused => KeyNotAccepted,
             GoogleProblem.ClockOff => "The server's clock is off.",
             GoogleProblem.NotFound => CannotSee,
-            GoogleProblem.Forbidden => "Modbot can't change events on this calendar.",
+            GoogleProblem.Forbidden when IsNotAllowed(failure) => CannotChange,
             GoogleProblem.Limited or GoogleProblem.QuotaExceeded => "Google is limiting Modbot.",
             GoogleProblem.Unavailable => "Google did not answer.",
-            _ => string.IsNullOrWhiteSpace(failure.Message)
-                ? $"Google answered {failure.Status}."
-                : Cut(failure.Message.Trim()),
+            _ => OwnWords(failure),
         };
     }
+
+    /// <summary>
+    /// A 403 because of who Modbot is on the calendar: not shared with it, or not with "Make changes
+    /// to events" (design §3.7). Any other 403 that is not a limit -- the Calendar API not enabled
+    /// in the project (<c>accessNotConfigured</c>), say -- is shown in Google's own words, since
+    /// "can't see" or "can't change" would send the operator to the wrong place (added 2026-10-03).
+    /// </summary>
+    public static bool IsNotAllowed(GoogleFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        return failure.Problem == GoogleProblem.Forbidden
+            && failure.Reason is null or "forbidden" or "insufficientPermissions" or "requiredAccessLevel";
+    }
+
+    /// <summary>Google's own sentence, or the status it answered with when it gave none.</summary>
+    public static string OwnWords(GoogleFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        return string.IsNullOrWhiteSpace(failure.Message)
+            ? $"Google answered {failure.Status}."
+            : Cut(failure.Message.Trim());
+    }
+
+    /// <summary>The words for a key Google refused, or one that could not be read or signed with.</summary>
+    public const string KeyNotAccepted = "Google did not accept the key.";
+
+    /// <summary>The words for a calendar Modbot may see but not change events on.</summary>
+    public const string CannotChange = "Modbot can't change events on this calendar.";
 
     /// <summary>Check's words when Modbot cannot see the calendar at all.</summary>
     public const string CannotSee = "Modbot can't see this calendar.";

@@ -474,6 +474,11 @@ public sealed class CalendarVRChatPublisher
                 if (IsOver(calendarEvent, change, now))
                     continue;
 
+                // Put back as planned, and VRChat holds nothing of it as its own: nothing to send.
+                // The row is kept for another place (Google) that still holds the change.
+                if (CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)) && !CalendarDates.MayBeOnVRChat(change))
+                    continue;
+
                 var fingerprint = CalendarVRChatRequests.DateFingerprint(calendarEvent, change);
 
                 if (change.VRChatSentFingerprint == fingerprint || DateHeld(change, fingerprint, now))
@@ -619,9 +624,19 @@ public sealed class CalendarVRChatPublisher
             if (!change.Cancelled)
                 change.VRChatSentStartsAt = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent)).StartsAt;
 
-            // A date put back as planned was kept only until VRChat had the planned date back.
-            if (CalendarDates.IsPlain(change, CalendarRepeat.LengthOf(calendarEvent)))
-                calendarEvent.DateChanges.Remove(change);
+            // A date put back as planned was kept only until VRChat had the planned date back: VRChat
+            // holds nothing of it as its own now. The row itself goes only when no other place
+            // still holds the date as changed (Google Calendar design §3.5); until 2026-10-03 it
+            // went here at once, which would have left Google's moved copy behind for good.
+            var length = CalendarRepeat.LengthOf(calendarEvent);
+
+            if (CalendarDates.IsPlain(change, length))
+            {
+                CalendarDates.ForgetOnVRChat(change);
+
+                if (CalendarDates.CanForget(change, length))
+                    calendarEvent.DateChanges.Remove(change);
+            }
 
             // The series' dates carry this write's time now; a read of the calendar should not take
             // it for a change made on VRChat.
@@ -1135,6 +1150,13 @@ public sealed class CalendarVRChatPublisher
                     change.VRChatError = null;
                     change.VRChatErrorAt = null;
                 }
+
+                // A date put back as planned is planned again in the series just sent: nothing of
+                // it is VRChat's own now, and the row goes unless another place still holds it.
+                var length = CalendarRepeat.LengthOf(calendarEvent);
+
+                foreach (var plain in calendarEvent.DateChanges.Where(c => CalendarDates.CanForget(c, length)).ToList())
+                    calendarEvent.DateChanges.Remove(plain);
             }
 
             place.FailedFingerprint = null;

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261003062614_SendEventsToGoogleCalendar")]
+    partial class SendEventsToGoogleCalendar
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6412,225 +6415,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("person_watch", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Post", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("CancelledAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancelled_at");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_user_id");
-
-                    b.Property<DateTimeOffset?>("DateStartsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("date_starts_at");
-
-                    b.Property<Guid?>("EventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("event_id");
-
-                    b.Property<string>("Kind")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("kind");
-
-                    b.Property<Guid?>("PictureId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("picture_id");
-
-                    b.Property<DateTimeOffset?>("SendAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("send_at");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
-                        .HasColumnName("text");
-
-                    b.Property<string>("TimeZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("time_zone");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_post");
-
-                    b.HasIndex("PictureId")
-                        .HasDatabaseName("ix_post_picture_id");
-
-                    b.HasIndex("EventId", "Kind")
-                        .IsUnique()
-                        .HasDatabaseName("ux_post_event_kind")
-                        .HasFilter("kind IS NOT NULL AND date_starts_at IS NULL");
-
-                    b.HasIndex("Status", "SendAt")
-                        .HasDatabaseName("ix_post_status_send_at");
-
-                    b.HasIndex("EventId", "Kind", "DateStartsAt")
-                        .IsUnique()
-                        .HasDatabaseName("ux_post_event_kind_date")
-                        .HasFilter("kind IS NOT NULL");
-
-                    b.ToTable("post", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.PostDestination", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("CheckAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("check_at");
-
-                    b.Property<string>("ClientKey")
-                        .HasColumnType("text")
-                        .HasColumnName("client_key");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("error");
-
-                    b.Property<DateTimeOffset?>("ErrorAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("error_at");
-
-                    b.Property<string>("ExternalId")
-                        .HasColumnType("text")
-                        .HasColumnName("external_id");
-
-                    b.Property<string>("Link")
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)")
-                        .HasColumnName("link");
-
-                    b.Property<bool>("MayBeSent")
-                        .HasColumnType("boolean")
-                        .HasColumnName("may_be_sent");
-
-                    b.Property<string>("MissingPermission")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("missing_permission");
-
-                    b.Property<string>("Network")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("network");
-
-                    b.Property<string>("Options")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("options");
-
-                    b.Property<Guid>("PostId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("post_id");
-
-                    b.Property<DateTimeOffset?>("PostedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("posted_at");
-
-                    b.Property<DateTimeOffset?>("PublishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("published_at");
-
-                    b.Property<DateTimeOffset?>("RemoveAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("remove_at");
-
-                    b.Property<Guid?>("ReplyToId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("reply_to_id");
-
-                    b.Property<bool>("SendIfMissing")
-                        .HasColumnType("boolean")
-                        .HasColumnName("send_if_missing");
-
-                    b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("SentText")
-                        .HasColumnType("text")
-                        .HasColumnName("sent_text");
-
-                    b.Property<string>("SentTitle")
-                        .HasColumnType("text")
-                        .HasColumnName("sent_title");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("state");
-
-                    b.Property<string>("Target")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("target");
-
-                    b.Property<string>("TextOverride")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
-                        .HasColumnName("text_override");
-
-                    b.Property<string>("TitleOverride")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("title_override");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_post_destination");
-
-                    b.HasIndex("Network", "State")
-                        .HasDatabaseName("ix_post_destination_network_state");
-
-                    b.HasIndex("PostId", "Network")
-                        .IsUnique()
-                        .HasDatabaseName("ux_post_destination_post_network");
-
-                    b.ToTable("post_destination", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
                 {
                     b.Property<int>("Id")
@@ -7355,12 +7139,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_oauth_client_secret_encrypted");
 
-                    b.Property<bool>("DiscordPostsOn")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("discord_posts_on");
-
                     b.Property<bool>("DiscordRoleSyncOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_role_sync_on");
@@ -7639,10 +7417,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("OnboardingComplete")
                         .HasColumnType("boolean")
                         .HasColumnName("onboarding_complete");
-
-                    b.Property<bool>("PostsPaused")
-                        .HasColumnType("boolean")
-                        .HasColumnName("posts_paused");
 
                     b.Property<int>("PresenceFactRetentionDays")
                         .HasColumnType("integer")
@@ -8998,25 +8772,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Navigation("Notification");
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Post", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarCoverPicture", null)
-                        .WithMany()
-                        .HasForeignKey("PictureId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_post_calendar_cover_picture_picture_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.PostDestination", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.Post", null)
-                        .WithMany("Destinations")
-                        .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_post_destination_post_post_id");
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.WebhookDelivery", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.Webhook", null)
@@ -9087,11 +8842,6 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationRecord", b =>
                 {
                     b.Navigation("People");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Post", b =>
-                {
-                    b.Navigation("Destinations");
                 });
 #pragma warning restore 612, 618
         }

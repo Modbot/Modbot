@@ -183,6 +183,13 @@ public class CalendarEvent
 
     public bool PostToChannel { get; set; }
 
+    /// <summary>
+    /// Whether the event goes to the Google calendar in Settings → Google Calendar (Google Calendar
+    /// design §3.2, added 2026-10-03). An event visible only to the group's members never goes,
+    /// ticked or not (decision 1).
+    /// </summary>
+    public bool PublishToGoogle { get; set; }
+
     public string? ChannelId { get; set; }
 
     /// <summary>
@@ -324,6 +331,20 @@ public class CalendarDateChange
     public string? VRChatError { get; set; }
 
     public DateTimeOffset? VRChatErrorAt { get; set; }
+
+    /// <summary>
+    /// A hash of what was last sent to Google Calendar for this date on its own (Google Calendar
+    /// design §3.5). Not null means Google may hold the date as changed, so the row is kept until
+    /// Google has been sent the planned date back.
+    /// </summary>
+    public string? GoogleSentFingerprint { get; set; }
+
+    /// <summary>A hash of what Google last refused for this date. Not sent again until it changes.</summary>
+    public string? GoogleFailedFingerprint { get; set; }
+
+    public string? GoogleError { get; set; }
+
+    public DateTimeOffset? GoogleErrorAt { get; set; }
 }
 
 /// <summary>The words stored in <see cref="CalendarEventPlace.Place"/>.</summary>
@@ -340,6 +361,14 @@ public static class CalendarPlaces
     /// the date it named was due to end; the message id stays, so it is never posted again.
     /// </summary>
     public const string CancelPost = "cancelPost";
+
+    /// <summary>
+    /// The event on the Google calendar in Settings (Google Calendar design §3.2, added
+    /// 2026-10-03). <see cref="CalendarEventPlace.ExternalId"/> is the Google event id Modbot gave
+    /// it, kept after it is removed so the next one is never the same id;
+    /// <see cref="CalendarEventPlace.GoogleCalendarId"/> is the calendar it was written to.
+    /// </summary>
+    public const string Google = "googleCalendar";
 }
 
 /// <summary>
@@ -421,8 +450,18 @@ public class CalendarEventPlace
     /// <summary>One of <see cref="CalendarPlaceStates"/>.</summary>
     public string State { get; set; } = CalendarPlaceStates.Waiting;
 
-    /// <summary>VRChat's calendar event id, Discord's event id, or the channel message id.</summary>
+    /// <summary>
+    /// VRChat's calendar event id, Discord's event id, the channel message id, or the Google event
+    /// id Modbot chose (kept after removal, for Google only).
+    /// </summary>
     public string? ExternalId { get; set; }
+
+    /// <summary>
+    /// For Google Calendar, the calendar the event was written to. When Settings names another
+    /// calendar, the copy here is deleted and the event is made on the new one (Google Calendar
+    /// design §3.2).
+    /// </summary>
+    public string? GoogleCalendarId { get; set; }
 
     /// <summary>For a channel post, the channel the message is actually in.</summary>
     public string? ChannelId { get; set; }

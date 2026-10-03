@@ -176,6 +176,7 @@ public static partial class EventCard
         CalendarPlaces.DiscordEvent => "Discord event",
         CalendarPlaces.ChannelPost => "Discord channel post",
         CalendarPlaces.CancelPost => "Cancelled post in the channel",
+        CalendarPlaces.Google => "Google Calendar",
         var other => Word(other),
     };
 

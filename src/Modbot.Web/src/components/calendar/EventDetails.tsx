@@ -178,7 +178,7 @@ function EventBody({
 
       {event.invites && <InviteCounts invites={event.invites} />}
 
-      {(lines.length > 0 || missing.length > 0 || occurrence?.vrChatError) && (
+      {(lines.length > 0 || missing.length > 0 || occurrence?.vrChatError || occurrence?.googleError) && (
         <div className="flex flex-col gap-1">
           {lines.map(({ place, state, row }) => (
             <div key={place} className="flex flex-wrap items-center gap-2">
@@ -202,6 +202,18 @@ function EventBody({
               {manage && (
                 <TryAgainButton
                   send={() => calendarApi.tryAgain(event.id, 'vrchat', occurrence.plannedStartsAt)}
+                  onDone={manage}
+                />
+              )}
+            </div>
+          )}
+          {occurrence?.googleError && (
+            <div className="flex flex-wrap items-center gap-2">
+              <PlaceBadge place="googleCalendar" state="failed" />
+              <span className="text-destructive">{occurrence.googleError}</span>
+              {manage && (
+                <TryAgainButton
+                  send={() => calendarApi.tryAgain(event.id, 'googleCalendar', occurrence.plannedStartsAt)}
                   onDone={manage}
                 />
               )}

@@ -4,8 +4,11 @@ import { ApiError, http, type InstanceRow, type MissingGroupPermission, type Per
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
 
-/** `cancelPost` is the message a cancel posts in the channel when it was ticked. */
-export type CalendarPlaceName = 'vrchat' | 'discordEvent' | 'channelPost' | 'cancelPost'
+/**
+ * `cancelPost` is the message a cancel posts in the channel when it was ticked. `googleCalendar` is the
+ * event on the Google calendar in Settings (Google Calendar design, step 2).
+ */
+export type CalendarPlaceName = 'vrchat' | 'discordEvent' | 'channelPost' | 'cancelPost' | 'googleCalendar'
 
 export type CalendarPlaceState = 'waiting' | 'published' | 'failed' | 'removed'
 
@@ -56,6 +59,8 @@ export type CalendarOccurrence = {
   description?: string | null
   /** What VRChat said when it refused this date's own change. */
   vrChatError?: string | null
+  /** What Google said when it refused this date's own change. */
+  googleError?: string | null
 }
 
 /** A change to one date of a repeating event: its times and, when they differ, its own words. */
@@ -161,6 +166,8 @@ export type CalendarEvent = {
   featured?: boolean
   /** The picture cropped for Discord (calendar design §15.4). Missing from an older server. */
   coverPictureId?: string | null
+  /** Ticked for the Google calendar in Settings. Missing from an older server. */
+  publishToGoogle?: boolean
 }
 
 /**
@@ -389,6 +396,11 @@ export type CalendarEventInput = {
   mentionRoleId: string | null
   /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
   coverPictureId: string | null
+  /**
+   * Send to the Google calendar in Settings. Left out keeps what the event has; for a new event the
+   * server ticks it when Google Calendar is set up and everyone may see the event.
+   */
+  publishToGoogle?: boolean | null
 }
 
 /** Who made a Discord server event. A person is never named. */
@@ -580,6 +592,7 @@ export const PLACE_LABEL: Record<CalendarPlaceName, string> = {
   discordEvent: 'Discord event',
   channelPost: 'Channel post',
   cancelPost: 'Cancelled post',
+  googleCalendar: 'Google Calendar',
 }
 
 export const PLACE_STATE_LABEL: Record<CalendarPlaceState, string> = {

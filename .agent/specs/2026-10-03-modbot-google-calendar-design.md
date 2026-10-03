@@ -1,9 +1,9 @@
 # Modbot — Google Calendar
 
 - **Date:** 2026-10-03
-- **Status:** Step 1 built (§4; §7 says what it built and where it differs): the key, Check and the Links.
-  Steps 2 and 3 (sending events, the form, the preview, the feed button) are not built. The owner
-  took every recommended decision in §5 on 2026-10-03.
+- **Status:** Steps 1 and 2 built (§4; §7 and §8 say what they built and where they differ): the
+  key, Check, the Links, and sending events. Step 3 (the form's chip, the preview, the feed button,
+  the calendar docs) is not built. The owner took every recommended decision in §5 on 2026-10-03.
 - **Covers:** Modbot writing its events into a Google calendar the group's owner owns, through a
   service account; the settings and Check; what goes to Google and when; at-most-once inserts; limits;
   the public links ("Add to Google Calendar")
@@ -520,6 +520,64 @@ What step 1 built, and where it differs from the sections above.
   Sending).
 - **Docs.** `moderation/google-calendar.mdx` (the how-to), `security.mdx` (the key, and removing
   it), `privacy.mdx` and `PRIVACY_POLICY.md` (what Check sends).
+
+## 8. Step 2 as built (2026-10-03)
+
+What step 2 built, and where it differs from the sections above.
+
+- **Data.** `CalendarEvent.PublishToGoogle`; place `googleCalendar` with `CalendarEventPlace.GoogleCalendarId`;
+  `calendar_date_change.google_*` (sent and failed fingerprints, error, error time);
+  `Settings.GoogleSendingOn` and `GoogleRemovingEvents`. One migration, `SendEventsToGoogleCalendar`.
+- **Rules.** `CalendarGoogle` (Core): `SetUp` (key, calendar, a Check that passed and found Modbot may
+  change events, no problem since), `Ready` (set up and Sending on), `MembersOnly` (not visible to
+  everyone, or narrowed to roles; never sent), `TicksByDefault` (set up and not members-only), and
+  `WantsOf`: live events go, a finished one stays as history, a cancelled one stays until a day after
+  the date it was cancelled on. A finished or cancelled event is never made on Google, only kept.
+- **Body.** `CalendarGoogleBody` (Core), with the iCalendar time and `EXDATE` writing moved into
+  `CalendarICalText`, which the feed now uses too. `CalendarFeedWriter.Rule` takes an optional last
+  day, for a cancelled series cut at its date. The fingerprint leaves out the Google event id (a new
+  turn is an insert anyway) as well as the Open state.
+- **The loop.** `CalendarGooglePublisher` and `CalendarGoogleService` (20 s) live in `Modbot.Api`, not
+  Core as §3.11 put them, because the facts are written through `CalendarFacts` (in `Modbot.VRChat`),
+  which Core cannot reference. The host adds the service with `AddGoogleCalendarSending`. Up to ten
+  calls a pass; the first pass after a limit's wait is one call. The id is kept on the place after
+  removal, so the next making is always the next turn. A place with an id and nothing confirmed is
+  read back before any insert, at least a minute after the call with no answer, including the first
+  insert of a new turn when it could not go out in the pass that chose the id.
+- **Lane problems.** A refused key, a wrong clock, or a 403 for who Modbot is on the calendar is
+  written to `GoogleProblem`, where Check writes it: Settings, the Integrations card and readiness all
+  say so, and nothing more is sent until a new key or a good Check (§3.7's "held until the next good
+  Check", for every event at once). A refusal on a calendar Settings no longer names is only logged.
+- **One date.** As §3.5. A cancelled date with no copy of its own is the `EXDATE` alone. A cancel
+  whose date Google no longer lists counts as done. After a series PUT the dates Google may hold are
+  marked to be sent again; after an insert they are forgotten (the new event has none). A cancelled
+  event's dates after the one it was cancelled on are cancelled too; its own date, if changed, gets
+  "Cancelled: " in front like the series.
+- **The shared rule.** `CalendarDates.MayBeOnGoogle`, `CanForget` (plain, not on VRChat, not on Google),
+  `ForgetOnVRChat`/`ForgetOnGoogle`. The VRChat publisher, once VRChat has a put-back date, clears its
+  own state for it and removes the row only on `CanForget`; it skips a plain date it holds nothing
+  of; and after a series write it removes the plain rows nobody holds. `Rematch` keeps a plain row
+  Google holds and clears Google's state when the planned start moves.
+- **Cancel (decision 3 B).** The whole Google event, history included, reads "Cancelled: …" for the
+  day it stays, not only the date it was cancelled on: the series is one Google event, and it is
+  removed a day later anyway.
+- **Settings.** `PUT` takes `sending` (on needs a Check that passed for the saved key and calendar);
+  `POST …/add-all` ticks every scheduled or open event everyone may see, audited as one change with
+  the count; `POST …/remove-events` turns Sending off and sets `GoogleRemovingEvents`, which the loop
+  turns off once every place is removed (Sending must be off, or the events would be made again).
+  **Forget** also turns Sending off. The `PUT` body is read by hand, refused over 64 KB with 413.
+  The web topic gains a **Sending** card: the switch, **Add all**, **Remove Modbot's events**.
+- **Elsewhere.** Readiness has `google` (set up and Sending on); Health lists `googleCalendar` under
+  Not set up and says **Google Calendar · limited until …**; the event shows the Google place and a
+  date's Google failure with Try again; the Integrations card says Key · Calendar · Sending and Off.
+  Facts carry `place: googleCalendar`. A new event and one read in from VRChat are ticked by
+  `TicksByDefault` unless the request says otherwise; the form has no chip yet (step 3).
+- **Step 1 follow-ups.** A 403 that is not about sharing (`accessNotConfigured`) shows Google's words;
+  a key that cannot be read or signed with is "Google did not accept the key."; a token request with
+  no answer is not kept for a minute; the Calendar ID field is capped at 1024; a settings change whose
+  value is a sentence is quoted in the audit log, so it no longer ends in two stops.
+- **Not built in step 2:** the event's **Open** link to Google (no `htmlLink` is stored), the preview
+  card, the chip, Visible to moved, the feed button, the calendar and not-built-yet docs.
 
 ## Sources (accessed 2026-10-02/03)
 

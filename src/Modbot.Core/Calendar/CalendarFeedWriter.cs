@@ -223,7 +223,7 @@ public static class CalendarFeedWriter
 
             // A date cancelled on its own is taken out of the repeat (calendar design §6).
             foreach (var dropped in calendarEvent.DateChanges.Where(c => c.Cancelled).OrderBy(c => c.PlannedStartsAt))
-                Line(output, "EXDATE" + Time(dropped.PlannedStartsAt, zone));
+                Line(output, CalendarICalText.ExDate(dropped.PlannedStartsAt, zone));
         }
 
         var entry = Entry(calendarEvent, worldNames);
@@ -322,7 +322,11 @@ public static class CalendarFeedWriter
     }
 
     /// <summary>The <c>RRULE</c> value, or null for an event that does not repeat.</summary>
-    public static string? Rule(CalendarEvent calendarEvent, DateTimeZone zone)
+    /// <param name="endsOn">
+    /// Cut the repeat short after this day, in place of the event's own end: Google Calendar's copy
+    /// of a cancelled event stops at the date it was cancelled on (Google Calendar design §3.6).
+    /// </param>
+    public static string? Rule(CalendarEvent calendarEvent, DateTimeZone zone, DateOnly? endsOn = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
@@ -351,7 +355,9 @@ public static class CalendarFeedWriter
 
         // UTC whatever DTSTART carries: RFC 5545 requires it when DTSTART has a TZID, and when it
         // is UTC. The last moment of the last day an occurrence may start on.
-        if (calendarEvent.RepeatUntil is { } until)
+        if (endsOn is { } cut)
+            rule += ";UNTIL=" + Utc(LastMomentOf(cut, zone).ToDateTimeOffset());
+        else if (calendarEvent.RepeatUntil is { } until)
             rule += ";UNTIL=" + Utc(LastMomentOf(until, zone).ToDateTimeOffset());
         else if (calendarEvent.RepeatTimes is { } times)
             rule += ";COUNT=" + Math.Clamp(times, 1, CalendarRepeats.MaxTimes).ToString(CultureInfo.InvariantCulture);
@@ -433,28 +439,18 @@ public static class CalendarFeedWriter
         return end.InUtc().LocalDateTime.Plus(ZoneYearsAhead).InUtc().ToInstant();
     }
 
-    private static Instant LastMomentOf(DateOnly day, DateTimeZone zone) =>
+    /// <summary>The last second of <paramref name="day"/> in <paramref name="zone"/>: where an <c>UNTIL</c> ends.</summary>
+    public static Instant LastMomentOf(DateOnly day, DateTimeZone zone) =>
         zone.AtStartOfDay(new LocalDate(day.Year, day.Month, day.Day).PlusDays(1)).ToInstant() - Duration.FromSeconds(1);
 
-    /// <summary>
-    /// A zone that is always UTC. Not <c>zone == DateTimeZone.Utc</c>: zones are compared by
-    /// reference, and the time zone database's own "UTC" (or "Etc/UTC") is a different object
-    /// from <see cref="DateTimeZone.Utc"/>, so an event saved as "UTC" was written with a
-    /// <c>TZID=UTC</c> and a VTIMEZONE it does not need.
-    /// </summary>
-    private static bool IsUtc(DateTimeZone zone) =>
-        zone.MinOffset == Offset.Zero && zone.MaxOffset == Offset.Zero;
+    // Time written the way Google Calendar is sent it too (CalendarICalText), so the two agree.
+    private static bool IsUtc(DateTimeZone zone) => CalendarICalText.IsUtc(zone);
 
-    private static string Time(DateTimeOffset at, DateTimeZone zone) =>
-        IsUtc(zone)
-            ? ":" + Utc(at)
-            : $";TZID={zone.Id}:" + Local(Instant.FromDateTimeOffset(at).InZone(zone).LocalDateTime);
+    private static string Time(DateTimeOffset at, DateTimeZone zone) => CalendarICalText.Time(at, zone);
 
-    private static string Utc(DateTimeOffset at) =>
-        at.ToUniversalTime().ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+    private static string Utc(DateTimeOffset at) => CalendarICalText.Utc(at);
 
-    private static string Local(LocalDateTime at) =>
-        at.ToString("yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture);
+    private static string Local(LocalDateTime at) => CalendarICalText.Local(at);
 
     private static string OffsetText(Offset offset)
     {

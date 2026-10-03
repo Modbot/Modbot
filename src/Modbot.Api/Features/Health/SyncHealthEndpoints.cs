@@ -159,7 +159,7 @@ public static class SyncHealthEndpoints
                             w.PartUnknown))],
                     await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
-                    await CalendarHealthAsync(db, settings, discordBot, serverEvents, ct),
+                    await CalendarHealthAsync(db, settings, discordBot, serverEvents, clock.UtcNow, ct),
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
                     UserReads(diagnostics),
@@ -346,6 +346,7 @@ public static class SyncHealthEndpoints
         Modbot.Core.Data.Entities.Settings? settings,
         Modbot.Core.Discord.IDiscordBotStatus? discordBot,
         Modbot.Core.Discord.IDiscordServerEvents? serverEvents,
+        DateTimeOffset now,
         CancellationToken ct)
     {
         var guildId = settings?.DiscordGuildId;
@@ -353,15 +354,34 @@ public static class SyncHealthEndpoints
         // Read whether or not Modbot has events of its own: other bots make copies too.
         var duplicates = (await Modbot.Api.Features.Calendar.CalendarDiscordDuplicates.BuildAsync(db, serverEvents, ct)).Duplicates;
 
+        // Google is limiting Modbot: nothing goes to Google before then (Google Calendar design §3.7).
+        var googleLimitedUntil = settings?.GoogleStoppedUntil is { } until && until > now ? until : (DateTimeOffset?)null;
+
         var live = await db.CalendarEvents.AsNoTracking()
             .Where(e => e.DeletedAt == null
                 && (e.State == Modbot.Core.Data.Entities.CalendarEventStates.Scheduled
                     || e.State == Modbot.Core.Data.Entities.CalendarEventStates.Open))
-            .Select(e => new { e.Id, e.Title, e.PublishToDiscord, e.PublishToVRChat, e.PostToChannel, e.AutoOpen, e.OccurrenceStartsAt })
+            .Select(e => new
+            {
+                e.Id,
+                e.Title,
+                e.PublishToDiscord,
+                e.PublishToVRChat,
+                e.PostToChannel,
+                e.AutoOpen,
+                e.OccurrenceStartsAt,
+
+                // A members-only event never goes to Google, so it never wants Google set up.
+                WantsGoogle = e.PublishToGoogle && e.Visibility == "public",
+            })
             .ToListAsync(ct);
 
         if (live.Count == 0)
-            return duplicates.Count == 0 ? null : new CalendarHealth(false, [], [], duplicates);
+        {
+            return duplicates.Count == 0 && googleLimitedUntil is null
+                ? null
+                : new CalendarHealth(false, [], [], duplicates, googleLimitedUntil);
+        }
 
         var titles = live.ToDictionary(e => e.Id, e => e.Title);
         var ids = titles.Keys.ToList();
@@ -407,11 +427,12 @@ public static class SyncHealthEndpoints
             wantsVRChat: live.Any(e => e.PublishToVRChat),
             wantsInstance: live.Any(e => e.AutoOpen),
             wantsDiscordEvent: live.Any(e => e.PublishToDiscord),
-            wantsChannelPost: live.Any(e => e.PostToChannel));
+            wantsChannelPost: live.Any(e => e.PostToChannel),
+            wantsGoogle: live.Any(e => e.WantsGoogle));
 
-        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0 && duplicates.Count == 0
+        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0 && duplicates.Count == 0 && googleLimitedUntil is null
             ? null
-            : new CalendarHealth(missingManageEvents, problems, notSetUp, duplicates);
+            : new CalendarHealth(missingManageEvents, problems, notSetUp, duplicates, googleLimitedUntil);
     }
 
     /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>

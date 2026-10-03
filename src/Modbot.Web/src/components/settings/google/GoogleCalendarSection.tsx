@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type GoogleCalendarCheck, type GoogleCalendarSettings } from '@/lib/api'
 import { timeOfDay } from '@/lib/format'
-import { ConfirmButton, Fact, Field, Outcome, Placeholder } from '../fields'
+import { ConfirmButton, Fact, Field, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /** The largest key file read. A real one is about 2.3 KB; the server refuses over 16 KB too. */
@@ -16,8 +16,8 @@ const PUBLIC: Record<GoogleCalendarCheck['public'], string> = {
 }
 
 /**
- * Settings → Google Calendar (Google Calendar design §3.1, step 1): the service account's key file,
- * the calendar, Check, and the calendar's own links once Check finds it public.
+ * Settings → Google Calendar (Google Calendar design §3.1): the service account's key file, the
+ * calendar, Check, Sending (step 2), and the calendar's own links once Check finds it public.
  *
  * No words explain the setup (CLAUDE.md): the how-to is the docs page
  * `moderation/google-calendar`. The key is never shown back; only that it is saved and the address
@@ -53,6 +53,7 @@ export function GoogleCalendarSection() {
         <>
           <KeyCard settings={data} onSaved={setData} />
           <CalendarCard settings={data} onSaved={setData} />
+          {(data.canSend || data.sending || data.removing) && <SendingCard settings={data} onSaved={setData} />}
           {data.links && <LinksCard links={data.links} />}
         </>
       )}
@@ -212,7 +213,7 @@ function CalendarCard({
         </>
       }
     >
-      <Field label="Calendar ID" mono value={calendarId} maxLength={2048} onChange={setTyped} />
+      <Field label="Calendar ID" mono value={calendarId} maxLength={1024} onChange={setTyped} />
 
       {result && (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -228,6 +229,72 @@ function CalendarCard({
       ) : (
         <Outcome tone="problem">{result?.problem}</Outcome>
       )}
+    </SettingsCard>
+  )
+}
+
+/**
+ * Sending events to the calendar (Google Calendar design §3.1, step 2): the switch, Add all for the
+ * events planned before Google was set up, and Remove Modbot's events, which asks first. Off leaves
+ * what is on Google as it is (decision 7).
+ */
+function SendingCard({
+  settings,
+  onSaved,
+}: {
+  settings: GoogleCalendarSettings
+  onSaved: (next: GoogleCalendarSettings) => void
+}) {
+  const [busy, setBusy] = useState<'sending' | 'adding' | 'removing' | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+  const canSend = !!settings.canSend
+
+  const run = <T,>(kind: 'sending' | 'adding' | 'removing', call: () => Promise<T>, after: (result: T) => void) => {
+    setBusy(kind)
+    setDone(null)
+    setProblem(null)
+
+    call()
+      .then(after)
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(null))
+  }
+
+  const setSending = (on: boolean) =>
+    run('sending', () => api.setGoogleCalendarSettings({ sending: on }), onSaved)
+
+  const addAll = () =>
+    run('adding', () => api.addAllToGoogleCalendar(), (result) => {
+      onSaved(result.settings)
+      setDone(`${result.added} added.`)
+    })
+
+  const remove = () => run('removing', () => api.removeGoogleCalendarEvents(), onSaved)
+
+  return (
+    <SettingsCard
+      title="Sending"
+      footer={
+        <>
+          <Button type="button" size="xs" variant="outline" disabled={busy !== null || !canSend} onClick={addAll}>
+            {busy === 'adding' ? 'Adding…' : 'Add all'}
+          </Button>
+          <ConfirmButton variant="outline" disabled={busy !== null || !canSend || !!settings.removing} onConfirm={remove}>
+            {settings.removing ? 'Removing…' : "Remove Modbot's events"}
+          </ConfirmButton>
+          <Outcome tone="ok">{done}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <Switch
+        checked={!!settings.sending}
+        disabled={busy !== null || (!settings.sending && !canSend)}
+        onChange={setSending}
+      >
+        Sending
+      </Switch>
     </SettingsCard>
   )
 }

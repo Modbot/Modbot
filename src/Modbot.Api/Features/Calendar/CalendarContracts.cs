@@ -42,6 +42,11 @@ namespace Modbot.Api.Features.Calendar;
 /// <paramref name="RepeatUntil"/>.
 /// </param>
 /// <param name="Featured">Ask VRChat to show the event as featured. Null keeps what the event has.</param>
+/// <param name="PublishToGoogle">
+/// Send the event to the Google calendar in Settings. Null keeps what the event has; for a new event,
+/// null ticks it when Google Calendar is set up and the event is visible to everyone. An event only
+/// the group's members see never goes, ticked or not.
+/// </param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -79,7 +84,8 @@ public sealed record CalendarEventRequest(
     int? RepeatEvery = null,
     int? RepeatTimes = null,
     bool? Featured = null,
-    Guid? CoverPictureId = null);
+    Guid? CoverPictureId = null,
+    bool? PublishToGoogle = null);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -110,7 +116,7 @@ public sealed record CalendarInviteChoicesView(
     IReadOnlyList<CalendarListChoice>? Lists);
 
 /// <summary>One place an event is published, and how that went.</summary>
-/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c> or <c>cancelPost</c>.</param>
+/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, <c>cancelPost</c> or <c>googleCalendar</c>.</param>
 /// <param name="State">
 /// <c>waiting</c> (being sent: waiting for edits to settle, for its turn, or for a rate limit),
 /// <c>published</c>, <c>failed</c> or <c>removed</c>.
@@ -141,8 +147,8 @@ public sealed record CalendarPlaceView(
     IReadOnlyList<string>? Problems = null);
 
 /// <param name="PlannedStartsAt">
-/// One date of a repeating event, by its planned start, whose own VRChat write failed. Left out
-/// for the place itself.
+/// One date of a repeating event, by its planned start, whose own VRChat or Google write failed.
+/// Left out for the place itself.
 /// </param>
 public sealed record CalendarTryAgainRequest(DateTimeOffset? PlannedStartsAt);
 
@@ -175,13 +181,15 @@ public sealed record CalendarOpeningView(
 /// <param name="Title">The date's own title, when it was given one.</param>
 /// <param name="Description">The date's own description, when it was given one.</param>
 /// <param name="VRChatError">What VRChat said when it refused this date's own change.</param>
+/// <param name="GoogleError">What Google said when it refused this date's own change.</param>
 public sealed record CalendarOccurrenceView(
     DateTimeOffset StartsAt,
     DateTimeOffset EndsAt,
     DateTimeOffset PlannedStartsAt,
     string? Title = null,
     string? Description = null,
-    string? VRChatError = null);
+    string? VRChatError = null,
+    string? GoogleError = null);
 
 /// <summary>A change to one date of a repeating event (calendar design §2.2).</summary>
 /// <param name="PlannedStartsAt">The date, as its occurrence's <c>plannedStartsAt</c> names it.</param>
@@ -228,6 +236,7 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="RepeatEvery">How many days, weeks or months apart the repeat falls; 1 for every one.</param>
 /// <param name="RepeatTimes">How many dates the repeat has before it stops, or null.</param>
 /// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
+/// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -285,7 +294,8 @@ public sealed record CalendarEventView(
     int RepeatEvery = 1,
     int? RepeatTimes = null,
     bool Featured = false,
-    Guid? CoverPictureId = null);
+    Guid? CoverPictureId = null,
+    bool PublishToGoogle = false);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
@@ -311,7 +321,11 @@ public sealed record CalendarView(
 /// <param name="Discord">
 /// The Discord event and the channel post: a server id is set and the bot is connected.
 /// </param>
-public sealed record CalendarReadyView(bool VRChat, bool Discord);
+/// <param name="Google">
+/// Google Calendar: a key and a calendar are saved, the last Check passed and found Modbot may change
+/// events, and Sending is on (Google Calendar design §3.8).
+/// </param>
+public sealed record CalendarReadyView(bool VRChat, bool Discord, bool Google = false);
 
 /// <param name="PostInChannel">
 /// Post a short message in the event's channel that it is cancelled. Needs a channel on the event.

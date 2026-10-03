@@ -133,3 +133,42 @@ test('a channel post with no channel is not listed as being sent', () => {
     ['vrchat', 'discordEvent'],
   )
 })
+
+// ── Google Calendar (Google Calendar design, step 2) ───────────────────────────────────────────
+
+const google = (over: { publishToGoogle?: boolean; visibility?: string; places?: Row[] } = {}) => ({
+  ...event({ places: over.places ?? [] }),
+  publishToVRChat: false,
+  publishToDiscord: false,
+  postToChannel: false,
+  publishToGoogle: over.publishToGoogle ?? true,
+  visibility: over.visibility ?? 'public',
+})
+
+test('an event ticked for Google Calendar shows it being sent, after the Discord places', () => {
+  const lines = placeLines(google(), { vrChat: true, discord: true, google: true })
+
+  assert.deepEqual(lines.map((l) => [l.place, l.state]), [['googleCalendar', 'waiting']])
+})
+
+test('a members-only event is never shown as going to Google Calendar, nor as not set up for it', () => {
+  assert.deepEqual(placeLines(google({ visibility: 'group' }), { vrChat: true, discord: true, google: true }), [])
+  assert.deepEqual(notSetUp(google({ visibility: 'group' }), { vrChat: true, discord: true, google: false }), [])
+})
+
+test('Google Calendar not set up, or Sending off, says Not set up for a ticked event', () => {
+  const off = { vrChat: true, discord: true, google: false }
+
+  assert.deepEqual(notSetUp(google(), off), ['googleCalendar'])
+  assert.deepEqual(placeLines(google(), off), [])
+
+  // An older server says nothing about Google: nothing is marked.
+  assert.deepEqual(notSetUp(google(), { vrChat: true, discord: true }), [])
+})
+
+test('the Google Calendar row is listed as it stands', () => {
+  const lines = placeLines(google({ places: [row('googleCalendar', 'failed')] }), { vrChat: true, discord: true, google: true })
+
+  assert.deepEqual(lines.map((l) => [l.place, l.state]), [['googleCalendar', 'failed']])
+  assert.equal(isSetUp('vrchat', { vrChat: true, discord: true, google: false }), true)
+})

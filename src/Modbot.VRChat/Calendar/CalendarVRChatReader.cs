@@ -121,6 +121,9 @@ public sealed class CalendarVRChatReader
 
     private int _requests;
 
+    /// <summary>The settings row this read started with, for whether a new event goes to Google too.</summary>
+    private Modbot.Core.Data.Entities.Settings? _settings;
+
     public CalendarVRChatReader(
         IVRChatGate gate,
         ModbotContext db,
@@ -204,6 +207,8 @@ public sealed class CalendarVRChatReader
             var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
             if (settings.ManagedGroupId is not { Length: > 0 } groupId)
                 return new CalendarReadResult(CalendarReadOutcome.NotConfigured);
+
+            _settings = settings;
 
             var startedAt = _clock.UtcNow;
             var due = months.Where(m => refresh || !_memory.IsFresh(m, startedAt)).ToList();
@@ -648,6 +653,10 @@ public sealed class CalendarVRChatReader
 
         CalendarVRChatCopy.Onto(calendarEvent, source);
         CalendarTimeline.Advance(calendarEvent, now);
+
+        // Onto the Google calendar as well when that is set up and the event is not for members
+        // only, as a new event made in Modbot is (Google Calendar design decision 6).
+        calendarEvent.PublishToGoogle = _settings is { } settings && CalendarGoogle.TicksByDefault(settings, calendarEvent);
 
         _db.CalendarEvents.Add(calendarEvent);
         _db.CalendarEventPlaces.Add(new CalendarEventPlace

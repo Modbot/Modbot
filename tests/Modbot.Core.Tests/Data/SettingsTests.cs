@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
 namespace Modbot.Core.Tests.Data;
@@ -100,5 +101,78 @@ public class SettingsTests
         Assert.Equal("all", reloaded.GooglePublic);
         Assert.Equal("Google is limiting Modbot.", reloaded.GoogleProblem);
         Assert.Equal(checkedAt.AddMinutes(15), reloaded.GoogleStoppedUntil);
+    }
+
+    /// <summary>
+    /// The columns Google Calendar's step 2 added: Sending and removing on the settings row, the tick
+    /// on the event, the calendar on the place, and a date's own Google state.
+    /// </summary>
+    [Fact]
+    public async Task TheGoogleSendingColumnsRoundTrip()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var at = new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
+        var eventId = Guid.CreateVersion7();
+
+        await using (var write = _db.NewContext())
+        {
+            var settings = await write.GetSettingsAsync(ct);
+            settings.GoogleSendingOn = true;
+            settings.GoogleRemovingEvents = true;
+
+            write.CalendarEvents.Add(new CalendarEvent
+            {
+                Id = eventId,
+                Title = "Movie night",
+                StartsAt = at,
+                EndsAt = at.AddHours(2),
+                PublishToGoogle = true,
+                CreatedAt = at,
+                UpdatedAt = at,
+                DateChanges =
+                [
+                    new CalendarDateChange
+                    {
+                        Id = Guid.CreateVersion7(),
+                        EventId = eventId,
+                        PlannedStartsAt = at.AddDays(7),
+                        GoogleSentFingerprint = "sent",
+                        GoogleFailedFingerprint = "failed",
+                        GoogleError = "Could not find this date on Google.",
+                        GoogleErrorAt = at,
+                        CreatedAt = at,
+                        UpdatedAt = at,
+                    },
+                ],
+            });
+
+            write.CalendarEventPlaces.Add(new CalendarEventPlace
+            {
+                EventId = eventId,
+                Place = CalendarPlaces.Google,
+                ExternalId = "mb0123456789abcdefghijklmnop0",
+                GoogleCalendarId = "c_abc123@group.calendar.google.com",
+                UpdatedAt = at,
+            });
+
+            await write.SaveChangesAsync(ct);
+        }
+
+        await using var read = _db.NewContext();
+        var reloaded = await read.Settings.AsNoTracking().SingleAsync(ct);
+        Assert.True(reloaded.GoogleSendingOn);
+        Assert.True(reloaded.GoogleRemovingEvents);
+
+        var e = await read.CalendarEvents.AsNoTracking().SingleAsync(x => x.Id == eventId, ct);
+        Assert.True(e.PublishToGoogle);
+
+        var date = Assert.Single(e.DateChanges);
+        Assert.Equal("sent", date.GoogleSentFingerprint);
+        Assert.Equal("failed", date.GoogleFailedFingerprint);
+        Assert.Equal("Could not find this date on Google.", date.GoogleError);
+        Assert.Equal(at, date.GoogleErrorAt);
+
+        var place = await read.CalendarEventPlaces.AsNoTracking().SingleAsync(p => p.EventId == eventId, ct);
+        Assert.Equal("c_abc123@group.calendar.google.com", place.GoogleCalendarId);
     }
 }

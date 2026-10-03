@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -41,7 +42,7 @@ public static class GooglePublic
 /// </summary>
 /// <remarks>
 /// <para>
-/// Only the two reads Check needs so far. Every call goes to <see cref="ApiAddress"/> on the named
+/// The two reads Check needs, and the event calls the sending loop makes (step 2). Every call goes to <see cref="ApiAddress"/> on the named
 /// client <see cref="HttpClientName"/>, which follows no redirects and uses no proxy.
 /// </para>
 /// <para>
@@ -118,6 +119,99 @@ public sealed class GoogleCalendarClient(IHttpClientFactory http)
         }
 
         return GoogleResult<string>.Ok(GooglePublic.No);
+    }
+
+    // ── Events (Google Calendar design §3.4, step 2) ─────────────────────────────────────
+    //
+    // Bodies and answers are plain JSON objects: a PUT replaces the whole event (Google's update
+    // has no patch meaning), and one date of a series is changed by sending back the instance as
+    // Google gave it, with only its times, words or status changed. Nothing here retries.
+
+    /// <summary><c>events.get</c>: one event by the id Modbot gave it.</summary>
+    public Task<GoogleResult<JsonObject>> GetEventAsync(string accessToken, string calendarId, string eventId, CancellationToken ct) =>
+        SendAsync(HttpMethod.Get, accessToken, EventPath(calendarId, eventId), null, ct);
+
+    /// <summary><c>events.insert</c>, with the id in the body. Nobody is told: there are no attendees.</summary>
+    public Task<GoogleResult<JsonObject>> InsertEventAsync(string accessToken, string calendarId, JsonObject body, CancellationToken ct) =>
+        SendAsync(HttpMethod.Post, accessToken, CalendarPath(calendarId) + "/events?sendUpdates=none", body, ct);
+
+    /// <summary><c>events.update</c>: the whole event, or one date of a series by its instance id.</summary>
+    public Task<GoogleResult<JsonObject>> UpdateEventAsync(
+        string accessToken, string calendarId, string eventId, JsonObject body, CancellationToken ct) =>
+        SendAsync(HttpMethod.Put, accessToken, EventPath(calendarId, eventId) + "?sendUpdates=none", body, ct);
+
+    /// <summary><c>events.delete</c>. A 404 or 410 is the caller's to read as already gone.</summary>
+    public Task<GoogleResult<JsonObject>> DeleteEventAsync(string accessToken, string calendarId, string eventId, CancellationToken ct) =>
+        SendAsync(HttpMethod.Delete, accessToken, EventPath(calendarId, eventId) + "?sendUpdates=none", null, ct);
+
+    /// <summary>
+    /// <c>events.instances</c> for the one date of a series that was planned at
+    /// <paramref name="originalStart"/>. The value is that date as Google holds it, or null when the
+    /// series has no such date (cancelled, or never in it).
+    /// </summary>
+    public async Task<GoogleResult<JsonObject?>> InstanceAsync(
+        string accessToken, string calendarId, string eventId, DateTimeOffset originalStart, CancellationToken ct)
+    {
+        var path = EventPath(calendarId, eventId) + "/instances?maxResults=1&originalStart="
+            + Uri.EscapeDataString(originalStart.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture));
+
+        var answer = await SendAsync(HttpMethod.Get, accessToken, path, null, ct);
+
+        if (answer.Value is not { } list)
+            return GoogleResult<JsonObject?>.Failed(answer.Failure!);
+
+        var first = list["items"] is JsonArray items && items.Count > 0 ? items[0] as JsonObject : null;
+        return GoogleResult<JsonObject?>.Ok(first);
+    }
+
+    /// <summary><c>calendars/{calendar}/events/{event}</c>, both escaped so each stays one path segment.</summary>
+    public static string EventPath(string calendarId, string eventId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventId);
+
+        if (eventId.Trim('.').Length == 0)
+            throw new ArgumentException("Not an event id.", nameof(eventId));
+
+        return CalendarPath(calendarId) + "/events/" + Uri.EscapeDataString(eventId);
+    }
+
+    private async Task<GoogleResult<JsonObject>> SendAsync(
+        HttpMethod method, string accessToken, string path, JsonObject? body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(method, new Uri(new Uri(ApiAddress), path));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        if (body is not null)
+            request.Content = new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var response = await http.CreateClient(HttpClientName).SendAsync(request, ct);
+            var text = await response.Content.ReadAsStringAsync(ct);
+
+            if (!response.IsSuccessStatusCode)
+                return GoogleResult<JsonObject>.Failed(GoogleErrors.FromCalendar(response.StatusCode, text, response.Headers.RetryAfter));
+
+            // A delete answers 204 with nothing in it.
+            if (string.IsNullOrWhiteSpace(text))
+                return GoogleResult<JsonObject>.Ok(new JsonObject());
+
+            return JsonNode.Parse(text) is JsonObject value
+                ? GoogleResult<JsonObject>.Ok(value)
+                : GoogleResult<JsonObject>.Failed(new GoogleFailure(GoogleProblem.Other, (int)response.StatusCode));
+        }
+        catch (HttpRequestException)
+        {
+            return GoogleResult<JsonObject>.Failed(GoogleErrors.NoAnswer());
+        }
+        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return GoogleResult<JsonObject>.Failed(GoogleErrors.NoAnswer());
+        }
+        catch (JsonException)
+        {
+            return GoogleResult<JsonObject>.Failed(GoogleErrors.NoAnswer());
+        }
     }
 
     /// <summary>

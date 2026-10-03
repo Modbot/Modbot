@@ -105,9 +105,15 @@ wherever you choose to store them. These pages describe what is kept and how it 
   gives Modbot a key file and a calendar in **Settings**, **Google Calendar**. Then each **Check**
   sends Google a sign-in request signed with the key, naming Modbot's Google address, to
   `oauth2.googleapis.com`, and asks `www.googleapis.com` for that calendar's name, time zone, who it
-  is shared with and what Modbot may do on it. Nothing about your group, your events or your
-  members. The key's private part never leaves the server; only signatures made with it do. Modbot
-  does not put events on the calendar.
+  is shared with and what Modbot may do on it. The key's private part never leaves the server; only
+  signatures made with it do. Once someone turns **Sending** on, Modbot also sends that calendar the
+  events ticked for it, each time one is made, changed, cancelled or removed: its title, description,
+  start, end, time zone, repeat and cancelled dates, a date's own times and words, the world's name
+  and its page on vrchat.com, the group's name, and an id Modbot uses to find its own copy again
+  (kept in the calendar's private copy). Google shows them to everyone the calendar is shared with,
+  and to the public if the calendar is public. **Events only your group's members can see are never
+  sent.** Never sent: member names, VRChat or Discord ids, head counts, the join link or Modbot's own
+  address, the event's picture, and anything about moderation.
 - [Event invites](/moderation/calendar#inviting-people): for an event set to invite people, Modbot
   sends VRChat invites from the group's Modbot VRChat account, and Discord direct messages from the
   server's Modbot bot, to the host, staff and list the organiser picked, and can post in the group

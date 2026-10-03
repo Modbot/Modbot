@@ -3,8 +3,11 @@
 // `calendarGrid.ts` uses.
 import type { CalendarEvent, CalendarEventInput, CalendarPlace, CalendarPlaceName, CalendarPlaceState } from './calendar.ts'
 
-/** VRChat: a managed group and a VRChat account. Discord: a server id and a connected bot. */
-export type CalendarReady = { vrChat: boolean; discord: boolean }
+/**
+ * VRChat: a managed group and a VRChat account. Discord: a server id and a connected bot. Google: a
+ * key, a calendar, a good Check and Sending on (missing from an older server: taken as set up).
+ */
+export type CalendarReady = { vrChat: boolean; discord: boolean; google?: boolean }
 
 /** Every place an event can go, as the form's chips name them, in their order. The feed is always on. */
 export type CalendarDestination = 'vrchat' | 'discordEvent' | 'channelPost' | 'feed' | 'instance'
@@ -33,12 +36,32 @@ export const DESTINATION_SWITCH: Record<
   instance: 'autoOpen',
 }
 
+/**
+ * A place that can say "Not set up": every chip but the feed, and Google Calendar, whose chip comes
+ * with the form's next step (Google Calendar design, step 3) but whose tick the server keeps already.
+ */
+export type CalendarSetUpPlace = CalendarSwitchable | 'googleCalendar'
+
 /** Where to set each place up: Modbot's VRChat login for VRChat, the Discord tab for Discord. */
-export const SET_UP_LINK: Record<CalendarSwitchable, string> = {
+export const SET_UP_LINK: Record<CalendarSetUpPlace, string> = {
   vrchat: '/settings#vrchat',
   instance: '/settings#vrchat',
   discordEvent: '/settings#discord',
   channelPost: '/settings#discord',
+  googleCalendar: '/settings#google',
+}
+
+/**
+ * Whether an event is for the group's members only, and so never goes to Google Calendar (Google
+ * Calendar design decision 1): not visible to everyone.
+ */
+export function membersOnly(e: Pick<CalendarEventInput, 'visibility'>): boolean {
+  return e.visibility !== 'public'
+}
+
+/** Whether an event is ticked for Google Calendar and may go there. */
+export function wantsGoogle(e: { publishToGoogle?: boolean | null; visibility: string }): boolean {
+  return !!e.publishToGoogle && !membersOnly(e)
 }
 
 /** The places an event, or the form's input, is ticked for, in the chips' order. */
@@ -57,12 +80,21 @@ export function isSetUp(place: CalendarSwitchable, ready: CalendarReady | null |
   return place === 'vrchat' || place === 'instance' ? ready.vrChat : ready.discord
 }
 
-/** The ticked places that cannot work as things are set up now. */
+/**
+ * The ticked places that cannot work as things are set up now. Google Calendar is among them for an
+ * event ticked for it that may go there, while Google is not set up or Sending is off.
+ */
 export function notSetUp(
-  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'>,
+  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'> & {
+    publishToGoogle?: boolean | null
+    visibility?: string
+  },
   ready: CalendarReady | null | undefined,
-): CalendarSwitchable[] {
-  return wantedPlaces(e).filter((p) => !isSetUp(p, ready))
+): CalendarSetUpPlace[] {
+  const missing: CalendarSetUpPlace[] = wantedPlaces(e).filter((p) => !isSetUp(p, ready))
+  if (ready && ready.google === false && wantsGoogle({ publishToGoogle: e.publishToGoogle, visibility: e.visibility ?? 'group' }))
+    missing.push('googleCalendar')
+  return missing
 }
 
 /** One line under an event: a place, how it stands, and the server's row for it when there is one. */
@@ -74,7 +106,7 @@ export type PlaceLine = {
 }
 
 /** The order places are listed in under an event: the chips' order, then the cancel post. */
-const LINE_ORDER: readonly CalendarPlaceName[] = ['vrchat', 'discordEvent', 'channelPost', 'cancelPost']
+const LINE_ORDER: readonly CalendarPlaceName[] = ['vrchat', 'discordEvent', 'channelPost', 'googleCalendar', 'cancelPost']
 
 /**
  * The places to list under an event (calendar design §17.3). Every place the server has a row for,
@@ -83,7 +115,8 @@ const LINE_ORDER: readonly CalendarPlaceName[] = ['vrchat', 'discordEvent', 'cha
  * nothing were happening. A ticked place that is not set up is left out; it shows "Not set up".
  */
 export function placeLines(
-  event: Pick<CalendarEvent, 'state' | 'places' | 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'channelId' | 'autoOpen'>,
+  event: Pick<CalendarEvent, 'state' | 'places' | 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'channelId' | 'autoOpen'> &
+    Partial<Pick<CalendarEvent, 'publishToGoogle' | 'visibility'>>,
   ready: CalendarReady | null | undefined,
 ): PlaceLine[] {
   const live = event.state === 'scheduled' || event.state === 'open'
@@ -94,6 +127,8 @@ export function placeLines(
   if (live && event.publishToVRChat) wanted.add('vrchat')
   if (live && event.publishToDiscord) wanted.add('discordEvent')
   if (live && event.postToChannel && event.channelId) wanted.add('channelPost')
+  if (live && ready?.google && wantsGoogle({ publishToGoogle: event.publishToGoogle, visibility: event.visibility ?? 'group' }))
+    wanted.add('googleCalendar')
 
   const lines: PlaceLine[] = []
 

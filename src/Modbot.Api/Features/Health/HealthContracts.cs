@@ -346,19 +346,27 @@ public sealed record PausedRule(
 /// Places a scheduled or open event wants that are not set up, so nothing is sent there:
 /// <c>vrchat</c> and <c>instance</c> without a managed group or a VRChat account,
 /// <c>discordEvent</c> and <c>channelPost</c> without a server id or a connected bot (calendar
-/// design §14.3).
+/// design §14.3), <c>googleCalendar</c> while Google Calendar is not set up or Sending is off.
 /// </param>
 /// <param name="Duplicates">
 /// Discord server events that look like copies of each other, whoever made them (calendar design
 /// §16). Empty when there are none or Discord's list could not be read.
 /// </param>
+/// <param name="GoogleLimitedUntil">
+/// Google is limiting Modbot: nothing is sent to Google Calendar before this (Google Calendar design
+/// §3.7). Null when it is not.
+/// </param>
 public sealed record CalendarHealth(
     bool MissingManageEvents,
     IReadOnlyList<CalendarProblem> Problems,
     IReadOnlyList<string>? NotSetUp = null,
-    IReadOnlyList<Modbot.Api.Features.Calendar.CalendarDuplicateView>? Duplicates = null);
+    IReadOnlyList<Modbot.Api.Features.Calendar.CalendarDuplicateView>? Duplicates = null,
+    DateTimeOffset? GoogleLimitedUntil = null);
 
-/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
+/// <param name="Place">
+/// <c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, <c>googleCalendar</c>, or <c>instance</c>
+/// for an instance that did not open.
+/// </param>
 /// <param name="MissingGroupPermission">Set when VRChat refused because Modbot's VRChat account lacks a group permission.</param>
 public sealed record CalendarProblem(
     Guid EventId,

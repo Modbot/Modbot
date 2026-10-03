@@ -61,7 +61,7 @@ export type IntegrationReading = {
    * Settings → Google Calendar, from its own read (it needs Change settings, as the page does).
    * Undefined when that read was not made or has not answered.
    */
-  googleCalendar: Pick<GoogleCalendarSettings, 'keyStored' | 'calendarId' | 'check'> | undefined
+  googleCalendar: Pick<GoogleCalendarSettings, 'keyStored' | 'calendarId' | 'check' | 'sending'> | undefined
 }
 
 /**
@@ -97,7 +97,7 @@ export function integrations(reading: IntegrationReading): Integration[] {
     {
       id: 'google',
       name: 'Google Calendar',
-      parts: [{ name: 'Key' }, { name: 'Calendar' }],
+      parts: [{ name: 'Key' }, { name: 'Calendar' }, { name: 'Sending' }],
       topic: 'google',
       state: googleStatus(reading.googleCalendar),
     },
@@ -106,13 +106,14 @@ export function integrations(reading: IntegrationReading): Integration[] {
 
 /**
  * Needs setup until a key and a calendar are saved and Check has run on them; then Failed when
- * Check found a problem (a refused key, a calendar Modbot cannot change, Google limiting it), and
- * Working when it found none.
+ * Check, or the sending since, found a problem (a refused key, a calendar Modbot cannot change),
+ * Off while Sending is off, and Working when events are being sent.
  */
 function googleStatus(google: IntegrationReading['googleCalendar']): State {
   if (google === undefined) return UNKNOWN
   if (!google.keyStored || !google.calendarId || !google.check) return NEEDS_SETUP
   if (google.check.problem) return { label: 'Failed', tone: 'bad' }
+  if (!google.sending) return { label: 'Off', tone: 'muted' }
   return { label: 'Working', tone: 'ok' }
 }
 

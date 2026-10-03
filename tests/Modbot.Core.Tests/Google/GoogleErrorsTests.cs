@@ -104,4 +104,36 @@ public class GoogleErrorsTests
         Assert.Equal("Bad Request", GoogleErrors.Sentence(GoogleErrors.FromCalendar(HttpStatusCode.BadRequest, CalendarError(400, "invalid", "Bad Request"))));
         Assert.Equal("Google answered 400.", GoogleErrors.Sentence(GoogleErrors.FromCalendar(HttpStatusCode.BadRequest, null)));
     }
+
+    [Theory]
+    [InlineData("forbidden")]
+    [InlineData("insufficientPermissions")]
+    [InlineData("requiredAccessLevel")]
+    public void A403ForWhoModbotIsSaysItCannotChangeEvents(string reason)
+    {
+        var failure = GoogleErrors.FromCalendar(HttpStatusCode.Forbidden, CalendarError(403, reason, "Forbidden"));
+
+        Assert.True(GoogleErrors.IsNotAllowed(failure));
+        Assert.Equal("Modbot can't change events on this calendar.", GoogleErrors.Sentence(failure));
+    }
+
+    [Fact]
+    public void AnyOther403IsSaidInGooglesOwnWords()
+    {
+        var failure = GoogleErrors.FromCalendar(
+            HttpStatusCode.Forbidden,
+            CalendarError(403, "accessNotConfigured", "Google Calendar API has not been used in project 123 before or it is disabled."));
+
+        Assert.Equal(GoogleProblem.Forbidden, failure.Problem);
+        Assert.False(GoogleErrors.IsNotAllowed(failure));
+        Assert.Equal("Google Calendar API has not been used in project 123 before or it is disabled.", GoogleErrors.Sentence(failure));
+    }
+
+    [Fact]
+    public void A409IsADuplicate_A410IsGone_A401IsUnauthorized()
+    {
+        Assert.Equal(GoogleProblem.Duplicate, GoogleErrors.FromCalendar(HttpStatusCode.Conflict, CalendarError(409, "duplicate")).Problem);
+        Assert.Equal(GoogleProblem.Gone, GoogleErrors.FromCalendar(HttpStatusCode.Gone, CalendarError(410, "deleted")).Problem);
+        Assert.Equal(GoogleProblem.Unauthorized, GoogleErrors.FromCalendar(HttpStatusCode.Unauthorized, CalendarError(401, "authError")).Problem);
+    }
 }

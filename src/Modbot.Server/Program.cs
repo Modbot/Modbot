@@ -425,6 +425,11 @@ try
     // fact log each pass, so a deployment with no webhooks does one small query every two seconds.
     builder.Services.AddWebhookDelivery();
 
+    // Sends the calendar's events to the Google calendar in Settings (Google Calendar design, step
+    // 2). Reads the settings row every twenty seconds and does nothing more until Google is set up
+    // and Sending is on.
+    builder.Services.AddGoogleCalendarSending();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();

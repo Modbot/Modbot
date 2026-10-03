@@ -187,6 +187,60 @@ public class GoogleSignInTests
     }
 
     [Fact]
+    public async Task NoAnswerIsNotKept_TheNextAskGoesOutAtOnce()
+    {
+        var (key, rsa) = TestKey();
+        using var _ = rsa;
+        var google = new FakeGoogle { TokenStatus = HttpStatusCode.ServiceUnavailable, TokenError = "{}" };
+        var clock = new FakeClock(Noon);
+        var signIn = new GoogleSignIn(new OneHandlerClients(google), clock);
+
+        var first = await signIn.TokenAsync(key, fresh: false, Ct);
+        Assert.Equal(GoogleProblem.Unavailable, first.Failure?.Problem);
+
+        google.TokenStatus = HttpStatusCode.OK;
+        clock.Advance(TimeSpan.FromSeconds(20));
+        var second = await signIn.TokenAsync(key, fresh: false, Ct);
+
+        Assert.Equal(google.AccessToken, second.Value);
+        Assert.Equal(2, google.Requests.Count);
+    }
+
+    [Fact]
+    public async Task AKeyThatCannotBeReadIsSaidAsNotAccepted_AndNothingIsSent()
+    {
+        var google = new FakeGoogle();
+        var signIn = new GoogleSignIn(new OneHandlerClients(google), new FakeClock(Noon));
+        var broken = new GoogleCredentials(
+            "modbot@test-project.iam.gserviceaccount.com",
+            "0123456789abcdef",
+            "-----BEGIN PRIVATE KEY-----\nbm90IGEga2V5\n-----END PRIVATE KEY-----\n");
+
+        var token = await signIn.TokenAsync(broken, fresh: true, Ct);
+
+        Assert.Equal(GoogleProblem.KeyRefused, token.Failure?.Problem);
+        Assert.Equal("Google did not accept the key.", GoogleErrors.Sentence(token.Failure!));
+        Assert.Empty(google.Requests);
+    }
+
+    [Fact]
+    public async Task ARefusedTokenIsNotHandedOutAgain()
+    {
+        var (key, rsa) = TestKey();
+        using var _ = rsa;
+        var google = new FakeGoogle();
+        var clock = new FakeClock(Noon);
+        var signIn = new GoogleSignIn(new OneHandlerClients(google), clock);
+
+        var first = await signIn.TokenAsync(key, fresh: false, Ct);
+        signIn.Refused(first.Value!);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        await signIn.TokenAsync(key, fresh: true, Ct);
+
+        Assert.Equal(2, google.Requests.Count);
+    }
+
+    [Fact]
     public void TheCredentialsNeverPrintTheirKey()
     {
         var (key, rsa) = TestKey();

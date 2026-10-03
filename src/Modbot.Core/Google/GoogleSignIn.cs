@@ -22,6 +22,7 @@ namespace Modbot.Core.Google;
 /// The token is kept until 5 minutes before Google says it ends, and nothing about it is stored.
 /// At most one token request is made a minute for a key: inside that minute the last answer, a token
 /// or a refusal, is handed back again, so a refused key cannot become a loop of refused requests.
+/// A request that got no answer, or a 5xx, is not kept (2026-10-03): it says nothing about the key.
 /// </para>
 /// </remarks>
 public sealed class GoogleSignIn(IHttpClientFactory http, IModbotClock clock)
@@ -82,7 +83,18 @@ public sealed class GoogleSignIn(IHttpClientFactory http, IModbotClock clock)
                     return GoogleResult<string>.Failed(refused);
             }
 
-            var answer = await RequestAsync(key, now, ct);
+            GoogleResult<TokenAnswer> answer;
+
+            try
+            {
+                answer = await RequestAsync(key, now, ct);
+            }
+            catch (Exception ex) when (ex is CryptographicException or ArgumentException)
+            {
+                // A stored key that cannot be read or signed with is, to the operator, a key Google
+                // will not take: the same words, and the same one-a-minute floor (added 2026-10-03).
+                answer = GoogleResult<TokenAnswer>.Failed(new GoogleFailure(GoogleProblem.KeyRefused, 0));
+            }
 
             if (answer.Value is { AccessToken: { } got } value)
             {
@@ -90,7 +102,12 @@ public sealed class GoogleSignIn(IHttpClientFactory http, IModbotClock clock)
                 return GoogleResult<string>.Ok(got);
             }
 
-            _kept = new Kept(who, now, null, now, answer.Failure);
+            // No answer, or Google's own trouble, is not kept: the next ask may go out at once
+            // rather than a whole minute later (added 2026-10-03). A refused key and a limit are
+            // kept, so neither can turn into a loop of requests.
+            if (answer.Failure!.Problem != GoogleProblem.Unavailable)
+                _kept = new Kept(who, now, null, now, answer.Failure);
+
             return GoogleResult<string>.Failed(answer.Failure!);
         }
         finally
@@ -101,6 +118,18 @@ public sealed class GoogleSignIn(IHttpClientFactory http, IModbotClock clock)
 
     /// <summary>Forgets the kept token, for a key that was removed or replaced.</summary>
     public void Forget() => Volatile.Write(ref _kept, null);
+
+    /// <summary>
+    /// Google answered 401 to <paramref name="accessToken"/>: it is not handed out again, so the next
+    /// ask makes a new token request (design §3.4: a new token once, then the same as any failure).
+    /// </summary>
+    public void Refused(string accessToken)
+    {
+        var kept = Volatile.Read(ref _kept);
+
+        if (kept is { Token: { } token } && token == accessToken)
+            Volatile.Write(ref _kept, kept with { Token = null, ExpiresAt = kept.RequestedAt });
+    }
 
     /// <summary>
     /// The signed JWT for the token request (RFC 7523): RS256, the account as <c>iss</c>,

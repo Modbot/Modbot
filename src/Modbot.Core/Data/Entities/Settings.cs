@@ -280,6 +280,20 @@ public class Settings
     public bool DiscordPostsOn { get; set; } = true;
 
     /// <summary>
+    /// Whether events are sent to the Google calendar (Google Calendar design §3.1, step 2). The one
+    /// place that stops every write to Google. Off until turned on after a good Check; off leaves
+    /// what is on Google as it is (decision 7).
+    /// </summary>
+    public bool GoogleSendingOn { get; set; }
+
+    /// <summary>
+    /// Every event Modbot put on the Google calendar is being deleted, one call at a time, by the
+    /// sending loop (Remove Modbot's events, decision 7). Turned off by the loop once none is left.
+    /// Sending is off while this is on.
+    /// </summary>
+    public bool GoogleRemovingEvents { get; set; }
+
+    /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>
