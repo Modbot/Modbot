@@ -31,7 +31,7 @@ public class CalendarPictureLinkTests(PostgresFixture db)
         return await ApiTestHost.StartAsync(db, gate ?? new FakeVRChatGate());
     }
 
-    private static object Body(ApiTestHost host, string? vrchatImageId, string? imageUrl = null)
+    private static object Body(ApiTestHost host, string? vrchatImageId, string? imageUrl = null, bool toVRChat = true)
     {
         var start = host.Clock.UtcNow.AddDays(2);
 
@@ -43,7 +43,7 @@ public class CalendarPictureLinkTests(PostgresFixture db)
             endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
             timeZone = "UTC",
             repeat = "none",
-            publishToVRChat = true,
+            publishToVRChat = toVRChat,
             imageUrl,
             vrChatImageId = vrchatImageId,
             draft = true,
@@ -112,6 +112,49 @@ public class CalendarPictureLinkTests(PostgresFixture db)
 
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         Assert.Equal("an-older-kind-of-id", (await ApiTestHost.BodyOf(updated, Ct)).GetProperty("vrChatImageId").GetString());
+    }
+
+    /// <summary>
+    /// With VRChat calendar off the box is hidden, so nothing in it refuses a save (calendar design
+    /// §17.2): what was typed is kept, the id inside it when it has one, and judged once VRChat is on.
+    /// </summary>
+    [Theory]
+    [InlineData("hello", "hello")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/" + Id + "/1/file", Id)]
+    public async Task WithVRChatOff_WhatWasTypedIsKept_AndRefusesNothing(string typed, string kept)
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", Body(host, typed, toVRChat: false), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(kept, (await ApiTestHost.BodyOf(response, Ct)).GetProperty("vrChatImageId").GetString());
+    }
+
+    /// <summary>
+    /// The save refuses what sending would: an id the event holds that cannot be one at all is refused
+    /// once VRChat is on, with the publisher's own words, rather than saved and then refused there.
+    /// </summary>
+    [Fact]
+    public async Task AHeldIdThatCannotBeOne_IsRefusedOnceVRChatIsOn()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var created = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/calendar/events", Body(host, "not an id", toVRChat: false), manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var id = (await ApiTestHost.BodyOf(created, Ct)).GetProperty("id").GetGuid();
+
+        var updated = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/calendar/events/{id}", Body(host, "not an id"), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, updated.StatusCode);
+        Assert.Equal(
+            Modbot.VRChat.Calendar.CalendarVRChatChecks.NotAPictureId,
+            (await ApiTestHost.BodyOf(updated, Ct)).GetProperty("error").GetString());
     }
 
     [Fact]

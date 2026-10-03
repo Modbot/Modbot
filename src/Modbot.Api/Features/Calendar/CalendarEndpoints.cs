@@ -1914,15 +1914,29 @@ public static class CalendarEndpoints
         }
 
         // Whatever was pasted, a link from VRChat's site or the id itself, the id inside it is what
-        // is kept (§15.1). An id the event already holds is kept as it is, whatever it looks like,
-        // so an id VRChat issued in some older form never stops an edit (foundation §3.1.1).
+        // is kept (§15.1). An id the event already holds is kept as it is, so an id VRChat issued in
+        // some older form never stops an edit (foundation §3.1.1).
+        //
+        // Refused only while the event goes to VRChat: the box is hidden otherwise, and a problem in
+        // a box nobody can see could not be fixed (§17.2). Off, what was typed is kept as it is, as
+        // before, and judged once VRChat is turned on. On, the save refuses exactly what sending
+        // would: text with no file id in it, and, for an id the event already holds, what
+        // CalendarVRChatChecks.PictureIdProblem refuses before VRChat is asked -- so nothing a save
+        // lets through is then refused by the publisher's own check.
         var typedPicture = string.IsNullOrWhiteSpace(body.VRChatImageId) ? null : body.VRChatImageId.Trim();
-        var vrchatImageId = typedPicture is null || typedPicture == target.VRChatImageId
+        var foundPicture = typedPicture is null || typedPicture == target.VRChatImageId
             ? typedPicture
             : Core.Files.VRChatFileIds.Find(typedPicture);
 
-        if (typedPicture is not null && vrchatImageId is null)
-            problems.Add(Core.Files.VRChatFileIds.NotFound);
+        if (body.PublishToVRChat && typedPicture is not null)
+        {
+            if (foundPicture is null)
+                problems.Add(Core.Files.VRChatFileIds.NotFound);
+            else if (CalendarVRChatChecks.PictureIdProblem(foundPicture) is { } pictureIdProblem)
+                problems.Add(pictureIdProblem);
+        }
+
+        var vrchatImageId = foundPicture ?? typedPicture;
 
         var worldId = string.IsNullOrWhiteSpace(body.WorldId) ? null : body.WorldId.Trim();
         var channelId = string.IsNullOrWhiteSpace(body.ChannelId) ? null : body.ChannelId.Trim();

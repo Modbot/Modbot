@@ -872,7 +872,8 @@ the end of, and had refused by VRChat at publish time with no word on what was w
   alone. An id in VRChat's usual form (`file_` and a UUID) is taken exactly, which drops anything
   after it. Any other `file_…` is taken up to the first character that cannot be in an id in a link,
   so an odd id VRChat really issued still goes through: **this finds ids, it never checks their shape**
-  (foundation §3.1.1). Only text with no `file_` in it, or a link on another site, is refused, with an
+  (foundation §3.1.1). Only text with no `file_` in it, or a link on another site, is refused, and
+  only while the event goes to VRChat (§17.2: the box is hidden otherwise), with an
   example: "Use a VRChat file link or id, like file_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d." An id the
   event already holds is kept as it is, whatever it looks like, so an id read back from VRChat
   (§12) never stops an edit.
@@ -1085,9 +1086,10 @@ Now:
 2. **The title** and **the description**, which VRChat requires.
 3. **The VRChat image id.** Never checked for its shape (foundation §3.1.1: ids are opaque); only
    what cannot be an id at all is refused: a space in it, or a slash, backslash, question mark or
-   hash, which a link has and a path segment cannot. A VRChat picture address pasted whole
-   (`https://api.vrchat.cloud/api/1/file/{id}/…`, or `/image/`) is saved as the id inside it,
-   taken from between the slashes.
+   hash, which a link has and a path segment cannot. What a person pastes is saved as the file id
+   inside it (`VRChatFileIds.Find`, §15.1, which takes any VRChat link, not only the API host's;
+   this replaced taking the id from between the slashes, 2026-10-02). Every id the save takes out
+   of a paste passes this check, so the save and the send agree on what an id is.
 
 Anything found fails the place with **every problem together, the permission first**, and nothing is
 sent: the place's error holds every sentence, its `problems` the ones other than the permission, and
@@ -1102,7 +1104,10 @@ calendar and the last read of the group says the permission is missing, that com
 own it never refuses a save**: the read may be minutes old, a save never waits on VRChat (§9), and
 the event is still worth saving for Discord; the loop reads the group again before it refuses to
 send. The image id rule above is a save problem too, while VRChat calendar is ticked (the box is
-hidden otherwise, and a problem in a hidden box could not be fixed).
+hidden otherwise, and a problem in a hidden box could not be fixed): text with no file id in it is
+refused with an example (§15.1), and an id the event already holds is refused only for what the
+check above refuses. With VRChat calendar unticked, what was typed is kept as it is (the id in it,
+when it has one) and judged once the chip is turned on.
 
 ### 17.3 Being sent
 

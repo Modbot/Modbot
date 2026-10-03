@@ -4,30 +4,28 @@ using Modbot.VRChat.Calendar;
 namespace Modbot.VRChat.Tests.Calendar;
 
 /// <summary>
-/// Calendar design §17.2: the VRChat image id as typed. A VRChat picture address gives up its id by
-/// the slashes around it; only what cannot be an id at all is refused, never an id's shape
-/// (foundation §3.1.1).
+/// Calendar design §17.2: the VRChat image id before it is sent. Only what cannot be an id at all is
+/// refused, never an id's shape (foundation §3.1.1); taking the id out of a paste is the save's
+/// (§15.1), and the two agree.
 /// </summary>
 public class CalendarVRChatPictureIdTests
 {
+    /// <summary>
+    /// What the save keeps is what sending lets through (changed 2026-10-02): every id the save takes
+    /// out of a paste passes the publisher's own check, so a save never accepts what is then refused.
+    /// </summary>
     [Theory]
-    [InlineData("https://api.vrchat.cloud/api/1/file/file_0a1b2c/1/file", "file_0a1b2c")]
-    [InlineData("https://api.vrchat.cloud/api/1/image/file_0a1b2c/1/256", "file_0a1b2c")]
-    [InlineData("https://api.vrchat.cloud/api/1/file/file_0a1b2c", "file_0a1b2c")]
-    [InlineData("  file_0a1b2c  ", "file_0a1b2c")]
-    [InlineData("an-old-id-of-no-shape", "an-old-id-of-no-shape")]
-    public void APictureAddressGivesUpItsId_AnythingElseIsKeptAsTyped(string typed, string id)
+    [InlineData("https://api.vrchat.cloud/api/1/file/file_0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d/1/file")]
+    [InlineData("https://api.vrchat.cloud/api/1/image/file_0a1b2c/1/256")]
+    [InlineData("file_0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d_blob")]
+    [InlineData("file_0a1b2c?x=1")]
+    [InlineData("  file_odd-but_real.png  ")]
+    public void EveryIdTheSaveKeeps_PassesTheCheckBeforeSending(string pasted)
     {
-        Assert.Equal(id, CalendarVRChatChecks.PictureIdFrom(typed));
-    }
+        var kept = Core.Files.VRChatFileIds.Find(pasted);
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void NothingTyped_IsNoPicture(string? typed)
-    {
-        Assert.Null(CalendarVRChatChecks.PictureIdFrom(typed));
+        Assert.NotNull(kept);
+        Assert.Null(CalendarVRChatChecks.PictureIdProblem(kept));
     }
 
     [Theory]
@@ -35,9 +33,9 @@ public class CalendarVRChatPictureIdTests
     [InlineData("file_0a1b2c 1")]
     [InlineData("file_0a1b2c/1/file")]
     [InlineData("file_0a1b2c?x=1")]
-    public void WhatCannotBeAnId_IsRefused(string typed)
+    public void WhatCannotBeAnId_IsRefused(string id)
     {
-        Assert.Equal(CalendarVRChatChecks.NotAPictureId, CalendarVRChatChecks.PictureIdProblem(CalendarVRChatChecks.PictureIdFrom(typed)));
+        Assert.Equal(CalendarVRChatChecks.NotAPictureId, CalendarVRChatChecks.PictureIdProblem(id));
     }
 
     [Theory]

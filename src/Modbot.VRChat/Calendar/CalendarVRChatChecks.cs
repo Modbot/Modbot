@@ -1,5 +1,4 @@
 using Modbot.Core.Data.Entities;
-using Modbot.VRChat.Files;
 
 namespace Modbot.VRChat.Calendar;
 
@@ -18,8 +17,12 @@ namespace Modbot.VRChat.Calendar;
 /// <para>
 /// <strong>The picture id is never checked for its shape</strong> (foundation §3.1.1: VRChat ids
 /// are opaque). Only what cannot be an id at all is refused: a space inside it, or the characters
-/// that end an address's path segment, since VRChat puts the id in a path. A VRChat picture
-/// address pasted whole gives up its id by the slashes around it (<see cref="PictureIdFrom"/>).
+/// that end an address's path segment, since VRChat puts the id in a path. What a person pastes is
+/// cut down to the file id inside it when the event is saved
+/// (<see cref="Core.Files.VRChatFileIds.Find"/>, calendar design §15.1), and the save refuses what
+/// <see cref="PictureIdProblem"/> refuses while the event goes to VRChat, so the two never disagree.
+/// Until 2026-10-02 this class also took the id out of a pasted address itself; that moved to the
+/// save, which takes any VRChat link, not only the API host's.
 /// </para>
 /// </remarks>
 public static class CalendarVRChatChecks
@@ -30,44 +33,6 @@ public static class CalendarVRChatChecks
     public const string NoDescription = "VRChat's calendar needs a description.";
 
     public const string NotAPictureId = "The VRChat image id is not a VRChat file id.";
-
-    /// <summary>The paths on VRChat's API host that hold a file id, followed by a slash.</summary>
-    private static readonly string[] FilePaths = ["/api/1/file/", "/api/1/image/"];
-
-    /// <summary>
-    /// The picture id to keep for what a person typed: the text itself, or the id out of a VRChat
-    /// picture address (<c>https://api.vrchat.cloud/api/1/file/{id}/1/file</c>, or <c>/image/</c>),
-    /// taken from between the slashes after <c>file</c> or <c>image</c>. Null for nothing typed.
-    /// </summary>
-    public static string? PictureIdFrom(string? typed)
-    {
-        var text = typed?.Trim();
-
-        if (string.IsNullOrEmpty(text))
-            return null;
-
-        if (Uri.TryCreate(text, UriKind.Absolute, out var url)
-            && (url.Scheme == Uri.UriSchemeHttps || url.Scheme == Uri.UriSchemeHttp)
-            && url.Host.Equals(VRChatFiles.ApiHost, StringComparison.OrdinalIgnoreCase))
-        {
-            var path = url.AbsolutePath;
-
-            foreach (var prefix in FilePaths)
-            {
-                if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var rest = path[prefix.Length..];
-                var end = rest.IndexOf('/', StringComparison.Ordinal);
-                var id = Uri.UnescapeDataString(end < 0 ? rest : rest[..end]);
-
-                if (id.Length > 0)
-                    return id;
-            }
-        }
-
-        return text;
-    }
 
     /// <summary>
     /// <see cref="NotAPictureId"/> when the id cannot be one -- a space in it, or a slash, question
