@@ -117,6 +117,7 @@ public static class ApiSurface
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
         services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
+        services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
@@ -584,6 +585,11 @@ public static class ApiSurface
         // (lists design). A list never does anything by itself; a giveaway or auto-invites can
         // name one among their rules.
         Features.Lists.ListEndpoints.MapLists(app);
+
+        // Posts on the Marketing tab, and its Settings topic (posts design). Sending happens in each
+        // site's own loop; these store what a person decides, and edit or delete a post on a site.
+        Features.Posts.PostEndpoints.MapPosts(app);
+        app.MapPostSettings();
 
         // Whether this deployment is a demo, and the control that puts its data back (demo mode
         // design §6). Mapped everywhere; on anything but a demo it answers "no" and refuses the

@@ -61,7 +61,11 @@ public sealed class LiveScope
         || EventVisibility.SeesAnything(Permissions)
         || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveInstances)
         || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewAnalytics)
-        || ModbotAuth.Allows(Permissions, ModbotPermissions.ReviewTickets);
+        || ModbotAuth.Allows(Permissions, ModbotPermissions.ReviewTickets)
+        || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewPosts);
+
+    /// <summary>The posts' facts, which the Marketing tab redraws on (posts design §4.2).</summary>
+    public const string PostTypes = "modbot.post.";
 
     /// <summary>
     /// Whether an event of this kind and fact type may be sent. A named kind is seen by the
@@ -88,6 +92,11 @@ public sealed class LiveScope
 
         if (LiveKinds.IsReview(kind))
             return ModbotAuth.Allows(Permissions, ModbotPermissions.ReviewTickets);
+
+        // A post's facts are seen by whoever may see the posts, as the Marketing tab shows them,
+        // without the operational log they sit in.
+        if (type.StartsWith(PostTypes, StringComparison.Ordinal))
+            return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewPosts);
 
         return false;
     }
