@@ -104,6 +104,9 @@ public static class FactType
     public const string GroupPostCreated = "vrchat.group.post.create";
     public const string GroupPostDeleted = "vrchat.group.post.delete";
 
+    /// <summary>A group post was changed. VRChat's entry carries the changed title and text as old and new.</summary>
+    public const string GroupPostUpdated = "vrchat.group.post.update";
+
     /// <summary>
     /// A group instance was opened, closed, changed or announced into. The subject is probably a
     /// location. <strong>Not</strong> <c>vrchat.instance.*</c>: that prefix is a client's presence

@@ -52,6 +52,7 @@ public static class FactSubjects
         [FactType.BansSnapshot] = SubjectKind.Group,
         [FactType.GroupPostCreated] = SubjectKind.Group,
         [FactType.GroupPostDeleted] = SubjectKind.Group,
+        [FactType.GroupPostUpdated] = SubjectKind.Group,
         [FactType.CalendarEventCreated] = SubjectKind.Group,
         [FactType.CalendarEventDeleted] = SubjectKind.Group,
         [FactType.CalendarEventSeriesUpdated] = SubjectKind.Group,

@@ -121,6 +121,12 @@ object, not to a named list of types.
 with; the post's own body is in `auditData` (`title`, `text`, `authorId`). Do not treat that
 `targetId` as a subject anyone can be looked up by.
 
+**`group.post.update`, seen 2026-10-03** (one row, the test group, after an edit sent from the
+Marketing tab): `auditData` is `title`, `text` and `editorId`, each `{old, new}` (`editorId` went
+from `null` to the editor's `usr_`); the `targetId` is the same `not_` id as the post's create, and
+the description reads `Group post updated by <actor>.`. It was recorded as unrecognised until it was
+mapped to `vrchat.group.post.update` the same day; the new title is lifted beside `changed`.
+
 Still unobserved: `group.calendarEvent.delete` / `.series.*`, `group.post.delete`,
 `group.request.block`, `group.member.user.unban` / `group.user.unban`. Same rule — update from
 `auditData` when one arrives.

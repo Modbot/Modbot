@@ -55,6 +55,7 @@ public static class GroupAuditLogEvents
 
     public const string PostCreate = "group.post.create";
     public const string PostDelete = "group.post.delete";
+    public const string PostUpdate = "group.post.update";
 
     public const string InstanceCreate = "group.instance.create";
     public const string InstanceClose = "group.instance.close";
@@ -105,6 +106,7 @@ public static class GroupAuditLogEvents
 
         [PostCreate] = FactType.GroupPostCreated,
         [PostDelete] = FactType.GroupPostDeleted,
+        [PostUpdate] = FactType.GroupPostUpdated,
 
         [InstanceCreate] = FactType.GroupInstanceCreated,
         [InstanceClose] = FactType.GroupInstanceClosed,

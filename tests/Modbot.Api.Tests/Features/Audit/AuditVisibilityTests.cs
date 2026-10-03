@@ -163,6 +163,7 @@ public class AuditVisibilityTests
     [InlineData(FactType.GroupInstanceKick, AuditCategory.Moderation)]
     [InlineData(FactType.JoinRequestCreated, AuditCategory.Moderation)]
     [InlineData(FactType.GroupPostCreated, AuditCategory.Moderation)]
+    [InlineData(FactType.GroupPostUpdated, AuditCategory.Moderation)]
     [InlineData(FactType.CalendarEventCreated, AuditCategory.Moderation)]
     [InlineData(FactType.EvidenceAttached, AuditCategory.Moderation)]
     [InlineData(FactType.EvidenceDetached, AuditCategory.Moderation)]

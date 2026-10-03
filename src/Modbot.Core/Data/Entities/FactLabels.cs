@@ -44,6 +44,7 @@ public static class FactLabels
         [FactType.JoinRequestBlocked] = "Join request blocked",
         [FactType.GroupPostCreated] = "Group post created",
         [FactType.GroupPostDeleted] = "Group post deleted",
+        [FactType.GroupPostUpdated] = "Group post changed",
         [FactType.GroupInstanceCreated] = "Group instance created",
         [FactType.GroupInstanceClosed] = "Group instance closed",
         [FactType.GroupInstanceUpdated] = "Group instance changed",

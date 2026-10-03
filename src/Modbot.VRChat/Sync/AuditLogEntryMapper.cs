@@ -258,8 +258,8 @@ public static class AuditLogEntryMapper
     /// <strong>Scalars are lifted by type, and only where a real sample showed them.</strong>
     /// <c>roleId</c>/<c>roleName</c> on role events; <c>groupAccessType</c> on an instance create
     /// or close; <c>title</c>/<c>message</c> on an announcement; <c>title</c>/<c>text</c>/
-    /// <c>authorId</c>/<c>visibility</c> on a post; <c>title</c>/<c>type</c>/<c>accessType</c> on
-    /// a calendar event. Each of those was present in every row of its type across the live
+    /// <c>authorId</c>/<c>visibility</c> on a post; the new <c>title</c> on a post changed;
+    /// <c>title</c>/<c>type</c>/<c>accessType</c> on a calendar event. Each of those was present in every row of its type across the live
     /// re-walk (audit-log research section 6). Nothing is lifted for a type whose payload has not
     /// been observed, because a field lifted under a guessed name is one two producers and a
     /// query then depend on; the verbatim copy loses nothing in the meantime.
@@ -303,6 +303,13 @@ public static class AuditLogEntryMapper
                 CopyString(fields, payload, "visibility");
                 break;
 
+            // Seen live (2026-10-03): `title`, `text` and `editorId`, each an {old, new} pair, which
+            // the lift above puts under `changed`. The title it has now is lifted too, so the
+            // sentence can name the post the way it does for a create.
+            case FactType.GroupPostUpdated:
+                CopyNewString(fields, payload, "title");
+                break;
+
             case FactType.CalendarEventCreated:
                 CopyString(fields, payload, "title");
                 CopyString(fields, payload, "type");
@@ -314,6 +321,18 @@ public static class AuditLogEntryMapper
     private static void CopyString(JsonObject from, JsonObject to, string key)
     {
         if (from[key] is JsonValue value && value.TryGetValue<string>(out var text))
+            to[key] = text;
+    }
+
+    /// <summary>
+    /// A field as it is now: the <c>new</c> side of an <c>{old, new}</c> pair, or the value itself
+    /// when the entry carries it unchanged.
+    /// </summary>
+    private static void CopyNewString(JsonObject from, JsonObject to, string key)
+    {
+        var value = IsOldNewPair(from[key]) ? from[key]!["new"] : from[key];
+
+        if (value is JsonValue scalar && scalar.TryGetValue<string>(out var text))
             to[key] = text;
     }
 

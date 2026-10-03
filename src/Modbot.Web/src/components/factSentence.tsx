@@ -646,6 +646,12 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'vrchat.group.post.update': (p) => (
+    <>
+      {p.actor} changed the group post<Quoted value={p.text('title')} />.
+    </>
+  ),
+
   // ── VRChat: group instances ─────────────────────────────────────────────────────────────────
   'vrchat.group.instance.create': (p) => (
     <>

@@ -95,6 +95,7 @@ public static class AuditVisibility
         [FactType.JoinRequestBlocked] = AuditCategory.Moderation,
         [FactType.GroupPostCreated] = AuditCategory.Moderation,
         [FactType.GroupPostDeleted] = AuditCategory.Moderation,
+        [FactType.GroupPostUpdated] = AuditCategory.Moderation,
         [FactType.GroupInstanceCreated] = AuditCategory.Moderation,
         [FactType.GroupInstanceClosed] = AuditCategory.Moderation,
 

@@ -51,6 +51,7 @@ public class AuditLogEntryMapperTests
     [InlineData("group.request.block", FactType.JoinRequestBlocked)]
     [InlineData("group.post.create", FactType.GroupPostCreated)]
     [InlineData("group.post.delete", FactType.GroupPostDeleted)]
+    [InlineData("group.post.update", FactType.GroupPostUpdated)]
     [InlineData("group.instance.create", FactType.GroupInstanceCreated)]
     [InlineData("group.instance.close", FactType.GroupInstanceClosed)]
     [InlineData("group.instance.update", FactType.GroupInstanceUpdated)]
@@ -558,6 +559,52 @@ public class AuditLogEntryMapperTests
         Assert.False(data.ContainsKey("sendNotification"));
         Assert.Equal("file_567be062-29ea-47a7-82bc-14146d4f2bb6", data["auditData"]!["imageId"]!.GetValue<string>());
         Assert.True(data["auditData"]!["sendNotification"]!.GetValue<bool>());
+    }
+
+    /// <summary>
+    /// A post changed, in the shape the test group's log showed on 2026-10-03: the title, the text
+    /// and the editor, each as old and new. The pairs go under <c>changed</c> as for any type, and
+    /// the title it has now is lifted so the sentence can name the post. The subject is the same
+    /// notification id the create had, and nothing else is lifted.
+    /// </summary>
+    [Fact]
+    public void APostChangeLiftsItsChangesAndItsTitleNow()
+    {
+        var entry = Entry("group.post.update");
+        entry.TargetId = "not_post";
+        entry.Description = "Group post updated by Moderator.";
+        entry.Data = """{"text":{"old":"Old words","new":"New words"},"title":{"old":"Old title","new":"New title"},"editorId":{"old":null,"new":"usr_actor"}}""";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+        var data = fact.Data!;
+
+        Assert.Equal(FactType.GroupPostUpdated, fact.Type);
+        Assert.Equal("not_post", fact.SubjectId);
+        Assert.Equal("New title", data["title"]!.GetValue<string>());
+
+        var changed = Assert.IsType<JsonObject>(data["changed"]);
+        Assert.Equal("Old title", changed["title"]!["old"]!.GetValue<string>());
+        Assert.Equal("New words", changed["text"]!["new"]!.GetValue<string>());
+        Assert.Equal("usr_actor", changed["editorId"]!["new"]!.GetValue<string>());
+
+        Assert.False(data.ContainsKey("text"));
+        Assert.False(data.ContainsKey("editorId"));
+        Assert.Equal(BaseKeys.Append("changed").Append("title").Order(StringComparer.Ordinal), data.Select(p => p.Key).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// A post change whose title was not changed carries it as it is, and that is what is lifted.
+    /// </summary>
+    [Fact]
+    public void APostChangeWithTheTitleLeftAsItWasStillNamesThePost()
+    {
+        var entry = Entry("group.post.update");
+        entry.Data = """{"text":{"old":"Old words","new":"New words"},"title":"Same title"}""";
+
+        var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
+
+        Assert.Equal("Same title", data["title"]!.GetValue<string>());
+        Assert.False(Assert.IsType<JsonObject>(data["changed"]).ContainsKey("title"));
     }
 
     /// <summary>

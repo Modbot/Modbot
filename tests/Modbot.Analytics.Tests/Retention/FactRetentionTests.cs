@@ -46,6 +46,7 @@ public class FactRetentionTests
     [InlineData(FactType.JoinRequestCreated)]
     [InlineData(FactType.JoinRequestRejected)]
     [InlineData(FactType.GroupPostCreated)]
+    [InlineData(FactType.GroupPostUpdated)]
     [InlineData(FactType.CalendarEventCreated)]
     [InlineData(FactType.CalendarEventSeriesDeleted)]
     [InlineData(FactType.RoleUpdated)]
