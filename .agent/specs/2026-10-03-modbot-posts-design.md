@@ -128,14 +128,18 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   2. An id: `posted`.
   3. A clear refusal (4xx other than 429): `failed` with Discord's words.
   4. A rate limit, or the channel could not be looked up: nothing was made; back to `waiting`, its
-     waiting time unchanged.
-  5. No answer, a timeout, a 5xx: `checking`, `may_be_sent`. A minute later, read up to 50 messages
-     after a Discord id made from `sent_at` minus a minute. A message by the bot whose text equals
-     `sent_text`, with the same number of files, held by no other destination, is adopted as
-     `posted`.
-  6. Nothing found: `failed`, "Discord did not take the post.".
-  7. The look cannot be made: stays `checking`, looked for again in 15 minutes; an hour after the
-     attempt, `failed`, "Could not check the channel.".
+     waiting time unchanged, and not tried again for two minutes (`check_at`), so the posts due
+     after it are not held up.
+  5. No answer, a timeout, a 5xx: `checking`, `may_be_sent`. A minute later, read pages of 50
+     messages after a Discord id made from `sent_at` minus a minute, up to four, until a message
+     later than `sent_at` plus two minutes or the channel's newest has been seen (the whole window).
+     A message by the bot whose text equals `sent_text`, with the same number of files, held by no
+     other destination, is adopted as `posted`.
+  6. Nothing found in the whole window: `failed`, "Discord did not take the post.".
+  7. The look cannot be made, or the pages ran out before the window did: stays `checking`, looked
+     for again in 15 minutes; an hour after the looking began (the unclear answer, or Try again),
+     `failed`, "Could not check the channel.". Not found is never an answer until the whole window
+     was read.
   8. A row left `sending` for two minutes was cut off by a restart: it is looked for, never resent.
   9. **Never resent by itself.** Try again on a post that may be on Discord looks first, and sends
      only when it is not there.
@@ -156,6 +160,12 @@ destinations back to waiting.
 
 Edit and Delete on a site are one call each through `IDiscordPostActions`, made at once so the person
 sees whether it worked, the bot's live session behind it. A message already gone counts as deleted.
+What the site did is then written to the row by reading the post again (up to three times on a
+version conflict) while the destination is still that message, and its fact is written whatever
+happens; a row that became something else meanwhile answers 409 "This post changed. Try again.".
+
+A channel must be one of the server in settings as the bot last listed it: "That channel is not in
+the Discord server." otherwise.
 
 ## 5. The Marketing tab
 

@@ -90,6 +90,10 @@ is coming on any date. The rest of these docs only describe what Modbot does tod
 - **A case file for a copied ban.** [Role and ban sync](/discord/role-and-ban-sync) copies the ban
   itself and keeps the reason the moderator typed in Discord, but it picks no reason from your ban
   reason list and writes no case file — nobody here chose one.
+- **Discord's own check against a post sent twice.** Discord can refuse a second message with the
+  same id sent within a few minutes (`enforce_nonce`), but the library Modbot uses cannot send that
+  id. A [post](/moderation/marketing#never-posted-twice) is kept to once by writing it down before
+  sending and looking in the channel after an unclear answer instead.
 
 ## Notifications
 
