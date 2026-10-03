@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261003071432_SendPostsToTheVRChatGroup")]
+    [Migration("20261003194514_SendPostsToTheVRChatGroup")]
     partial class SendPostsToTheVRChatGroup
     {
         /// <inheritdoc />
@@ -954,6 +954,25 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
+                    b.Property<string>("GoogleError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("google_error");
+
+                    b.Property<DateTimeOffset?>("GoogleErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("google_error_at");
+
+                    b.Property<string>("GoogleFailedFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("google_failed_fingerprint");
+
+                    b.Property<string>("GoogleSentFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("google_sent_fingerprint");
+
                     b.Property<DateTimeOffset>("PlannedStartsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("planned_starts_at");
@@ -1132,6 +1151,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("publish_to_discord");
 
+                    b.Property<bool>("PublishToGoogle")
+                        .HasColumnType("boolean")
+                        .HasColumnName("publish_to_google");
+
                     b.Property<bool>("PublishToVRChat")
                         .HasColumnType("boolean")
                         .HasColumnName("publish_to_vrchat");
@@ -1295,6 +1318,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("failed_fingerprint");
+
+                    b.Property<string>("GoogleCalendarId")
+                        .HasColumnType("text")
+                        .HasColumnName("google_calendar_id");
 
                     b.Property<string>("MissingGroupPermission")
                         .HasMaxLength(64)
@@ -7468,6 +7495,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("GooglePublic")
                         .HasColumnType("text")
                         .HasColumnName("google_public");
+
+                    b.Property<bool>("GoogleRemovingEvents")
+                        .HasColumnType("boolean")
+                        .HasColumnName("google_removing_events");
+
+                    b.Property<bool>("GoogleSendingOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("google_sending_on");
 
                     b.Property<DateTimeOffset?>("GoogleStoppedUntil")
                         .HasColumnType("timestamp with time zone")
