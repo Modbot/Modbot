@@ -33,10 +33,10 @@ public sealed class PostBlueskySenderTests
     {
         _db = db;
         _bluesky = new FakeBluesky(() => _clock.UtcNow);
-        _session = new BlueskySession(Client(), new PlainProtector(), _clock);
+        _session = new BlueskySession(Client(), new PlainProtector(), _clock, new BlueskyOAuth(new OneHandlerClients(_bluesky), new PlainProtector(), _clock));
     }
 
-    private BlueskyClient Client() => new(new OneHandlerClients(_bluesky));
+    private BlueskyClient Client() => new(new OneHandlerClients(_bluesky), _clock);
 
     /// <summary>Bluesky set up, checked and posting, with no posts.</summary>
     private async Task SetUpAsync(Action<Core.Data.Entities.Settings>? change = null)

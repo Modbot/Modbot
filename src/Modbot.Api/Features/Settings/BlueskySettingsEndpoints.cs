@@ -21,6 +21,10 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="Check">What the last Check found. Null when it has not run since the handle or app password changed.</param>
 /// <param name="LimitedUntil">Bluesky is limiting Modbot: nothing is sent to Bluesky, Check included, before this. Null once it has passed.</param>
 /// <param name="SignInAfter">Modbot's own sign-in guard held the last Check back: no sign-in before this. Null otherwise.</param>
+/// <param name="SignInWithBluesky">
+/// Signing in with Bluesky's own sign-in page is offered: the public address is https with no port.
+/// </param>
+/// <param name="SignedInWithBluesky">The account was signed in with Bluesky's own sign-in page, not an app password.</param>
 public sealed record BlueskySettingsView(
     string? Handle,
     bool AppPasswordStored,
@@ -28,7 +32,16 @@ public sealed record BlueskySettingsView(
     bool CanPost,
     BlueskyCheckView? Check,
     DateTimeOffset? LimitedUntil,
-    DateTimeOffset? SignInAfter);
+    DateTimeOffset? SignInAfter,
+    bool SignInWithBluesky = false,
+    bool SignedInWithBluesky = false);
+
+/// <param name="Handle">The handle to sign in as, with or without the <c>@</c>. Null or empty uses the stored one.</param>
+public sealed record BlueskySignInRequest(string? Handle = null);
+
+/// <summary>Where to send the browser to sign in with Bluesky.</summary>
+/// <param name="Url">Bluesky's sign-in page for this request. It sends the browser back to Modbot.</param>
+public sealed record BlueskySignInStart(string Url);
 
 /// <summary>What the last Check found.</summary>
 /// <param name="Handle">The handle the account answered to.</param>
@@ -67,11 +80,19 @@ public sealed record BlueskySettingsUpdate(string? Handle = null, string? AppPas
 /// A rate limit from Bluesky stops every call to it until it resets, Check included (CLAUDE.md:
 /// never retry a 429). A Check pressed before then sends nothing.
 /// </para>
+/// <para>
+/// <strong>Sign in with Bluesky</strong> (step 3b), for an install whose public address is https
+/// with no port: <c>POST /sign-in</c> finds the account from the handle both ways and answers the
+/// address of Bluesky's sign-in page; <see cref="BlueskyOAuthEndpoints"/> takes the browser back.
+/// One way of signing in at a time: saving an app password ends a sign-in with Bluesky, and signing
+/// in with Bluesky forgets the app password.
+/// </para>
 /// </remarks>
 public static class BlueskySettingsEndpoints
 {
     public const string NotAHandle = "This is not a Bluesky handle.";
     public const string CheckFirst = "Check the account first.";
+    public const string NeedsPublicAddress = "Bluesky sign-in needs a public https address.";
 
     public static IEndpointRouteBuilder MapBlueskySettings(this IEndpointRouteBuilder app)
     {
@@ -125,6 +146,7 @@ public static class BlueskySettingsEndpoints
                 var handleBefore = settings.BlueskyHandle;
                 var passwordBefore = settings.BlueskyAppPasswordEncrypted;
                 var postingBefore = settings.BlueskyPostingOn;
+                var oauthBefore = settings.BlueskyOAuthSignedIn;
 
                 var handleChanged = handle is not null && !string.Equals(handle, handleBefore, StringComparison.Ordinal);
                 var passwordChanged = password is not null && password != StoredPassword(protector, passwordBefore);
@@ -143,10 +165,12 @@ public static class BlueskySettingsEndpoints
                 {
                     settings.BlueskyHandle = handle;
 
-                    // Another handle may be another account: what was found for the old one goes.
+                    // Another handle may be another account: what was found for the old one goes,
+                    // a sign-in with Bluesky included.
                     settings.BlueskyDid = null;
                     settings.BlueskyServer = null;
                     settings.BlueskySessionEncrypted = null;
+                    settings.BlueskyOAuthSignedIn = false;
                 }
 
                 if (passwordChanged)
@@ -154,10 +178,12 @@ public static class BlueskySettingsEndpoints
                     settings.BlueskyAppPasswordEncrypted = protector.Protect(password!);
 
                     // A new app password may be tried at once; the day's count stays. A session made
-                    // with the old one goes with it.
+                    // with the old one goes with it, and so does a sign-in with Bluesky: one way of
+                    // signing in at a time.
                     settings.BlueskySessionEncrypted = null;
                     settings.BlueskySignInRefused = false;
                     settings.BlueskySignedInAt = null;
+                    settings.BlueskyOAuthSignedIn = false;
                 }
 
                 // What Check found was about the handle and app password it was found with.
@@ -169,6 +195,7 @@ public static class BlueskySettingsEndpoints
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", handleBefore, settings.BlueskyHandle)
                     .Secret("blueskyAppPassword", passwordChanged)
+                    .Field("blueskySignedInWithBluesky", oauthBefore, settings.BlueskyOAuthSignedIn)
                     .Field("blueskyPosting", postingBefore, postingAfter);
 
                 await db.SaveChangesAsync(ct);
@@ -200,6 +227,7 @@ public static class BlueskySettingsEndpoints
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", settings.BlueskyHandle, null)
                     .Secret("blueskyAppPassword", settings.BlueskyAppPasswordEncrypted is not null)
+                    .Field("blueskySignedInWithBluesky", settings.BlueskyOAuthSignedIn, false)
                     .Field("blueskyPosting", settings.BlueskyPostingOn, false);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -209,12 +237,15 @@ public static class BlueskySettingsEndpoints
                 settings.BlueskyServer = null;
                 settings.BlueskyAppPasswordEncrypted = null;
                 settings.BlueskySessionEncrypted = null;
+                settings.BlueskyOAuthSignedIn = false;
+                settings.BlueskyOAuthPendingEncrypted = null;
                 settings.BlueskySignInRefused = false;
                 settings.BlueskyPostingOn = false;
                 ClearCheck(settings);
 
                 // The stop and the day's sign-in count are kept: both are Bluesky's limits on this
-                // server, and an account put back at once must not cut them short.
+                // server, and an account put back at once must not cut them short. Modbot's own
+                // signing key is kept too: it is this server's, not the account's.
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
@@ -224,7 +255,7 @@ public static class BlueskySettingsEndpoints
             .WithName("RemoveBlueskySettings")
             .WithSummary("Remove the Bluesky account")
             .WithDescription(
-                "Forget the handle, the app password, the session and what Check found, and turn Posting "
+                "Forget the handle, the app password or the sign-in with Bluesky, the session and what Check found, and turn Posting "
                 + "off. Nothing on Bluesky is changed: posts already sent stay.")
             .Produces<BlueskySettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
@@ -243,7 +274,7 @@ public static class BlueskySettingsEndpoints
                 if (settings.BlueskyHandle is not { } handle)
                     return Results.BadRequest(new { error = "Enter the handle first." });
 
-                if (settings.BlueskyAppPasswordEncrypted is null)
+                if (settings.BlueskyAppPasswordEncrypted is null && !settings.BlueskyOAuthSignedIn)
                     return Results.BadRequest(new { error = "Enter the app password first." });
 
                 var now = clock.UtcNow;
@@ -280,11 +311,79 @@ public static class BlueskySettingsEndpoints
             .WithSummary("Check the Bluesky account")
             .WithDescription(
                 "Find the account from the handle, sign in (the saved session when it still works, "
-                + "otherwise the app password, at most once every 10 minutes and 20 times a day), and "
+                + "otherwise a renewal of the sign-in with Bluesky, or the app password, at most once "
+                + "every 10 minutes and 20 times a day), and "
                 + "read the account's display name and whether it is marked as automated. Never posts "
                 + "and writes nothing to the account. Answers 200 with what it found, a refusal included. "
                 + "While Bluesky is limiting Modbot nothing is sent and the stored result is returned.")
             .Produces<BlueskySettingsView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapPost("/sign-in", async (
+                HttpContext http,
+                [FromBody] BlueskySignInRequest? body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] BlueskyIdentity identity,
+                [FromServices] BlueskyOAuth oauth,
+                [FromServices] BlueskySession session,
+                CancellationToken ct) =>
+            {
+                var settings = await db.GetSettingsAsync(ct);
+
+                if (settings.PublicAddress is not { } publicAddress || !BlueskyOAuth.Offered(publicAddress))
+                    return Results.BadRequest(new { error = NeedsPublicAddress });
+
+                var handle = settings.BlueskyHandle;
+                if (!string.IsNullOrWhiteSpace(body?.Handle))
+                {
+                    handle = BlueskyIdentity.NormaliseHandle(body.Handle);
+                    if (handle is null)
+                        return Results.BadRequest(new { error = NotAHandle });
+                }
+
+                if (handle is null)
+                    return Results.BadRequest(new { error = "Enter the handle first." });
+
+                // The browser that comes back must be this person's: the callback checks it.
+                if (ModbotAuth.UserIdOf(http.User) is not { } person)
+                    return Results.BadRequest(new { error = "Sign in to Modbot first." });
+
+                // Cold stop: nothing goes to Bluesky while Bluesky limits Modbot.
+                if (settings.BlueskyStoppedUntil is { } until && clock.UtcNow < until)
+                    return Results.BadRequest(new { error = BlueskyErrors.Limited });
+
+                // The handle to its account and back, as Check does: the tokens must be for this DID.
+                var account = await identity.FindAsync(handle, ct);
+                if (account.Value is not { } found)
+                    return Results.BadRequest(new { error = account.Failure is { Unclear: true } ? BlueskyErrors.Unreachable : BlueskyErrors.HandleNotFound });
+
+                var started = await oauth.StartAsync(db, publicAddress, found, person, ct);
+
+                if (started.Value is { } url)
+                    return Results.Ok(new BlueskySignInStart(url.ToString()));
+
+                var failure = started.Failure!;
+
+                if (failure.StopsTheLane)
+                {
+                    await session.StopAsync(db, failure, ct);
+                    return Results.BadRequest(new { error = BlueskyErrors.Limited });
+                }
+
+                return Results.BadRequest(new { error = failure.Unclear ? BlueskyErrors.Unreachable : BlueskyErrors.OwnWords(failure) });
+            })
+            .WithName("StartBlueskySignIn")
+            .WithSummary("Start signing in with Bluesky")
+            .WithDescription(
+                "Only when the public address is https with no port. Finds the account from the handle "
+                + "(the one given, or the stored one) both ways, asks the account's sign-in server for a "
+                + "sign-in (PAR, PKCE, DPoP, with Modbot's own signing key) and answers the address of "
+                + "Bluesky's sign-in page. Bluesky sends the browser back to /api/bluesky/callback, which "
+                + "only the person who started may finish, and only for this account. Nothing is saved "
+                + "but the waiting sign-in, good for ten minutes.")
+            .Produces<BlueskySignInStart>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -377,6 +476,8 @@ public static class BlueskySettingsEndpoints
             PostSites.BlueskyReady(settings),
             check,
             settings.BlueskyStoppedUntil is { } until && now < until ? until : null,
-            signInAfter);
+            signInAfter,
+            BlueskyOAuth.Offered(settings.PublicAddress),
+            settings.BlueskyOAuthSignedIn);
     }
 }

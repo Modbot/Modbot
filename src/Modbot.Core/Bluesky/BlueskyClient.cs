@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Core.Net;
+using Modbot.Core.Time;
 
 namespace Modbot.Core.Bluesky;
 
@@ -13,7 +14,11 @@ namespace Modbot.Core.Bluesky;
 /// <param name="RefreshJwt">Swapped for new tokens. The old one stops working when it is used.</param>
 /// <param name="Did">The account the session is for.</param>
 /// <param name="Handle">The account's handle, as the server said it.</param>
-public sealed record BlueskyTokens(string AccessJwt, string RefreshJwt, string Did, string? Handle)
+/// <param name="OAuth">
+/// For a sign-in with Bluesky (OAuth): the sign-in server, the DPoP key and when the access token
+/// ends. Null for a session made with the app password.
+/// </param>
+public sealed record BlueskyTokens(string AccessJwt, string RefreshJwt, string Did, string? Handle, BlueskyOAuthGrant? OAuth = null)
 {
     // The tokens are secrets; keep them out of any ToString.
     public override string ToString() => $"BlueskyTokens({Did})";
@@ -38,12 +43,19 @@ public sealed record BlueskyProfile(string? DisplayName, bool Automated);
 /// (<see cref="PictureLinks.GuardedHandler"/>): the server is chosen by whoever controls the account.
 /// </para>
 /// <para>
+/// A sign-in with Bluesky (OAuth) sends its token as <c>DPoP</c> with a proof made with the sign-in's
+/// own key (<see cref="BlueskyAccess.DpopKey"/>). A server that asks for a nonce gets the same call
+/// once more with it; that is the protocol, not a retry.
+/// </para>
+/// <para>
 /// Nothing here retries. A rate limit comes back as a <see cref="BlueskyFailure"/> that
 /// <see cref="BlueskyFailure.StopsTheLane"/>, and the caller stops until it resets.
 /// </para>
 /// </remarks>
-public sealed class BlueskyClient(IHttpClientFactory http)
+public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
 {
+    private readonly BlueskyNonces _nonces = new();
+
     /// <summary>The name of the <see cref="HttpClient"/> every Bluesky call is made on.</summary>
     public const string HttpClientName = "bluesky";
 
@@ -63,9 +75,11 @@ public sealed class BlueskyClient(IHttpClientFactory http)
         TokensAsync(server, "com.atproto.server.refreshSession", refreshJwt, null, signingIn: false, ct);
 
     /// <summary><c>getSession</c>: whether the access token still works, and for which account.</summary>
-    public async Task<BlueskyResult<string>> GetSessionAsync(Uri server, string accessJwt, CancellationToken ct)
+    public async Task<BlueskyResult<string>> GetSessionAsync(BlueskyAccess access, CancellationToken ct)
     {
-        var answer = await SendAsync(HttpMethod.Get, server, "com.atproto.server.getSession", accessJwt, null, signingIn: false, ct).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(access);
+
+        var answer = await SendAsync(HttpMethod.Get, access.Server, "com.atproto.server.getSession", access, null, signingIn: false, ct).ConfigureAwait(false);
 
         return answer.Value is { } body && body["did"] is JsonValue value && value.TryGetValue<string>(out var did) && did.Length > 0
             ? BlueskyResult<string>.Ok(did)
@@ -107,14 +121,19 @@ public sealed class BlueskyClient(IHttpClientFactory http)
     /// <c>uploadBlob</c>: the card picture. The answer is the blob reference the post's card carries.
     /// The same bytes give the same reference, so sending it again is safe.
     /// </summary>
-    public async Task<BlueskyResult<JsonObject>> UploadBlobAsync(Uri server, string accessJwt, byte[] bytes, string contentType, CancellationToken ct)
+    public async Task<BlueskyResult<JsonObject>> UploadBlobAsync(BlueskyAccess access, byte[] bytes, string contentType, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(access);
         ArgumentNullException.ThrowIfNull(bytes);
 
-        var content = new ByteArrayContent(bytes);
-        content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        HttpContent Content()
+        {
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            return content;
+        }
 
-        var answer = await SendAsync(HttpMethod.Post, server, "com.atproto.repo.uploadBlob", accessJwt, content, signingIn: false, ct).ConfigureAwait(false);
+        var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.uploadBlob", access, Content, signingIn: false, ct).ConfigureAwait(false);
 
         return answer.Value?["blob"] is JsonObject blob
             ? BlueskyResult<JsonObject>.Ok((JsonObject)blob.DeepClone())
@@ -127,8 +146,10 @@ public sealed class BlueskyClient(IHttpClientFactory http)
     /// the very same record answers as done.
     /// </summary>
     public async Task<BlueskyResult<BlueskyRecordRef>> PutRecordAsync(
-        Uri server, string accessJwt, string repo, string collection, string rkey, JsonObject record, CancellationToken ct)
+        BlueskyAccess access, string repo, string collection, string rkey, JsonObject record, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(access);
+
         var body = new JsonObject
         {
             ["repo"] = repo,
@@ -139,7 +160,7 @@ public sealed class BlueskyClient(IHttpClientFactory http)
             ["swapRecord"] = null,
         };
 
-        var answer = await SendAsync(HttpMethod.Post, server, "com.atproto.repo.putRecord", accessJwt, Json(body), signingIn: false, ct).ConfigureAwait(false);
+        var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.putRecord", access, () => Json(body), signingIn: false, ct).ConfigureAwait(false);
         return RefOf(answer);
     }
 
@@ -167,10 +188,12 @@ public sealed class BlueskyClient(IHttpClientFactory http)
     }
 
     /// <summary><c>deleteRecord</c>. A record already gone is the caller's to count as deleted.</summary>
-    public async Task<BlueskyResult<bool>> DeleteRecordAsync(Uri server, string accessJwt, string repo, string collection, string rkey, CancellationToken ct)
+    public async Task<BlueskyResult<bool>> DeleteRecordAsync(BlueskyAccess access, string repo, string collection, string rkey, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(access);
+
         var body = new JsonObject { ["repo"] = repo, ["collection"] = collection, ["rkey"] = rkey };
-        var answer = await SendAsync(HttpMethod.Post, server, "com.atproto.repo.deleteRecord", accessJwt, Json(body), signingIn: false, ct).ConfigureAwait(false);
+        var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.deleteRecord", access, () => Json(body), signingIn: false, ct).ConfigureAwait(false);
 
         return answer.Value is not null ? BlueskyResult<bool>.Ok(true) : BlueskyResult<bool>.Failed(answer.Failure!);
     }
@@ -178,7 +201,14 @@ public sealed class BlueskyClient(IHttpClientFactory http)
     private async Task<BlueskyResult<BlueskyTokens>> TokensAsync(
         Uri server, string method, string? bearer, JsonObject? body, bool signingIn, CancellationToken ct)
     {
-        var answer = await SendAsync(HttpMethod.Post, server, method, bearer, body is null ? null : Json(body), signingIn, ct).ConfigureAwait(false);
+        var answer = await SendAsync(
+            HttpMethod.Post,
+            server,
+            method,
+            bearer is null ? null : new BlueskyAccess(string.Empty, server, bearer),
+            body is null ? null : () => Json(body),
+            signingIn,
+            ct).ConfigureAwait(false);
 
         if (answer.Value is not { } value)
             return BlueskyResult<BlueskyTokens>.Failed(answer.Failure!);
@@ -208,41 +238,72 @@ public sealed class BlueskyClient(IHttpClientFactory http)
 
     private static StringContent Json(JsonObject body) => new(body.ToJsonString(), Encoding.UTF8, "application/json");
 
+    /// <summary>
+    /// One XRPC call. With <paramref name="access"/>, its token goes as <c>Bearer</c>, or for a sign-in
+    /// with Bluesky as <c>DPoP</c> with a proof. A server asking for a DPoP nonce gets the call once
+    /// more with the nonce it gave, which is why the body is made by <paramref name="content"/>.
+    /// </summary>
     private async Task<BlueskyResult<JsonObject>> SendAsync(
-        HttpMethod method, Uri server, string path, string? bearer, HttpContent? content, bool signingIn, CancellationToken ct)
+        HttpMethod method, Uri server, string path, BlueskyAccess? access, Func<HttpContent>? content, bool signingIn, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(method, new Uri(server, "xrpc/" + path));
-        if (bearer is not null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        var address = new Uri(server, "xrpc/" + path);
 
-        request.Content = content;
-
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            using var response = await http.CreateClient(HttpClientName).SendAsync(request, ct).ConfigureAwait(false);
-            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(method, address);
+            string? nonce = null;
 
-            if (!response.IsSuccessStatusCode)
-                return BlueskyResult<JsonObject>.Failed(BlueskyErrors.FromXrpc(response.StatusCode, text, response.Headers, signingIn));
+            if (access is { DpopKey: { } dpopKey })
+            {
+                nonce = _nonces.For(address);
+                request.Headers.Authorization = new AuthenticationHeaderValue(BlueskyDpop.Header, access.AccessJwt);
+                request.Headers.Add(BlueskyDpop.Header, BlueskyDpop.Proof(dpopKey, method, address, nonce, access.AccessJwt, clock.UtcNow));
+            }
+            else if (access is not null)
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", access.AccessJwt);
+            }
 
-            if (string.IsNullOrWhiteSpace(text))
-                return BlueskyResult<JsonObject>.Ok(new JsonObject());
+            request.Content = content?.Invoke();
 
-            return JsonNode.Parse(text) is JsonObject value
-                ? BlueskyResult<JsonObject>.Ok(value)
-                : BlueskyResult<JsonObject>.Failed(new BlueskyFailure(BlueskyProblem.Other, (int)response.StatusCode));
-        }
-        catch (HttpRequestException)
-        {
-            return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
-        }
-        catch (TaskCanceledException) when (!ct.IsCancellationRequested)
-        {
-            return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
-        }
-        catch (JsonException)
-        {
-            return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
+            try
+            {
+                using var response = await http.CreateClient(HttpClientName).SendAsync(request, ct).ConfigureAwait(false);
+                var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+
+                if (access?.DpopKey is not null)
+                {
+                    var given = _nonces.Keep(address, response);
+
+                    if (!response.IsSuccessStatusCode && attempt == 0 && given is not null && given != nonce
+                        && BlueskyDpop.AsksForNonce(response, text))
+                    {
+                        continue;
+                    }
+                }
+
+                if (!response.IsSuccessStatusCode)
+                    return BlueskyResult<JsonObject>.Failed(BlueskyErrors.FromXrpc(response.StatusCode, text, response.Headers, signingIn));
+
+                if (string.IsNullOrWhiteSpace(text))
+                    return BlueskyResult<JsonObject>.Ok(new JsonObject());
+
+                return JsonNode.Parse(text) is JsonObject value
+                    ? BlueskyResult<JsonObject>.Ok(value)
+                    : BlueskyResult<JsonObject>.Failed(new BlueskyFailure(BlueskyProblem.Other, (int)response.StatusCode));
+            }
+            catch (HttpRequestException)
+            {
+                return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
+            }
+            catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
+            }
+            catch (JsonException)
+            {
+                return BlueskyResult<JsonObject>.Failed(BlueskyErrors.NoAnswer());
+            }
         }
     }
 }
@@ -268,6 +329,7 @@ public static class BlueskyServices
 
         services.TryAddSingleton<BlueskyClient>();
         services.TryAddSingleton<BlueskyIdentity>();
+        services.TryAddSingleton<BlueskyOAuth>();
         services.TryAddSingleton<BlueskySession>();
 
         return services;

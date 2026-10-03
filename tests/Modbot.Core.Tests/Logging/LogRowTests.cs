@@ -75,6 +75,10 @@ public class LogRowTests
     [InlineData("GoogleJwt")]
     [InlineData("accessJwt")]
     [InlineData("refreshJwt")]
+    [InlineData("DPoP")]
+    [InlineData("dpopKey")]
+    [InlineData("codeVerifier")]
+    [InlineData("privateJwk")]
     public void APropertyWhoseNameLooksLikeASecretIsNeverStored(string name)
     {
         var row = LogRow.From(Event(properties: (name, "hunter2-the-real-one")));
@@ -91,6 +95,17 @@ public class LogRowTests
         var row = LogRow.From(Event(
             "Sending {Header}",
             properties: ("Header", "Bearer abcdefghijklmnop0123456789")));
+
+        Assert.DoesNotContain("abcdefghijklmnop", row.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("abcdefghijklmnop", row.Properties, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ADPoPTokenIsTakenOutWhateverItWasCalled()
+    {
+        var row = LogRow.From(Event(
+            "Sending {Header}",
+            properties: ("Header", "DPoP abcdefghijklmnop0123456789")));
 
         Assert.DoesNotContain("abcdefghijklmnop", row.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("abcdefghijklmnop", row.Properties, StringComparison.Ordinal);

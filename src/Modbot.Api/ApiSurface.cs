@@ -433,6 +433,7 @@ public static class ApiSurface
         app.MapAiSettings();
         app.MapGoogleCalendarSettings();
         app.MapBlueskySettings();
+        app.MapBlueskyOAuth();
         app.MapAiChatSettings();
         app.MapAutoModSettings();
         app.MapModerationFlags();

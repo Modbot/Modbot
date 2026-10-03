@@ -376,6 +376,27 @@ public class Settings
     public int BlueskySignInsUsed { get; set; }
 
     /// <summary>
+    /// The account was signed in with Bluesky's own sign-in page (OAuth, posts design §4.2c, step 3b)
+    /// rather than an app password. Its tokens are in <see cref="BlueskySessionEncrypted"/>; no app
+    /// password is kept beside them, so when Bluesky ends the sign-in, someone signs in again.
+    /// </summary>
+    public bool BlueskyOAuthSignedIn { get; set; }
+
+    /// <summary>
+    /// Modbot's own signing key for Bluesky's sign-in (a private ES256 key, as JSON), encrypted like
+    /// every other secret. Its public half is the one in the client document Bluesky reads; the
+    /// private half is never returned. Made on first use and kept, so a sign-in stays good.
+    /// </summary>
+    public string? BlueskyOAuthKeyEncrypted { get; set; }
+
+    /// <summary>
+    /// A sign-in with Bluesky that was started and not finished yet, as one encrypted JSON: its state,
+    /// its PKCE verifier, its DPoP key, the account it is for and who started it. Good for ten
+    /// minutes, and taken whatever the callback brings.
+    /// </summary>
+    public string? BlueskyOAuthPendingEncrypted { get; set; }
+
+    /// <summary>
     /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>

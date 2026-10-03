@@ -110,6 +110,9 @@ public static class BlueskyErrors
     /// <summary>The words while Modbot's own sign-in guard holds a sign-in back.</summary>
     public const string TooManySignIns = "Too many sign-ins.";
 
+    /// <summary>The words when Bluesky no longer takes a sign-in made with Bluesky (OAuth).</summary>
+    public const string SignInEnded = "The Bluesky sign-in has ended.";
+
     /// <summary>The words for a value that is not shaped like an app password.</summary>
     public const string UseAnAppPassword = "Use an app password.";
 

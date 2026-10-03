@@ -3763,6 +3763,10 @@ export type BlueskySettings = {
   limitedUntil: string | null
   /** Modbot's own sign-in guard held the last Check back until this. */
   signInAfter: string | null
+  /** Signing in with Bluesky's own page is offered: the public address is https with no port. */
+  signInWithBluesky: boolean
+  /** The account was signed in with Bluesky's own page, not an app password. */
+  signedInWithBluesky: boolean
 }
 
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
@@ -4901,6 +4905,13 @@ export const api = {
 
   /** Finds the account and signs in. Never posts. A 200 either way; `check.problem` says what went wrong. */
   checkBluesky: () => post<BlueskySettings>('/api/settings/bluesky/check'),
+
+  /**
+   * Starts signing in with Bluesky for the handle (or the stored one). The answer is Bluesky's sign-in
+   * page; Bluesky sends the browser back to Settings → Bluesky with `?bluesky=` saying how it went.
+   */
+  startBlueskySignIn: (handle?: string) =>
+    post<{ url: string }>('/api/settings/bluesky/sign-in', handle ? { handle } : {}),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

@@ -25,7 +25,7 @@ public static class PostHolds
 /// <param name="VRChatOn">The VRChat posts switch.</param>
 /// <param name="VRChatSetUp">A group is chosen and a VRChat account is saved (<see cref="PostSites.VRChatReady"/>).</param>
 /// <param name="BlueskyOn">The Bluesky Posting switch.</param>
-/// <param name="BlueskySetUp">A Bluesky account passed Check and its app password works (<see cref="PostSites.BlueskyReady"/>).</param>
+/// <param name="BlueskySetUp">A Bluesky account passed Check and its sign-in works (<see cref="PostSites.BlueskyReady"/>).</param>
 public sealed record PostSites(
     bool Paused,
     bool DiscordOn,
@@ -58,8 +58,9 @@ public sealed record PostSites(
     }
 
     /// <summary>
-    /// Whether Bluesky can take posts: an account, its server and an app password saved, a Check
-    /// that passed, and an app password Bluesky has not refused since. Read from settings alone,
+    /// Whether Bluesky can take posts: an account, its server and a way to sign in (an app password,
+    /// or a sign-in with Bluesky), a Check that passed, and a sign-in Bluesky has not refused or ended
+    /// since. Read from settings alone,
     /// never by asking Bluesky; a limit or a sign-in held back is the session's business: the post
     /// waits.
     /// </summary>
@@ -67,7 +68,7 @@ public sealed record PostSites(
         settings is not null
         && !string.IsNullOrWhiteSpace(settings.BlueskyDid)
         && !string.IsNullOrWhiteSpace(settings.BlueskyServer)
-        && !string.IsNullOrWhiteSpace(settings.BlueskyAppPasswordEncrypted)
+        && (!string.IsNullOrWhiteSpace(settings.BlueskyAppPasswordEncrypted) || settings.BlueskyOAuthSignedIn)
         && settings.BlueskyCheckedAt is not null
         && settings.BlueskyProblem is null
         && !settings.BlueskySignInRefused;

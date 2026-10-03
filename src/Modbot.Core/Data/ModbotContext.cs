@@ -477,6 +477,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // window is the "backlog". Somebody reading the table should not need a glossary.
             entity.Property(e => e.DiscordOAuthClientId).HasColumnName("discord_oauth_client_id");
             entity.Property(e => e.DiscordOAuthClientSecretEncrypted).HasColumnName("discord_oauth_client_secret_encrypted");
+            entity.Property(e => e.BlueskyOAuthSignedIn).HasColumnName("bluesky_oauth_signed_in");
+            entity.Property(e => e.BlueskyOAuthKeyEncrypted).HasColumnName("bluesky_oauth_key_encrypted");
+            entity.Property(e => e.BlueskyOAuthPendingEncrypted).HasColumnName("bluesky_oauth_pending_encrypted");
             entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_catch_up_offset");
             entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_catch_up_complete");
             entity.Property(e => e.AuditLogCatchUpVersion).HasColumnName("audit_log_catch_up_version");

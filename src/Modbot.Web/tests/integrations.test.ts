@@ -27,6 +27,7 @@ type BlueskyReading = NonNullable<IntegrationReading['bluesky']>
 const BLUESKY: BlueskyReading = {
   handle: 'ourgroup.bsky.social',
   appPasswordStored: true,
+  signedInWithBluesky: false,
   check: { at: '2026-10-03T12:00:00Z', handle: 'ourgroup.bsky.social', displayName: 'Our group', automated: true, problem: null },
   posting: true,
 }
@@ -65,7 +66,7 @@ test('nothing set up says Needs setup on every card', () => {
     discordBot: null,
     smtpConfigured: false,
     googleCalendar: { keyStored: false, calendarId: null, check: null },
-    bluesky: { handle: null, appPasswordStored: false, check: null, posting: false },
+    bluesky: { handle: null, appPasswordStored: false, signedInWithBluesky: false, check: null, posting: false },
   })
   for (const item of integrations(none)) assert.equal(item.state.label, 'Needs setup')
 })
@@ -143,6 +144,13 @@ test('Bluesky needs setup until a handle and an app password are saved and Check
   assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, handle: null } })?.label, 'Needs setup')
   assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, appPasswordStored: false } })?.label, 'Needs setup')
   assert.equal(stateOf('bluesky', { bluesky: { ...BLUESKY, check: null } })?.label, 'Needs setup')
+})
+
+test('Bluesky signed in with Bluesky needs no app password', () => {
+  const signedIn = { ...BLUESKY, appPasswordStored: false, signedInWithBluesky: true }
+
+  assert.deepEqual(stateOf('bluesky', { bluesky: signedIn }), { label: 'Working', tone: 'ok' })
+  assert.equal(stateOf('bluesky', { bluesky: { ...signedIn, check: null } })?.label, 'Needs setup')
 })
 
 test('Bluesky says Failed when Check found a problem, Off while Posting is off, Working while it posts', () => {

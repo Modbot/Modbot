@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261003212954_SignInWithBluesky")]
+    partial class SignInWithBluesky
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4133,94 +4136,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("group_member_count", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.HeadsUp", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("ClearedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cleared_at");
-
-                    b.Property<int?>("ClearedBecause")
-                        .HasColumnType("integer")
-                        .HasColumnName("cleared_because");
-
-                    b.Property<string>("ClearedByName")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("cleared_by_name");
-
-                    b.Property<Guid?>("ClearedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("cleared_by_user_id");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("group_id");
-
-                    b.Property<string>("InstanceId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("instance_id");
-
-                    b.Property<int>("Kind")
-                        .HasColumnType("integer")
-                        .HasColumnName("kind");
-
-                    b.Property<string>("Place")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("place");
-
-                    b.Property<DateTimeOffset>("PlacedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("placed_at");
-
-                    b.Property<Guid>("PlacedByDeviceId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("placed_by_device_id");
-
-                    b.Property<string>("PlacedByName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("placed_by_name");
-
-                    b.Property<Guid>("PlacedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("placed_by_user_id");
-
-                    b.Property<string>("SubjectId")
-                        .HasColumnType("text")
-                        .HasColumnName("subject_id");
-
-                    b.Property<string>("SubjectName")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("subject_name");
-
-                    b.Property<string>("Text")
-                        .HasMaxLength(140)
-                        .HasColumnType("character varying(140)")
-                        .HasColumnName("text");
-
-                    b.Property<string>("WorldId")
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_heads_up");
-
-                    b.HasIndex("InstanceId")
-                        .HasDatabaseName("ix_heads_up_standing")
-                        .HasFilter("cleared_at IS NULL");
-
-                    b.ToTable("heads_up", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.HealthAlertRecipient", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -8016,84 +7931,6 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<int>("Day")
-                        .HasColumnType("integer")
-                        .HasColumnName("day");
-
-                    b.Property<int>("Hour")
-                        .HasColumnType("integer")
-                        .HasColumnName("hour");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("state");
-
-                    b.HasKey("UserId", "Day", "Hour")
-                        .HasName("pk_staff_availability");
-
-                    b.ToTable("staff_availability", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailabilityZone", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset>("SavedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("saved_at");
-
-                    b.Property<string>("TimeZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("time_zone");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_staff_availability_zone");
-
-                    b.ToTable("staff_availability_zone", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffDiscordCode", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("code");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<int>("FailedTries")
-                        .HasColumnType("integer")
-                        .HasColumnName("failed_tries");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_staff_discord_code");
-
-                    b.HasIndex("Code")
-                        .IsUnique()
-                        .HasDatabaseName("ix_staff_discord_code_code");
-
-                    b.ToTable("staff_discord_code", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.StorageDay", b =>
                 {
                     b.Property<DateOnly>("Day")
@@ -8112,101 +7949,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_modbot_storage_day");
 
                     b.ToTable("modbot_storage_day", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatAnnouncement", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_user_id");
-
-                    b.Property<string>("Error")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("error");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("group_id");
-
-                    b.Property<Guid>("InstanceId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("instance_id");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("location");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("message");
-
-                    b.Property<string>("MissingPermission")
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("missing_permission");
-
-                    b.Property<DateTimeOffset>("SendAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("send_at");
-
-                    b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("state");
-
-                    b.Property<int?>("StatusCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("status_code");
-
-                    b.Property<string>("TimeZone")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("time_zone");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id")
-                        .HasName("pk_vrchat_announcement");
-
-                    b.HasIndex("InstanceId", "CreatedAt")
-                        .HasDatabaseName("ix_vrchat_announcement_instance_created_at");
-
-                    b.HasIndex("State", "SendAt")
-                        .HasDatabaseName("ix_vrchat_announcement_state_send_at");
-
-                    b.ToTable("vrchat_announcement", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatFriend", b =>
@@ -9371,36 +9113,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasForeignKey("SitePictureId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_post_destination_calendar_cover_picture_site_picture_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_staff_availability_modbot_user_user_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailabilityZone", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_staff_availability_zone_modbot_user_user_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffDiscordCode", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_staff_discord_code_modbot_user_user_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.WebhookDelivery", b =>

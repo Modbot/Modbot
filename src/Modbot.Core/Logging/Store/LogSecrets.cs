@@ -43,6 +43,10 @@ public static partial class LogSecrets
         // Google Calendar's sign-in (Google Calendar design §2): the token request's signed JWT
         // goes in a form field called "assertion".
         "assertion", "jwt",
+
+        // Bluesky's sign-in (posts design §4.2c, step 3b): DPoP proofs and keys, the PKCE verifier,
+        // and Modbot's own signing key, kept as a JSON Web Key.
+        "dpop", "verifier", "jwk",
     ];
 
     /// <summary>Whether a property with this name must never have its value stored.</summary>
@@ -71,7 +75,8 @@ public static partial class LogSecrets
         // Ordered cheapest-first: most lines contain none of these words, and IndexOf over a short
         // string beats running three regular expressions on every log line Modbot writes.
         if (value.Contains("Bearer ", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("Basic ", StringComparison.OrdinalIgnoreCase))
+            || value.Contains("Basic ", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("DPoP ", StringComparison.OrdinalIgnoreCase))
         {
             value = AuthorizationValue().Replace(value, "$1 " + Replacement);
         }
@@ -87,8 +92,8 @@ public static partial class LogSecrets
         return value;
     }
 
-    /// <summary>A bearer or basic credential, however it was embedded.</summary>
-    [GeneratedRegex(@"\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/=]{8,}", RegexOptions.IgnoreCase, 200)]
+    /// <summary>A bearer, DPoP or basic credential, however it was embedded.</summary>
+    [GeneratedRegex(@"\b(Bearer|Basic|DPoP)\s+[A-Za-z0-9\-._~+/=]{8,}", RegexOptions.IgnoreCase, 200)]
     private static partial Regex AuthorizationValue();
 
     /// <summary>

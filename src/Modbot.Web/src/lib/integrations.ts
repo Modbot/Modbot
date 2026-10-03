@@ -67,7 +67,7 @@ export type IntegrationReading = {
    * when that read was not made or has not answered. Optional, so a reading made before Bluesky
    * came is still one.
    */
-  bluesky?: Pick<BlueskySettings, 'handle' | 'appPasswordStored' | 'check' | 'posting'> | undefined
+  bluesky?: Pick<BlueskySettings, 'handle' | 'appPasswordStored' | 'signedInWithBluesky' | 'check' | 'posting'> | undefined
 }
 
 /**
@@ -118,13 +118,14 @@ export function integrations(reading: IntegrationReading): Integration[] {
 }
 
 /**
- * Needs setup until a handle and an app password are saved and Check has run on them; then Failed
+ * Needs setup until a handle and a way to sign in (an app password, or a sign-in with Bluesky) are
+ * saved and Check has run on them; then Failed
  * when Check, or a sign-in since, found a problem (a refused app password, a handle that leads
  * nowhere), Off while Posting is off, and Working while posts go to Bluesky.
  */
 function blueskyStatus(bluesky: IntegrationReading['bluesky']): State {
   if (bluesky === undefined) return UNKNOWN
-  if (!bluesky.handle || !bluesky.appPasswordStored || !bluesky.check) return NEEDS_SETUP
+  if (!bluesky.handle || !(bluesky.appPasswordStored || bluesky.signedInWithBluesky) || !bluesky.check) return NEEDS_SETUP
   if (bluesky.check.problem) return { label: 'Failed', tone: 'bad' }
   if (!bluesky.posting) return { label: 'Off', tone: 'muted' }
   return { label: 'Working', tone: 'ok' }

@@ -408,7 +408,7 @@ public sealed class PostBlueskySender
             if (picture is not null && picture.Bytes.Length <= BlueskyText.CardPictureMaxBytes)
             {
                 // The same bytes give the same blob, so an upload made again is harmless.
-                var uploaded = await _client.UploadBlobAsync(access.Server, access.AccessJwt, picture.Bytes, picture.ContentType, pass.Ct)
+                var uploaded = await _client.UploadBlobAsync(access, picture.Bytes, picture.ContentType, pass.Ct)
                     .ConfigureAwait(false);
 
                 if (uploaded.Failure is { } refused)
@@ -424,7 +424,7 @@ public sealed class PostBlueskySender
         // createdAt is this send's own time: feeds sort by it (fact 21).
         var record = BlueskyPostRecord.Build(text, pass.Now, card, thumb);
 
-        var put = await _client.PutRecordAsync(access.Server, access.AccessJwt, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
+        var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);
 
         if (put.Value is { } made)

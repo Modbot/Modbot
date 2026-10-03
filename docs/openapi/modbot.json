@@ -6887,7 +6887,7 @@
           "Settings"
         ],
         "summary": "Remove the Bluesky account",
-        "description": "Forget the handle, the app password, the session and what Check found, and turn Posting off. Nothing on Bluesky is changed: posts already sent stay.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Forget the handle, the app password or the sign-in with Bluesky, the session and what Check found, and turn Posting off. Nothing on Bluesky is changed: posts already sent stay.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "RemoveBlueskySettings",
         "responses": {
           "200": {
@@ -6937,7 +6937,7 @@
           "Settings"
         ],
         "summary": "Check the Bluesky account",
-        "description": "Find the account from the handle, sign in (the saved session when it still works, otherwise the app password, at most once every 10 minutes and 20 times a day), and read the account's display name and whether it is marked as automated. Never posts and writes nothing to the account. Answers 200 with what it found, a refusal included. While Bluesky is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Find the account from the handle, sign in (the saved session when it still works, otherwise a renewal of the sign-in with Bluesky, or the app password, at most once every 10 minutes and 20 times a day), and read the account's display name and whether it is marked as automated. Never posts and writes nothing to the account. Answers 200 with what it found, a refusal included. While Bluesky is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CheckBluesky",
         "responses": {
           "200": {
@@ -6946,6 +6946,82 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BlueskySettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/bluesky/sign-in": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Start signing in with Bluesky",
+        "description": "Only when the public address is https with no port. Finds the account from the handle (the one given, or the stored one) both ways, asks the account's sign-in server for a sign-in (PAR, PKCE, DPoP, with Modbot's own signing key) and answers the address of Bluesky's sign-in page. Bluesky sends the browser back to /api/bluesky/callback, which only the person who started may finish, and only for this account. Nothing is saved but the waiting sign-in, good for ten minutes.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "StartBlueskySignIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BlueskySignInRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueskySignInStart"
                 }
               }
             }
@@ -34310,6 +34386,36 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "signInWithBluesky": {
+            "type": "boolean",
+            "default": false
+          },
+          "signedInWithBluesky": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "BlueskySignInRequest": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BlueskySignInStart": {
+        "required": [
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
           }
         }
       },

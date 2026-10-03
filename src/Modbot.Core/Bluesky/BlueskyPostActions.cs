@@ -36,7 +36,7 @@ public sealed class BlueskyPostActions(ModbotContext db, BlueskySession session,
             if (!string.Equals(access.Did, did, StringComparison.Ordinal))
                 return PostSiteOutcome.Failed(OtherAccount);
 
-            var deleted = await client.DeleteRecordAsync(access.Server, access.AccessJwt, did, BlueskyClient.PostCollection, recordKey, ct)
+            var deleted = await client.DeleteRecordAsync(access, did, BlueskyClient.PostCollection, recordKey, ct)
                 .ConfigureAwait(false);
 
             if (deleted.Failure is not { } failure || failure.Problem == BlueskyProblem.RecordNotFound)

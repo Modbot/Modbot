@@ -9,9 +9,13 @@ using Modbot.Core.Time;
 namespace Modbot.Core.Bluesky;
 
 /// <summary>A working sign-in: where to send, as whom, and the token to send with.</summary>
-public sealed record BlueskyAccess(string Did, Uri Server, string AccessJwt)
+/// <param name="DpopKey">
+/// For a sign-in with Bluesky (OAuth): the key every call's DPoP proof is signed with. Null for a
+/// session made with the app password.
+/// </param>
+public sealed record BlueskyAccess(string Did, Uri Server, string AccessJwt, string? DpopKey = null)
 {
-    // The token is a secret; keep it out of any ToString.
+    // The token and the key are secrets; keep them out of any ToString.
     public override string ToString() => $"BlueskyAccess({Did})";
 }
 
@@ -32,6 +36,12 @@ public enum BlueskyHold
 
     /// <summary>Modbot's own guard: a sign-in in the last 10 minutes, or 20 today already.</summary>
     TooManySignIns,
+
+    /// <summary>
+    /// Signed in with Bluesky (OAuth), and Bluesky no longer takes the sign-in, or there is none: with
+    /// no app password kept, nothing signs in until someone signs in with Bluesky again.
+    /// </summary>
+    SignInEnded,
 }
 
 /// <summary>What <see cref="BlueskySession.AccessAsync"/> found.</summary>
@@ -54,6 +64,7 @@ public sealed record BlueskySignIn(
         BlueskyHold.Stopped => BlueskyErrors.Limited,
         BlueskyHold.SignInRefused => BlueskyErrors.NotAccepted,
         BlueskyHold.TooManySignIns => BlueskyErrors.TooManySignIns,
+        BlueskyHold.SignInEnded => BlueskyErrors.SignInEnded,
         _ => Failure is { } failure ? BlueskyErrors.Sentence(failure) : BlueskyErrors.Unreachable,
     };
 }
@@ -82,8 +93,16 @@ public sealed record BlueskySignIn(
 /// (<c>settings.bluesky_stopped_until</c>), and nothing is sent before then (CLAUDE.md: never
 /// retry a 429).
 /// </para>
+/// <para>
+/// <strong>Both ways of signing in end here</strong> (step 3b). A sign-in with Bluesky (OAuth)
+/// keeps its tokens in the same column, with its sign-in server and DPoP key; it is renewed at its
+/// sign-in server (<see cref="BlueskyOAuth.RefreshAsync"/>) under the same lock and the same rule:
+/// the new tokens are written before they are used. It has no app password to fall back on, so a
+/// renewal Bluesky refuses ends it (<see cref="BlueskyHold.SignInEnded"/>) until someone signs in
+/// with Bluesky again. The sign-in guard counts app-password sign-ins only.
+/// </para>
 /// </remarks>
-public sealed class BlueskySession(BlueskyClient client, ISecretProtector protector, IModbotClock clock)
+public sealed class BlueskySession(BlueskyClient client, ISecretProtector protector, IModbotClock clock, BlueskyOAuth oauth)
 {
     /// <summary>The fewest minutes between two sign-ins with the app password.</summary>
     public static readonly TimeSpan SignInFloor = TimeSpan.FromMinutes(10);
@@ -93,6 +112,12 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
 
     /// <summary>How long before its end an access token is refreshed rather than used.</summary>
     public static readonly TimeSpan RefreshBefore = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// The same for a sign-in with Bluesky, whose access tokens are short (the OAuth spec recommends
+    /// five minutes): renewed within its last minute, so a five-minute token is used, not renewed at once.
+    /// </summary>
+    public static readonly TimeSpan OAuthRefreshBefore = TimeSpan.FromMinutes(1);
 
     private readonly SemaphoreSlim _lock = new(1, 1);
 
@@ -117,7 +142,7 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
 
             if (settings is not { BlueskyDid: { Length: > 0 } did }
                 || BlueskyIdentity.ServerAddress(settings.BlueskyServer) is not { } server
-                || string.IsNullOrEmpty(settings.BlueskyAppPasswordEncrypted))
+                || (string.IsNullOrEmpty(settings.BlueskyAppPasswordEncrypted) && !settings.BlueskyOAuthSignedIn))
             {
                 return new BlueskySignIn(null, BlueskyHold.NotSetUp);
             }
@@ -129,6 +154,14 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
             if (tokens is not null && tokens.Did != did)
                 tokens = null;
 
+            // A sign-in with Bluesky is only ever its own tokens; one made with the app password is
+            // not used for it, nor the other way round.
+            if (tokens is not null && (tokens.OAuth is not null) != settings.BlueskyOAuthSignedIn)
+                tokens = null;
+
+            if (settings.BlueskyOAuthSignedIn)
+                return await OAuthAccessAsync(db, settings, tokens, did, server, prove, now, ct).ConfigureAwait(false);
+
             if (tokens is not null)
             {
                 if (!Ending(tokens.AccessJwt, now))
@@ -136,7 +169,7 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
                     if (!prove)
                         return new BlueskySignIn(new BlueskyAccess(did, server, tokens.AccessJwt));
 
-                    var proof = await client.GetSessionAsync(server, tokens.AccessJwt, ct).ConfigureAwait(false);
+                    var proof = await client.GetSessionAsync(new BlueskyAccess(did, server, tokens.AccessJwt), ct).ConfigureAwait(false);
 
                     if (proof.Value == did)
                         return new BlueskySignIn(new BlueskyAccess(did, server, tokens.AccessJwt));
@@ -267,14 +300,32 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
 
         try
         {
-            return JsonNode.Parse(json) is JsonObject value
-                && value["accessJwt"] is JsonValue a && a.TryGetValue<string>(out var access)
-                && value["refreshJwt"] is JsonValue r && r.TryGetValue<string>(out var refresh)
-                && value["did"] is JsonValue d && d.TryGetValue<string>(out var owner)
-                    ? new BlueskyTokens(access, refresh, owner, value["handle"] is JsonValue h && h.TryGetValue<string>(out var handle) ? handle : null)
+            if (JsonNode.Parse(json) is not JsonObject value
+                || value["accessJwt"] is not JsonValue a || !a.TryGetValue<string>(out var access)
+                || value["refreshJwt"] is not JsonValue r || !r.TryGetValue<string>(out var refresh)
+                || value["did"] is not JsonValue d || !d.TryGetValue<string>(out var owner))
+            {
+                return null;
+            }
+
+            var handle = value["handle"] is JsonValue h && h.TryGetValue<string>(out var named) ? named : null;
+
+            if (value["oauth"] is not JsonObject grant)
+                return new BlueskyTokens(access, refresh, owner, handle);
+
+            string? Text(string name) => grant[name] is JsonValue v && v.TryGetValue<string>(out var text) ? text : null;
+
+            // A sign-in with Bluesky that cannot be read whole cannot be renewed: none.
+            return Text("issuer") is { } issuer
+                && Text("tokenEndpoint") is { } endpoint
+                && Text("clientId") is { } clientId
+                && Text("dpopKey") is { } key
+                && Text("scope") is { } scope
+                && grant["expiresAt"] is JsonValue e && e.TryGetValue<DateTimeOffset>(out var expiresAt)
+                    ? new BlueskyTokens(access, refresh, owner, handle, new BlueskyOAuthGrant(issuer, endpoint, clientId, key, expiresAt, scope))
                     : null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException)
         {
             return null;
         }
@@ -285,13 +336,82 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
     {
         ArgumentNullException.ThrowIfNull(tokens);
 
-        return protector.Protect(new JsonObject
+        var value = new JsonObject
         {
             ["accessJwt"] = tokens.AccessJwt,
             ["refreshJwt"] = tokens.RefreshJwt,
             ["did"] = tokens.Did,
             ["handle"] = tokens.Handle,
-        }.ToJsonString());
+        };
+
+        if (tokens.OAuth is { } grant)
+        {
+            value["oauth"] = new JsonObject
+            {
+                ["issuer"] = grant.Issuer,
+                ["tokenEndpoint"] = grant.TokenEndpoint,
+                ["clientId"] = grant.ClientId,
+                ["dpopKey"] = grant.DpopKey,
+                ["expiresAt"] = grant.ExpiresAt,
+                ["scope"] = grant.Scope,
+            };
+        }
+
+        return protector.Protect(value.ToJsonString());
+    }
+
+    /// <summary>
+    /// A sign-in with Bluesky has finished: its tokens become the session, under the lock, in one
+    /// statement with the account they are for. The app password goes (one way of signing in at a
+    /// time), and so does a refusal: the sign-in proved itself.
+    /// </summary>
+    public async Task SignedInWithBlueskyAsync(ModbotContext db, BlueskyTokens tokens, string handle, Uri server, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(tokens);
+        ArgumentNullException.ThrowIfNull(server);
+
+        if (tokens.OAuth is null)
+            throw new ArgumentException("Not a sign-in with Bluesky.", nameof(tokens));
+
+        var sealedTokens = Protect(tokens);
+        var serverText = server.ToString();
+
+        await _lock.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            await db.Settings
+                .Where(s => s.Id == 1)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(s => s.BlueskyHandle, handle)
+                    .SetProperty(s => s.BlueskyDid, tokens.Did)
+                    .SetProperty(s => s.BlueskyServer, serverText)
+                    .SetProperty(s => s.BlueskySessionEncrypted, sealedTokens)
+                    .SetProperty(s => s.BlueskyOAuthSignedIn, true)
+                    .SetProperty(s => s.BlueskyAppPasswordEncrypted, (string?)null)
+                    .SetProperty(s => s.BlueskySignInRefused, false), ct)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Whether a session's access token needs renewing before it is used: none left, or for a sign-in
+    /// with Bluesky within <see cref="OAuthRefreshBefore"/> of the end the server gave, otherwise by the
+    /// token's own <c>exp</c> (<see cref="Ending"/>).
+    /// </summary>
+    public static bool NeedsRenewing(BlueskyTokens tokens, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(tokens);
+
+        if (string.IsNullOrEmpty(tokens.AccessJwt))
+            return true;
+
+        return tokens.OAuth is { } grant ? grant.ExpiresAt - now < OAuthRefreshBefore : Ending(tokens.AccessJwt, now);
     }
 
     /// <summary>
@@ -392,6 +512,64 @@ public sealed class BlueskySession(BlueskyClient client, ISecretProtector protec
             await ProblemAsync(db, BlueskyErrors.Sentence(failure), ct).ConfigureAwait(false);
 
         return new BlueskySignIn(null, Failure: failure, SignedIn: true);
+    }
+
+    /// <summary>
+    /// A sign-in for an account signed in with Bluesky: its token while it has time left (asked with
+    /// <c>getSession</c> when <paramref name="prove"/>), otherwise renewed at its sign-in server and
+    /// written before it is used. A renewal Bluesky refuses ends the sign-in; nothing signs in with an
+    /// app password in its place.
+    /// </summary>
+    private async Task<BlueskySignIn> OAuthAccessAsync(
+        ModbotContext db, Data.Entities.Settings settings, BlueskyTokens? tokens, string did, Uri server, bool prove, DateTimeOffset now, CancellationToken ct)
+    {
+        if (settings.BlueskySignInRefused || tokens?.OAuth is not { } grant)
+            return new BlueskySignIn(null, BlueskyHold.SignInEnded);
+
+        if (!NeedsRenewing(tokens, now))
+        {
+            var access = new BlueskyAccess(did, server, tokens.AccessJwt, grant.DpopKey);
+
+            if (!prove)
+                return new BlueskySignIn(access);
+
+            var proof = await client.GetSessionAsync(access, ct).ConfigureAwait(false);
+
+            if (proof.Value == did)
+                return new BlueskySignIn(access);
+
+            if (await StoppedByAsync(db, proof.Failure, ct).ConfigureAwait(false) is { } held)
+                return held;
+
+            if (proof.Failure is { Unclear: true })
+                return new BlueskySignIn(null, Failure: proof.Failure);
+        }
+
+        var renewed = await oauth.RefreshAsync(db, tokens, ct).ConfigureAwait(false);
+
+        if (renewed.Value is { } fresh && fresh.Did == did && fresh.OAuth is { } freshGrant)
+        {
+            // Written before it is used: the old refresh token no longer works.
+            await SaveAsync(db, fresh, ct).ConfigureAwait(false);
+            return new BlueskySignIn(new BlueskyAccess(did, server, fresh.AccessJwt, freshGrant.DpopKey));
+        }
+
+        if (await StoppedByAsync(db, renewed.Failure, ct).ConfigureAwait(false) is { } stopped)
+            return stopped;
+
+        if (renewed.Failure is { Unclear: true })
+            return new BlueskySignIn(null, Failure: renewed.Failure);
+
+        // Refused: the sign-in is over. Its tokens go, and nothing tries again until someone signs in.
+        await db.Settings
+            .Where(s => s.Id == 1)
+            .ExecuteUpdateAsync(u => u
+                .SetProperty(s => s.BlueskySignInRefused, true)
+                .SetProperty(s => s.BlueskySessionEncrypted, (string?)null)
+                .SetProperty(s => s.BlueskyProblem, BlueskyErrors.SignInEnded), ct)
+            .ConfigureAwait(false);
+
+        return new BlueskySignIn(null, BlueskyHold.SignInEnded, renewed.Failure);
     }
 
     /// <summary>For a rate limit: the lane stopped, and the answer that says so. Null for anything else.</summary>
