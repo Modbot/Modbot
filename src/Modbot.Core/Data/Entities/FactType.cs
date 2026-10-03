@@ -754,6 +754,13 @@ public static class FactType
     /// <summary>A post was deleted on a site after it went. Payload: network and who asked.</summary>
     public const string PostRemoved = "modbot.post.remove";
 
+    /// <summary>
+    /// A post's picture was uploaded to VRChat, on the account Modbot signs in as, for a VRChat group
+    /// post (posts design §3.6). The subject is the picture Modbot keeps, not a post: one may not be
+    /// saved yet. Payload: the VRChat file id, the size and the type.
+    /// </summary>
+    public const string PostPictureUploaded = "modbot.post.picture.upload";
+
     // ── Discord roles from saved lists (roles from lists design §7) ────────────────────────
     //
     // Modbot gave or took a Discord role because somebody joined or left a list paired with it.

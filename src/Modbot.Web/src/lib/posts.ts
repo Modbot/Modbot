@@ -45,6 +45,9 @@ export const postsApi = {
       body: picture,
       headers: { 'content-type': picture.type || 'application/octet-stream' },
     }),
+  /** Sends a kept picture on to VRChat for a VRChat post, and answers with VRChat's file id. Once a minute at most. */
+  uploadVRChatPicture: (pictureId: string) =>
+    http.post<{ imageId: string; pictureId: string }>(`${base}/vrchat-picture`, { pictureId }),
   /** The picture behind a link, fetched by Modbot so the composer can crop it. */
   pictureFromLink: async (url: string): Promise<Blob> => {
     let response: Response

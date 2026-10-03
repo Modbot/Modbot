@@ -19,8 +19,8 @@ public static class PostStatuses
 
 /// <summary>The sites a post can go to (posts design §3). Each is a <see cref="PostDestination.Network"/>.</summary>
 /// <remarks>
-/// Discord is the only one built in the first step. VRChat and Bluesky follow as their own steps,
-/// and others (Mastodon, a web address) later; each is a new value, a sender and a composer section.
+/// Discord came first and VRChat second; Bluesky follows as its own step, and others (Mastodon, a
+/// web address) later. Each is a new value, a sender and a composer section.
 /// </remarks>
 public static class PostNetworks
 {
@@ -161,12 +161,12 @@ public class PostDestination
     public string Network { get; set; } = PostNetworks.Discord;
 
     /// <summary>
-    /// Where on the site: the Discord channel id. Kept so a later edit or delete goes to the same
-    /// place after the settings change. Opaque, never checked for shape.
+    /// Where on the site: the Discord channel id, or the VRChat group id. Kept so a later edit or
+    /// delete goes to the same place after the settings change. Opaque, never checked for shape.
     /// </summary>
     public string Target { get; set; } = string.Empty;
 
-    /// <summary>The site's own choices, as JSON: for Discord, <see cref="DiscordPostOptions"/>.</summary>
+    /// <summary>The site's own choices, as JSON: <see cref="DiscordPostOptions"/> or <see cref="VRChatPostOptions"/>.</summary>
     public string Options { get; set; } = "{}";
 
     /// <summary>This site's own title, or null for the post's.</summary>
@@ -181,7 +181,7 @@ public class PostDestination
     /// <summary>An id Modbot makes once and the site keeps (Bluesky's record key; later, Discord's nonce).</summary>
     public string? ClientKey { get; set; }
 
-    /// <summary>The post's id on the site: the Discord message id. Opaque.</summary>
+    /// <summary>The post's id on the site: the Discord message id, or VRChat's <c>not_…</c> id. Opaque.</summary>
     public string? ExternalId { get; set; }
 
     /// <summary>The post's https address on the site.</summary>
@@ -241,3 +241,32 @@ public class PostDestination
 /// <param name="RoleId">One role mentioned on the first line and pinged on the first send. Never @everyone.</param>
 /// <param name="Publish">Publish to the channel's followers after it is in. Announcement channels only.</param>
 public sealed record DiscordPostOptions(string? RoleId = null, bool Publish = false);
+
+/// <summary>Who sees a VRChat group post (posts design §3.6), as <see cref="VRChatPostOptions.Visibility"/> keeps it.</summary>
+public static class VRChatPostVisibilities
+{
+    /// <summary>The group's members, or only the roles picked. VRChat's <c>group</c>.</summary>
+    public const string Group = "group";
+
+    /// <summary>Everyone, on vrchat.com. VRChat's <c>public</c>.</summary>
+    public const string Everyone = "public";
+
+    public static bool IsKnown(string? value) => value is Group or Everyone;
+}
+
+/// <summary>A VRChat destination's own choices (posts design §3.6), stored as JSON in <see cref="PostDestination.Options"/>.</summary>
+/// <param name="Visibility"><see cref="VRChatPostVisibilities.Group"/> (the default) or <see cref="VRChatPostVisibilities.Everyone"/>.</param>
+/// <param name="RoleIds">Only these roles see it; empty is every member. Only with Group. Opaque ids.</param>
+/// <param name="Notify">VRChat tells the members, on the first send only. Unticked to start.</param>
+/// <param name="ImageId">
+/// The picture's VRChat file id, uploaded while VRChat picture uploads are on (decision 14). Once
+/// the post went out, the id VRChat was sent, or null when it went as text only: an edit sends it
+/// again, because VRChat removes a picture an edit leaves out.
+/// </param>
+/// <param name="PictureId">The post's picture <see cref="ImageId"/> was uploaded from, so a picture changed since is not sent.</param>
+public sealed record VRChatPostOptions(
+    string Visibility = VRChatPostVisibilities.Group,
+    IReadOnlyList<string>? RoleIds = null,
+    bool Notify = false,
+    string? ImageId = null,
+    Guid? PictureId = null);

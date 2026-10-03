@@ -29,6 +29,8 @@ import {
   postsApi,
   shownLabel,
   shownTone,
+  tidy,
+  vrchatAudience,
   DISCORD_LIMIT,
   type Post,
   type PostDestination,
@@ -40,6 +42,7 @@ import { followLink } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
+import { vrchatPermissionLabel } from '@/lib/vrchatPermissions'
 import { PageMessage } from '@/pages/analytics/shared'
 
 export type MarketingPage = Extract<PageId, 'marketing' | 'marketing-sent' | 'marketing-drafts' | 'marketing-failed'>
@@ -79,7 +82,7 @@ type Confirming =
   | { kind: 'delete-on-site'; post: Post; destination: PostDestination }
 
 /**
- * Marketing (posts design §4): posts sent to Discord at a time, in four lists, with where each went
+ * Marketing (posts design §4): posts sent to Discord and the VRChat group at a time, in four lists, with where each went
  * and how. New post opens the composer; each row carries what can be done to it now. The list
  * redraws when a post's facts arrive, so Sending turns Posted without a reload.
  */
@@ -221,6 +224,7 @@ export function Marketing({ list, onList }: { list: MarketingPage; onList: (page
           post={composing.post}
           initial={composing.input}
           sites={data.sites}
+          roles={data.vrChatRoles}
           onClose={() => setComposing(null)}
           onSaved={(saved) => {
             setComposing(null)
@@ -381,7 +385,11 @@ function PostRow({
             {NETWORK_LABEL[d.network]} · {shownLabel(d)}
           </Badge>
           {d.targetName && <span className="text-muted-foreground">#{d.targetName}</span>}
+          {d.vrChat && <span className="text-muted-foreground">{vrchatAudience(d.vrChat.visibility, d.vrChat.roleNames)}</span>}
           {(d.state === 'failed' || d.notPublished) && d.error && <span className="text-destructive">{d.error}</span>}
+          {d.missingPermission && (
+            <span className="text-destructive">Needs {vrchatPermissionLabel(d.missingPermission)}</span>
+          )}
           {d.link && d.state === 'posted' && (
             <a href={d.link} target="_blank" rel="noreferrer" className="text-link hover:underline">
               Open
@@ -392,7 +400,7 @@ function PostRow({
               Try again
             </Button>
           )}
-          {canManage && d.state === 'posted' && d.network === 'discord' && (
+          {canManage && d.state === 'posted' && (d.network === 'discord' || d.network === 'vrchat') && (
             <Button size="xs" variant="ghost" onClick={() => onEditOnSite(d)}>
               Edit
             </Button>
@@ -412,7 +420,8 @@ function PostRow({
 
 /**
  * Edit on a site after the post went out (posts design §4.5): the title and the text only, for that
- * site alone. Discord keeps the picture and pings nobody.
+ * site alone. Discord keeps the picture and pings nobody; VRChat keeps the picture and who sees it,
+ * notifies nobody, and needs a title.
  */
 function SiteEdit({
   post,
@@ -430,7 +439,9 @@ function SiteEdit({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const length = discordMessage(title, text, destination.roleId).length
+  const vrchat = destination.network === 'vrchat'
+  const length = vrchat ? tidy(text).length : discordMessage(title, text, destination.roleId).length
+  const needsTitle = vrchat && !tidy(title)
 
   const save = () => {
     setBusy(true)
@@ -458,7 +469,7 @@ function SiteEdit({
             <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" disabled={busy} onClick={save}>
+            <Button size="sm" disabled={busy || needsTitle} onClick={save}>
               Save
             </Button>
           </DialogFoot>
@@ -468,14 +479,19 @@ function SiteEdit({
           <label className="flex flex-col gap-1">
             <span className="text-muted-foreground">Title</span>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            {needsTitle && <span className="text-destructive">Needs a title</span>}
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-muted-foreground">Text</span>
             <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
           </label>
-          <span className={cn('font-mono', length > DISCORD_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>
-            Discord {length} / {DISCORD_LIMIT}
-          </span>
+          {vrchat ? (
+            <span className="font-mono text-muted-foreground">VRChat {length}</span>
+          ) : (
+            <span className={cn('font-mono', length > DISCORD_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>
+              Discord {length} / {DISCORD_LIMIT}
+            </span>
+          )}
         </div>
       </DialogContent>
     </Dialog>

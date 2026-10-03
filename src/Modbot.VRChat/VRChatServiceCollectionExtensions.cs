@@ -425,6 +425,20 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<Calendar.CalendarFacts>(),
             provider.GetRequiredService<Calendar.CalendarVRChatReadMemory>()));
+        // Posts to the VRChat group from the Marketing tab (posts design §3.6), run by the
+        // calendar's service in a loop of its own; and the tab's edit and delete on a post already
+        // there. The claim is shared with the Discord sender, so it is added only once.
+        services.TryAddScoped<Core.Posts.PostClaim>();
+        services.AddScoped<Posts.PostVRChatSender>(provider => new Posts.PostVRChatSender(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Posts.PostClaim>()));
+        services.AddSingleton<Core.Posts.IVRChatPostActions>(
+            provider => new Posts.VRChatPostActions(provider.GetRequiredService<GroupPage.GroupPosts>()));
+
         services.AddHostedService(provider => new Calendar.CalendarService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IDelayScheduler>()));

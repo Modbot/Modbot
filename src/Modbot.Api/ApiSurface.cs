@@ -128,6 +128,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
         services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
+        services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,

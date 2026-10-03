@@ -1,15 +1,15 @@
 ---
 title: Marketing
-description: Write a post once, pick when it goes, and let Modbot send it to your Discord server at that time, with a preview of exactly what goes out.
+description: Write a post once, pick when it goes, and let Modbot send it to your Discord server and your VRChat group at that time, with a preview of exactly what goes out.
 ---
 
 The **Marketing** page is where you write posts for your community and send them at a time you
 pick: an announcement, a reminder, news. You write a post once, tick where it goes, and Modbot sends
 it at its time.
 
-In this version a post can go to a **Discord channel**. VRChat group posts and Bluesky are planned
-and come later; until then the VRChat page's own [**Posts**](/analytics#posts) tab posts in your
-group on VRChat.
+In this version a post can go to a **Discord channel** and to your **VRChat group's posts**.
+Bluesky is planned and comes later. The VRChat page's own [**Posts**](/analytics#posts) tab stays:
+it posts in your group right away, and posts sent from **Marketing** show up there like any others.
 
 ## Who can use it
 
@@ -17,8 +17,8 @@ group on VRChat.
 |---|---|
 | See the **Marketing** page, every post, where each one goes and how it went | [**See posts**](/accounts/roles-and-permissions#see-posts) |
 | Write, schedule, change, cancel and send posts, and **Try again** | [**Manage posts**](/accounts/roles-and-permissions#manage-posts) and **See posts** |
-| **Edit** or **Delete** a post on Discord after it went out | **Manage posts** and **See posts** |
-| Turn **Pause all posting** and **Discord posts** on or off | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+| **Edit** or **Delete** a post on Discord or VRChat after it went out | **Manage posts** and **See posts** |
+| Turn **Pause all posting**, **Discord posts** and **VRChat posts** on or off | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
 | See the **Posts** card on **Health** | **See posts** and [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
@@ -53,14 +53,16 @@ Each post shows:
 |---|---|
 | **Waiting** | Not its time yet. |
 | **Paused** | **Pause all posting** is on, so nothing is sent. |
-| **Off** | **Discord posts** is off in Settings. |
-| **Not set up** | Modbot has no Discord server id, or the bot is not connected. |
-| **Sending…** | On its way, or Modbot is checking whether Discord took it. |
-| **Posted** | In the channel. **Open** opens it in Discord. |
+| **Off** | **Discord posts** or **VRChat posts** is off in Settings. |
+| **Not set up** | Discord: Modbot has no Discord server id, or the bot is not connected. VRChat: no group is picked, or Modbot has no VRChat login. |
+| **Sending…** | On its way, or Modbot is checking whether the site took it. |
+| **Posted** | On the site. **Open** opens it there: the message on Discord, the group's posts on VRChat. |
 | **Not published** | In the channel, but publishing it to followers did not go through. |
-| **Failed** | Not in the channel, with Discord's own words, or Modbot's. |
-| **Deleted** | Was in the channel and was deleted from Modbot. |
+| **Failed** | Not on the site, with the site's own words, or Modbot's. |
+| **Deleted** | Was on the site and was deleted from Modbot. |
 | **Skipped** | Never went: the post was cancelled first. |
+
+A VRChat badge also says who sees the post: **Everyone**, **Group**, or the roles it is for.
 
 The page updates by itself when a post is sent or fails, so **Sending…** turns into **Posted**
 without reloading.
@@ -70,18 +72,21 @@ without reloading.
 **New post** opens the form. It has two tabs, **Write** and **Preview**, and its buttons stay at the
 bottom.
 
-- **Title** is shown in bold on the first line on Discord. You can leave it empty.
-- **Text** is what the post says. Under it a counter shows how long the Discord message will be,
-  such as **Discord 212 / 2000**. Discord takes at most 2000 characters, and the counter turns red
-  past that. The title and a mentioned role count too.
+- **Title** is shown in bold on the first line on Discord, and as the post's title on VRChat. Discord
+  does without one; VRChat needs one.
+- **Text** is what the post says. Under it a counter for each place ticked shows how long the post
+  will be, such as **Discord 212 / 2000** and **VRChat 212**. Discord takes at most 2000 characters,
+  and its counter turns red past that; the title and a mentioned role count too. VRChat gives no
+  limit, so its counter is never red.
 - **Picture**: **Choose picture** to pick one on your computer, or paste a **Picture link**. It
   opens in a crop box. Pick its shape: **16:9**, **1:1**, or **As it is** for the whole picture.
   Move and size the box, then **Upload**. A picture up to 8 MB is kept by Modbot and sent to Discord
   as a file with the post. Modbot fetches a picture link from your server, so the website it points
   at sees a request from your server; it fetches only `https://` links on public websites.
-- **Where it goes**: a chip for each place a post can go. **Discord** is the only one in this version.
-  **It is off every time you open the form for a new post.** A post goes nowhere unless you tick it.
-  A chip that is on but cannot send says **Off** or **Not set up**, linking to where you fix that.
+- **Where it goes**: a chip for each place a post can go: **Discord** and **VRChat**. **Each is off
+  every time you open the form for a new post.** A post goes nowhere unless you tick it. A chip that
+  is on but cannot send says **Off** or **Not set up**, linking to where you fix that. **VRChat**
+  says **Needs a title** until the post, or VRChat's own title, has one.
 - **When**: **Now** sends it as soon as you press **Post now**. **Later** sends it at the date and
   time you pick. The time zone is your browser's to start with; pick another and the time is that
   zone's.
@@ -92,8 +97,8 @@ Then:
 - **Save draft** keeps it in **Drafts**, with nothing sent.
 - **Cancel** closes the form without saving.
 
-If something is wrong, the form lists every problem at once, such as "Pick a channel." or "The
-Discord text is longer than 2000 characters.".
+If something is wrong, the form lists every problem at once, such as "Pick a channel.", "VRChat
+needs a title." or "The Discord text is longer than 2000 characters.".
 
 ### Discord
 
@@ -110,11 +115,38 @@ With **Discord** ticked:
 - **Own text**: tick it to give Discord words of its own. It starts as the post's text, has its own
   counter, and **Reset** puts the post's text back.
 
+### VRChat
+
+With **VRChat** ticked, the post goes to your group's posts on VRChat, from the VRChat account
+Modbot signs in as:
+
+- **Who sees it**: **Group** (your group's members) or **Everyone** (anyone on vrchat.com). It
+  starts as **Group**.
+- **Roles**: with **Group**, tick roles to show it only to them. None ticked is every member. The
+  roles are your group's as Modbot last read them.
+- **Notify members**: has VRChat tell the members about it, once, when it first goes out. It starts
+  unticked, every time.
+- **Own title** and **Own text**: tick them to give VRChat words of its own. Each starts as the
+  post's, and **Reset** puts the post's back.
+
+**The picture goes to VRChat only while uploads are on**: **Settings**, **Modbot's VRChat login**,
+**Pictures**, **Upload VRChat pictures**. Then, when you tick **VRChat** on a post with a picture,
+the picture is uploaded to VRChat (it must be a PNG or JPEG), on the VRChat account Modbot signs in
+as, which needs VRChat+. VRChat takes one upload a minute. If VRChat turns it down, the VRChat
+section says why, and VRChat gets the text only. While uploads are off, VRChat gets the text only,
+and its preview shows no picture.
+
 ### Preview
 
-**Preview** shows the Discord message the way the channel will show it: the role, the title in
-bold, the text with its links, and the picture. It is built by the same code that sends the post, so
-it is exactly what goes out. If something would stop the post being scheduled, it is listed above.
+**Preview** shows each place the post goes, the way that site shows it:
+
+- **Discord**: the message the way the channel will show it: the role, the title in bold, the text
+  with its links, and the picture.
+- **VRChat**: the group post: its title, who sees it, the picture if VRChat is sent one, and the
+  text.
+
+It is built by the same code that sends the post, so it is exactly what goes out. If something
+would stop the post being scheduled, it is listed above.
 
 ## Before it goes
 
@@ -125,21 +157,23 @@ Each post in **Scheduled** or **Drafts** has buttons:
 - **Post now** sends it now, whatever time it had.
 - **Cancel post** asks first, then calls it off. Nothing more is sent, and it moves to **Cancelled**.
 - **Delete draft** asks first, then deletes a draft.
-- **Duplicate** starts a new draft from the post: the same words, picture and Discord choices, with
-  every place unticked again.
+- **Duplicate** starts a new draft from the post: the same words, picture and each place's choices,
+  with every place unticked again and **Notify members** unticked.
 
 There is no repeat. For a post every week, **Duplicate** it. For reminders about an event, the
 calendar will make them in a later version.
 
 ## After it goes
 
-A post in the channel shows **Open**, **Edit** and **Delete** beside its badge:
+A post that went out shows **Open**, **Edit** and **Delete** beside its badge:
 
-- **Edit** changes its title and text on Discord. The picture stays, and nobody is pinged again.
-- **Delete** asks "Delete this post on Discord?", then deletes it there. A message already gone
-  from Discord counts as deleted.
+- **Edit** changes its title and text there. On Discord the picture stays, and nobody is pinged
+  again. On VRChat the picture and who sees it stay, nobody is notified again, and it needs a title.
+- **Delete** asks "Delete this post on Discord?" (or on VRChat), then deletes it there. A post
+  already gone from the site counts as deleted.
 
-Both happen at once; the bot has to be connected.
+Both happen at once: on Discord the bot has to be connected; on VRChat each is one request, never
+sent again, and if VRChat is busy it says so and you try again later.
 
 ## When a post fails
 
@@ -154,6 +188,16 @@ A failed post shows why, and **Try again**.
 
 A post that is in the channel but was not published to followers shows **Not published**, and **Try
 again** publishes it.
+
+On VRChat:
+
+| What it says | What happened | What **Try again** does |
+|---|---|---|
+| VRChat's own words, with **Needs Manage Group Announcement** when Modbot's VRChat account lacks it | VRChat refused it. Nothing was posted. | Sends it again. Give the permission first, in VRChat, under the group's **Roles**. |
+| VRChat needs a title. | The post had no title for VRChat. Nothing was sent. | Sends it again. Edit the post to give it a title first. |
+| Not sent on time. | It was more than an hour late. It was not sent. | Sends it now. **Post now** does the same. |
+| VRChat did not add the post. | VRChat gave no clear answer, and the post was not in the group's posts two minutes later. | Looks in the group's posts once more, and sends it only if it is not there. |
+| Could not check the group's posts. | VRChat gave no clear answer, and Modbot could not read the group's posts to look. | Looks again first, the same way. |
 
 ### Never posted twice
 
@@ -176,6 +220,21 @@ When Discord turns a post away without making anything (it is rate limiting the 
 could not be looked up), the post waits two minutes before it is tried again, so the posts behind
 it still go.
 
+VRChat works the same way, with its own look. VRChat has answered with an error and posted all the
+same, so when it gives no clear answer (an error on its side, no answer, a timeout) the post shows
+**Sending…** and Modbot does not send it again. Two minutes later it reads the group's posts, newest
+first, for a post by Modbot's VRChat account with the same title and text, made no earlier than two
+minutes before the attempt. VRChat changes some characters it is sent, so the two are compared by
+their letters and digits only. If it finds one, that post is the post: it shows **Posted**. It reads
+on until it has seen a post older than the attempt, or the end of the list; only then is a post it
+did not find **Failed** with "VRChat did not add the post.". The group's audit log counts too: when
+Modbot's audit-log reading sees VRChat's own record of that post being made, even up to a day late,
+the post shows **Posted**.
+
+When VRChat rate limits Modbot, or Modbot is not signed in yet, nothing was made: the post waits, and
+is tried again only once VRChat's own wait is over. **Modbot never sends a rate-limited request
+again by itself.**
+
 ## What the bot needs in Discord
 
 In the post's channel the bot needs:
@@ -184,29 +243,37 @@ In the post's channel the bot needs:
 - **Attach Files**, for a post with a picture;
 - **Read Message History**, to look for a post Discord gave no clear answer to.
 
+## What Modbot's VRChat account needs
+
+In your group, Modbot's VRChat account needs **Manage Group Announcement**, the permission for the
+group's posts. A post refused for lacking it says so on the post and on **Health**.
+
 ## Settings
 
-**Settings**, **Posts** has two switches:
+**Settings**, **Posts** has three switches:
 
 - **Pause all posting**: while it is on, no post is sent anywhere. Posts wait and show **Paused**; one
   more than an hour late is not sent and shows "Not sent on time." with **Post now**. It does not
   stop the calendar's own Discord event, channel card or VRChat calendar entry.
 - **Discord posts**: off, no post goes to Discord; Discord posts wait and show **Off**. It is on
   to start with, because nothing goes out unless somebody ticks **Discord** on a post.
+- **VRChat posts**: off, no post goes to the VRChat group; VRChat posts wait and show **Off**. It
+  is on to start with, for the same reason.
 
 Each change is written to the audit log with who made it.
 
-Modbot sends at most one post a pass, every 20 seconds or so, and at most 10 posts an hour to
-Discord, so a mistake cannot flood a channel.
+Modbot sends at most one post a pass to each site, every 20 seconds or so for Discord and every 15
+for VRChat, and at most 10 posts an hour to each, so a mistake cannot flood a channel or a group.
 
 ## Health
 
 The **Posts** card on **Health** shows:
 
 - **Paused** while all posting is paused;
-- Discord, when posts are waiting on it and it is **Off** or **Not set up**;
-- posts that failed in the last 7 days, each leading to **Failed**;
-- posts Modbot has been looking for in the channel for more than 15 minutes.
+- Discord or VRChat, when posts are waiting on it and it is **Off** or **Not set up**;
+- posts that failed in the last 7 days, each leading to **Failed**, with the VRChat permission
+  Modbot's account needs when that is why;
+- posts Modbot has been looking for on the site for more than 15 minutes.
 
 When there is nothing to say, the card is not shown.
 
@@ -214,12 +281,20 @@ When there is nothing to say, the card is not shown.
 
 Everything done to a post is written to the audit log, under the operational log: who wrote,
 changed, cancelled or sent it now, each post Modbot sent with its link and exactly what it said,
-each post that failed with the reason, and each edit and delete on Discord with who did it.
+each post that failed with the reason, each edit and delete on a site with who did it, and each
+picture uploaded to VRChat for a post, with who chose it.
 
 ## What leaves your server
 
-A post goes only where it is ticked, and every place starts unticked. For Discord, the bot sends the
-post's title, text and picture to the channel, mentions the role if one was picked, and publishes it
-to the channel's followers if that was ticked. The channel's readers see it, and so do the following
-servers' readers. Nothing about your members goes in a post: no names, no ids, no counts. See
+A post goes only where it is ticked, and every place starts unticked.
+
+- **Discord**: the bot sends the post's title, text and picture to the channel, mentions the role if
+  one was picked, and publishes it to the channel's followers if that was ticked. The channel's
+  readers see it, and so do the following servers' readers.
+- **VRChat**: Modbot's VRChat account posts the title and text in your group, for who was picked
+  (the group, some of its roles, or everyone on vrchat.com), and has VRChat notify the members only
+  if **Notify members** was ticked. The picture goes only while **Upload VRChat pictures** is on; it
+  is then uploaded to that VRChat account and stays there as a file on it.
+
+Nothing about your members goes in a post: no names, no ids, no counts. See
 [Privacy](/privacy#what-leaves-your-server).

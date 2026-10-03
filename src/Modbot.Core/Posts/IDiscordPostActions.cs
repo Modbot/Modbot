@@ -1,9 +1,12 @@
 namespace Modbot.Core.Posts;
 
-/// <summary>Whether a change to a post on Discord went through, and if not, why.</summary>
+/// <summary>Whether a change to a post on a site went through, and if not, why.</summary>
 /// <param name="Done">It happened, or there was nothing to do.</param>
 /// <param name="Error">What went wrong, in a sentence, when it did not.</param>
-/// <param name="BotOffline">The bot is not connected, so nothing was asked of Discord.</param>
+/// <param name="BotOffline">
+/// The site cannot be asked now (the Discord bot is not connected, or VRChat is not set up), so
+/// nothing was asked of it.
+/// </param>
 /// <param name="Gone">Discord says the message is not there any more.</param>
 public sealed record PostSiteOutcome(bool Done, string? Error, bool BotOffline = false, bool Gone = false)
 {

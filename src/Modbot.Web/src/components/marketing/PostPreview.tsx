@@ -2,7 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { DiscordText, RoleMention } from '@/components/calendar/EventPreview'
 import { Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
-import { postsApi, requestOf, type DiscordPostPreview, type PostInput, type PostPreview } from '@/lib/posts'
+import { Badge } from '@/components/ui/badge'
+import {
+  postsApi,
+  requestOf,
+  vrchatAudience,
+  type DiscordPostPreview,
+  type PostInput,
+  type PostPreview,
+  type VRChatPostPreview,
+} from '@/lib/posts'
 import { cn } from '@/lib/utils'
 
 /**
@@ -11,7 +20,16 @@ import { cn } from '@/lib/utils'
  * fields are not on screen while it is, so nothing can change under it. What would stop the post
  * being scheduled is listed above.
  */
-export function PostPreviewPanel({ input, croppedPicture }: { input: PostInput; croppedPicture: ReactNode }) {
+export function PostPreviewPanel({
+  input,
+  croppedPicture,
+  vrChatPictures,
+}: {
+  input: PostInput
+  croppedPicture: ReactNode
+  /** VRChat picture uploads are on: VRChat is sent the picture it has, otherwise text only. */
+  vrChatPictures: boolean
+}) {
   const [preview, setPreview] = useState<PostPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,7 +37,7 @@ export function PostPreviewPanel({ input, croppedPicture }: { input: PostInput; 
     let cancelled = false
 
     postsApi
-      .preview(requestOf(input, false))
+      .preview(requestOf(input, false, null, vrChatPictures))
       .then((p) => {
         if (!cancelled) setPreview(p)
       })
@@ -30,7 +48,7 @@ export function PostPreviewPanel({ input, croppedPicture }: { input: PostInput; 
     return () => {
       cancelled = true
     }
-  }, [input])
+  }, [input, vrChatPictures])
 
   if (error) return <Outcome tone="problem">{error}</Outcome>
   if (!preview) return <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Loading…</p>
@@ -47,7 +65,33 @@ export function PostPreviewPanel({ input, croppedPicture }: { input: PostInput; 
         </div>
       )}
       {preview.discord && <DiscordMessage message={preview.discord} picture={croppedPicture} />}
+      {preview.vrChat && <VRChatPost post={preview.vrChat} />}
     </div>
+  )
+}
+
+/**
+ * A VRChat group post as the group's Posts page shows it: the title, who sees it, the picture when
+ * VRChat is sent one, and the text. No picture is drawn when VRChat gets text only.
+ */
+export function VRChatPost({ post }: { post: VRChatPostPreview }) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="font-label text-muted-foreground">VRChat</h3>
+      <article className="flex flex-col gap-2 rounded-sm border-(length:--hairline) bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) * 1.15)' }}>
+            {post.title ?? <span className="text-muted-foreground">Untitled</span>}
+          </span>
+          <Badge variant={post.visibility === 'public' ? 'outline' : 'secondary'}>{vrchatAudience(post.visibility, post.roleNames)}</Badge>
+        </div>
+        {post.pictureUrl && (
+          <img src={post.pictureUrl} alt="" className="max-h-72 max-w-full self-start rounded-sm" loading="lazy" />
+        )}
+        {post.text && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{post.text}</p>}
+      </article>
+      <span className="font-mono text-muted-foreground">{post.length}</span>
+    </section>
   )
 }
 

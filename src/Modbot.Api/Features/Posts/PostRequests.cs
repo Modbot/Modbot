@@ -6,6 +6,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Posts;
+using Modbot.VRChat.Sync;
 using NodaTime;
 using NodaTime.Text;
 
@@ -41,7 +42,24 @@ internal static class PostRequests
         DateTimeOffset? SendAt,
         string TimeZone,
         Guid? EventId,
-        CheckedDiscord? Discord);
+        CheckedDiscord? Discord,
+        CheckedVRChat? VRChat = null);
+
+    /// <summary>The VRChat section, checked.</summary>
+    /// <param name="GroupId">The group it goes to: the managed group when it was saved.</param>
+    /// <param name="Title">The title VRChat gets: its own or the post's. Null when there is none.</param>
+    /// <param name="Text">The text VRChat gets: its own or the post's.</param>
+    /// <param name="RoleNames">The roles it is for, by name, for the preview.</param>
+    /// <param name="PictureUrl">Modbot's address for the picture VRChat is sent, or null for text only.</param>
+    public sealed record CheckedVRChat(
+        string? GroupId,
+        VRChatPostOptions Options,
+        string? OwnTitle,
+        string? OwnText,
+        string? Title,
+        string Text,
+        IReadOnlyList<string> RoleNames,
+        string? PictureUrl);
 
     /// <summary>The Discord section, checked.</summary>
     public sealed record CheckedDiscord(
@@ -72,13 +90,22 @@ internal static class PostRequests
             problems.Add($"The text is longer than {Post.MaxTextLength} characters.");
 
         var ownText = body.Discord?.Text is { } own ? PostTexts.Tidy(own) : null;
+        var vrchatOwnTitle = body.VRChat?.Title is { } ownTitle ? PostTexts.TidyTitle(ownTitle) : null;
+        var vrchatOwnText = body.VRChat?.Text is { } ownVRChat ? PostTexts.Tidy(ownVRChat) : null;
+
+        // The text each ticked site gets: its own, or the post's.
+        var siteTexts = new List<string>(2);
+        if (body.Discord is not null)
+            siteTexts.Add(ownText ?? text);
+        if (body.VRChat is not null)
+            siteTexts.Add(vrchatOwnText ?? text);
 
         if (body.Draft)
         {
-            if (title is null && text.Length == 0 && string.IsNullOrEmpty(ownText))
+            if (title is null && vrchatOwnTitle is null && text.Length == 0 && siteTexts.All(t => t.Length == 0))
                 problems.Add("Write something first.");
         }
-        else if (text.Length == 0 && (body.Discord is null || string.IsNullOrEmpty(ownText)))
+        else if (siteTexts.Count == 0 ? text.Length == 0 : siteTexts.Any(t => t.Length == 0))
         {
             problems.Add("Write some text.");
         }
@@ -134,14 +161,111 @@ internal static class PostRequests
                 problems.Add("That event does not exist.");
         }
 
-        if (!body.Draft && body.Discord is null)
+        if (!body.Draft && body.Discord is null && body.VRChat is null)
             problems.Add("Pick where it goes.");
 
         CheckedDiscord? discord = null;
         if (body.Discord is { } section)
             discord = await CheckDiscordAsync(db, section, title, text, ownText, body.Draft, problems, ct);
 
-        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord), problems);
+        CheckedVRChat? vrchat = null;
+        if (body.VRChat is { } vrchatSection)
+        {
+            var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+            vrchat = CheckVRChat(vrchatSection, settings, title, text, vrchatOwnTitle, vrchatOwnText, body.PictureId, body.Draft, problems);
+        }
+
+        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord, vrchat), problems);
+    }
+
+    /// <summary>
+    /// The VRChat section (posts design §3.6): who sees it, the roles, notify, its own title and
+    /// text, and the picture's VRChat id. VRChat needs a title; it documents no length limit, so none
+    /// is made up beyond what Modbot keeps. Role ids are opaque: blanks and repeats go, nothing else
+    /// is judged (foundation §3.1.1).
+    /// </summary>
+    private static CheckedVRChat CheckVRChat(
+        PostVRChatRequest section,
+        Core.Data.Entities.Settings? settings,
+        string? title,
+        string text,
+        string? ownTitle,
+        string? ownText,
+        Guid? pictureId,
+        bool draft,
+        List<string> problems)
+    {
+        var groupId = settings?.ManagedGroupId?.Trim();
+        if (string.IsNullOrEmpty(groupId))
+        {
+            groupId = null;
+            if (!draft)
+                problems.Add("No VRChat group is set up yet.");
+        }
+
+        var visibility = string.IsNullOrWhiteSpace(section.Visibility)
+            ? VRChatPostVisibilities.Group
+            : section.Visibility.Trim().ToLowerInvariant();
+
+        if (!VRChatPostVisibilities.IsKnown(visibility))
+        {
+            problems.Add("Who sees it must be Group or Everyone.");
+            visibility = VRChatPostVisibilities.Group;
+        }
+
+        if (ownTitle is { Length: > Post.MaxTitleLength })
+            problems.Add($"The VRChat title is longer than {Post.MaxTitleLength} characters.");
+
+        if (ownText is { Length: > Post.MaxTextLength })
+            problems.Add($"The VRChat text is longer than {Post.MaxTextLength} characters.");
+
+        var sentTitle = ownTitle ?? title;
+        if (sentTitle is null && !draft)
+            problems.Add("VRChat needs a title.");
+
+        // The picture goes to VRChat only while uploads are on (decision 14), and only as uploaded
+        // from the picture the post has; otherwise VRChat gets text only.
+        var imageId = string.IsNullOrWhiteSpace(section.ImageId) ? null : section.ImageId.Trim();
+        if (settings is not { VRChatPictureUploads: true } || pictureId is null)
+            imageId = null;
+
+        var options = new VRChatPostOptions(
+            visibility,
+            [.. section.RoleIds ?? []],
+            section.Notify,
+            imageId,
+            imageId is null ? null : pictureId);
+
+        options = options with { RoleIds = PostTexts.VRChatRoles(options) };
+
+        var roles = VRChatRoleNames(settings);
+
+        return new CheckedVRChat(
+            groupId,
+            options,
+            ownTitle,
+            ownText,
+            sentTitle,
+            ownText ?? text,
+            [.. options.RoleIds!.Select(id => roles.TryGetValue(id, out var name) ? name : id)],
+            imageId is null || pictureId is not { } picture ? null : PostEndpoints.PicturePath + picture);
+    }
+
+    /// <summary>The VRChat group's roles, in VRChat's order, as the last group read found them.</summary>
+    public static IReadOnlyList<PostRoleChoice> VRChatRoles(Core.Data.Entities.Settings? settings) =>
+        [.. (GroupInfoSnapshot.Parse(settings?.GroupInfoSnapshot)?.Roles ?? [])
+            .OrderBy(r => r.Order)
+            .Select(r => new PostRoleChoice(r.Id, string.IsNullOrWhiteSpace(r.Name) ? r.Id : r.Name))];
+
+    /// <summary>The VRChat group's role names by id, as the last group read found them.</summary>
+    private static Dictionary<string, string> VRChatRoleNames(Core.Data.Entities.Settings? settings)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var role in VRChatRoles(settings))
+            names.TryAdd(role.Id, role.Name);
+
+        return names;
     }
 
     private static async Task<CheckedDiscord> CheckDiscordAsync(
@@ -281,6 +405,39 @@ internal static class PostRequests
         {
             post.Destinations.Remove(discord);
         }
+
+        var vrchat = post.Destinations.FirstOrDefault(d => d.Network == PostNetworks.VRChat);
+
+        if (request.VRChat is { } wantedVRChat)
+        {
+            if (vrchat is null)
+            {
+                vrchat = new PostDestination
+                {
+                    Id = Guid.CreateVersion7(),
+                    PostId = post.Id,
+                    Network = PostNetworks.VRChat,
+                };
+                post.Destinations.Add(vrchat);
+            }
+
+            vrchat.Target = wantedVRChat.GroupId ?? string.Empty;
+            vrchat.Options = PostTexts.WriteVRChatOptions(wantedVRChat.Options);
+            vrchat.TitleOverride = wantedVRChat.OwnTitle;
+            vrchat.TextOverride = wantedVRChat.OwnText;
+            vrchat.State = PostDestinationStates.Waiting;
+            vrchat.Error = null;
+            vrchat.ErrorAt = null;
+            vrchat.MissingPermission = null;
+            vrchat.CheckAt = null;
+            vrchat.MayBeSent = false;
+            vrchat.SendIfMissing = false;
+            vrchat.UpdatedAt = now;
+        }
+        else if (vrchat is not null)
+        {
+            post.Destinations.Remove(vrchat);
+        }
     }
 
     /// <summary>What still stops a draft being sent now, one sentence each.</summary>
@@ -308,7 +465,19 @@ internal static class PostRequests
                 problems.Add($"The Discord text is longer than {PostTexts.DiscordLimit} characters.");
         }
 
-        return problems;
+        foreach (var destination in live.Where(d => d.Network == PostNetworks.VRChat))
+        {
+            if (string.IsNullOrWhiteSpace(destination.Target))
+                problems.Add("No VRChat group is set up yet.");
+
+            if (PostTexts.TitleFor(post, destination) is null)
+                problems.Add("VRChat needs a title.");
+
+            if (PostTexts.TextFor(post, destination).Length == 0)
+                problems.Add("Write some text.");
+        }
+
+        return [.. problems.Distinct(StringComparer.Ordinal)];
     }
 
     /// <summary>A post's fields as the audit log keeps them.</summary>
@@ -327,12 +496,21 @@ internal static class PostRequests
             ["eventId"] = post.EventId?.ToString(),
             ["destinations"] = new JsonArray([.. post.Destinations
                 .OrderBy(d => d.Network, StringComparer.Ordinal)
-                .Select(d => (JsonNode)new JsonObject
+                .Select(d =>
                 {
-                    ["network"] = d.Network,
-                    ["target"] = d.Target,
-                    ["options"] = JsonNode.Parse(string.IsNullOrWhiteSpace(d.Options) ? "{}" : d.Options),
-                    ["text"] = d.TextOverride,
+                    var row = new JsonObject
+                    {
+                        ["network"] = d.Network,
+                        ["target"] = d.Target,
+                        ["options"] = JsonNode.Parse(string.IsNullOrWhiteSpace(d.Options) ? "{}" : d.Options),
+                        ["text"] = d.TextOverride,
+                    };
+
+                    // VRChat has its own title too; Discord does not.
+                    if (d.Network == PostNetworks.VRChat)
+                        row["title"] = d.TitleOverride;
+
+                    return (JsonNode)row;
                 })]),
         };
     }
@@ -366,10 +544,13 @@ internal static class PostRequests
         return new PostSites(
             settings?.PostsPaused ?? false,
             settings?.DiscordPostsOn ?? true,
-            CalendarReadiness.Discord(settings, bot));
+            CalendarReadiness.Discord(settings, bot),
+            settings?.VRChatPostsOn ?? true,
+            PostSites.VRChatReady(settings));
     }
 
-    public static PostSitesView SitesView(PostSites sites) => new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp);
+    public static PostSitesView SitesView(PostSites sites, bool vrchatPictures) =>
+        new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp, sites.VRChatOn, sites.VRChatSetUp, vrchatPictures);
 
     /// <summary>The posts as the page draws them, with the names Modbot has for their channels, roles, events and writers.</summary>
     public static async Task<List<PostView>> ViewsAsync(
@@ -406,7 +587,11 @@ internal static class PostRequests
             .Where(e => eventIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id, e => e.Title, ct);
 
-        return [.. posts.Select(p => View(p, sites, channels, roles, users, events))];
+        var vrchatRoles = destinations.Any(d => d.Network == PostNetworks.VRChat)
+            ? VRChatRoleNames(await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct))
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+        return [.. posts.Select(p => View(p, sites, channels, roles, users, events, vrchatRoles))];
     }
 
     private static PostView View(
@@ -415,7 +600,8 @@ internal static class PostRequests
         IReadOnlyDictionary<string, string> channels,
         IReadOnlyDictionary<string, string> roles,
         IReadOnlyDictionary<Guid, string> users,
-        IReadOnlyDictionary<Guid, string> events)
+        IReadOnlyDictionary<Guid, string> events,
+        IReadOnlyDictionary<string, string> vrchatRoles)
     {
         var zone = CalendarRepeat.FindZone(post.TimeZone) ?? DateTimeZone.Utc;
 
@@ -441,8 +627,23 @@ internal static class PostRequests
                 .OrderBy(d => PostNetworks.All.TakeWhile(n => n != d.Network).Count())
                 .Select(d =>
                 {
-                    var options = PostTexts.DiscordOptionsOf(d);
+                    var discord = d.Network == PostNetworks.Discord;
+                    var options = discord ? PostTexts.DiscordOptionsOf(d) : new DiscordPostOptions();
                     var notPublished = d.State == PostDestinationStates.Posted && options.Publish && d.PublishedAt is null;
+                    VRChatDestinationView? vrchat = null;
+
+                    if (d.Network == PostNetworks.VRChat)
+                    {
+                        var own = PostTexts.VRChatOptionsOf(d);
+                        var ids = PostTexts.VRChatRoles(own);
+                        vrchat = new VRChatDestinationView(
+                            own.Visibility,
+                            ids,
+                            [.. ids.Select(id => vrchatRoles.TryGetValue(id, out var name) ? name : id)],
+                            own.Notify,
+                            own.ImageId,
+                            own.PictureId);
+                    }
 
                     return new PostDestinationView(
                         d.Id,
@@ -465,7 +666,9 @@ internal static class PostRequests
                         d.SentText,
                         d.SentAt,
                         d.PostedAt,
-                        d.PublishedAt);
+                        d.PublishedAt,
+                        vrchat,
+                        d.State is PostDestinationStates.Failed ? d.MissingPermission : null);
                 })]);
     }
 

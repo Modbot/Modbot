@@ -155,6 +155,7 @@ public static class FactSubjects
         [FactType.PostFailed] = SubjectKind.Other,
         [FactType.PostEdited] = SubjectKind.Other,
         [FactType.PostRemoved] = SubjectKind.Other,
+        [FactType.PostPictureUploaded] = SubjectKind.Other,
 
         // The pairing's id. A role given or taken is about the person on Discord, so those two
         // keep the default.

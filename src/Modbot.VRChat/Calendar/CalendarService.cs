@@ -44,12 +44,19 @@ public sealed class CalendarService : BackgroundService
             LoopAsync("calendar schedule", RunScheduleAsync, stoppingToken),
             LoopAsync("VRChat calendar publish", RunPublishAsync, stoppingToken),
             LoopAsync("calendar invites", RunInvitesAsync, stoppingToken),
+            // Posts to the VRChat group from the Marketing tab (posts design §3.3, §3.6). Its own
+            // loop, so a calendar write waiting its turn in the gate never holds a post up, and a
+            // post's look never holds up an instance that is due to open.
+            LoopAsync("VRChat posts", RunPostsAsync, stoppingToken),
             // Pictures cropped for Discord that no event was saved with (calendar design §15.4).
             // Asks VRChat nothing; its own loop, once an hour, since a day-old picture can wait.
             LoopAsync("calendar picture sweep", RunCoverSweepAsync, stoppingToken, Core.Calendar.CalendarCoverSweep.Every));
 
     private static Task RunCoverSweepAsync(IServiceProvider scope, CancellationToken ct) =>
         scope.GetRequiredService<Core.Calendar.CalendarCoverSweep>().RunOnceAsync(ct);
+
+    private static Task RunPostsAsync(IServiceProvider scope, CancellationToken ct) =>
+        scope.GetRequiredService<Posts.PostVRChatSender>().RunOnceAsync(ct);
 
     // Its own loop: working out a long list, or waiting for an invite's turn, must never hold up an
     // instance that is due to open (calendar auto-invite design §4).

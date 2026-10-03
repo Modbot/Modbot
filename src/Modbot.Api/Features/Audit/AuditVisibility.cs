@@ -394,6 +394,7 @@ public static class AuditVisibility
         [FactType.PostFailed] = AuditCategory.Operational,
         [FactType.PostEdited] = AuditCategory.Operational,
         [FactType.PostRemoved] = AuditCategory.Operational,
+        [FactType.PostPictureUploaded] = AuditCategory.Operational,
     };
 
     /// <summary>

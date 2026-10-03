@@ -216,6 +216,7 @@ public static class FactLabels
         [FactType.PostFailed] = "Post failed",
         [FactType.PostEdited] = "Post edited",
         [FactType.PostRemoved] = "Post deleted",
+        [FactType.PostPictureUploaded] = "Post picture uploaded to VRChat",
         [FactType.ListRoleGiven] = "Discord role given for a list",
         [FactType.ListRoleTaken] = "Discord role taken away for a list",
         [FactType.ListRoleStopped] = "Role from a list stopped",

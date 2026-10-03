@@ -1722,6 +1722,8 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.post.picture.upload': (p) => <>{p.actor} uploaded a post picture to VRChat.</>,
+
   // ── Saved lists ─────────────────────────────────────────────────────────────────────────────
   'modbot.list.create': (p) => (
     <>

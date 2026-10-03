@@ -198,7 +198,8 @@ public class Settings
     /// gallery upload on the account the maintainer tried (it very likely needs VRChat+ on the account
     /// Modbot signs in as), and a scripted upload is the part of Modbot's VRChat use a terms-of-service
     /// review would look at hardest. Off, the upload endpoint answers "Picture uploads are off." and
-    /// sends nothing to VRChat, and events keep the picture ids they have.
+    /// sends nothing to VRChat, and events keep the picture ids they have. The Marketing tab's VRChat
+    /// posts follow it too (posts design §3.6, decision 14): off, a VRChat post goes as text only.
     /// </summary>
     public bool VRChatPictureUploads { get; set; }
 
@@ -278,6 +279,13 @@ public class Settings
     /// posts were already on. Off, Discord destinations wait and show "Off".
     /// </summary>
     public bool DiscordPostsOn { get; set; } = true;
+
+    /// <summary>
+    /// Whether posts go to the VRChat group at all (posts design §3.6, §4.6). On by default, new
+    /// installs and old, for the same reason as <see cref="DiscordPostsOn"/>: nothing goes out unless
+    /// a person ticks VRChat on a post. Off, VRChat destinations wait and show "Off".
+    /// </summary>
+    public bool VRChatPostsOn { get; set; } = true;
 
     /// <summary>
     /// Whether events are sent to the Google calendar (Google Calendar design §3.1, step 2). The one

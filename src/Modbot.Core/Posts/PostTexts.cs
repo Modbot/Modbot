@@ -121,4 +121,106 @@ public static class PostTexts
     /// <summary>The address of a Discord message, for Open.</summary>
     public static string DiscordLink(string guildId, string channelId, string messageId) =>
         $"https://discord.com/channels/{guildId}/{channelId}/{messageId}";
+
+    // ── VRChat (posts design §3.6) ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// How long a VRChat post's text is, for the counter: "VRChat 212". VRChat documents no
+    /// maximum, so there is no limit to be over.
+    /// </summary>
+    public static int VRChatLength(string text) => Tidy(text).Length;
+
+    /// <summary>A VRChat destination's own choices. A row with none, or with words it cannot read, has the defaults.</summary>
+    public static VRChatPostOptions VRChatOptionsOf(PostDestination destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return ParseVRChatOptions(destination.Options);
+    }
+
+    /// <summary>Reads <see cref="VRChatPostOptions"/> from their JSON; who sees it is Group unless it says Everyone.</summary>
+    public static VRChatPostOptions ParseVRChatOptions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new VRChatPostOptions();
+
+        try
+        {
+            var options = JsonSerializer.Deserialize<VRChatPostOptions>(json, Json) ?? new VRChatPostOptions();
+            return VRChatPostVisibilities.IsKnown(options.Visibility) ? options : options with { Visibility = VRChatPostVisibilities.Group };
+        }
+        catch (JsonException)
+        {
+            return new VRChatPostOptions();
+        }
+    }
+
+    /// <summary>Writes <see cref="VRChatPostOptions"/> as the JSON a destination keeps.</summary>
+    public static string WriteVRChatOptions(VRChatPostOptions options) =>
+        JsonSerializer.Serialize(options ?? new VRChatPostOptions(), Json);
+
+    /// <summary>
+    /// The roles a VRChat post is for: none for Everyone, otherwise the ids with blanks and repeats
+    /// taken out. Never checked for shape (foundation §3.1.1).
+    /// </summary>
+    public static IReadOnlyList<string> VRChatRoles(VRChatPostOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (options.Visibility == VRChatPostVisibilities.Everyone)
+            return [];
+
+        return [.. (options.RoleIds ?? [])
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim())
+            .Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// The picture id a VRChat post is sent with, or null for text only: only while VRChat picture
+    /// uploads are on (decision 14), and only when it was uploaded from the picture the post has now.
+    /// </summary>
+    public static string? VRChatImageFor(Post post, VRChatPostOptions options, bool uploadsOn)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+        ArgumentNullException.ThrowIfNull(options);
+
+        return uploadsOn
+            && post.PictureId is { } picture
+            && options.PictureId == picture
+            && !string.IsNullOrWhiteSpace(options.ImageId)
+                ? options.ImageId
+                : null;
+    }
+
+    /// <summary>
+    /// The group's posts page on vrchat.com, for Open. VRChat gives no address for one post, and
+    /// the page's shape is not documented (posts design §9).
+    /// </summary>
+    public static string VRChatLink(string groupId) =>
+        $"https://vrchat.com/home/group/{Uri.EscapeDataString(groupId)}/posts";
+
+    /// <summary>
+    /// Text cut down to its letters and digits, in lower case, after look-alike characters are
+    /// folded to their plain form; text with none of those is kept as it is, trimmed. VRChat
+    /// rewrites some characters it is sent (an en dash dropped, "." turned into a look-alike dot,
+    /// calendar design §3.1), so a post read back is compared by this, never character for character.
+    /// </summary>
+    public static string LettersAndDigits(string? text)
+    {
+        var trimmed = (text ?? string.Empty).Trim();
+        var folded = trimmed.Normalize(System.Text.NormalizationForm.FormKC);
+        var plain = new System.Text.StringBuilder(folded.Length);
+
+        foreach (var rune in folded.EnumerateRunes())
+        {
+            if (System.Text.Rune.IsLetterOrDigit(rune))
+                plain.Append(System.Text.Rune.ToLowerInvariant(rune).ToString());
+        }
+
+        return plain.Length > 0 ? plain.ToString() : trimmed;
+    }
+
+    /// <summary>Whether two texts are the same once VRChat's changes to them are set aside.</summary>
+    public static bool SameWords(string? a, string? b) =>
+        string.Equals(LettersAndDigits(a), LettersAndDigits(b), StringComparison.Ordinal);
 }

@@ -28443,7 +28443,7 @@
           "Posts"
         ],
         "summary": "List posts",
-        "description": "One page of one list on the Marketing tab, with how many posts each list holds. `list` is `scheduled` (soonest first), `sent` and `drafts` (newest first), `failed`, or `cancelled`. A post that went to one site and failed on another is in `failed` and in whatever else it is. Each destination's `shown` says what the list shows: its state, or for one waiting on a site that sends nothing now, `paused`, `off` or `notSetUp`.\n\nNeeds the `ViewPosts` permission.",
+        "description": "One page of one list on the Marketing tab, with how many posts each list holds. `list` is `scheduled` (soonest first), `sent` and `drafts` (newest first), `failed`, or `cancelled`. A post that went to one site and failed on another is in `failed` and in whatever else it is. Each destination's `shown` says what the list shows: its state, or for one waiting on a site that sends nothing now, `paused`, `off` or `notSetUp`. `vrChatRoles` are the VRChat group's roles as the last group read found them, for choosing who a VRChat post is for.\n\nNeeds the `ViewPosts` permission.",
         "operationId": "ListPosts",
         "parameters": [
           {
@@ -28518,7 +28518,7 @@
           "Posts"
         ],
         "summary": "Write post",
-        "description": "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in `timeZone`. Each site is ticked by sending its section (`discord`); none is ticked unless sent. Nothing is sent by this request: Modbot's Discord loop sends a post within about twenty seconds of its time, unless Pause all posting is on or Discord posts are off. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in `timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`); none is ticked unless sent. VRChat needs a title, the post's or its own. Nothing is sent by this request: Modbot's Discord loop sends a post within about twenty seconds of its time and its VRChat loop within about fifteen, unless Pause all posting is on or that site's posts are off. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "CreatePost",
         "requestBody": {
           "content": {
@@ -29162,7 +29162,7 @@
           "Posts"
         ],
         "summary": "Edit post on site",
-        "description": "Changes the title and text of a post that went out, on that site, at once. Discord keeps the picture and pings nobody again. One call to Discord.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Changes the title and text of a post that went out, on that site, at once. Discord keeps the picture and pings nobody again. VRChat is sent the whole post again, with the picture it went with and who sees it, and notifies nobody again; it needs a title. One call to the site, never sent again.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "EditPostOnSite",
         "parameters": [
           {
@@ -29292,7 +29292,7 @@
           "Posts"
         ],
         "summary": "Delete post on site",
-        "description": "Deletes a post that went out from that site, at once, and marks it deleted. One that is already gone there counts as deleted. One call to Discord.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Deletes a post that went out from that site, at once, and marks it deleted. One that is already gone there counts as deleted (VRChat's 404 too). One call to the site, never sent again.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "DeletePostOnSite",
         "parameters": [
           {
@@ -29497,6 +29497,116 @@
           },
           "413": {
             "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/posts/vrchat-picture": {
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Upload post picture to VRChat",
+        "description": "Uploads a post's picture, kept with `POST /api/posts/picture`, to VRChat, on the VRChat account Modbot signs in as, for a VRChat group post. Answers with the file id VRChat gave it; send that as the VRChat section's `imageId`. Only a PNG or JPEG of at most 10 MB. One request to VRChat, at most one a minute and never retried. Answers 409 \"Picture uploads are off.\" until the operator turns VRChat picture uploads on in Settings; while they are off a VRChat post goes as text only.\n\nNeeds the `ManagePosts` permission.",
+        "operationId": "UploadPostVRChatPicture",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostVRChatPictureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostVRChatPictureView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -29731,7 +29841,7 @@
           "Settings"
         ],
         "summary": "Get posts settings",
-        "description": "Whether all posting is paused, and whether posts go to Discord.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Whether all posting is paused, and whether posts go to Discord and to the VRChat group.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetPostSettings",
         "responses": {
           "200": {
@@ -29779,7 +29889,7 @@
           "Settings"
         ],
         "summary": "Set posts settings",
-        "description": "Pauses or resumes all posting, and turns Discord posts on or off. A switch left out stays as it is. Paused, nothing is sent to any site and posts wait; one more than an hour late is not sent and turns Failed, with Post now.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Pauses or resumes all posting, and turns Discord posts and VRChat posts on or off. A switch left out stays as it is. Paused, nothing is sent to any site and posts wait; a site switched off, its posts wait. One more than an hour late is not sent and turns Failed, with Post now.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetPostSettings",
         "requestBody": {
           "content": {
@@ -48083,6 +48193,22 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "vrChat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VRChatDestinationView"
+              }
+            ]
+          },
+          "missingPermission": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -48193,6 +48319,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "missingPermission": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -48206,7 +48338,8 @@
           "total",
           "canManage",
           "sites",
-          "now"
+          "now",
+          "vrChatRoles"
         ],
         "type": "object",
         "properties": {
@@ -48243,6 +48376,12 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "vrChatRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostRoleChoice"
+            }
           }
         }
       },
@@ -48294,6 +48433,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "vrChat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VRChatPostPreview"
+              }
+            ]
           }
         }
       },
@@ -48368,6 +48517,31 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "vrChat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PostVRChatRequest"
+              }
+            ]
+          }
+        }
+      },
+      "PostRoleChoice": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -48385,13 +48559,20 @@
               "null",
               "boolean"
             ]
+          },
+          "vrChat": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
       "PostSettingsView": {
         "required": [
           "paused",
-          "discord"
+          "discord",
+          "vrChat"
         ],
         "type": "object",
         "properties": {
@@ -48400,6 +48581,9 @@
           },
           "discord": {
             "type": "boolean"
+          },
+          "vrChat": {
+            "type": "boolean"
           }
         }
       },
@@ -48407,7 +48591,10 @@
         "required": [
           "paused",
           "discordOn",
-          "discordSetUp"
+          "discordSetUp",
+          "vrChatOn",
+          "vrChatSetUp",
+          "vrChatPictures"
         ],
         "type": "object",
         "properties": {
@@ -48419,6 +48606,88 @@
           },
           "discordSetUp": {
             "type": "boolean"
+          },
+          "vrChatOn": {
+            "type": "boolean"
+          },
+          "vrChatSetUp": {
+            "type": "boolean"
+          },
+          "vrChatPictures": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PostVRChatPictureRequest": {
+        "required": [
+          "pictureId"
+        ],
+        "type": "object",
+        "properties": {
+          "pictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "PostVRChatPictureView": {
+        "required": [
+          "imageId",
+          "pictureId"
+        ],
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string"
+          },
+          "pictureId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PostVRChatRequest": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify": {
+            "type": "boolean",
+            "default": false
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -53379,6 +53648,50 @@
           }
         }
       },
+      "VRChatDestinationView": {
+        "required": [
+          "visibility",
+          "roleIds",
+          "roleNames",
+          "notify",
+          "imageId",
+          "pictureId"
+        ],
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string"
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roleNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify": {
+            "type": "boolean"
+          },
+          "imageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
       "VRChatLinkStatus": {
         "required": [
           "linked",
@@ -53435,6 +53748,51 @@
         "properties": {
           "on": {
             "type": "boolean"
+          }
+        }
+      },
+      "VRChatPostPreview": {
+        "required": [
+          "title",
+          "text",
+          "visibility",
+          "roleNames",
+          "notify",
+          "pictureUrl",
+          "length"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "roleNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify": {
+            "type": "boolean"
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "length": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

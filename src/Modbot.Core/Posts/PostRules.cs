@@ -11,7 +11,10 @@ public static class PostHolds
     /// <summary>The site's own switch is off.</summary>
     public const string Off = "off";
 
-    /// <summary>The site is not set up: for Discord, no server id or no connected bot.</summary>
+    /// <summary>
+    /// The site is not set up: for Discord, no server id or no connected bot; for VRChat, no group
+    /// or no VRChat account to sign in as.
+    /// </summary>
     public const string NotSetUp = "notSetUp";
 }
 
@@ -19,7 +22,9 @@ public static class PostHolds
 /// <param name="Paused">Pause all posting.</param>
 /// <param name="DiscordOn">The Discord posts switch.</param>
 /// <param name="DiscordSetUp">A server id is saved and the bot is connected.</param>
-public sealed record PostSites(bool Paused, bool DiscordOn, bool DiscordSetUp)
+/// <param name="VRChatOn">The VRChat posts switch.</param>
+/// <param name="VRChatSetUp">A group is chosen and a VRChat account is saved (<see cref="PostSites.VRChatReady"/>).</param>
+public sealed record PostSites(bool Paused, bool DiscordOn, bool DiscordSetUp, bool VRChatOn = false, bool VRChatSetUp = false)
 {
     /// <summary>Why nothing goes to <paramref name="network"/> right now, or null when it may.</summary>
     /// <remarks>Sites not built yet are never set up, so nothing is ever sent there by mistake.</remarks>
@@ -33,9 +38,23 @@ public sealed record PostSites(bool Paused, bool DiscordOn, bool DiscordSetUp)
             PostNetworks.Discord when !DiscordOn => PostHolds.Off,
             PostNetworks.Discord when !DiscordSetUp => PostHolds.NotSetUp,
             PostNetworks.Discord => null,
+            PostNetworks.VRChat when !VRChatOn => PostHolds.Off,
+            PostNetworks.VRChat when !VRChatSetUp => PostHolds.NotSetUp,
+            PostNetworks.VRChat => null,
             _ => PostHolds.NotSetUp,
         };
     }
+
+    /// <summary>
+    /// Whether VRChat can take posts: a managed group, and a VRChat account Modbot signs in as. The
+    /// calendar's own rule for VRChat (<c>CalendarReadiness.VRChat</c>), read from settings alone,
+    /// never by asking VRChat. A sign-in that is waiting is the gate's business: the post waits.
+    /// </summary>
+    public static bool VRChatReady(Data.Entities.Settings? settings) =>
+        settings is not null
+        && !string.IsNullOrWhiteSpace(settings.ManagedGroupId)
+        && !string.IsNullOrWhiteSpace(settings.VRChatUsername)
+        && !string.IsNullOrWhiteSpace(settings.VRChatPasswordEncrypted);
 }
 
 /// <summary>The four lists of the Marketing tab, and the Cancelled view (posts design §2.3).</summary>

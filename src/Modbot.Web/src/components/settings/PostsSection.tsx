@@ -5,7 +5,8 @@ import { ApiError } from '@/lib/api'
 import { postsApi, type PostSettings } from '@/lib/posts'
 
 /**
- * Settings, Posts (posts design §4.6): Pause all posting, and whether posts go to Discord. Each
+ * Settings, Posts (posts design §4.6): Pause all posting, and whether posts go to Discord and to the
+ * VRChat group. Each
  * switch saves at once: one yes or no with nothing to save beside it.
  */
 export function PostsSection() {
@@ -52,6 +53,9 @@ export function PostsSection() {
           </Switch>
           <Switch checked={settings.discord} disabled={busy} onChange={(discord) => change({ discord })}>
             Discord posts
+          </Switch>
+          <Switch checked={settings.vrChat} disabled={busy} onChange={(vrChat) => change({ vrChat })}>
+            VRChat posts
           </Switch>
         </div>
       </SettingsCard>

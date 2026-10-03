@@ -774,6 +774,7 @@ function PostsCard({ now }: { now: string }) {
             {p.title || 'Untitled'}
           </a>{' '}
           · {NETWORK_LABEL[p.network]} · {p.problem === 'failed' ? (p.error ?? 'Failed') : 'Still looking'}
+          {p.missingPermission && <> · Needs {vrchatPermissionLabel(p.missingPermission)}</>}
           {p.at && (
             <>
               {' ('}

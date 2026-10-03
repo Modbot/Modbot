@@ -71,7 +71,7 @@ public static class DiscordServiceCollectionExtensions
 
         // Posts from the Marketing tab (posts design §3.5): its own loop, the calendar's shape, and
         // the Marketing tab's edit, delete and publish on a post already on Discord.
-        services.AddScoped<Core.Posts.PostClaim>();
+        services.TryAddScoped<Core.Posts.PostClaim>();
         services.AddScoped<Posts.PostDiscordSender>();
         services.AddHostedService<Posts.PostDiscordService>();
         services.AddSingleton<Core.Posts.IDiscordPostActions>(

@@ -10,12 +10,13 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Api.Features.Settings;
 
 /// <summary>
-/// The Settings topic "Posts" (posts design §4.6): Pause all posting, and whether posts go to Discord.
+/// The Settings topic "Posts" (posts design §4.6): Pause all posting, and whether posts go to Discord
+/// and to the VRChat group.
 /// </summary>
 /// <remarks>
 /// Each switch is the operator's say over what leaves the server. Paused, no post goes to any site,
 /// Marketing posts and event posts alike; the calendar's own copies are not posts and carry on
-/// (decision 12). Discord posts off, Discord destinations wait. Either way a post more than an hour
+/// (decision 12). A site's posts off, its destinations wait. Either way a post more than an hour
 /// late turns Failed with Post now. Every change is recorded as a settings change.
 /// </remarks>
 public static class PostSettingsEndpoints
@@ -33,11 +34,11 @@ public static class PostSettingsEndpoints
                 CancellationToken ct) =>
             {
                 var settings = await db.GetSettingsAsync(ct);
-                return Results.Ok(new PostSettingsView(settings.PostsPaused, settings.DiscordPostsOn));
+                return Results.Ok(View(settings));
             })
             .WithName("GetPostSettings")
             .WithSummary("Get posts settings")
-            .WithDescription("Whether all posting is paused, and whether posts go to Discord.")
+            .WithDescription("Whether all posting is paused, and whether posts go to Discord and to the VRChat group.")
             .Produces<PostSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -52,31 +53,37 @@ public static class PostSettingsEndpoints
                 var settings = await db.GetSettingsAsync(ct);
                 var change = new SettingsChange("posts")
                     .Field("paused", settings.PostsPaused, body.Paused ?? settings.PostsPaused)
-                    .Field("discord", settings.DiscordPostsOn, body.Discord ?? settings.DiscordPostsOn);
+                    .Field("discord", settings.DiscordPostsOn, body.Discord ?? settings.DiscordPostsOn)
+                    .Field("vrchat", settings.VRChatPostsOn, body.VRChat ?? settings.VRChatPostsOn);
 
                 if (change.IsEmpty)
-                    return Results.Ok(new PostSettingsView(settings.PostsPaused, settings.DiscordPostsOn));
+                    return Results.Ok(View(settings));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 settings.PostsPaused = body.Paused ?? settings.PostsPaused;
                 settings.DiscordPostsOn = body.Discord ?? settings.DiscordPostsOn;
+                settings.VRChatPostsOn = body.VRChat ?? settings.VRChatPostsOn;
                 await db.SaveChangesAsync(ct);
 
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(new PostSettingsView(settings.PostsPaused, settings.DiscordPostsOn));
+                return Results.Ok(View(settings));
             })
             .WithName("SetPostSettings")
             .WithSummary("Set posts settings")
             .WithDescription(
-                "Pauses or resumes all posting, and turns Discord posts on or off. A switch left out "
-                + "stays as it is. Paused, nothing is sent to any site and posts wait; one more than "
-                + "an hour late is not sent and turns Failed, with Post now.")
+                "Pauses or resumes all posting, and turns Discord posts and VRChat posts on or off. A "
+                + "switch left out stays as it is. Paused, nothing is sent to any site and posts wait; "
+                + "a site switched off, its posts wait. One more than an hour late is not sent and "
+                + "turns Failed, with Post now.")
             .Produces<PostSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
     }
+
+    private static PostSettingsView View(Core.Data.Entities.Settings settings) =>
+        new(settings.PostsPaused, settings.DiscordPostsOn, settings.VRChatPostsOn);
 }

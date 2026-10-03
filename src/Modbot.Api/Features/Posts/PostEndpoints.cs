@@ -85,6 +85,7 @@ public static class PostEndpoints
                     await InList(db.Posts, PostLists.Cancelled).CountAsync(ct));
 
                 var sites = await PostRequests.SitesAsync(db, discordBot, ct);
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
                 return Results.Ok(new PostList(
                     name,
@@ -94,8 +95,9 @@ public static class PostEndpoints
                     PageSize,
                     total,
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManagePosts),
-                    PostRequests.SitesView(sites),
-                    clock.UtcNow));
+                    PostRequests.SitesView(sites, settings?.VRChatPictureUploads ?? false),
+                    clock.UtcNow,
+                    PostRequests.VRChatRoles(settings)));
             })
             .RequiresFlag(ModbotPermissions.ViewPosts)
             .WithName("ListPosts")
@@ -105,7 +107,9 @@ public static class PostEndpoints
                 + "`list` is `scheduled` (soonest first), `sent` and `drafts` (newest first), `failed`, "
                 + "or `cancelled`. A post that went to one site and failed on another is in `failed` "
                 + "and in whatever else it is. Each destination's `shown` says what the list shows: "
-                + "its state, or for one waiting on a site that sends nothing now, `paused`, `off` or `notSetUp`.")
+                + "its state, or for one waiting on a site that sends nothing now, `paused`, `off` or `notSetUp`. "
+                + "`vrChatRoles` are the VRChat group's roles as the last group read found them, for choosing "
+                + "who a VRChat post is for.")
             .Produces<PostList>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -185,10 +189,11 @@ public static class PostEndpoints
             .WithSummary("Write post")
             .WithDescription(
                 "Saves a draft, or schedules a post: `when` is `now` or `later` with `sendAt` in "
-                + "`timeZone`. Each site is ticked by sending its section (`discord`); none is ticked "
-                + "unless sent. Nothing is sent by this request: Modbot's Discord loop sends a post "
-                + "within about twenty seconds of its time, unless Pause all posting is on or Discord "
-                + "posts are off. A refusal (400) lists everything wrong at once, in `problems`.")
+                + "`timeZone`. Each site is ticked by sending its section (`discord`, `vrChat`); none is "
+                + "ticked unless sent. VRChat needs a title, the post's or its own. Nothing is sent by "
+                + "this request: Modbot's Discord loop sends a post within about twenty seconds of its "
+                + "time and its VRChat loop within about fifteen, unless Pause all posting is on or that "
+                + "site's posts are off. A refusal (400) lists everything wrong at once, in `problems`.")
             .Produces<PostView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -403,6 +408,7 @@ public static class PostEndpoints
 
                 // Posted, and publishing to followers did not go through: that step alone, at once.
                 if (destination.State == PostDestinationStates.Posted
+                    && destination.Network == PostNetworks.Discord
                     && PostTexts.DiscordOptionsOf(destination).Publish
                     && destination.PublishedAt is null
                     && destination.ExternalId is { } messageId)
@@ -472,6 +478,7 @@ public static class PostEndpoints
                 [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
                 [FromServices] IDiscordPostActions discord,
+                [FromServices] IVRChatPostActions vrchat,
                 [FromServices] IDiscordBotStatus? discordBot,
                 CancellationToken ct) =>
             {
@@ -485,9 +492,10 @@ public static class PostEndpoints
                 if (destination.State != PostDestinationStates.Posted || destination.ExternalId is not { } messageId)
                     return Conflict("Only a post that went out can be edited there.");
 
-                if (destination.Network != PostNetworks.Discord)
+                if (destination.Network is not (PostNetworks.Discord or PostNetworks.VRChat))
                     return Conflict("This site's posts cannot be edited.");
 
+                var onVRChat = destination.Network == PostNetworks.VRChat;
                 var title = PostTexts.TidyTitle(body.Title);
                 var text = PostTexts.Tidy(body.Text);
                 var problems = new List<string>();
@@ -498,16 +506,37 @@ public static class PostEndpoints
                 if (title is { Length: > Post.MaxTitleLength })
                     problems.Add($"The title is longer than {Post.MaxTitleLength} characters.");
 
-                var content = PostTexts.Discord(title, text, PostTexts.DiscordOptionsOf(destination).RoleId);
-                if (!PostTexts.DiscordFits(content))
+                if (onVRChat && title is null)
+                    problems.Add("VRChat needs a title.");
+
+                // What the site is sent: the whole Discord message, or VRChat's text under its title.
+                var content = onVRChat ? text : PostTexts.Discord(title, text, PostTexts.DiscordOptionsOf(destination).RoleId);
+                if (!onVRChat && !PostTexts.DiscordFits(content))
                     problems.Add($"The Discord text is longer than {PostTexts.DiscordLimit} characters.");
 
                 if (problems.Count > 0)
                     return Refused(problems);
 
-                var outcome = await discord.EditAsync(destination.Target, messageId, content, ct);
-                if (outcome.BotOffline)
-                    return Unavailable(Offline);
+                PostSiteOutcome outcome;
+
+                if (onVRChat)
+                {
+                    // VRChat replaces the whole post: who sees it, the roles and the picture it went
+                    // with are sent again, and nobody is notified again.
+                    var options = PostTexts.VRChatOptionsOf(destination);
+                    outcome = await vrchat.EditAsync(
+                        destination.Target, messageId, title!, text, options.Visibility, PostTexts.VRChatRoles(options), options.ImageId, ct);
+
+                    if (outcome.BotOffline)
+                        return Unavailable(outcome.Error ?? NoVRChatPostActions.NotSetUp);
+                }
+                else
+                {
+                    outcome = await discord.EditAsync(destination.Target, messageId, content, ct);
+
+                    if (outcome.BotOffline)
+                        return Unavailable(Offline);
+                }
 
                 var now = clock.UtcNow;
 
@@ -516,14 +545,16 @@ public static class PostEndpoints
                     if (outcome.Gone)
                         await GoneAsync(db, facts, http, post, destination, messageId, now, ct);
 
+                    var gone = onVRChat ? "That post is gone from VRChat." : "That post is gone from Discord.";
+
                     return Results.Json(
-                        new { error = outcome.Gone ? "That post is gone from Discord." : outcome.Error },
+                        new { error = outcome.Gone ? gone : outcome.Error },
                         statusCode: outcome.Gone ? StatusCodes.Status409Conflict : StatusCodes.Status502BadGateway);
                 }
 
                 var was = destination.SentText;
 
-                // Discord has the new words now, so the row and the fact follow whatever else
+                // The site has the new words now, so the row and the fact follow whatever else
                 // changed the post meanwhile (WriteAfterSiteAsync).
                 var written = await WriteAfterSiteAsync(db, post.Id, destination.Id, messageId, (_, d) =>
                 {
@@ -548,7 +579,9 @@ public static class PostEndpoints
             .WithSummary("Edit post on site")
             .WithDescription(
                 "Changes the title and text of a post that went out, on that site, at once. Discord "
-                + "keeps the picture and pings nobody again. One call to Discord.")
+                + "keeps the picture and pings nobody again. VRChat is sent the whole post again, with "
+                + "the picture it went with and who sees it, and notifies nobody again; it needs a "
+                + "title. One call to the site, never sent again.")
             .Produces<PostView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -565,6 +598,7 @@ public static class PostEndpoints
                 [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
                 [FromServices] IDiscordPostActions discord,
+                [FromServices] IVRChatPostActions vrchat,
                 [FromServices] IDiscordBotStatus? discordBot,
                 CancellationToken ct) =>
             {
@@ -576,9 +610,12 @@ public static class PostEndpoints
                 if (destination.State != PostDestinationStates.Posted || destination.ExternalId is not { } messageId)
                     return Conflict("Only a post that went out can be deleted there.");
 
-                var outcome = await discord.DeleteAsync(destination.Target, messageId, "Post deleted from Modbot", ct);
+                var outcome = destination.Network == PostNetworks.VRChat
+                    ? await vrchat.DeleteAsync(destination.Target, messageId, ct)
+                    : await discord.DeleteAsync(destination.Target, messageId, "Post deleted from Modbot", ct);
+
                 if (outcome.BotOffline)
-                    return Unavailable(Offline);
+                    return Unavailable(destination.Network == PostNetworks.VRChat ? outcome.Error ?? NoVRChatPostActions.NotSetUp : Offline);
 
                 if (!outcome.Done)
                     return Results.Json(new { error = outcome.Error }, statusCode: StatusCodes.Status502BadGateway);
@@ -592,7 +629,8 @@ public static class PostEndpoints
             .WithSummary("Delete post on site")
             .WithDescription(
                 "Deletes a post that went out from that site, at once, and marks it deleted. One that "
-                + "is already gone there counts as deleted. One call to Discord.")
+                + "is already gone there counts as deleted (VRChat's 404 too). One call to the site, "
+                + "never sent again.")
             .Produces<PostView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -624,7 +662,18 @@ public static class PostEndpoints
                         section.Options.Publish)
                     : null;
 
-                return Results.Ok(new PostPreview(discord, problems));
+                var vrchatPreview = request.VRChat is { } vrchatSection
+                    ? new VRChatPostPreview(
+                        vrchatSection.Title,
+                        vrchatSection.Text,
+                        vrchatSection.Options.Visibility,
+                        vrchatSection.RoleNames,
+                        vrchatSection.Options.Notify,
+                        vrchatSection.PictureUrl,
+                        PostTexts.VRChatLength(vrchatSection.Text))
+                    : null;
+
+                return Results.Ok(new PostPreview(discord, problems, vrchatPreview));
             })
             .RequiresFlag(ModbotPermissions.ManagePosts)
             .WithName("PreviewPost")
@@ -686,6 +735,95 @@ public static class PostEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status413PayloadTooLarge);
+
+        // The post's picture sent on to VRChat, for a VRChat group post (posts design §3.6,
+        // decision 14). Its own request, like the calendar's: the upload waits on its own
+        // one-a-minute budget and can be refused, and saving a post never waits on VRChat. Asked
+        // when the person ticks VRChat with a picture, only while VRChat picture uploads are on.
+        group.MapPost("/vrchat-picture", async (
+                HttpContext http,
+                [FromBody] PostVRChatPictureRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                // Optional: the VRChat services are wired by the host, not by the API.
+                [FromServices] VRChat.Files.VRChatPictureUploads? uploads,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                // The operator's switch (Settings, Modbot's VRChat login). Asked before anything is
+                // read or sent to VRChat.
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
+
+                if (settings is not { VRChatPictureUploads: true })
+                    return Conflict("Picture uploads are off.");
+
+                if (uploads is null)
+                    return Unavailable("This build of Modbot cannot upload pictures to VRChat.");
+
+                if (body.PictureId is not { } pictureId)
+                    return Results.BadRequest(new { error = "Choose a picture first." });
+
+                var bytes = await db.CalendarCoverPictures.AsNoTracking()
+                    .Where(c => c.Id == pictureId)
+                    .Select(c => c.Bytes)
+                    .FirstOrDefaultAsync(ct);
+
+                if (bytes is null)
+                    return Results.BadRequest(new { error = "That picture is gone. Choose it again." });
+
+                // VRChat takes a PNG or a JPEG; a post's picture may be a GIF or WebP for Discord.
+                if (VRChat.Files.VRChatPictureUploads.Problem(bytes) is { } problem)
+                    return Results.BadRequest(new { error = problem });
+
+                var answer = await uploads.UploadAsync(bytes, ct);
+
+                if (!answer.Success)
+                {
+                    // Never sent again from here (foundation §4.3.1). Ticking VRChat again is the
+                    // person's decision.
+                    var said = answer.IsRateLimited || answer.Kind == VRChat.VRChatFailureKind.RateLimited
+                        ? "VRChat is not taking uploads right now. Try again in a few minutes."
+                        : GroupPage.GroupPageAnswers.Said(answer);
+
+                    return Results.Json(new { error = said }, statusCode: GroupPage.GroupPageAnswers.StatusFor(answer));
+                }
+
+                if (answer.Value?.Id is not { Length: > 0 } fileId)
+                    return Results.Json(new { error = "VRChat did not give the picture an id." }, statusCode: StatusCodes.Status502BadGateway);
+
+                await facts.RecordAsync(
+                    FactType.PostPictureUploaded,
+                    pictureId.ToString(),
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["fileId"] = fileId,
+                        ["pictureId"] = pictureId.ToString(),
+                        ["bytes"] = bytes.Length,
+                        ["type"] = VRChat.Files.VRChatPictureUploads.TypeOf(bytes),
+                    },
+                    ct);
+
+                return Results.Ok(new PostVRChatPictureView(fileId, pictureId));
+            })
+            .RequiresFlag(ModbotPermissions.ManagePosts)
+            .WithName("UploadPostVRChatPicture")
+            .WithSummary("Upload post picture to VRChat")
+            .WithDescription(
+                "Uploads a post's picture, kept with `POST /api/posts/picture`, to VRChat, on the VRChat "
+                + "account Modbot signs in as, for a VRChat group post. Answers with the file id VRChat "
+                + "gave it; send that as the VRChat section's `imageId`. Only a PNG or JPEG of at most "
+                + "10 MB. One request to VRChat, at most one a minute and never retried. Answers 409 "
+                + "\"Picture uploads are off.\" until the operator turns VRChat picture uploads on in "
+                + "Settings; while they are off a VRChat post goes as text only.")
+            .Produces<PostVRChatPictureView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
 
         group.MapGet("/pictures/{id:guid}", async (
                 HttpContext http,
@@ -793,7 +931,8 @@ public static class PostEndpoints
                 x.Destination.Network,
                 x.Destination.State == PostDestinationStates.Failed ? PostDestinationStates.Failed : PostDestinationStates.Checking,
                 x.Destination.Error,
-                x.Destination.ErrorAt ?? x.Destination.SentAt))
+                x.Destination.ErrorAt ?? x.Destination.SentAt,
+                x.Destination.State == PostDestinationStates.Failed ? x.Destination.MissingPermission : null))
             .ToList();
 
         var waiting = await db.PostDestinations.AsNoTracking()

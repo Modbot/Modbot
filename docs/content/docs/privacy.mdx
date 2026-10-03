@@ -129,9 +129,14 @@ wherever you choose to store them. These pages describe what is kept and how it 
   ticked on it, and every site starts unticked. For **Discord**, Modbot's bot sends the post's
   title, text and picture to the channel picked, mentions the role picked if any, and publishes it
   to the servers that follow the channel if **Publish to followers** is ticked. Its readers, and
-  those servers' readers, see it. Nothing about your members goes in a post: no names, no ids, no
-  counts. The picture is kept in Modbot's database while a post uses it. **Pause all posting** and
-  **Discord posts**, under **Settings**, **Posts**, stop every post from going out.
+  those servers' readers, see it. For **VRChat**, Modbot's VRChat account posts the title and text
+  in your group, for the group (or only the roles picked) or for everyone on vrchat.com, as picked,
+  and has VRChat notify the members only if **Notify members** is ticked. The picture goes to VRChat
+  only while **Upload VRChat pictures** is on: it is then uploaded to the VRChat account Modbot
+  signs in as and stays there as a file on that account; while it is off, VRChat gets the text only.
+  Nothing about your members goes in a post: no names, no ids, no counts. The picture is kept in
+  Modbot's database while a post uses it. **Pause all posting**, **Discord posts** and **VRChat
+  posts**, under **Settings**, **Posts**, stop posts from going out.
 - [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
   to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops

@@ -1,8 +1,9 @@
 # Modbot — Posts and the Marketing tab
 
 - **Date:** 2026-10-03
-- **Status:** Step 1 (posts, the Marketing tab, Discord) built with this document. Steps 2 to 4
-  (VRChat group posts, Bluesky, event posts on the shared model) are designed here and not built.
+- **Status:** Step 1 (posts, the Marketing tab, Discord) built with this document; step 2 (VRChat
+  group posts, §4.5) built on 2026-10-03. Steps 3 and 4 (Bluesky, event posts on the shared model)
+  are designed here and not built.
   The owner chose every recommended answer in §10 on 2026-10-03, and added one rule: no automatic
   members-only rule; every destination is a per-post tick, unticked when the composer opens, and
   the preview is the gate.
@@ -58,10 +59,10 @@ date_starts_at IS NULL`, and `(event_id, kind, date_starts_at) WHERE kind IS NOT
 | Column | Notes |
 |---|---|
 | `id`, `post_id` | Deleted with its post. |
-| `network` | `discord`; later `vrchat`, `bluesky`, and others (`mastodon`, a web address). |
+| `network` | `discord`, `vrchat`; later `bluesky`, and others (`mastodon`, a web address). |
 | `target` | Discord: the channel id. VRChat: the group id. Bluesky: the account's DID. Kept so an edit or delete goes to the same place after settings change. Opaque. |
-| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility`, `roleIds`, `notify`, `imageId`. Bluesky: `langs`, `cid`. |
-| `title_override`, `text_override` | Null means the post's own. Discord's "Own text". |
+| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility` (`group`/`public`), `roleIds`, `notify`, `imageId`, and `pictureId`, the post picture the `imageId` was uploaded from; once sent, `imageId` is what VRChat was sent, null for text only. Bluesky: `langs`, `cid`. |
+| `title_override`, `text_override` | Null means the post's own. Discord's "Own text"; VRChat's "Own title" and "Own text". |
 | `state` | `waiting`, `sending`, `checking`, `posted`, `failed`, `removed`, `skipped`. |
 | `client_key` | Bluesky's record key, made once (step 3); later Discord's nonce. |
 | `external_id`, `link` | The id on the site (opaque) and the post's https address. |
@@ -152,6 +153,65 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   posts up.
 - **Later hardening**: a direct REST create with `nonce = client_key` and `enforce_nonce = true`.
 
+### 4.2b VRChat (`Modbot.VRChat/Posts`, step 2)
+
+- **The request**: `CreateGroupPostRequest(imageId, roleIds, sendNotification, text, title,
+  visibility)`. The title is the destination's own or the post's, and VRChat needs one: a post
+  without is refused when saved ("VRChat needs a title.") and Failed at send time if one slips
+  through. Visibility `group` (the default) or `public`; roles only with `group`, opaque ids;
+  `sendNotification` is Notify members, unticked to start, on the first send only.
+- **The picture** (decision 14): only while VRChat picture uploads are on. When VRChat is ticked on a
+  post with a picture, the composer asks `POST /api/posts/vrchat-picture`, which sends the kept
+  picture through the existing `files.upload` path (`VRChatPictureUploads`, PNG or JPEG, one a
+  minute, never retried) and answers with the file id; the composer keeps it as `imageId`, with the
+  picture it came from. The server keeps it only while uploads are on and the post has that picture,
+  and the sender sends it only while uploads are still on and it is still the post's picture; it
+  writes on the row what VRChat was sent, so an edit sends that again. A refused upload is said in
+  the VRChat section, and VRChat gets the text only. Whether VRChat takes a gallery file as a
+  post's `imageId` is not checked (§9).
+- **Calls**: through `IVRChatGate`, `...WithHttpInfoAsync`: `AddGroupPost` on
+  `groups.posts.write` and `GetGroupPosts` on `groups.posts`, both at background priority. No id is
+  checked for shape. The target is the managed group when the post was saved, and must still be the
+  managed group at send time ("That group is not Modbot's VRChat group." otherwise).
+- **At most once** (decision 4, A):
+  1. Claim (`PostClaim`: `sending`, `sent_at`, `sent_title`, `sent_text`), then send.
+  2. An id: `posted`, with the group's posts page as the link (its shape not checked, §9).
+  3. A 429, or a call the gate never sent (a cold stop, a sign-in waiting, not configured, a name
+     that did not resolve): nothing was made; back to `waiting`, its waiting time unchanged, not
+     tried for two minutes, and then only as the gate allows. Modbot never sends a 429 again; the
+     gate's cold stop decides.
+  4. A 5xx, a 408, a timeout or lost connection, or success with no id: `checking`, `may_be_sent`.
+  5. Any other 4xx: `failed` with VRChat's `error.message`; a 403 for a missing group permission
+     also writes `missing_permission` (`group-announcement-manage`), shown on the post and on Health.
+  6. **The look**, two minutes after the attempt and never before the window ends: pages of 20 of
+     the group's posts, newest first, at most five, until a post older than the attempt less two
+     minutes, or the end of the list, has been seen (the whole window). A post is ours when its
+     author is `Settings.VRChatAccountUserId`, its title and text equal what was sent once both are
+     cut down to letters and digits (`PostTexts.SameWords`, VRChat rewrites characters), its
+     `createdAt` is no earlier than `sent_at` less two minutes, and no other destination holds its
+     id. Found: `posted`, adopted.
+  7. Not found after the whole window: `failed`, "VRChat did not add the post.", still
+     `may_be_sent`. A look that could not be made, or pages that ran out first: stays `checking`,
+     looked at again in 15 minutes (two when the gate never sent the read), and an hour after the
+     looking began `failed`, "Could not check the group's posts.". Not found is never an answer
+     until the whole window was read.
+  8. **The audit log adopts too**: each pass, a destination `checking`, or `failed` and
+     `may_be_sent`, sent in the last day, is matched by the same rule against the audit-log sync's
+     `vrchat.group.post.create` facts (author, title, text, time; the post's `not_` id is the
+     subject). No request to VRChat.
+  9. A row left `sending` for two minutes is looked for, never resent. **Never resent by itself**;
+     Try again looks first.
+- **The loop**: `CalendarService` runs `PostVRChatSender` every 15 seconds in a loop of its own, so a
+  calendar write waiting in the gate never holds a post up. One send a pass, at most 10 an hour, the
+  same late rule, held by Pause all posting, the VRChat posts switch, and a VRChat not set up (a
+  managed group and a saved VRChat login, the calendar's own rule).
+- **Edit and delete after**: `IVRChatPostActions` (in Core, like `IDiscordPostActions`), made at
+  once through `GroupPosts` at interactive priority, one request each, never sent again. An edit
+  sends the whole post again, with the `imageId` it went with, and `sendNotification: false`; it
+  needs a title. A delete VRChat answers 404 for counts as done. The row is written with
+  `WriteAfterSiteAsync`, as for Discord.
+- **The VRChat page's Posts tab stays** (decision 17).
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`
@@ -200,8 +260,12 @@ now when Now is picked; Save draft; Cancel).
 - Picture: Choose or a picture link (fetched through Modbot's picture-link guard), the calendar's
   crop box with 16:9 · 1:1 · As it is, uploaded to `POST /api/posts/picture`.
 - Where it goes: chips, all off when the composer opens for a new post, every time. A site not set
-  up shows Not set up and one switched off shows Off, linking to Settings. Step 1 shows Discord only:
-  Channel, Mention role, Publish to followers (Announcement channels only), Own text with Reset.
+  up shows Not set up and one switched off shows Off, linking to Settings. Discord: Channel, Mention
+  role, Publish to followers (Announcement channels only), Own text with Reset. VRChat (step 2): Who
+  sees it (Group / Everyone), Roles (from `GroupInfoSnapshot`, with Group), Notify members
+  (unticked), Own title and Own text with Reset, and a "VRChat 212" counter with no limit; its chip
+  shows "Needs a title" until there is one. No automatic members-only rule: the tick and the preview
+  are the gate.
 - When: Now or Later (date, time, time zone).
 - No explanatory text; errors are sentences, all of them at once.
 
@@ -209,28 +273,33 @@ now when Now is picked; Save draft; Cancel).
 
 `POST /api/posts/preview` returns what each ticked site would be sent, from `PostTexts`, and what
 would stop the post being scheduled. The browser draws Discord's message: the role in its colour,
-the bold title, the text with links, the picture (the crop before it is uploaded).
+the bold title, the text with links, the picture (the crop before it is uploaded); and VRChat's
+group post: the title, who sees it, the picture only when VRChat will be sent one, the text.
 
 ### 5.5 Before and after
 
 Before: Edit (whole post), Post now, Cancel post (confirm; waiting becomes skipped), Delete draft
 (confirm), Duplicate (a new draft with every site unticked; decision 6, no repeat). After, per
-destination: Open, Edit (title and text, Discord), Delete (confirm "Delete this post on Discord?").
-Failed: the words and Try again.
+destination: Open, Edit (title and text, Discord and VRChat), Delete (confirm "Delete this post on
+Discord?", or on VRChat). Failed: the words, the missing VRChat permission when that is why, and
+Try again.
 
 ### 5.6 Settings and Health
 
 - Settings, Posts (Connections, Change settings): **Pause all posting** (decision 12: posts only,
-  not the calendar's copies) and **Discord posts** (on to start, old installs too). VRChat's switch
-  comes with step 2; Bluesky's stays in its own topic and is mirrored here. Audited as settings.
+  not the calendar's copies), **Discord posts** and **VRChat posts** (each on to start, old installs
+  too; `vr_chat_posts_on` came with step 2). Bluesky's stays in its own topic and is mirrored here.
+  Audited as settings.
 - Health, **Posts** card (See posts): Paused; sites posts wait on that are Off or Not set up;
-  failures in the last 7 days; posts looked for longer than 15 minutes.
+  failures in the last 7 days, with the VRChat permission missing when that is why; posts looked
+  for longer than 15 minutes.
 
 ### 5.7 API
 
 All under `/api/posts`: list, one post, create, change, send-now, cancel, delete a draft, try-again,
-edit and delete on a site, preview, picture, picture by id, picture-link, health; and
-`/api/settings/posts`. The calendar's event read gains `posts` in step 4.
+edit and delete on a site, preview, picture, picture by id, picture-link, vrchat-picture (step 2),
+health; and `/api/settings/posts`. The list carries the VRChat group's roles (`vrChatRoles`) and
+whether VRChat picture uploads are on. The calendar's event read gains `posts` in step 4.
 
 ## 6. Facts
 
@@ -242,17 +311,18 @@ Operational category, moderation retention (kept).
 | `modbot.post.create` | the post: title, text, picture, status, `sendAt`, zone, event, destinations and options |
 | `modbot.post.change` | title, `changed` (each field's `old` and `new`); `postNow` or `tryAgain` for those |
 | `modbot.post.cancel` | title; `deleted` for a draft deleted |
-| `modbot.post.send` | network, channel, link, external id, `sentText`, `adopted`, `scheduledBy` |
-| `modbot.post.fail` | network, channel, the words |
+| `modbot.post.send` | network, channel or `groupId`, link, external id, `sentText` (and `sentTitle` for VRChat), `adopted`, `scheduledBy` |
+| `modbot.post.fail` | network, channel or `groupId`, the words, `missingPermission` for VRChat |
 | `modbot.post.edit` | network, text before and after |
 | `modbot.post.remove` | network, by whom, link |
+| `modbot.post.picture.upload` | the VRChat file id, the picture, size and type; the subject is the kept picture (step 2) |
 
 ## 7. What leaves the server
 
 | Site | Sent | Seen by |
 |---|---|---|
 | Discord | title, text, picture file, one role mention | the channel's readers; followers' servers if published |
-| VRChat (step 2) | title, text, picture (uploaded to Modbot's VRChat account), roles, visibility, notify | group members, or everyone on vrchat.com |
+| VRChat | title, text, picture (uploaded to Modbot's VRChat account, only while uploads are on), roles, visibility, notify | group members (or the roles picked), or everyone on vrchat.com |
 | Bluesky (step 3) | text, link card, languages; sign-in to the account's server | public, and permanent once copied |
 
 Never sent: member names, user names or ids, counts of people, moderation data. Operator switches:
@@ -261,14 +331,9 @@ uploads, removing the Bluesky account.
 
 ## 8. Later steps
 
-- **Step 2, VRChat group posts**: `PostVRChatSender` on `groups.posts.write` (Background priority,
-  never a 429 resent), written before sending; a 5xx, a 408 or no id is `checking`, and two minutes
-  later page 1 of `GetGroupPosts` is read and a post by Modbot's account whose title and text match
-  (letters and digits) and is no older than the attempt minus two minutes is adopted; the audit
-  log's `group.post.create` adopts too. Composer section (who sees it, roles, notify, own title and
-  text), the picture through the existing upload while VRChat picture uploads are on (decision 14),
-  edit with the same `imageId` and `sendNotification: false`, delete with 404 as done. The VRChat
-  switch.
+- **Step 2, VRChat group posts**: built, §4.2b. The report's "page 1 of `GetGroupPosts`" became
+  pages until the whole window was read (at most five of 20), the same discipline as the Discord
+  look, so a post VRChat made late, or a busy group, can never be missed and then sent again.
 - **Step 3, Bluesky**: app password first (3a), OAuth for installs with a public address (3b,
   decision 15); a fixed record key with `swapRecord: null`; Cancelled as a reply under Announced
   (decision 7); Check shows whether the account is marked automated (decision 10).
@@ -284,7 +349,13 @@ uploads, removing the Bluesky account.
   not); the crosspost limit; whether an edit of a published message reaches followers' copies.
 - Discord.Net's own default retry mode in 3.20.1. `AlwaysFail` is set explicitly on post sends and
   publishes, so the answer does not change what Modbot does.
-- Everything the report lists as not checked for VRChat and Bluesky.
+- VRChat: the length limits of a group post's title and text; whether `groups.posts.write`'s one
+  call in 10 seconds is right; whether a post create can answer 500 and still post (assumed, as the
+  calendar's did); whether a gallery-tagged upload is taken as a post's `imageId`; the address shape
+  of the group's posts page used for Open (`vrchat.com/home/group/{id}/posts`); that `GetGroupPosts`
+  lists newest first (the Posts tab and the look both rely on it); and whether Modbot's account sees
+  a post limited to roles it does not hold when it reads the list.
+- Everything the report lists as not checked for Bluesky.
 
 ## 10. Decisions (owner, 2026-10-03; every one the recommended answer)
 

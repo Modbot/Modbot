@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
@@ -22,9 +22,14 @@ import {
   POST_PICTURE_MAX_BYTES,
   postsApi,
   requestOf,
+  vrchatCount,
+  vrchatNeedsTitle,
+  vrchatPictureWanted,
   type Post,
   type PostInput,
+  type PostRoleChoice,
   type PostSites,
+  type VRChatInput,
 } from '@/lib/posts'
 import { cn } from '@/lib/utils'
 import { PostPreviewPanel } from './PostPreview'
@@ -42,6 +47,9 @@ const SHAPES: { value: Shape; label: string }[] = [
 
 const ASPECT: Record<Shape, number | null> = { wide: 16 / 9, square: 1, whole: null }
 
+/** A post's picture as VRChat has it. */
+type VRChatPictureSent = { imageId: string; pictureId: string }
+
 /**
  * Writing a post, or changing one before it goes (posts design §4.3).
  *
@@ -54,6 +62,7 @@ export function PostComposer({
   post,
   initial,
   sites,
+  roles,
   onClose,
   onSaved,
 }: {
@@ -61,6 +70,8 @@ export function PostComposer({
   post: Post | null
   initial: PostInput
   sites: PostSites
+  /** The VRChat group's roles, for choosing who a VRChat post is for. */
+  roles: readonly PostRoleChoice[]
   onClose: () => void
   onSaved: (saved: Post) => void
 }) {
@@ -77,6 +88,48 @@ export function PostComposer({
   const set = <K extends keyof PostInput>(key: K, value: PostInput[K]) => setInput((current) => ({ ...current, [key]: value }))
   const setDiscord = <K extends keyof PostInput['discord']>(key: K, value: PostInput['discord'][K]) =>
     setInput((current) => ({ ...current, discord: { ...current.discord, [key]: value } }))
+  const setVRChat = (change: Partial<VRChatInput>) =>
+    setInput((current) => ({ ...current, vrChat: { ...current.vrChat, ...change } }))
+
+  // The picture goes to VRChat when VRChat is ticked with one, while VRChat picture uploads are on
+  // (decision 14): once per picture, since VRChat takes one upload a minute and none is sent again.
+  // Each picture sent, by the send itself so a second ask waits on the first; and VRChat's words
+  // for each one it refused.
+  const vrchatSends = useRef(new Map<string, Promise<VRChatPictureSent | null>>())
+  const [vrchatErrors, setVRChatErrors] = useState<Record<string, string>>({})
+  const [vrchatUploading, setVRChatUploading] = useState(false)
+
+  const sendPictureToVRChat = (pictureId: string): Promise<VRChatPictureSent | null> => {
+    const sending = vrchatSends.current.get(pictureId)
+    if (sending) return sending
+
+    setVRChatUploading(true)
+
+    const send = postsApi
+      .uploadVRChatPicture(pictureId)
+      .then((sent) => {
+        setInput((current) => ({ ...current, vrChat: { ...current.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }))
+        return sent
+      })
+      .catch((e: unknown) => {
+        const said = e instanceof ApiError ? e.message : 'Could not send the picture to VRChat.'
+        setVRChatErrors((current) => ({ ...current, [pictureId]: said }))
+        return null
+      })
+      .finally(() => setVRChatUploading(false))
+
+    vrchatSends.current.set(pictureId, send)
+    return send
+  }
+
+  // Only when the tick, the picture or the switch changes; the function itself is new every render.
+  const wantsVRChatPicture = vrchatPictureWanted(input, sites.vrChatPictures)
+  useEffect(() => {
+    if (wantsVRChatPicture && input.pictureId) void sendPictureToVRChat(input.pictureId)
+  }, [wantsVRChatPicture, input.pictureId])
+
+  // The error shown is the one for the picture the post has now.
+  const vrchatPictureError = input.pictureId ? (vrchatErrors[input.pictureId] ?? null) : null
 
   const picture = useCroppedPicture({
     aspect: ASPECT[shape],
@@ -106,6 +159,8 @@ export function PostComposer({
   const sending: PostInput = notAnnouncement && input.discord.publish ? { ...input, discord: { ...input.discord, publish: false } } : input
 
   const count = discordCount(input)
+  const vrchatCounter = vrchatCount(input)
+  const needsTitle = vrchatNeedsTitle(input)
   const isDraft = !post || post.status === 'draft'
 
   const save = async (draft: boolean) => {
@@ -123,9 +178,25 @@ export function PostComposer({
         return
       }
       saving = { ...saving, pictureId: id }
+
+      // The crop went up just now, so VRChat has not had it yet: sent once, here. Refused, nothing
+      // is saved and the VRChat section says why; saving again sends VRChat the text only.
+      if (vrchatPictureWanted(saving, sites.vrChatPictures)) {
+        const sent = await sendPictureToVRChat(id)
+        if (!sent) {
+          setBusy(false)
+          setTab('write')
+          return
+        }
+        saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
+      }
+    } else if (input.pictureId && vrchatPictureWanted(saving, sites.vrChatPictures) && vrchatSends.current.has(input.pictureId)) {
+      // A send to VRChat still on its way is waited for, so the post goes with what it answers.
+      const sent = await vrchatSends.current.get(input.pictureId)
+      if (sent) saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
     }
 
-    const body = requestOf(saving, draft, post?.version ?? null)
+    const body = requestOf(saving, draft, post?.version ?? null, sites.vrChatPictures)
     const request = post ? postsApi.update(post.id, body) : postsApi.create(body)
 
     request
@@ -138,6 +209,9 @@ export function PostComposer({
     if (next === 'preview') setShown(sending)
     setTab(next)
   }
+
+  const toggleRole = (id: string, on: boolean) =>
+    setVRChat({ roleIds: on ? [...input.vrChat.roleIds, id] : input.vrChat.roleIds.filter((r) => r !== id) })
 
   const croppedPreview = picture.draft ? (
     <CroppedPicture picture={picture.draft.picture} box={picture.draft.box} aspect={picture.aspect} className="rounded-sm" />
@@ -163,11 +237,11 @@ export function PostComposer({
               Cancel
             </Button>
             {isDraft && (
-              <Button size="sm" variant="outline" disabled={busy || picture.uploading} onClick={() => void save(true)}>
+              <Button size="sm" variant="outline" disabled={busy || picture.uploading || vrchatUploading} onClick={() => void save(true)}>
                 Save draft
               </Button>
             )}
-            <Button size="sm" disabled={busy || picture.uploading} onClick={() => void save(false)}>
+            <Button size="sm" disabled={busy || picture.uploading || vrchatUploading} onClick={() => void save(false)}>
               {input.when === 'now' ? 'Post now' : isDraft ? 'Schedule' : 'Save'}
             </Button>
           </DialogFoot>
@@ -187,6 +261,23 @@ export function PostComposer({
                 !sites.discordSetUp && <SiteState label="Not set up" to="/settings#discord" link={mayOpenSettings} />
               )}
             </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Chip on={input.vrChat.on} onClick={() => setVRChat({ on: !input.vrChat.on })}>
+                {input.vrChat.on && <Check className="size-3.5" />}
+                VRChat
+              </Chip>
+              {input.vrChat.on && !sites.vrChatOn ? (
+                <SiteState label="Off" to="/settings#posts" link={mayOpenSettings} />
+              ) : (
+                input.vrChat.on &&
+                !sites.vrChatSetUp && <SiteState label="Not set up" to="/settings#vrchat" link={mayOpenSettings} />
+              )}
+              {needsTitle && (
+                <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+                  Needs a title
+                </span>
+              )}
+            </span>
           </div>
 
           <Tabs
@@ -199,7 +290,7 @@ export function PostComposer({
             panelClassName="overflow-visible pt-4"
           >
             {tab === 'preview' && shown ? (
-              <PostPreviewPanel input={shown} croppedPicture={croppedPreview} />
+              <PostPreviewPanel input={shown} croppedPicture={croppedPreview} vrChatPictures={sites.vrChatPictures} />
             ) : (
               <div className="flex flex-col gap-4">
                 <Labelled label="Title">
@@ -209,7 +300,10 @@ export function PostComposer({
                   <Labelled label="Text">
                     <Textarea rows={6} value={input.text} onChange={(e) => set('text', e.target.value)} />
                   </Labelled>
-                  {input.discord.on && !input.discord.ownText && <Counter count={count} />}
+                  <div className="flex flex-wrap gap-x-3">
+                    {input.discord.on && !input.discord.ownText && <Counter count={count} />}
+                    {input.vrChat.on && !input.vrChat.ownText && <Counter count={vrchatCounter} />}
+                  </div>
                 </div>
 
                 <Section title="Picture">
@@ -275,6 +369,98 @@ export function PostComposer({
                         </div>
                       </div>
                     )}
+                  </Section>
+                )}
+
+                {input.vrChat.on && (
+                  <Section title="VRChat">
+                    <Labelled label="Who sees it">
+                      <SwitchBank
+                        value={input.vrChat.visibility}
+                        onChange={(visibility) => setVRChat({ visibility })}
+                        label="Who sees it"
+                        size="sm"
+                        options={[
+                          { value: 'group', label: 'Group' },
+                          { value: 'public', label: 'Everyone' },
+                        ]}
+                      />
+                    </Labelled>
+                    {input.vrChat.visibility === 'group' && roles.length > 0 && (
+                      <fieldset className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+                        <legend className="mb-1 text-muted-foreground">Roles</legend>
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                          {roles.map((role) => (
+                            <Checkbox
+                              key={role.id}
+                              checked={input.vrChat.roleIds.includes(role.id)}
+                              onChange={(on) => toggleRole(role.id, on)}
+                            >
+                              {role.name}
+                            </Checkbox>
+                          ))}
+                        </div>
+                      </fieldset>
+                    )}
+                    <Checkbox checked={input.vrChat.notify} onChange={(notify) => setVRChat({ notify })}>
+                      Notify members
+                    </Checkbox>
+                    <Checkbox
+                      checked={input.vrChat.ownTitle}
+                      onChange={(v) =>
+                        setInput((current) => ({
+                          ...current,
+                          vrChat: { ...current.vrChat, ownTitle: v, title: v && !current.vrChat.title ? current.title : current.vrChat.title },
+                        }))
+                      }
+                    >
+                      Own title
+                    </Checkbox>
+                    {input.vrChat.ownTitle && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          aria-label="VRChat title"
+                          value={input.vrChat.title}
+                          onChange={(e) => setVRChat({ title: e.target.value })}
+                        />
+                        <Button size="xs" variant="outline" onClick={() => setVRChat({ title: input.title })}>
+                          Reset
+                        </Button>
+                      </div>
+                    )}
+                    <Checkbox
+                      checked={input.vrChat.ownText}
+                      onChange={(v) =>
+                        setInput((current) => ({
+                          ...current,
+                          vrChat: { ...current.vrChat, ownText: v, text: v && !current.vrChat.text ? current.text : current.vrChat.text },
+                        }))
+                      }
+                    >
+                      Own text
+                    </Checkbox>
+                    {input.vrChat.ownText && (
+                      <div className="flex flex-col gap-1">
+                        <Textarea
+                          rows={5}
+                          aria-label="VRChat text"
+                          value={input.vrChat.text}
+                          onChange={(e) => setVRChat({ text: e.target.value })}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <Counter count={vrchatCounter} />
+                          <Button size="xs" variant="outline" onClick={() => setVRChat({ text: input.text })}>
+                            Reset
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {vrchatUploading && (
+                      <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                        Sending the picture to VRChat…
+                      </span>
+                    )}
+                    {vrchatPictureError && <Outcome tone="problem">{vrchatPictureError}</Outcome>}
                   </Section>
                 )}
 

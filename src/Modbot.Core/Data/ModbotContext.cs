@@ -469,6 +469,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // On for the row that exists already: nothing goes out without a person ticking it on
             // a post, and the calendar's one-off Discord posts were already on (posts design §4.6).
             entity.Property(e => e.DiscordPostsOn).HasDefaultValue(true);
+            entity.Property(e => e.VRChatPostsOn).HasDefaultValue(true);
 
             // Off, for the row that exists already as much as for a new one.
             entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);

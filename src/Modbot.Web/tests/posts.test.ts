@@ -10,8 +10,15 @@ import {
   headline,
   listsOf,
   localInput,
+  inputFrom,
   requestOf,
   shownLabel,
+  vrchatAudience,
+  vrchatCount,
+  vrchatImage,
+  vrchatNeedsTitle,
+  vrchatPictureWanted,
+  vrchatTitle,
   type Post,
   type PostDestination,
 } from '../src/lib/postRules.ts'
@@ -41,6 +48,8 @@ function destination(state: PostDestination['state'], more: Partial<PostDestinat
     sentAt: null,
     postedAt: null,
     publishedAt: null,
+    vrChat: null,
+    missingPermission: null,
     ...more,
   }
 }
@@ -173,4 +182,113 @@ test('a post with no title is named by its first line', () => {
 test('a time is written as a datetime field holds it, in the zone asked for', () => {
   assert.equal(localInput(new Date('2026-10-03T18:05:00Z'), 'UTC'), '2026-10-03T18:05')
   assert.equal(localInput(new Date('2026-10-03T18:05:00Z'), 'Asia/Tokyo'), '2026-10-04T03:05')
+})
+
+// ── VRChat (posts design §3.6) ───────────────────────────────────────────────────────────────
+
+test('a new post leaves VRChat unticked, for the group, with nobody notified', () => {
+  const input = blankPost(now, 'UTC')
+  assert.equal(input.vrChat.on, false)
+  assert.equal(input.vrChat.visibility, 'group')
+  assert.equal(input.vrChat.notify, false)
+  assert.equal(requestOf(input, false).vrChat, null)
+})
+
+test('VRChat needs a title: its own when ticked and filled, otherwise the post’s', () => {
+  const input = blankPost(now, 'UTC')
+  input.vrChat.on = true
+  assert.equal(vrchatNeedsTitle(input), true)
+
+  input.title = 'Movie night'
+  assert.equal(vrchatNeedsTitle(input), false)
+  assert.equal(vrchatTitle(input), 'Movie night')
+
+  input.vrChat.ownTitle = true
+  input.vrChat.title = '  '
+  assert.equal(vrchatTitle(input), 'Movie night')
+
+  input.vrChat.title = 'Cinema'
+  assert.equal(vrchatTitle(input), 'Cinema')
+
+  input.vrChat.on = false
+  input.title = ''
+  assert.equal(vrchatNeedsTitle(input), false)
+})
+
+test('the VRChat counter counts the text VRChat gets and is never red', () => {
+  const input = blankPost(now, 'UTC')
+  input.text = ' Friday at eight. '
+  input.vrChat.on = true
+  assert.deepEqual(vrchatCount(input), { label: 'VRChat 16', over: false })
+
+  input.vrChat.ownText = true
+  input.vrChat.text = 'x'.repeat(5000)
+  assert.deepEqual(vrchatCount(input), { label: 'VRChat 5000', over: false })
+})
+
+test('a ticked VRChat sends who sees it, its roles only for the group, and its own words only when ticked', () => {
+  const input = blankPost(now, 'UTC')
+  input.vrChat = { ...input.vrChat, on: true, roleIds: ['grol_a'], notify: true }
+
+  assert.deepEqual(requestOf(input, false).vrChat, {
+    visibility: 'group',
+    roleIds: ['grol_a'],
+    notify: true,
+    title: null,
+    text: null,
+    imageId: null,
+  })
+
+  input.vrChat = { ...input.vrChat, visibility: 'public', ownTitle: true, title: 'Cinema', ownText: true, text: 'Own words' }
+  const sent = requestOf(input, false).vrChat
+  assert.deepEqual(sent?.roleIds, [])
+  assert.equal(sent?.title, 'Cinema')
+  assert.equal(sent?.text, 'Own words')
+})
+
+test('the VRChat picture goes only while uploads are on and only for the picture the post has', () => {
+  const input = blankPost(now, 'UTC')
+  input.vrChat = { ...input.vrChat, on: true, imageId: 'file_1', imagePictureId: 'pic-1' }
+  input.pictureId = 'pic-1'
+
+  assert.equal(vrchatImage(input, true), 'file_1')
+  assert.equal(vrchatImage(input, false), null)
+  assert.equal(requestOf(input, false, null, true).vrChat?.imageId, 'file_1')
+  assert.equal(requestOf(input, false, null, false).vrChat?.imageId, null)
+
+  input.pictureId = 'pic-2'
+  assert.equal(vrchatImage(input, true), null)
+  assert.equal(vrchatPictureWanted(input, true), true)
+  assert.equal(vrchatPictureWanted(input, false), false)
+})
+
+test('a saved VRChat destination comes back into the composer as it was saved', () => {
+  const saved = post('scheduled', [
+    destination('waiting', {
+      network: 'vrchat',
+      target: 'grp_1',
+      targetName: null,
+      titleOverride: 'Cinema',
+      vrChat: { visibility: 'group', roleIds: ['grol_a'], roleNames: ['Members'], notify: true, imageId: 'file_1', pictureId: 'pic-1' },
+    }),
+  ])
+
+  const input = inputFrom(saved, now, 'UTC')
+  assert.equal(input.vrChat.on, true)
+  assert.equal(input.vrChat.ownTitle, true)
+  assert.equal(input.vrChat.title, 'Cinema')
+  assert.equal(input.vrChat.ownText, false)
+  assert.deepEqual(input.vrChat.roleIds, ['grol_a'])
+  assert.equal(input.vrChat.imageId, 'file_1')
+  assert.equal(input.discord.on, false)
+
+  const copy = duplicateOf(saved, now, 'UTC')
+  assert.equal(copy.vrChat.on, false)
+  assert.equal(copy.vrChat.notify, false)
+})
+
+test('who sees a VRChat post is said as Everyone, Group, or its roles', () => {
+  assert.equal(vrchatAudience('public', ['Members']), 'Everyone')
+  assert.equal(vrchatAudience('group', []), 'Group')
+  assert.equal(vrchatAudience('group', ['Members', 'Staff']), 'Members, Staff')
 })

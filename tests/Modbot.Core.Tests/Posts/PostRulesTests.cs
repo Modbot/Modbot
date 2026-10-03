@@ -107,10 +107,37 @@ public class PostRulesTests
     [Fact]
     public void ASiteNotBuiltYetIsNeverSetUp()
     {
-        var sites = new PostSites(false, true, true);
+        var sites = new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: true);
 
-        Assert.Equal(PostHolds.NotSetUp, sites.HoldFor(PostNetworks.VRChat));
         Assert.Equal(PostHolds.NotSetUp, sites.HoldFor(PostNetworks.Bluesky));
+    }
+
+    [Fact]
+    public void VRChatOffOrNotSetUpHoldsVRChatOnly()
+    {
+        Assert.Equal(PostHolds.Off, new PostSites(false, true, true, VRChatOn: false, VRChatSetUp: true).HoldFor(PostNetworks.VRChat));
+        Assert.Equal(PostHolds.NotSetUp, new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: false).HoldFor(PostNetworks.VRChat));
+        Assert.Null(new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: true).HoldFor(PostNetworks.VRChat));
+
+        // Discord's switch says nothing about VRChat, and the other way round.
+        Assert.Null(new PostSites(false, DiscordOn: false, DiscordSetUp: false, VRChatOn: true, VRChatSetUp: true).HoldFor(PostNetworks.VRChat));
+        Assert.Null(new PostSites(false, DiscordOn: true, DiscordSetUp: true, VRChatOn: false, VRChatSetUp: false).HoldFor(PostNetworks.Discord));
+    }
+
+    [Fact]
+    public void VRChatIsReadyWithAGroupAndAnAccount()
+    {
+        var settings = new Settings
+        {
+            ManagedGroupId = "grp_test",
+            VRChatUsername = "modbot",
+            VRChatPasswordEncrypted = "sealed",
+        };
+
+        Assert.True(PostSites.VRChatReady(settings));
+        Assert.False(PostSites.VRChatReady(null));
+        Assert.False(PostSites.VRChatReady(new Settings { VRChatUsername = "modbot", VRChatPasswordEncrypted = "sealed" }));
+        Assert.False(PostSites.VRChatReady(new Settings { ManagedGroupId = "grp_test" }));
     }
 
     [Fact]

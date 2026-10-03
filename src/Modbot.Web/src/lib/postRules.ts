@@ -14,6 +14,21 @@ export type PostDestinationState = 'waiting' | 'sending' | 'checking' | 'posted'
 /** What a destination shows: its state, or why a waiting one waits. Checking is shown as sending. */
 export type PostShown = Exclude<PostDestinationState, 'checking'> | 'paused' | 'off' | 'notSetUp'
 
+/** Who sees a VRChat group post: the group (or only the roles picked), or everyone on vrchat.com. */
+export type VRChatVisibility = 'group' | 'public'
+
+/** A VRChat destination's own choices. */
+export type VRChatDestination = {
+  visibility: VRChatVisibility
+  roleIds: string[]
+  roleNames: string[]
+  notify: boolean
+  /** The picture's VRChat file id, or null for text only. */
+  imageId: string | null
+  /** The post's picture the file id was uploaded from. */
+  pictureId: string | null
+}
+
 export type PostDestination = {
   id: string
   network: PostNetwork
@@ -36,6 +51,10 @@ export type PostDestination = {
   sentAt: string | null
   postedAt: string | null
   publishedAt: string | null
+  /** A VRChat destination's own choices; null for another site. */
+  vrChat: VRChatDestination | null
+  /** The VRChat group permission Modbot's account was refused for lacking. */
+  missingPermission: string | null
 }
 
 export type Post = {
@@ -61,7 +80,18 @@ export type Post = {
 
 export type PostCounts = Record<PostListName, number>
 
-export type PostSites = { paused: boolean; discordOn: boolean; discordSetUp: boolean }
+export type PostSites = {
+  paused: boolean
+  discordOn: boolean
+  discordSetUp: boolean
+  vrChatOn: boolean
+  vrChatSetUp: boolean
+  /** VRChat picture uploads are on, so a VRChat post can carry the picture. */
+  vrChatPictures: boolean
+}
+
+/** A role of the VRChat group, for choosing who a VRChat post is for. */
+export type PostRoleChoice = { id: string; name: string }
 
 export type PostList = {
   list: PostListName
@@ -73,6 +103,7 @@ export type PostList = {
   canManage: boolean
   sites: PostSites
   now: string
+  vrChatRoles: PostRoleChoice[]
 }
 
 export type DiscordPostPreview = {
@@ -88,7 +119,17 @@ export type DiscordPostPreview = {
   publish: boolean
 }
 
-export type PostPreview = { discord: DiscordPostPreview | null; problems: string[] }
+export type VRChatPostPreview = {
+  title: string | null
+  text: string
+  visibility: VRChatVisibility
+  roleNames: string[]
+  notify: boolean
+  pictureUrl: string | null
+  length: number
+}
+
+export type PostPreview = { discord: DiscordPostPreview | null; vrChat: VRChatPostPreview | null; problems: string[] }
 
 export type PostHealthProblem = {
   postId: string
@@ -97,6 +138,7 @@ export type PostHealthProblem = {
   problem: 'failed' | 'checking'
   error: string | null
   at: string | null
+  missingPermission: string | null
 }
 
 export type PostsHealth = {
@@ -105,7 +147,7 @@ export type PostsHealth = {
   holds: { network: PostNetwork; hold: 'off' | 'notSetUp'; waiting: number }[]
 }
 
-export type PostSettings = { paused: boolean; discord: boolean }
+export type PostSettings = { paused: boolean; discord: boolean; vrChat: boolean }
 
 /** The Discord section of the composer. */
 export type DiscordInput = {
@@ -119,6 +161,26 @@ export type DiscordInput = {
   text: string
 }
 
+/** The VRChat section of the composer (posts design §3.6). */
+export type VRChatInput = {
+  /** The chip: off when the composer opens, every time, for a new post. */
+  on: boolean
+  visibility: VRChatVisibility
+  /** With Group, only these roles; none is every member. */
+  roleIds: string[]
+  /** Unticked to start. */
+  notify: boolean
+  /** "Own title" ticked: VRChat gets `title` instead of the post's. */
+  ownTitle: boolean
+  title: string
+  /** "Own text" ticked: VRChat gets `text` instead of the post's. */
+  ownText: boolean
+  text: string
+  /** The picture's VRChat file id, uploaded from `imagePictureId`. */
+  imageId: string | null
+  imagePictureId: string | null
+}
+
 /** The composer's state. */
 export type PostInput = {
   title: string
@@ -130,6 +192,7 @@ export type PostInput = {
   timeZone: string
   eventId: string | null
   discord: DiscordInput
+  vrChat: VRChatInput
 }
 
 /** What the server takes for a new post or a change. */
@@ -143,6 +206,14 @@ export type PostRequest = {
   draft: boolean
   eventId: string | null
   discord: { channelId: string | null; roleId: string | null; publish: boolean; text: string | null } | null
+  vrChat: {
+    visibility: VRChatVisibility
+    roleIds: string[]
+    notify: boolean
+    title: string | null
+    text: string | null
+    imageId: string | null
+  } | null
   version: number | null
 }
 
@@ -255,6 +326,43 @@ export function discordCount(input: Pick<PostInput, 'title' | 'text' | 'discord'
   return { label: `Discord ${length} / ${DISCORD_LIMIT}`, over: length > DISCORD_LIMIT }
 }
 
+/** The title VRChat gets: its own when "Own title" is ticked and filled, otherwise the post's. Empty when none. */
+export function vrchatTitle(input: Pick<PostInput, 'title' | 'vrChat'>): string {
+  const own = input.vrChat.ownTitle ? tidy(input.vrChat.title).replace(/\n/g, ' ') : ''
+  return own || tidy(input.title).replace(/\n/g, ' ')
+}
+
+/** Whether VRChat is ticked with no title to send: its chip says "Needs a title" until there is one. */
+export function vrchatNeedsTitle(input: Pick<PostInput, 'title' | 'vrChat'>): boolean {
+  return input.vrChat.on && vrchatTitle(input) === ''
+}
+
+/** The counter under the text for VRChat: "VRChat 212". VRChat documents no limit, so it is never red. */
+export function vrchatCount(input: Pick<PostInput, 'text' | 'vrChat'>): { label: string; over: boolean } {
+  const text = input.vrChat.ownText ? input.vrChat.text : input.text
+  return { label: `VRChat ${tidy(text).length}`, over: false }
+}
+
+/**
+ * The VRChat file id to send with the post: only while VRChat picture uploads are on, and only when
+ * it was uploaded from the picture the post has now (decision 14). Otherwise VRChat gets text only.
+ */
+export function vrchatImage(input: Pick<PostInput, 'pictureId' | 'vrChat'>, picturesOn: boolean): string | null {
+  if (!picturesOn || !input.pictureId) return null
+  return input.vrChat.imagePictureId === input.pictureId ? input.vrChat.imageId : null
+}
+
+/** Whether the post's picture still has to go to VRChat before VRChat can carry it. */
+export function vrchatPictureWanted(input: Pick<PostInput, 'pictureId' | 'vrChat'>, picturesOn: boolean): boolean {
+  return input.vrChat.on && picturesOn && input.pictureId !== null && input.vrChat.imagePictureId !== input.pictureId
+}
+
+/** Who sees a VRChat post, in words: Everyone, Group, or the roles it is for. */
+export function vrchatAudience(visibility: VRChatVisibility, roleNames: readonly string[]): string {
+  if (visibility === 'public') return 'Everyone'
+  return roleNames.length > 0 ? roleNames.join(', ') : 'Group'
+}
+
 /** `yyyy-MM-ddTHH:mm` for `at` in `zone`, as a datetime-local field holds it. */
 export function localInput(at: Date, zone: string): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -282,12 +390,29 @@ export function blankPost(now: Date, zone: string): PostInput {
     timeZone: zone,
     eventId: null,
     discord: { on: false, channelId: '', roleId: '', publish: false, ownText: false, text: '' },
+    vrChat: blankVRChat(),
+  }
+}
+
+function blankVRChat(): VRChatInput {
+  return {
+    on: false,
+    visibility: 'group',
+    roleIds: [],
+    notify: false,
+    ownTitle: false,
+    title: '',
+    ownText: false,
+    text: '',
+    imageId: null,
+    imagePictureId: null,
   }
 }
 
 /** A saved post in the composer, to change before it goes. Its sites stay ticked as saved. */
 export function inputFrom(post: Post, now: Date, zone: string): PostInput {
   const discord = post.destinations.find((d) => d.network === 'discord')
+  const vrchat = post.destinations.find((d) => d.network === 'vrchat')
   const blank = blankPost(now, zone)
 
   return {
@@ -308,6 +433,20 @@ export function inputFrom(post: Post, now: Date, zone: string): PostInput {
           text: discord.textOverride ?? '',
         }
       : blank.discord,
+    vrChat: vrchat
+      ? {
+          on: true,
+          visibility: vrchat.vrChat?.visibility ?? 'group',
+          roleIds: [...(vrchat.vrChat?.roleIds ?? [])],
+          notify: vrchat.vrChat?.notify ?? false,
+          ownTitle: vrchat.titleOverride !== null,
+          title: vrchat.titleOverride ?? '',
+          ownText: vrchat.textOverride !== null,
+          text: vrchat.textOverride ?? '',
+          imageId: vrchat.vrChat?.imageId ?? null,
+          imagePictureId: vrchat.vrChat?.pictureId ?? null,
+        }
+      : blank.vrChat,
   }
 }
 
@@ -323,11 +462,15 @@ export function duplicateOf(post: Post, now: Date, zone: string): PostInput {
     sendAt: blankPost(now, zone).sendAt,
     timeZone: zone,
     discord: { ...copy.discord, on: false },
+    vrChat: { ...copy.vrChat, on: false, notify: false },
   }
 }
 
-/** What the server is sent for the composer's state. */
-export function requestOf(input: PostInput, draft: boolean, version: number | null = null): PostRequest {
+/**
+ * What the server is sent for the composer's state. `vrChatPictures` says whether VRChat picture
+ * uploads are on: off, VRChat is sent no picture id.
+ */
+export function requestOf(input: PostInput, draft: boolean, version: number | null = null, vrChatPictures = false): PostRequest {
   return {
     title: input.title.trim() || null,
     text: input.text,
@@ -343,6 +486,16 @@ export function requestOf(input: PostInput, draft: boolean, version: number | nu
           roleId: input.discord.roleId || null,
           publish: input.discord.publish,
           text: input.discord.ownText ? input.discord.text : null,
+        }
+      : null,
+    vrChat: input.vrChat.on
+      ? {
+          visibility: input.vrChat.visibility,
+          roleIds: input.vrChat.visibility === 'group' ? [...input.vrChat.roleIds] : [],
+          notify: input.vrChat.notify,
+          title: input.vrChat.ownTitle ? input.vrChat.title : null,
+          text: input.vrChat.ownText ? input.vrChat.text : null,
+          imageId: vrchatImage(input, vrChatPictures),
         }
       : null,
     version,

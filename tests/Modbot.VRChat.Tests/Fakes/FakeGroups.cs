@@ -115,6 +115,25 @@ public sealed class FakeGroups
     /// <summary>What <c>AddGroupPost</c> answers with.</summary>
     public HttpStatusCode PostStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>
+    /// The post <c>AddGroupPost</c> answers a 200 with, made from what it was sent; null answers with
+    /// no body. When <see cref="PostLands"/> is set, the post is also put in <see cref="GroupPostList"/>,
+    /// whatever the status: VRChat has answered a create with a 500 and made it anyway.
+    /// </summary>
+    public Func<CreateGroupPostRequest, GroupPost>? PostAnswer { get; set; }
+
+    /// <summary>Whether a post sent is put in <see cref="GroupPostList"/>, even when the answer was not a 200.</summary>
+    public bool PostLands { get; set; }
+
+    /// <summary>The group's posts, as <c>GetGroupPosts</c> serves them: newest first, by offset.</summary>
+    public List<GroupPost> GroupPostList { get; } = [];
+
+    /// <summary>What <c>GetGroupPosts</c> answers with.</summary>
+    public HttpStatusCode PostsReadStatus { get; set; } = HttpStatusCode.OK;
+
+    /// <summary>Every page of posts read, as (n, offset).</summary>
+    public List<PageQuery> PostsQueries { get; } = [];
+
     public IGroupsApi Build()
     {
         var groups = Substitute.For<IGroupsApi>();
@@ -124,10 +143,39 @@ public sealed class FakeGroups
                 Arg.Any<string>(), Arg.Any<CreateGroupPostRequest>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
-                Posts.Add(call.ArgAt<CreateGroupPostRequest>(1));
+                var request = call.ArgAt<CreateGroupPostRequest>(1);
+                Posts.Add(request);
+
+                var made = PostAnswer?.Invoke(request);
+                if (made is not null && PostLands)
+                    GroupPostList.Insert(0, made);
 
                 return Task.FromResult(new ApiResponse<GroupPost>(
-                    PostStatus, new Multimap<string, string>(), null!, PostStatus == HttpStatusCode.OK ? "{}" : "{\"error\":{\"message\":\"no\"}}"));
+                    PostStatus,
+                    new Multimap<string, string>(),
+                    PostStatus == HttpStatusCode.OK ? made! : null!,
+                    PostStatus == HttpStatusCode.OK ? made?.ToJson() ?? "{}" : "{\"error\":{\"message\":\"no\"}}"));
+            });
+
+        groups
+            .GetGroupPostsWithHttpInfoAsync(
+                Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>(), Arg.Any<bool?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var n = call.ArgAt<int?>(1) ?? 10;
+                var offset = call.ArgAt<int?>(2) ?? 0;
+                PostsQueries.Add(new PageQuery(n, offset));
+
+                if (PostsReadStatus != HttpStatusCode.OK)
+                {
+                    return Task.FromResult(new ApiResponse<GroupPostsResponse>(
+                        PostsReadStatus, new Multimap<string, string>(), null!, "{}"));
+                }
+
+                var page = GroupPostList.OrderByDescending(p => p.CreatedAt).Skip(offset).Take(n).ToList();
+
+                return Task.FromResult(new ApiResponse<GroupPostsResponse>(
+                    HttpStatusCode.OK, new Multimap<string, string>(), new GroupPostsResponse(page, GroupPostList.Count), "{}"));
             });
 
         groups
