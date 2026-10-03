@@ -128,10 +128,36 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
         await using var running = host;
 
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/posts", Body(host, new { }), cookie, Ct);
-        Assert.Contains("No Bluesky account is set up yet.", await ProblemsAsync(response));
+        Assert.Contains("Bluesky is off.", await ProblemsAsync(response));
 
         var draft = await host.SendJsonAsync(HttpMethod.Post, "/api/posts", new { title = "Later", text = "Some words", draft = true, bluesky = new { } }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, draft.StatusCode);
+    }
+
+    [Fact]
+    public async Task ThePreviewSaysOffOrNotSetUp_AsTheChipDoes()
+    {
+        // A handle and app password saved, Check not passed: no account found, Posting still off.
+        var (host, _, cookie) = await StartAsync(checkedAccount: false);
+        await using var running = host;
+
+        var off = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/posts/preview", Body(host, new { }), cookie, Ct), Ct);
+        var offProblems = off.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList();
+        Assert.Contains("Bluesky is off.", offProblems);
+        Assert.DoesNotContain("Bluesky is not set up.", offProblems);
+
+        // Posting on, and then the handle changed: no account found, so Not set up.
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.BlueskyPostingOn = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var notSetUp = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/posts/preview", Body(host, new { }), cookie, Ct), Ct);
+        var notSetUpProblems = notSetUp.GetProperty("problems").EnumerateArray().Select(p => p.GetString()).ToList();
+        Assert.Contains("Bluesky is not set up.", notSetUpProblems);
+        Assert.DoesNotContain("Bluesky is off.", notSetUpProblems);
     }
 
     [Fact]

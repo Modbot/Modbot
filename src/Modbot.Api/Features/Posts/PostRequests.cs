@@ -29,6 +29,12 @@ internal static class PostRequests
 
     public const string ChannelNotInServer = "That channel is not in the Discord server.";
 
+    /// <summary>Bluesky ticked with no account found yet, while the Posting switch is off.</summary>
+    public const string BlueskyOff = "Bluesky is off.";
+
+    /// <summary>Bluesky ticked with no account found yet, while the Posting switch is on.</summary>
+    public const string BlueskyNotSetUp = "Bluesky is not set up.";
+
     public const string WhenNow = "now";
     public const string WhenLater = "later";
 
@@ -218,16 +224,21 @@ internal static class PostRequests
         List<string> problems,
         CancellationToken ct)
     {
-        var did = (await db.Settings.AsNoTracking()
+        var account = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => s.BlueskyDid)
-            .FirstOrDefaultAsync(ct))?.Trim();
+            .Select(s => new { s.BlueskyDid, s.BlueskyPostingOn })
+            .FirstOrDefaultAsync(ct);
+
+        var did = account?.BlueskyDid?.Trim();
 
         if (string.IsNullOrEmpty(did))
         {
             did = null;
+
+            // The same state, in the same order, as the composer's chip beside Bluesky: Off while
+            // the Posting switch is off, otherwise Not set up.
             if (!draft)
-                problems.Add("No Bluesky account is set up yet.");
+                problems.Add(account?.BlueskyPostingOn == true ? BlueskyNotSetUp : BlueskyOff);
         }
 
         if (ownText is { Length: > Post.MaxTextLength })
