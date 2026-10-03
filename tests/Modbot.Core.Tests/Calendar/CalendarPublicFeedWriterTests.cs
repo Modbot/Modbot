@@ -31,6 +31,9 @@ public class CalendarPublicFeedWriterTests
             UpdatedAt = Now,
         };
 
+    /// <summary>Lines longer than 75 bytes are folded onto the next (RFC 5545 §3.1); this puts them back.</summary>
+    private static string Unfold(string feed) => feed.Replace("\r\n ", string.Empty, StringComparison.Ordinal);
+
     private static string Write(params CalendarEvent[] events) =>
         CalendarFeedWriter.WritePublic(
             "Night Owls", events, new Dictionary<string, string> { ["wrld_1"] = "The Black Cat" }, Now, Address);
@@ -97,9 +100,9 @@ public class CalendarPublicFeedWriterTests
     {
         var series = WeeklyWithAChangedDate(access: "public");
 
-        var lines = Write(series).Split("\r\n");
-        var secret = CalendarFeedWriter.Write(
-            "Night Owls", [series], new Dictionary<string, string> { ["wrld_1"] = "The Black Cat" }, Now).Split("\r\n");
+        var lines = Unfold(Write(series)).Split("\r\n");
+        var secret = Unfold(CalendarFeedWriter.Write(
+            "Night Owls", [series], new Dictionary<string, string> { ["wrld_1"] = "The Black Cat" }, Now)).Split("\r\n");
 
         var extra = lines.Where(l => l.StartsWith("URL:", StringComparison.Ordinal)).ToList();
 
@@ -162,7 +165,7 @@ public class CalendarPublicFeedWriterTests
     {
         var e = Event("Movie night", access: access);
 
-        var feed = Write(e);
+        var feed = Unfold(Write(e));
         var join = $"URL:{Address}/api/calendar/join/{e.Id:D}";
 
         Assert.Equal(linked, feed.Contains(join, StringComparison.Ordinal));

@@ -186,7 +186,9 @@ public class PublicCalendarFeedTests(PostgresFixture db)
 
         Assert.Equal(HttpStatusCode.OK, (await SwitchAsync(host, manager, on: true)).StatusCode);
 
-        var feed = await (await host.Client.GetAsync(FeedPath, Ct)).Content.ReadAsStringAsync(Ct);
+        // The join line is longer than 75 bytes, so it is folded (RFC 5545 §3.1); unfolded, it is whole.
+        var feed = (await (await host.Client.GetAsync(FeedPath, Ct)).Content.ReadAsStringAsync(Ct))
+            .Replace("\r\n ", string.Empty, StringComparison.Ordinal);
 
         Assert.Contains($"URL:{Address}/api/calendar/join/{anyone:D}", feed, StringComparison.Ordinal);
         Assert.DoesNotContain($"/api/calendar/join/{friends:D}", feed, StringComparison.Ordinal);
