@@ -136,6 +136,11 @@ public sealed record CalendarInviteChoicesView(
 /// <paramref name="MissingGroupPermission"/> instead, shown before them. Null when the failure was
 /// VRChat's own answer (added 2026-10-02).
 /// </param>
+/// <param name="Link">
+/// Google Calendar only, while it is published: the event's own address on Google, as Google gave
+/// it. Null for every other place, and before Google has answered a write (Google Calendar design
+/// step 3, 2026-10-03).
+/// </param>
 public sealed record CalendarPlaceView(
     string Place,
     string State,
@@ -144,7 +149,8 @@ public sealed record CalendarPlaceView(
     DateTimeOffset UpdatedAt,
     MissingGroupPermission? MissingGroupPermission = null,
     bool CanTryAgain = false,
-    IReadOnlyList<string>? Problems = null);
+    IReadOnlyList<string>? Problems = null,
+    string? Link = null);
 
 /// <param name="PlannedStartsAt">
 /// One date of a repeating event, by its planned start, whose own VRChat or Google write failed.
@@ -351,11 +357,56 @@ public sealed record CalendarPreviewRequest(Guid? EventId, CalendarEventRequest 
 /// <param name="ChannelPost">The card in the channel. Null on a server without the Discord bot built in.</param>
 /// <param name="VRChat">What VRChat's calendar is sent.</param>
 /// <param name="Feed">What a phone or desktop calendar reads from the calendar feed.</param>
+/// <param name="Google">What the Google calendar in Settings is sent (added 2026-10-03).</param>
 public sealed record CalendarPreviewView(
     Modbot.Core.Calendar.CalendarDiscordEventPreview? DiscordEvent,
     Modbot.Core.Calendar.CalendarChannelPostPreview? ChannelPost,
     CalendarVRChatPreviewView VRChat,
-    CalendarFeedPreviewView Feed);
+    CalendarFeedPreviewView Feed,
+    CalendarGooglePreviewView? Google = null);
+
+/// <summary>
+/// What the Google calendar is sent for the event, read out of the body the Google loop sends
+/// (<c>CalendarGoogleBody</c>; Google Calendar design §3.8).
+/// </summary>
+/// <param name="CalendarName">The calendar's name as Check found it, or its id; null before one is saved.</param>
+/// <param name="Title">The title, with "Cancelled: " in front for a cancelled event.</param>
+/// <param name="Description">
+/// The description as Google shows it, then the world's name and page; null for none. Google is sent
+/// it with <c>&lt;</c>, <c>&gt;</c> and <c>&amp;</c> escaped, since it reads a description as HTML.
+/// </param>
+/// <param name="Location">The world's name, its id when Modbot has no name, or <c>VRChat</c>.</param>
+/// <param name="StartsAt">The first start.</param>
+/// <param name="EndsAt">The first end.</param>
+/// <param name="TimeZone">The IANA zone Google shows the times and counts the repeat in.</param>
+/// <param name="Repeat">The repeat Google is sent, or null for an event that does not repeat.</param>
+/// <param name="Private">
+/// Only the people the calendar is shared with see the event: Check found the calendar is not
+/// public, or shows only free or busy, or the event itself is sent as private.
+/// </param>
+public sealed record CalendarGooglePreviewView(
+    string? CalendarName,
+    string Title,
+    string? Description,
+    string Location,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    string TimeZone,
+    CalendarGoogleRepeatView? Repeat,
+    bool Private);
+
+/// <summary>The repeat line Google is sent (<c>RRULE</c>), in its parts.</summary>
+/// <param name="Frequency"><c>daily</c>, <c>weekly</c> or <c>monthly</c>.</param>
+/// <param name="Every">How many days, weeks or months apart.</param>
+/// <param name="Days">For weekly, the days: <c>MO</c> to <c>SU</c>.</param>
+/// <param name="Until">The last day a date may start on, in the event's zone (<c>yyyy-MM-dd</c>); null for none.</param>
+/// <param name="Times">How many dates the repeat has; null for no count.</param>
+public sealed record CalendarGoogleRepeatView(
+    string Frequency,
+    int Every,
+    IReadOnlyList<string> Days,
+    string? Until,
+    int? Times);
 
 /// <summary>What VRChat's calendar is sent, in VRChat's own words for each field.</summary>
 /// <param name="Update">True when the event is on VRChat already, so the next write is an update.</param>

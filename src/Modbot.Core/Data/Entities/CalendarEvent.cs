@@ -463,6 +463,14 @@ public class CalendarEventPlace
     /// </summary>
     public string? GoogleCalendarId { get; set; }
 
+    /// <summary>
+    /// For Google Calendar, the event's address on Google (<c>htmlLink</c>), as Google gave it in the
+    /// answer to the last insert, update or read-back. The event's <strong>Open</strong> leads there.
+    /// Null until Google has answered one, and once the event is taken off Google (Google Calendar
+    /// design §3.8, step 3).
+    /// </summary>
+    public string? GoogleLink { get; set; }
+
     /// <summary>For a channel post, the channel the message is actually in.</summary>
     public string? ChannelId { get; set; }
 

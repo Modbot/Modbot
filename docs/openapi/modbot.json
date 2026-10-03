@@ -34219,6 +34219,102 @@
           }
         }
       },
+      "CalendarGooglePreviewView": {
+        "required": [
+          "calendarName",
+          "title",
+          "description",
+          "location",
+          "startsAt",
+          "endsAt",
+          "timeZone",
+          "repeat",
+          "private"
+        ],
+        "type": "object",
+        "properties": {
+          "calendarName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "location": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "repeat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarGoogleRepeatView"
+              }
+            ]
+          },
+          "private": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarGoogleRepeatView": {
+        "required": [
+          "frequency",
+          "every",
+          "days",
+          "until",
+          "times"
+        ],
+        "type": "object",
+        "properties": {
+          "frequency": {
+            "type": "string"
+          },
+          "every": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "until": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "times": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CalendarInviteChoicesView": {
         "required": [
           "staff",
@@ -34580,6 +34676,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -34670,6 +34772,16 @@
           },
           "feed": {
             "$ref": "#/components/schemas/CalendarFeedPreviewView"
+          },
+          "google": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarGooglePreviewView"
+              }
+            ]
           }
         }
       },

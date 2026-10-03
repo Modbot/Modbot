@@ -1,9 +1,9 @@
 # Modbot — Google Calendar
 
 - **Date:** 2026-10-03
-- **Status:** Steps 1 and 2 built (§4; §7 and §8 say what they built and where they differ): the
-  key, Check, the Links, and sending events. Step 3 (the form's chip, the preview, the feed button,
-  the calendar docs) is not built. The owner took every recommended decision in §5 on 2026-10-03.
+- **Status:** Steps 1 to 3 built (§4; §7, §8 and §9 say what they built and where they differ):
+  the key, Check, the Links, sending events, the form's chip, the preview, the event's Open, the
+  feed button and the calendar docs. The owner took every recommended decision in §5 on 2026-10-03.
 - **Covers:** Modbot writing its events into a Google calendar the group's owner owns, through a
   service account; the settings and Check; what goes to Google and when; at-most-once inserts; limits;
   the public links ("Add to Google Calendar")
@@ -592,7 +592,62 @@ What step 2 built, and where it differs from the sections above.
   no answer is not kept for a minute; the Calendar ID field is capped at 1024; a settings change whose
   value is a sentence is quoted in the audit log, so it no longer ends in two stops.
 - **Not built in step 2:** the event's **Open** link to Google (no `htmlLink` is stored), the preview
-  card, the chip, Visible to moved, the feed button, the calendar and not-built-yet docs.
+  card, the chip, Visible to moved, the feed button, the calendar and not-built-yet docs. Step 3
+  built them (§9).
+
+## 9. Step 3 as built (2026-10-03)
+
+What step 3 built, and where it differs from the sections above.
+
+- **The chip.** **Google Calendar** sits in the form's "Where it goes" after **Calendar feed**
+  (`calendarPlaces.ts`: `googleChip`, `googleTicked`). It says **Not set up** (linking to
+  `/settings#google`, in a new tab) while readiness says Google is not ready (set up and Sending on),
+  whether it is ticked or not, since the chip is the way to Google; the other chips say it only while
+  on. Otherwise it says **Members only** for an event only members see (`membersOnly`, the server's
+  rule word for word), and cannot be ticked then. An event's VRChat roles are not in the form, so the
+  saved event's `vrChatRoleIds` decide it.
+- **The starting tick (decision 6 A).** A new event the chip was not clicked on is ticked while
+  readiness says Google is ready and the event is not members-only, and the tick follows **Visible
+  to** until the chip is clicked. The form always sends `publishToGoogle` for a new event: what the
+  chip shows is what is saved. This differs from the API's rule for a request that leaves it out
+  (`CalendarGoogle.TicksByDefault`: set up, Sending on or off) only while Google is set up with
+  Sending off: the chip says **Not set up** and starts off, and **Add all** ticks those events once
+  Sending is on. A tick kept on an event made members-only stays stored and is drawn off; made
+  visible to everyone again, the event goes.
+- **Visible to** moved from the VRChat calendar section to **Where**. It shows while the VRChat
+  calendar chip is on, while the Google chip is on, or while the Google chip says **Members only**
+  (Visible to is what lets it be ticked; with VRChat off and Google not set up it stays hidden).
+- **The public feed is unchanged.** `CalendarFeedWriter.IsPublic` still asks for the VRChat chip. The
+  public feed lists what the group's VRChat calendar shows everyone (calendar design §6.1); an event
+  that goes only to Google is on the Google calendar's own public links instead. Only the remark on
+  `IsPublic` changed, since "Visible to shows only with the VRChat chip" no longer holds.
+- **Preview.** `CalendarPreviewView.Google` (`CalendarPreviews.Google`) is read out of
+  `CalendarGoogleBody` itself: the summary, the description with Google's three escapes undone (as
+  Google shows it), the location, the times and zone, and the `RRULE` line in its parts
+  (`GoogleRepeat`: `UNTIL` turned back into the last day in the event's zone). The web writes the
+  repeat in words (`googleCalendar.ts`) and the times in the event's zone. The calendar's name is
+  Check's, or the calendar id. **The padlock** shows when Check found the calendar not public, or
+  free or busy only, as well as for a `private` body: under decision 1 A the body is always
+  `default`, so a padlock that read the body alone would never show.
+- **Open.** `CalendarEventPlace.GoogleLink` keeps Google's `htmlLink` from the answer to an insert,
+  an update or a read-back that adopts the event, only when it is an `https` address on
+  `google.com` or a subdomain on the default port (`GoogleCalendarIds.EventLink`). Cleared when a new
+  turn is inserted and when the place is removed. `CalendarPlaceView.Link` carries it while the
+  Google place is published; the event's box shows **Open** beside **Google Calendar: Published**.
+  An event published before step 3 has no address until its next write. One migration,
+  `KeepGoogleEventAddress`, made last.
+- **The feed button (§3.9, part 2).** **Add to Google Calendar** beside the feed row's **Copy**, for
+  Manage calendar (the row's own permission): `https://calendar.google.com/calendar/r?cid=` and the
+  feed's address as `webcal://`, URL-encoded, in a new tab. Whether `cid=` takes a webcal address
+  stays unconfirmed (§6) until the testing pass tries it.
+- **The Sending card stays hidden until Check passes** (a step 2 finding, kept on purpose): turning
+  Sending on needs a Check that passed for the saved key and calendar, so a switch shown before then
+  could only be refused.
+- **Docs.** `moderation/calendar.mdx` (the chip and Not set up tables, Members only, Visible to under
+  Where, Preview, a "Google Calendar" section, cancel and one-date rows, Health, the audit log, the
+  feed button), `moderation/google-calendar.mdx` (the chip, Open), `not-built-yet.mdx` (pictures on
+  Google, reading changes back, per-event add links, signing in with Google), and the OpenAPI
+  document.
 
 ## Sources (accessed 2026-10-02/03)
 

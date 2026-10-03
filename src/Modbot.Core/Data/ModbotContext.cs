@@ -2528,6 +2528,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.ExternalId).HasColumnType("text");
             entity.Property(e => e.ChannelId).HasColumnType("text");
             entity.Property(e => e.GoogleCalendarId).HasColumnType("text");
+            entity.Property(e => e.GoogleLink).HasColumnType("text");
             entity.Property(e => e.SentFingerprint).HasMaxLength(64);
             entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
             entity.Property(e => e.Error).HasMaxLength(1024);

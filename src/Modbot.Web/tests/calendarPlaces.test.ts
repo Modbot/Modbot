@@ -5,11 +5,16 @@ import {
   anySending,
   counted,
   DESCRIPTION_LIMIT,
+  DESTINATION_LABEL,
+  DESTINATIONS,
+  googleChip,
+  googleTicked,
   isSetUp,
   membersOnly,
   missingChannel,
   notSetUp,
   placeLines,
+  showsVisibleTo,
   TITLE_LIMIT,
   wantedPlaces,
 } from '../src/lib/calendarPlaces.ts'
@@ -182,4 +187,77 @@ test('the Google Calendar row is listed as it stands', () => {
 
   assert.deepEqual(lines.map((l) => [l.place, l.state]), [['googleCalendar', 'failed']])
   assert.equal(isSetUp('vrchat', { vrChat: true, discord: true, google: false }), true)
+})
+
+// ── The form's Google Calendar chip (Google Calendar design, step 3) ───────────────────────────
+
+const googleReady = { vrChat: true, discord: true, google: true }
+const googleOff = { vrChat: true, discord: true, google: false }
+
+test('a new event everyone may see starts ticked for Google Calendar once it is ready', () => {
+  assert.deepEqual(googleChip({ visibility: 'public' }, null, googleReady, true), { on: true, disabled: false, note: null })
+  assert.equal(googleTicked({ visibility: 'public' }, null, googleReady, true), true)
+})
+
+test('a new event starts unticked while Google Calendar is not ready, and says Not set up', () => {
+  assert.deepEqual(googleChip({ visibility: 'public' }, null, googleOff, true), { on: false, disabled: false, note: 'notSetUp' })
+  assert.equal(googleTicked({ visibility: 'public' }, null, googleOff, true), false)
+
+  // Ticked by hand while not ready: kept, and still Not set up.
+  assert.deepEqual(googleChip({ visibility: 'public', publishToGoogle: true }, null, googleOff, true), {
+    on: true,
+    disabled: false,
+    note: 'notSetUp',
+  })
+})
+
+test('a members-only event cannot be ticked for Google Calendar, and says Members only', () => {
+  assert.deepEqual(googleChip({ visibility: 'group' }, null, googleReady, true), { on: false, disabled: true, note: 'membersOnly' })
+  assert.equal(googleTicked({ visibility: 'group' }, null, googleReady, true), false)
+
+  // Shown on VRChat only to some roles: members-only too, whatever Visible to says.
+  assert.deepEqual(googleChip({ visibility: 'public', publishToGoogle: true }, ['grol_staff'], googleReady, false), {
+    on: false,
+    disabled: true,
+    note: 'membersOnly',
+  })
+})
+
+test('a tick kept on an event made members-only comes back when everyone may see it again', () => {
+  const ticked = { publishToGoogle: true }
+
+  assert.equal(googleChip({ ...ticked, visibility: 'group' }, null, googleReady, false).on, false)
+  assert.equal(googleTicked({ ...ticked, visibility: 'group' }, null, googleReady, false), true)
+  assert.equal(googleChip({ ...ticked, visibility: 'public' }, null, googleReady, false).on, true)
+})
+
+test('a saved event keeps its own tick, and a chip clicked off stays off', () => {
+  assert.equal(googleChip({ visibility: 'public', publishToGoogle: false }, null, googleReady, false).on, false)
+  assert.equal(googleChip({ visibility: 'public', publishToGoogle: false }, null, googleReady, true).on, false)
+  // From an older server, with nothing said: not ticked by the form.
+  assert.equal(googleChip({ visibility: 'public', publishToGoogle: null }, null, googleReady, false).on, false)
+})
+
+test('an older server that says nothing about Google marks nothing on the chip', () => {
+  assert.equal(googleChip({ visibility: 'public' }, null, { vrChat: true, discord: true }, true).note, null)
+  assert.equal(googleChip({ visibility: 'public' }, null, null, true).note, null)
+})
+
+test('Visible to shows with the VRChat calendar, with Google Calendar, and while Members only holds Google back', () => {
+  const vrchatOff = { publishToVRChat: false }
+
+  assert.equal(showsVisibleTo({ publishToVRChat: true }, googleChip({ visibility: 'group' }, null, googleOff, true)), true)
+  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'public' }, null, googleReady, true)), true)
+  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'group' }, null, googleReady, true)), true)
+
+  // Neither: nothing goes by it.
+  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'public', publishToGoogle: false }, null, googleReady, false)), false)
+  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'group' }, null, googleOff, true)), false)
+})
+
+test('the Google Calendar chip comes after the calendar feed', () => {
+  const feed = DESTINATIONS.indexOf('feed')
+
+  assert.deepEqual(DESTINATIONS.slice(feed, feed + 2), ['feed', 'googleCalendar'])
+  assert.equal(DESTINATION_LABEL.googleCalendar, 'Google Calendar')
 })

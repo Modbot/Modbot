@@ -28,6 +28,8 @@ export type CalendarPlace = {
    * missing permission is in `missingGroupPermission` instead, shown before them.
    */
   problems?: string[] | null
+  /** Google Calendar only, while published: the event's address on Google, for **Open**. */
+  link?: string | null
 }
 
 export type CalendarOpening = {
@@ -297,6 +299,36 @@ export type CalendarPreview = {
     timeZone: string
     repeat: string | null
   }
+  /** What the Google calendar in Settings is sent. Missing from an older server. */
+  google?: CalendarGooglePreview | null
+}
+
+/** The event as the Google calendar is sent it (Google Calendar design §3.8). */
+export type CalendarGooglePreview = {
+  /** The calendar's name as Check found it, or its id; null before one is saved. */
+  calendarName: string | null
+  title: string
+  /** As Google shows it, the world's name and page at the end. */
+  description: string | null
+  location: string
+  startsAt: string
+  endsAt: string
+  /** The zone Google shows the times in. */
+  timeZone: string
+  repeat: CalendarGoogleRepeat | null
+  /** Only the people the calendar is shared with see it. */
+  private: boolean
+}
+
+/** The repeat line Google is sent, in its parts. */
+export type CalendarGoogleRepeat = {
+  frequency: string
+  every: number
+  /** `MO` to `SU`, for weekly. */
+  days: string[]
+  /** The last day a date may start on, `yyyy-MM-dd`, in the event's zone. */
+  until: string | null
+  times: number | null
 }
 
 /** One time an event ran, and what it did. */
@@ -741,5 +773,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
     mentionRoleId: event.mentionRoleId ?? null,
     coverPictureId: event.coverPictureId ?? null,
+    // Left out by an older server, and then left as the event has it.
+    publishToGoogle: event.publishToGoogle ?? null,
   }
 }

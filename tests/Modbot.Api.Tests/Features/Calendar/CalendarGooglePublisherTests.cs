@@ -354,6 +354,39 @@ public sealed class CalendarGooglePublisherTests(PostgresFixture db) : IDisposab
         Assert.Equal(GoogleEventIds.For(kept.Id, 1), (await PlaceAsync(kept.Id))!.ExternalId);
     }
 
+    /// <summary>
+    /// Step 3: the event's Open leads to the address Google gave in its answer, kept through an edit,
+    /// dropped once the event is taken off, and the new event's own when it is made again.
+    /// </summary>
+    [Fact]
+    public async Task GooglesAddressForTheEventIsKept_UntilItIsTakenOff()
+    {
+        await SetUpAsync();
+        var e = await AddEventAsync();
+        await PassAsync();
+
+        Assert.Equal(FakeGoogle.LinkOf(GoogleEventIds.For(e.Id, 0)), (await PlaceAsync(e.Id))!.GoogleLink);
+
+        await EditAsync(e.Id, x => x.Title = "Movie night, again");
+        Settle();
+        await PassAsync();
+
+        Assert.Equal(["POST", "PUT"], Methods());
+        Assert.Equal(FakeGoogle.LinkOf(GoogleEventIds.For(e.Id, 0)), (await PlaceAsync(e.Id))!.GoogleLink);
+
+        await EditAsync(e.Id, x => x.PublishToGoogle = false);
+        await PassAsync();
+
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id))!.State);
+        Assert.Null((await PlaceAsync(e.Id))!.GoogleLink);
+
+        await EditAsync(e.Id, x => x.PublishToGoogle = true);
+        Settle();
+        await PassAsync();
+
+        Assert.Equal(FakeGoogle.LinkOf(GoogleEventIds.For(e.Id, 1)), (await PlaceAsync(e.Id))!.GoogleLink);
+    }
+
     [Fact]
     public async Task AnotherCalendarInSettings_TakesTheEventOffTheOldOne_AndPutsItOnTheNew()
     {

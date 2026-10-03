@@ -371,6 +371,7 @@ public sealed class CalendarGooglePublisher
             : GoogleEventIds.For(calendarEvent.Id, 0);
 
         place.GoogleCalendarId = _calendarId;
+        place.GoogleLink = null;
         place.SentFingerprint = null;
         place.State = CalendarPlaceStates.Waiting;
         place.FailedFingerprint = null;
@@ -391,9 +392,9 @@ public sealed class CalendarGooglePublisher
         if (answer is not { } result)
             return;
 
-        if (result.Value is not null)
+        if (result.Value is { } made)
         {
-            Published(calendarEvent, place, fingerprint, fresh: true);
+            Published(calendarEvent, place, fingerprint, fresh: true, made);
             _log.Information("Google Calendar insert for the event {EventId} as {GoogleEventId}", calendarEvent.Id, id);
             return;
         }
@@ -458,6 +459,7 @@ public sealed class CalendarGooglePublisher
             // Made after all: this event's own. What it says is not known, so it is written once more.
             place.SentFingerprint = AdoptedFingerprint;
             place.GoogleCalendarId = _calendarId;
+            place.GoogleLink = GoogleCalendarIds.EventLink(found) ?? place.GoogleLink;
             place.State = CalendarPlaceStates.Waiting;
             place.FailedFingerprint = null;
             place.Error = null;
@@ -535,9 +537,9 @@ public sealed class CalendarGooglePublisher
         if (answer is not { } result)
             return;
 
-        if (result.Value is not null)
+        if (result.Value is { } written)
         {
-            Published(calendarEvent, place, fingerprint, fresh);
+            Published(calendarEvent, place, fingerprint, fresh, written);
             _log.Information("Google Calendar update for the event {EventId}", calendarEvent.Id);
             return;
         }
@@ -941,11 +943,17 @@ public sealed class CalendarGooglePublisher
     /// changed on its own. Otherwise the series was written again, and every date Google may hold as
     /// changed is sent again, since whether Google keeps them is not known (§3.5).
     /// </param>
-    private void Published(CalendarEvent calendarEvent, CalendarEventPlace place, string fingerprint, bool fresh)
+    /// <param name="answer">
+    /// Google's answer to the write, whose <c>htmlLink</c> the event's <strong>Open</strong> leads to;
+    /// null when nothing was written, and the address kept is the one Google gave last.
+    /// </param>
+    private void Published(
+        CalendarEvent calendarEvent, CalendarEventPlace place, string fingerprint, bool fresh, JsonObject? answer = null)
     {
         place.State = CalendarPlaceStates.Published;
         place.SentFingerprint = fingerprint;
         place.GoogleCalendarId = _calendarId;
+        place.GoogleLink = GoogleCalendarIds.EventLink(answer) ?? place.GoogleLink;
         place.FailedFingerprint = null;
         place.Error = null;
         place.ErrorAt = null;
@@ -975,6 +983,7 @@ public sealed class CalendarGooglePublisher
         place.State = CalendarPlaceStates.Removed;
         place.SentFingerprint = null;
         place.GoogleCalendarId = null;
+        place.GoogleLink = null;
         place.FailedFingerprint = null;
         place.Error = null;
         place.ErrorAt = null;

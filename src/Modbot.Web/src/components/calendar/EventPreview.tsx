@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { CalendarDays, MapPin } from 'lucide-react'
+import { CalendarDays, Lock, MapPin } from 'lucide-react'
 import { Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
 import {
@@ -7,10 +7,12 @@ import {
   CATEGORY_LABEL,
   PLATFORM_LABEL,
   type CalendarEventInput,
+  type CalendarGooglePreview,
   type CalendarPreview,
 } from '@/lib/calendar'
 import { DESTINATION_LABEL, type CalendarDestination } from '@/lib/calendarPlaces'
 import { discordPieces, discordTime } from '@/lib/discordText'
+import { googleRepeatWords } from '@/lib/googleCalendar'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const when = new Intl.DateTimeFormat(undefined, {
@@ -25,6 +27,24 @@ const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-di
 /** "Fri, Oct 2, 8:00 PM – 10:00 PM" in the viewer's own time. */
 function span(startsAt: string, endsAt: string): string {
   return `${when.format(new Date(startsAt))} – ${time.format(new Date(endsAt))}`
+}
+
+/** The same in the event's own zone, the way Google shows it; the viewer's when the zone is unknown here. */
+function spanIn(startsAt: string, endsAt: string, timeZone: string): string {
+  try {
+    const zonedWhen = new Intl.DateTimeFormat(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone,
+    })
+    const zonedTime = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone })
+    return `${zonedWhen.format(new Date(startsAt))} – ${zonedTime.format(new Date(endsAt))}`
+  } catch {
+    return span(startsAt, endsAt)
+  }
 }
 
 /**
@@ -87,6 +107,7 @@ export function EventPreview({
       )}
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
       {places.includes('feed') && <FeedCard entry={preview.feed} />}
+      {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} />}
     </div>
   )
 }
@@ -300,6 +321,27 @@ function FeedCard({ entry }: { entry: CalendarPreview['feed'] }) {
         <Row label="Location">{entry.location}</Row>
         <Row label="Calendar">{entry.calendarName}</Row>
         {entry.notes && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.notes}</p>}
+      </div>
+    </Place>
+  )
+}
+
+/** The Google event as the Google loop sends it, times in the event's own zone as Google shows them. */
+function GoogleCard({ entry }: { entry: CalendarGooglePreview }) {
+  return (
+    <Place place="googleCalendar">
+      <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
+        <div className="flex items-center gap-1.5 font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+          {entry.private && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Private" />}
+          {entry.title}
+        </div>
+        <Row label="When">
+          {spanIn(entry.startsAt, entry.endsAt, entry.timeZone)} · {entry.timeZone}
+        </Row>
+        <Row label="Repeats">{entry.repeat && googleRepeatWords(entry.repeat)}</Row>
+        <Row label="Location">{entry.location}</Row>
+        <Row label="Calendar">{entry.calendarName}</Row>
+        {entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>}
       </div>
     </Place>
   )

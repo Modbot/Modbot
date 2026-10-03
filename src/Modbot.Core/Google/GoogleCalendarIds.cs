@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace Modbot.Core.Google;
 
@@ -72,6 +73,28 @@ public static class GoogleCalendarIds
     /// <summary>The calendar's public address in iCal format. It works only while the calendar is public.</summary>
     public static string ICalLink(string calendarId) =>
         "https://calendar.google.com/calendar/ical/" + Uri.EscapeDataString(calendarId) + "/public/basic.ics";
+
+    /// <summary>
+    /// The address Google gave an event (<c>htmlLink</c>), where the event's <strong>Open</strong>
+    /// leads. Kept only when it is an <c>https</c> address on Google's own site, so the page never
+    /// links anywhere else on Google's word.
+    /// </summary>
+    /// <param name="googleEvent">An event as Google answered an insert, an update or a read.</param>
+    public static string? EventLink(JsonObject? googleEvent)
+    {
+        if (googleEvent?["htmlLink"] is not JsonValue value
+            || !value.TryGetValue<string>(out var text)
+            || text.Length > MaxLength
+            || !Uri.TryCreate(text, UriKind.Absolute, out var link))
+            return null;
+
+        var onGoogle = link.Host.Equals("google.com", StringComparison.OrdinalIgnoreCase)
+            || link.Host.EndsWith(".google.com", StringComparison.OrdinalIgnoreCase);
+
+        return link.Scheme == Uri.UriSchemeHttps && link.IsDefaultPort && onGoogle && string.IsNullOrEmpty(link.UserInfo)
+            ? link.AbsoluteUri
+            : null;
+    }
 
     private static string? Usable(string? id)
     {

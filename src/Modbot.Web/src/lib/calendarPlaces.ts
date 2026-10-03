@@ -10,18 +10,29 @@ import type { CalendarEvent, CalendarEventInput, CalendarPlace, CalendarPlaceNam
 export type CalendarReady = { vrChat: boolean; discord: boolean; google?: boolean }
 
 /** Every place an event can go, as the form's chips name them, in their order. The feed is always on. */
-export type CalendarDestination = 'vrchat' | 'discordEvent' | 'channelPost' | 'feed' | 'instance'
+export type CalendarDestination = 'vrchat' | 'discordEvent' | 'channelPost' | 'feed' | 'googleCalendar' | 'instance'
 
-/** A place that can be switched, which is every one but the feed. */
-export type CalendarSwitchable = Exclude<CalendarDestination, 'feed'>
+/**
+ * A place switched by a plain tick on the event: every one but the feed, which is always on, and
+ * Google Calendar, whose chip has rules of its own (`googleChip`).
+ */
+export type CalendarSwitchable = Exclude<CalendarDestination, 'feed' | 'googleCalendar'>
 
-export const DESTINATIONS: readonly CalendarDestination[] = ['vrchat', 'discordEvent', 'channelPost', 'feed', 'instance']
+export const DESTINATIONS: readonly CalendarDestination[] = [
+  'vrchat',
+  'discordEvent',
+  'channelPost',
+  'feed',
+  'googleCalendar',
+  'instance',
+]
 
 export const DESTINATION_LABEL: Record<CalendarDestination, string> = {
   vrchat: 'VRChat calendar',
   discordEvent: 'Discord event',
   channelPost: 'Discord channel post',
   feed: 'Calendar feed',
+  googleCalendar: 'Google Calendar',
   instance: 'Open the instance',
 }
 
@@ -36,10 +47,7 @@ export const DESTINATION_SWITCH: Record<
   instance: 'autoOpen',
 }
 
-/**
- * A place that can say "Not set up": every chip but the feed, and Google Calendar, whose chip comes
- * with the form's next step (Google Calendar design, step 3) but whose tick the server keeps already.
- */
+/** A place that can say "Not set up": every chip but the feed. */
 export type CalendarSetUpPlace = CalendarSwitchable | 'googleCalendar'
 
 /** Where to set each place up: Modbot's VRChat login for VRChat, the Discord tab for Discord. */
@@ -67,6 +75,64 @@ export function wantsGoogle(e: {
   vrChatRoleIds?: readonly string[] | null
 }): boolean {
   return !!e.publishToGoogle && !membersOnly(e)
+}
+
+/** How the form's Google Calendar chip stands (Google Calendar design §3.8). */
+export type GoogleChip = {
+  /** Ticked, and the event may go: drawn on, and shown in Preview. */
+  on: boolean
+  /** The event is for members only (decision 1 A), so the chip cannot be ticked. */
+  disabled: boolean
+  /** What the chip says beside it: "Not set up", "Members only", or nothing. */
+  note: 'notSetUp' | 'membersOnly' | null
+}
+
+/**
+ * Whether the form's input is ticked for Google Calendar. A new event that nobody has clicked the
+ * chip on starts ticked while Google Calendar is ready and the event is not for members only
+ * (decision 6 A), so the tick follows "Visible to" until the chip is clicked; what this says is what
+ * the form saves. An event that has been saved keeps its own tick.
+ */
+export function googleTicked(
+  input: { publishToGoogle?: boolean | null; visibility: string },
+  vrChatRoleIds: readonly string[] | null | undefined,
+  ready: CalendarReady | null | undefined,
+  isNew: boolean,
+): boolean {
+  if (input.publishToGoogle !== undefined && input.publishToGoogle !== null) return input.publishToGoogle
+  return isNew && ready?.google === true && !membersOnly({ visibility: input.visibility, vrChatRoleIds })
+}
+
+/**
+ * The form's Google Calendar chip. "Not set up" while Google Calendar is not set up or Sending is
+ * off, ticked or not, since the chip is the way to it; otherwise "Members only" for an event only
+ * members see, which cannot be ticked. A ticked event that becomes members-only keeps its tick and
+ * is drawn off: made visible to everyone again, it goes. An older server that says nothing about
+ * Google marks nothing.
+ */
+export function googleChip(
+  input: { publishToGoogle?: boolean | null; visibility: string },
+  vrChatRoleIds: readonly string[] | null | undefined,
+  ready: CalendarReady | null | undefined,
+  isNew: boolean,
+): GoogleChip {
+  const members = membersOnly({ visibility: input.visibility, vrChatRoleIds })
+  const setUp = !ready || ready.google !== false
+
+  return {
+    on: googleTicked(input, vrChatRoleIds, ready, isNew) && !members,
+    disabled: members,
+    note: !setUp ? 'notSetUp' : members ? 'membersOnly' : null,
+  }
+}
+
+/**
+ * Whether the form shows "Visible to": while the VRChat calendar is on, or Google Calendar, which
+ * also goes by it. A Google chip held back by "Members only" shows it too, since "Visible to" is
+ * what lets it be ticked.
+ */
+export function showsVisibleTo(input: { publishToVRChat: boolean }, google: GoogleChip): boolean {
+  return input.publishToVRChat || google.on || google.note === 'membersOnly'
 }
 
 /** The places an event, or the form's input, is ticked for, in the chips' order. */

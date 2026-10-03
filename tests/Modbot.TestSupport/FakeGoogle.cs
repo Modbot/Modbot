@@ -261,7 +261,7 @@ public sealed class FakeGoogle : HttpMessageHandler
                 return Error(HttpStatusCode.Conflict, "duplicate", "The requested identifier already exists.");
 
             Events[(call.Calendar, id)] = sent;
-            return Json(HttpStatusCode.OK, sent.ToJsonString());
+            return Json(HttpStatusCode.OK, Answered(sent, id));
         }
 
         // An instance id: one date of a series.
@@ -275,7 +275,7 @@ public sealed class FakeGoogle : HttpMessageHandler
             return Error(HttpStatusCode.NotFound, "notFound", "Not Found");
 
         if (method == HttpMethod.Get)
-            return Json(HttpStatusCode.OK, stored.ToJsonString());
+            return Json(HttpStatusCode.OK, Answered(stored, call.EventId!));
 
         if (Status(stored) == "cancelled")
             return Error(HttpStatusCode.Gone, "deleted", "Resource has been deleted");
@@ -283,7 +283,7 @@ public sealed class FakeGoogle : HttpMessageHandler
         if (method == HttpMethod.Put)
         {
             Events[key] = (JsonObject)JsonNode.Parse(body!)!;
-            return Json(HttpStatusCode.OK, body!);
+            return Json(HttpStatusCode.OK, Answered(Events[key], call.EventId!));
         }
 
         if (method == HttpMethod.Delete)
@@ -293,6 +293,20 @@ public sealed class FakeGoogle : HttpMessageHandler
         }
 
         return new HttpResponseMessage(HttpStatusCode.MethodNotAllowed);
+    }
+
+    /// <summary>The event's address on Google, as Google answers it in <c>htmlLink</c>.</summary>
+    public static string LinkOf(string eventId) => "https://www.google.com/calendar/event?eid=" + Uri.EscapeDataString(eventId);
+
+    /// <summary>
+    /// An event as Google answers it: what is stored, with the <c>htmlLink</c> Google adds. The
+    /// stored copy stays what Modbot sent.
+    /// </summary>
+    private static string Answered(JsonObject googleEvent, string eventId)
+    {
+        var answer = (JsonObject)googleEvent.DeepClone();
+        answer["htmlLink"] = LinkOf(eventId);
+        return answer.ToJsonString();
     }
 
     private static string? Status(JsonObject googleEvent) =>

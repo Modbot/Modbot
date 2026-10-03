@@ -30,8 +30,11 @@ import {
   DESTINATION_LABEL,
   DESTINATION_SWITCH,
   DESTINATIONS,
+  googleChip,
+  googleTicked,
   isSetUp,
   missingChannel,
+  showsVisibleTo,
   TITLE_LIMIT,
   type CalendarDestination,
   type CalendarReady,
@@ -70,8 +73,11 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
  * Where the event goes comes first, as one row of chips: each place it can go, on or off, the
  * calendar feed shown and always on. A place's own settings are in its section below and only while
  * its chip is on. A ticked place that cannot work as things are set up says "Not set up" beside its
- * chip, linking to where it is set up. Preview draws the event the way each place that is on would
- * show it. The buttons are pinned under the form, so a phone never scrolls them away.
+ * chip, linking to where it is set up. Google Calendar says "Not set up" whether ticked or not, and
+ * "Members only" for an event only members see, which it never takes (Google Calendar design §3.8);
+ * "Visible to" sits under Where, as both it and the VRChat calendar go by it. Preview draws the
+ * event the way each place that is on would show it. The buttons are pinned under the form, so a
+ * phone never scrolls them away.
  */
 export function CalendarEventForm({
   event,
@@ -181,8 +187,16 @@ export function CalendarEventForm({
     }))
   }
 
+  const isNew = !event
+  // VRChat's roles are not in the form: an event shown only to some roles keeps them, and stays
+  // members-only for Google Calendar.
+  const roleIds = event?.vrChatRoleIds ?? null
+  const google = googleChip(input, roleIds, ready, isNew)
+
   const body = (draft: boolean): CalendarEventInput => ({
     ...input,
+    // What the chip shows is what is saved, a new event's starting tick included.
+    publishToGoogle: isNew ? googleTicked(input, roleIds, ready, true) : input.publishToGoogle,
     repeatUntil: repeatEnd === 'date' ? input.repeatUntil : null,
     // An emptied Times is sent as 0, so it is refused rather than saved as never ending.
     repeatTimes: repeatEnd === 'times' ? (input.repeatTimes ?? 0) : null,
@@ -279,7 +293,8 @@ export function CalendarEventForm({
   ) : vrchatAddress ? (
     <img src={vrchatAddress} alt="" className="aspect-video w-full rounded-sm object-cover" />
   ) : null
-  const on = (place: CalendarDestination) => place === 'feed' || input[DESTINATION_SWITCH[place]]
+  const on = (place: CalendarDestination) =>
+    place === 'feed' || (place === 'googleCalendar' ? google.on : input[DESTINATION_SWITCH[place]])
   const title = counted(input.title, TITLE_LIMIT)
   const description = counted(input.description, DESCRIPTION_LIMIT)
 
@@ -319,15 +334,26 @@ export function CalendarEventForm({
               <span key={place} className="inline-flex items-center gap-1.5">
                 <Chip
                   on={on(place)}
-                  disabled={place === 'feed'}
+                  disabled={place === 'feed' || (place === 'googleCalendar' && google.disabled)}
                   onClick={() => {
-                    if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
+                    if (place === 'googleCalendar') set('publishToGoogle', !google.on)
+                    else if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
                   }}
                 >
                   {on(place) && <Check className="size-3.5" />}
                   {DESTINATION_LABEL[place]}
                 </Chip>
-                {place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
+                {place === 'googleCalendar' ? (
+                  google.note === 'notSetUp' ? (
+                    <NotSetUp place="googleCalendar" newTab />
+                  ) : (
+                    google.note === 'membersOnly' && (
+                      <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                        Members only
+                      </span>
+                    )
+                  )
+                ) : place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
                   <NotSetUp place={place} newTab />
                 ) : (
                   // The channel is picked in its own section, just below.
@@ -524,6 +550,14 @@ export function CalendarEventForm({
                         <option value="public">Anyone</option>
                       </Select>
                     </Labelled>
+                    {showsVisibleTo(input, google) && (
+                      <Labelled label="Visible to">
+                        <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
+                          <option value="group">Group</option>
+                          <option value="public">Everyone</option>
+                        </Select>
+                      </Labelled>
+                    )}
                     <Labelled label="Region">
                       <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
                         <option value="us">US West</option>
@@ -570,12 +604,6 @@ export function CalendarEventForm({
                               {CATEGORY_LABEL[c] ?? c}
                             </option>
                           ))}
-                        </Select>
-                      </Labelled>
-                      <Labelled label="Visible to">
-                        <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
-                          <option value="group">Group</option>
-                          <option value="public">Everyone</option>
                         </Select>
                       </Labelled>
                       <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />

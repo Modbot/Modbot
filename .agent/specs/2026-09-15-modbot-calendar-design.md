@@ -496,7 +496,11 @@ calendar or want a form filled in, while Mobilizon, Gancio and Google's "From UR
     calendar: the form shows "Visible to" only while that chip is on, and turning the chip off
     leaves the hidden word as it was. Without this, an event set to Everyone and then made
     Discord-only, or duplicated from one, went out on the anonymous feed (review, 2026-10-03). An
-    event made on VRChat is read in with the chip on, so it needs nothing more.
+    event made on VRChat is read in with the chip on, so it needs nothing more. Since Google
+    Calendar step 3 (2026-10-03) the form also shows "Visible to" for the Google Calendar chip; the
+    rule still asks for the VRChat chip, since the public feed lists what VRChat's calendar shows
+    everyone, and a Google-only event is on the Google calendar's own public links (Google Calendar
+    design §9).
   - No roles because an event VRChat shows only to some roles is for members, whatever its
     visibility.
   - The database query narrows on the chip and the visibility, and `CalendarFeedWriter.WritePublic`

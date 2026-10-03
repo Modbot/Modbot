@@ -1,9 +1,13 @@
+using System.Globalization;
+using System.Net;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Google;
 using Modbot.VRChat.Calendar;
+using NodaTime;
 
 namespace Modbot.Api.Features.Calendar;
 
@@ -15,8 +19,8 @@ namespace Modbot.Api.Features.Calendar;
 /// <para>
 /// <strong>One set of rules.</strong> Every part is drawn by the code that sends it: the Discord
 /// event and the channel post by the Discord publisher's own builders (through
-/// <see cref="ICalendarDiscordPreview"/>), VRChat's by the request the VRChat publisher sends, and
-/// the phone calendar by the feed writer. A second copy of those rules in the browser would be a
+/// <see cref="ICalendarDiscordPreview"/>), VRChat's by the request the VRChat publisher sends, the
+/// phone calendar by the feed writer, and Google Calendar's by the body the Google loop sends. A second copy of those rules in the browser would be a
 /// second answer that could disagree with the first.
 /// </para>
 /// <para>
@@ -122,8 +126,84 @@ public static class CalendarPreviews
                     calendarEvent.StartsAt,
                     calendarEvent.EndsAt,
                     calendarEvent.TimeZone,
-                    entry.Repeat)),
+                    entry.Repeat),
+                Google(calendarEvent, names, settings)),
             null);
+    }
+
+    /// <summary>
+    /// What the Google calendar is sent, read back out of the body the Google loop sends
+    /// (<see cref="CalendarGoogleBody"/>): the same words, times and repeat line.
+    /// </summary>
+    public static CalendarGooglePreviewView Google(
+        CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames, Modbot.Core.Data.Entities.Settings? settings)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        ArgumentNullException.ThrowIfNull(worldNames);
+
+        var body = CalendarGoogleBody.For(calendarEvent, worldNames, settings?.ManagedGroupName);
+
+        var calendarName = !string.IsNullOrWhiteSpace(settings?.GoogleCalendarName)
+            ? settings.GoogleCalendarName.Trim()
+            : string.IsNullOrWhiteSpace(settings?.GoogleCalendarId) ? null : settings.GoogleCalendarId.Trim();
+
+        var shut = settings?.GooglePublic is GooglePublic.No or GooglePublic.FreeBusy;
+
+        return new CalendarGooglePreviewView(
+            calendarName,
+            body.Summary,
+            body.Description is null ? null : WebUtility.HtmlDecode(body.Description),
+            body.Location,
+            body.StartsAt,
+            body.EndsAt,
+            body.TimeZone,
+            GoogleRepeat(body.Recurrence, body.TimeZone),
+            shut || body.Visibility == "private");
+    }
+
+    /// <summary>
+    /// The <c>RRULE</c> line among <paramref name="recurrence"/>, in its parts: the line Google is
+    /// sent, not a second reading of the event. <c>UNTIL</c> is the last moment of the last day in
+    /// UTC, so it is turned back into that day in the event's zone.
+    /// </summary>
+    public static CalendarGoogleRepeatView? GoogleRepeat(IReadOnlyList<string> recurrence, string timeZone)
+    {
+        ArgumentNullException.ThrowIfNull(recurrence);
+
+        var line = recurrence.FirstOrDefault(r => r.StartsWith("RRULE:", StringComparison.Ordinal));
+        if (line is null)
+            return null;
+
+        var parts = line["RRULE:".Length..]
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Split('=', 2))
+            .Where(p => p.Length == 2)
+            .GroupBy(p => p[0], StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First()[1], StringComparer.Ordinal);
+
+        if (!parts.TryGetValue("FREQ", out var frequency))
+            return null;
+
+        string? until = null;
+
+        if (parts.TryGetValue("UNTIL", out var untilText)
+            && DateTimeOffset.TryParseExact(
+                untilText, "yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var untilAt))
+        {
+            var zone = CalendarRepeat.FindZone(timeZone) ?? DateTimeZone.Utc;
+            until = Instant.FromDateTimeOffset(untilAt).InZone(zone).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        return new CalendarGoogleRepeatView(
+            frequency.ToLowerInvariant(),
+            parts.TryGetValue("INTERVAL", out var interval) && int.TryParse(interval, CultureInfo.InvariantCulture, out var every) && every > 0
+                ? every
+                : 1,
+            parts.TryGetValue("BYDAY", out var days) ? days.Split(',', StringSplitOptions.RemoveEmptyEntries) : [],
+            until,
+            parts.TryGetValue("COUNT", out var count) && int.TryParse(count, CultureInfo.InvariantCulture, out var times)
+                ? times
+                : null);
     }
 
     /// <summary>

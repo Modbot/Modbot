@@ -11,6 +11,7 @@ Modbot does the rest:
 - posts it in a **Discord channel**, with a **Join** button once the instance is open;
 - lists it in a **calendar feed**, a link people can add to Google Calendar, Outlook or Apple
   Calendar;
+- puts it on your group's own **Google calendar**, once one is [connected](/moderation/google-calendar);
 - **opens the group instance** a few minutes before the start, if you ask it to.
 
 Each of these is a chip at the top of the event form: click it to turn that place on or off. Leave
@@ -283,6 +284,7 @@ The chips at the top of the form say where the event goes. A chip that is on has
 | **Discord event** | Makes a [Discord event](#the-discord-event) in your server. On for a new event. | None |
 | **Discord channel post** | Posts a [card](#the-channel-post) in a channel. | [Discord channel post](#discord-channel-post) |
 | **Calendar feed** | Lists the event in the [calendar feed](#the-calendar-feed). Always on; it cannot be turned off. | None |
+| **Google Calendar** | Puts the event on your group's [Google calendar](#google-calendar). On for a new event everyone may see, once Google Calendar is set up. | **Visible to**, under [Where](#where) |
 | **Open the instance** | [Opens a group instance](#opening-the-instance) before each start. | [Open the instance](#open-the-instance) |
 
 A place's own settings only show while its chip is on.
@@ -294,8 +296,14 @@ the setting that is missing, in a new tab, so what you typed stays:
 |---|---|
 | **VRChat calendar**, **Open the instance** | A **Managed group** and a VRChat account, in **Settings**, **Modbot's VRChat login**. |
 | **Discord event**, **Discord channel post** | A **Server id** and the bot connected, in **Settings**, **Discord**. While the bot is connecting or reconnecting, these say **Not set up** too, because nothing is sent until it is back. |
+| **Google Calendar** | A key and a calendar that **Check** found Modbot may change, and **Sending** on, in **Settings**, **Google Calendar**. See [Google Calendar](/moderation/google-calendar). This chip says **Not set up** whether it is on or off. |
 
 **Discord channel post** also says **Not set up** until you pick a channel in its section.
+
+**Members only.** The **Google Calendar** chip says **Members only**, and cannot be turned on, for an
+event only your members may see: **Visible to** is **Group**, or VRChat shows the event only to some of
+your group's roles. Set **Visible to** to **Everyone** to turn it on. An event that had the chip on
+keeps it, and goes to Google again once everyone may see it.
 
 You can still save an event with a place that is not set up. Nothing is sent there until it is set
 up; then Modbot catches up by itself. The event shows the same **Not set up** where that place would
@@ -315,9 +323,14 @@ be, and so does [Health](#on-health).
   VRChat may change some characters after it gets them.
 - **Calendar feed**: what a phone or desktop calendar shows: the title, time, repeat, location,
   the calendar's name and the notes.
+- **Google Calendar**: what goes on your Google calendar: the title, the time in the event's own
+  time zone, the repeat in words, the location, the calendar's name and the description with the
+  world's name and page under it. A padlock beside the title means only the people the calendar is
+  shared with will see it, because **Check** found the calendar is not public, or shows the public
+  only free or busy.
 
 The preview is made by the same code that sends the event, so it matches what goes out. It does not
-save anything or send anything to VRChat or Discord. It can draw an event that is not finished yet,
+save anything or send anything to VRChat, Discord or Google. It can draw an event that is not finished yet,
 with no title or no channel, but shows the error instead if something would be refused, such as a
 title that is too long.
 
@@ -364,6 +377,7 @@ months**.
 | **World** | Pick from the worlds Modbot has seen recently, or choose **World id** and type the world's id. **None** is allowed, unless the instance opens by itself. **Pick from a list** takes the world from a [world list](/moderation/world-lists) instead, a new one for each date. |
 | **World list** | Shown for **Pick from a list**. The list to pick from. See [When the world is picked](/moderation/world-lists#when-the-world-is-picked). |
 | **Who can join** | **Group members**, **Members and their friends** or **Anyone**. Used for the instance Modbot opens, and shown on the channel post. |
+| **Visible to** | **Group** or **Everyone**. Shown while the **VRChat calendar** or **Google Calendar** chip is on, or while **Google Calendar** says **Members only**. Who sees the event on VRChat's calendar, and whether it may go to [Google Calendar](#google-calendar) and the [public feed](#the-public-feed). |
 | **Region** | **US West**, **US East**, **Europe** or **Japan**. Used for the instance Modbot opens. |
 | **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture, unless a [Discord picture](#the-discord-picture) is set. When empty, Discord gets the world's picture instead. It can be a link to the picture itself, a link to a page that shows it, or a VRChat file link: see [Picture links](#picture-links). |
 
@@ -374,7 +388,6 @@ Shown while the **VRChat calendar** chip is on.
 | Field | Notes |
 |---|---|
 | **Category** | One of VRChat's categories: **Arts**, **Avatars**, **Dance**, **Education**, **Exploration**, **Film & media**, **Gaming**, **Hangout** (the default), **Music**, **Other**, **Performance**, **Roleplaying** or **Wellness**. |
-| **Visible to** | **Group** or **Everyone**. |
 | **Languages** | Separate with commas, for example `eng, jpn`. At most 20, each up to 64 characters. |
 | **Tags** | Separate with commas. At most 20, each up to 64 characters. |
 | **VRChat picture** | Optional. The picture on VRChat's calendar. See [The VRChat picture](#the-vrchat-picture). |
@@ -934,6 +947,13 @@ Calendar and others) to see your group's events there. It is only on the page fo
 
 - **Make link** creates the link the first time.
 - **Copy** copies it.
+- **Add to Google Calendar** opens Google Calendar's own page for adding a calendar by its address,
+  with the feed filled in, in a new tab. It adds the feed to the Google account you are signed in to
+  in that browser, for your own use. Google then holds the feed's secret address and reads the feed
+  from its own servers, so the address must be one the internet can reach. It works on a computer,
+  not in Google's phone app, and Google checks the feed on its own schedule, so a change can take a
+  while to show there. To put events on a Google calendar your members follow, use
+  [Google Calendar](#google-calendar) instead.
 - **New link** replaces it. **The old link stops working at once**, for everyone who added it. Use
   this if the link got shared somewhere it should not be. Modbot asks **Make a new feed link?**
   first; click **Make new link** to go ahead.
@@ -1014,9 +1034,10 @@ read it stop getting updates. Turning it on or off is in the
 ### What it contains
 
 Only events that go to your group's VRChat calendar (the **VRChat calendar** chip is on) with
-**Visible to** set to **Everyone**, in the form's [VRChat calendar](#vrchat-calendar) section. Turn
-the chip off and the event leaves the public feed, whatever **Visible to** said. An event that VRChat
-shows only to some of your group's roles is left out too.
+**Visible to** set to **Everyone**, in the form's [Where](#where) section. Turn the chip off and the
+event leaves the public feed, whatever **Visible to** said. An event that goes only to
+[Google Calendar](#google-calendar) is not in the public feed; it is on the Google calendar's own
+public links instead. An event that VRChat shows only to some of your group's roles is left out too.
 
 Of those, it lists the same events as the calendar feed: **Scheduled** and **Open** ones, **Finished**
 ones for 30 days after their last time, and **Cancelled** ones for 30 days after the cancel, marked
@@ -1037,6 +1058,67 @@ anything about Discord, or anything about your members.
 A change you make in Modbot is in the public feed at once. A change made on VRChat, or an event
 finishing, can take up to a minute. Calendar apps check a feed on their own schedule, so it can take
 longer to show there. Reading the feed asks VRChat nothing.
+
+## Google Calendar
+
+When the **Google Calendar** chip is on, Modbot puts the event on the Google calendar named in
+**Settings**, **Google Calendar**, and keeps it in line with the event. Setting it up, and the
+calendar's own public links, are on the [Google Calendar](/moderation/google-calendar) page.
+
+### What goes
+
+- The title and description, with a blank line and the world's name and its page on vrchat.com
+  under the description.
+- The start and end, in the event's own time zone.
+- The repeat and its last date, as one Google event that repeats.
+- The world's name as the location, or **VRChat** with no world.
+
+No picture, no join link, nothing about Discord and nothing about your members. Nobody is invited or
+emailed, and no reminders are set: each person's own Google settings decide those.
+
+An edit reaches Google about twenty seconds after your last change, so several quick fixes are one
+change there.
+
+### Members only
+
+An event only your members may see never goes to Google, with the chip on or not: **Visible to** is
+**Group**, or VRChat shows the event only to some of your group's roles. A public Google calendar
+would show it to anyone. The chip says **Members only**. Change an event that is on Google to
+**Group**, and Modbot takes it off Google.
+
+### Cancel, delete and finished events
+
+| In Modbot | On Google |
+|---|---|
+| **Cancel event** | Kept, with **Cancelled:** in front of its title, until a day after the date it was cancelled on; then removed. A repeating event stops at that date. |
+| **Delete** | Removed at once. |
+| **Finished** | Kept, as something that happened. |
+| The chip turned off | Removed. Turned on again later, the event is added again. |
+
+### One date of a repeating event
+
+What happens on Google when you [change one date](#changing-one-date-of-a-repeating-event):
+
+| Change | On Google |
+|---|---|
+| Cancelled | Left out of the repeat. |
+| Moved or reworded | That date is changed on its own, to the new time and words. |
+| Put back as planned | That date goes back to the repeat's time and the event's own words. |
+
+When you then edit the whole event, Modbot writes the whole repeat again and sends every changed date
+again after it, so they stay as you left them.
+
+### Changes made on Google
+
+Modbot does not read anything back from Google. A change made to the event on Google itself is
+replaced the next time the event changes in Modbot, and an event deleted on Google is added again
+then. Edit your events in Modbot.
+
+### On the event
+
+Each event says how it went on Google: **Google Calendar: Sending…**, **Published** with **Open**,
+which opens the event on Google, **Failed** with Google's own words and **Try again**, or
+**Removed**. A changed date Google refused shows under the date, with **Try again**.
 
 ## Editing, cancelling and deleting
 
@@ -1063,6 +1145,8 @@ for the whole event. **This date** opens a smaller form for the date you clicked
 - ends the Discord event, which then disappears from your server;
 - changes the channel post to **Cancelled**;
 - marks it cancelled in the calendar feed, where it stays for 30 days;
+- puts **Cancelled:** in front of its title on [Google Calendar](#google-calendar), until a day after
+  its date;
 - stops any future instance from opening.
 
 Modbot asks **Cancel “…”?** first; click **Cancel event** to go ahead.
@@ -1112,6 +1196,7 @@ What happens to that one date:
 | Channel post | Its last word is **Cancelled**. Deleted a day after the date was due to end, with the short **Cancelled** message. | Edited to match. |
 | Opening the instance | No instance opens. | Opens **Minutes early** before the new start. |
 | Calendar feed | Left out. | Shown at the new time, with its own title and description. |
+| Google Calendar | Left out of the repeat. | That date is changed on its own. |
 | Past events | Not listed. | Listed at the time it ran. |
 
 **Undo.** After dragging one date, **Date moved · Undo** shows at the bottom of the screen; **Undo**
@@ -1143,11 +1228,14 @@ The [Health](/self-hosting/health) page (**See the operational log**) shows cale
 for events that are **Scheduled** or **Open**:
 
 - **A Calendar card** appears when something failed. Each line reads: the event's title, the place
-  (**VRChat calendar**, **Discord event**, **Channel post** or **Instance**), the error, and how long
-  ago. An **Instance** line means the instance for the current time did not open.
+  (**VRChat calendar**, **Discord event**, **Channel post**, **Google Calendar** or **Instance**), the
+  error, and how long ago. An **Instance** line means the instance for the current time did not open.
 - **Not set up** lines in the same **Calendar** card name each place an event wants that cannot
   work yet (see [Where it goes](#where-it-goes)): for example **Discord event · Not set up**, linking
-  to the setting that is missing.
+  to the setting that is missing. **Google Calendar · Not set up** shows while events are ticked for
+  it and Google Calendar is not set up, or **Sending** is off.
+- **Google Calendar · limited until …** in the same card means Google asked Modbot to slow down.
+  Nothing is sent to Google until then; the events wait and go after.
 - **Possible duplicates in Discord** lines in the same **Calendar** card name each set of
   [duplicate Discord events](#duplicate-discord-events), its time and who made the copies, and lead
   to the Calendar page. These show even when Modbot has no events of its own.
@@ -1175,7 +1263,7 @@ entries (you need **See the operational log** to see them):
 | **Instance opened for an event** | Modbot opened the instance. |
 | **Instance for an event failed to open** | VRChat refused to open it. Shows VRChat's error. |
 | **Event failed to publish** | A place failed. Shows which place and the error. |
-| **Event published** | A place has the event now: VRChat's calendar, the Discord event, the channel post, or the message that it is cancelled. Written once when it first gets there, not for every edit after. |
+| **Event published** | A place has the event now: VRChat's calendar, the Discord event, the channel post, Google Calendar, or the message that it is cancelled. Written once when it first gets there, not for every edit after. |
 | **Event taken down** | A place that had the event no longer has it, after a cancel, a delete or turning it off. Not written for a place the event never reached. |
 | **Event picture uploaded to VRChat** | Someone uploaded a VRChat picture. Names the event when it was already saved; for a new event, the event's own **Event planned** entry carries the same picture. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |

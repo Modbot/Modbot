@@ -2194,7 +2194,8 @@ public static class CalendarEndpoints
                                 ? new MissingGroupPermission(permission, groupId, VRChatGroupPermissions.RoleNames(settings), problems is null ? p.Error : null)
                                 : null,
                             p.State == CalendarPlaceStates.Failed,
-                            problems);
+                            problems,
+                            p.Place == CalendarPlaces.Google && p.State == CalendarPlaceStates.Published ? p.GoogleLink : null);
                     })],
                 opening is null
                     ? null

@@ -81,6 +81,38 @@ public class GoogleCalendarIdsTests
             GoogleCalendarIds.ICalLink(Id));
     }
 
+    [Fact]
+    public void AnEventsAddressIsKept_WhenItIsGooglesOwn()
+    {
+        const string link = "https://www.google.com/calendar/event?eid=bWIwMTIz";
+
+        Assert.Equal(link, GoogleCalendarIds.EventLink(new System.Text.Json.Nodes.JsonObject { ["htmlLink"] = link }));
+        Assert.Equal(
+            "https://calendar.google.com/calendar/event?eid=x",
+            GoogleCalendarIds.EventLink(new System.Text.Json.Nodes.JsonObject { ["htmlLink"] = "https://calendar.google.com/calendar/event?eid=x" }));
+    }
+
+    [Theory]
+    [InlineData("http://www.google.com/calendar/event?eid=x")]
+    [InlineData("https://www.google.com.example.net/calendar/event?eid=x")]
+    [InlineData("https://notgoogle.com/calendar/event?eid=x")]
+    [InlineData("https://user@www.google.com/calendar/event?eid=x")]
+    [InlineData("https://www.google.com:8443/calendar/event?eid=x")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("/calendar/event?eid=x")]
+    public void AnEventsAddressAnywhereElseIsNotKept(string link)
+    {
+        Assert.Null(GoogleCalendarIds.EventLink(new System.Text.Json.Nodes.JsonObject { ["htmlLink"] = link }));
+    }
+
+    [Fact]
+    public void AnAnswerWithNoAddressGivesNone()
+    {
+        Assert.Null(GoogleCalendarIds.EventLink(null));
+        Assert.Null(GoogleCalendarIds.EventLink(new System.Text.Json.Nodes.JsonObject()));
+        Assert.Null(GoogleCalendarIds.EventLink(new System.Text.Json.Nodes.JsonObject { ["htmlLink"] = 42 }));
+    }
+
     [Theory]
     [InlineData("reader", GooglePublic.All)]
     [InlineData("freeBusyReader", GooglePublic.FreeBusy)]

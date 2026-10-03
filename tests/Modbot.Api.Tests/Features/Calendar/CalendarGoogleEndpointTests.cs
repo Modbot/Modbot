@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Features.Calendar;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -214,5 +215,112 @@ public class CalendarGoogleEndpointTests(PostgresFixture db)
         var date = await after.CalendarDateChanges.AsNoTracking().SingleAsync(c => c.EventId == id, Ct);
         Assert.Null(date.GoogleError);
         Assert.Null(date.GoogleFailedFingerprint);
+    }
+
+    // ── Step 3: the preview and the event's Open ───────────────────────────────────────────────
+
+    /// <summary>
+    /// The preview's Google card is the body the Google loop sends: its title, times, zone, place and
+    /// repeat line, the description as Google shows it with the world line under it, the calendar's
+    /// name, and a padlock for a calendar Check found not public.
+    /// </summary>
+    [Fact]
+    public async Task ThePreviewSaysWhatGoogleIsSent()
+    {
+        await using var host = await StartAsync(googleReady: true);
+
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.GoogleCalendarName = "Group events";
+            settings.GooglePublic = Modbot.Core.Google.GooglePublic.No;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var body = Event(host, "public", repeat: "weekly");
+        body["description"] = "Bring <snacks> & drinks";
+        body["timeZone"] = "Europe/London";
+        // A world no other test names, so Modbot knows no name for it.
+        body["worldId"] = "wrld_google_preview";
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/preview", new { eventId = (Guid?)null, @event = body }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var google = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("google");
+
+        Assert.Equal("Group events", google.GetProperty("calendarName").GetString());
+        Assert.Equal("Movie night", google.GetProperty("title").GetString());
+        Assert.Equal(
+            "Bring <snacks> & drinks\n\nWorld: wrld_google_preview\nhttps://vrchat.com/home/world/wrld_google_preview",
+            google.GetProperty("description").GetString());
+        Assert.Equal("wrld_google_preview", google.GetProperty("location").GetString());
+        Assert.Equal("Europe/London", google.GetProperty("timeZone").GetString());
+        Assert.True(google.GetProperty("private").GetBoolean());
+
+        var repeat = google.GetProperty("repeat");
+        Assert.Equal("weekly", repeat.GetProperty("frequency").GetString());
+        Assert.Equal(1, repeat.GetProperty("every").GetInt32());
+        Assert.Single(repeat.GetProperty("days").EnumerateArray());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, repeat.GetProperty("until").ValueKind);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, repeat.GetProperty("times").ValueKind);
+    }
+
+    [Fact]
+    public void ThePreviewsRepeatIsTheLineGoogleIsSent_ItsLastDayInTheEventsZone()
+    {
+        // The last moment of 2026-12-31 in London is 23:59:59 UTC; in Tokyo it is 14:59:59 UTC.
+        var london = CalendarPreviews.GoogleRepeat(
+            ["RRULE:FREQ=WEEKLY;BYDAY=MO,TH;INTERVAL=2;WKST=MO;UNTIL=20261231T235959Z", "EXDATE;TZID=Europe/London:20261012T200000"],
+            "Europe/London");
+        var tokyo = CalendarPreviews.GoogleRepeat(["RRULE:FREQ=DAILY;UNTIL=20261231T145959Z"], "Asia/Tokyo");
+        var counted = CalendarPreviews.GoogleRepeat(["RRULE:FREQ=MONTHLY;COUNT=6"], "UTC");
+
+        Assert.NotNull(london);
+        Assert.Equal("weekly", london.Frequency);
+        Assert.Equal(2, london.Every);
+        Assert.Equal(new[] { "MO", "TH" }, london.Days);
+        Assert.Equal("2026-12-31", london.Until);
+        Assert.Null(london.Times);
+
+        Assert.Equal("2026-12-31", tokyo!.Until);
+        Assert.Equal(6, counted!.Times);
+        Assert.Null(CalendarPreviews.GoogleRepeat([], "UTC"));
+    }
+
+    [Fact]
+    public async Task APublishedGoogleEventHasItsOpenLink_AndAFailedOneHasNone()
+    {
+        await using var host = await StartAsync(googleReady: true);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var published = await CreateAsync(host, cookie, Event(host, "public"));
+        var failed = await CreateAsync(host, cookie, Event(host, "public"));
+        const string link = "https://www.google.com/calendar/event?eid=bWIw";
+
+        await using (var context = db.NewContext())
+        {
+            foreach (var (id, state) in new[] { (published, CalendarPlaceStates.Published), (failed, CalendarPlaceStates.Failed) })
+            {
+                context.CalendarEventPlaces.Add(new CalendarEventPlace
+                {
+                    EventId = id,
+                    Place = CalendarPlaces.Google,
+                    State = state,
+                    ExternalId = "mb0123456789abcdefghijklmnop0",
+                    GoogleLink = link,
+                    UpdatedAt = host.Clock.UtcNow,
+                });
+            }
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        static System.Text.Json.JsonElement GooglePlace(System.Text.Json.JsonElement shown) =>
+            shown.GetProperty("places").EnumerateArray().Single(p => p.GetProperty("place").GetString() == CalendarPlaces.Google);
+
+        var shownPublished = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, $"/api/calendar/events/{published}", null, cookie, Ct), Ct);
+        var shownFailed = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, $"/api/calendar/events/{failed}", null, cookie, Ct), Ct);
+
+        Assert.Equal(link, GooglePlace(shownPublished).GetProperty("link").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, GooglePlace(shownFailed).GetProperty("link").ValueKind);
     }
 }

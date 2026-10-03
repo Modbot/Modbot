@@ -183,6 +183,11 @@ function EventBody({
           {lines.map(({ place, state, row }) => (
             <div key={place} className="flex flex-wrap items-center gap-2">
               <PlaceBadge place={place} state={state} />
+              {row?.link && state === 'published' && (
+                <a className="underline" href={row.link} target="_blank" rel="noreferrer">
+                  Open
+                </a>
+              )}
               {row && state === 'failed' && <PlaceProblems place={row} />}
               {row?.canTryAgain && state === 'failed' && manage && (
                 <TryAgainButton send={() => calendarApi.tryAgain(event.id, place)} onDone={manage} />

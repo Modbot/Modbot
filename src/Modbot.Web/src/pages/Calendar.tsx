@@ -48,6 +48,7 @@ import {
 } from '@/lib/calendarGrid'
 import { firstView, rememberView } from '@/lib/calendarView'
 import { timeOfDay } from '@/lib/format'
+import { addToGoogleLink } from '@/lib/googleCalendar'
 import { changesCalendar } from '@/lib/liveRules'
 import { go, useLocation } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
@@ -705,6 +706,7 @@ function FeedRow() {
   }, [])
 
   const link = feed?.url ?? (feed?.path ? `${window.location.origin}${feed.path}` : null)
+  const google = link ? addToGoogleLink(link) : null
 
   const regenerate = () => {
     setBusy(true)
@@ -733,6 +735,13 @@ function FeedRow() {
           <Button size="sm" variant="outline" onClick={copy}>
             {copied ? 'Copied' : 'Copy'}
           </Button>
+          {google && (
+            <Button size="sm" variant="outline" asChild>
+              <a href={google} target="_blank" rel="noreferrer">
+                Add to Google Calendar
+              </a>
+            </Button>
+          )}
           <Button size="sm" variant="outline" disabled={busy} onClick={() => setAsking(true)}>
             New link
           </Button>

@@ -78,9 +78,15 @@ public static class CalendarFeedWriter
     /// <remarks>
     /// <para>
     /// <see cref="CalendarEvent.Visibility"/> is only in force while the event goes to VRChat's
-    /// calendar: the form shows "Visible to" only while that chip is on, and turning the chip off
-    /// leaves the hidden word as it was. An event made Discord-only after being set to Everyone, or
-    /// duplicated from one, still says <c>public</c>; it is left out.
+    /// calendar: turning the chip off leaves the hidden word as it was. An event made Discord-only
+    /// after being set to Everyone, or duplicated from one, still says <c>public</c>; it is left out.
+    /// </para>
+    /// <para>
+    /// Since 2026-10-03 the form shows "Visible to" for the Google Calendar chip too (Google Calendar
+    /// design §3.8), and Google goes by the word without the VRChat chip. The public feed still asks
+    /// for the VRChat chip: it lists what the group's VRChat calendar shows to everyone (calendar
+    /// design §6.1), and an event that goes only to Google is on the Google calendar's own public
+    /// links instead.
     /// </para>
     /// <para>
     /// An event VRChat shows only to some roles is for members, whatever its visibility says, so it
