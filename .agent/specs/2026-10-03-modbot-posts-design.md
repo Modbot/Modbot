@@ -132,7 +132,11 @@ sends nothing now, `paused`, `off` or `notSetUp`.
      after it are not held up.
   5. No answer, a timeout, a 5xx: `checking`, `may_be_sent`. A minute later, read pages of 50
      messages after a Discord id made from `sent_at` minus a minute, up to four, until a message
-     later than `sent_at` plus two minutes or the channel's newest has been seen (the whole window).
+     later than `sent_at` plus two minutes has been seen, or the channel's newest once those two
+     minutes are over (the whole window): Discord can still make the message after a 5xx, so the
+     channel's end before then is not an answer, and the look comes back just after the window.
+     A channel id must still be one of the settings server's listed channels at send time;
+     otherwise Failed, "That channel is not in the Discord server.", nothing sent.
      A message by the bot whose text equals `sent_text`, with the same number of files, held by no
      other destination, is adopted as `posted`.
   6. Nothing found in the whole window: `failed`, "Discord did not take the post.".

@@ -164,8 +164,9 @@ When Discord gives no clear answer (no answer, a timeout, a Discord error), the 
 **Sending…** and Modbot does not send it again. A minute later it reads the channel for a message by
 the bot with the same text and the same picture, sent from a minute before the attempt. If it finds
 one, that message is the post: it shows **Posted** with an **Open** link. It reads on, page by
-page, until it has seen the few minutes after the attempt or the channel's newest message; only
-then is a post it did not find **Failed** with "Discord did not take the post.". If Modbot cannot
+page, until it has seen the few minutes after the attempt, or the channel's newest message once
+those minutes are over; only then is a post it did not find **Failed** with "Discord did not take
+the post.". If Modbot cannot
 read the channel, or the channel is so busy that it cannot read those minutes in one look, it tries
 again every 15 minutes for an hour, then shows "Could not check the channel.". **Modbot never sends
 a post again by itself.** Only **Try again** does, and it looks first: it sends only after a look

@@ -59,6 +59,7 @@ public sealed class PostDiscordSender
     public const int LookPages = 4;
 
     public const string TooBusy = "The channel was too busy to check yet.";
+    public const string ChannelNotInServer = "That channel is not in the Discord server.";
 
     public const string NotTaken = "Discord did not take the post.";
     public const string CouldNotCheck = "Could not check the channel.";
@@ -215,6 +216,14 @@ public sealed class PostDiscordSender
                 return;
             }
 
+            // Too early to say: looked at again just after the window ends, with nothing to report.
+            if (read.Error is null && read.Early is { } windowEnds)
+            {
+                destination.CheckAt = windowEnds + TimeSpan.FromSeconds(1);
+                await _db.SaveChangesAsync(pass.Ct).ConfigureAwait(false);
+                return;
+            }
+
             // Tried again later; the words are kept for Health. UpdatedAt stays when the looking began.
             var why = read.Error ?? TooBusy;
             destination.CheckAt = pass.Now + PostRules.LookAgainAfter;
@@ -242,7 +251,11 @@ public sealed class PostDiscordSender
     }
 
     /// <summary>What a look read, and whether it covered the whole window the post could be in.</summary>
-    private sealed record Window(IReadOnlyList<DiscordMessageSnapshot> Messages, string? Error, bool Whole);
+    /// <param name="Early">
+    /// Read to the channel's end before the window ended: looked at again just after it ends.
+    /// </param>
+    private sealed record Window(
+        IReadOnlyList<DiscordMessageSnapshot> Messages, string? Error, bool Whole, DateTimeOffset? Early = null);
 
     /// <summary>
     /// Reads the channel from a minute before the attempt, a page at a time, until it has seen a
@@ -264,9 +277,13 @@ public sealed class PostDiscordSender
 
             messages.AddRange(page.Messages);
 
-            // A short page is the channel's newest message: everything since the attempt was read.
+            // A short page is the channel's newest message: everything since the attempt was read,
+            // but only once the window has ended. Before that, Discord may still make the message a
+            // moment later (it can after a 5xx), so the channel's end is not yet an answer.
             if (!page.Full || page.NewestId is null)
-                return new Window(messages, null, Whole: true);
+                return pass.Now > windowEnds
+                    ? new Window(messages, null, Whole: true)
+                    : new Window(messages, null, Whole: false, Early: windowEnds);
 
             if (PostRules.DiscordTimeOf(page.NewestId) is { } newest && newest > windowEnds)
                 return new Window(messages, null, Whole: true);
@@ -337,6 +354,21 @@ public sealed class PostDiscordSender
         if (!PostTexts.DiscordFits(text))
         {
             await FailAsync(pass, post, destination, TooLong, mayBeSent: false).ConfigureAwait(false);
+            return;
+        }
+
+        // Checked again at send time, not only when it was saved: only a channel of the server in
+        // settings, as the bot last listed it. The server or the channel may have changed since.
+        var guildId = pass.GuildId;
+        var target = destination.Target;
+        var inServer = guildId.Length > 0
+            && await _db.DiscordChannels.AsNoTracking()
+                .AnyAsync(c => c.ChannelId == target && c.GuildId == guildId && c.RemovedAt == null, pass.Ct)
+                .ConfigureAwait(false);
+
+        if (!inServer)
+        {
+            await FailAsync(pass, post, destination, ChannelNotInServer, mayBeSent: false).ConfigureAwait(false);
             return;
         }
 

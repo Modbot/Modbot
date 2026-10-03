@@ -24,10 +24,27 @@ public class PostDiscordSenderTests(PostgresFixture db)
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>Just past the minutes after an attempt the look must see before "not found" is an answer.</summary>
+    private static readonly TimeSpan PastTheWindow = PostRules.LookWindowAfter + TimeSpan.FromSeconds(1);
+
     private static async Task<TestServices> StartAsync(PostgresFixture db)
     {
         var services = await TestServices.CreateAsync(db, Ct);
         await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+
+        // The server's channel, as the bot last listed it: posts go only to one of these.
+        await using var context = services.Database.NewContext();
+        context.DiscordChannels.Add(new DiscordChannel
+        {
+            ChannelId = Channel,
+            GuildId = Guild,
+            Name = "news",
+            Type = DiscordChannelTypes.Text,
+            FirstSeenAt = services.Clock.UtcNow,
+            UpdatedAt = services.Clock.UtcNow,
+        });
+        await context.SaveChangesAsync(Ct);
+
         return services;
     }
 
@@ -178,7 +195,7 @@ public class PostDiscordSenderTests(PostgresFixture db)
 
         gateway.NoClearAnswerToNextPost(landed: false);
         await RunAsync(services, gateway);
-        services.Clock.Advance(PostRules.FirstLookAfter);
+        services.Clock.Advance(PastTheWindow);
         await RunAsync(services, gateway);
 
         var failed = await DestinationAsync(services, post.Id);
@@ -200,7 +217,7 @@ public class PostDiscordSenderTests(PostgresFixture db)
 
         gateway.NoClearAnswerToNextPost(landed: false);
         await RunAsync(services, gateway);
-        services.Clock.Advance(PostRules.FirstLookAfter);
+        services.Clock.Advance(PastTheWindow);
         await RunAsync(services, gateway);
 
         await ChangeDestinationAsync(services, post.Id, (p, d) => PostChanges.TryAgain(p, d, services.Clock.UtcNow));
@@ -223,7 +240,7 @@ public class PostDiscordSenderTests(PostgresFixture db)
 
         gateway.NoClearAnswerToNextPost(landed: false);
         await RunAsync(services, gateway);
-        services.Clock.Advance(PostRules.FirstLookAfter);
+        services.Clock.Advance(PastTheWindow);
         await RunAsync(services, gateway);
 
         // It shows up in the channel after all.
@@ -368,10 +385,65 @@ public class PostDiscordSenderTests(PostgresFixture db)
         for (var i = 0; i < PostDiscordSender.LookSize; i++)
             gateway.Land(Channel, $"chatter {i}", [], authorId: "555");
 
-        services.Clock.Advance(PostRules.FirstLookAfter);
+        services.Clock.Advance(PastTheWindow);
         await RunAsync(services, gateway);
 
         Assert.Equal(PostDiscordSender.NotTaken, (await DestinationAsync(services, post.Id)).Error);
+    }
+
+    /// <summary>
+    /// A 5xx, and Discord makes the message 90 seconds later. The look at one minute sees the
+    /// channel's end before the window has ended: that is not "not found", so the post stays
+    /// Sending, nothing Try again could resend, and the message is adopted once it appears.
+    /// </summary>
+    [Fact]
+    public async Task TheChannelsEndBeforeTheWindowEnds_IsNotAnAnswer()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var post = await AddPostAsync(services);
+
+        gateway.NoClearAnswerToNextPost(landed: false);
+        await RunAsync(services, gateway);
+        var sentText = (await DestinationAsync(services, post.Id)).SentText!;
+
+        services.Clock.Advance(PostRules.FirstLookAfter);
+        await RunAsync(services, gateway);
+
+        var early = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Checking, early.State);
+        Assert.True(early.MayBeSent);
+        Assert.Single(gateway.RecentReads);
+
+        // Discord makes it now, at 90 seconds.
+        services.Clock.Advance(TimeSpan.FromSeconds(30));
+        var late = gateway.Land(Channel, sentText, []);
+
+        services.Clock.Advance(PostRules.LookWindowAfter);
+        await RunAsync(services, gateway);
+
+        var adopted = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Posted, adopted.State);
+        Assert.Equal(late, adopted.ExternalId);
+        Assert.Single(gateway.PostSends);
+    }
+
+    /// <summary>A post whose channel is not, or no longer, one of the server in settings is never sent.</summary>
+    [Fact]
+    public async Task AChannelOutsideTheServerFailsAtSendTime_WithNothingSent()
+    {
+        await using var services = await StartAsync(db);
+        var gateway = Gateway(services);
+        var post = await AddPostAsync(services, shape: p => p.Destinations[0].Target = "999999999999999999");
+
+        await RunAsync(services, gateway);
+
+        var failed = await DestinationAsync(services, post.Id);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.Equal(PostDiscordSender.ChannelNotInServer, failed.Error);
+        Assert.False(failed.MayBeSent);
+        Assert.Null(failed.SentAt);
+        Assert.Empty(gateway.PostSends);
     }
 
     /// <summary>
