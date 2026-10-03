@@ -44,6 +44,7 @@ public static class PostEndpoints
     public const string NotFound = "That post does not exist.";
     public const string ChangedElsewhere = "Someone else changed this post. Open it again.";
     public const string Offline = "The Discord bot is not connected.";
+    public const string ChangedTryAgain = "This post changed. Try again.";
 
     public static IEndpointRouteBuilder MapPosts(this IEndpointRouteBuilder app)
     {
@@ -410,18 +411,18 @@ public static class PostEndpoints
                     if (published.BotOffline)
                         return Unavailable(Offline);
 
-                    destination.PublishedAt = published.Done ? now : null;
-                    destination.Error = published.Done ? null : Trim(published.Error);
-                    destination.ErrorAt = published.Done ? null : now;
-                    destination.UpdatedAt = now;
-                    post.Version++;
+                    var written = await WriteAfterSiteAsync(db, post.Id, destination.Id, messageId, (_, d) =>
+                    {
+                        d.PublishedAt = published.Done ? now : null;
+                        d.Error = published.Done ? null : Trim(published.Error);
+                        d.ErrorAt = published.Done ? null : now;
+                        d.UpdatedAt = now;
+                    }, ct);
 
-                    if (await SaveAsync(db, post.Id, ct) is { } publishConflict)
-                        return publishConflict;
+                    if (!published.Done)
+                        return Results.Json(new { error = published.Error }, statusCode: StatusCodes.Status502BadGateway);
 
-                    return published.Done
-                        ? Results.Ok(await ViewAsync(db, post, discordBot, ct))
-                        : Results.Json(new { error = published.Error }, statusCode: StatusCodes.Status502BadGateway);
+                    return written is null ? Conflict(ChangedTryAgain) : Results.Ok(await ViewAsync(db, written, discordBot, ct));
                 }
 
                 if (destination.State != PostDestinationStates.Failed)
@@ -513,7 +514,7 @@ public static class PostEndpoints
                 if (!outcome.Done)
                 {
                     if (outcome.Gone)
-                        await GoneAsync(db, facts, http, post, destination, now, ct);
+                        await GoneAsync(db, facts, http, post, destination, messageId, now, ct);
 
                     return Results.Json(
                         new { error = outcome.Gone ? "That post is gone from Discord." : outcome.Error },
@@ -521,17 +522,17 @@ public static class PostEndpoints
                 }
 
                 var was = destination.SentText;
-                destination.TitleOverride = title;
-                destination.TextOverride = text;
-                destination.SentTitle = title;
-                destination.SentText = content;
-                destination.UpdatedAt = now;
-                post.Version++;
 
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-                if (await SaveAsync(db, post.Id, ct) is { } conflict)
-                    return conflict;
+                // Discord has the new words now, so the row and the fact follow whatever else
+                // changed the post meanwhile (WriteAfterSiteAsync).
+                var written = await WriteAfterSiteAsync(db, post.Id, destination.Id, messageId, (_, d) =>
+                {
+                    d.TitleOverride = title;
+                    d.TextOverride = text;
+                    d.SentTitle = title;
+                    d.SentText = content;
+                    d.UpdatedAt = now;
+                }, ct);
 
                 await facts.RecordAsync(
                     FactType.PostEdited,
@@ -540,9 +541,7 @@ public static class PostEndpoints
                     new JsonObject { ["title"] = post.Title, ["network"] = destination.Network, ["before"] = was, ["after"] = content },
                     ct);
 
-                await transaction.CommitAsync(ct);
-
-                return Results.Ok(await ViewAsync(db, post, discordBot, ct));
+                return written is null ? Conflict(ChangedTryAgain) : Results.Ok(await ViewAsync(db, written, discordBot, ct));
             })
             .RequiresFlag(ModbotPermissions.ManagePosts)
             .WithName("EditPostOnSite")
@@ -584,9 +583,9 @@ public static class PostEndpoints
                 if (!outcome.Done)
                     return Results.Json(new { error = outcome.Error }, statusCode: StatusCodes.Status502BadGateway);
 
-                await GoneAsync(db, facts, http, post, destination, clock.UtcNow, ct);
+                var written = await GoneAsync(db, facts, http, post, destination, messageId, clock.UtcNow, ct);
 
-                return Results.Ok(await ViewAsync(db, post, discordBot, ct));
+                return written is null ? Conflict(ChangedTryAgain) : Results.Ok(await ViewAsync(db, written, discordBot, ct));
             })
             .RequiresFlag(ModbotPermissions.ManagePosts)
             .WithName("DeletePostOnSite")
@@ -857,18 +856,30 @@ public static class PostEndpoints
         }
     }
 
-    /// <summary>A post that is not on its site any more: deleted, here or there.</summary>
-    private static async Task GoneAsync(
-        ModbotContext db, AccountFacts facts, HttpContext http, Post post, PostDestination destination, DateTimeOffset now, CancellationToken ct)
+    /// <summary>
+    /// A post that is not on its site any more: deleted, here or there. The row is marked removed
+    /// and the fact written, whatever else changed the post meanwhile. Null when the row could not
+    /// be written; the fact is written all the same.
+    /// </summary>
+    private static async Task<Post?> GoneAsync(
+        ModbotContext db,
+        AccountFacts facts,
+        HttpContext http,
+        Post post,
+        PostDestination destination,
+        string messageId,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
-        destination.State = PostDestinationStates.Removed;
-        destination.UpdatedAt = now;
-        post.Version++;
+        var title = post.Title;
+        var network = destination.Network;
+        var link = destination.Link;
 
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        if (await SaveAsync(db, post.Id, ct) is not null)
-            return;
+        var written = await WriteAfterSiteAsync(db, post.Id, destination.Id, messageId, (_, d) =>
+        {
+            d.State = PostDestinationStates.Removed;
+            d.UpdatedAt = now;
+        }, ct);
 
         await facts.RecordAsync(
             FactType.PostRemoved,
@@ -876,14 +887,66 @@ public static class PostEndpoints
             Actor.Of(http),
             new JsonObject
             {
-                ["title"] = post.Title,
-                ["network"] = destination.Network,
+                ["title"] = title,
+                ["network"] = network,
                 ["by"] = Actor.Of(http)?.Username,
-                ["link"] = destination.Link,
+                ["link"] = link,
             },
             ct);
 
-        await transaction.CommitAsync(ct);
+        return written;
+    }
+
+    /// <summary>How many times a row write after a site call is read again and tried.</summary>
+    private const int WriteAfterSiteTries = 3;
+
+    /// <summary>
+    /// Writes what a call to a site already did onto its destination row. The site has done it, so
+    /// this must not be lost to a concurrent change: on a version conflict the post is read again
+    /// and the change made again, as long as the destination is still the same message on the site
+    /// (still posted, with that id). Safe to make again: the sender never touches a posted row, and
+    /// the change only records the site's own answer. Null when the row has become something else,
+    /// or the conflicts did not stop; the caller says so (409) and the person tries again.
+    /// </summary>
+    private static async Task<Post?> WriteAfterSiteAsync(
+        ModbotContext db,
+        Guid postId,
+        Guid destinationId,
+        string messageId,
+        Action<Post, PostDestination> change,
+        CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < WriteAfterSiteTries; attempt++)
+        {
+            db.ChangeTracker.Clear();
+
+            var post = await db.Posts.Include(p => p.Destinations).FirstOrDefaultAsync(p => p.Id == postId, ct);
+            var destination = post?.Destinations.FirstOrDefault(d => d.Id == destinationId);
+
+            if (post is null
+                || destination is null
+                || destination.State != PostDestinationStates.Posted
+                || !string.Equals(destination.ExternalId, messageId, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            change(post, destination);
+            post.Version++;
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return post;
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Somebody wrote the post since it was read: read it again and make the change again.
+            }
+        }
+
+        db.ChangeTracker.Clear();
+        return null;
     }
 
     private static IResult Refused(IReadOnlyList<string> problems) =>

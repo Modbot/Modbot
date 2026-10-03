@@ -32,16 +32,23 @@ public class PostEndpointTests(PostgresFixture db)
 
         public PostSiteOutcome Answer { get; set; } = PostSiteOutcome.Ok;
 
-        public Task<PostSiteOutcome> EditAsync(string channelId, string messageId, string text, CancellationToken ct = default)
+        /// <summary>Runs while Discord is being asked: somebody else changing the post meanwhile.</summary>
+        public Func<Task>? Meanwhile { get; set; }
+
+        public async Task<PostSiteOutcome> EditAsync(string channelId, string messageId, string text, CancellationToken ct = default)
         {
             Edits.Add((channelId, messageId, text));
-            return Task.FromResult(Answer);
+            if (Meanwhile is { } meanwhile)
+                await meanwhile();
+            return Answer;
         }
 
-        public Task<PostSiteOutcome> DeleteAsync(string channelId, string messageId, string reason, CancellationToken ct = default)
+        public async Task<PostSiteOutcome> DeleteAsync(string channelId, string messageId, string reason, CancellationToken ct = default)
         {
             Deletes.Add((channelId, messageId));
-            return Task.FromResult(Answer);
+            if (Meanwhile is { } meanwhile)
+                await meanwhile();
+            return Answer;
         }
 
         public Task<PostSiteOutcome> PublishAsync(string channelId, string messageId, CancellationToken ct = default)
@@ -57,6 +64,11 @@ public class PostEndpointTests(PostgresFixture db)
             settings.DiscordGuildId = Guild;
             settings.PostsPaused = false;
             settings.DiscordPostsOn = true;
+
+            // The server's channel, as the bot last listed it, and one of another server it is in.
+            await context.DiscordChannels.Where(c => c.ChannelId == Channel || c.ChannelId == OtherServersChannel).ExecuteDeleteAsync(Ct);
+            context.DiscordChannels.Add(Listed(Channel, Guild));
+            context.DiscordChannels.Add(Listed(OtherServersChannel, "999999999999999999"));
             await context.SaveChangesAsync(Ct);
         }
 
@@ -64,6 +76,18 @@ public class PostEndpointTests(PostgresFixture db)
         var host = await ApiTestHost.StartAsync(db, configure: s => s.AddSingleton<IDiscordPostActions>(discord));
         return (host, discord);
     }
+
+    private const string OtherServersChannel = "444444444444444444";
+
+    private static DiscordChannel Listed(string channelId, string guildId, string type = DiscordChannelTypes.Text) => new()
+    {
+        ChannelId = channelId,
+        GuildId = guildId,
+        Name = "news",
+        Type = type,
+        FirstSeenAt = DateTimeOffset.UnixEpoch,
+        UpdatedAt = DateTimeOffset.UnixEpoch,
+    };
 
     private static object Body(ApiTestHost host, bool draft = false, string when = "later", int? version = null, object? discord = null) => new
     {
@@ -450,5 +474,135 @@ public class PostEndpointTests(PostgresFixture db)
         Assert.True(list.GetProperty("sites").GetProperty("paused").GetBoolean());
         Assert.Equal(PostHolds.Paused, list.GetProperty("posts")[0].GetProperty("destinations")[0].GetProperty("shown").GetString());
         Assert.Equal(1, list.GetProperty("counts").GetProperty("scheduled").GetInt32());
+    }
+
+    /// <summary>A post goes only to a channel of the server in settings, never one of another server the bot is in.</summary>
+    [Fact]
+    public async Task AChannelOutsideTheServerIsRefused()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        foreach (var channel in new[] { OtherServersChannel, "555555555555555555" })
+        {
+            var response = await host.SendJsonAsync(HttpMethod.Post, "/api/posts", Body(host, discord: new { channelId = channel }), manager, Ct);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var problems = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("problems").EnumerateArray().Select(p => p.GetString());
+            Assert.Contains("That channel is not in the Discord server.", problems);
+        }
+    }
+
+    [Fact]
+    public async Task APostCannotMentionEveryone()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/posts", Body(host, discord: new { channelId = Channel, roleId = Guild }), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problems = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("problems").EnumerateArray().Select(p => p.GetString());
+        Assert.Contains("The post cannot mention @everyone.", problems);
+    }
+
+    /// <summary>Every route that changes a post, or sends one anywhere, needs Manage posts.</summary>
+    [Fact]
+    public async Task EveryWriteNeedsManagePosts()
+    {
+        var (host, discord) = await StartAsync();
+        await using var _host = host;
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewPosts | ModbotPermissions.ManageSettings | ModbotPermissions.ManageCalendar, Ct);
+        var post = Guid.NewGuid();
+        var destination = Guid.NewGuid();
+
+        var writes = new (HttpMethod Method, string Path, object? Body)[]
+        {
+            (HttpMethod.Post, "/api/posts", Body(host)),
+            (HttpMethod.Put, $"/api/posts/{post}", Body(host)),
+            (HttpMethod.Post, $"/api/posts/{post}/send-now", null),
+            (HttpMethod.Post, $"/api/posts/{post}/cancel", null),
+            (HttpMethod.Delete, $"/api/posts/{post}", null),
+            (HttpMethod.Post, $"/api/posts/{post}/destinations/{destination}/try-again", null),
+            (HttpMethod.Post, $"/api/posts/{post}/destinations/{destination}/edit", new { text = "x" }),
+            (HttpMethod.Delete, $"/api/posts/{post}/destinations/{destination}", null),
+            (HttpMethod.Post, "/api/posts/preview", Body(host)),
+            (HttpMethod.Post, "/api/posts/picture", null),
+            (HttpMethod.Post, "/api/posts/picture-link", new { url = "https://example.com/a.png" }),
+        };
+
+        foreach (var (method, path, body) in writes)
+        {
+            var response = await host.SendJsonAsync(method, path, body, viewer, Ct);
+            Assert.True(response.StatusCode == HttpStatusCode.Forbidden, $"{method} {path} answered {(int)response.StatusCode}");
+        }
+
+        Assert.Empty(discord.Edits);
+        Assert.Empty(discord.Deletes);
+    }
+
+    /// <summary>
+    /// Somebody changes the post while Discord is being asked: the edit Discord made is still written
+    /// to the row, read again, and its fact is kept.
+    /// </summary>
+    [Fact]
+    public async Task AnEditOnDiscordSurvivesAChangeMadeMeanwhile()
+    {
+        var (host, discord) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = (await CreateAsync(host, manager, Body(host))).GetProperty("id").GetGuid();
+
+        await ChangeAsync(id, (_, d) =>
+        {
+            d.State = PostDestinationStates.Posted;
+            d.ExternalId = "555";
+            d.SentText = "**Movie night**\nFriday at eight. Bring snacks.";
+        });
+
+        discord.Meanwhile = () => ChangeAsync(id, (p, _) => p.Version++);
+
+        var destination = await DestinationAsync(id);
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/posts/{id}/destinations/{destination.Id}/edit", new { title = "Movie night", text = "Now at nine." }, manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("**Movie night**\nNow at nine.", (await DestinationAsync(id)).SentText);
+        Assert.Single(await host.FactsAsync(FactType.PostEdited, id.ToString(), Ct));
+    }
+
+    /// <summary>
+    /// The row became something else while Discord was deleting the message: the answer says so
+    /// (409), the database is not made to say otherwise, and the delete's fact is kept.
+    /// </summary>
+    [Fact]
+    public async Task ADeleteOnDiscordThatRacesAnotherChangeSaysSo_AndKeepsItsFact()
+    {
+        var (host, discord) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = (await CreateAsync(host, manager, Body(host))).GetProperty("id").GetGuid();
+
+        await ChangeAsync(id, (_, d) =>
+        {
+            d.State = PostDestinationStates.Posted;
+            d.ExternalId = "555";
+        });
+
+        discord.Meanwhile = () => ChangeAsync(id, (p, d) =>
+        {
+            d.State = PostDestinationStates.Removed;
+            p.Version++;
+        });
+
+        var destination = await DestinationAsync(id);
+        var response = await host.SendJsonAsync(HttpMethod.Delete, $"/api/posts/{id}/destinations/{destination.Id}", null, manager, Ct);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("This post changed. Try again.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Single(await host.FactsAsync(FactType.PostRemoved, id.ToString(), Ct));
     }
 }

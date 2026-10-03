@@ -25,6 +25,8 @@ internal static class PostRequests
     /// <summary>A time picked a moment ago is still "now" by the time it is saved.</summary>
     public static readonly TimeSpan PastGrace = TimeSpan.FromMinutes(1);
 
+    public const string ChannelNotInServer = "That channel is not in the Discord server.";
+
     public const string WhenNow = "now";
     public const string WhenLater = "later";
 
@@ -168,12 +170,16 @@ internal static class PostRequests
         }
         else
         {
-            channel = await db.DiscordChannels.AsNoTracking()
-                .Where(c => c.ChannelId == channelId && c.RemovedAt == null)
-                .OrderByDescending(c => c.GuildId == guildId)
-                .FirstOrDefaultAsync(ct);
+            // Only a channel of the server in settings, as the bot last listed it: never one of another
+            // server the bot happens to be in, whatever id is sent.
+            channel = string.IsNullOrEmpty(guildId)
+                ? null
+                : await db.DiscordChannels.AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.ChannelId == channelId && c.GuildId == guildId && c.RemovedAt == null, ct);
 
-            if (section.Publish && channel is not null && channel.Type != DiscordChannelTypes.Announcement)
+            if (channel is null)
+                problems.Add(ChannelNotInServer);
+            else if (section.Publish && channel.Type != DiscordChannelTypes.Announcement)
                 problems.Add("Only an Announcement channel can publish to followers.");
         }
 
