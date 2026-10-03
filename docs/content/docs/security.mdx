@@ -113,7 +113,9 @@ Modbot stores several secrets for you so it can do its job:
 - your S3 bucket's secret access key, if evidence is stored in a bucket,
 - each webhook's signing secret,
 - the private key from your [Google Calendar](/moderation/google-calendar) key file, if you gave
-  Modbot one.
+  Modbot one,
+- your [Bluesky](/moderation/bluesky) app password, and the sign-in Modbot keeps for that account
+  (its access and refresh tokens).
 
 These are encrypted with **AES-256-GCM** before they are written to the database.
 
@@ -180,6 +182,30 @@ To remove it:
 
 If you think the key leaked, do step 2 first: it is the one that makes every copy useless. Then make
 a new key and choose it in Modbot.
+
+### The Bluesky app password and sign-in
+
+The [Bluesky](/moderation/bluesky) app password lets whoever has it post and delete posts as your
+group's Bluesky account. Modbot takes **only an app password**: anything not shaped like one (four
+groups of four letters or digits) is refused with "Use an app password.", so the account's main
+password, which can change its email and its password, is never stored.
+
+Modbot keeps the app password and its sign-in (an access token that lasts about two hours and a
+refresh token that renews it) encrypted like every secret above. Neither is ever shown again or
+sent to the browser. They go only to the account's own server, the one the account's public record
+names, and only over `https://` to a public address. When Modbot renews the sign-in, the new tokens
+are written to the database before they are used, because the old refresh token stops working.
+
+Modbot keeps secrets out of its log, and the words `token`, `password` and `jwt` in a log field's
+name are enough for it to be blanked.
+
+To remove them:
+
+1. In Modbot, **Settings**, **Bluesky**, **Remove**. Modbot forgets the app password and its sign-in.
+2. In the Bluesky app, **Settings**, **Privacy and security**, **App passwords**, delete Modbot's.
+   That ends the sign-in too, everywhere, including any copy someone else kept.
+
+If you think it leaked, do step 2 first, then make a new app password and save it in Modbot.
 
 ## API keys
 

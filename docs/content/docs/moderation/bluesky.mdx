@@ -1,0 +1,118 @@
+---
+title: Bluesky
+description: Connecting Modbot to your group's Bluesky account with an app password, so posts from the Marketing page can go to Bluesky too.
+---
+
+Modbot can send your group's posts to a Bluesky account, beside Discord and your VRChat group. You
+make an **app password** for the account in Bluesky, give it to Modbot with the account's handle,
+and press **Check**: Modbot signs in and tells you who it is signed in as, and whether the account
+is marked as automated. Then you turn **Posting** on, and a post on the
+[**Marketing**](/moderation/marketing) page can tick **Bluesky**.
+
+Everything here is in **Settings**, **Bluesky**, and needs
+[**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+## What you need
+
+- A Bluesky account for your group. An account of its own is best, so Modbot never signs in to a
+  person's own account.
+- An **app password** for it. Never give Modbot the account's main password: Modbot refuses it.
+
+## Set it up
+
+### 1. Mark the account as automated
+
+Bluesky asks accounts that post by themselves to say so. In the Bluesky app, open the account's
+settings and mark it as an automated (bot) account. Modbot's **Check** shows whether the account
+says so.
+
+### 2. Make an app password
+
+In the Bluesky app, signed in as your group's account:
+
+1. Open **Settings**, **Privacy and security**, **App passwords**.
+2. Click **Add App Password** and name it `Modbot`.
+3. Leave access to direct messages off. Modbot never reads or sends messages.
+4. Click **Create**. Bluesky shows the password once, as four groups of four letters and digits,
+   such as `abcd-efgh-ijkl-mnop`. Copy it.
+
+An app password can post and delete posts as the account, but cannot change the account's email or
+its main password. You can revoke it in Bluesky at any time, and Modbot stops posting.
+
+### 3. Give it to Modbot and Check
+
+In Modbot, go to **Settings**, **Bluesky**:
+
+1. Type the **Handle**, such as `ourgroup.bsky.social` or `ourgroup.com`. A leading `@` is fine.
+2. Paste the **App password** and click **Save**. The page shows **App password: Saved**. The
+   password is never shown again.
+3. Click **Check**.
+
+Modbot refuses anything that is not shaped like an app password with **Use an app password.**
+
+## What Check shows
+
+Check finds the account from its handle, signs in, and reads the account's profile. **It never posts
+and changes nothing on the account.**
+
+| Line | What it means |
+|---|---|
+| **Signed in as** | The account's handle and its display name. |
+| **Automated** | **Yes** when the account is marked as automated, **No** when it is not. |
+
+When something is wrong, Check says what:
+
+| What it says | What to do |
+|---|---|
+| Could not find this handle. | Check the spelling. A handle that is a website of your own must still point at the account. |
+| Could not reach the account's server. | Bluesky, or the server the account lives on, did not answer. Try again later. |
+| Bluesky did not accept the handle or app password. | Make a new app password and save it. Modbot does not sign in again until you do. |
+| Too many sign-ins. Try again after … | See **Sign-ins** below. |
+| Bluesky is limiting Modbot. Try again after … | Bluesky asked Modbot to slow down. Nothing is sent to Bluesky until then. |
+
+What Check found stays on the page until you change the handle or the app password. Change either
+and Check again; posts wait until it passes.
+
+## Posting
+
+Once Check has passed, the **Posting** switch appears. It is off to start. On, posts that tick
+**Bluesky** go out at their time; off, they wait and show **Off**. The same switch is in **Settings**,
+**Posts**, as **Bluesky posts**.
+
+## Remove
+
+**Remove** asks first, then forgets the handle, the app password and Modbot's sign-in, and turns
+**Posting** off. Posts already on Bluesky stay there; delete them from **Marketing** first if you
+want them gone. Revoke the app password in Bluesky too.
+
+## Sign-ins
+
+Modbot signs in once and keeps its sign-in, encrypted in its database, so a restart does not sign in
+again. It renews the sign-in by itself as Bluesky asks. It signs in with the app password again only
+when the kept sign-in stops working, and then at most once every 10 minutes and 20 times a day, far
+under Bluesky's own limits. Saving a new app password lets the next sign-in go at once.
+
+When Bluesky rate limits Modbot, Modbot stops every request to Bluesky until the time Bluesky says,
+and never sends the request again before then.
+
+## What leaves your server
+
+| Sent | To | When |
+|---|---|---|
+| The handle | Bluesky's public API, or the handle's own website | **Check** |
+| The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
+| The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
+| A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked |
+
+**Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,
+not from copies others already took.
+
+Modbot never mentions anyone in a Bluesky post: an `@handle` in the text stays plain text, because a
+mention would notify that person. Nothing about your members goes in a post. See
+[Privacy](/privacy#what-leaves-your-server) and [Security](/security#secrets-stored-in-the-database).
+
+## Not built yet
+
+Signing in with Bluesky's own sign-in page (OAuth), for installs with a public address, comes in a
+later version. So do pictures in a post beyond the link card's. See
+[Not built yet](/not-built-yet).

@@ -1,15 +1,16 @@
 ---
 title: Marketing
-description: Write a post once, pick when it goes, and let Modbot send it to your Discord server and your VRChat group at that time, with a preview of exactly what goes out.
+description: Write a post once, pick when it goes, and let Modbot send it to your Discord server, your VRChat group and Bluesky at that time, with a preview of exactly what goes out.
 ---
 
 The **Marketing** page is where you write posts for your community and send them at a time you
 pick: an announcement, a reminder, news. You write a post once, tick where it goes, and Modbot sends
 it at its time.
 
-In this version a post can go to a **Discord channel** and to your **VRChat group's posts**.
-Bluesky is planned and comes later. The VRChat page's own [**Posts**](/analytics#posts) tab stays:
-it posts in your group right away, and posts sent from **Marketing** show up there like any others.
+In this version a post can go to a **Discord channel**, to your **VRChat group's posts** and to your
+group's **Bluesky** account, once it is [set up](/moderation/bluesky). The VRChat page's own
+[**Posts**](/analytics#posts) tab stays: it posts in your group right away, and posts sent from
+**Marketing** show up there like any others.
 
 ## Who can use it
 
@@ -17,8 +18,8 @@ it posts in your group right away, and posts sent from **Marketing** show up the
 |---|---|
 | See the **Marketing** page, every post, where each one goes and how it went | [**See posts**](/accounts/roles-and-permissions#see-posts) |
 | Write, schedule, change, cancel and send posts, and **Try again** | [**Manage posts**](/accounts/roles-and-permissions#manage-posts) and **See posts** |
-| **Edit** or **Delete** a post on Discord or VRChat after it went out | **Manage posts** and **See posts** |
-| Turn **Pause all posting**, **Discord posts** and **VRChat posts** on or off | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+| **Edit** a post on Discord or VRChat, or **Delete** one on Discord, VRChat or Bluesky, after it went out | **Manage posts** and **See posts** |
+| Turn **Pause all posting**, **Discord posts**, **VRChat posts** and **Bluesky posts** on or off, and set up the Bluesky account | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
 | See the **Posts** card on **Health** | **See posts** and [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
@@ -53,10 +54,10 @@ Each post shows:
 |---|---|
 | **Waiting** | Not its time yet. |
 | **Paused** | **Pause all posting** is on, so nothing is sent. |
-| **Off** | **Discord posts** or **VRChat posts** is off in Settings. |
-| **Not set up** | Discord: Modbot has no Discord server id, or the bot is not connected. VRChat: no group is picked, or Modbot has no VRChat login. |
+| **Off** | **Discord posts**, **VRChat posts** or **Bluesky posts** is off in Settings. |
+| **Not set up** | Discord: Modbot has no Discord server id, or the bot is not connected. VRChat: no group is picked, or Modbot has no VRChat login. Bluesky: no account has passed **Check**, or Bluesky refused its app password since. |
 | **Sending…** | On its way, or Modbot is checking whether the site took it. |
-| **Posted** | On the site. **Open** opens it there: the message on Discord, the group's posts on VRChat. |
+| **Posted** | On the site. **Open** opens it there: the message on Discord, the group's posts on VRChat, the post on Bluesky. |
 | **Not published** | In the channel, but publishing it to followers did not go through. |
 | **Failed** | Not on the site, with the site's own words, or Modbot's. |
 | **Deleted** | Was on the site and was deleted from Modbot. |
@@ -75,18 +76,19 @@ bottom.
 - **Title** is shown in bold on the first line on Discord, and as the post's title on VRChat. Discord
   does without one; VRChat needs one.
 - **Text** is what the post says. Under it a counter for each place ticked shows how long the post
-  will be, such as **Discord 212 / 2000** and **VRChat 212**. Discord takes at most 2000 characters,
-  and its counter turns red past that; the title and a mentioned role count too. VRChat gives no
-  limit, so its counter is never red.
+  will be, such as **Discord 212 / 2000**, **VRChat 212** and **Bluesky 212 / 300**. Discord takes
+  at most 2000 characters, and its counter turns red past that; the title and a mentioned role count
+  too. VRChat gives no limit, so its counter is never red. Bluesky takes at most 300 characters,
+  counted the way a reader sees them (an emoji with its skin tone is one), and the title counts too.
 - **Picture**: **Choose picture** to pick one on your computer, or paste a **Picture link**. It
   opens in a crop box. Pick its shape: **16:9**, **1:1**, or **As it is** for the whole picture.
   Move and size the box, then **Upload**. A picture up to 8 MB is kept by Modbot and sent to Discord
   as a file with the post. Modbot fetches a picture link from your server, so the website it points
   at sees a request from your server; it fetches only `https://` links on public websites.
-- **Where it goes**: a chip for each place a post can go: **Discord** and **VRChat**. **Each is off
-  every time you open the form for a new post.** A post goes nowhere unless you tick it. A chip that
-  is on but cannot send says **Off** or **Not set up**, linking to where you fix that. **VRChat**
-  says **Needs a title** until the post, or VRChat's own title, has one.
+- **Where it goes**: a chip for each place a post can go: **Discord**, **VRChat** and **Bluesky**.
+  **Each is off every time you open the form for a new post.** A post goes nowhere unless you tick
+  it. A chip that is on but cannot send says **Off** or **Not set up**, linking to where you fix
+  that. **VRChat** says **Needs a title** until the post, or VRChat's own title, has one.
 - **When**: **Now** sends it as soon as you press **Post now**. **Later** sends it at the date and
   time you pick. The time zone is your browser's to start with; pick another and the time is that
   zone's.
@@ -98,7 +100,8 @@ Then:
 - **Cancel** closes the form without saving.
 
 If something is wrong, the form lists every problem at once, such as "Pick a channel.", "VRChat
-needs a title." or "The Discord text is longer than 2000 characters.".
+needs a title.", "The Discord text is longer than 2000 characters." or "The Bluesky text is longer
+than 300 characters.".
 
 ### Discord
 
@@ -136,6 +139,23 @@ as, which needs VRChat+. VRChat takes one upload a minute. If VRChat turns it do
 section says why, and VRChat gets the text only. While uploads are off, VRChat gets the text only,
 and its preview shows no picture.
 
+### Bluesky
+
+With **Bluesky** ticked, the post goes to your group's Bluesky account, as set up in **Settings**,
+**Bluesky** ([how](/moderation/bluesky)):
+
+- Bluesky has no title, so it gets the **title on its own line, then the text**.
+- **Own text**: tick it to give Bluesky words of its own, every word, title included. It starts as
+  the title and text, has its own counter, and **Reset** puts them back.
+- **Links and tags**: a `https://` link and a `#tag` in the text are links on Bluesky. An
+  `@handle` stays plain text: Modbot never mentions anyone, because a mention notifies that person.
+- **The link card**: when the text has a link, Bluesky shows a card for the first one, with the
+  post's title (or the link's website when there is no title) and the post's picture. Bluesky takes
+  a card picture of at most 1 MB, so the form makes a small JPEG copy of the picture in your
+  browser and keeps it beside the post. With no link in the text, Bluesky gets the text only.
+
+Bluesky cannot edit a post. Once one is on Bluesky it can only be deleted.
+
 ### Preview
 
 **Preview** shows each place the post goes, the way that site shows it:
@@ -144,6 +164,8 @@ and its preview shows no picture.
   with its links, and the picture.
 - **VRChat**: the group post: its title, who sees it, the picture if VRChat is sent one, and the
   text.
+- **Bluesky**: the account's name and handle, the text with its links and tags coloured, the link
+  card if there is one, and the counter.
 
 It is built by the same code that sends the post, so it is exactly what goes out. If something
 would stop the post being scheduled, it is listed above.
@@ -165,15 +187,17 @@ calendar will make them in a later version.
 
 ## After it goes
 
-A post that went out shows **Open**, **Edit** and **Delete** beside its badge:
+A post that went out shows **Open**, **Edit** and **Delete** beside its badge (a Bluesky post has
+no **Edit**):
 
 - **Edit** changes its title and text there. On Discord the picture stays, and nobody is pinged
   again. On VRChat the picture and who sees it stay, nobody is notified again, and it needs a title.
-- **Delete** asks "Delete this post on Discord?" (or on VRChat), then deletes it there. A post
-  already gone from the site counts as deleted.
+- **Delete** asks "Delete this post on Discord?" (or on VRChat, or on Bluesky), then deletes it
+  there. A post already gone from the site counts as deleted. A Bluesky post is deleted from the
+  account in Settings; deleting removes it from Bluesky, not from copies other services already took.
 
-Both happen at once: on Discord the bot has to be connected; on VRChat each is one request, never
-sent again, and if VRChat is busy it says so and you try again later.
+Both happen at once: on Discord the bot has to be connected; on VRChat and Bluesky each is one
+request, never sent again, and if the site is busy it says so and you try again later.
 
 ## When a post fails
 
@@ -198,6 +222,16 @@ On VRChat:
 | Not sent on time. | It was more than an hour late. It was not sent. | Sends it now. **Post now** does the same. |
 | VRChat did not add the post. | VRChat gave no clear answer, and the post was not in the group's posts two minutes later. | Looks in the group's posts once more, and sends it only if it is not there. |
 | Could not check the group's posts. | VRChat gave no clear answer, and Modbot could not read the group's posts to look. | Looks again first, the same way. |
+
+On Bluesky:
+
+| What it says | What happened | What **Try again** does |
+|---|---|---|
+| Bluesky's own words | Bluesky refused it. Nothing was posted. | Sends it again. |
+| The Bluesky text is longer than 300 characters. | The text was too long for Bluesky. Nothing was sent. | Sends it again. Edit the post first. |
+| That Bluesky account is not the one in Settings. | The account in Settings changed after the post was saved. Nothing was sent. | Sends it again. Edit the post first, so it is for the account in Settings. |
+| Not sent on time. | It was more than an hour late. It was not sent. | Sends it now. **Post now** does the same. |
+| Could not reach Bluesky. | Bluesky gave no clear answer, and Modbot could not find out for an hour whether the post was made. | Reads it back first, and sends it only if it is not there. |
 
 ### Never posted twice
 
@@ -235,6 +269,14 @@ When VRChat rate limits Modbot, or Modbot is not signed in yet, nothing was made
 is tried again only once VRChat's own wait is over. **Modbot never sends a rate-limited request
 again by itself.**
 
+Bluesky lets Modbot choose a post's id itself, so Bluesky is kept to once more simply. Modbot makes
+the id once, writes it down before it sends anything, and sends every try under that same id, asking
+Bluesky to make the post only if nothing has that id yet. A second try can therefore never make a
+second post. When Bluesky gives no clear answer, the post shows **Sending…**, and a minute later
+Modbot asks Bluesky for the post by its id: there, it shows **Posted**; not there, it is sent again
+under the same id, with the time of that send, because Bluesky sorts posts by it. When Bluesky rate
+limits Modbot, nothing more goes to Bluesky until the time Bluesky names.
+
 ## What the bot needs in Discord
 
 In the post's channel the bot needs:
@@ -243,6 +285,11 @@ In the post's channel the bot needs:
 - **Attach Files**, for a post with a picture;
 - **Read Message History**, to look for a post Discord gave no clear answer to.
 
+## What the Bluesky account needs
+
+An app password, saved in **Settings**, **Bluesky**, and a **Check** that passed. See
+[Bluesky](/moderation/bluesky).
+
 ## What Modbot's VRChat account needs
 
 In your group, Modbot's VRChat account needs **Manage Group Announcement**, the permission for the
@@ -250,7 +297,7 @@ group's posts. A post refused for lacking it says so on the post and on **Health
 
 ## Settings
 
-**Settings**, **Posts** has three switches:
+**Settings**, **Posts** has four switches:
 
 - **Pause all posting**: while it is on, no post is sent anywhere. Posts wait and show **Paused**; one
   more than an hour late is not sent and shows "Not sent on time." with **Post now**. It does not
@@ -259,18 +306,21 @@ group's posts. A post refused for lacking it says so on the post and on **Health
   to start with, because nothing goes out unless somebody ticks **Discord** on a post.
 - **VRChat posts**: off, no post goes to the VRChat group; VRChat posts wait and show **Off**. It
   is on to start with, for the same reason.
+- **Bluesky posts**: the same switch as **Posting** in **Settings**, **Bluesky**. It is off to start
+  with, and goes on only once the Bluesky account has passed **Check**.
 
 Each change is written to the audit log with who made it.
 
-Modbot sends at most one post a pass to each site, every 20 seconds or so for Discord and every 15
-for VRChat, and at most 10 posts an hour to each, so a mistake cannot flood a channel or a group.
+Modbot sends at most one post a pass to each site, every 20 seconds or so for Discord, every 15 for
+VRChat and every 30 for Bluesky, and at most 10 posts an hour to each, so a mistake cannot flood a
+channel, a group or an account.
 
 ## Health
 
 The **Posts** card on **Health** shows:
 
 - **Paused** while all posting is paused;
-- Discord or VRChat, when posts are waiting on it and it is **Off** or **Not set up**;
+- Discord, VRChat or Bluesky, when posts are waiting on it and it is **Off** or **Not set up**;
 - posts that failed in the last 7 days, each leading to **Failed**, with the VRChat permission
   Modbot's account needs when that is why;
 - posts Modbot has been looking for on the site for more than 15 minutes.
@@ -295,6 +345,9 @@ A post goes only where it is ticked, and every place starts unticked.
   (the group, some of its roles, or everyone on vrchat.com), and has VRChat notify the members only
   if **Notify members** was ticked. The picture goes only while **Upload VRChat pictures** is on; it
   is then uploaded to that VRChat account and stays there as a file on it.
+- **Bluesky**: the post's text, and when it has a link, a card with the post's title, that link and
+  a small copy of the picture, go to the account's own server, and from there are public on Bluesky
+  and copied by other services. Nobody is mentioned.
 
 Nothing about your members goes in a post: no names, no ids, no counts. See
 [Privacy](/privacy#what-leaves-your-server).

@@ -135,8 +135,21 @@ wherever you choose to store them. These pages describe what is kept and how it 
   only while **Upload VRChat pictures** is on: it is then uploaded to the VRChat account Modbot
   signs in as and stays there as a file on that account; while it is off, VRChat gets the text only.
   Nothing about your members goes in a post: no names, no ids, no counts. The picture is kept in
-  Modbot's database while a post uses it. **Pause all posting**, **Discord posts** and **VRChat
-  posts**, under **Settings**, **Posts**, stop posts from going out.
+  Modbot's database while a post uses it. **Pause all posting**, **Discord posts**, **VRChat
+  posts** and **Bluesky posts**, under **Settings**, **Posts**, stop posts from going out.
+- [Bluesky](/moderation/bluesky): nothing until someone with **Change settings** saves a handle and
+  an app password in **Settings**, **Bluesky**. Then each **Check** sends the handle to Bluesky's
+  public API at `public.api.bsky.app` (or to the handle's own website) to find the account, reads
+  the account's public record from `plc.directory` (or the account's own website), and sends the
+  account's id and the app password to the account's own server to sign in; it never posts. Modbot
+  keeps that sign-in and renews it with the same server. Once someone turns **Posting** on, a post
+  with **Bluesky** ticked sends that server the post's text (its own text, or the title and text),
+  the time it was sent, and, when the text has a link, a link card with the post's title, that
+  link and a small copy of the post's picture made in the browser. From there the post is **public
+  on Bluesky, and copied by other services**; deleting it removes it from Bluesky, not from copies
+  others already took. Modbot never mentions anyone in a Bluesky post, so nobody is notified. Never
+  sent: member names, VRChat or Discord ids, head counts, and anything about moderation. **Posting**,
+  **Bluesky posts** and **Remove** stop it; Remove also forgets the app password.
 - [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
   to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops

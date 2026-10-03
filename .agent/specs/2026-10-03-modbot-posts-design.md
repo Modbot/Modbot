@@ -2,8 +2,9 @@
 
 - **Date:** 2026-10-03
 - **Status:** Step 1 (posts, the Marketing tab, Discord) built with this document; step 2 (VRChat
-  group posts, §4.5) built on 2026-10-03. Steps 3 and 4 (Bluesky, event posts on the shared model)
-  are designed here and not built.
+  group posts, §4.2b) built on 2026-10-03; step 3a (Bluesky with an app password, §4.2c) built on
+  2026-10-03. Step 3b (Bluesky OAuth) and step 4 (event posts on the shared model) are designed here
+  and not built.
   The owner chose every recommended answer in §10 on 2026-10-03, and added one rule: no automatic
   members-only rule; every destination is a per-post tick, unticked when the composer opens, and
   the preview is the gate.
@@ -61,7 +62,8 @@ date_starts_at IS NULL`, and `(event_id, kind, date_starts_at) WHERE kind IS NOT
 | `id`, `post_id` | Deleted with its post. |
 | `network` | `discord`, `vrchat`; later `bluesky`, and others (`mastodon`, a web address). |
 | `target` | Discord: the channel id. VRChat: the group id. Bluesky: the account's DID. Kept so an edit or delete goes to the same place after settings change. Opaque. |
-| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility` (`group`/`public`), `roleIds`, `notify`, `imageId`, and `pictureId`, the post picture the `imageId` was uploaded from; once sent, `imageId` is what VRChat was sent, null for text only. Bluesky: `langs`, `cid`. |
+| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility` (`group`/`public`), `roleIds`, `notify`, `imageId`, and `pictureId`, the post picture the `imageId` was uploaded from; once sent, `imageId` is what VRChat was sent, null for text only. Bluesky: `pictureId`, the post picture the card picture was made from, and `cid` once posted (no `langs` yet, §4.2c). |
+| `site_picture_id` uuid null | The site's own copy of the post's picture, a row of `calendar_cover_picture`: Bluesky's small card picture (step 3a). A column rather than a word in `options`, so the hourly sweep keeps it. |
 | `title_override`, `text_override` | Null means the post's own. Discord's "Own text"; VRChat's "Own title" and "Own text". |
 | `state` | `waiting`, `sending`, `checking`, `posted`, `failed`, `removed`, `skipped`. |
 | `client_key` | Bluesky's record key, made once (step 3); later Discord's nonce. |
@@ -220,6 +222,79 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   `WriteAfterSiteAsync`, as for Discord.
 - **The VRChat page's Posts tab stays** (decision 17).
 
+### 4.2c Bluesky (`Modbot.Core/Bluesky`, `Modbot.Api/Features/Posts`, step 3a)
+
+Built from the Bluesky design report (2026-10-03, §3.1, §3.4, §3.5), mapped onto the shared tables
+as the marketing report's §2.6 says: `record_key` is `client_key`, `account_did` is `target`, the
+post's `at://` address is `external_id` and its content id `options.cid`.
+
+- **Sign-in: an app password only** (decision 15; OAuth is step 3b). A value not shaped like one
+  (four groups of four letters or digits, case ignored) is refused with "Use an app password.", so
+  the main password is never kept. Settings → Bluesky (Connections, Manage settings):
+  `GET/PUT/DELETE /api/settings/bluesky` and `POST …/check`, audited as `bluesky` with the app
+  password as a secret. Columns on `settings`: handle, DID, server, the app password and the
+  session (both encrypted), what Check found (`checked_at`, display name, `automated`, problem),
+  `posting_on` (off to start, on only over a Check that passed), `stopped_until`, and the sign-in
+  guard (`sign_in_refused`, `signed_in_at`, `sign_ins_day`, `sign_ins_used`).
+- **Finding the account** (`BlueskyIdentity`): handle → DID through `public.api.bsky.app`'s
+  `resolveHandle`, then the handle's own `/.well-known/atproto-did`; the DID document from
+  plc.directory or `did:web`'s host; the server is `#atproto_pds` of type
+  `AtprotoPersonalDataServer`, https with no path. The handle is checked both ways (the document
+  lists `at://handle`). Every call is on the named client `bluesky`, the guarded handler
+  (`PictureLinks.GuardedHandler`): public addresses only, no redirects, proxy or cookies.
+- **Check** never posts: find the account, `getSession` on the saved session (no sign-in when it
+  works), otherwise sign in, then read `app.bsky.actor.profile/self` with `getRecord` for the
+  display name and the `bot` self-label ("Automated: Yes/No", decision 10). The design named
+  `getProfile`; the profile record is read instead because the self-label is in it and the read
+  needs neither a sign-in nor Bluesky's app view.
+- **The session has one owner** (`BlueskySession`, a singleton with a lock): the loop, Check and
+  Delete all get their sign-in there. An access token within five minutes of its `exp` is
+  refreshed; the new pair is written (one `UPDATE` of its own column) before it is used. A failed
+  refresh signs in with the app password, at most once in 10 minutes and 20 times a UTC day,
+  counted before the call. A refused app password sets `sign_in_refused`: nothing signs in until a
+  new one is saved, which also lets the next sign-in go at once. A 429 anywhere sets
+  `stopped_until` to `ratelimit-reset` (15 minutes when Bluesky names no time, never under one) and
+  nothing goes to Bluesky before then, Check and read-backs included.
+- **At most once**: the destination gets a TID (`Tid.Next`, from `IModbotClock` with a random
+  10-bit clock id) before its first claim, kept for every try. `putRecord` at that key with
+  `swapRecord: null`; `createdAt` is set fresh on each real send (feeds sort by it).
+  1. 200: `posted`, link `https://bsky.app/profile/{did}/post/{key}`.
+  2. `InvalidSwap`: `getRecord` at the key; found, `posted` (adopted); otherwise `checking`.
+  3. No answer, a timeout, a 5xx: `checking`, `may_be_sent`, read back a minute after the attempt.
+     Found: `posted`. `RecordNotFound`: back to `waiting` under the same key, its waiting time the
+     attempt's (Try again's: now), so it is sent again within the hour or turns Failed, "Could not
+     reach Bluesky.". The read could not be made: read again in two minutes; an hour after the
+     looking began, Failed, "Could not reach Bluesky.", still `may_be_sent` (Try again reads back
+     first).
+  4. 429, an ended token, no answer to the picture upload: nothing was made, back to `waiting`, its
+     waiting time unchanged, tried again after the stop or two minutes.
+  5. Any other refusal: Failed with Bluesky's words.
+  6. A row left `sending` two minutes is read back, as in 3.
+- **Text, facets, card** (`BlueskyText`, `BlueskyPostRecord`): Bluesky gets its own text when it has
+  one, otherwise the title on its own line and the text (`PostTexts.Bluesky`). 300 graphemes
+  (`StringInfo`) and 3000 UTF-8 bytes, else "The Bluesky text is longer than 300 characters.", at
+  save and at send. Facets for `http(s)://` links and `#tags` only, by UTF-8 byte offsets; an
+  `@handle` stays text, never a mention (facts 13, 24). The card is built by Modbot for the first
+  link in the text: title the post's title (or the link's host), description empty, and the card
+  picture, a JPEG of at most 1,000,000 bytes and 1200 pixels made in the browser from the post's
+  picture (`smallJpeg`), kept with `POST /api/posts/picture` as `site_picture_id`, uploaded with
+  `uploadBlob` just before `putRecord`. With no link there is no card and no picture.
+- **The loop**: `PostBlueskyService`, every 30 seconds, registered by the host with
+  `AddBlueskyPosting` (the pass is scoped in `ApiSurface`). One send a pass, at most 10 an hour,
+  the same late rule, held by Pause all posting, the Posting switch and `PostSites.BlueskyReady`
+  (an account, its server and app password, a Check with no problem, no refused app password).
+- **Delete after**: `IBlueskyPostActions` (Core), `deleteRecord` on the account in Settings only
+  ("That post is on another Bluesky account." otherwise), one call at once, a refused token
+  refreshed and asked once more, `RecordNotFound` counted as done, written with
+  `WriteAfterSiteAsync`. **No edit**: Bluesky cannot edit posts.
+- **Composer**: a Bluesky chip (Off / Not set up, both leading to Settings → Bluesky), a Bluesky
+  section with Own text (prefilled with the title and text) and a "Bluesky 212 / 300" counter
+  counted with `Intl.Segmenter` (the server decides), and a preview drawn from `POST
+  /api/posts/preview`'s `bluesky`: the account's name and handle, the text with links and tags
+  coloured, the card. Settings → Posts mirrors the Posting switch as "Bluesky posts".
+- **Not in 3a**: `langs` (no language picker), pictures beyond the card, OAuth (3b), the event
+  kinds and the Cancelled reply (step 4).
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`
@@ -300,7 +375,8 @@ Try again.
 
 - Settings, Posts (Connections, Change settings): **Pause all posting** (decision 12: posts only,
   not the calendar's copies), **Discord posts** and **VRChat posts** (each on to start, old installs
-  too; `vr_chat_posts_on` came with step 2). Bluesky's stays in its own topic and is mirrored here.
+  too; `vr_chat_posts_on` came with step 2). Bluesky's stays in its own topic and is mirrored here
+  as **Bluesky posts** (step 3a): the same column, on only over a Check that passed.
   Audited as settings.
 - Health, **Posts** card (See posts): Paused; sites posts wait on that are Off or Not set up;
   failures in the last 7 days, with the VRChat permission missing when that is why; posts looked
@@ -335,7 +411,7 @@ Operational category, moderation retention (kept).
 |---|---|---|
 | Discord | title, text, picture file, one role mention | the channel's readers; followers' servers if published |
 | VRChat | title, text, picture (uploaded to Modbot's VRChat account, only while uploads are on), roles, visibility, notify | group members (or the roles picked), or everyone on vrchat.com |
-| Bluesky (step 3) | text, link card, languages; sign-in to the account's server | public, and permanent once copied |
+| Bluesky (step 3a) | the handle to Bluesky's public API, the DID to plc.directory, the app password and session to the account's server; a post's text (its own, or title and text) and, with a link, a card with the title, the link and a small copy of the picture | public, and permanent once copied |
 
 Never sent: member names, user names or ids, counts of people, moderation data. Operator switches:
 the per-post ticks (all unticked to start), the per-site switches, Pause all posting, VRChat picture
@@ -346,9 +422,10 @@ uploads, removing the Bluesky account.
 - **Step 2, VRChat group posts**: built, §4.2b. The report's "page 1 of `GetGroupPosts`" became
   pages until the whole window was read (at most five of 20), the same discipline as the Discord
   look, so a post VRChat made late, or a busy group, can never be missed and then sent again.
-- **Step 3, Bluesky**: app password first (3a), OAuth for installs with a public address (3b,
-  decision 15); a fixed record key with `swapRecord: null`; Cancelled as a reply under Announced
-  (decision 7); Check shows whether the account is marked automated (decision 10).
+- **Step 3, Bluesky**: app password first (3a, built, §4.2c), OAuth for installs with a public
+  address (3b, decision 15); a fixed record key with `swapRecord: null`; Cancelled as a reply under
+  Announced (decision 7, with step 4's event kinds); Check shows whether the account is marked
+  automated (decision 10).
 - **Step 4, event posts**: `post_plan` and `post_texts` on the event; `CalendarPosts.Plan` (Announced
   once, Reminder an hour before each date (decision 11) and skipped past the start, We're live on the
   shared first-join check, Cancelled only where Announced posted); a planner step in
