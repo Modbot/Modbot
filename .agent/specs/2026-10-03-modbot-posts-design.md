@@ -314,8 +314,10 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   issuer, fresh `jti`, `iat`/`exp` from `IModbotClock`) and a DPoP proof made with a new key for this
   sign-in. The waiting sign-in (state, verifier, DPoP key, issuer, token address, DID, handle,
   server, scope, who started it, when) is one encrypted JSON in
-  `settings.bluesky_oauth_pending_encrypted`, good for ten minutes and taken by the first callback
-  whatever it brings. `GET /api/bluesky/callback` finishes only with the same state, `iss` equal to
+  `settings.bluesky_oauth_pending_encrypted`, good for ten minutes. A callback with another state,
+  or from another person, leaves it alone (the callback is open to anyone, and a junk request must
+  not wipe a sign-in under way); the matching one takes it with one conditional `UPDATE` and goes on
+  only if that changed exactly one row, so a page loaded twice says "already used". `GET /api/bluesky/callback` finishes only with the same state, `iss` equal to
   the issuer, the same signed-in Modbot account still holding Manage settings, and a token answer
   whose `sub` is the DID the handle named ("Bluesky signed in another account than this handle."
   otherwise); it then writes the session under the session owner's lock

@@ -114,9 +114,9 @@ Modbot stores several secrets for you so it can do its job:
 - each webhook's signing secret,
 - the private key from your [Google Calendar](/moderation/google-calendar) key file, if you gave
   Modbot one,
-- your [Bluesky](/moderation/bluesky) app password, and the sign-in Modbot keeps for that account
-  (its access and refresh tokens, and for a sign-in with Bluesky its own signing key),
-- Modbot's own Bluesky signing key, if you use **Sign in with Bluesky**.
+- your [Bluesky](/moderation/bluesky) app password, or the sign-in with Bluesky that replaces it,
+  with the access and refresh tokens Modbot keeps for that account, and Modbot's own Bluesky signing
+  keys (see [Sign in with Bluesky](#sign-in-with-bluesky-modbots-signing-key-and-the-tokens)).
 
 These are encrypted with **AES-256-GCM** before they are written to the database.
 

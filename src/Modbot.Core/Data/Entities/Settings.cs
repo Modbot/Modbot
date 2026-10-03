@@ -392,7 +392,7 @@ public class Settings
     /// <summary>
     /// A sign-in with Bluesky that was started and not finished yet, as one encrypted JSON: its state,
     /// its PKCE verifier, its DPoP key, the account it is for and who started it. Good for ten
-    /// minutes, and taken whatever the callback brings.
+    /// minutes, and taken once by the callback that carries its state for the person who started it.
     /// </summary>
     public string? BlueskyOAuthPendingEncrypted { get; set; }
 

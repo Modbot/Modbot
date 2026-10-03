@@ -57,6 +57,7 @@ const SIGN_IN_RESULTS: Record<string, { ok: boolean; text: string }> = {
   cancelled: { ok: false, text: 'Bluesky sign-in was cancelled.' },
   expired: { ok: false, text: 'The Bluesky sign-in took too long. Try again.' },
   'signed-out': { ok: false, text: 'You were signed out of Modbot before Bluesky sent you back.' },
+  used: { ok: false, text: 'This Bluesky sign-in was already used.' },
   'wrong-account': { ok: false, text: 'Bluesky signed in another account than this handle.' },
   refused: { ok: false, text: 'Bluesky did not finish the sign-in.' },
   unreachable: { ok: false, text: 'Could not reach Bluesky.' },

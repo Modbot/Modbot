@@ -83,6 +83,9 @@ public enum BlueskyOAuthEnd
     /// <summary>The browser coming back is not signed in to Modbot as the person who started it.</summary>
     OtherPerson,
 
+    /// <summary>Another callback took the waiting sign-in first: the page was loaded twice.</summary>
+    AlreadyUsed,
+
     /// <summary>Bluesky signed in another account than the one the handle names.</summary>
     WrongAccount,
 
@@ -335,8 +338,9 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
     }
 
     /// <summary>
-    /// Finishes a sign-in Bluesky sent the browser back from. The waiting sign-in is taken whatever
-    /// happens: it is good once. Writes nothing else; the caller keeps the tokens.
+    /// Finishes a sign-in Bluesky sent the browser back from. The waiting sign-in is left alone
+    /// unless the state and the person match; then it is taken, once, by one atomic statement,
+    /// whatever follows. Writes nothing else; the caller keeps the tokens.
     /// </summary>
     /// <param name="person">The Modbot account the browser coming back is signed in as.</param>
     public async Task<BlueskyOAuthFinish> FinishAsync(
@@ -349,28 +353,34 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
             .Select(s => s.BlueskyOAuthPendingEncrypted)
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
-        if (stored is not null)
-        {
-            await db.Settings
-                .Where(s => s.Id == 1 && s.BlueskyOAuthPendingEncrypted == stored)
-                .ExecuteUpdateAsync(u => u.SetProperty(s => s.BlueskyOAuthPendingEncrypted, (string?)null), ct)
-                .ConfigureAwait(false);
-        }
-
         var pending = ReadPending(stored);
-        var now = clock.UtcNow;
 
-        if (pending is null || string.IsNullOrEmpty(state) || !Same(pending.State, state)
-            || now < pending.StartedAt || now - pending.StartedAt >= PendingLifetime)
-        {
+        // A callback that does not carry the waiting sign-in's state, or comes from anyone but the
+        // person who started it, leaves it alone: the address is open to anyone, and a junk request
+        // must not wipe a sign-in under way.
+        if (pending is null || string.IsNullOrEmpty(state) || !Same(pending.State, state))
             return new BlueskyOAuthFinish(BlueskyOAuthEnd.Expired);
-        }
-
-        if (!string.IsNullOrEmpty(error))
-            return new BlueskyOAuthFinish(BlueskyOAuthEnd.Cancelled, Pending: pending);
 
         if (person != pending.StartedBy)
             return new BlueskyOAuthFinish(BlueskyOAuthEnd.OtherPerson, Pending: pending);
+
+        // Taken now, once: only the callback whose statement takes it goes on. A page loaded twice
+        // gets "already used", not a code traded twice.
+        var taken = await db.Settings
+            .Where(s => s.Id == 1 && s.BlueskyOAuthPendingEncrypted == stored)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.BlueskyOAuthPendingEncrypted, (string?)null), ct)
+            .ConfigureAwait(false);
+
+        if (taken != 1)
+            return new BlueskyOAuthFinish(BlueskyOAuthEnd.AlreadyUsed, Pending: pending);
+
+        var now = clock.UtcNow;
+
+        if (now < pending.StartedAt || now - pending.StartedAt >= PendingLifetime)
+            return new BlueskyOAuthFinish(BlueskyOAuthEnd.Expired, Pending: pending);
+
+        if (!string.IsNullOrEmpty(error))
+            return new BlueskyOAuthFinish(BlueskyOAuthEnd.Cancelled, Pending: pending);
 
         // The sign-in server says who it is; it must be the one the request went to (RFC 9207).
         if (!string.Equals(issuer, pending.Issuer, StringComparison.Ordinal) || string.IsNullOrEmpty(code))
@@ -551,7 +561,12 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
         if (!string.Equals(Read("issuer"), issuer, StringComparison.Ordinal)
             || Endpoint(Read("pushed_authorization_request_endpoint")) is not { } par
             || Endpoint(Read("authorization_endpoint")) is not { } authorize
-            || Endpoint(Read("token_endpoint")) is not { } token)
+            || Endpoint(Read("token_endpoint")) is not { } token
+            // The atproto profile: every endpoint is on the issuer's own origin, so a document
+            // cannot send the request, the person or the code anywhere else.
+            || !OnOrigin(par, issuer!)
+            || !OnOrigin(authorize, issuer!)
+            || !OnOrigin(token, issuer!))
         {
             return BlueskyResult<SignInServer>.Failed(new BlueskyFailure(BlueskyProblem.Other, 200, Message: "Bluesky's sign-in server did not describe itself."));
         }
@@ -609,8 +624,11 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
     {
         try
         {
-            using var response = await http.CreateClient(BlueskyClient.HttpClientName).GetAsync(address, ct).ConfigureAwait(false);
-            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var response = await http.CreateClient(BlueskyClient.HttpClientName)
+                .GetAsync(address, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+
+            if (await ReadCappedAsync(response, ct).ConfigureAwait(false) is not { } text)
+                return BlueskyResult<JsonObject>.Failed(TooLarge(response.StatusCode));
 
             if (!response.IsSuccessStatusCode)
                 return BlueskyResult<JsonObject>.Failed(BlueskyErrors.FromXrpc(response.StatusCode, text, response.Headers));
@@ -649,8 +667,12 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
                 request.Headers.Add(BlueskyDpop.Header, BlueskyDpop.Proof(dpopKey, HttpMethod.Post, address, nonce, accessToken, clock.UtcNow));
                 request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-                using var response = await http.CreateClient(BlueskyClient.HttpClientName).SendAsync(request, ct).ConfigureAwait(false);
-                var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var response = await http.CreateClient(BlueskyClient.HttpClientName)
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+
+                if (await ReadCappedAsync(response, ct).ConfigureAwait(false) is not { } text)
+                    return BlueskyResult<JsonObject>.Failed(TooLarge(response.StatusCode));
+
                 var given = _nonces.Keep(address, response);
 
                 if (!response.IsSuccessStatusCode)
@@ -706,6 +728,45 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
 
         return new BlueskyFailure(BlueskyProblem.TokenRefused, code, error, description);
     }
+
+    /// <summary>The most of an answer Modbot reads from a server the account's owner chose.</summary>
+    public const int MaxAnswerBytes = 1024 * 1024;
+
+    /// <summary>
+    /// The answer's text, or null when it is longer than <see cref="MaxAnswerBytes"/>: read a piece at
+    /// a time and stopped there, whatever the server says its length is.
+    /// </summary>
+    private static async Task<string?> ReadCappedAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.Content.Headers.ContentLength is > MaxAnswerBytes)
+            return null;
+
+        await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var kept = new MemoryStream();
+        var buffer = new byte[16 * 1024];
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer, ct).ConfigureAwait(false);
+            if (read == 0)
+                break;
+
+            if (kept.Length + read > MaxAnswerBytes)
+                return null;
+
+            kept.Write(buffer, 0, read);
+        }
+
+        return Encoding.UTF8.GetString(kept.GetBuffer(), 0, (int)kept.Length);
+    }
+
+    /// <summary>An answer too long to read: nothing in it is known, as for no answer.</summary>
+    private static BlueskyFailure TooLarge(HttpStatusCode status) =>
+        new(BlueskyProblem.Unavailable, (int)status, Message: "Bluesky's answer was too large.");
+
+    /// <summary>Whether an endpoint is on the issuer's own origin (scheme, host and port).</summary>
+    private static bool OnOrigin(Uri endpoint, string issuer) =>
+        string.Equals(endpoint.GetLeftPart(UriPartial.Authority), issuer, StringComparison.OrdinalIgnoreCase);
 
     private static bool Same(string a, string b) =>
         CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(a), Encoding.UTF8.GetBytes(b));

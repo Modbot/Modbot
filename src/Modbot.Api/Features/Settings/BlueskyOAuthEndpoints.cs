@@ -23,8 +23,9 @@ namespace Modbot.Api.Features.Settings;
 /// key, never the private one.
 /// </para>
 /// <para>
-/// <strong>The callback</strong> takes the waiting sign-in whatever happens (it is good once), and
-/// finishes it only for the same signed-in person, still holding Change settings, with the state and
+/// <strong>The callback</strong> leaves the waiting sign-in alone unless the state and the person
+/// match (anyone can call it), then takes it once, atomically, and finishes it only for the same
+/// signed-in person, still holding Change settings, with the state and
 /// the sign-in server's <c>iss</c> it expects, and with tokens for the account the handle named
 /// (<see cref="BlueskyOAuth.FinishAsync"/>). The session cookie is <c>SameSite=Lax</c>, so it comes
 /// along on Bluesky's top-level redirect. It then reads the account's profile, as Check does, so
@@ -156,6 +157,7 @@ public static class BlueskyOAuthEndpoints
         BlueskyOAuthEnd.Cancelled => "cancelled",
         BlueskyOAuthEnd.Expired => "expired",
         BlueskyOAuthEnd.OtherPerson => "signed-out",
+        BlueskyOAuthEnd.AlreadyUsed => "used",
         BlueskyOAuthEnd.WrongAccount => "wrong-account",
         BlueskyOAuthEnd.Unreachable => "unreachable",
         BlueskyOAuthEnd.Limited => "limited",

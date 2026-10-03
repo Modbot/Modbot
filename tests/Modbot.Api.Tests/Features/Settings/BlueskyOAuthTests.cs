@@ -261,7 +261,7 @@ public class BlueskyOAuthTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task ACallbackFromAnotherPersonIsRefused_AndTheSignInIsGoneAfter()
+    public async Task ACallbackFromAnotherPersonIsRefused_AndLeavesTheSignInForThePersonWhoStartedIt()
     {
         var (host, bluesky, cookie) = await StartAsync();
         await using var running = host;
@@ -273,9 +273,85 @@ public class BlueskyOAuthTests(PostgresFixture db)
         Assert.Equal("/settings?bluesky=signed-out#bluesky", Back(await CallbackAsync(host, other, code, state)));
         Assert.Empty(bluesky.TokenRequests);
 
-        // Good once: the person who started cannot finish it now either.
-        Assert.Equal("/settings?bluesky=expired#bluesky", Back(await CallbackAsync(host, cookie, code, state)));
-        Assert.Empty(bluesky.TokenRequests);
+        Assert.Equal("/settings?bluesky=signed-in#bluesky", Back(await CallbackAsync(host, cookie, code, state)));
+        Assert.Single(bluesky.TokenRequests);
+    }
+
+    [Fact]
+    public async Task AJunkCallbackDoesNotWipeASignInUnderWay()
+    {
+        var (host, bluesky, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SignInAsync(host, cookie);
+        var (code, state) = bluesky.Approve();
+
+        // Anyone can call the address: no session, a made-up state.
+        Assert.Equal("/settings?bluesky=expired#bluesky", Back(await CallbackAsync(host, null, "junk", "junk")));
+        Assert.Equal("/settings?bluesky=expired#bluesky", Back(await CallbackAsync(host, cookie, "junk", "junk")));
+
+        await using (var context = db.NewContext())
+            Assert.NotNull((await context.GetSettingsAsync(Ct)).BlueskyOAuthPendingEncrypted);
+
+        Assert.Equal("/settings?bluesky=signed-in#bluesky", Back(await CallbackAsync(host, cookie, code, state)));
+    }
+
+    [Fact]
+    public async Task TheSameStateUsedASecondTimeIsRefused_AndTheCodeIsNotTradedAgain()
+    {
+        var (host, bluesky, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SignInAsync(host, cookie);
+        var (code, state) = bluesky.Approve();
+
+        Assert.Equal("/settings?bluesky=signed-in#bluesky", Back(await CallbackAsync(host, cookie, code, state)));
+
+        var again = Back(await CallbackAsync(host, cookie, code, state));
+        Assert.NotEqual("/settings?bluesky=signed-in#bluesky", again);
+        Assert.Single(bluesky.TokenRequests);
+    }
+
+    [Theory]
+    [InlineData("pushed_authorization_request_endpoint", "https://bsky.social:8443/oauth/par")]
+    [InlineData("pushed_authorization_request_endpoint", "https://10.0.0.5/oauth/par")]
+    [InlineData("authorization_endpoint", "https://elsewhere.example.com/oauth/authorize")]
+    [InlineData("token_endpoint", "https://127.0.0.1/oauth/token")]
+    [InlineData("token_endpoint", "https://bsky.social:444/oauth/token")]
+    public async Task AnEndpointOffTheIssuersOrigin_OrOnAPrivateAddressOrAnotherPort_IsRefused(string name, string address)
+    {
+        var (host, bluesky, cookie) = await StartAsync();
+        await using var running = host;
+        bluesky.ChangeAuthServerDocument = document => document[name] = address;
+
+        var start = await host.SendJsonAsync(HttpMethod.Post, Path + "/sign-in", new { handle = FakeBluesky.Handle }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, start.StatusCode);
+        Assert.Empty(bluesky.Pars);
+        Assert.DoesNotContain(bluesky.Requests, r => r.Uri.AbsoluteUri.StartsWith(address, StringComparison.Ordinal));
+        Assert.DoesNotContain(bluesky.Requests, r => r.Method == "/oauth/par");
+    }
+
+    [Fact]
+    public async Task A429FromTheTokenAddressIsNotSentAgain_AndEndsAsLimited()
+    {
+        var (host, bluesky, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SignInAsync(host, cookie);
+        var (code, state) = bluesky.Approve();
+        var until = host.Clock.UtcNow.AddMinutes(20);
+        bluesky.TokenLimitedUntil = until;
+
+        Assert.Equal("/settings?bluesky=limited#bluesky", Back(await CallbackAsync(host, cookie, code, state)));
+
+        Assert.Single(bluesky.Requests, r => r.Uri.AbsoluteUri == FakeBluesky.TokenEndpoint);
+
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        Assert.Equal(until.ToUnixTimeSeconds(), settings.BlueskyStoppedUntil?.ToUnixTimeSeconds());
+        Assert.False(settings.BlueskyOAuthSignedIn);
+        Assert.Null(settings.BlueskySessionEncrypted);
     }
 
     [Fact]

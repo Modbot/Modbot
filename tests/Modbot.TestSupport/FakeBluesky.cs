@@ -108,6 +108,12 @@ public sealed class FakeBluesky : HttpMessageHandler
     /// <summary>The sign-in server answers <c>invalid_scope</c> to anything narrower than <c>transition:generic</c>.</summary>
     public bool RefuseNarrowScope { get; set; }
 
+    /// <summary>Changes the sign-in server's own document before it is sent: an endpoint moved elsewhere, say.</summary>
+    public Action<JsonObject>? ChangeAuthServerDocument { get; set; }
+
+    /// <summary>The token address answers 429 with this reset time, while set.</summary>
+    public DateTimeOffset? TokenLimitedUntil { get; set; }
+
     /// <summary>The account the token answer names as <c>sub</c>. Another DID plays Bluesky signing in someone else.</summary>
     public string TokenSub { get; set; } = Did;
 
@@ -456,7 +462,7 @@ public sealed class FakeBluesky : HttpMessageHandler
     {
         if (uri.AbsolutePath == "/.well-known/oauth-authorization-server")
         {
-            return Json(HttpStatusCode.OK, new JsonObject
+            var document = new JsonObject
             {
                 ["issuer"] = AuthServer,
                 ["pushed_authorization_request_endpoint"] = ParEndpoint,
@@ -466,7 +472,10 @@ public sealed class FakeBluesky : HttpMessageHandler
                 ["token_endpoint_auth_methods_supported"] = new JsonArray("none", "private_key_jwt"),
                 ["dpop_signing_alg_values_supported"] = new JsonArray("ES256"),
                 ["client_id_metadata_document_supported"] = true,
-            });
+            };
+
+            ChangeAuthServerDocument?.Invoke(document);
+            return Json(HttpStatusCode.OK, document);
         }
 
         if (request.Method != HttpMethod.Post || (uri.AbsoluteUri != ParEndpoint && uri.AbsoluteUri != TokenEndpoint))
@@ -504,6 +513,13 @@ public sealed class FakeBluesky : HttpMessageHandler
         }
 
         TokenRequests.Add(form);
+
+        if (TokenLimitedUntil is { } until)
+        {
+            var limited = WithNonce(Json(HttpStatusCode.TooManyRequests, new JsonObject { ["error"] = "RateLimitExceeded" }));
+            limited.Headers.Add("ratelimit-reset", until.ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+            return limited;
+        }
 
         switch (form.GetValueOrDefault("grant_type"))
         {
