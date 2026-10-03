@@ -281,7 +281,11 @@ public class CalendarSendingTests(PostgresFixture db)
                     PermissionSentence,
                     CalendarVRChatChecks.NoTitle,
                     CalendarVRChatChecks.NoDescription,
-                    CalendarVRChatChecks.NotAPictureId,
+
+                    // Text with no VRChat file id in it (an address that is not VRChat's) is
+                    // answered with the sentence that asks for a link or an id, not the
+                    // publisher's "not a file id" for an id the event already holds (§15.1, §17.2).
+                    Core.Files.VRChatFileIds.NotFound,
                     "Pick a channel to post to.",
                 },
                 problems);
