@@ -353,12 +353,27 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct) =>
-        EditAsync(channelId, messageId, text, embeds, links, pictures, actions: null, ct);
+        EditAsync(channelId, messageId, text, writeText: true, embeds, links, pictures, actions: null, ct);
 
-    public Task<DiscordPostOutcome> EditAsync(
+    public Task<DiscordPostOutcome> FoldRepeatAsync(
+        string channelId,
+        string messageId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text: null, writeText: false, embeds, links, pictures, actions, ct);
+
+    /// <param name="writeText">
+    /// False for a repeat folded into a card: the message's text is not written, and a message that
+    /// has any -- the line saying somebody acted on the card -- is refused and left alone.
+    /// </param>
+    private Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
         string? text,
+        bool writeText,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
@@ -383,13 +398,21 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                     "That message is gone, or was not posted by the bot.", permanent: true);
             }
 
+            // Somebody acted on this card since it was posted (its line is the message's text):
+            // a repeat is not written into it, so the line and the buttons it took away stay as
+            // they are.
+            if (!writeText && !string.IsNullOrEmpty(mine.Content))
+                return DiscordPostOutcome.Failed("Somebody acted on that card.", permanent: true);
+
             var files = pictures is null ? null : Files(pictures);
 
             try
             {
                 await mine.ModifyAsync(m =>
                 {
-                    m.Content = text;
+                    if (writeText)
+                        m.Content = text;
+
                     m.Embeds = embeds.Select(ToEmbed).ToArray();
                     m.AllowedMentions = AllowedMentions.None;
 

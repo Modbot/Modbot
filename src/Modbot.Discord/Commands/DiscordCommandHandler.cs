@@ -326,26 +326,41 @@ public sealed class DiscordCommandHandler
             .ConfigureAwait(false);
 
         if (summary is null)
-            return (DiscordReply.Say("Modbot has no records of that Discord member."), null, null);
+            return (DiscordReply.Say(NoDiscordRecordsMessage), null, null);
 
-        var profile = summary.Profile;
-
-        // Three pictures on one card, which is what the slots are for: the face beside the name,
-        // the banner across the bottom, and the group they represent above the lot. Somebody known
-        // only on Discord has Discord's own picture, which Discord loads itself.
         var pictures = _pictures.ForMessage(showPictures);
-        var picture = summary.UserId is null
-            ? new CardPicture(Thumbnail: summary.Discord?.AvatarUrl)
-            : new CardPicture(
-                Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
-                Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
-                AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
+        var picture = await PictureAsync(summary, pictures, ct).ConfigureAwait(false);
 
         return (
             DiscordReply.Card(ProfileCard(summary, style, picture), pictures.Files),
             summary.UserId,
             summary.Discord?.UserId);
     }
+
+    /// <summary>
+    /// The pictures on a <c>/lookup</c> card. Three on one card, which is what the slots are for:
+    /// the face beside the name, the banner across the bottom, and the group they represent above
+    /// the lot. Somebody known only on Discord has Discord's own picture, which Discord loads itself.
+    /// </summary>
+    /// <remarks>Shared with the right-click lookup, so both draw the same card.</remarks>
+    public static async Task<CardPicture> PictureAsync(PersonSummary summary, CardPictureMessage pictures, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        ArgumentNullException.ThrowIfNull(pictures);
+
+        if (summary.UserId is null)
+            return new CardPicture(Thumbnail: summary.Discord?.AvatarUrl);
+
+        var profile = summary.Profile;
+
+        return new CardPicture(
+            Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
+            Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
+            AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
+    }
+
+    /// <summary>What <c>/lookup</c> says about a Discord member Modbot has nothing on and no link for.</summary>
+    public const string NoDiscordRecordsMessage = "Modbot has no records of that Discord member.";
 
     public static DiscordEmbedContent ProfileCard(PersonSummary summary, string? publicAddress)
         => ProfileCard(summary, new CardStyle(publicAddress, FooterIconUrl: BrandIcon.For(publicAddress)), CardPicture.None);

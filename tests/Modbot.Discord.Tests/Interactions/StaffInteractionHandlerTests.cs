@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Discord.Commands;
@@ -649,8 +651,9 @@ public class StaffInteractionHandlerTests
 
     // ── Look up ──────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>A member Modbot has nothing on gets /lookup's own answer, and the note button.</summary>
     [Fact]
-    public async Task LookUp_OnAnUnlinkedMember_ShowsWhatModbotHasOnTheDiscordAccount()
+    public async Task LookUp_OnAMemberModbotHasNothingOn_SaysSo_AndOffersANote()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
@@ -661,14 +664,68 @@ public class StaffInteractionHandlerTests
         var reply = await Handler(scope).HandleMenuAsync(
             Menu("100", StaffMenus.LookUp, recorder, new DiscordTargetUser(Member, "someone", false)), new FakeGateway(), ct);
 
-        var card = Assert.Single(reply!.Embeds);
-        Assert.Equal("someone", card.Title);
-        Assert.Equal("Not linked", card.Fields.Single(f => f.Name == "VRChat").Value);
-        Assert.Equal("0", card.Fields.Single(f => f.Name == "Notes").Value);
+        Assert.Equal(DiscordCommandHandler.NoDiscordRecordsMessage, reply!.Text);
+        Assert.Empty(reply.Embeds);
 
         // A Discord account with no VRChat link can be noted, not banned from the group.
         var button = Assert.Single(reply.Actions!);
         Assert.Equal(StaffMenus.NoteButtonFor(onDiscord: true, Member), button.Id);
+    }
+
+    /// <summary>
+    /// An unlinked member is the card /lookup discord: shows, with what the caller may see: their
+    /// notes only for somebody who may read the audit log, as the web app has it.
+    /// </summary>
+    [Fact]
+    public async Task LookUp_OnAnUnlinkedMember_IsLookupsCard_AndShowsNotesOnlyToAuditLogReaders()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync("100", ModbotPermissions.ViewProfile | ModbotPermissions.WriteNotes, ct: ct);
+        await services.LinkedAccountAsync("200", ModbotPermissions.ViewProfile | ModbotPermissions.ViewAuditLog, ct: ct);
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordMembers.Add(new DiscordMember
+            {
+                GuildId = "424242",
+                UserId = Member,
+                Username = "someone",
+                DisplayName = "Someone",
+                AvatarUrl = $"https://cdn.discordapp.com/avatars/{Member}/a.png",
+                FirstSeenAt = services.Clock.UtcNow,
+                UpdatedAt = services.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await services.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.NoteAdded,
+            OccurredAt = services.Clock.UtcNow,
+            SubjectPlatform = FactPlatform.Discord,
+            SubjectId = Member,
+            Source = FactSource.Manual,
+            Data = new JsonObject { ["text"] = "Spams invites", ["description"] = "Spams invites" },
+        }, ct);
+
+        async Task<DiscordReply> LookUpAsAsync(string caller)
+        {
+            using var scope = services.Scope();
+            return (await Handler(scope).HandleMenuAsync(
+                Menu(caller, StaffMenus.LookUp, new Recorder(), new DiscordTargetUser(Member, "someone", false)), new FakeGateway(), ct))!;
+        }
+
+        var without = await LookUpAsAsync("100");
+        var card = Assert.Single(without.Embeds);
+        Assert.Equal("Not linked", card.Fields.Single(f => f.Name == "VRChat").Value);
+        Assert.DoesNotContain(card.Fields, f => f.Name == "Notes");
+        Assert.DoesNotContain(card.Fields, f => f.Value.Contains("Spams invites", StringComparison.Ordinal));
+        Assert.Equal($"https://cdn.discordapp.com/avatars/{Member}/a.png", card.ThumbnailUrl);
+        Assert.Equal(StaffMenus.NoteButtonFor(onDiscord: true, Member), Assert.Single(without.Actions!).Id);
+
+        var with = Assert.Single((await LookUpAsAsync("200")).Embeds);
+        Assert.Equal("1", with.Fields.Single(f => f.Name == "Notes").Value);
     }
 
     [Fact]

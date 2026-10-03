@@ -183,6 +183,38 @@ public class EventRepeatTests
     }
 
     /// <summary>
+    /// A card somebody acted on while the channel still had it as the post for repeats -- the
+    /// confirmation landing in the middle of a pass -- is not written into: the gateway reads the
+    /// card first, sees the line, and the repeat gets a post of its own.
+    /// </summary>
+    [Fact]
+    public async Task ARepeat_IsNeverWrittenIntoACardSomebodyActedOn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await StartAsync(services, gateway, [FactType.UserProfileChanged], ct);
+
+        await ProfileChangedAsync(services, Person, "away", ct);
+        await RunAsync(services, gateway, ct);
+        var (_, messageId, _, _, _) = Assert.Single(gateway.Messages);
+
+        // Marked by the gateway alone: the channel's row still names the card as its post.
+        await gateway.MarkHandledAsync(Channel, messageId, "Banned by **alice**", "modbot:act:", ct);
+        Assert.Equal(messageId, (await services.ChannelPlaceAsync(Channel, ct))!.RepeatPostId);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await ProfileChangedAsync(services, Person, "back", ct);
+        var pass = await RunAsync(services, gateway, ct);
+
+        Assert.Equal(1, pass.Posted);
+        Assert.Empty(gateway.Edits);
+        Assert.Equal(2, gateway.Messages.Count);
+        Assert.NotEqual(messageId, (await services.ChannelPlaceAsync(Channel, ct))!.RepeatPostId);
+    }
+
+    /// <summary>
     /// Discord refuses a message whose cards hold more than six thousand characters between them,
     /// and a refused message is retried on every pass while the cards behind it wait.
     /// </summary>

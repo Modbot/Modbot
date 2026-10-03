@@ -486,7 +486,26 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>The buttons the bot answers that each edit set, in the order of <see cref="Edits"/>.</summary>
     public List<IReadOnlyList<DiscordActionButton>> EditActions { get; } = [];
 
-    public Task<DiscordPostOutcome> EditAsync(
+    /// <summary>
+    /// As the real gateway: a card marked as dealt with (<see cref="MarkHandledAsync"/>) has text, so
+    /// a repeat is refused and the card left alone; otherwise an edit that leaves the text as it is.
+    /// </summary>
+    public Task<DiscordPostOutcome> FoldRepeatAsync(
+        string channelId,
+        string messageId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct)
+    {
+        if (Handled.Any(h => h.ChannelId == channelId && h.MessageId == messageId))
+            return Task.FromResult(DiscordPostOutcome.Failed("Somebody acted on that card.", permanent: true));
+
+        return EditAsync(channelId, messageId, null, embeds, links, pictures, actions, ct);
+    }
+
+    private Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
         string? text,

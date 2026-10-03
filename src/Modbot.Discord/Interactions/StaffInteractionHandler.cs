@@ -150,88 +150,45 @@ public sealed class StaffInteractionHandler
         var (style, showPictures) = await StyleAsync(ct).ConfigureAwait(false);
         bool Allows(ModbotPermissions p) => user.IsVRChatLinked && DiscordCommands.Allows(user.EffectivePermissions, p);
 
+        // The whole person, exactly as /lookup discord:<member> shows them, with what the caller's
+        // permissions let /lookup show (LookupSight): it follows the member's proved link to VRChat
+        // itself, and notes and join requests appear only for callers the web app shows them to.
+        var summary = await _lookup
+            .SummarizeAsync(null, target.Id, LookupSight.Of(user.EffectivePermissions), ct)
+            .ConfigureAwait(false);
+
         DiscordReply reply;
-        var vrchatId = await _db.LinkedVRChatUserIdAsync(target.Id, ct).ConfigureAwait(false);
 
-        // Linked: the person is their VRChat profile, as /lookup shows it, with what the caller's
-        // permissions let /lookup show.
-        var summary = vrchatId is { Length: > 0 }
-            ? await _lookup.SummarizeAsync(vrchatId, null, LookupSight.Of(user.EffectivePermissions), ct).ConfigureAwait(false)
-            : null;
-
-        if (vrchatId is { Length: > 0 } && summary is not null)
+        if (summary is null)
         {
-            var profile = summary.Profile;
-
+            // Nothing on record and no link: /lookup's own answer, with the note button so the first
+            // note can still be written from here.
+            reply = new DiscordReply(
+                DiscordCommandHandler.NoDiscordRecordsMessage,
+                [],
+                Actions: CardButtons.ForLookup(onDiscord: true, target.Id, banned: false, Allows));
+        }
+        else
+        {
             var pictures = _pictures.ForMessage(showPictures);
-            var picture = new CardPicture(
-                Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
-                Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
-                AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
+            var picture = await DiscordCommandHandler.PictureAsync(summary, pictures, ct).ConfigureAwait(false);
+
+            // Linked: the buttons act on their VRChat account, as on a card about them; otherwise
+            // only a note about the Discord account.
+            var buttons = summary.UserId is { Length: > 0 } vrchatId
+                ? CardButtons.ForLookup(onDiscord: false, vrchatId, summary.IsBanned, Allows)
+                : CardButtons.ForLookup(onDiscord: true, target.Id, banned: false, Allows);
 
             reply = new DiscordReply(
                 null,
                 [DiscordCommandHandler.ProfileCard(summary, style, picture)],
                 null,
                 pictures.Files,
-                CardButtons.ForLookup(onDiscord: false, vrchatId, summary.IsBanned, Allows));
-        }
-        else
-        {
-            reply = new DiscordReply(
-                null,
-                [await DiscordCardAsync(target, style, ct).ConfigureAwait(false)],
-                null,
-                null,
-                CardButtons.ForLookup(onDiscord: true, target.Id, banned: false, Allows));
+                buttons);
         }
 
         await RecordAsync(call.DiscordUserId, user, call.CommandName, "answered", target.Id, ct).ConfigureAwait(false);
         return reply;
-    }
-
-    /// <summary>
-    /// A Discord account with no VRChat link: what Modbot has recorded about it in Discord. Counts
-    /// only; the notes themselves are read in Modbot, behind its own audit-log permission.
-    /// </summary>
-    private async Task<DiscordEmbedContent> DiscordCardAsync(DiscordTargetUser target, CardStyle style, CancellationToken ct)
-    {
-        string[] types =
-        [
-            FactType.NoteAdded,
-            FactType.NoteTakenBack,
-            FactType.DiscordMemberTimedOut,
-            FactType.DiscordMemberBanned,
-            FactType.DiscordMemberKicked,
-        ];
-
-        var counts = await _db.Events.AsNoTracking()
-            .Where(e => e.SubjectPlatform == FactPlatform.Discord && e.SubjectId == target.Id && types.Contains(e.Type))
-            .GroupBy(e => e.Type)
-            .Select(g => new { Type = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(g => g.Type, g => g.Count, ct)
-            .ConfigureAwait(false);
-
-        int Count(string type) => counts.GetValueOrDefault(type);
-
-        var notes = Math.Max(0, Count(FactType.NoteAdded) - Count(FactType.NoteTakenBack));
-
-        return new DiscordEmbedContent(
-            CardText.Plain(target.Username, 256),
-            null,
-            CardColour.Violet,
-            [
-                new DiscordEmbedField("VRChat", "Not linked", Inline: true),
-                new DiscordEmbedField("Notes", notes.ToString(CultureInfo.InvariantCulture), Inline: true),
-                new DiscordEmbedField(
-                    "Timeouts · bans · kicks",
-                    $"{Count(FactType.DiscordMemberTimedOut)} · {Count(FactType.DiscordMemberBanned)} · {Count(FactType.DiscordMemberKicked)}",
-                    Inline: true),
-            ],
-            null,
-            CardLink.UrlFor(CardSubject.DiscordPerson, target.Id, style.PublicAddress),
-            style.GroupFooter,
-            FooterIconUrl: style.FooterIconUrl);
     }
 
     private async Task<DiscordReply?> OpenNoteFromMenuAsync(DiscordCommandCall call, ModbotUser user, IDiscordGateway? gateway, CancellationToken ct)
@@ -474,12 +431,22 @@ public sealed class StaffInteractionHandler
             if (!marked.Sent)
                 _log.Warning("Could not mark the card {Message} as handled: {Reason}", messageId, marked.Error);
 
-            // Repeats are never folded into a card somebody acted on: the fold rewrites the message
-            // whole, which would take this line away and bring back the buttons it took off.
-            await _db.DiscordEventChannels
-                .Where(c => c.RepeatPostId == messageId)
-                .ExecuteUpdateAsync(s => s.SetProperty(c => c.RepeatPostId, (string?)null), ct)
-                .ConfigureAwait(false);
+            // Repeats are never folded into a card somebody acted on, which would bring back the
+            // buttons it took off. The gateway refuses such a fold anyway; forgetting the card here
+            // saves the next pass the read.
+            try
+            {
+                await _db.DiscordEventChannels
+                    .Where(c => c.RepeatPostId == messageId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.RepeatPostId, (string?)null), ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                _log.Warning(
+                    e, "Could not stop repeats going into the card {Message}; the next fold into it will be refused instead",
+                    messageId);
+            }
         }
 
         var result = answer switch

@@ -27,7 +27,7 @@ warn, a kick or a join request had to open Modbot, find the person and press the
 
 | Where | What | Needs (the web app's own permission) |
 |---|---|---|
-| Right-click a member → Apps → **Look up in Modbot** | A private card: the linked VRChat profile (the `/lookup` card), or, with no link, what Modbot has on the Discord account | See profiles |
+| Right-click a member → Apps → **Look up in Modbot** | A private card: exactly what `/lookup discord:` shows for that member, the linked VRChat profile or the Discord account's own story, and only what `/lookup` would show this caller (notes need See the audit log, join requests need See join requests; changed 2026-10-03, the first version counted notes for anybody with See profiles) | See profiles |
 | Right-click a member → Apps → **Add a note** | A form with one text box; the note is written about that Discord account | Write notes |
 | Button **Add note** under a card | The same note form, about the card's person | Write notes |
 | Button **Kick** / **Ban** under a card | A form with the group's reasons and a note, then a confirmation | Kick / Ban |
@@ -113,9 +113,12 @@ on the same card adds a second line.
 **Repeats folded into a card** (Discord event repeats design, added 2026-10-03 when this met it on
 staging). A repeat of the same change is written into the post before it by rewriting that message
 whole, buttons included, so the fold sends the card's buttons again rather than taking them away.
-And a card somebody acted on takes no more repeats: rewriting it would take the line away and bring
-back the buttons the action removed. Marking a card forgets it as the channel's post for repeats, so
-the next repeat starts a post of its own.
+And a card somebody acted on takes no more repeats: rewriting it would bring back the buttons the
+action removed. The fold (`IDiscordGateway.FoldRepeatAsync`) never writes the message's text, so it
+cannot lose the line, and it reads the card just before rewriting it and refuses one that has a
+line, so a confirmation that lands in the middle of a pass is still seen; the repeat then starts a
+post of its own. Marking a card also forgets it as the channel's post for repeats, which saves the
+next pass that read.
 
 ## 7. Which cards carry buttons
 

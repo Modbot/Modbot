@@ -355,12 +355,12 @@ public sealed class ModerationLogPoster
             var buttons = await ButtonsForAsync(cards[0].Latest, style, ct).ConfigureAwait(false);
 
             // The files are sent again rather than left as they were, so a person whose picture
-            // changed since the first post is shown with the new one.
+            // changed since the first post is shown with the new one. The post is read again just
+            // before: one somebody acted on since this pass began is refused, and its line stays.
             var outcome = await gateway
-                .EditAsync(
+                .FoldRepeatAsync(
                     channelId,
                     post.MessageId,
-                    null,
                     embeds,
                     buttons.Links.Count > 0 ? buttons.Links : null,
                     files,

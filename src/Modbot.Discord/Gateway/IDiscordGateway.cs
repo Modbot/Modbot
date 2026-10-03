@@ -960,16 +960,24 @@ public interface IDiscordGateway : IAsyncDisposable
         CancellationToken ct);
 
     /// <summary>
-    /// Rewrites a message the bot posted earlier, with buttons the bot answers after the links.
+    /// Writes a repeat into a one-card post in an event channel (Discord event repeats design):
+    /// the card, its pictures and its buttons, but never the message's own text. A post somebody
+    /// acted on from Discord carries a line in that text ("Banned by alice", acting from Discord
+    /// design §6); such a post is refused as a permanent failure and left exactly as it is, so the
+    /// repeat goes into a post of its own.
     /// </summary>
+    /// <remarks>
+    /// The post is read just before it is rewritten, so a card marked while a pass was running is
+    /// still seen. The text is never written either way, so a line added between that read and the
+    /// rewrite stays too.
+    /// </remarks>
     /// <param name="actions">
-    /// Buttons whose presses arrive as <see cref="ButtonPressed"/>. The buttons are set whole, as
-    /// the links are: null or empty takes away any the message had.
+    /// Buttons whose presses arrive as <see cref="ButtonPressed"/>, after the links. Buttons are set
+    /// whole: null or empty takes away any the post had.
     /// </param>
-    Task<DiscordPostOutcome> EditAsync(
+    Task<DiscordPostOutcome> FoldRepeatAsync(
         string channelId,
         string messageId,
-        string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
