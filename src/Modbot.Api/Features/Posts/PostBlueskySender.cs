@@ -55,6 +55,7 @@ public sealed class PostBlueskySender
     public const string Unreachable = "Could not reach Bluesky.";
     public const string NoText = "The post has no text.";
     public const string AccountChanged = "That Bluesky account is not the one in Settings.";
+    public const string KeyTaken = "Bluesky says this post is already there, but could not show it.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -214,6 +215,14 @@ public sealed class PostBlueskySender
             return;
         }
 
+        if (read.NotThere && PostTexts.BlueskyOptionsOf(destination).KeyTaken)
+        {
+            // Bluesky once said something is at this key. Not finding it now proves nothing, so it is
+            // never sent again, whoever asks: it stays one Bluesky may have.
+            await FailAsync(pass, post, destination, KeyTaken, mayBeSent: true).ConfigureAwait(false);
+            return;
+        }
+
         if (read.NotThere)
         {
             var attempt = destination.SentAt ?? pass.Now;
@@ -361,6 +370,13 @@ public sealed class PostBlueskySender
         // When it started waiting, kept for a send that turns out not to have been made.
         var waitingSince = destination.UpdatedAt;
 
+        // Belt and braces: a key Bluesky once called taken is never put to again.
+        if (PostTexts.BlueskyOptionsOf(destination).KeyTaken)
+        {
+            await FailAsync(pass, post, destination, KeyTaken, mayBeSent: true).ConfigureAwait(false);
+            return;
+        }
+
         var signIn = await _session.AccessAsync(_db, prove: false, pass.Ct).ConfigureAwait(false);
         if (signIn.Access is not { } access)
         {
@@ -426,6 +442,17 @@ public sealed class PostBlueskySender
             if (read.Found is { } found)
             {
                 await PostedAsync(pass, post, destination, found, adopted: true).ConfigureAwait(false);
+                return;
+            }
+
+            // Bluesky said the key is taken, and now cannot show what is there. The post may well be
+            // on Bluesky, so from here on it is only ever read back, never sent again: not by this
+            // loop, and not by Try again (posts design §4.2c).
+            destination.Options = PostTexts.WriteBlueskyOptions(PostTexts.BlueskyOptionsOf(destination) with { KeyTaken = true });
+
+            if (read.NotThere)
+            {
+                await FailAsync(pass, post, destination, KeyTaken, mayBeSent: true).ConfigureAwait(false);
                 return;
             }
 

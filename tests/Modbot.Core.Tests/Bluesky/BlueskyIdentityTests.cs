@@ -54,6 +54,7 @@ public class BlueskyIdentityTests
     [InlineData("https://morel.us-east.host.bsky.network/xrpc")]
     [InlineData("https://morel.us-east.host.bsky.network/?a=b")]
     [InlineData("https://user:pass@morel.us-east.host.bsky.network")]
+    [InlineData("https://morel.us-east.host.bsky.network:8443")]
     [InlineData("https://localhost")]
     [InlineData("https://10.0.0.5")]
     [InlineData("not an address")]

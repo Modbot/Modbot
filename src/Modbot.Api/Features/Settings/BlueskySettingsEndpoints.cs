@@ -127,7 +127,7 @@ public static class BlueskySettingsEndpoints
                 var postingBefore = settings.BlueskyPostingOn;
 
                 var handleChanged = handle is not null && !string.Equals(handle, handleBefore, StringComparison.Ordinal);
-                var passwordChanged = password is not null && password != protector.Unprotect(passwordBefore);
+                var passwordChanged = password is not null && password != StoredPassword(protector, passwordBefore);
                 var postingAfter = body.Posting ?? postingBefore;
 
                 // Posting goes on only over a Check that passed for this very handle and app password.
@@ -334,6 +334,23 @@ public static class BlueskySettingsEndpoints
         // Signed in: a profile that could not be read leaves the name and the label unknown, not the
         // account failed.
         return new Found(profile.Value?.DisplayName, profile.Value?.Automated ?? false);
+    }
+
+    /// <summary>
+    /// The stored app password, or null when there is none or it cannot be read (the database's key
+    /// changed, say): then any app password saved counts as new, and the save goes through rather
+    /// than failing, the way <see cref="BlueskySession"/> reads it.
+    /// </summary>
+    private static string? StoredPassword(ISecretProtector protector, string? encrypted)
+    {
+        try
+        {
+            return protector.Unprotect(encrypted);
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
+        {
+            return null;
+        }
     }
 
     private static void ClearCheck(Core.Data.Entities.Settings settings)

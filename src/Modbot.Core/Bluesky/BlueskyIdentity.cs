@@ -182,7 +182,7 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
     }
 
     /// <summary>
-    /// An account server address Modbot will send to: https, a host that is not a private address,
+    /// An account server address Modbot will send to: https on port 443, a host that is not a private address,
     /// and no path, query, fragment or user name. Null otherwise.
     /// </summary>
     public static Uri? ServerAddress(string? endpoint)
@@ -190,7 +190,10 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
         if (string.IsNullOrWhiteSpace(endpoint) || !Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri))
             return null;
 
+        // Port 443 only, as PictureLinks.Problem holds a fetched link to: an address the account's
+        // owner picked must not reach some other service on a public host.
         if (uri.Scheme != Uri.UriSchemeHttps
+            || uri.Port != 443
             || uri.UserInfo.Length > 0
             || uri.Query.Length > 0
             || uri.Fragment.Length > 0

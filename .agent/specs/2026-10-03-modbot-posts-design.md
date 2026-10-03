@@ -239,8 +239,8 @@ post's `at://` address is `external_id` and its content id `options.cid`.
 - **Finding the account** (`BlueskyIdentity`): handle → DID through `public.api.bsky.app`'s
   `resolveHandle`, then the handle's own `/.well-known/atproto-did`; the DID document from
   plc.directory or `did:web`'s host; the server is `#atproto_pds` of type
-  `AtprotoPersonalDataServer`, https with no path. The handle is checked both ways (the document
-  lists `at://handle`). Every call is on the named client `bluesky`, the guarded handler
+  `AtprotoPersonalDataServer`, https on port 443 with no path. The handle is checked both ways
+  (the document lists `at://handle`). Every call is on the named client `bluesky`, the guarded handler
   (`PictureLinks.GuardedHandler`): public addresses only, no redirects, proxy or cookies.
 - **Check** never posts: find the account, `getSession` on the saved session (no sign-in when it
   works), otherwise sign in, then read `app.bsky.actor.profile/self` with `getRecord` for the
@@ -253,13 +253,17 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   refresh signs in with the app password, at most once in 10 minutes and 20 times a UTC day,
   counted before the call. A refused app password sets `sign_in_refused`: nothing signs in until a
   new one is saved, which also lets the next sign-in go at once. A 429 anywhere sets
-  `stopped_until` to `ratelimit-reset` (15 minutes when Bluesky names no time, never under one) and
-  nothing goes to Bluesky before then, Check and read-backs included.
+  `stopped_until` to `ratelimit-reset` (15 minutes when Bluesky names no time; never under one
+  minute or over 24 hours) and nothing goes to Bluesky before then, Check and read-backs included.
 - **At most once**: the destination gets a TID (`Tid.Next`, from `IModbotClock` with a random
   10-bit clock id) before its first claim, kept for every try. `putRecord` at that key with
   `swapRecord: null`; `createdAt` is set fresh on each real send (feeds sort by it).
   1. 200: `posted`, link `https://bsky.app/profile/{did}/post/{key}`.
-  2. `InvalidSwap`: `getRecord` at the key; found, `posted` (adopted); otherwise `checking`.
+  2. `InvalidSwap`: `getRecord` at the key; found, `posted` (adopted). Not found, Bluesky has
+     contradicted itself, so the row is marked `options.keyTaken` and Failed, "Bluesky says this
+     post is already there, but could not show it.", `may_be_sent`: from then on it is only read
+     back (Try again included) and taken if found, never put again. A read that could not be made
+     leaves it `checking`, still marked.
   3. No answer, a timeout, a 5xx: `checking`, `may_be_sent`, read back a minute after the attempt.
      Found: `posted`. `RecordNotFound`: back to `waiting` under the same key, its waiting time the
      attempt's (Try again's: now), so it is sent again within the hour or turns Failed, "Could not
@@ -286,6 +290,10 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   and the text rules stay in Core. One send a pass, at most 10 an hour,
   the same late rule, held by Pause all posting, the Posting switch and `PostSites.BlueskyReady`
   (an account, its server and app password, a Check with no problem, no refused app password).
+  Read-backs still run while posting is paused or off (not while Bluesky limits Modbot): they post
+  nothing, only read the post's own key with no sign-in, so a pause has nothing in them to hold
+  back; and a post Bluesky may already have is settled as Posted or not, rather than showing
+  Sending… for as long as posting stays paused.
 - **Delete after**: `IBlueskyPostActions` (Core), `deleteRecord` on the account in Settings only
   ("That post is on another Bluesky account." otherwise), one call at once, a refused token
   refreshed and asked once more, `RecordNotFound` counted as done, written with

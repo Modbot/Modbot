@@ -88,6 +88,13 @@ public static class BlueskyErrors
     /// <summary>The shortest stop after a rate limit, whatever Bluesky says.</summary>
     public static readonly TimeSpan ShortestStop = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    /// The longest stop after a rate limit, whatever Bluesky says: a reset time far off (a broken
+    /// header, or a server set to misbehave) must not silence the lane for good. Bluesky's own daily
+    /// limits reset within a day.
+    /// </summary>
+    public static readonly TimeSpan LongestStop = TimeSpan.FromHours(24);
+
     /// <summary>The words for a handle or app password Bluesky refused.</summary>
     public const string NotAccepted = "Bluesky did not accept the handle or app password.";
 
@@ -141,15 +148,19 @@ public static class BlueskyErrors
 
     /// <summary>
     /// When the Bluesky lane may be used again after <paramref name="failure"/>: the time Bluesky said
-    /// the limit resets, or <see cref="LimitStop"/> from now when it did not say, and never sooner
-    /// than <see cref="ShortestStop"/>.
+    /// the limit resets, or <see cref="LimitStop"/> from now when it did not say, never sooner than
+    /// <see cref="ShortestStop"/> and never later than <see cref="LongestStop"/>.
     /// </summary>
     public static DateTimeOffset StopUntil(BlueskyFailure failure, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(failure);
 
         var until = failure.ResetAt ?? now + LimitStop;
-        return until < now + ShortestStop ? now + ShortestStop : until;
+
+        if (until < now + ShortestStop)
+            return now + ShortestStop;
+
+        return until > now + LongestStop ? now + LongestStop : until;
     }
 
     /// <summary>The sentence an operator reads for a failure.</summary>

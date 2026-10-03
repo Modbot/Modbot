@@ -292,4 +292,9 @@ public sealed record VRChatPostOptions(
 /// so a picture changed since is not sent.
 /// </param>
 /// <param name="Cid">The post's content id on Bluesky, once it went out, as Bluesky answered or as read back.</param>
-public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null);
+/// <param name="KeyTaken">
+/// Bluesky answered a put with <c>InvalidSwap</c> (something is at the record key) and a read-back
+/// then found nothing. Bluesky contradicted itself, so the post may be there: it is never sent again,
+/// by the loop or by Try again, only read back and taken if found.
+/// </param>
+public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null, bool KeyTaken = false);

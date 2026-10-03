@@ -96,7 +96,15 @@ export async function smallJpeg(file: Blob, maxBytes: number): Promise<Blob> {
       const canvas = document.createElement('canvas')
       canvas.width = Math.max(1, Math.round(picture.width * factor))
       canvas.height = Math.max(1, Math.round(picture.height * factor))
-      drawCrop(canvas, picture, { x: 0, y: 0, width: picture.width, height: picture.height })
+      const context = canvas.getContext('2d')
+      if (!context) break
+
+      // A JPEG has no transparency: what a PNG leaves see-through would come out black on the card,
+      // so it is drawn on white.
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.imageSmoothingQuality = 'high'
+      context.drawImage(picture.image, 0, 0, picture.width, picture.height, 0, 0, canvas.width, canvas.height)
 
       const jpeg = await toBlob(canvas, 'image/jpeg', quality)
       if (jpeg && jpeg.type === 'image/jpeg' && jpeg.size <= maxBytes) return jpeg

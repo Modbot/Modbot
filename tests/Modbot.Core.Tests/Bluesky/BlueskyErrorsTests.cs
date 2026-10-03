@@ -73,6 +73,16 @@ public class BlueskyErrorsTests
     }
 
     [Fact]
+    public void AResetDaysAwayStopsForADayAtMost()
+    {
+        var now = new DateTimeOffset(2026, 10, 3, 12, 0, 0, TimeSpan.Zero);
+        var farOff = From(HttpStatusCode.TooManyRequests, "RateLimitExceeded", reset: now.AddDays(30).ToUnixTimeSeconds());
+
+        Assert.Equal(now + BlueskyErrors.LongestStop, BlueskyErrors.StopUntil(farOff, now));
+        Assert.Equal(TimeSpan.FromHours(24), BlueskyErrors.LongestStop);
+    }
+
+    [Fact]
     public void ATakenDownAccountIsGone()
     {
         var failure = From(HttpStatusCode.Unauthorized, "AccountTakedown", signingIn: true);

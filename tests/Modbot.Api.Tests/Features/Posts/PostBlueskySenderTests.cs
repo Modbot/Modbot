@@ -244,6 +244,59 @@ public sealed class PostBlueskySenderTests
     }
 
     [Fact]
+    public async Task InvalidSwapThenNothingFound_IsMaybeSent_AndNeverSentAgain_EvenByTryAgain()
+    {
+        await SetUpAsync();
+        var (postId, destinationId) = await AddPostAsync();
+
+        // Bluesky says the key is taken, then cannot show what is there.
+        _bluesky.PutAnswer = (key, record) =>
+        {
+            _bluesky.Posts[key] = (JsonObject)record.DeepClone();
+            return FakeBluesky.Json(HttpStatusCode.BadRequest, FakeBluesky.Error("InvalidSwap", "Record was at bafy-old"));
+        };
+        _bluesky.GetAnswer = key => FakeBluesky.Json(HttpStatusCode.BadRequest, FakeBluesky.Error("RecordNotFound", "Could not locate record"));
+
+        await PassAsync();
+
+        var failed = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.True(failed.MayBeSent);
+        Assert.Equal(PostBlueskySender.KeyTaken, failed.Error);
+        Assert.True(PostTexts.BlueskyOptionsOf(failed).KeyTaken);
+
+        // A person presses Try again: it reads back, still finds nothing, and sends nothing.
+        await TryAgainAsync(postId, destinationId);
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        await PassAsync();
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        await PassAsync();
+
+        Assert.Equal(1, _bluesky.Puts);
+        var again = await DestinationAsync(destinationId);
+        Assert.Equal(PostDestinationStates.Failed, again.State);
+        Assert.True(again.MayBeSent);
+
+        // Once Bluesky shows it, Try again takes it.
+        _bluesky.GetAnswer = null;
+        await TryAgainAsync(postId, destinationId);
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await PassAsync();
+
+        Assert.Equal(1, _bluesky.Puts);
+        Assert.Equal(PostDestinationStates.Posted, (await DestinationAsync(destinationId)).State);
+    }
+
+    /// <summary>What the Try again button does to the rows.</summary>
+    private async Task TryAgainAsync(Guid postId, Guid destinationId)
+    {
+        await using var context = _db.NewContext();
+        var post = await context.Posts.Include(p => p.Destinations).SingleAsync(p => p.Id == postId, Ct);
+        PostChanges.TryAgain(post, post.Destinations.Single(d => d.Id == destinationId), _clock.UtcNow);
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
     public async Task ARateLimitStopsEveryCall_UntilItResets_AndIsNeverRetriedBefore()
     {
         await SetUpAsync();
