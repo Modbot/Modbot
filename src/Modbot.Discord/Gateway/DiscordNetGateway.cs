@@ -514,6 +514,185 @@ public sealed class DiscordNetGateway : IDiscordGateway
         });
     }
 
+    // ── Posts (posts design §3.5) ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// What every post send and publish goes with. <c>AlwaysFail</c>: the library must never send a
+    /// post again by itself. Its default retries a timeout or a 502, which for a message can mean two
+    /// of them (posts design fact 15).
+    /// </summary>
+    public static RequestOptions PostOptions(CancellationToken ct) => new() { CancelToken = ct, RetryMode = RetryMode.AlwaysFail };
+
+    public async Task<DiscordPostOutcome> SendPostAsync(
+        string channelId, string text, string? roleId, IReadOnlyList<DiscordPicture>? pictures, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordPostOutcome.Failed("The channel id is not a Discord channel id.", permanent: true);
+
+        ulong? role = null;
+        if (roleId is not null)
+        {
+            if (!ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed))
+                return DiscordPostOutcome.Failed("That is not a Discord role id.", permanent: true);
+            role = parsed;
+        }
+
+        // Finding the channel sends nothing, so anything going wrong here is a plain "not sent".
+        IMessageChannel? channel;
+        try
+        {
+            channel = _client.GetChannel(id) as IMessageChannel
+                ?? await _client.GetChannelAsync(id, Request(ct)).ConfigureAwait(false) as IMessageChannel;
+        }
+        catch (HttpException e) when (e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            return DiscordPostOutcome.Failed(Explain(e), permanent: true, notFound: e.HttpCode == HttpStatusCode.NotFound);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordPostOutcome.Failed($"Could not find the channel: {e.Message}");
+        }
+
+        if (channel is null)
+        {
+            return DiscordPostOutcome.Failed(
+                "Discord does not know that channel, or the bot cannot see it.", permanent: true, notFound: true);
+        }
+
+        // The one role and nothing else; @everyone's id is the server's, and asked for that nobody
+        // is pinged.
+        var everyone = role is { } asked && channel is IGuildChannel inServer && inServer.GuildId == asked;
+        var mentions = role is { } pinged && !everyone ? new AllowedMentions { RoleIds = [pinged] } : AllowedMentions.None;
+
+        var options = PostOptions(ct);
+        var files = Files(pictures);
+
+        try
+        {
+            var sent = files.Count > 0
+                ? await channel.SendFilesAsync(attachments: files, text: text, allowedMentions: mentions, options: options)
+                    .ConfigureAwait(false)
+                : await channel.SendMessageAsync(text: text, allowedMentions: mentions, options: options)
+                    .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        }
+        catch (RateLimitedException)
+        {
+            // Refused before anything was made: it can go on a later pass.
+            return DiscordPostOutcome.Failed("Discord is rate limiting the bot; it will try again shortly.");
+        }
+        catch (HttpException e) when ((int)e.HttpCode == 429)
+        {
+            return DiscordPostOutcome.Failed("Discord is rate limiting the bot; it will try again shortly.");
+        }
+        catch (HttpException e) when ((int)e.HttpCode >= 500 || e.HttpCode == HttpStatusCode.RequestTimeout)
+        {
+            return DiscordPostOutcome.NoClearAnswer($"Discord answered {(int)e.HttpCode}.");
+        }
+        catch (HttpException e)
+        {
+            return DiscordPostOutcome.Failed(Explain(e), permanent: true, notFound: e.HttpCode == HttpStatusCode.NotFound);
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // A timeout, a dropped connection: the request may have reached Discord.
+            return DiscordPostOutcome.NoClearAnswer($"Discord gave no answer: {e.Message}");
+        }
+        finally
+        {
+            foreach (var file in files)
+                file.Dispose();
+        }
+    }
+
+    public Task<DiscordPostOutcome> EditPostAsync(string channelId, string messageId, string text, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            if (await channel.GetMessageAsync(message, options: Request(ct)).ConfigureAwait(false) is not IUserMessage mine)
+                return DiscordPostOutcome.Failed("That message is gone.", permanent: true, notFound: true);
+
+            // Only the text: the files stay, and an edit pings nobody.
+            await mine.ModifyAsync(
+                m =>
+                {
+                    m.Content = text;
+                    m.AllowedMentions = AllowedMentions.None;
+                },
+                Request(ct)).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(messageId);
+        });
+    }
+
+    public Task<DiscordPostOutcome> PublishAsync(string channelId, string messageId, CancellationToken ct)
+    {
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            if (await channel.GetMessageAsync(message, options: Request(ct)).ConfigureAwait(false) is not IUserMessage mine)
+                return DiscordPostOutcome.Failed("That message is gone.", permanent: true, notFound: true);
+
+            await mine.CrosspostAsync(PostOptions(ct)).ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        });
+    }
+
+    public async Task<DiscordMessagePage> ReadRecentAsync(
+        string channelId, string? afterMessageId, int limit, CancellationToken ct)
+    {
+        if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordMessagePage.Failed("That is not a Discord channel id.", noAccess: true);
+
+        var size = Math.Clamp(limit, 1, DiscordMessagePage.Size);
+        var after = ParseId(afterMessageId);
+
+        try
+        {
+            var channel = _client.GetChannel(id) as IMessageChannel
+                ?? await _client.GetChannelAsync(id, Request(ct)).ConfigureAwait(false) as IMessageChannel;
+
+            if (channel is not IGuildChannel)
+                return DiscordMessagePage.Failed("Discord does not know that channel, or the bot cannot see it.", noAccess: true);
+
+            var pages = after is { } a
+                ? channel.GetMessagesAsync(a, Direction.After, size, CacheMode.AllowDownload, Request(ct))
+                : channel.GetMessagesAsync(size, CacheMode.AllowDownload, Request(ct));
+
+            var messages = (await pages.FlattenAsync().ConfigureAwait(false))
+                .OrderByDescending(m => m.Id)
+                .ToList();
+
+            return new DiscordMessagePage(
+                messages.Select(m => Describe(m, channel)).OfType<DiscordMessageSnapshot>().ToList(),
+                messages.Count > 0 ? Text(messages[^1].Id) : null,
+                messages.Count > 0 ? Text(messages[0].Id) : null,
+                Full: messages.Count >= size);
+        }
+        catch (HttpException e) when (e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            return DiscordMessagePage.Failed(
+                e.HttpCode == HttpStatusCode.NotFound
+                    ? "The channel is gone."
+                    : "The bot may not read this channel's history.",
+                noAccess: true);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordMessagePage.Failed($"Could not read messages from Discord: {e.Message}", noAccess: false);
+        }
+    }
+
     public async Task<DiscordPostOutcome> TimeOutAsync(
         string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct)
     {

@@ -69,6 +69,14 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Calendar.CalendarInviteMessages>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 
+        // Posts from the Marketing tab (posts design §3.5): its own loop, the calendar's shape, and
+        // the Marketing tab's edit, delete and publish on a post already on Discord.
+        services.AddScoped<Core.Posts.PostClaim>();
+        services.AddScoped<Posts.PostDiscordSender>();
+        services.AddHostedService<Posts.PostDiscordService>();
+        services.AddSingleton<Core.Posts.IDiscordPostActions>(
+            p => new Posts.DiscordPostActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
         // The event form's preview of the Discord event and the channel post, from the same
         // builders (calendar design §14).
         services.AddSingleton<Core.Calendar.ICalendarDiscordPreview, Calendar.CalendarDiscordPreviewer>();

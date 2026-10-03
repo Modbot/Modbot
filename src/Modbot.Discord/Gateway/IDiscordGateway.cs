@@ -252,13 +252,19 @@ public sealed class DiscordButtonPress
 /// (403), where the thing may well be there and the bot is only not allowed to touch it: a
 /// deleted message is done with, a refused one is not.
 /// </param>
+/// <param name="Unclear">
+/// Discord gave no clear answer to a send -- no answer at all, a timeout, a 5xx -- so the message
+/// may be in the channel or may not (posts design §3.5). Only <see cref="IDiscordGateway.SendPostAsync"/>
+/// says this; the caller looks in the channel rather than sending again.
+/// </param>
 public sealed record DiscordPostOutcome(
     bool Sent,
     string? Error,
     bool Permanent,
     string? MessageId = null,
     bool DirectMessagesClosed = false,
-    bool NotFound = false)
+    bool NotFound = false,
+    bool Unclear = false)
 {
     public static DiscordPostOutcome Ok { get; } = new(true, null, false);
 
@@ -266,6 +272,9 @@ public sealed record DiscordPostOutcome(
 
     public static DiscordPostOutcome Failed(string error, bool permanent = false, bool notFound = false) =>
         new(false, error, permanent, NotFound: notFound);
+
+    /// <summary>No clear answer: the message may or may not be in the channel.</summary>
+    public static DiscordPostOutcome NoClearAnswer(string error) => new(false, error, false, Unclear: true);
 }
 
 /// <summary>Why a gateway session ended, as the library reported it.</summary>
@@ -636,6 +645,46 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct);
+
+    // ── Posts (posts design §3.5) ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sends a post: one plain message of text, with pictures as files, that may ping one role.
+    /// <strong>Never sent twice by the library:</strong> the request goes with Discord.Net's
+    /// <c>RetryMode.AlwaysFail</c>, so a timeout or a 502 comes back as
+    /// <see cref="DiscordPostOutcome.Unclear"/> instead of being sent again behind Modbot's back.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A clear refusal (a 4xx other than 429) comes back <see cref="DiscordPostOutcome.Permanent"/>
+    /// with Discord's words. A rate limit, or a channel that could not be looked up, comes back not
+    /// sent and not permanent: nothing was made, and it may be sent on a later pass.
+    /// </para>
+    /// <para>
+    /// Mentions are off except <paramref name="roleId"/>, which is pinged and nothing else is, and
+    /// never @everyone: asked for the server's own id, nobody is pinged.
+    /// </para>
+    /// </remarks>
+    Task<DiscordPostOutcome> SendPostAsync(
+        string channelId, string text, string? roleId, IReadOnlyList<DiscordPicture>? pictures, CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites the text of a post the bot sent, keeping its files. Pings nobody. A message that is
+    /// gone comes back permanent with <see cref="DiscordPostOutcome.NotFound"/>.
+    /// </summary>
+    Task<DiscordPostOutcome> EditPostAsync(string channelId, string messageId, string text, CancellationToken ct);
+
+    /// <summary>
+    /// Publishes a message in an Announcement channel to the servers that follow it (crosspost).
+    /// Needs Send Messages for the bot's own message. Discord refuses it in any other channel.
+    /// </summary>
+    Task<DiscordPostOutcome> PublishAsync(string channelId, string messageId, CancellationToken ct);
+
+    /// <summary>
+    /// Reads up to <paramref name="limit"/> messages after <paramref name="afterMessageId"/> (the newest
+    /// when null), for the look after an unclear send. One request; needs Read Message History.
+    /// </summary>
+    Task<DiscordMessagePage> ReadRecentAsync(string channelId, string? afterMessageId, int limit, CancellationToken ct);
 
     /// <summary>
     /// Deletes somebody's message. For AI moderation rules set to act (M8 §2).

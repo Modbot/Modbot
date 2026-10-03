@@ -488,6 +488,130 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Ok);
     }
 
+    // ── Posts ────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>One post the fake was asked to send.</summary>
+    public sealed record SentPost(string ChannelId, string? MessageId, string Text, string? RoleId, IReadOnlyList<DiscordPicture> Pictures);
+
+    /// <summary>Every post send asked for, in order, whatever came of it.</summary>
+    public List<SentPost> PostSends { get; } = [];
+
+    /// <summary>Every post edit, in order: channel, message, the new text.</summary>
+    public List<(string ChannelId, string MessageId, string Text)> PostEdits { get; } = [];
+
+    /// <summary>Every publish to followers, in order.</summary>
+    public List<(string ChannelId, string MessageId)> Published { get; } = [];
+
+    /// <summary>Every look asked for, in order: the channel, the id it read after, and how many.</summary>
+    public List<(string ChannelId, string? AfterId, int Limit)> RecentReads { get; } = [];
+
+    /// <summary>The time the fake's message ids are made from, so a look after a time finds them.</summary>
+    public Func<DateTimeOffset> PostClock { get; set; } = () => DateTimeOffset.UtcNow;
+
+    /// <summary>Set to make every publish fail with this sentence.</summary>
+    public string? PublishError { get; set; }
+
+    private readonly Queue<(DiscordPostOutcome Answer, bool Landed)> _postAnswers = new();
+
+    private ulong _postSequence;
+
+    /// <summary>The next post send answers this, and nothing lands in the channel.</summary>
+    public void AnswerNextPost(DiscordPostOutcome answer) => _postAnswers.Enqueue((answer, false));
+
+    /// <summary>
+    /// The next post send gets no clear answer. With <paramref name="landed"/> the message is in the
+    /// channel anyway, the way a timeout after Discord took it looks.
+    /// </summary>
+    public void NoClearAnswerToNextPost(bool landed) =>
+        _postAnswers.Enqueue((DiscordPostOutcome.NoClearAnswer("Discord gave no answer: timed out"), landed));
+
+    public Task<DiscordPostOutcome> SendPostAsync(
+        string channelId, string text, string? roleId, IReadOnlyList<DiscordPicture>? pictures, CancellationToken ct)
+    {
+        var files = pictures ?? [];
+
+        if (_postAnswers.Count > 0)
+        {
+            var (answer, landed) = _postAnswers.Dequeue();
+            var landedId = landed ? Land(channelId, text, files) : null;
+            PostSends.Add(new SentPost(channelId, landedId, text, roleId, files));
+            return Task.FromResult(answer);
+        }
+
+        var messageId = Land(channelId, text, files);
+        PostSends.Add(new SentPost(channelId, messageId, text, roleId, files));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    /// <summary>Puts a message by the bot in the channel's history, with an id made from <see cref="PostClock"/>.</summary>
+    public string Land(string channelId, string text, IReadOnlyList<DiscordPicture> files, string? authorId = null)
+    {
+        var id = (ulong.Parse(Modbot.Core.Posts.PostRules.DiscordIdAt(PostClock()), System.Globalization.CultureInfo.InvariantCulture)
+                  + ++_postSequence).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        if (!History.TryGetValue(channelId, out var list))
+            History[channelId] = list = [];
+
+        list.Add(new DiscordMessageSnapshot(
+            id,
+            "111111111111111111",
+            channelId,
+            null,
+            authorId ?? BotUserId ?? "999000999",
+            "Modbot",
+            true,
+            PostClock(),
+            null,
+            text,
+            files.Select(f => new DiscordAttachmentSnapshot(f.Name, "image/png", f.Bytes.Length, "https://cdn.discordapp.com/" + f.Name)).ToList(),
+            0,
+            null,
+            0,
+            false));
+
+        return id;
+    }
+
+    public Task<DiscordPostOutcome> EditPostAsync(string channelId, string messageId, string text, CancellationToken ct)
+    {
+        var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        PostEdits.Add((channelId, messageId, text));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public Task<DiscordPostOutcome> PublishAsync(string channelId, string messageId, CancellationToken ct)
+    {
+        if (PublishError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        Published.Add((channelId, messageId));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
+    public Task<DiscordMessagePage> ReadRecentAsync(string channelId, string? afterMessageId, int limit, CancellationToken ct)
+    {
+        RecentReads.Add((channelId, afterMessageId, limit));
+
+        if (NoAccess.Contains(channelId))
+            return Task.FromResult(DiscordMessagePage.Failed("The bot may not read this channel's history.", noAccess: true));
+
+        var page = (History.TryGetValue(channelId, out var list) ? list : [])
+            .Where(m => afterMessageId is null || Number(m.Id) > Number(afterMessageId))
+            .OrderBy(m => Number(m.Id))
+            .Take(limit)
+            .OrderByDescending(m => Number(m.Id))
+            .ToList();
+
+        return Task.FromResult(new DiscordMessagePage(
+            page,
+            page.Count > 0 ? page[^1].Id : null,
+            page.Count > 0 ? page[0].Id : null,
+            Full: page.Count >= limit));
+    }
+
     // ── Server events ────────────────────────────────────────────────────────────────────────
 
     /// <summary>A server event as the fake holds it: what it says, and whether it started or ended.</summary>
