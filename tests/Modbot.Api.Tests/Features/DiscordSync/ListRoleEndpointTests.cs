@@ -44,6 +44,7 @@ public class ListRoleEndpointTests(PostgresFixture db)
             // Pairings first: a list one names cannot go while it does.
             await context.DiscordListRoles.ExecuteDeleteAsync(Ct);
             await context.DiscordRolePairs.ExecuteDeleteAsync(Ct);
+            await context.DiscordStaffRoles.ExecuteDeleteAsync(Ct);
             await context.SavedLists.ExecuteDeleteAsync(Ct);
             await context.DiscordMembers.ExecuteDeleteAsync(Ct);
             await context.GroupMembers.ExecuteDeleteAsync(Ct);
