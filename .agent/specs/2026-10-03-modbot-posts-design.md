@@ -280,7 +280,10 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   picture (`smallJpeg`), kept with `POST /api/posts/picture` as `site_picture_id`, uploaded with
   `uploadBlob` just before `putRecord`. With no link there is no card and no picture.
 - **The loop**: `PostBlueskyService`, every 30 seconds, registered by the host with
-  `AddBlueskyPosting` (the pass is scoped in `ApiSurface`). One send a pass, at most 10 an hour,
+  `AddBlueskyPosting` (the pass is scoped in `ApiSurface`). `PostBlueskySender` lives in
+  `Modbot.Api/Features/Posts`, not in `Modbot.Core/Bluesky` as the marketing report placed it: its
+  facts go through the analytics fact writer, which Core cannot reference. The client, the session
+  and the text rules stay in Core. One send a pass, at most 10 an hour,
   the same late rule, held by Pause all posting, the Posting switch and `PostSites.BlueskyReady`
   (an account, its server and app password, a Check with no problem, no refused app password).
 - **Delete after**: `IBlueskyPostActions` (Core), `deleteRecord` on the account in Settings only
