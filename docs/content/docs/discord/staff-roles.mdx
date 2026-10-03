@@ -150,10 +150,11 @@ on roles from before the bot went away.
 Linked roles follow the member roles Modbot keeps, and those only stay current while Discord sends
 the bot member updates: the bot must be online and have the **Server Members Intent** (see
 [bot setup](/discord/bot-setup)). Without them, somebody taken off staff in Discord would keep their
-Modbot role. So while they are missing Modbot gives and takes nothing. After ten minutes every
-linked role says **Not set up**, the card and **Health** say "Modbot isn't receiving member updates
-from Discord.", the audit log records it once, and linked roles can't be changed by hand. Once
-updates arrive again, it carries on.
+Modbot role. So while they are missing Modbot gives and takes nothing. After ten minutes, counted
+from the last update or from when Modbot started, every linked role says **Not set up**, the card
+and **Health** say "Modbot isn't receiving member updates from Discord.", the audit log records it
+once, and linked roles can't be changed by hand. Once updates arrive again, it carries on. The card
+shows this before you add any link too.
 
 ## What goes in the audit log
 

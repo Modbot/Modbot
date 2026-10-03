@@ -337,6 +337,8 @@ public class CalendarPlacesTests(PostgresFixture db)
     private sealed class Bot(DiscordBotState state) : IDiscordBotStatus
     {
         public DiscordBotSnapshot Snapshot() => new(state, null, null, null, 0, false, null, 0);
+
+        public DateTimeOffset? StartedAt => null;
     }
 
     [Fact]

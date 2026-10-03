@@ -61,4 +61,10 @@ public sealed record DiscordBotSnapshot(
 public interface IDiscordBotStatus
 {
     DiscordBotSnapshot Snapshot();
+
+    /// <summary>
+    /// When this process started the bot, or null before it has. The staff roles card gives the bot
+    /// as long from here to read the member list as the staff role pass does.
+    /// </summary>
+    DateTimeOffset? StartedAt { get; }
 }

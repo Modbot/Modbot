@@ -513,7 +513,7 @@ public sealed class ListRolePlanner
         // without it), every connection clears MembersReadAt before reading, and only a compare in
         // that connection writes it again. So with member updates off or refused it stays empty,
         // and lists refuse on the same signal staff roles do.
-        var read =await _db.DiscordServers.AsNoTracking()
+        var read = await _db.DiscordServers.AsNoTracking()
             .Where(s => s.GuildId == guildId)
             .Select(s => new { s.MembersReadAt, s.SeenThrough })
             .FirstOrDefaultAsync(ct)

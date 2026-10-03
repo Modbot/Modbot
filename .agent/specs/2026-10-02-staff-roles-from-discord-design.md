@@ -219,15 +219,20 @@ Discord keeps their Modbot role. So the pass acts only while they are kept curre
   so the card is right before the first one is added. *Fixed 2026-10-02: the mark was only noted
   once a link existed, so a server with none, or one just restarted, read as missing updates while
   they arrived.* While they are not current, it gives and takes nothing. Within 10 minutes of the
-  last current run, or of Modbot starting, it says nothing (a reconnect or a restart); past that,
-  and only while a link exists, it sets `staff_roles_members_off_at`, puts "Modbot isn't receiving
-  member updates from Discord." on the card and on the Discord health row, and records one
-  `modbot.role.discord.no-member-updates` fact. When updates are back, it carries on.
+  last current run, or of Modbot starting, it says nothing (a reconnect or a restart), unless
+  `staff_roles_members_off_at` was already set before the restart: then they are still missing and
+  it says so at once, with no second fact. Past the wait, and only while a link exists, it sets
+  `staff_roles_members_off_at`, puts "Modbot isn't receiving member updates from Discord." on the
+  card and on the Discord health row, and records one `modbot.role.discord.no-member-updates`
+  fact. When updates are back, it carries on.
 - `StaffRoles.MemberUpdatesMissing` is the one rule the screens read: missing while that mark is
   set, or when no run has found them current in the last 20 minutes (the pass itself is not
-  running). Then every link is **Not set up**, the card says why, the preview lists it as a
-  problem, and every linked role is locked against hand changes, since the pass would otherwise
-  undo them once updates return.
+  running). The card and the preview give the same start-up wait: within 10 minutes of the bot
+  starting in this process (`IDiscordBotStatus.StartedAt`) an old mark is not missing, unless
+  `staff_roles_members_off_at` is set. While missing, every link is **Not set up**, the card says why, the
+  preview lists it as a problem, and every linked role is locked against hand changes, since the
+  pass would otherwise undo them once updates return. The lock takes no start-up wait: just after a
+  long stop the stored roles are from before it.
 
 ## 7. Facts
 

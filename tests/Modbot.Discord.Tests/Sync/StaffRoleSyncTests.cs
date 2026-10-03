@@ -944,6 +944,19 @@ public class StaffRoleSyncTests
     {
         await using var services = await OnAsync(_db, on: false);
 
+        // A server is set (the pass would stop before the mark without one), and the mark is two
+        // hours old: what the card read before this fix.
+        await using (var db = services.Database.NewContext())
+        {
+            Assert.Equal(SyncSetUp.Guild, (await db.Settings.AsNoTracking().FirstAsync(s => s.Id == 1, Ct)).DiscordGuildId);
+            Assert.False(await db.DiscordStaffRoles.AnyAsync(Ct));
+
+            db.DiscordSyncState.Add(new DiscordSyncState { Id = 1, StaffRolesMembersCurrentAt = services.Clock.UtcNow.AddHours(-2) });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        Assert.True(StaffRoles.MemberUpdatesMissing(await SyncStateAsync(services), services.Clock.UtcNow));
+
         var pass = await PassAsync(services, memberUpdatesCurrent: true);
         Assert.Equal(StaffRolePass.Nothing, pass);
 
@@ -991,6 +1004,70 @@ public class StaffRoleSyncTests
         var stopped = await PassAsync(services, memberUpdatesCurrent: false, startedAt: startedAt);
         Assert.Equal(StaffRoles.NoMemberUpdates, stopped.Problem);
         Assert.Single(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
+    }
+
+    /// <summary>
+    /// Found missing before a restart: the restart gets no wait, since they still are. The pass
+    /// says so at once, on the card too, and records no second fact.
+    /// </summary>
+    [Fact]
+    public async Task NoRestartWaitWhenUpdatesWereAlreadyMissing()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+        await PassAsync(services, memberUpdatesCurrent: true);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(15));
+        await PassAsync(services, memberUpdatesCurrent: false);
+        Assert.NotNull((await SyncStateAsync(services))?.StaffRolesMembersOffAt);
+
+        // Stopped for an hour, just started.
+        services.Clock.Advance(TimeSpan.FromHours(1));
+        var startedAt = services.Clock.UtcNow;
+
+        var pass = await PassAsync(services, memberUpdatesCurrent: false, startedAt: startedAt);
+
+        Assert.Equal(StaffRoles.NoMemberUpdates, pass.Problem);
+        Assert.True(StaffRoles.MemberUpdatesMissing(await SyncStateAsync(services), services.Clock.UtcNow, startedAt));
+        Assert.Single(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
+    }
+
+    /// <summary>
+    /// Within the wait, after a reconnect or a restart, a pass with a link and the switch on gives
+    /// and takes nothing, though the stored roles say somebody should gain a role and somebody
+    /// lose one.
+    /// </summary>
+    [Fact]
+    public async Task WithinTheWaitAPassGivesAndTakesNothing()
+    {
+        await using var services = await OnAsync(_db);
+        await MapAsync(services, SyncSetUp.DiscordRole, Moderator);
+        await PassAsync(services, memberUpdatesCurrent: true);
+
+        var gains = await AccountAsync(services, Member);
+        await InServerAsync(services, Member, SyncSetUp.DiscordRole);
+
+        var loses = await AccountAsync(services, "5002");
+        await GiveByHandAsync(services, loses.Id, Moderator);
+        await InServerAsync(services, "5002");
+        var changesBefore = (await services.FactsOfTypeAsync(FactType.UserRolesChanged, Ct)).Count;
+
+        // A reconnect: five minutes since the last current pass.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        var reconnecting = await PassAsync(services, memberUpdatesCurrent: false);
+        Assert.Equal(StaffRolePass.Nothing, reconnecting);
+
+        // A restart after two hours: five minutes since start-up.
+        services.Clock.Advance(TimeSpan.FromHours(2));
+        var startedAt = services.Clock.UtcNow;
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        var restarting = await PassAsync(services, memberUpdatesCurrent: false, startedAt: startedAt);
+        Assert.Equal(StaffRolePass.Nothing, restarting);
+
+        Assert.Null(await HeldAsync(services, gains.Id, Moderator));
+        Assert.NotNull(await HeldAsync(services, loses.Id, Moderator));
+        Assert.Equal(changesBefore, (await services.FactsOfTypeAsync(FactType.UserRolesChanged, Ct)).Count);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.StaffRolesNoMemberUpdates, Ct));
     }
 
     // ── Deleted Discord roles and the member row ──────────────────────────────────────────

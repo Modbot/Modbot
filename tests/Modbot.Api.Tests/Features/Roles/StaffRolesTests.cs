@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.Roles;
@@ -406,29 +407,57 @@ public class StaffRolesTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    private sealed class StartedBot : IDiscordBotStatus
+    {
+        public DateTimeOffset? StartedAt { get; set; }
+
+        public DiscordBotSnapshot Snapshot() => new(DiscordBotState.Connecting, null, null, null, 0, false, null, 0);
+    }
+
+    private static async Task MarkAsync(ApiTestHost host, DateTimeOffset currentAt, DateTimeOffset? offAt = null)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        await db.DiscordSyncState.Where(s => s.Id == 1).ExecuteDeleteAsync(Ct);
+        db.DiscordSyncState.Add(new DiscordSyncState { Id = 1, StaffRolesMembersCurrentAt = currentAt, StaffRolesMembersOffAt = offAt });
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private static string? ProblemOf(JsonElement view)
+        => view.TryGetProperty("problem", out var problem) ? problem.GetString() : null;
+
     /// <summary>
-    /// With no link yet and the pass finding member updates current, the card does not say they are
-    /// missing: not when the mark is fresh, and not in the first minutes after a restart, while the
-    /// mark from before it is still within the wait.
+    /// Just after a restart that followed a long stop, the card gives the bot the same wait to read
+    /// the member list as the pass does: an old mark is not called missing within it, and is past
+    /// it. A mark the pass had already found missing is called missing at once.
     /// </summary>
     [Fact]
-    public async Task WithNoLinkAndMemberUpdatesArrivingTheCardDoesNotSayTheyAreMissing()
+    public async Task JustAfterARestartTheCardWaitsAsThePassDoes()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
-        await using var host = await ApiTestHost.StartAsync(_db);
+        var bot = new StartedBot();
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IDiscordBotStatus>(bot));
         var (_, cookie) = await host.SignedInAsync(Mapper, Ct);
-        await ServerAsync(host, memberUpdates: true);
+        await ServerAsync(host, memberUpdates: false);
 
-        static string? Problem(JsonElement view)
-            => view.TryGetProperty("problem", out var problem) ? problem.GetString() : null;
+        // Stopped for two hours, started a minute ago.
+        bot.StartedAt = host.Clock.UtcNow.AddMinutes(-1);
+        await MarkAsync(host, host.Clock.UtcNow.AddHours(-2));
 
-        var view = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
-        Assert.Equal(0, view.GetProperty("mappings").GetArrayLength());
-        Assert.Null(Problem(view));
+        async Task<JsonElement> ViewAsync()
+            => await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
 
-        host.Clock.Advance(TimeSpan.FromMinutes(15));
-        var afterRestart = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
-        Assert.Null(Problem(afterRestart));
+        Assert.Null(ProblemOf(await ViewAsync()));
+
+        // Past the wait, still not current: missing.
+        host.Clock.Advance(TimeSpan.FromMinutes(11));
+        Assert.Equal("Modbot isn't receiving member updates from Discord.", ProblemOf(await ViewAsync()));
+
+        // Already found missing before the restart: missing at once.
+        bot.StartedAt = host.Clock.UtcNow;
+        await MarkAsync(host, host.Clock.UtcNow.AddHours(-2), offAt: host.Clock.UtcNow.AddHours(-1));
+        Assert.Equal("Modbot isn't receiving member updates from Discord.", ProblemOf(await ViewAsync()));
     }
 
     [Fact]

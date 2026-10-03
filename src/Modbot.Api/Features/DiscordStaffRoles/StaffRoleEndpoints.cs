@@ -131,6 +131,7 @@ public static class StaffRoleEndpoints
                 [FromBody] StaffRolesPreviewRequest body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] IDiscordBotStatus? bot,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -156,7 +157,7 @@ public static class StaffRoleEndpoints
                     rules.Add(rule);
                 }
 
-                var plan = await StaffRoles.PlanAsync(db, rules, withNotes: true, clock.UtcNow, ct);
+                var plan = await StaffRoles.PlanAsync(db, rules, withNotes: true, clock.UtcNow, ct, bot?.StartedAt);
                 return Results.Ok(View(plan));
             })
             .WithName("PreviewStaffRoles")
@@ -549,7 +550,9 @@ public static class StaffRoleEndpoints
         var rolesChangedAt = discordRoles.Count == 0 ? (DateTimeOffset?)null : discordRoles.Values.Max(r => r.UpdatedAt);
 
         // Without member updates the stored roles go stale, so every link is Not set up and says why.
-        var noMemberUpdates = StaffRoles.MemberUpdatesMissing(state, now);
+        // Just after a start the bot gets the same wait to read the member list as the pass gives it.
+        var startedAt = http.RequestServices.GetService<IDiscordBotStatus>()?.StartedAt;
+        var noMemberUpdates = StaffRoles.MemberUpdatesMissing(state, now, startedAt);
 
         var roles = await db.Roles.AsNoTracking().ToListAsync(ct);
         var callerIsAdministrator = RoleOrder.IsAdministrator(http);

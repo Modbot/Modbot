@@ -23,6 +23,23 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
     private DateTimeOffset? _lastPostedAt;
     private int _postedInThisProcess;
     private IReadOnlyList<string> _missingIntents = [];
+    private DateTimeOffset? _startedAt;
+
+    public DateTimeOffset? StartedAt
+    {
+        get
+        {
+            lock (_gate)
+                return _startedAt;
+        }
+    }
+
+    /// <summary>The bot started in this process: see <see cref="DiscordBotService.StartedAt"/>.</summary>
+    public void Started(DateTimeOffset at)
+    {
+        lock (_gate)
+            _startedAt = at;
+    }
 
     public DiscordBotSnapshot Snapshot()
     {

@@ -180,10 +180,22 @@ public static class StaffRoles
     /// receiving member updates within <see cref="MemberUpdatesWait"/>, and has not found them
     /// missing since. A pass that has not run lately -- the bot is stopped -- counts as missing too.
     /// </summary>
-    public static bool MemberUpdatesMissing(DiscordSyncState? state, DateTimeOffset now)
-        => state?.StaffRolesMembersOffAt is not null
-           || state?.StaffRolesMembersCurrentAt is not { } current
-           || now - current > MemberUpdatesWait + MemberUpdatesWait;
+    /// <param name="startedAt">
+    /// When the bot started in this process, or null. Within <see cref="MemberUpdatesWait"/> of it
+    /// an old mark does not count as missing, the same wait the pass gives a restart, unless the pass
+    /// had already found them missing before it.
+    /// </param>
+    public static bool MemberUpdatesMissing(DiscordSyncState? state, DateTimeOffset now, DateTimeOffset? startedAt = null)
+    {
+        if (state?.StaffRolesMembersOffAt is not null)
+            return true;
+
+        if (startedAt is { } started && now - started <= MemberUpdatesWait)
+            return false;
+
+        return state?.StaffRolesMembersCurrentAt is not { } current
+               || now - current > MemberUpdatesWait + MemberUpdatesWait;
+    }
 
     /// <summary>The advisory lock every save of a linked role or a VRChat role pair takes.</summary>
     public const string SaveLock = "modbot.staff-roles.save";
@@ -240,6 +252,8 @@ public static class StaffRoles
 
         var discordRoles = await DiscordRolesAsync(db, settings.DiscordGuildId, ct).ConfigureAwait(false);
         var rolesChangedAt = LatestChange(discordRoles);
+        // No start-up wait here: just after a long stop the stored roles are from before it, and a
+        // change by hand could be undone once the bot has read the member list.
         var missing = MemberUpdatesMissing(await SyncStateAsync(db, ct).ConfigureAwait(false), now);
 
         var locked = rules
@@ -281,8 +295,10 @@ public static class StaffRoles
     /// </summary>
     /// <param name="proposed">The mappings as they would be after a save, for a preview; null reads the saved ones.</param>
     /// <param name="withNotes">Also list the Discord members the pass cannot reach. Reads every member, so the preview only.</param>
+    /// <param name="startedAt">When the bot started in this process, for the preview: see <see cref="MemberUpdatesMissing"/>.</param>
     public static async Task<StaffRolePlan> PlanAsync(
-        ModbotContext db, IReadOnlyList<StaffRoleRule>? proposed, bool withNotes, DateTimeOffset now, CancellationToken ct)
+        ModbotContext db, IReadOnlyList<StaffRoleRule>? proposed, bool withNotes, DateTimeOffset now, CancellationToken ct,
+        DateTimeOffset? startedAt = null)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -310,7 +326,7 @@ public static class StaffRoles
         var problems = new List<string>();
 
         // Worked out all the same, for the preview: what would happen once updates come back.
-        if (MemberUpdatesMissing(await SyncStateAsync(db, ct).ConfigureAwait(false), now))
+        if (MemberUpdatesMissing(await SyncStateAsync(db, ct).ConfigureAwait(false), now, startedAt))
             problems.Add("Not set up: " + NoMemberUpdates);
 
         // Each Modbot role with the mappings that give it. A role that has come to carry the

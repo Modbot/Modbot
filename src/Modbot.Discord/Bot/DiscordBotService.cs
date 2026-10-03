@@ -146,6 +146,7 @@ public sealed class DiscordBotService : BackgroundService
         _retry = _options.FirstRetry;
         _history = new DiscordHistoryReader(scopes, clock, _options, _delay, _log);
         StartedAt = clock.UtcNow;
+        status.Started(StartedAt);
     }
 
     /// <summary>
@@ -173,8 +174,9 @@ public sealed class DiscordBotService : BackgroundService
     public bool MemberUpdatesCurrent => MembersRead && _sessionOptions.MemberEvents;
 
     /// <summary>
-    /// When this Modbot started. The staff role pass gives the bot as long from here to connect and
-    /// read the member list as it gives a reconnect, so a restart after a long stop is not taken for
+    /// When this Modbot started. The staff role pass, and the card through
+    /// <see cref="DiscordBotStatus.StartedAt"/>, give the bot as long from here to connect and read
+    /// the member list as they give a reconnect, so a restart after a long stop is not taken for
     /// member updates being off.
     /// </summary>
     public DateTimeOffset StartedAt { get; }
