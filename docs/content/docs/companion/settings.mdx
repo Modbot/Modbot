@@ -548,9 +548,9 @@ The card writes the `notificationFilters` object:
 A word the client does not know is ignored rather than breaking the file.
 
 Filtering on **who** arrived — everybody who is not age verified, say, or everybody who is 18+
-verified — is not possible. Your group's server knows both, and shows them in the web app, but it
-does not send either to the client, so the client cannot tell one arrival from another beyond
-whether the server flagged it.
+verified — is not possible. These ticks choose kinds of event, not people. Your group's server
+does send each person's trust rank and 18+ mark to the client, and every pop-up about a person
+shows them once the server has said them, but nothing here decides by them.
 
 ## Debug mode
 
