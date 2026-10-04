@@ -176,7 +176,6 @@ public class DataFolderTests
         {
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardOutput = true,
         }))
         {
             mklink!.WaitForExit(10_000);
