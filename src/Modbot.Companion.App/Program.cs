@@ -383,6 +383,9 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>The Debug page's test events; null unless the client was started in debug mode.</summary>
     private TestEvents? _testEvents;
+
+    /// <summary>Stops a Send a run that is still playing when this copy quits.</summary>
+    private readonly CancellationTokenSource _testRunStop = new();
     private Updates? _updates;
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
@@ -3025,6 +3028,7 @@ internal sealed class CompanionHost : IOverlayListener
         _updates?.Stop();
         _inboxStop.Cancel();
         _backupStop.Cancel();
+        _testRunStop.Cancel();
         _overlay?.Dispose();
         _overlayHost?.Dispose();
         _notifyHost?.Dispose();
@@ -3554,7 +3558,7 @@ internal sealed class CompanionHost : IOverlayListener
             for (var i = 0; i < steps.Count; i++)
             {
                 if (i > 0)
-                    await Task.Delay(TestEvents.RunGap, _backupStop.Token);
+                    await Task.Delay(TestEvents.RunGap, _testRunStop.Token);
 
                 SendTestEvent(steps[i]);
             }
@@ -3719,7 +3723,7 @@ internal static class Program
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
         if (choice.Folder is not { } data)
         {
-            Console.Error.WriteLine(choice.Refusal);
+            RefusedStart.Tell(choice.Refusal ?? "Modbot cannot start with this data folder.");
             return 2;
         }
 

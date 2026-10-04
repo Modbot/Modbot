@@ -56,8 +56,8 @@ public sealed record TestEvent(
 /// </remarks>
 public sealed class TestEvents
 {
-    /// <summary>How every made-up person's id starts.</summary>
-    public const string SubjectPrefix = "usr_test-";
+    /// <summary>How every made-up person's id starts (<see cref="TestPeople.Prefix"/>).</summary>
+    public const string SubjectPrefix = TestPeople.Prefix;
 
     /// <summary>Who a test event is about when the name is left blank.</summary>
     public const string DefaultName = "Test person";

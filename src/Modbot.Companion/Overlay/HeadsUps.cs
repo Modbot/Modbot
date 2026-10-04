@@ -123,6 +123,10 @@ public sealed class HttpHeadsUpClient : IHeadsUpClient
         ArgumentNullException.ThrowIfNull(pairing);
         ArgumentNullException.ThrowIfNull(draft);
 
+        // A made-up person from the Debug page is never sent to a server (TestPeople).
+        if (draft.AboutPerson && TestPeople.IsTest(draft.SubjectId))
+            return Task.FromResult(new HeadsUpSent(HeadsUpSendOutcome.Refused, "Not placed: test person."));
+
         var body = new PlaceBody(
             instanceId,
             worldId,

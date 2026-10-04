@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Modbot.Companion.Pairing;
@@ -16,10 +17,15 @@ namespace Modbot.Companion.Startup;
 /// <para><strong>A test copy keeps out of the real one's way.</strong> It claims no browser
 /// links, adds no start-with-Windows entry, looks for no updates, and takes its own one-copy lock
 /// and its own message pipe, named after its folder, so starting it never hands anything to the
-/// installed copy and the installed copy never hands anything to it. It refuses to start on the
-/// real folder, which would make it the real copy with half its manners missing.</para>
-/// <para><strong>What this reads.</strong> One environment variable. It writes nothing and sends
-/// nothing; the folder is not even created here.</para>
+/// installed copy and the installed copy never hands anything to it.</para>
+/// <para><strong>It refuses the real folder however it is written.</strong> The same folder can
+/// be named many ways: a <c>\\?\</c> prefix, an old short name like <c>MODBOT~1</c>, a link or
+/// junction pointing at it, or a folder above or below it. Each name is turned into the one
+/// folder it really is before the two are compared, and a test copy whose folder is the real one,
+/// sits inside it, or holds it, does not start.</para>
+/// <para><strong>What this reads.</strong> One environment variable, and, to compare folders, the
+/// names on disk: which folders exist, where a link points and a short name's long form. It writes
+/// nothing and sends nothing; the folder is not even created here.</para>
 /// </remarks>
 /// <param name="Path">The folder itself, as a full path.</param>
 /// <param name="IsTestCopy">True when <see cref="Variable"/> chose it.</param>
@@ -30,6 +36,9 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
 
     /// <summary>The one-copy lock's name for the real copy. Under <c>Local\</c>, so each Windows account has its own.</summary>
     public const string RealSingleInstanceName = @"Local\Modbot.Companion";
+
+    /// <summary>How many links in a row are followed before giving up on a name.</summary>
+    private const int MostLinks = 16;
 
     /// <summary>The real copy's folder: <c>Modbot</c> under the roaming application data folder.</summary>
     public static string Real(string applicationData)
@@ -60,11 +69,14 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
             return new DataFolderChoice(null, $"{Variable} is not a folder Windows can use: {asked}");
         }
 
-        if (Same(chosen, real))
+        var realAsItIs = TheFolderItIs(real);
+        var chosenAsItIs = TheFolderItIs(chosen);
+
+        if (Same(chosenAsItIs, realAsItIs) || Inside(chosenAsItIs, realAsItIs) || Inside(realAsItIs, chosenAsItIs))
         {
             return new DataFolderChoice(
                 null,
-                $"{Variable} names the real Modbot folder ({real}). Pick another folder for a test copy.");
+                $"{Variable} is the real Modbot folder ({real}), or inside it, or holds it. Pick another folder for a test copy.");
         }
 
         return new DataFolderChoice(new DataFolder(chosen, IsTestCopy: true), null);
@@ -91,12 +103,133 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
         }
     }
 
+    /// <summary>A full path with no <c>\\?\</c> prefix, no <c>..</c> and no separator at the end.</summary>
     private static string Full(string path)
-        => System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path));
+        => System.IO.Path.TrimEndingDirectorySeparator(Unprefixed(System.IO.Path.GetFullPath(Unprefixed(path))));
+
+    private static string Unprefixed(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+            return @"\\" + path[8..];
+
+        return path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)
+            ? path[4..]
+            : path;
+    }
+
+    /// <summary>
+    /// The folder a full path really names: every link or junction along it followed, and on
+    /// Windows every short name made long. The parts that do not exist yet are kept as written.
+    /// </summary>
+    internal static string TheFolderItIs(string full)
+    {
+        var path = full;
+
+        for (var hop = 0; hop < MostLinks; hop++)
+        {
+            var followed = FollowFirstLink(path);
+            if (followed is null)
+                break;
+
+            path = followed;
+        }
+
+        return LongName(path);
+    }
+
+    /// <summary>
+    /// The path with its first link, from the root down, replaced by where it points; null when no
+    /// part of it is a link.
+    /// </summary>
+    private static string? FollowFirstLink(string path)
+    {
+        var root = System.IO.Path.GetPathRoot(path);
+        if (string.IsNullOrEmpty(root))
+            return null;
+
+        var parts = path[root.Length..].Split(
+            [System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+
+        var current = root;
+        for (var i = 0; i < parts.Length; i++)
+        {
+            current = System.IO.Path.Combine(current, parts[i]);
+
+            try
+            {
+                var info = new DirectoryInfo(current);
+                if (info.LinkTarget is null)
+                {
+                    if (!info.Exists)
+                        return null;
+
+                    continue;
+                }
+
+                if (info.ResolveLinkTarget(returnFinalTarget: true) is not { } target)
+                    return null;
+
+                var rest = parts.Skip(i + 1).ToArray();
+                return Full(rest.Length == 0 ? target.FullName : System.IO.Path.Combine([target.FullName, .. rest]));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>On Windows, the long form of the part of the path that exists, with the rest as written.</summary>
+    private static string LongName(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+            return path;
+
+        var existing = path;
+        var rest = new Stack<string>();
+        while (!System.IO.Path.Exists(existing))
+        {
+            var parent = System.IO.Path.GetDirectoryName(existing);
+            if (parent is null)
+                return path;
+
+            rest.Push(System.IO.Path.GetFileName(existing));
+            existing = parent;
+        }
+
+        var buffer = new StringBuilder(1024);
+        var length = GetLongPathNameW(existing, buffer, (uint)buffer.Capacity);
+        if (length == 0 || length >= buffer.Capacity)
+            return path;
+
+        var result = Unprefixed(buffer.ToString());
+        while (rest.Count > 0)
+            result = System.IO.Path.Combine(result, rest.Pop());
+
+        return System.IO.Path.TrimEndingDirectorySeparator(result);
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetLongPathNameW(string shortPath, StringBuilder longPath, uint size);
 
     /// <summary>Windows folder names ignore case; elsewhere they do not.</summary>
-    private static bool Same(string a, string b)
-        => string.Equals(a, b, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    private static StringComparison Case
+        => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static bool Same(string a, string b) => string.Equals(a, b, Case);
+
+    /// <summary>Whether <paramref name="inner"/> sits somewhere under <paramref name="outer"/>.</summary>
+    private static bool Inside(string inner, string outer)
+    {
+        var withSeparator = System.IO.Path.EndsInDirectorySeparator(outer)
+            ? outer
+            : outer + System.IO.Path.DirectorySeparatorChar;
+
+        return inner.StartsWith(withSeparator, Case);
+    }
 }
 
 /// <param name="Folder">The folder to use, or null when this copy must not start.</param>

@@ -501,6 +501,13 @@ public sealed class OverlayDriver : IDisposable
             return;
         }
 
+        // A made-up person from the Debug page is never sent to a server (TestPeople).
+        if (draft.AboutPerson && TestPeople.IsTest(draft.SubjectId))
+        {
+            _draft = draft with { Problem = "Not placed: test person." };
+            return;
+        }
+
         _draft = draft with { Sending = true, Problem = null };
 
         HeadsUpSent sent;
@@ -615,6 +622,16 @@ public sealed class OverlayDriver : IDisposable
         _person = known is null
             ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
             : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, []);
+
+        // Somebody the Debug page made up exists only on this PC: their card is what the Events
+        // list holds about them, and the server is never asked (TestPeople).
+        if (TestPeople.IsTest(subjectId))
+        {
+            if (_events.Select(e => e.Person).FirstOrDefault(p => p?.SubjectId == subjectId) is { } heard)
+                _person = new UserSummary(subjectId, heard.DisplayName, heard.Standing, heard.PriorActions, null, heard.Flags, []);
+
+            return;
+        }
 
         ReadResult<UserSummary> read;
         try

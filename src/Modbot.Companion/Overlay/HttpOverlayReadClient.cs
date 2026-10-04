@@ -97,7 +97,11 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
         ServerPairing pairing,
         string subjectId,
         CancellationToken cancellationToken)
-        => GetAsync<UserSummary>(pairing, pairing.UserEndpoint(subjectId), cancellationToken);
+        => TestPeople.IsTest(subjectId)
+
+            // Somebody the Debug page made up: nobody to ask about, so nobody is asked.
+            ? Task.FromResult(new ReadResult<UserSummary>(ReadOutcome.Unreachable))
+            : GetAsync<UserSummary>(pairing, pairing.UserEndpoint(subjectId), cancellationToken);
 
     public Task<ReadResult<LivePollPage>> PollLiveAsync(
         ServerPairing pairing,

@@ -575,7 +575,8 @@ and the window gains a **Debug** page:
   only while you stand in an instance one of your paired servers covers; anywhere else the
   pop-up and the sound still come. **Test events send nothing to anybody**: no server is told, no
   server is asked, and nothing is written to the queues, the sent journal, the Cloud backup or
-  `settings.json`. They are not read from VRChat's log, so they never reach your Events page
+  `settings.json`. Tapping a made-up person on the panel opens their card from what the panel
+  already holds, and a heads-up cannot be placed on them. They are not read from VRChat's log, so they never reach your Events page
   either.
 
 Everything else runs as normal in debug mode, and the setting is read once, at start.
@@ -594,7 +595,9 @@ settings are never touched. A test copy also:
 - says **Test copy** in the window's title and the tray icon's tooltip;
 - has a Restart button that does nothing: quit it from the tray and start it again.
 
-It refuses to start if the folder is `%APPDATA%\Modbot` itself.
+It refuses to start if the folder is `%APPDATA%\Modbot`, sits inside it, or holds it, however
+the folder is written (a short name, a `\\?\` path, or a link or junction to it). Started from a
+terminal it says why there; otherwise a message box does.
 
 Only one copy can own the SteamVR overlay, so **quit your real copy before starting a test
 copy**, and quit the test copy before starting the real one again.
