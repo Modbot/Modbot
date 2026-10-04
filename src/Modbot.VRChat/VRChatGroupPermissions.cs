@@ -43,6 +43,7 @@ public static class VRChatGroupPermissions
     public const string ManageAnnouncement = "group-announcement-manage";
     public const string ManageRoles = "group-roles-manage";
     public const string ManageGalleries = "group-galleries-manage";
+    public const string CreateInstanceAnnouncement = "group-instance-announcement-create";
 
     private static readonly Dictionary<string, string> Needed = new(StringComparer.Ordinal)
     {
@@ -73,6 +74,10 @@ public static class VRChatGroupPermissions
         ["GetGroupInvites"] = ManageInvites,
         ["DeleteGroupInvite"] = ManageInvites,
         ["DeleteGroupGalleryImage"] = ManageGalleries,
+
+        // A message to everyone in a group instance. VRChat answered 403 "You don't have permission
+        // to send announcements to this instance" to an account without this one (probe, 2026-10-03).
+        ["AnnounceInstance"] = CreateInstanceAnnouncement,
     };
 
     /// <summary>
@@ -105,6 +110,7 @@ public static class VRChatGroupPermissions
         [ManageAnnouncement] = "Manage Group Announcement",
         [ManageRoles] = "Manage Group Roles",
         [ManageGalleries] = "Manage Group Galleries",
+        [CreateInstanceAnnouncement] = "Create Instance Announcement",
     };
 
     /// <summary>

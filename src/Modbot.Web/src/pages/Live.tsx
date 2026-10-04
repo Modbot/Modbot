@@ -6,7 +6,11 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, ApiError, type LivePerson, type LiveInstance, type LiveTally, type LiveView, type LiveVoiceChannel } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type LivePerson, type LiveInstance, type LiveTally, type LiveView, type LiveVoiceChannel } from '@/lib/api'
+import { AnnounceDialog, InstanceAnnouncements } from '@/components/live/Announcements'
+import { Button } from '@/components/ui/button'
+import { announcementsApi, type Announcement, type AnnouncementList } from '@/lib/announcements'
+import { can } from '@/lib/permissions'
 import { PRESENCE_KINDS, INSTANCE_KINDS, VOICE_GAP_MS, VOICE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
 import { ago, timeOfDay } from '@/lib/format'
 import { arrivedWithin, LIT_MS, NEW_MS, pinned, tallyCounts } from '@/lib/livePeople'
@@ -50,8 +54,9 @@ const STREAM_TONE: Record<LiveState, Tone> = {
  * the tab is visible. The stream itself stops while the tab is hidden, so a tab left open in the
  * background costs the server nothing.
  */
-export function Live() {
+export function Live({ me }: { me: CurrentUser | null }) {
   const [data, setData] = useState<LiveView | null>(null)
+  const [announcements, setAnnouncements] = useState<AnnouncementList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const settle = useRef<number | undefined>(undefined)
 
@@ -65,7 +70,18 @@ export function Live() {
     return () => window.clearInterval(tick)
   }, [])
 
+  // The announcements are read beside the page and never hold it up: a failed read leaves the
+  // cards without them.
+  const loadAnnouncements = useCallback(() => {
+    if (!can(me, 'ViewLiveInstances')) return
+    announcementsApi
+      .list()
+      .then(setAnnouncements)
+      .catch(() => undefined)
+  }, [me])
+
   const load = useCallback(() => {
+    loadAnnouncements()
     return api
       .live()
       .then((view) => {
@@ -80,7 +96,7 @@ export function Live() {
             : 'Could not load live instances.',
         )
       })
-  }, [])
+  }, [loadAnnouncements])
 
   const voiceChanged = useMemo(() => throttle(load, VOICE_GAP_MS), [load])
 
@@ -164,7 +180,14 @@ export function Live() {
         ) : (
           <PanelGrid className="desk:xl:grid-cols-2">
             {data.instances.map((instance) => (
-              <InstanceCard key={instance.id} instance={instance} now={serverNow} />
+              <InstanceCard
+                key={instance.id}
+                instance={instance}
+                now={serverNow}
+                announcements={announcements?.announcements.filter((a) => a.instanceId === instance.id) ?? []}
+                canSend={(announcements?.canSend ?? false) && can(me, 'AnnounceInInstances')}
+                onAnnounced={loadAnnouncements}
+              />
             ))}
           </PanelGrid>
         )}
@@ -242,7 +265,20 @@ function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
   )
 }
 
-function InstanceCard({ instance, now }: { instance: LiveInstance; now: number }) {
+function InstanceCard({
+  instance,
+  now,
+  announcements,
+  canSend,
+  onAnnounced,
+}: {
+  instance: LiveInstance
+  now: number
+  announcements: Announcement[]
+  canSend: boolean
+  onAnnounced: () => void
+}) {
+  const [announcing, setAnnouncing] = useState(false)
   const watched = instance.watching.length > 0
   const reporting = new Set(instance.watching.map((w) => w.userId))
   const tile = {
@@ -280,6 +316,24 @@ function InstanceCard({ instance, now }: { instance: LiveInstance; now: number }
           )}
         </div>
       </div>
+
+      {canSend && (
+        <div className="flex border-t border-t-(length:--hairline) px-(--panel-pad) py-1.5">
+          <Button size="sm" variant="outline" onClick={() => setAnnouncing(true)}>
+            Announce
+          </Button>
+        </div>
+      )}
+      <InstanceAnnouncements rows={announcements} canSend={canSend} onChanged={onAnnounced} />
+      {canSend && (
+        <AnnounceDialog
+          instanceId={instance.id}
+          instanceLabel={[instance.worldName ?? instance.worldId, instance.instanceName ?? instance.vrChatInstanceId].filter(Boolean).join(' · ')}
+          open={announcing}
+          onOpenChange={setAnnouncing}
+          onDone={onAnnounced}
+        />
+      )}
     </Card>
   )
 }

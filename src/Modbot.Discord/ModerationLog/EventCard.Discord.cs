@@ -35,6 +35,10 @@ public static partial class EventCard
         FactType.GroupRoleEdited,
         FactType.GroupRoleRemoved,
         FactType.GroupGalleryImageRemoved,
+        FactType.GroupAnnouncementScheduled,
+        FactType.GroupAnnouncementCancelled,
+        FactType.GroupAnnouncementSent,
+        FactType.GroupAnnouncementFailed,
     };
 
     /// <summary>

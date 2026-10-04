@@ -535,6 +535,11 @@ public static class ApiSurface
         // only, so a page that refreshes every five seconds costs no VRChat budget.
         app.MapLive();
 
+        // Messages to everyone in one of the group's open instances, sent now or at a time, from
+        // the Live page. Send now is one request to VRChat; a scheduled one goes from the
+        // calendar's loop. The sender and the fact log resolve optionally, like the writes below.
+        Features.Announcements.AnnouncementEndpoints.MapAnnouncements(app);
+
         // Now: the front page's own data, when each person last looked and what happened since.
         // The rest of the page is read from the endpoints above it, under their own permissions.
         app.MapNow();

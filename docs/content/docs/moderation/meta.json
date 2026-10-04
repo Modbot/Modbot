@@ -2,6 +2,7 @@
   "title": "Moderation",
   "pages": [
     "live",
+    "announcements",
     "calendar",
     "google-calendar",
     "world-lists",

@@ -206,6 +206,9 @@ public static class VRChatRateLimits
     /// <summary>Opening instances for calendar events.</summary>
     public const string InstancesCreateLane = "instances.create";
 
+    /// <summary>Sending a message to everyone in an instance (<see cref="VRChatEndpointClass.InstancesAnnounce"/>).</summary>
+    public const string InstancesAnnounceLane = "instances.announce";
+
     /// <summary>
     /// Uploading pictures (<see cref="VRChatEndpointClass.FilesUpload"/>). Its own queue, because an
     /// upload waits up to a minute for its turn and must not hold a calendar write up while it does.
@@ -454,6 +457,16 @@ public static class VRChatRateLimits
             // and a new description can wait a moment behind a sweep where a ban cannot.
             [VRChatEndpointClass.GroupsEdit] = new(
                 VRChatEndpointClass.GroupsEdit, GroupsEditLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
+
+            // NOT MEASURED -- a message to everyone in one group instance, POST
+            // /instances/{location}/announce. One per ten seconds: a placeholder the user approved on
+            // 2026-10-03, sent only when somebody presses Send or at the time somebody scheduled.
+            // Declared the way groups.edit is: its own lane, scoped to the group, on the global
+            // backstop below moderation. A 429 cold stops announcements alone, never retried.
+            [VRChatEndpointClass.InstancesAnnounce] = new(
+                VRChatEndpointClass.InstancesAnnounce, InstancesAnnounceLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
 

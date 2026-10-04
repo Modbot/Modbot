@@ -576,6 +576,31 @@ public static class FactType
     /// </summary>
     public const string GroupGalleryImageRemoved = "modbot.group.gallery.image.delete";
 
+    // ── Messages to everyone in a group instance ───────────────────────────────────────────
+    //
+    // The subject is the managed group, as on the group page's own writes. The actor is the Modbot
+    // account that pressed Send, Schedule or Cancel; a scheduled one sent at its time has none and
+    // carries who scheduled it in `scheduledBy`. Payload: the announcement's id, Modbot's instance
+    // id, the location it went to, the title and message. VRChat's own audit log records an
+    // accepted one as `vrchat.group.instance.announcement` under Modbot's account. Moderation
+    // retention, as every unprefixed `modbot.group.` type.
+
+    /// <summary>Somebody scheduled an announcement. Payload adds <c>sendAt</c> and <c>timeZone</c>.</summary>
+    public const string GroupAnnouncementScheduled = "modbot.group.announcement.schedule";
+
+    /// <summary>Somebody called off a scheduled announcement before it went.</summary>
+    public const string GroupAnnouncementCancelled = "modbot.group.announcement.cancel";
+
+    /// <summary>VRChat accepted an announcement.</summary>
+    public const string GroupAnnouncementSent = "modbot.group.announcement.send";
+
+    /// <summary>
+    /// An announcement did not go out. Payload adds <c>state</c> (<c>refused</c> or <c>failed</c>),
+    /// VRChat's <c>status</c> when it answered, its words or Modbot's in <c>error</c>, and the
+    /// group permission it said was missing.
+    /// </summary>
+    public const string GroupAnnouncementFailed = "modbot.group.announcement.fail";
+
     /// <summary>
     /// A group instance ended and no moderator closed it by hand. Written by Modbot, never by VRChat:
     /// VRChat writes <see cref="GroupInstanceClosed"/> only for a close by hand, so an instance that

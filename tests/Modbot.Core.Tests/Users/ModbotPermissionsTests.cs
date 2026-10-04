@@ -43,6 +43,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 51, (long)ModbotPermissions.ManageJoinGate);
         Assert.Equal(1L << 52, (long)ModbotPermissions.ViewPosts);
         Assert.Equal(1L << 53, (long)ModbotPermissions.ManagePosts);
+        Assert.Equal(1L << 54, (long)ModbotPermissions.AnnounceInInstances);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }

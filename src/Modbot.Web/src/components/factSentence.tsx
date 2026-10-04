@@ -2070,6 +2070,38 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Messages to everyone in a group instance ────────────────────────────────────────────────
+  'modbot.group.announcement.schedule': (p) => (
+    <>
+      {p.actor} scheduled the instance announcement<Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.group.announcement.cancel': (p) => (
+    <>
+      {p.actor} cancelled the instance announcement<Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.group.announcement.send': (p) =>
+    p.hasActor ? (
+      <>
+        {p.actor} sent the instance announcement<Quoted value={p.text('title')} />.
+      </>
+    ) : (
+      <>
+        Sent the instance announcement<Quoted value={p.text('title')} />.
+      </>
+    ),
+
+  'modbot.group.announcement.fail': (p) => (
+    <>
+      The instance announcement<Quoted value={p.text('title')} />{' '}
+      {p.text('state') === 'refused' ? 'was refused by VRChat' : 'was not sent'}
+      {p.text('error') ? <> ({p.text('error')})</> : null}.
+    </>
+  ),
+
   'modbot.group.role.create': (p) => {
     const permissions = p.entry.data?.['permissions']
     const count = Array.isArray(permissions) ? permissions.length : null

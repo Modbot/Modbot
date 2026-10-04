@@ -1,0 +1,59 @@
+---
+title: Instance announcements
+description: Send a message that pops up for everyone in one of your group's open instances, now or at a time you pick.
+---
+
+An instance announcement is a message VRChat shows to **everyone in that instance** at that moment:
+a pop-up in the game with a title and a message. Members, guests and anybody else standing there
+all see it. It goes out from Modbot's VRChat account, in your group's name. Nobody outside the
+instance sees it, and it is not a group post.
+
+This is not the Discord card Modbot can post when an instance opens; that one is set up under
+**Settings → Discord**.
+
+## Sending one
+
+On the [**Live**](/moderation/live) page, every open instance's card has an **Announce** button.
+
+1. Press **Announce** on the instance's card.
+2. Write a **Title** (up to 100 characters) and a **Message** (up to 500).
+3. Pick **Now** or **Later**. For **Later**, pick the date, time and time zone.
+4. Press **Send** (or **Schedule**).
+
+**Now** asks VRChat straight away and the form says what VRChat answered. **Later** is sent once,
+within about fifteen seconds of its time.
+
+What is sent is plain text on one line: a line break becomes a space, and other control characters
+are left out. Pictures are not sent.
+
+## What each card lists
+
+Under the card, **Announcements** lists the ones sent or scheduled to that instance, newest first:
+
+| Status | Means |
+|---|---|
+| **Scheduled** | Waiting for its time. **Cancel** calls it off. |
+| **Sending** | On its way. |
+| **Sent** | VRChat took it. |
+| **Refused** | VRChat said no. Its own words and its status are shown. |
+| **Failed** | Not sent: the instance closed, it was more than an hour late, VRChat was too busy, or VRChat gave no clear answer (then it may have gone out). |
+| **Cancelled** | Called off before it went. |
+
+Modbot never sends an announcement again by itself, whatever happened. To try again, send a new
+one. Every announcement, and what happened to it, is written to the
+[audit log](/moderation/audit-log) with who sent or scheduled it.
+
+## What it needs
+
+- [**Announce in instances**](/accounts/roles-and-permissions#announce-in-instances), and **See live
+  instances** to open the Live page.
+- Modbot's VRChat account needs **Create Instance Announcement** in your group's roles on VRChat.
+  When Modbot knows the account lacks it, it says so and sends nothing.
+- It is not yet known whether VRChat wants Modbot's account to be in the instance. If VRChat
+  refuses for that reason, the card shows its refusal.
+
+## Rate limit
+
+One announcement every ten seconds. This number is a placeholder: nobody has measured VRChat's real
+limit for this call yet. If VRChat answers "too many requests", Modbot stops sending announcements
+for a while and does not try that one again.

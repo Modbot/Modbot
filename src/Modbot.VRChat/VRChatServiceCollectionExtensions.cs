@@ -439,6 +439,17 @@ public static class VRChatServiceCollectionExtensions
         services.AddSingleton<Core.Posts.IVRChatPostActions>(
             provider => new Posts.VRChatPostActions(provider.GetRequiredService<GroupPage.GroupPosts>()));
 
+        // Messages to everyone in a group instance: Send now from the Live page, and the scheduled
+        // ones from the calendar's service in a loop of its own.
+        services.AddScoped<Announcements.InstanceAnnounce>(provider => new Announcements.InstanceAnnounce(
+            provider.GetRequiredService<IVRChatGate>()));
+        services.AddScoped<Announcements.AnnouncementSender>(provider => new Announcements.AnnouncementSender(
+            provider.GetRequiredService<Announcements.InstanceAnnounce>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>()));
+
         services.AddHostedService(provider => new Calendar.CalendarService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IDelayScheduler>()));

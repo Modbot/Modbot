@@ -445,6 +445,20 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManagePosts = 1L << 53,
 
+    // --- Instance announcements. Bit 54. ---
+
+    /// <summary>
+    /// Send a message to everyone in one of the group's open instances, now or at a time, and call
+    /// off one that has not gone yet.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManagePosts"/> or <see cref="ManageGroupPosts"/>:
+    /// a post is read by whoever opens it, and this pops up in front of every person standing in
+    /// the instance, in the group's name. Seeing the instances and the announcements needs
+    /// <see cref="ViewLiveInstances"/>. Not in the built-in roles; Administrator holds it.
+    /// </remarks>
+    AnnounceInInstances = 1L << 54,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

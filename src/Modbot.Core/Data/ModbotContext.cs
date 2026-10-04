@@ -310,6 +310,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each site a post goes to, and how it went there.</summary>
     public DbSet<PostDestination> PostDestinations => Set<PostDestination>();
 
+    /// <summary>Messages to everyone in one of the group's instances, sent now or at a time.</summary>
+    public DbSet<VRChatAnnouncement> VRChatAnnouncements => Set<VRChatAnnouncement>();
+
     /// <summary>Dates of repeating events cancelled or changed on their own (calendar design §2.2).</summary>
     public DbSet<CalendarDateChange> CalendarDateChanges => Set<CalendarDateChange>();
 
@@ -2400,6 +2403,34 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // What each site's sender picks up: waiting, checking, sending.
             entity.HasIndex(e => new { e.Network, e.State }).HasDatabaseName("ix_post_destination_network_state");
+        });
+
+        // Messages to everyone in one group instance. The instance is not a foreign key: an
+        // instance row is never deleted while it matters, and the record of what was sent must
+        // outlive it either way.
+        builder.Entity<VRChatAnnouncement>(entity =>
+        {
+            entity.ToTable("vrchat_announcement");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Location).HasColumnType("text");
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.Title).HasMaxLength(VRChatAnnouncement.MaxTitleLength);
+            entity.Property(e => e.Message).HasMaxLength(VRChatAnnouncement.MaxMessageLength);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.TimeZone).HasMaxLength(64);
+            entity.Property(e => e.Error).HasMaxLength(1024);
+            entity.Property(e => e.MissingPermission).HasMaxLength(128);
+
+            // Raised by every write, the sender's claim included.
+            entity.Property(e => e.Version).IsConcurrencyToken();
+
+            // What the sender looks for each pass.
+            entity.HasIndex(e => new { e.State, e.SendAt }).HasDatabaseName("ix_vrchat_announcement_state_send_at");
+
+            // The Live page's list for each instance.
+            entity.HasIndex(e => new { e.InstanceId, e.CreatedAt }).HasDatabaseName("ix_vrchat_announcement_instance_created_at");
         });
 
         builder.Entity<CalendarEvent>(entity =>

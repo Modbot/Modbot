@@ -101,6 +101,24 @@ public static class VRChatEndpointClass
     public const string InstancesCreate = "instances.create";
 
     /// <summary>
+    /// Sending a message to everyone in one group instance -- <c>POST /instances/{location}/announce</c>,
+    /// the pop-up VRChat shows in the instance (instance announcements).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> One request every ten seconds, a placeholder the user approved
+    /// on 2026-10-03 in answer to spec 4.3.4's standing question, not a number read off a neighbour.
+    /// Only ever sent when a person presses Send, or once at the time a person scheduled.
+    /// </para>
+    /// <para>
+    /// Its own lane and class, so a 429 here stops announcements and nothing else. Scoped to the
+    /// group and on the <see cref="Global"/> backstop, like <see cref="GroupsEdit"/>: below
+    /// moderation. Never retried on a 429 (spec 4.3.1).
+    /// </para>
+    /// </remarks>
+    public const string InstancesAnnounce = "instances.announce";
+
+    /// <summary>
     /// Creating, changing and deleting the group's VRChat calendar events --
     /// <c>POST/PUT/DELETE /calendar/{groupId}/…</c> (calendar design §3.1).
     /// </summary>

@@ -17481,6 +17481,225 @@
         ]
       }
     },
+    "/api/announcements": {
+      "get": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "List instance announcements",
+        "description": "The messages sent or scheduled to the group's instances that are still open, newest first, at most 200, each with how it went. Read from Modbot's own tables; nothing here calls VRChat.\n\nNeeds the `ViewLiveInstances` permission.",
+        "operationId": "ListAnnouncements",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Send instance announcement",
+        "description": "Sends a message to everyone in one of the group's open instances: the pop-up VRChat shows in the instance. `title` (at most 100 characters) and `message` (at most 500) are required, as plain text on one line: line breaks become spaces and other control characters are dropped. `when` is `now`, which asks VRChat in this request and answers with how it went (`sent`, `refused` with VRChat's status and words, or `failed`), or `later` with `sendAt` in `timeZone`, which Modbot sends once at that time. Never retried. Modbot's VRChat account needs Create Instance Announcement in the group; when the last group read says it lacks it, this answers 409 with `missingGroupPermission` and nothing is saved. The rate limit is a placeholder nobody has measured: one request every ten seconds.\n\nNeeds the `ViewLiveInstances` and `AnnounceInInstances` permissions.",
+        "operationId": "CreateAnnouncement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/announcements/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Announcements"
+        ],
+        "summary": "Cancel instance announcement",
+        "description": "Calls off a scheduled announcement before it goes. Refused (409) once it is being sent or has finished.\n\nNeeds the `ViewLiveInstances` and `AnnounceInInstances` permissions.",
+        "operationId": "CancelAnnouncement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/now/look": {
       "post": {
         "tags": [
@@ -32392,6 +32611,145 @@
           "presenceFactRetentionDays": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "AnnouncementList": {
+        "required": [
+          "announcements",
+          "canSend"
+        ],
+        "type": "object",
+        "properties": {
+          "announcements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnnouncementView"
+            }
+          },
+          "canSend": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AnnouncementRequest": {
+        "required": [
+          "instanceId",
+          "title",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "when": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sendAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AnnouncementView": {
+        "required": [
+          "id",
+          "instanceId",
+          "title",
+          "message",
+          "state",
+          "sendAt",
+          "timeZone",
+          "sentAt",
+          "status",
+          "error",
+          "missingGroupPermission",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "instanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "sendAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "missingGroupPermission": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MissingGroupPermission"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -55973,6 +56331,10 @@
       "name": "Search",
       "description": "Search for people and worlds by name or id.",
       "x-displayName": "Search"
+    },
+    {
+      "name": "Announcements",
+      "x-displayName": "Announcements"
     },
     {
       "name": "Briefs",
