@@ -45,6 +45,23 @@ public class KnownPeopleTests
     }
 
     [Fact]
+    public void NobodyIsHeldPastTheirTimeInALongSession()
+    {
+        // Let go of on the next note or look, not kept until the most is reached.
+        var known = new KnownPeople(_clock);
+        known.Note("usr_rin", new PersonInfo(TrustRank.User, null));
+        known.Note("usr_kai", new PersonInfo(TrustRank.User, null));
+
+        _clock.Advance(KnownPeople.Keep);
+        known.Note("usr_ana", new PersonInfo(TrustRank.User, null));
+        Assert.Equal(1, known.Count);
+
+        _clock.Advance(KnownPeople.Keep);
+        Assert.Null(known.InfoOf("usr_kai"));
+        Assert.Equal(0, known.Count);
+    }
+
+    [Fact]
     public void SomebodyStillHereNeverRunsOut()
     {
         // Each roster read notes them again.

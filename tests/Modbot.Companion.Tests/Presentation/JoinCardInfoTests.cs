@@ -326,10 +326,40 @@ public class JoinCardInfoTests
     public void ACardFilledInAlreadyIsNotFilledInAgain()
     {
         var popUps = new PopUps(_clock);
-        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, Rank(TrustRank.KnownUser));
+        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, new PersonInfo(TrustRank.KnownUser, true));
         popUps.Show(card);
 
+        EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, false));
+
+        Assert.Equal(card, Assert.Single(popUps.Current()));
+    }
+
+    [Fact]
+    public void AMissingHalfIsFilledInAndTheOtherKept()
+    {
+        // A flagged card that went up with the rank the alert carried still gets its chip once the
+        // server has read the profile, and a card that had the chip still gets its rank.
+        var popUps = new PopUps(_clock);
+        popUps.Show(new PopUp("alert:a1", "Flagged user joined", "Rin", "kicked before", PopUpTone.Flagged, TrustRank.KnownUser, SubjectId: "usr_rin"));
+        popUps.Show(new PopUp("left:usr_kai", "Left", "Kai", null, PopUpTone.Plain, EighteenPlus: true, SubjectId: "usr_kai"));
+
         EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
+
+        var up = popUps.Current();
+        Assert.Equal(TrustRank.TrustedUser, up[0].Rank);
+        Assert.True(up[0].EighteenPlus);
+        Assert.Equal(TrustRank.KnownUser, up[1].Rank);
+        Assert.True(up[1].EighteenPlus);
+    }
+
+    [Fact]
+    public void AnAnswerOfNoMarkLeavesARankedCardAsItWas()
+    {
+        var popUps = new PopUps(_clock);
+        var card = new PopUp("left:usr_rin", "Left", "Rin", null, PopUpTone.Plain, TrustRank.User, SubjectId: "usr_rin");
+        popUps.Show(card);
+
+        EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, false));
 
         Assert.Equal(card, Assert.Single(popUps.Current()));
     }

@@ -33,7 +33,7 @@ public sealed class KnownPeople
 
     public KnownPeople(IModbotClock clock) => _clock = clock;
 
-    /// <summary>How many people are remembered right now, out of date or not.</summary>
+    /// <summary>How many people are remembered right now, as of the last note or look.</summary>
     public int Count
     {
         get
@@ -53,9 +53,7 @@ public sealed class KnownPeople
         {
             var now = _clock.UtcNow;
             _known[subjectId] = new Seen(info, now);
-
-            if (_known.Count > MostKept)
-                Trim(now);
+            Trim(now);
         }
     }
 
@@ -64,11 +62,8 @@ public sealed class KnownPeople
     {
         lock (_gate)
         {
-            if (!_known.TryGetValue(subjectId, out var seen))
-                return null;
-
-            var age = _clock.UtcNow - seen.At;
-            return age < Keep && age > -Keep ? seen.Info : null;
+            Trim(_clock.UtcNow);
+            return _known.TryGetValue(subjectId, out var seen) ? seen.Info : null;
         }
     }
 
@@ -79,10 +74,22 @@ public sealed class KnownPeople
             _known.Clear();
     }
 
+    /// <summary>
+    /// Lets go of everyone past their time, on every look, so nobody is held longer than
+    /// <see cref="Keep"/>; then of the oldest, past <see cref="MostKept"/>. A clock set back by
+    /// more than <see cref="Keep"/> counts as past their time too.
+    /// </summary>
     private void Trim(DateTimeOffset now)
     {
-        foreach (var old in _known.Where(k => now - k.Value.At >= Keep).Select(k => k.Key).ToList())
-            _known.Remove(old);
+        List<string>? old = null;
+        foreach (var (id, seen) in _known)
+        {
+            if (now - seen.At >= Keep || seen.At - now >= Keep)
+                (old ??= []).Add(id);
+        }
+
+        foreach (var id in old ?? [])
+            _known.Remove(id);
 
         if (_known.Count <= MostKept)
             return;

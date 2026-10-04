@@ -232,6 +232,10 @@ public sealed class OverlayDriver : IDisposable
         server.Cache.Clear();
         server.Link.Dispose();
         _servers.Remove(server);
+
+        // And what it said about each person. Only one server covers an instance, but forgetting
+        // everyone costs nothing: the next roster read notes them again.
+        _known.Forget();
     }
 
     /// <summary>Each paired server's live link, in one word, for the Servers card.</summary>

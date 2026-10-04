@@ -232,15 +232,21 @@ public sealed class EventNotifier : IObservationSink
         ArgumentNullException.ThrowIfNull(popUps);
         ArgumentNullException.ThrowIfNull(infoOf);
 
+        // Each half on its own: a flagged card can go up with the rank the alert carried and get
+        // its 18+ chip once the server has read the profile. What is already on a card stays.
         popUps.Amend(card =>
         {
-            if (card.HasPersonInfo || card.SubjectId is not { } who)
+            if ((card.Rank is not null && card.EighteenPlus) || card.SubjectId is not { } who)
                 return card;
 
-            var info = infoOf(who);
-            return info is null
-                ? card
-                : card with { Rank = info.Rank, EighteenPlus = info.EighteenPlus == true };
+            if (infoOf(who) is not { } info)
+                return card;
+
+            return card with
+            {
+                Rank = card.Rank ?? info.Rank,
+                EighteenPlus = card.EighteenPlus || info.EighteenPlus == true,
+            };
         });
     }
 }

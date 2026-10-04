@@ -272,6 +272,28 @@ public class OverlayDriverScreenTests
     }
 
     [Fact]
+    public async Task UnpairingForgetsWhoWasKnown()
+    {
+        var (driver, _, reads, _, clock) = Build();
+        reads.Contexts.Clear();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(
+            Instance,
+            [new RosterMember("usr_rin", "Rin", RosterStanding.Member, 0, [], Modbot.Core.Users.TrustRank.KnownUser, true)])));
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(Instance, [])));
+
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        clock.Advance(OverlayDriver.ContextRefreshInterval);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(driver.InfoOf("usr_rin"));
+
+        driver.Remove("cats");
+
+        // Paired again: nothing it said before the unpairing is still held.
+        driver.Add(new ServerPairing("cats", new Uri("https://cats.example"), "token", Group), "Cat Lounge");
+        Assert.Null(driver.InfoOf("usr_rin"));
+    }
+
+    [Fact]
     public async Task AProblemIsSaidOncePerProblemRatherThanOncePerTick()
     {
         var (driver, presenter, _, popUps, _) = Build();
