@@ -178,10 +178,11 @@ public sealed class EventNotifier : IObservationSink
     /// <remarks>
     /// The heading names what happened and the large line names who, which is the shape the
     /// flagged-join card already has. The id is the kind and the person, so the same person
-    /// arriving twice restarts one card rather than stacking two. A join card's small line is
-    /// <see cref="PersonInfo.Line"/>: the trust rank in VRChat's own words, then "18+" when they
-    /// carry Modbot's mark. Somebody without the mark gets no word for it, the way the Members list
-    /// shows the badge only on those who have it.
+    /// arriving twice restarts one card rather than stacking two. A join card carries the trust
+    /// rank and Modbot's 18+ mark as themselves, not as words in <see cref="PopUp.Detail"/>, so the
+    /// card can draw them the way the roster row does: a dot in the rank's colour and a green chip.
+    /// Somebody without the mark gets no chip, the way the Members list shows the badge only on
+    /// those who have it.
     /// </remarks>
     public static PopUp Card(ObservedPresence observation, NotificationKind kind, PersonInfo? info = null)
     {
@@ -201,19 +202,17 @@ public sealed class EventNotifier : IObservationSink
                 PopUpTone.Problem);
         }
 
-        var detail = kind switch
-        {
-            NotificationKind.ChangedAvatar => observation.AvatarName,
-            NotificationKind.Joined => info?.Line(),
-            _ => null,
-        };
+        var detail = kind is NotificationKind.ChangedAvatar ? observation.AvatarName : null;
+        var joined = kind is NotificationKind.Joined ? info : null;
 
         return new PopUp(
             $"{NotificationFilters.Word(kind)}:{observation.SubjectId}",
             NotificationFilters.Label(kind),
             who,
             detail,
-            PopUpTone.Plain);
+            PopUpTone.Plain,
+            joined?.Rank,
+            joined?.EighteenPlus == true);
     }
 
     /// <summary>
@@ -234,10 +233,14 @@ public sealed class EventNotifier : IObservationSink
         var prefix = $"{NotificationFilters.Word(NotificationKind.Joined)}:";
 
         popUps.Amend(card =>
-            card.Detail is null
-            && card.Id.StartsWith(prefix, StringComparison.Ordinal)
-            && infoOf(card.Id[prefix.Length..])?.Line() is { } line
-                ? card with { Detail = line }
-                : card);
+        {
+            if (card.HasPersonInfo || !card.Id.StartsWith(prefix, StringComparison.Ordinal))
+                return card;
+
+            var info = infoOf(card.Id[prefix.Length..]);
+            return info is null
+                ? card
+                : card with { Rank = info.Rank, EighteenPlus = info.EighteenPlus == true };
+        });
     }
 }

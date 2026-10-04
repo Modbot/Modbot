@@ -64,6 +64,20 @@ public static class NotificationView
         if (popUp.Detail is { Length: > 0 } detail)
             lines.Children.Add(Text(detail, t.Density.TextSmall, Edge(popUp.Tone, t)));
 
+        // Who just arrived: their rank and 18+ mark, drawn as the roster row draws them.
+        if (popUp.HasPersonInfo)
+        {
+            var marks = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+            if (popUp.Rank is { } rank)
+                marks.Children.Add(PersonMarks.RankLine(rank, t.Density.TextSmall, t));
+
+            if (popUp.EighteenPlus)
+                marks.Children.Add(PersonMarks.EighteenPlusChip(t));
+
+            lines.Children.Add(marks);
+        }
+
         return new Border
         {
             Background = t.SurfaceBrush,

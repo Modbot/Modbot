@@ -33,29 +33,36 @@ public class JoinCardInfoTests
         var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, Rank(TrustRank.TrustedUser));
 
         Assert.Equal("Rin", card.Body);
-        Assert.Equal("Trusted User", card.Detail);
+        Assert.Equal(TrustRank.TrustedUser, card.Rank);
+        Assert.False(card.EighteenPlus);
+        Assert.Null(card.Detail);
     }
 
     [Fact]
-    public void AJoinCardSaysEighteenPlusAfterTheRank()
+    public void AJoinCardCarriesTheRankAndTheMarkAsThemselves()
     {
         var card = EventNotifier.Card(
             Seen(PresenceKind.Joined, "usr_rin", "Rin"),
             NotificationKind.Joined,
             new PersonInfo(TrustRank.TrustedUser, true));
 
-        Assert.Equal("Trusted User · 18+", card.Detail);
+        // Kept as what they are, not flattened into a line of text, so the card can draw the
+        // rank's colour and the green chip.
+        Assert.Equal(TrustRank.TrustedUser, card.Rank);
+        Assert.True(card.EighteenPlus);
+        Assert.Null(card.Detail);
     }
 
     [Fact]
-    public void SomebodyWithoutTheMarkGetsNoWordForIt()
+    public void SomebodyWithoutTheMarkGetsNoChip()
     {
         var card = EventNotifier.Card(
             Seen(PresenceKind.Joined, "usr_rin", "Rin"),
             NotificationKind.Joined,
             new PersonInfo(TrustRank.NewUser, false));
 
-        Assert.Equal("New User", card.Detail);
+        Assert.Equal(TrustRank.NewUser, card.Rank);
+        Assert.False(card.EighteenPlus);
     }
 
     [Fact]
@@ -66,14 +73,20 @@ public class JoinCardInfoTests
             NotificationKind.Joined,
             new PersonInfo(null, true));
 
-        Assert.Equal("18+", card.Detail);
+        Assert.Null(card.Rank);
+        Assert.True(card.EighteenPlus);
     }
 
     [Fact]
-    public void AJoinCardWithNothingKnownYetHasNoSmallLine()
+    public void AJoinCardWithNothingKnownYetHasNoMarks()
     {
-        Assert.Null(EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined).Detail);
-        Assert.Null(EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, new PersonInfo(null, false)).Detail);
+        var unknown = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined);
+        var noMark = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, new PersonInfo(null, false));
+
+        Assert.False(unknown.HasPersonInfo);
+        Assert.Null(unknown.Detail);
+        Assert.False(noMark.HasPersonInfo);
+        Assert.Null(noMark.Detail);
     }
 
     [Fact]
@@ -81,6 +94,7 @@ public class JoinCardInfoTests
     {
         var card = EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, new PersonInfo(TrustRank.TrustedUser, true));
 
+        Assert.False(card.HasPersonInfo);
         Assert.Null(card.Detail);
     }
 
@@ -103,8 +117,9 @@ public class JoinCardInfoTests
 
         notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin"), Seen(PresenceKind.Joined, "usr_kai", "Kai")]);
 
-        Assert.Equal("Known User · 18+", shown[0].Detail);
-        Assert.Null(shown[1].Detail);
+        Assert.Equal(TrustRank.KnownUser, shown[0].Rank);
+        Assert.True(shown[0].EighteenPlus);
+        Assert.False(shown[1].HasPersonInfo);
     }
 
     [Fact]
@@ -116,7 +131,10 @@ public class JoinCardInfoTests
         _clock.Advance(TimeSpan.FromSeconds(4));
         EventNotifier.AddInfo(popUps, id => id == "usr_rin" ? new PersonInfo(TrustRank.User, true) : null);
 
-        Assert.Equal("User · 18+", Assert.Single(popUps.Current()).Detail);
+        var card = Assert.Single(popUps.Current());
+        Assert.Equal(TrustRank.User, card.Rank);
+        Assert.True(card.EighteenPlus);
+        Assert.Null(card.Detail);
 
         // Filling it in kept its time: it still goes when it would have.
         _clock.Advance(TimeSpan.FromSeconds(2));
@@ -173,7 +191,9 @@ public class JoinCardInfoTests
         waits.Info["usr_rin"] = new PersonInfo(TrustRank.TrustedUser, true);
         notifier.TellWaiting();
 
-        Assert.Equal("Trusted User · 18+", Assert.Single(waits.Shown).Detail);
+        var card = Assert.Single(waits.Shown);
+        Assert.Equal(TrustRank.TrustedUser, card.Rank);
+        Assert.True(card.EighteenPlus);
         Assert.Equal(NotificationKind.Joined, Assert.Single(waits.Sounds));
         Assert.Equal(0, notifier.Waiting);
     }
@@ -190,7 +210,7 @@ public class JoinCardInfoTests
         notifier.TellWaiting();
 
         var card = Assert.Single(waits.Shown);
-        Assert.Null(card.Detail);
+        Assert.False(card.HasPersonInfo);
         Assert.Equal(0, notifier.Waiting);
     }
 
@@ -211,7 +231,7 @@ public class JoinCardInfoTests
 
         var card = Assert.Single(waits.Shown);
         Assert.Equal("Rin", card.Body);
-        Assert.Null(card.Detail);
+        Assert.False(card.HasPersonInfo);
         Assert.Single(waits.Sounds);
     }
 
@@ -223,7 +243,7 @@ public class JoinCardInfoTests
 
         Waiting(waits).Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
 
-        Assert.Equal("User", Assert.Single(waits.Shown).Detail);
+        Assert.Equal(TrustRank.User, Assert.Single(waits.Shown).Rank);
     }
 
     [Fact]
@@ -249,13 +269,42 @@ public class JoinCardInfoTests
     }
 
     [Fact]
+    public void ACardFilledInAlreadyIsNotFilledInAgain()
+    {
+        var popUps = new PopUps(_clock);
+        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, Rank(TrustRank.KnownUser));
+        popUps.Show(card);
+
+        EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
+
+        Assert.Equal(card, Assert.Single(popUps.Current()));
+    }
+
+    [Fact]
+    public void AnAvatarChangeKeepsItsSmallLineAndGetsNoMarks()
+    {
+        var popUps = new PopUps(_clock);
+        var changed = EventNotifier.Card(
+            Seen(PresenceKind.AvatarChanged, "usr_rin", "Rin") with { AvatarName = "Tall Cat" },
+            NotificationKind.ChangedAvatar,
+            new PersonInfo(TrustRank.TrustedUser, true));
+        popUps.Show(changed);
+
+        EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
+
+        var card = Assert.Single(popUps.Current());
+        Assert.Equal("Tall Cat", card.Detail);
+        Assert.False(card.HasPersonInfo);
+    }
+
+    [Fact]
     public void AnAmendThatChangesTheIdIsIgnored()
     {
         var popUps = new PopUps(_clock);
         var card = new PopUp("joined:usr_rin", "Joined", "Rin", null, PopUpTone.Plain);
         popUps.Show(card);
 
-        popUps.Amend(c => c with { Id = "something else", Detail = "x" });
+        popUps.Amend(c => c with { Id = "something else", Rank = TrustRank.User });
 
         Assert.Equal(card, Assert.Single(popUps.Current()));
     }

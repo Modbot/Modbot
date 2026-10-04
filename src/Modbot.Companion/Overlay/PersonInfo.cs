@@ -17,22 +17,4 @@ public sealed record PersonInfo(TrustRank? Rank, bool? EighteenPlus)
     /// <summary>The info, or null when the server has said neither.</summary>
     public static PersonInfo? Of(TrustRank? rank, bool? eighteenPlus)
         => rank is null && eighteenPlus is null ? null : new PersonInfo(rank, eighteenPlus);
-
-    /// <summary>
-    /// The small line under a name: the rank in VRChat's words, then "18+" when they carry the mark.
-    /// Null when there is nothing to say.
-    /// </summary>
-    public string? Line()
-    {
-        var rank = Rank is { } known ? TrustRanks.Name(known) : null;
-        var eighteenPlus = EighteenPlus == true ? "18+" : null;
-
-        return (rank, eighteenPlus) switch
-        {
-            (null, null) => null,
-            ({ } r, null) => r,
-            (null, { } e) => e,
-            ({ } r, { } e) => $"{r} · {e}",
-        };
-    }
 }

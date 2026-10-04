@@ -1,4 +1,5 @@
 using Modbot.Companion.Overlay;
+using Modbot.Core.Users;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 
@@ -49,6 +50,37 @@ public class NotificationViewTests
 
             Assert.Contains(pixels, b => b != 0);
         }
+    }
+
+    [Fact]
+    public void AJoinCardWithARankAndTheMarkDrawsOnTheHeadsetAndOnAMonitor()
+    {
+        var joined = new PopUp("joined:usr_rin", "Joined", "Rin", null, PopUpTone.Plain, TrustRank.TrustedUser, EighteenPlus: true);
+        var plain = new PopUp("joined:usr_rin", "Joined", "Rin", null, PopUpTone.Plain);
+
+        foreach (var tokens in new[] { DesignTokens.Vr, DesignTokens.Desktop })
+        {
+            var (marked, bare) = AvaloniaTestHost.Run(() =>
+            {
+                using var renderer = new AvaloniaFrameRenderer(Size, Size);
+                var one = renderer.Render(NotificationView.Build(new NotificationScreen([joined]), tokens)).ToArray();
+                var two = renderer.Render(NotificationView.Build(new NotificationScreen([plain]), tokens)).ToArray();
+                return (one, two);
+            });
+
+            // The rank's dot, its name and the chip are drawn: the card is not the bare one.
+            Assert.False(marked.SequenceEqual(bare));
+        }
+    }
+
+    [Fact]
+    public void TwoCardsDifferingOnlyInTheirMarksDoNotLookTheSame()
+    {
+        // A rank filled in while the card is up has to be drawn.
+        var bare = new NotificationScreen([new PopUp("joined:usr_rin", "Joined", "Rin", null, PopUpTone.Plain)]);
+        var ranked = new NotificationScreen([new PopUp("joined:usr_rin", "Joined", "Rin", null, PopUpTone.Plain, TrustRank.User)]);
+
+        Assert.False(bare.LooksTheSameAs(ranked));
     }
 
     [Fact]

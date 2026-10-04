@@ -1,5 +1,6 @@
 using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Companion.Overlay;
 
@@ -26,7 +27,31 @@ public enum PopUpTone
 /// <param name="Heading">The line above, in small dim text. Usually the group.</param>
 /// <param name="Body">The line that matters, large.</param>
 /// <param name="Detail">One more line, or null.</param>
-public sealed record PopUp(string Id, string Heading, string Body, string? Detail, PopUpTone Tone);
+/// <param name="Rank">
+/// The person's VRChat trust rank, drawn as the roster row draws it: a dot in the rank's own
+/// colour and its name. Null on every card that is not about somebody arriving, and on a join card
+/// until the server has said it.
+/// </param>
+/// <param name="EighteenPlus">
+/// Whether the person carries Modbot's 18+ mark, drawn as the roster row's green chip. False
+/// draws nothing, the way the Members list shows the badge only on those who have it.
+/// </param>
+/// <remarks>
+/// The rank and the mark are kept as what they are rather than written into <paramref name="Detail"/>,
+/// because a line of text has nowhere to hold the rank's colour.
+/// </remarks>
+public sealed record PopUp(
+    string Id,
+    string Heading,
+    string Body,
+    string? Detail,
+    PopUpTone Tone,
+    TrustRank? Rank = null,
+    bool EighteenPlus = false)
+{
+    /// <summary>Whether the card has a rank or an 18+ mark to draw.</summary>
+    public bool HasPersonInfo => Rank is not null || EighteenPlus;
+}
 
 /// <summary>
 /// The pop-ups the notification overlay is showing, and when each one's time is up.

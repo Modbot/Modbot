@@ -37,31 +37,8 @@ public static class OverlayView
     /// <summary>The headset's tokens: the VR palette at the VR density.</summary>
     private static DesignTokens T => DesignTokens.Vr;
 
-    /// <summary>
-    /// A trust rank as a small mark in VRChat's colour for it, with the rank's name in dim text
-    /// beside it. The colour is the second channel and the word carries the meaning, so a rank
-    /// whose VRChat colour is dark on a dark panel still reads.
-    /// </summary>
-    private static StackPanel RankLine(TrustRank rank, double size)
-    {
-        var mark = new Ellipse
-        {
-            Width = 10,
-            Height = 10,
-            VerticalAlignment = VerticalAlignment.Center,
-            Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(rank))),
-        };
-
-        var name = Text(TrustRanks.Name(rank), size, T.TextDimBrush);
-        name.VerticalAlignment = VerticalAlignment.Center;
-
-        return new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            Children = { mark, name },
-        };
-    }
+    /// <summary>A trust rank's dot and name, drawn the way every surface draws it.</summary>
+    private static StackPanel RankLine(TrustRank rank, double size) => PersonMarks.RankLine(rank, size, T);
 
     /// <summary>How big the group's icon is drawn, in panel pixels.</summary>
     private const double IconSize = 28;
@@ -1060,25 +1037,10 @@ public static class OverlayView
     }
 
     /// <summary>
-    /// Modbot's 18+ mark on a roster row, in the green the website's Members list gives it. Shown
-    /// only on those who carry it, so somebody without it gets no mark at all.
+    /// Modbot's 18+ mark on a roster row. Shown only on those who carry it, so somebody without it
+    /// gets no mark at all.
     /// </summary>
-    private static Control EighteenPlusChip()
-    {
-        var label = Text("18+", T.Density.TextSmall, T.OkBrush, FontWeight.SemiBold);
-        label.VerticalAlignment = VerticalAlignment.Center;
-
-        return new Border
-        {
-            Background = new SolidColorBrush(T.Palette.Ok, 0.16),
-            BorderBrush = T.OkBrush,
-            BorderThickness = new Thickness(T.Density.Hairline),
-            CornerRadius = T.CornerRadius,
-            Padding = new Thickness(6, 1),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = label,
-        };
-    }
+    private static Control EighteenPlusChip() => PersonMarks.EighteenPlusChip(T);
 
     /// <summary>
     /// Save a clip: keep the last few minutes of VRChat as a file on this PC.
