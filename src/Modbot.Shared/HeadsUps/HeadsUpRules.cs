@@ -140,7 +140,16 @@ public static class HeadsUpRules
     public static bool HasLink(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return Link.IsMatch(text);
+
+        try
+        {
+            return Link.IsMatch(text);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Text built to make the check slow is refused, never let through and never a fault.
+            return true;
+        }
     }
 
     /// <summary>The place as listed, matched without regard to case, or null when it is not one.</summary>

@@ -56,8 +56,10 @@ The server notes which Modbot account placed or cleared it, and when.
 ## Who sees it
 
 Only the staff whose companions the server believes are standing in the same instance: the ones
-that have read that instance's roster or reported from it in the last ten minutes. A companion
-elsewhere is not told, and cannot place or clear one there.
+that have read that instance's roster or reported from it in the last ten minutes. Where a companion
+stands is what the companion itself reports; the server has no other way to know. It places,
+clears and shows heads-ups only for a companion it has seen in that instance this way, and tells
+no other.
 
 Heads-ups are not written to the audit log, are not shown anywhere on the website, and are never
 sent to Discord. The server keeps each one, with who placed it and when it ended, so that "who

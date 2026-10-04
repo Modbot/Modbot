@@ -121,6 +121,13 @@ public static class HeadsUpsHandler
             : null;
 
         var subjectName = subjectId is null ? null : Trimmed(HeadsUpRules.Clean(request.SubjectName), HeadsUpRules.MaxNameLength);
+
+        // The name is the person's own, sent along so the panel can say who without a lookup. One
+        // that reads as a link is left off rather than refusing the heads-up: a person who names
+        // themselves after a website is exactly who a moderator may want to keep an eye on. The
+        // panel then shows their id.
+        if (subjectName is not null && HeadsUpRules.HasLink(subjectName))
+            subjectName = null;
         var text = HeadsUpRules.Clean(request.Text);
         var place = kind is HeadsUpKind.AskForHelp ? HeadsUpRules.Place(request.Place) : null;
 
