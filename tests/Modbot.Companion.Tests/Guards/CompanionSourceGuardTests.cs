@@ -555,17 +555,18 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheNineDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheTenDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Nine files, each with a remarks block
+        // by somebody who has never seen the codebase. Ten files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
         // spec), one fetches the voice -- once, from one pinned address, with nothing attached --
         // one fetches the phrase model the same way, added on 2026-09-19, and one reads the
-        // sponsors, early adopters and contributors the Credits page shows. Nothing else reaches
-        // the network.
+        // sponsors, early adopters and contributors the Credits page shows, and one sends a
+        // staff heads-up when a moderator presses Place or Clear (HeadsUps.cs, added 2026-10-02,
+        // one POST per press and nothing ahead of it). Nothing else reaches the network.
         //
         // The ninth is a download and nothing else. Nothing a microphone hears reaches the network
         // from anywhere in this client, and the file that opens the microphone cannot reach it at
@@ -587,6 +588,7 @@ public class CompanionSourceGuardTests
         Assert.Equal(
             [
                 "CloudCredits.cs",
+                "HeadsUps.cs",
                 "HttpCloudLogClient.cs",
                 "HttpIngestTransport.cs",
                 "HttpOverlayReadClient.cs",
