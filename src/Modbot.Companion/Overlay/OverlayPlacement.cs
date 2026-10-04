@@ -68,6 +68,23 @@ public sealed record OverlayPlacement(
     public static OverlayPlacement Default { get; } = new(OverlayAnchor.Head, new OverlayPose(0.35f, -0.28f, -1.0f), 0.45f);
 
     /// <summary>
+    /// Where <strong>Put it back in front of me</strong> puts the panel: on the head, straight
+    /// ahead at 0.8 m, its middle 0.15 m below the eyes, at the ordinary width, fully opaque, flat,
+    /// unlocked and not click-through.
+    /// </summary>
+    /// <remarks>
+    /// <para>It is the "I cannot find my panel" answer, so everything that could hide or strand
+    /// the panel is put back: a room or wrist anchor, an offset off to the side, a faint opacity,
+    /// a lock that stops it being picked up, and click-through that lets every ray pass it by.</para>
+    /// <para>The texture is square, so a 0.45 m panel is 0.45 m tall: at 0.8 m it covers about
+    /// 31° up and down. With its middle 0.15 m low it runs from about 25° below the eye line to
+    /// 5° above it, inside every headset's view and with its top edge at eye height, where it
+    /// cannot be missed. The everyday place (<see cref="Default"/>) stays off to the right, out of
+    /// the instance's way.</para>
+    /// </remarks>
+    public static OverlayPlacement StraightAhead { get; } = new(OverlayAnchor.Head, new OverlayPose(0f, -0.15f, -0.8f), 0.45f);
+
+    /// <summary>
     /// How wide the panel is on a wrist: 0.16 m, about 22° across at the 40 cm a raised wrist sits
     /// from the eyes. Wide enough for four lines of readable text, narrow enough that the arm it
     /// is on does not become a wall in front of the instance.

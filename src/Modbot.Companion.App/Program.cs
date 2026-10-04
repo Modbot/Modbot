@@ -2711,6 +2711,7 @@ internal sealed class CompanionHost : IOverlayListener
         _dashboard.Mark = Brand.MarkBitmap;
         _dashboard.OverlayOnChanged += SetOverlayOn;
         _dashboard.AnchorChosen += AnchorOverlay;
+        _dashboard.PutBackPressed += PutOverlayBack;
         _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
         _dashboard.FiltersChanged += SetNotificationFilters;
 
@@ -3185,6 +3186,7 @@ internal sealed class CompanionHost : IOverlayListener
                 SetEventsFilters = SetEventsFilters,
                 SetOverlayOn = SetOverlayOn,
                 SetOverlayEditMode = SetOverlayEditMode,
+                PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
                 SetNotificationFilters = SetNotificationFilters,
@@ -3355,6 +3357,43 @@ internal sealed class CompanionHost : IOverlayListener
         {
             RememberPlacement(placement);
         }
+
+        Render();
+    }
+
+    /// <summary>
+    /// <strong>Put it back in front of me</strong>, from the SteamVR page, the command palette or
+    /// the SteamVR dashboard tab: the "I cannot find my panel" button.
+    /// </summary>
+    /// <remarks>
+    /// The panel is switched on if it was off, shown if "hide overlay" hid it, and put straight
+    /// ahead on the head with nothing that could hide or strand it (<see cref="OverlayPlacement.StraightAhead"/>).
+    /// It draws its card for a few seconds even outside a group instance, where it would otherwise
+    /// draw nothing at all.
+    /// </remarks>
+    private void PutOverlayBack()
+    {
+        var placement = OverlayPlacement.StraightAhead;
+
+        if (_state is { Settings.OverlayOn: false })
+            SetOverlayOn(true);
+
+        if (_overlayHost is null)
+        {
+            RememberPlacement(placement);
+            Log.Debug("Put the panel back in front: {Placement}, with no panel running to show it", placement);
+            Render();
+            return;
+        }
+
+        _overlayHost.PutBack(placement);
+        Log.Debug(
+            "Put the panel back in front: {Placement}; runtime {State}, head tracked {HeadTracked}, frames drawn {Frames} since it attached at {AttachedAt}",
+            _overlayHost.Placement,
+            _overlayHost.Status.State,
+            _overlayHost.HeadTracked,
+            _overlayHost.FramesDrawn,
+            _overlayAttachedAt);
 
         Render();
     }

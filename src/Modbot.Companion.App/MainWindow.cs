@@ -1676,14 +1676,7 @@ public sealed partial class MainWindow : Window
         }
 
         var reset = Ui.Button("Put it back in front of me");
-        reset.Click += (_, _) => _actions.PlaceOverlay(OverlayPlacement.Default with
-        {
-            Width = placement.Width,
-            Opacity = placement.Opacity,
-            Curve = placement.Curve,
-            Locked = placement.Locked,
-            ClickThrough = placement.ClickThrough,
-        });
+        reset.Click += (_, _) => _actions.PutOverlayBack();
 
         var offset = placement.Offset;
         var where = placement.Anchor switch
@@ -1880,6 +1873,12 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };
+
+    /// <summary>
+    /// The SteamVR page's <strong>Put it back in front of me</strong>: the panel switched on, shown,
+    /// and put straight ahead with nothing that could hide it.
+    /// </summary>
+    public Action PutOverlayBack { get; init; } = () => { };
 
     /// <summary>The SteamVR page's Edit mode switch: whether the lock and the hand show on the panels.</summary>
     public Action<bool> SetOverlayEditMode { get; init; } = _ => { };

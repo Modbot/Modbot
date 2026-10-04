@@ -135,6 +135,24 @@ public class DashboardHostTests
     }
 
     [Fact]
+    public void PutItBackInFrontOfMeAsksForIt()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            host.Update(DashboardScreen.Default);
+
+            var asked = 0;
+            host.PutBackPressed += () => asked++;
+            host.AnchorChosen += _ => asked += 100;
+
+            Press(host, Middle(host, new DashboardTarget.PutBack()));
+
+            Assert.Equal(1, asked);
+        });
+    }
+
+    [Fact]
     public void ChoosingASpotPutsThePopUpsBackOnIt()
     {
         AvaloniaTestHost.Run(() =>

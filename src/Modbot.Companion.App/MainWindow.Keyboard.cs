@@ -393,18 +393,7 @@ public sealed partial class MainWindow
 
             case Page.SteamVr:
                 yield return new PaletteItem(group, "Look for SteamVR now", null, _actions.AttachSteamVr);
-                yield return new PaletteItem(group, "Put it back in front of me", null, () =>
-                {
-                    var placement = _snapshot.OverlayOrNone.PlacementOrDefault;
-                    _actions.PlaceOverlay(Modbot.Companion.Overlay.OverlayPlacement.Default with
-                    {
-                        Width = placement.Width,
-                        Opacity = placement.Opacity,
-                        Curve = placement.Curve,
-                        Locked = placement.Locked,
-                        ClickThrough = placement.ClickThrough,
-                    });
-                });
+                yield return new PaletteItem(group, "Put it back in front of me", null, _actions.PutOverlayBack);
                 break;
 
             case Page.Settings:

@@ -65,6 +65,9 @@ public abstract record DashboardTarget
     /// <summary>One of the main panel's anchors.</summary>
     public sealed record FixTo(OverlayAnchor Anchor) : DashboardTarget;
 
+    /// <summary><strong>Put it back in front of me</strong>, for the main panel.</summary>
+    public sealed record PutBack : DashboardTarget;
+
     /// <summary>One of the notification overlay's six places on the screen.</summary>
     public sealed record Spot(ScreenSpot Where) : DashboardTarget;
 

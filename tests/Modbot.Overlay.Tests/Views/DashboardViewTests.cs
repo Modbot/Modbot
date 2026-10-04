@@ -42,6 +42,7 @@ public class DashboardViewTests
 
         Assert.Contains(new DashboardTarget.Toggle(DashboardSwitch.Overlay), targets);
         Assert.Contains(new DashboardTarget.Toggle(DashboardSwitch.Notifications), targets);
+        Assert.Contains(new DashboardTarget.PutBack(), targets);
 
         foreach (var anchor in Enum.GetValues<OverlayAnchor>())
             Assert.Contains(new DashboardTarget.FixTo(anchor), targets);

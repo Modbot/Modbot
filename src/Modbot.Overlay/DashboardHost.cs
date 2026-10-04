@@ -129,6 +129,9 @@ public sealed class DashboardHost : IDisposable
     /// <summary>One of <strong>Fixed to</strong>'s choices was pressed.</summary>
     public event Action<OverlayAnchor>? AnchorChosen;
 
+    /// <summary><strong>Put it back in front of me</strong> was pressed.</summary>
+    public event Action? PutBackPressed;
+
     /// <summary>The notification overlay's switch, spot or a slider changed it.</summary>
     public event Action<NotifyOverlaySettings>? NotifyOverlayChanged;
 
@@ -253,6 +256,9 @@ public sealed class DashboardHost : IDisposable
                 break;
             case DashboardTarget.FixTo fix:
                 AnchorChosen?.Invoke(fix.Anchor);
+                break;
+            case DashboardTarget.PutBack:
+                PutBackPressed?.Invoke();
                 break;
             case DashboardTarget.Spot spot:
                 NotifyOverlayChanged?.Invoke(notify with { Spot = spot.Where, Placed = null });

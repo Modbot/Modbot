@@ -97,9 +97,19 @@ public static class DashboardView
             a.Caption,
             Chosen: a.Anchor == screen.Anchor));
 
+        // The window's button, here too, because in the headset the window cannot be reached. On
+        // the switch's line: the left column is full to the bottom of the page, and a line of its
+        // own would push the last pop-up tick off it.
+        var putBack = Button(new DashboardTarget.PutBack(), "Put it back in front of me", chosen: false);
+        var overlayOn = Switch(DashboardSwitch.Overlay, "Overlay on", screen.OverlayOn);
+        var line = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(putBack, Dock.Right);
+        line.Children.Add(putBack);
+        line.Children.Add(overlayOn);
+
         return
         [
-            Switch(DashboardSwitch.Overlay, "Overlay on", screen.OverlayOn),
+            line,
             Field("Fixed to", Choices(choices, 4)),
         ];
     }

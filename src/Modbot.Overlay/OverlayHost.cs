@@ -256,6 +256,65 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     }
 
     /// <summary>
+    /// How long the panel keeps its card up after <see cref="PutBack"/>, even with nothing to say.
+    /// </summary>
+    public static readonly TimeSpan PutBackShowsFor = TimeSpan.FromSeconds(5);
+
+    // Set by PutBack, until the input loop has seen PutBackShowsFor go by. While it is set an idle
+    // panel draws its card instead of nothing, so a moderator looking for it can see it.
+    private bool _puttingBack;
+    private TimeSpan? _puttingBackSince;
+
+    /// <summary>Whether the panel is showing its card because it was just put back.</summary>
+    public bool PuttingBack => _puttingBack;
+
+    /// <summary>
+    /// Whether the headset's own pose was known at the last read of the controllers. An unknown
+    /// pose reads as no turn at the room's origin.
+    /// </summary>
+    public bool HeadTracked => _lastTracking.Head != Pose.Identity;
+
+    /// <summary>
+    /// <strong>Put it back in front of me</strong>: the panel goes to <paramref name="placement"/>,
+    /// is shown again if it was hidden, and draws its card for <see cref="PutBackShowsFor"/> even
+    /// when there is nothing to say, so it can be found. UI thread only.
+    /// </summary>
+    /// <remarks>
+    /// Outside a group instance the panel draws nothing at all (<see cref="OverlayView"/>), so a
+    /// panel put right in front of the moderator there is still an empty, see-through square.
+    /// The card is what makes it findable; after a few seconds the panel goes back to drawing
+    /// what it always draws.
+    /// </remarks>
+    public void PutBack(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+
+        _puttingBack = true;
+        _puttingBackSince = null;
+
+        // "Hide overlay", said out loud, hides it until "show overlay" is; this is the other way back.
+        _runtime.Show();
+
+        // Place draws, and the drawing sees the flag above.
+        Place(placement);
+    }
+
+    /// <summary>Ends the card <see cref="PutBack"/> put up, once its time has gone by.</summary>
+    private void EndPutBack(TimeSpan now)
+    {
+        if (!_puttingBack)
+            return;
+
+        _puttingBackSince ??= now;
+        if (now - _puttingBackSince.Value < PutBackShowsFor)
+            return;
+
+        _puttingBack = false;
+        _puttingBackSince = null;
+        Draw();
+    }
+
+    /// <summary>
     /// Fixes the panel to something else, from the settings page, and puts it where that
     /// anchor makes sense: in front of the head; on the wrist, at the wrist size; or, for the
     /// room, exactly where the panel is right now, so choosing Room pins it rather than sending
@@ -299,6 +358,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <param name="elsewhere">A hand another panel over this one is using, left out here.</param>
     public void PollInput(TimeSpan now, Hand? elsewhere = null)
     {
+        EndPutBack(now);
+
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
@@ -629,7 +690,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (_compositor is null)
             return false;
 
-        var next = (_pinned ?? _live)?.WithCursor(_cursor);
+        // Just put back: a panel with nothing to say draws its card for a few seconds, and one the
+        // drive loop has not handed a screen yet draws the idle one, so it is there to be seen.
+        var next = (_pinned ?? _live ?? (_puttingBack ? OverlayScreen.Idle : null))?.WithCursor(_cursor);
+        if (next is { IsIdle: true } && _puttingBack)
+            next = next with { ShowIdleCard = true };
 
         // A runtime with no keyboard: the Name filter has nothing to type with here.
         if (next is not null && !CanType)
