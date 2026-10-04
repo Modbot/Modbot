@@ -31,6 +31,14 @@ public interface IOverlaySurface : IDisposable
 
     /// <summary>Uploads one frame of premultiplied BGRA, tightly packed, top row first.</summary>
     void Upload(ReadOnlySpan<byte> bgra);
+
+    /// <summary>
+    /// Sends the graphics card whatever is still waiting on this surface's device, such as the
+    /// copy SteamVR queues when it is handed the texture. Nothing to do where there is no device.
+    /// </summary>
+    void Flush()
+    {
+    }
 }
 
 /// <summary>
@@ -193,6 +201,13 @@ public sealed class D3D11OverlaySurface : IOverlaySurface
         // told about it, and a half-written frame in a headset is worse than a late one.
         _context.Flush();
     }
+
+    /// <summary>
+    /// Sends what is still queued on the shared device. Handing SteamVR a Direct3D texture can
+    /// queue SteamVR's own copy of it on this device, and without a flush that copy waits for the
+    /// next one, which may be another panel's upload seconds later.
+    /// </summary>
+    public void Flush() => _context.Flush();
 
     /// <summary>
     /// Lets the texture go, and the shared device with it if this was the last texture using it.

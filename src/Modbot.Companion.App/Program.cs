@@ -3220,9 +3220,10 @@ internal sealed class CompanionHost : IOverlayListener
         if (_dashboard.Update(screen) && _dashboard.LastDraw is { } took)
         {
             Log.Debug(
-                "The SteamVR dashboard tab was drawn in {DrawMs:0} ms and handed to SteamVR in {HandMs:0} ms",
+                "The SteamVR dashboard tab was drawn in {DrawMs:0} ms, handed to SteamVR in {HandMs:0} ms and flushed in {FlushMs:0} ms",
                 took.Drawing.TotalMilliseconds,
-                took.Handing.TotalMilliseconds);
+                took.Handing.TotalMilliseconds,
+                took.Flushing.TotalMilliseconds);
         }
     }
 

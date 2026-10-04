@@ -14,7 +14,8 @@ namespace Modbot.Overlay;
 /// <summary>How long one redraw of the dashboard tab took.</summary>
 /// <param name="Drawing">Building the page, laying it out, drawing it and copying it into the texture.</param>
 /// <param name="Handing">Handing the texture to SteamVR.</param>
-public readonly record struct DashboardDrawTime(TimeSpan Drawing, TimeSpan Handing);
+/// <param name="Flushing">Sending what the hand-over queued to the graphics card.</param>
+public readonly record struct DashboardDrawTime(TimeSpan Drawing, TimeSpan Handing, TimeSpan Flushing);
 
 /// <summary>
 /// Modbot's tab in the SteamVR dashboard, assembled: the settings page, the renderer and texture
@@ -311,8 +312,17 @@ public sealed class DashboardHost : IDisposable
         _drawn = _screen;
         _root = root;
         _runtime.Submit(_compositor.Surface);
+        var handed = Stopwatch.GetTimestamp();
 
-        LastDraw = new DashboardDrawTime(Stopwatch.GetElapsedTime(started, drawn), Stopwatch.GetElapsedTime(drawn));
+        // Handing SteamVR the texture can queue its copy of it on the shared device, where it
+        // would otherwise wait for the next flush: another panel's upload, seconds later, which
+        // is a press that moves the notification panel at once and shows on the tab late.
+        _compositor.Surface.Flush();
+
+        LastDraw = new DashboardDrawTime(
+            Stopwatch.GetElapsedTime(started, drawn),
+            Stopwatch.GetElapsedTime(drawn, handed),
+            Stopwatch.GetElapsedTime(handed));
         return true;
     }
 

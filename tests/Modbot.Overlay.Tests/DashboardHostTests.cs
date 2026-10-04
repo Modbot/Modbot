@@ -14,9 +14,11 @@ namespace Modbot.Overlay.Tests;
 /// </summary>
 public class DashboardHostTests
 {
-    private sealed class FakeSurface : IOverlaySurface
+    private sealed class FakeSurface(List<string> calls) : IOverlaySurface
     {
         public int Width => DashboardHost.PageWidth;
+
+        public void Flush() => calls.Add("flush");
 
         public int Height => DashboardHost.PageHeight;
 
@@ -36,6 +38,9 @@ public class DashboardHostTests
     private sealed class FakeRuntime : IDashboardRuntime
     {
         public List<DashboardPointer> Waiting { get; } = [];
+
+        /// <summary>What was asked of SteamVR and of the surface, in order.</summary>
+        public List<string> Calls { get; } = [];
 
         public int Submissions { get; private set; }
 
@@ -58,6 +63,7 @@ public class DashboardHostTests
 
         public bool Submit(IOverlaySurface surface)
         {
+            Calls.Add("submit");
             Submissions++;
             return true;
         }
@@ -74,7 +80,7 @@ public class DashboardHostTests
     }
 
     private static DashboardHost Host(FakeRuntime runtime)
-        => new(runtime, new FakeSurface(), new AvaloniaFrameRenderer(DashboardHost.PageWidth, DashboardHost.PageHeight));
+        => new(runtime, new FakeSurface(runtime.Calls), new AvaloniaFrameRenderer(DashboardHost.PageWidth, DashboardHost.PageHeight));
 
     private static Point Middle(DashboardHost host, DashboardTarget target) => FindOrFail(host, target).Center;
 
@@ -247,6 +253,25 @@ public class DashboardHostTests
             Assert.NotNull(host.LastDraw);
             Assert.True(host.LastDraw.Value.Drawing > TimeSpan.Zero);
             Assert.True(host.LastDraw.Value.Handing >= TimeSpan.Zero);
+            Assert.True(host.LastDraw.Value.Flushing >= TimeSpan.Zero);
+        });
+    }
+
+    [Fact]
+    public void EachHandOverIsFlushedStraightAfter()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new FakeRuntime();
+            using var host = Host(runtime);
+
+            host.Update(DashboardScreen.Default);
+            host.Update(DashboardScreen.Default);
+            host.Update(DashboardScreen.Default with { OverlayOn = false });
+
+            // One hand-over per changed screen, each followed by its flush; the same screen again
+            // hands over nothing and flushes nothing.
+            Assert.Equal(new[] { "submit", "flush", "submit", "flush" }, runtime.Calls);
         });
     }
 
