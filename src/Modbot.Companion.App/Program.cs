@@ -332,6 +332,17 @@ internal sealed class CompanionHost : IOverlayListener
     private NotificationHost? _notifyHost;
     private OverlayPreviewWindow? _preview;
 
+    /// <summary>Modbot's tab in the SteamVR dashboard; null where it could not be set up.</summary>
+    private DashboardHost? _dashboard;
+
+    private DateTimeOffset _dashboardTriedAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Hears SteamVR's laser on the dashboard tab, and looks for SteamVR every ten seconds while it
+    /// is not running. A turn with nothing attached is one comparison of two times.
+    /// </summary>
+    private readonly DispatcherTimer _dashboardLoop = new() { Interval = TimeSpan.FromMilliseconds(50) };
+
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
@@ -553,6 +564,7 @@ internal sealed class CompanionHost : IOverlayListener
         _notifySwitch.StartIfOn();
         _desktopSwitch.StartIfOn();
         _desktopNotifySwitch.StartIfOn();
+        StartDashboard();
 
         InstallTray(desktop);
         ListenForLinks();
@@ -2659,6 +2671,113 @@ internal sealed class CompanionHost : IOverlayListener
         }
     }
 
+    /// <summary>
+    /// Sets up Modbot's tab in the SteamVR dashboard: the overlay switches, where the panels go and
+    /// which events pop up, changed from inside the headset.
+    /// </summary>
+    /// <remarks>
+    /// <para>Independent of the panels' switches, because the tab is where the main panel is
+    /// switched back on: a tab that went away with the panel could not bring it back. It still
+    /// never starts SteamVR, and on a PC without SteamVR — or with WiVRn or Monado, which have no
+    /// dashboard — it finds that out once and stops looking.</para>
+    /// <para>Every change goes through the same calls the window's own controls make, so the file,
+    /// the window and the tab say the same thing.</para>
+    /// </remarks>
+    private void StartDashboard()
+    {
+        try
+        {
+            _dashboard = DashboardHost.Create();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            Log.Information(ex, "The SteamVR dashboard tab could not be set up on this machine; presence reporting is unaffected");
+            _dashboard = null;
+            return;
+        }
+
+        _dashboard.Mark = Brand.MarkBitmap;
+        _dashboard.OverlayOnChanged += SetOverlayOn;
+        _dashboard.AnchorChosen += AnchorOverlay;
+        _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
+        _dashboard.FiltersChanged += SetNotificationFilters;
+
+        if (DashboardScreenNow() is { } screen)
+            _dashboard.Update(screen);
+
+        _dashboardLoop.Tick += (_, _) => CrashGuard.Run("keeping the SteamVR dashboard tab", DashboardTick);
+        _dashboardLoop.Start();
+    }
+
+    /// <summary>The settings the dashboard tab shows, as the companion holds them now.</summary>
+    private DashboardScreen? DashboardScreenNow()
+        => _state is null
+            ? null
+            : new DashboardScreen(
+                _state.Settings.OverlayOn,
+                _state.Settings.Overlay.Anchor,
+                _state.Settings.NotifyOverlay,
+                _state.Settings.NotificationFilters);
+
+    private void DashboardTick()
+    {
+        if (_dashboard is null)
+            return;
+
+        if (_dashboard.Status.State is OverlayRuntimeState.Running)
+        {
+            _dashboard.Poll();
+            if (_dashboard.Status.State is not OverlayRuntimeState.Running)
+                Log.Information("SteamVR closed; the dashboard tab will be made again when it is back: {Detail}", _dashboard.Status.Detail);
+
+            return;
+        }
+
+        if (_dashboard.Status.State is OverlayRuntimeState.NotStarted
+            && _clock.UtcNow - _dashboardTriedAt >= OverlayAttachInterval)
+        {
+            AttachDashboard();
+        }
+    }
+
+    /// <summary>
+    /// Makes the tab if SteamVR is running, and says so once. No SteamVR, or a runtime that refuses
+    /// overlays, is final for the session, as it is for the panels, so the loop stops.
+    /// </summary>
+    private void AttachDashboard()
+    {
+        if (_dashboard is null)
+            return;
+
+        _dashboardTriedAt = _clock.UtcNow;
+        var before = _dashboard.Status;
+
+        OverlayRuntimeStatus status;
+        try
+        {
+            status = _dashboard.Start();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            Log.Information(ex, "The SteamVR dashboard tab could not be set up on this machine; presence reporting is unaffected");
+            _dashboardLoop.Stop();
+            _dashboard.Dispose();
+            _dashboard = null;
+            return;
+        }
+
+        if (status.State is OverlayRuntimeState.NoRuntime or OverlayRuntimeState.Refused)
+            _dashboardLoop.Stop();
+
+        if (status.State == before.State && status.Detail == before.Detail)
+            return;
+
+        if (status.State is OverlayRuntimeState.Running)
+            Log.Information("The SteamVR dashboard tab is up: {Detail}", status.Detail);
+        else
+            Log.Information("No SteamVR dashboard tab: {Detail}", status.Detail);
+    }
+
     private async Task OverlayTickAsync()
     {
         if (_overlay is null || _overlayTicking)
@@ -2829,6 +2948,9 @@ internal sealed class CompanionHost : IOverlayListener
         _overlay?.Dispose();
         _overlayHost?.Dispose();
         _notifyHost?.Dispose();
+        _dashboardLoop.Stop();
+        _dashboard?.Dispose();
+        _dashboard = null;
 
         // Gives the keyboard shortcut back to Windows rather than leaving it claimed by a process
         // that is going away.
@@ -2991,6 +3113,11 @@ internal sealed class CompanionHost : IOverlayListener
 
         if (_overlayHost is not null)
             _preview?.Refresh(_overlayHost);
+
+        // The dashboard tab follows whatever changed it, the window, the tab itself or a
+        // controller moving the panel; it redraws only when what it shows is different.
+        if (_dashboard is not null && DashboardScreenNow() is { } dashboardScreen)
+            _dashboard.Update(dashboardScreen);
 
         _state.DesktopOverlay = new DesktopOverlayStatus(
             _state.Settings.DesktopOverlay,

@@ -108,6 +108,24 @@ internal static partial class OpenVrInterop
     /// <summary><c>VREvent_KeyboardDone</c>: Done was pressed on the keyboard shown for this overlay.</summary>
     internal const uint EventKeyboardDone = 1202;
 
+    /// <summary><c>VREvent_MouseMove</c>: SteamVR's laser moved on a dashboard overlay. Data is mouse.</summary>
+    internal const uint EventMouseMove = 300;
+
+    /// <summary><c>VREvent_MouseButtonDown</c>: the trigger went down with SteamVR's laser on it. Data is mouse.</summary>
+    internal const uint EventMouseButtonDown = 301;
+
+    /// <summary><c>VREvent_MouseButtonUp</c>: the trigger came back up. Data is mouse.</summary>
+    internal const uint EventMouseButtonUp = 302;
+
+    /// <summary><c>VREvent_OverlayHidden</c>: nobody can see the overlay now, as when the dashboard closes.</summary>
+    internal const uint EventOverlayHidden = 501;
+
+    /// <summary><c>VROverlayInputMethod_Mouse</c>: SteamVR's own laser sends this overlay mouse events.</summary>
+    internal const int InputMethodMouse = 1;
+
+    /// <summary><c>VRMouseButton_Left</c>: the trigger, as SteamVR reports it on a dashboard overlay.</summary>
+    internal const uint MouseButtonLeft = 0x0001;
+
     /// <summary><c>k_EGamepadTextInputModeNormal</c> and <c>k_EGamepadTextInputLineModeSingleLine</c>: plain text, one line.</summary>
     internal const int KeyboardNormalSingleLine = 0;
 
@@ -160,9 +178,12 @@ internal static class OverlaySlot
     internal const int HideOverlay = 44;
     internal const int IsOverlayVisible = 45;
     internal const int PollNextOverlayEvent = 48;
+    internal const int SetOverlayInputMethod = 50;
+    internal const int SetOverlayMouseScale = 52;
     internal const int SetOverlayTexture = 60;
     internal const int ClearOverlayTexture = 61;
     internal const int SetOverlayRaw = 62;
+    internal const int CreateDashboardOverlay = 67;
     internal const int ShowKeyboardForOverlay = 75;
     internal const int GetKeyboardText = 76;
 }
@@ -214,4 +235,65 @@ public struct VrEvent
 
     [FieldOffset(8)]
     public float EventAgeSeconds;
+
+    // VREvent_Mouse_t at the start of the data union: x, y, then the button. The union starts at
+    // 16 on Windows, after the 4 bytes of padding, and at 12 elsewhere, so both are laid out here
+    // and Mouse picks the one this platform's SteamVR wrote.
+    [FieldOffset(12)]
+    private float _packed4X;
+
+    [FieldOffset(16)]
+    private float _packed4Y;
+
+    [FieldOffset(20)]
+    private uint _packed4Button;
+
+    [FieldOffset(16)]
+    private float _packed8X;
+
+    [FieldOffset(20)]
+    private float _packed8Y;
+
+    [FieldOffset(24)]
+    private uint _packed8Button;
+
+    /// <summary>
+    /// The event's <c>VREvent_Mouse_t</c>, for a mouse move, press or release on a dashboard
+    /// overlay: x and y in the units of the overlay's mouse scale, with the bottom left of the
+    /// texture at 0,0 (GL's way round, as the header says), and which button.
+    /// </summary>
+    public readonly VrMouse Mouse => OperatingSystem.IsWindows()
+        ? new VrMouse(_packed8X, _packed8Y, _packed8Button)
+        : new VrMouse(_packed4X, _packed4Y, _packed4Button);
+
+    /// <summary>A mouse event as SteamVR would write it on this platform, for the tests.</summary>
+    public static VrEvent MouseEvent(uint eventType, float x, float y, uint button)
+    {
+        var made = new VrEvent { EventType = eventType };
+        if (OperatingSystem.IsWindows())
+        {
+            made._packed8X = x;
+            made._packed8Y = y;
+            made._packed8Button = button;
+        }
+        else
+        {
+            made._packed4X = x;
+            made._packed4Y = y;
+            made._packed4Button = button;
+        }
+
+        return made;
+    }
+}
+
+/// <summary><c>VREvent_Mouse_t</c>'s first three fields: where, bottom left at 0,0, and which button.</summary>
+public readonly record struct VrMouse(float X, float Y, uint Button);
+
+/// <summary><c>HmdVector2_t</c>: two floats, for the mouse scale.</summary>
+[StructLayout(LayoutKind.Sequential)]
+public struct HmdVector2
+{
+    public float X;
+    public float Y;
 }

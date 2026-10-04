@@ -322,39 +322,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     {
         ArgumentNullException.ThrowIfNull(surface);
 
-        if (_handle == 0)
-            return false;
-
-        unsafe
-        {
-            if (surface.TextureHandle != 0)
-            {
-                var texture = new VrTexture
-                {
-                    Handle = surface.TextureHandle,
-                    Type = VrTextureType.DirectX,
-                    ColorSpace = VrColorSpace.Auto,
-                };
-
-                var setTexture = (delegate* unmanaged[Stdcall]<ulong, VrTexture*, int>)Slot(OverlaySlot.SetOverlayTexture);
-                return setTexture(_handle, &texture) == 0;
-            }
-
-            // No graphics device to share: the picture goes over as bytes. SteamVR reads them as
-            // RGBA, and Avalonia hands them out as BGRA, so the two colour channels swap on the way.
-            var pixels = surface.Pixels.Span;
-            if (pixels.Length != surface.Width * surface.Height * 4)
-                return false;
-
-            _rgba ??= new byte[pixels.Length];
-            RawPixels.BgraToRgba(pixels, _rgba);
-
-            fixed (byte* raw = _rgba)
-            {
-                var setRaw = (delegate* unmanaged[Stdcall]<ulong, void*, uint, uint, uint, int>)Slot(OverlaySlot.SetOverlayRaw);
-                return setRaw(_handle, raw, (uint)surface.Width, (uint)surface.Height, 4) == 0;
-            }
-        }
+        return _handle != 0 && OpenVrPicture.Hand(_session, _handle, surface, ref _rgba);
     }
 
     public void Show()
@@ -530,6 +498,48 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     }
 
     private nint Slot(int index) => _session.Slot(index);
+}
+
+/// <summary>Handing SteamVR one overlay's picture: the shared texture, or the bytes.</summary>
+/// <remarks>
+/// One way for every Modbot overlay, the floating panels and the dashboard tab alike, so the
+/// texture handover is written once.
+/// </remarks>
+internal static class OpenVrPicture
+{
+    /// <param name="rgba">The overlay's own buffer for the byte path, made on first use and kept.</param>
+    internal static unsafe bool Hand(OpenVrSession session, ulong handle, IOverlaySurface surface, ref byte[]? rgba)
+    {
+        if (surface.TextureHandle != 0)
+        {
+            var texture = new VrTexture
+            {
+                Handle = surface.TextureHandle,
+                Type = VrTextureType.DirectX,
+                ColorSpace = VrColorSpace.Auto,
+            };
+
+            var setTexture = (delegate* unmanaged[Stdcall]<ulong, VrTexture*, int>)session.Slot(OverlaySlot.SetOverlayTexture);
+            return setTexture(handle, &texture) == 0;
+        }
+
+        // No graphics device to share: the picture goes over as bytes. SteamVR reads them as
+        // RGBA, and Avalonia hands them out as BGRA, so the two colour channels swap on the way.
+        var pixels = surface.Pixels.Span;
+        if (pixels.Length != surface.Width * surface.Height * 4)
+            return false;
+
+        if (rgba is null || rgba.Length != pixels.Length)
+            rgba = new byte[pixels.Length];
+
+        RawPixels.BgraToRgba(pixels, rgba);
+
+        fixed (byte* raw = rgba)
+        {
+            var setRaw = (delegate* unmanaged[Stdcall]<ulong, void*, uint, uint, uint, int>)session.Slot(OverlaySlot.SetOverlayRaw);
+            return setRaw(handle, raw, (uint)surface.Width, (uint)surface.Height, 4) == 0;
+        }
+    }
 }
 
 /// <summary>Turning Avalonia's pixels into what SteamVR reads.</summary>

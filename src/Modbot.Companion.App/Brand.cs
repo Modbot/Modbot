@@ -41,6 +41,9 @@ internal static class Brand
     private static readonly Lazy<Bitmap> MarkPicture = new(
         () => new Bitmap(AssetLoader.Open(new Uri($"{Assets}/icon-256.png", UriKind.Absolute))));
 
+    /// <summary>The mark itself, for the button on Modbot's SteamVR dashboard tab.</summary>
+    public static Bitmap MarkBitmap => MarkPicture.Value;
+
     /// <summary>The mark at a given size, for the sidebar's brand row.</summary>
     public static Image Mark(double size)
         => new()
