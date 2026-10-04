@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -9,6 +10,11 @@ using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 
 namespace Modbot.Overlay;
+
+/// <summary>How long one redraw of the dashboard tab took.</summary>
+/// <param name="Drawing">Building the page, laying it out, drawing it and copying it into the texture.</param>
+/// <param name="Handing">Handing the texture to SteamVR.</param>
+public readonly record struct DashboardDrawTime(TimeSpan Drawing, TimeSpan Handing);
 
 /// <summary>
 /// Modbot's tab in the SteamVR dashboard, assembled: the settings page, the renderer and texture
@@ -129,6 +135,18 @@ public sealed class DashboardHost : IDisposable
     public event Action<NotificationFilters>? FiltersChanged;
 
     /// <summary>
+    /// The trigger went down on the page, before whatever it landed on is acted on. For the log:
+    /// it carries how long SteamVR held the press before it was read.
+    /// </summary>
+    public event Action<DashboardPointer>? PressHeard;
+
+    /// <summary>
+    /// How long the last redraw took, or null before the first: building, laying out and drawing
+    /// the page into its texture, then handing the texture to SteamVR.
+    /// </summary>
+    public DashboardDrawTime? LastDraw { get; private set; }
+
+    /// <summary>
     /// Attaches to SteamVR if it is running and makes the tab. Never starts SteamVR. The texture
     /// is made here, the first time it is known there is a SteamVR to show it.
     /// </summary>
@@ -160,8 +178,22 @@ public sealed class DashboardHost : IDisposable
     {
         _runtime.Poll();
 
-        foreach (var pointer in _runtime.TakePointer())
-            Handle(pointer);
+        var pointers = _runtime.TakePointer();
+        for (var i = 0; i < pointers.Count; i++)
+        {
+            // Of a run of moves read in one poll, only the last is acted on. A move while a slider
+            // is held is a whole change, a save and a redraw, and SteamVR sends several between two
+            // polls, so acting on every one put the tab behind the laser by however many there were.
+            // A move with nothing held does nothing, so dropping one changes nothing.
+            if (pointers[i].Kind is DashboardPointerKind.Move
+                && i + 1 < pointers.Count
+                && pointers[i + 1].Kind is DashboardPointerKind.Move)
+            {
+                continue;
+            }
+
+            Handle(pointers[i]);
+        }
 
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
             LetGo();
@@ -184,6 +216,7 @@ public sealed class DashboardHost : IDisposable
         switch (pointer.Kind)
         {
             case DashboardPointerKind.Down:
+                PressHeard?.Invoke(pointer);
                 Press(pointer.X, pointer.Y);
                 break;
             case DashboardPointerKind.Move when _dragging is { } slider:
@@ -265,14 +298,21 @@ public sealed class DashboardHost : IDisposable
         if (_drawn is not null && _drawn == _screen)
             return false;
 
+        // Timed with the stopwatch's counter, not the clock: only how long it took matters here.
+        var started = Stopwatch.GetTimestamp();
+
         _compositor.Invalidate();
         var root = DashboardView.Build(_screen, Width, Height);
         if (!_compositor.DrawIfChanged(root))
             return false;
 
+        var drawn = Stopwatch.GetTimestamp();
+
         _drawn = _screen;
         _root = root;
         _runtime.Submit(_compositor.Surface);
+
+        LastDraw = new DashboardDrawTime(Stopwatch.GetElapsedTime(started, drawn), Stopwatch.GetElapsedTime(drawn));
         return true;
     }
 

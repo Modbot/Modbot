@@ -819,6 +819,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         var voice = filters.InStepWith(_state.Settings.Voice);
         _state.Settings = _state.Settings with { NotificationFilters = filters, Voice = voice };
+        ShowOnDashboard();
 
         if (!CompanionSettings.SaveNotificationFilters(_settingsPath, filters))
             Log.Warning("Could not save the notification filters to {Path}", _settingsPath);
@@ -1992,6 +1993,11 @@ internal sealed class CompanionHost : IOverlayListener
                     return;
 
                 _state.Settings = _state.Settings with { Overlay = placement };
+
+                // The tab shows only what the panel is fixed to, so this draws only when that
+                // changed: a press on Fixed to, or a panel carried from the head into the room.
+                ShowOnDashboard();
+
                 _placementSave.Stop();
                 _placementSave.Start();
             };
@@ -2218,6 +2224,10 @@ internal sealed class CompanionHost : IOverlayListener
             if (_state is null)
                 return;
 
+            // The tab's sliders follow a panel carried by hand once it is let go, not thirty times
+            // a second while it moves: each redraw is the whole page, beside a game.
+            ShowOnDashboard();
+
             if (!CompanionSettings.SaveNotifyOverlay(_settingsPath, _state.Settings.NotifyOverlay))
                 Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
         };
@@ -2298,6 +2308,7 @@ internal sealed class CompanionHost : IOverlayListener
             return;
 
         _state.Settings = _state.Settings with { OverlayOn = on };
+        ShowOnDashboard();
 
         if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayOnField, on))
             Log.Warning("Could not save the overlay switch to {Path}", _settingsPath);
@@ -2541,6 +2552,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         var wasOn = _state.Settings.NotifyOverlay.On;
         _state.Settings = _state.Settings with { NotifyOverlay = clamped };
+        ShowOnDashboard();
 
         if (!CompanionSettings.SaveNotifyOverlay(_settingsPath, clamped))
             Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
@@ -2701,6 +2713,12 @@ internal sealed class CompanionHost : IOverlayListener
         _dashboard.AnchorChosen += AnchorOverlay;
         _dashboard.NotifyOverlayChanged += SetNotifyOverlay;
         _dashboard.FiltersChanged += SetNotificationFilters;
+
+        // How long SteamVR held a press before it was read: with the draw times beside it, a tab
+        // that is slow to answer can be put down to the press arriving late or the page drawing late.
+        _dashboard.PressHeard += pointer => Log.Debug(
+            "A press on the SteamVR dashboard tab, held by SteamVR for {AgeMs:0} ms before it was read",
+            pointer.Age.TotalMilliseconds);
 
         if (DashboardScreenNow() is { } screen)
             _dashboard.Update(screen);
@@ -3088,20 +3106,27 @@ internal sealed class CompanionHost : IOverlayListener
         if (_state is null)
             return;
 
+        // Every step timed, and the lot written down when they add up to something a moderator
+        // would notice, so the next slow one can be named from the log rather than guessed at.
+        var times = new StepTimes();
+
         if (_engine is not null)
             _state.LogHealth = _engine.LogHealth;
 
         _state.Overlay = DescribeOverlay();
         _state.NotifyOverlay = DescribeNotifyOverlay();
         _state.LiveWords = _overlay?.LiveWords() ?? _state.LiveWords;
+        times.Done("panel status");
 
         // Started and stopped here rather than on its own timer: the rule is "while VRChat is
         // running", and this is the place that already knows, once a second.
         CrashGuard.Run("keeping the last few minutes", ApplyClips);
+        times.Done("clips");
 
         // Same place and same rule: the microphone is open only while VRChat is running, and this
         // is the loop that already knows whether it is.
         CrashGuard.Run("listening for a phrase", ApplyListening);
+        times.Done("listening");
 
         _state.SoundProblem = _bleep?.LastProblem;
 
@@ -3111,13 +3136,18 @@ internal sealed class CompanionHost : IOverlayListener
         if (_credits is not null)
             _state.Credits = _credits.Current;
 
+        times.Done("voice and credits");
+
         if (_overlayHost is not null)
             _preview?.Refresh(_overlayHost);
 
+        times.Done("preview");
+
         // The dashboard tab follows whatever changed it, the window, the tab itself or a
-        // controller moving the panel; it redraws only when what it shows is different.
-        if (_dashboard is not null && DashboardScreenNow() is { } dashboardScreen)
-            _dashboard.Update(dashboardScreen);
+        // controller moving the panel; it redraws only when what it shows is different. The
+        // handlers that change what it shows have already redrawn it before getting here.
+        ShowOnDashboard();
+        times.Done("dashboard tab");
 
         _state.DesktopOverlay = new DesktopOverlayStatus(
             _state.Settings.DesktopOverlay,
@@ -3154,6 +3184,46 @@ internal sealed class CompanionHost : IOverlayListener
                 // the instance, in this PC's own timezone offset. Copied, never sent.
                 CrashDetails = () => _engine?.CrashDetailsText(TimeZoneInfo.Local.GetUtcOffset(_clock.UtcNow)),
             });
+
+        times.Done("window");
+
+        if (times.Total >= SlowRender)
+        {
+            Log.Debug(
+                "Bringing the window and the panels up to date took {TotalMs:0} ms: {Steps}",
+                times.Total.TotalMilliseconds,
+                times.Describe());
+        }
+    }
+
+    /// <summary>How long bringing everything up to date may take before the log says which step took it.</summary>
+    private static readonly TimeSpan SlowRender = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>
+    /// Redraws the SteamVR dashboard tab from the settings as they are now, at once, if it looks
+    /// different.
+    /// </summary>
+    /// <remarks>
+    /// <para>Called by every handler that changes what the tab shows, straight after the setting
+    /// changes and before saving it or anything else in <see cref="Render"/>. Everything here runs
+    /// on the one UI thread, so a press on the tab used to show on the tab only once the clip
+    /// recorder, the microphone, the preview and the rest had had their turn, and the
+    /// notification panel had long since moved.</para>
+    /// <para><see cref="Render"/> still calls it, for changes that come any other way. A second
+    /// call with nothing new draws nothing.</para>
+    /// </remarks>
+    private void ShowOnDashboard()
+    {
+        if (_dashboard is null || DashboardScreenNow() is not { } screen)
+            return;
+
+        if (_dashboard.Update(screen) && _dashboard.LastDraw is { } took)
+        {
+            Log.Debug(
+                "The SteamVR dashboard tab was drawn in {DrawMs:0} ms and handed to SteamVR in {HandMs:0} ms",
+                took.Drawing.TotalMilliseconds,
+                took.Handing.TotalMilliseconds);
+        }
     }
 
     /// <summary>The notification overlay in the window's words.</summary>
@@ -3293,6 +3363,9 @@ internal sealed class CompanionHost : IOverlayListener
             });
         }
 
+        // With a panel up, the placement it raised has already redrawn the tab, and this draws
+        // nothing; with none, this is where the tab shows the choice.
+        ShowOnDashboard();
         Render();
     }
 

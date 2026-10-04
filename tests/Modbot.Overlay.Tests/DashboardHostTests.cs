@@ -236,6 +236,91 @@ public class DashboardHostTests
     }
 
     [Fact]
+    public void EachRedrawSaysHowLongItTook()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            using var host = Host(new FakeRuntime());
+            Assert.Null(host.LastDraw);
+
+            Assert.True(host.Update(DashboardScreen.Default));
+            Assert.NotNull(host.LastDraw);
+            Assert.True(host.LastDraw.Value.Drawing > TimeSpan.Zero);
+            Assert.True(host.LastDraw.Value.Handing >= TimeSpan.Zero);
+        });
+    }
+
+    [Fact]
+    public void APressIsHeardWithHowLongSteamVrHeldIt()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new FakeRuntime();
+            using var host = Host(runtime);
+            host.Start();
+            host.Update(DashboardScreen.Default);
+
+            var heard = new List<DashboardPointer>();
+            host.PressHeard += heard.Add;
+
+            var at = Middle(host, new DashboardTarget.Toggle(DashboardSwitch.Overlay));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, at.X, at.Y));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Down, at.X, at.Y, TimeSpan.FromMilliseconds(40)));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Up, at.X, at.Y));
+            host.Poll();
+
+            var press = Assert.Single(heard);
+            Assert.Equal(TimeSpan.FromMilliseconds(40), press.Age);
+        });
+    }
+
+    [Fact]
+    public void OfManyMovesReadInOnePollOnlyTheLastMovesTheSlider()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new FakeRuntime();
+            using var host = Host(runtime);
+            host.Start();
+            host.Update(DashboardScreen.Default);
+
+            var asked = new List<NotifyOverlaySettings>();
+            host.NotifyOverlayChanged += settings =>
+            {
+                asked.Add(settings);
+                host.Update(host.Showing with { Notify = settings });
+            };
+
+            var track = FindOrFail(host, new DashboardTarget.Track(DashboardSlider.Seconds));
+            var y = track.Center.Y;
+
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Down, track.Left, y));
+            host.Poll();
+            Assert.Single(asked);
+
+            // Four moves between two polls: the slider goes straight to where the last one was.
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, track.Left + (track.Width * 0.25), y));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, track.Left + (track.Width * 0.5), y));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, track.Left + (track.Width * 0.75), y));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, track.Right, y));
+            host.Poll();
+
+            Assert.Equal(2, asked.Count);
+            Assert.Equal(NotifyOverlaySettings.MaxSeconds, asked[^1].Seconds, 3);
+
+            // A move followed by the release is still acted on before the trigger comes up.
+            var drawn = host.FramesDrawn;
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Move, track.Left, y));
+            runtime.Waiting.Add(new DashboardPointer(DashboardPointerKind.Up, track.Left, y));
+            host.Poll();
+
+            Assert.Equal(3, asked.Count);
+            Assert.Equal(NotifyOverlaySettings.MinSeconds, asked[^1].Seconds, 3);
+            Assert.Equal(drawn + 1, host.FramesDrawn);
+        });
+    }
+
+    [Fact]
     public void StartingHandsSteamVrThePageAndTheButtonsPicture()
     {
         AvaloniaTestHost.Run(() =>

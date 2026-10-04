@@ -17,7 +17,11 @@ public enum DashboardPointerKind
 /// One thing SteamVR's laser did on the dashboard tab, in the tab's own pixels with the top left
 /// at 0,0, the way the view is laid out.
 /// </summary>
-public readonly record struct DashboardPointer(DashboardPointerKind Kind, double X, double Y);
+/// <param name="Age">
+/// How long SteamVR had held it before it was read, as SteamVR says. Kept for the log, so a press
+/// that reaches the tab late can be told apart from one that was drawn late.
+/// </param>
+public readonly record struct DashboardPointer(DashboardPointerKind Kind, double X, double Y, TimeSpan Age = default);
 
 /// <summary>The dashboard tab's side of SteamVR, behind an interface so the rest can be tested.</summary>
 public interface IDashboardRuntime : IDisposable
@@ -214,7 +218,11 @@ public sealed class OpenVrDashboardRuntime : IDashboardRuntime
         if ((known is DashboardPointerKind.Down or DashboardPointerKind.Up) && mouse.Button != OpenVrInterop.MouseButtonLeft)
             return null;
 
-        return new DashboardPointer(known, mouse.X, height - mouse.Y);
+        var age = float.IsFinite(vrEvent.EventAgeSeconds) && vrEvent.EventAgeSeconds > 0
+            ? TimeSpan.FromSeconds(vrEvent.EventAgeSeconds)
+            : TimeSpan.Zero;
+
+        return new DashboardPointer(known, mouse.X, height - mouse.Y, age);
     }
 
     public IReadOnlyList<DashboardPointer> TakePointer()

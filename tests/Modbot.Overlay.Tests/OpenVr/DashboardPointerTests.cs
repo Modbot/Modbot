@@ -22,6 +22,18 @@ public class DashboardPointerTests
     }
 
     [Fact]
+    public void HowLongSteamVrHeldAPressIsKept()
+    {
+        var pressed = VrEvent.MouseEvent(301, 400, 1000, 1);
+        pressed.EventAgeSeconds = 0.25f;
+
+        Assert.Equal(TimeSpan.FromMilliseconds(250), OpenVrDashboardRuntime.Read(pressed, Height)?.Age);
+
+        pressed.EventAgeSeconds = float.NaN;
+        Assert.Equal(TimeSpan.Zero, OpenVrDashboardRuntime.Read(pressed, Height)?.Age);
+    }
+
+    [Fact]
     public void MovesAndReleasesAreReadToo()
     {
         Assert.Equal(DashboardPointerKind.Move, OpenVrDashboardRuntime.Read(VrEvent.MouseEvent(300, 1, 2, 0), Height)?.Kind);
