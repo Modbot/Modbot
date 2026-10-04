@@ -1971,6 +1971,7 @@ internal sealed class CompanionHost : IOverlayListener
             _overlayHost.Tapped += target => _overlay?.Tap(target);
             _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
             _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
+            _overlayHost.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
             // panel being moved changes thirty times a second, and the file needs the last one.
             _overlayHost.PlacementChanged += placement =>
@@ -2142,7 +2143,10 @@ internal sealed class CompanionHost : IOverlayListener
             _clock,
             listener: this,
             sockets: new ClientLiveSocketFactory(),
-            popUps: _popUps);
+            popUps: _popUps,
+
+            // Heads-ups go out only when Place or Clear is pressed on a panel.
+            headsUps: new HttpHeadsUpClient(_http!));
 
         // Save a clip on either panel. The loop only says that somebody asked; this half owns the
         // recorder, the folder and the limit on it, so this is where a clip is actually written.
@@ -2351,6 +2355,7 @@ internal sealed class CompanionHost : IOverlayListener
         _desktopOverlay.SwitchPressed += SetDesktopOverlay;
         _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
         _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
+        _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
 
         _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
         _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);

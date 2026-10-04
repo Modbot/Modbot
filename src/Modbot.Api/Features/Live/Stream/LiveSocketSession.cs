@@ -44,6 +44,7 @@ internal sealed class LiveSocketSession
     private readonly LiveScopeRefresh _refresh;
     private readonly FactSignal _signal;
     private readonly Action<string, string?>? _instanceNamed;
+    private readonly LiveNudge? _nudge;
     private readonly string _caller;
     private readonly ILogger _log;
 
@@ -59,6 +60,7 @@ internal sealed class LiveSocketSession
     /// <param name="refresh">Re-resolves that at each heartbeat.</param>
     /// <param name="startAfter">The cursor from the address, or null for "from now".</param>
     /// <param name="instanceNamed">Told each time a companion names the instance it is in: its number, and its world when it said.</param>
+    /// <param name="nudge">Something else this connection is told has changed (a companion's heads-ups), or null.</param>
     public LiveSocketSession(
         WebSocket socket,
         IServiceScopeFactory scopes,
@@ -70,7 +72,8 @@ internal sealed class LiveSocketSession
         LiveScopeRefresh refresh,
         long? startAfter,
         string caller,
-        Action<string, string?>? instanceNamed = null)
+        Action<string, string?>? instanceNamed = null,
+        LiveNudge? nudge = null)
     {
         _socket = socket;
         _scopes = scopes;
@@ -83,6 +86,7 @@ internal sealed class LiveSocketSession
         _startAt = startAfter;
         _caller = caller;
         _instanceNamed = instanceNamed;
+        _nudge = nudge;
         _log = Log.Logger.ForContext<LiveSocketSession>();
     }
 
@@ -151,8 +155,22 @@ internal sealed class LiveSocketSession
 
         var lastHeartbeat = _elapsed.Elapsed;
 
+        // What was already true when the connection opened is in the companion's first roster
+        // read, so only a change after this is sent.
+        var nudged = _nudge?.Version() ?? 0;
+
         while (!ct.IsCancellationRequested)
         {
+            // Taken before the version is read, so a change landing in between still wakes the wait.
+            var nextNudge = _nudge?.Next();
+
+            if (_nudge is { } nudge && nudge.Version() is var version && version != nudged)
+            {
+                nudged = version;
+                if (!await SendAsync(new LiveChanged("changed", nudge.What), ct))
+                    return await TooSlowAsync();
+            }
+
             while (_changes.TryDequeue(out var change))
             {
                 if (change.InstanceId is { } instance && _scope.IsDevice)
@@ -205,7 +223,7 @@ internal sealed class LiveSocketSession
 
             // More to read means read on without waiting.
             if (!page.More)
-                await WaitAsync(written, ct);
+                await WaitAsync(nextNudge is null ? written : Task.WhenAny(written, nextNudge), ct);
         }
 
         return "client went away";

@@ -95,6 +95,14 @@ public sealed record ServerPairing
     public Uri ContextEndpoint(string instanceId, string? worldId = null)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/context?{Address(instanceId, worldId)}");
 
+    /// <summary>Where a heads-up is placed, in the instance the moderator is standing in.</summary>
+    public Uri HeadsUpsEndpoint()
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups");
+
+    /// <summary>Where one heads-up is cleared.</summary>
+    public Uri ClearHeadsUpEndpoint(string id)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/heads-ups/{Uri.EscapeDataString(id)}/clear");
+
     /// <summary>One person's profile summary — prior actions, roles, join date, current flags.</summary>
     public Uri UserEndpoint(string subjectId)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");

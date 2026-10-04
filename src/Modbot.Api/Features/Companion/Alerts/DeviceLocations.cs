@@ -101,12 +101,30 @@ public sealed class DeviceLocations
     {
         lock (_gate)
         {
-            return _known.TryGetValue(deviceId, out var entry)
-                && now - entry.At <= RememberedFor
-                && string.Equals(entry.InstanceId, instanceId, StringComparison.Ordinal)
-                && (entry.WorldId is null
-                    || worldId is not { Length: > 0 }
-                    || string.Equals(entry.WorldId, worldId, StringComparison.Ordinal));
+            return _known.TryGetValue(deviceId, out var entry) && Matches(entry, instanceId, now, worldId);
+        }
+    }
+
+    private static bool Matches(Entry entry, string instanceId, DateTimeOffset now, string? worldId)
+        => now - entry.At <= RememberedFor
+            && string.Equals(entry.InstanceId, instanceId, StringComparison.Ordinal)
+            && (entry.WorldId is null
+                || worldId is not { Length: > 0 }
+                || string.Equals(entry.WorldId, worldId, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Every device believed to be standing in this instance right now, by the same rule as
+    /// <see cref="IsIn"/>.
+    /// </summary>
+    /// <remarks>
+    /// For telling the staff in one instance that something there changed. Like an alert, nobody
+    /// who has not recently said where they are is on it.
+    /// </remarks>
+    public IReadOnlyList<Guid> DevicesIn(string instanceId, DateTimeOffset now, string? worldId = null)
+    {
+        lock (_gate)
+        {
+            return [.. _known.Where(pair => Matches(pair.Value, instanceId, now, worldId)).Select(pair => pair.Key)];
         }
     }
 

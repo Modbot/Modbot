@@ -130,6 +130,7 @@ because what you are sent is decided by who you are.
 | `{ "kind": "notice", "code": "history_trimmed", "message": "…" }` | Your cursor was older than anything still kept. |
 | `{ "kind": "error", "message": "…" }` | A message you sent could not be used. |
 | `{ "kind": "pong" }` | The answer to `{ "op": "ping" }`. |
+| `{ "kind": "changed", "what": "heads_ups" }` | Companion only: the [heads-ups](/companion/heads-ups) where it stands changed. It carries no news; read the roster again. Ignore a `what` you do not know. |
 
 You may send `{ "op": "subscribe", "cursor": "…" }` to move the reading position. The close codes
 are the [event WebSocket's](/api/events-websocket#close-codes); an unexpected failure on the

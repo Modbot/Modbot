@@ -47,9 +47,18 @@ public sealed record RosterMember(
 /// A pairing sees exactly one group's context. There is no shape here that could carry another
 /// group's data, which is the same boundary as routing, arriving from the other direction.
 /// </remarks>
+/// <param name="HeadsUps">
+/// The heads-ups standing in this instance, oldest first. Null from a server too old to send them.
+/// </param>
 public sealed record InstanceContext(
     [property: JsonPropertyName("instanceId")] string InstanceId,
-    [property: JsonPropertyName("members")] IReadOnlyList<RosterMember> Members);
+    [property: JsonPropertyName("members")] IReadOnlyList<RosterMember> Members,
+    [property: JsonPropertyName("headsUps")] IReadOnlyList<HeadsUp>? HeadsUps = null)
+{
+    /// <summary>The heads-ups this build can show, never null.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<HeadsUp> HeadsUpsOrNone => HeadsUps is null ? [] : [.. HeadsUps.Where(h => h.KindOrNull is not null)];
+}
 
 /// <summary>
 /// One person's profile summary: deliberately not the full web profile.

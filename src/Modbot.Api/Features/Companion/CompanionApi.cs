@@ -7,6 +7,7 @@ using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.Events;
+using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Api.Features.Companion.Live;
 using Modbot.Api.Features.Companion.Pair;
 using Modbot.Api.Features.Companion.PairingCodes;
@@ -64,6 +65,7 @@ public static class CompanionApi
         // state for that channel rather than anything belonging to a request.
         services.AddSingleton<DeviceLocations>();
         services.AddSingleton<AlertHub>();
+        services.AddSingleton<HeadsUpSignal>();
         services.AddScoped<DeviceAuthenticator>();
 
         // One count for the life of the process, like sign-in's: wrong pairing codes from one
@@ -228,6 +230,34 @@ public static class CompanionApi
             .Produces(StatusCodes.Status429TooManyRequests)
             .AllowAnonymous();
 
+        // Heads-ups (2026-10-03): a short note a moderator leaves for the other staff standing in
+        // the same instance. Placed and cleared only from that instance; read with its roster.
+        companion.MapPost("/heads-ups", HeadsUpsHandler.PlaceAsync)
+            .WithName("PlaceClientHeadsUp")
+            .WithSummary("Place a heads-up")
+            .WithDescription(
+                "Leaves a heads-up in the instance this device is standing in, for the other staff "
+                + "standing there. `kind` is `pin`, `keep_an_eye`, `message` or `ask_for_help`. Text is "
+                + "plain, at most 140 characters, with no links. Refused with 403 when the device is "
+                + "not believed to be in that instance.")
+            .Produces<HeadsUpDto>()
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status403Forbidden)
+            .AllowAnonymous();
+
+        companion.MapPost("/heads-ups/{id:guid}/clear", HeadsUpsHandler.ClearAsync)
+            .WithName("ClearClientHeadsUp")
+            .WithSummary("Clear a heads-up")
+            .WithDescription(
+                "Clears a heads-up in the instance this device is standing in. Clearing one that is "
+                + "already cleared succeeds. One that is not there, or not in this device's instance, "
+                + "is a 404.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status404NotFound)
+            .AllowAnonymous();
+
         // The companion's own Unpair. A companion built before this gets a 404 here, and one
         // talking to a server built before this gets the same; both still remove the pairing on
         // their own side, which is all an unpair ever did before.
@@ -264,6 +294,7 @@ public static class CompanionApi
         DeviceAuthenticator authenticator,
         ICompanionDeviceStore devices,
         AlertHub alerts,
+        HeadsUpSignal headsUps,
         IModbotClock clock,
         CancellationToken ct)
     {
@@ -277,6 +308,7 @@ public static class CompanionApi
         var device = authentication.Device!;
         await devices.RevokeAsync(device.Id, clock.UtcNow, ct);
         alerts.Forget(device.Id);
+        headsUps.Forget(device.Id);
 
         return Results.NoContent();
     }

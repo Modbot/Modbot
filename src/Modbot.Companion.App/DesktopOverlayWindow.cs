@@ -10,6 +10,7 @@ using Modbot.Overlay;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
+using Modbot.Shared.HeadsUps;
 
 namespace Modbot.Companion.App;
 
@@ -105,6 +106,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
     public event Action<OverlayPage, string>? NameTyped;
 
+    /// <summary>A heads-up's words, as typed here while one is being written.</summary>
+    public event Action<string>? HeadsUpTyped;
+
+    /// <summary>
+    /// The heads-up's words being typed, kept here for the same reason as <see cref="_typing"/>.
+    /// Null while no heads-up is being written.
+    /// </summary>
+    private string? _typingHeadsUp;
+
     /// <summary>
     /// The name being typed, kept here rather than read back off the drawn screen: the drive
     /// loop draws four times a second, and two keys pressed between draws would otherwise each
@@ -181,9 +191,29 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private OverlayPage? TypingFor
         => _drawn is { ShownFilters.Open: FilterPart.Name } drawn ? drawn.Page : null;
 
-    /// <summary>Letters go into the name while its filter is open, and are the list's keys otherwise.</summary>
+    /// <summary>Whether a heads-up is being written on the screen drawn now.</summary>
+    private bool WritingHeadsUp => _drawn is { Draft: { Sending: false }, Page: OverlayPage.Instance };
+
+    /// <summary>
+    /// Letters go into a heads-up's words while one is being written, into the name while its
+    /// filter is open, and are the list's keys otherwise.
+    /// </summary>
     private void OnTextInput(object? sender, TextInputEventArgs e)
     {
+        if (WritingHeadsUp && !string.IsNullOrEmpty(e.Text))
+        {
+            var words = new string(e.Text.Where(c => !char.IsControl(c)).ToArray());
+            if (words.Length == 0)
+                return;
+
+            var longer = (_typingHeadsUp ?? string.Empty) + words;
+            _typingHeadsUp = longer.Length > HeadsUpRules.MaxTextLength ? longer[..HeadsUpRules.MaxTextLength] : longer;
+
+            HeadsUpTyped?.Invoke(_typingHeadsUp);
+            e.Handled = true;
+            return;
+        }
+
         if (TypingFor is not { } list || string.IsNullOrEmpty(e.Text))
             return;
 
@@ -275,6 +305,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return false;
 
         _drawn = screen;
+
+        // A heads-up's words start from what it holds when it opens, and are let go when it
+        // closes. Not read back on every draw, for the same reason as the name.
+        _typingHeadsUp = screen.Draft is { } draft && screen.Page is OverlayPage.Instance
+            ? _typingHeadsUp ?? draft.Text
+            : null;
 
         // The name being typed starts from what the list already holds whenever its filter opens,
         // and is let go when it closes.
@@ -528,6 +564,31 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // While a heads-up is being written, letters are letters too. Backspace takes the last
+        // character off and Enter presses Place.
+        if (WritingHeadsUp)
+        {
+            switch (e.Key)
+            {
+                case Key.Back:
+                    if (_typingHeadsUp is { Length: > 0 } words)
+                    {
+                        var shorter = new System.Globalization.StringInfo(words);
+                        _typingHeadsUp = shorter.LengthInTextElements > 1 ? shorter.SubstringByTextElements(0, shorter.LengthInTextElements - 1) : string.Empty;
+                        HeadsUpTyped?.Invoke(_typingHeadsUp);
+                    }
+
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                    PanelTapped?.Invoke(new OverlayTarget.PlaceHeadsUp());
+                    e.Handled = true;
+                    return;
+                case Key.J or Key.K or Key.Up or Key.Down:
+                    return;
+            }
+        }
+
         // While a name is being typed, letters are letters: j and k go into it rather than
         // scrolling. Backspace takes the last character off, and Enter closes the filter.
         if (TypingFor is { } list)

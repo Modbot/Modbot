@@ -7,6 +7,7 @@ using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Core.Users;
+using Modbot.Shared.HeadsUps;
 using Modbot.Shared.Names;
 
 namespace Modbot.Overlay.Views;
@@ -107,6 +108,17 @@ public static class OverlayView
 
             if (filters.Open is { } open)
                 stack.Children.Add(Choices(screen.Page, open, filters));
+        }
+
+        // A heads-up being written takes the place of a filter's choices, over the roster it was
+        // opened from; the ones standing here sit above the roster, where the eye lands first.
+        if (screen.Page is OverlayPage.Instance)
+        {
+            if (screen.Draft is { } draft)
+                stack.Children.Add(DraftStrip(draft, screen.NoKeyboard));
+
+            if (screen.HeadsUpsOrNone.Count > 0)
+                stack.Children.Add(HeadsUpList(screen.HeadsUpsOrNone, screen.CanPlaceHeadsUps));
         }
 
         // One screen at a time. A panel that stacked all three would need scrolling to reach the
@@ -882,7 +894,7 @@ public static class OverlayView
                     ? ListFiltering.JoinedWords(at, screen.Now)
                     : null;
 
-                rows.Children.Add(RosterRow(member, joined));
+                rows.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
             }
         }
 
@@ -899,7 +911,9 @@ public static class OverlayView
     }
 
     /// <param name="joined">How long they have been here, in words, or null when it is not known.</param>
-    private static Control RosterRow(RosterMember member, string? joined)
+    /// <param name="headsUp">The kind of heads-up standing on this person, or null.</param>
+    /// <param name="canAdd">Draw the "+" that starts a heads-up from this row.</param>
+    private static Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false)
     {
         var badge = new Ellipse
         {
@@ -949,7 +963,241 @@ public static class OverlayView
         if (member.Flags.Count > 0)
             line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
-        return Row(line, member.SubjectId, joined);
+        if (headsUp is { } kind)
+            line.Children.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
+
+        return Row(line, member.SubjectId, joined, canAdd ? AddHeadsUpPress(member.SubjectId) : null);
+    }
+
+    /// <summary>
+    /// The kind of the heads-up standing on a person, for the chip on their row: Keep an eye before
+    /// Message, because it is the one that outlasts them leaving.
+    /// </summary>
+    private static HeadsUpKind? HeadsUpOn(IReadOnlyList<HeadsUp> headsUps, string subjectId)
+    {
+        HeadsUpKind? found = null;
+
+        foreach (var headsUp in headsUps)
+        {
+            if (!string.Equals(headsUp.SubjectId, subjectId, StringComparison.Ordinal) || headsUp.KindOrNull is not { } kind)
+                continue;
+
+            if (kind is HeadsUpKind.KeepAnEye)
+                return kind;
+
+            found ??= kind;
+        }
+
+        return found;
+    }
+
+    /// <summary>A heads-up's kind as a mark on the row of the person it is about.</summary>
+    private static Control HeadsUpChip(string caption)
+    {
+        var label = Text(caption, T.Density.TextSmall, T.AccentForegroundBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = T.AccentDimBrush,
+            BorderBrush = T.AccentBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// The "+" at a roster row's far end, which starts a heads-up from that row. Its own target
+    /// inside the row's, so it wins over opening the person.
+    /// </summary>
+    private static Control AddHeadsUpPress(string subjectId)
+    {
+        var label = Text("+", T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.AddHeadsUp(subjectId),
+            Background = T.Surface2Brush,
+            BorderBrush = T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Width = 36,
+            Height = 32,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// A heads-up being written: its kind, the place for Ask for help, its words, and Place and
+    /// Cancel. Nothing in it has left the PC until Place is pressed.
+    /// </summary>
+    private static Control DraftStrip(HeadsUpDraft draft, bool noKeyboard)
+    {
+        var lines = new StackPanel { Spacing = 10 };
+
+        lines.Children.Add(Text(
+            draft.AboutPerson ? "Heads-up · " + (draft.SubjectName ?? draft.SubjectId) : "Heads-up",
+            T.Density.TextBase,
+            T.TextBrush,
+            FontWeight.SemiBold));
+
+        var kinds = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+        foreach (var kind in Enum.GetValues<HeadsUpKind>())
+            kinds.Children.Add(Choice(HeadsUpRules.Name(kind), draft.Kind == kind, new OverlayTarget.HeadsUpKindPick(kind)));
+        lines.Children.Add(kinds);
+
+        if (draft.Kind is HeadsUpKind.Message)
+        {
+            lines.Children.Add(new WrapPanel
+            {
+                Orientation = Orientation.Horizontal,
+                ItemSpacing = 8,
+                LineSpacing = 8,
+                Children =
+                {
+                    Choice(draft.SubjectName ?? draft.SubjectId, !draft.OnInstance, new OverlayTarget.HeadsUpAboutPick(false)),
+                    Choice("Instance", draft.OnInstance, new OverlayTarget.HeadsUpAboutPick(true)),
+                },
+            });
+        }
+
+        if (draft.Kind is HeadsUpKind.AskForHelp)
+        {
+            var places = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+            foreach (var place in HeadsUpRules.Places)
+                places.Children.Add(Choice(place, string.Equals(draft.Place, place, StringComparison.Ordinal), new OverlayTarget.HeadsUpPlacePick(place)));
+            lines.Children.Add(places);
+        }
+
+        // A headset with no keyboard cannot write anything, so it gets no box to write in; the
+        // kinds that need no words can still be placed from it.
+        if (!noKeyboard || draft.Text.Length > 0)
+            lines.Children.Add(HeadsUpBox(draft.Text));
+
+        if (draft.Problem is { Length: > 0 } problem)
+            lines.Children.Add(Text(problem, T.Density.TextSmall, T.WarnBrush, FontWeight.SemiBold));
+
+        lines.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Children =
+            {
+                Press(draft.Sending ? "Placing…" : "Place", new OverlayTarget.PlaceHeadsUp()),
+                Press("Cancel", new OverlayTarget.CancelHeadsUp()),
+            },
+        });
+
+        return new Border
+        {
+            Background = T.SurfaceBrush,
+            BorderBrush = T.AccentForegroundBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(18, 14),
+            Child = lines,
+        };
+    }
+
+    /// <summary>
+    /// A heads-up's words, in a box that looks like one, wrapping onto a second line rather than
+    /// trimming what the moderator is still writing.
+    /// </summary>
+    private static Control HeadsUpBox(string text)
+    {
+        var label = Text(text + "|", T.Density.TextBase, T.TextBrush);
+        label.TextWrapping = TextWrapping.Wrap;
+        label.MaxLines = 3;
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.TypeHeadsUp(text),
+            Background = T.Surface3Brush,
+            BorderBrush = T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            MinHeight = ChipHeight,
+            Padding = new Thickness(12, 6),
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// The heads-ups standing here, oldest first: what kind, about whom or where, the words, and who
+    /// placed it, with Clear on each.
+    /// </summary>
+    /// <remarks>
+    /// Every word in it is another moderator's or a display name, so each is placed as text and cut
+    /// to its line, like every name on the panel.
+    /// </remarks>
+    private static Control HeadsUpList(IReadOnlyList<HeadsUp> headsUps, bool canClear)
+    {
+        var rows = new StackPanel { Spacing = RowGap };
+
+        foreach (var headsUp in headsUps)
+        {
+            if (headsUp.KindOrNull is not { } kind)
+                continue;
+
+            var what = Text(HeadsUpRules.Name(kind), T.Density.TextSmall, T.AccentForegroundBrush, FontWeight.SemiBold);
+            what.VerticalAlignment = VerticalAlignment.Center;
+
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { what } };
+
+            if (headsUp.About is { } about)
+            {
+                var whom = Text(about, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
+                whom.VerticalAlignment = VerticalAlignment.Center;
+                whom.MaxWidth = 200;
+                line.Children.Add(whom);
+            }
+
+            if (headsUp.Text is { } words)
+            {
+                var said = Text(words, T.Density.TextBase, T.TextBrush);
+                said.VerticalAlignment = VerticalAlignment.Center;
+                said.MaxWidth = 360;
+                line.Children.Add(said);
+            }
+
+            var by = Text("· " + headsUp.PlacedBy, T.Density.TextSmall, T.TextDimBrush);
+            by.VerticalAlignment = VerticalAlignment.Center;
+            by.MaxWidth = 160;
+            line.Children.Add(by);
+
+            var row = new DockPanel { LastChildFill = true, Height = RowBoxHeight };
+
+            if (canClear)
+            {
+                var clear = Choice("Clear", false, new OverlayTarget.ClearHeadsUp(headsUp.Id));
+                clear.MinHeight = 32;
+                clear.VerticalAlignment = VerticalAlignment.Center;
+                clear.Margin = new Thickness(10, 0, 0, 0);
+                DockPanel.SetDock(clear, Avalonia.Controls.Dock.Right);
+                row.Children.Add(clear);
+            }
+
+            line.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(line);
+            rows.Children.Add(row);
+        }
+
+        return new Border
+        {
+            Background = T.SurfaceBrush,
+            BorderBrush = T.AccentBrush,
+            BorderThickness = new Thickness(6, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(18, 10),
+            Child = rows,
+        };
     }
 
     /// <summary>How tall one roster or events row is, in panel pixels.</summary>
@@ -975,19 +1223,34 @@ public static class OverlayView
     /// it says so.
     /// </remarks>
     /// <param name="trailing">Words at the row's far end, such as how long somebody has been here.</param>
-    private static Control Row(Control line, string? subjectId, string? trailing = null)
+    /// <param name="press">A control at the very end of the row, after the words, or null.</param>
+    private static Control Row(Control line, string? subjectId, string? trailing = null, Control? press = null)
     {
         line.VerticalAlignment = VerticalAlignment.Center;
 
         Control content = line;
-        if (trailing is not null)
+        if (trailing is not null || press is not null)
         {
-            var end = Text(trailing, T.Density.TextSmall, T.TextDimBrush);
-            end.VerticalAlignment = VerticalAlignment.Center;
-            end.Margin = new Thickness(10, 0, 0, 0);
-            DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+            var dock = new DockPanel { LastChildFill = true };
 
-            content = new DockPanel { LastChildFill = true, Children = { end, line } };
+            if (press is not null)
+            {
+                press.Margin = new Thickness(10, 0, 0, 0);
+                DockPanel.SetDock(press, Avalonia.Controls.Dock.Right);
+                dock.Children.Add(press);
+            }
+
+            if (trailing is not null)
+            {
+                var end = Text(trailing, T.Density.TextSmall, T.TextDimBrush);
+                end.VerticalAlignment = VerticalAlignment.Center;
+                end.Margin = new Thickness(10, 0, 0, 0);
+                DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+                dock.Children.Add(end);
+            }
+
+            dock.Children.Add(line);
+            content = dock;
         }
 
         var row = new Border

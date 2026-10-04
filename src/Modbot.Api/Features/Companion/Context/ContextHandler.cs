@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
@@ -21,9 +22,14 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
     [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
+/// <param name="HeadsUps">
+/// What stands in this instance (heads-ups, 2026-10-03), oldest first. Sent only with this
+/// instance's roster, to a device that just named it. Older companions ignore it.
+/// </param>
 public sealed record InstanceContextDto(
     [property: JsonPropertyName("instanceId")] string InstanceId,
-    [property: JsonPropertyName("members")] IReadOnlyList<RosterMemberDto> Members);
+    [property: JsonPropertyName("members")] IReadOnlyList<RosterMemberDto> Members,
+    [property: JsonPropertyName("headsUps")] IReadOnlyList<HeadsUpDto>? HeadsUps = null);
 
 public sealed record UserSummaryDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -72,6 +78,7 @@ public static class ContextHandler
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
+        HeadsUpSignal headsUpSignal,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -117,8 +124,25 @@ public static class ContextHandler
 
         var people = await new InstancePeopleReader(database).ForNumberAsync(instanceId, world, since, closedAt, ct);
 
+        // The heads-ups that stand here, after ending the ones this roster says are over: all of
+        // them when the instance has closed or emptied, a message on somebody who has left. The
+        // other staff here are told when one ends, as they are when one is cleared.
+        var deviceId = authentication.Device!.Id;
+        var (headsUps, ended) = await HeadsUpsHandler.StandingAsync(
+            database,
+            deviceId,
+            instanceId,
+            world,
+            people.Here.Select(p => p.UserId).ToHashSet(StringComparer.Ordinal),
+            closedAt is not null || people.Here.Count == 0,
+            clock.UtcNow,
+            ct);
+
+        if (ended)
+            HeadsUpsHandler.TellOthers(locations, headsUpSignal, deviceId, instanceId, world, clock.UtcNow);
+
         if (people.Here.Count == 0)
-            return Results.Ok(new InstanceContextDto(instanceId, []));
+            return Results.Ok(new InstanceContextDto(instanceId, [], headsUps));
 
         var subjects = people.Here.Select(p => p.UserId).ToList();
         var members = await MembersAndStaff.ReadAsync(database, subjects, ct);
@@ -136,7 +160,7 @@ public static class ContextHandler
                 eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null))
             .ToList();
 
-        return Results.Ok(new InstanceContextDto(instanceId, roster));
+        return Results.Ok(new InstanceContextDto(instanceId, roster, headsUps));
     }
 
     public static async Task<IResult> UserAsync(

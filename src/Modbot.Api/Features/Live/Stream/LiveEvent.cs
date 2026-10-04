@@ -179,6 +179,20 @@ public sealed record LiveError(string Kind, string Message);
 
 public sealed record LivePong(string Kind);
 
+/// <summary>
+/// Sent to a companion when something it reads elsewhere changed where it is standing:
+/// <c>{"kind":"changed","what":"heads_ups"}</c>. It carries no news of its own; the companion reads
+/// again. A client that does not know the kind ignores it.
+/// </summary>
+public sealed record LiveChanged(string Kind, string What);
+
+/// <summary>
+/// Something besides the fact log that one connection should hear has changed: the
+/// <see cref="LiveChanged"/> it sends, a count that goes up on each change, and a task that
+/// completes at the next one.
+/// </summary>
+public sealed record LiveNudge(string What, Func<long> Version, Func<Task> Next);
+
 /// <param name="Cursor">Send back as <c>after</c> to carry on. Moves past events this caller was not sent.</param>
 /// <param name="More">Events are ready past these: ask again straight away.</param>
 public sealed record LivePollResponse(

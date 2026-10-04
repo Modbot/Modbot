@@ -255,8 +255,9 @@ in an instance belonging to one of your paired groups, and only to that group's 
   card. It is a WebSocket; when the socket cannot be opened or keeps dropping, the companion asks
   for the same events with ordinary requests instead, and tries the socket again later. See
   [live updates](/api/live-updates) for the rules and the timings.
+- a [heads-up](/companion/heads-ups), only when you press **Place** or **Clear** on one.
 
-Both carry the client's token for that server, the instance you are in, and nothing else. Nothing
+The first two carry the client's token for that server, the instance you are in, and nothing else. Nothing
 the overlay does is sent to Modbot Cloud, and SteamVR is only handed the picture to draw.
 
 The client window's **Servers** page shows the connection in one word next to each server:

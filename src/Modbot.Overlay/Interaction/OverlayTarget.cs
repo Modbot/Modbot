@@ -93,6 +93,41 @@ public abstract record OverlayTarget
     /// there while it is showing.
     /// </summary>
     public sealed record TypeName(Views.OverlayPage List, string Text) : OverlayTarget;
+
+    /// <summary>
+    /// The "+" at a roster row's end: start writing a heads-up from that row (heads-ups,
+    /// 2026-10-03).
+    /// </summary>
+    /// <remarks>
+    /// A heads-up is words for the other staff in the instance to read. It is still not an action
+    /// on a person: nothing on VRChat or Discord changes because one was placed.
+    /// </remarks>
+    public sealed record AddHeadsUp(string SubjectId) : OverlayTarget;
+
+    /// <summary>One of the heads-up kinds, picked while one is being written.</summary>
+    public sealed record HeadsUpKindPick(Modbot.Shared.HeadsUps.HeadsUpKind Kind) : OverlayTarget;
+
+    /// <summary>For a Message being written: about the row's person, or about the instance.</summary>
+    public sealed record HeadsUpAboutPick(bool Instance) : OverlayTarget;
+
+    /// <summary>One of Ask for help's places, picked while one is being written.</summary>
+    public sealed record HeadsUpPlacePick(string Place) : OverlayTarget;
+
+    /// <summary>
+    /// The box holding a heads-up's words. In a headset, tapping it brings up the runtime's
+    /// keyboard with <paramref name="Text"/> already in it; on the desktop window, typing goes
+    /// there while a heads-up is being written.
+    /// </summary>
+    public sealed record TypeHeadsUp(string Text) : OverlayTarget;
+
+    /// <summary>Place: send the heads-up being written.</summary>
+    public sealed record PlaceHeadsUp : OverlayTarget;
+
+    /// <summary>Cancel: drop the heads-up being written. Nothing was sent.</summary>
+    public sealed record CancelHeadsUp : OverlayTarget;
+
+    /// <summary>Clear a standing heads-up, for everybody in the instance.</summary>
+    public sealed record ClearHeadsUp(string Id) : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

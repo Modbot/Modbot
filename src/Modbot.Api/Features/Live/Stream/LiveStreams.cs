@@ -52,7 +52,8 @@ public static class LiveStreams
         LiveScopeRefresh refresh,
         long? after,
         string connectionKey,
-        Action<string, string?>? instanceNamed = null)
+        Action<string, string?>? instanceNamed = null,
+        LiveNudge? nudge = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(socket);
@@ -89,7 +90,8 @@ public static class LiveStreams
                 refresh,
                 after,
                 connectionKey,
-                instanceNamed);
+                instanceNamed,
+                nudge);
 
             await session.RunAsync(http.RequestAborted);
         }

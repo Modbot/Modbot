@@ -112,6 +112,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>People a moderator asked to keep an eye on (watching a person design).</summary>
     public DbSet<PersonWatch> PersonWatches => Set<PersonWatch>();
 
+    /// <summary>Short notes moderators leave from the companion for staff in the same instance.</summary>
+    public DbSet<HeadsUp> HeadsUps => Set<HeadsUp>();
+
     /// <summary>Moderator patterns opened for a human look (spec 5.8.5).</summary>
     public DbSet<Review> Reviews => Set<Review>();
 
@@ -2943,6 +2946,29 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId, e.SetAt })
                 .HasDatabaseName("ix_person_watch_person")
                 .IsDescending(false, false, true);
+        });
+
+        builder.Entity<HeadsUp>(entity =>
+        {
+            entity.ToTable("heads_up");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.InstanceId).HasColumnType("text");
+            entity.Property(e => e.WorldId).HasColumnType("text");
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.SubjectName).HasMaxLength(Modbot.Shared.HeadsUps.HeadsUpRules.MaxNameLength);
+            entity.Property(e => e.Text).HasMaxLength(Modbot.Shared.HeadsUps.HeadsUpRules.MaxTextLength);
+            entity.Property(e => e.Place).HasMaxLength(32);
+            entity.Property(e => e.PlacedByName).HasMaxLength(64);
+            entity.Property(e => e.ClearedByName).HasMaxLength(64);
+
+            // "What stands in this instance?" -- asked on every roster read.
+            entity.HasIndex(e => e.InstanceId)
+                .HasDatabaseName("ix_heads_up_standing")
+                .HasFilter("cleared_at IS NULL");
         });
 
         builder.Entity<LogEntry>(entity =>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.Companion.HeadsUps;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data;
@@ -39,6 +40,7 @@ public static class CompanionLiveEndpoints
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
+        HeadsUpSignal headsUps,
         EventSocketOptions options,
         IModbotClock clock,
         CancellationToken ct)
@@ -78,7 +80,12 @@ public static class CompanionLiveEndpoints
             DeviceRefresh(tokenHash),
             cursor,
             $"live:device:{device.Id}",
-            (named, namedWorld) => locations.Record(device.Id, named, clock.UtcNow, namedWorld));
+            (named, namedWorld) => locations.Record(device.Id, named, clock.UtcNow, namedWorld),
+
+            // Heads-ups are not facts, so the stream would never carry them. A change to the ones
+            // where this device stands is a nudge to read its roster again; the long poll has
+            // none, and its companion finds them at its next roster read instead.
+            new LiveNudge("heads_ups", () => headsUps.VersionOf(device.Id), () => headsUps.NextAsync(device.Id)));
 
         return Results.Empty;
     }

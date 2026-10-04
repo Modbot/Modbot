@@ -80,6 +80,12 @@ public enum OverlayPage
 /// The panel this is drawn on has no way to type: a headset whose runtime offers no keyboard. The
 /// Name filter is left off there unless a name is already set somewhere that can type.
 /// </param>
+/// <param name="HeadsUps">The heads-ups standing in this instance, oldest first (heads-ups, 2026-10-03).</param>
+/// <param name="Draft">The heads-up being written on the panel, or null.</param>
+/// <param name="CanPlaceHeadsUps">
+/// Whether this panel can place and clear heads-ups. Without it there is no "+" on a row and no
+/// Clear on a heads-up, so nothing is drawn that a tap would have to ignore.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -98,7 +104,10 @@ public sealed record OverlayScreen(
     ListFilters? EventFilters = null,
     IReadOnlyDictionary<string, DateTimeOffset?>? Arrivals = null,
     DateTimeOffset Now = default,
-    bool NoKeyboard = false)
+    bool NoKeyboard = false,
+    IReadOnlyList<HeadsUp>? HeadsUps = null,
+    HeadsUpDraft? Draft = null,
+    bool CanPlaceHeadsUps = false)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -110,6 +119,9 @@ public sealed record OverlayScreen(
 
     /// <summary>The Audit Log's filters, never null.</summary>
     public ListFilters EventFiltersOrNone => EventFilters ?? ListFilters.None;
+
+    /// <summary>The heads-ups standing here, never null.</summary>
+    public IReadOnlyList<HeadsUp> HeadsUpsOrNone => HeadsUps ?? [];
 
     /// <summary>When each person got here, never null.</summary>
     public IReadOnlyDictionary<string, DateTimeOffset?> ArrivalsOrNone => Arrivals ?? NoArrivals;
@@ -153,6 +165,9 @@ public sealed record OverlayScreen(
             && Cursor == other.Cursor
             && Page == other.Page
             && NoKeyboard == other.NoKeyboard
+            && CanPlaceHeadsUps == other.CanPlaceHeadsUps
+            && Draft == other.Draft
+            && HeadsUpsOrNone.SequenceEqual(other.HeadsUpsOrNone)
             && RosterFiltersOrNone == other.RosterFiltersOrNone
             && EventFiltersOrNone == other.EventFiltersOrNone
             && SameMinute(other)

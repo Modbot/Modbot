@@ -82,9 +82,11 @@ public sealed record LivePollPage(
     [property: JsonPropertyName("more")] bool More);
 
 /// <summary>One message from the live WebSocket, already parsed.</summary>
-/// <param name="Kind"><c>hello</c>, <c>event</c>, <c>heartbeat</c>, <c>notice</c>, <c>error</c> or <c>pong</c>.</param>
+/// <param name="Kind"><c>hello</c>, <c>event</c>, <c>heartbeat</c>, <c>changed</c>, <c>notice</c>, <c>error</c> or <c>pong</c>.</param>
 /// <param name="Cursor">On <c>hello</c> and <c>heartbeat</c>: where the server is, so a reconnect carries on from there.</param>
+/// <param name="What">On <c>changed</c>: what to read again. <c>heads_ups</c> means the roster read, which carries them.</param>
 public sealed record LiveSocketMessage(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("event")] LiveEvent? Event = null,
-    [property: JsonPropertyName("cursor")] string? Cursor = null);
+    [property: JsonPropertyName("cursor")] string? Cursor = null,
+    [property: JsonPropertyName("what")] string? What = null);

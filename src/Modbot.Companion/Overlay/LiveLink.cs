@@ -79,6 +79,7 @@ public sealed class LiveLink : IDisposable
     private Task? _receiving;
     private CancellationTokenSource? _receiveStop;
     private volatile bool _dropped;
+    private volatile bool _headsUpsChanged;
     private Task<ReadResult<LivePollPage>>? _polling;
     private DateTimeOffset? _notBefore;
     private DateTimeOffset? _pollUntil;
@@ -162,6 +163,19 @@ public sealed class LiveLink : IDisposable
             drained.Add(@event);
 
         return drained;
+    }
+
+    /// <summary>
+    /// Whether the server said the heads-ups where the moderator stands changed since the last
+    /// ask. Asking clears it. The roster read carries them, so the answer is to read it again.
+    /// </summary>
+    public bool TakeHeadsUpsChanged()
+    {
+        if (!_headsUpsChanged)
+            return false;
+
+        _headsUpsChanged = false;
+        return true;
     }
 
     /// <summary>One turn: harvest what finished, start what is due. Never waits on the network.</summary>
@@ -339,6 +353,10 @@ public sealed class LiveLink : IDisposable
 
                     case "hello" or "heartbeat" when message.Cursor is { } cursor:
                         Cursor = cursor;
+                        break;
+
+                    case "changed" when message.What == "heads_ups":
+                        _headsUpsChanged = true;
                         break;
                 }
             }

@@ -6,6 +6,7 @@ using Modbot.Companion.Sounds;
 using Modbot.Companion.Time;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
+using Modbot.Shared.HeadsUps;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
 
@@ -101,6 +102,7 @@ public sealed class OverlayDriver : IDisposable
     private readonly IModbotClock _clock;
     private readonly IOverlayListener? _listener;
     private readonly PopUps? _popUps;
+    private readonly IHeadsUpClient? _headsUpClient;
     private readonly List<Server> _servers = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAlerted = new(StringComparer.Ordinal);
 
@@ -122,6 +124,11 @@ public sealed class OverlayDriver : IDisposable
     // the other, and gone with the instance.
     private ListFilters _rosterFilters = ListFilters.None;
     private ListFilters _eventFilters = ListFilters.None;
+
+    // The heads-up being written, if one is, and the ones a card has already been raised for in
+    // this instance, so each is told once.
+    private HeadsUpDraft? _draft;
+    private readonly HashSet<string> _headsUpsTold = new(StringComparer.Ordinal);
 
     /// <summary>Reads VRChat's timestamps, which carry no zone, as instants on this PC's clock.</summary>
     private readonly LogTimestampConverter _timestamps = new();
@@ -157,7 +164,11 @@ public sealed class OverlayDriver : IDisposable
     /// </param>
     /// <param name="popUps">
     /// The notification overlay's stack, when there is one. The loop puts a pop-up up for a
-    /// flagged arrival and for a Modbot fault; everything else stays on the main panel.
+    /// flagged arrival, a heads-up and a Modbot fault; everything else stays on the main panel.
+    /// </param>
+    /// <param name="headsUps">
+    /// Places and clears heads-ups. Null leaves the panel able to show them and not to place or
+    /// clear one, which is what the tests that are not about them get.
     /// </param>
     public OverlayDriver(
         IOverlayPresenter presenter,
@@ -165,7 +176,8 @@ public sealed class OverlayDriver : IDisposable
         IModbotClock clock,
         IOverlayListener? listener = null,
         ILiveSocketFactory? sockets = null,
-        PopUps? popUps = null)
+        PopUps? popUps = null,
+        IHeadsUpClient? headsUps = null)
     {
         ArgumentNullException.ThrowIfNull(presenter);
 
@@ -175,6 +187,7 @@ public sealed class OverlayDriver : IDisposable
         _listener = listener;
         _sockets = sockets;
         _popUps = popUps;
+        _headsUpClient = headsUps;
     }
 
     /// <summary>
@@ -243,6 +256,8 @@ public sealed class OverlayDriver : IDisposable
         _eventFilters = ListFilters.None;
         _events.Clear();
         _problemShown = null;
+        _draft = null;
+        _headsUpsTold.Clear();
         _popUps?.ClearAll();
     }
 
@@ -270,6 +285,25 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>What the Audit Log is cut down to.</summary>
     public ListFilters EventFilters => _eventFilters;
+
+    /// <summary>The heads-up being written, or null.</summary>
+    public HeadsUpDraft? Draft => _draft;
+
+    /// <summary>
+    /// The words of the heads-up being written, as typed on SteamVR's keyboard or the desktop
+    /// window. Cut at the longest a heads-up may be; nothing is sent until Place.
+    /// </summary>
+    public void SetHeadsUpText(string? text)
+    {
+        if (_draft is not { Sending: false } draft)
+            return;
+
+        var typed = text ?? string.Empty;
+        if (typed.Length > HeadsUpRules.MaxTextLength)
+            typed = typed[..HeadsUpRules.MaxTextLength];
+
+        _draft = draft with { Text = typed, Problem = null };
+    }
 
     /// <summary>
     /// When each person in the moderator's instance got here, as this PC's copy of VRChat's log
@@ -385,11 +419,138 @@ public sealed class OverlayDriver : IDisposable
                 _page = OverlayPage.Instance;
                 break;
             case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
+                // A filter's choices and a heads-up being written share the space under the tabs.
+                _draft = _draft is { Sending: true } ? _draft : null;
                 Filter(target);
+                break;
+            case OverlayTarget.AddHeadsUp add:
+                StartHeadsUp(add.SubjectId);
+                break;
+            case OverlayTarget.HeadsUpKindPick kind when _draft is { Sending: false } draft:
+                _draft = draft with { Kind = kind.Kind, Problem = null };
+                break;
+            case OverlayTarget.HeadsUpAboutPick about when _draft is { Sending: false } draft:
+                _draft = draft with { OnInstance = about.Instance, Problem = null };
+                break;
+            case OverlayTarget.HeadsUpPlacePick place when _draft is { Sending: false } draft:
+                _draft = draft with { Place = HeadsUpRules.Place(place.Place), Problem = null };
+                break;
+            case OverlayTarget.PlaceHeadsUp:
+                _ = PlaceHeadsUpAsync();
+                break;
+            case OverlayTarget.CancelHeadsUp when _draft is { Sending: false }:
+                _draft = null;
+                break;
+            case OverlayTarget.ClearHeadsUp clear:
+                _ = ClearHeadsUpAsync(clear.Id);
                 break;
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// Opens the strip for writing a heads-up from one roster row, with Message picked. Any open
+    /// filter's choices close, because the strip takes their place.
+    /// </summary>
+    private void StartHeadsUp(string subjectId)
+    {
+        if (Current() is not { } server || _instance is null || _draft is { Sending: true })
+            return;
+
+        var member = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members
+            .FirstOrDefault(m => string.Equals(m.SubjectId, subjectId, StringComparison.Ordinal));
+
+        _rosterFilters = _rosterFilters with { Open = null };
+        _page = OverlayPage.Instance;
+        _draft = new HeadsUpDraft(subjectId, member?.DisplayName);
+    }
+
+    /// <summary>
+    /// Place: sends the heads-up being written to the server whose instance this is, and closes
+    /// the strip once it has been taken. A refusal stays on the strip, in the server's words.
+    /// </summary>
+    /// <remarks>
+    /// This is the one moment a heads-up leaves the PC. The roster is read again straight after,
+    /// so the moderator sees it standing as everybody else will.
+    /// </remarks>
+    public async Task PlaceHeadsUpAsync()
+    {
+        if (_draft is not { Sending: false } draft || Current() is not { } server || _instance is not { } here)
+            return;
+
+        if (draft.Missing is { } missing)
+        {
+            _draft = draft with { Problem = missing };
+            return;
+        }
+
+        if (_headsUpClient is null || server.TokenRejected)
+        {
+            _draft = draft with { Problem = "Heads-ups cannot be placed from here." };
+            return;
+        }
+
+        _draft = draft with { Sending = true, Problem = null };
+
+        HeadsUpSent sent;
+        try
+        {
+            sent = await _headsUpClient.PlaceAsync(server.Pairing, here.InstanceId, here.WorldId, draft, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            sent = new HeadsUpSent(HeadsUpSendOutcome.Unreachable);
+        }
+
+        // The moderator walked somewhere else while it was on its way: the strip is gone already.
+        if (!ReferenceEquals(_instance, here) || _draft is not { Sending: true } waiting)
+            return;
+
+        switch (sent.Outcome)
+        {
+            case HeadsUpSendOutcome.Done:
+                _draft = null;
+                server.LastContextAttempt = null;
+                break;
+            case HeadsUpSendOutcome.Unauthorised:
+                _draft = null;
+                RejectToken(server);
+                break;
+            case HeadsUpSendOutcome.Refused:
+                _draft = waiting with { Sending = false, Problem = sent.Message ?? "Not placed." };
+                break;
+            default:
+                _draft = waiting with { Sending = false, Problem = $"Cannot reach {server.Label}. Not placed." };
+                break;
+        }
+    }
+
+    /// <summary>Clear: takes a standing heads-up down for everybody in the instance.</summary>
+    public async Task ClearHeadsUpAsync(string id)
+    {
+        if (_headsUpClient is null || Current() is not { } server || server.TokenRejected)
+            return;
+
+        HeadsUpSent sent;
+        try
+        {
+            sent = await _headsUpClient.ClearAsync(server.Pairing, id, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            return;
+        }
+
+        if (sent.Outcome is HeadsUpSendOutcome.Unauthorised)
+        {
+            RejectToken(server);
+            return;
+        }
+
+        // Done or refused, the list on the panel is read again: a refusal here means it is gone.
+        _popUps?.Clear("heads-up:" + id);
+        server.LastContextAttempt = null;
     }
 
     /// <summary>Scrolls the roster by whole rows, inside what the filters leave of it.</summary>
@@ -586,6 +747,7 @@ public sealed class OverlayDriver : IDisposable
         {
             case ReadOutcome.Fetched when result.Value is not null:
                 server.Cache.RecordContext(server.Label, result.Value, worldId);
+                TellHeadsUps(result.Value, worldId);
                 break;
 
             case ReadOutcome.Unauthorised:
@@ -633,6 +795,10 @@ public sealed class OverlayDriver : IDisposable
             return false;
         }
 
+        // The server said the heads-ups here changed. The roster read carries them.
+        if (server.Link.TakeHeadsUpsChanged())
+            server.LastContextAttempt = null;
+
         var raised = false;
 
         foreach (var @event in server.Link.Drain())
@@ -659,9 +825,78 @@ public sealed class OverlayDriver : IDisposable
             // keeps it to one card per person.
             if (@event.ToAlert() is { } alert && Accept(alert))
                 raised = true;
+
+            if (@event.Kind is LiveEventKinds.PersonJoined or LiveEventKinds.FlaggedJoin && IsHere(@event.InstanceId, @event.WorldId))
+                TellKeptAnEyeOn(server, @event);
         }
 
         return raised;
+    }
+
+    /// <summary>
+    /// A card for each heads-up a roster read for this instance brought that has not had one yet,
+    /// and that another moderator placed.
+    /// </summary>
+    /// <remarks>
+    /// Walking into an instance where heads-ups already stand tells them too: an ask for help placed
+    /// a minute before is still one. Ones placed from this PC raise nothing here, because the
+    /// moderator who pressed Place already knows.
+    /// </remarks>
+    /// <param name="worldId">The world the read was asked for, which its answer belongs to.</param>
+    private void TellHeadsUps(InstanceContext context, string? worldId)
+    {
+        if (_instance is null
+            || !string.Equals(context.InstanceId, _instance.InstanceId, StringComparison.Ordinal)
+            || !string.Equals(worldId, _instance.WorldId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (var headsUp in context.HeadsUpsOrNone)
+        {
+            if (!_headsUpsTold.Add(headsUp.Id) || headsUp.Mine || headsUp.KindOrNull is not { } kind)
+                continue;
+
+            var info = headsUp.SubjectId is { } subject ? InfoOf(subject) : null;
+            var about = headsUp.About;
+
+            _popUps?.Show(new PopUp(
+                "heads-up:" + headsUp.Id,
+                HeadsUpRules.Name(kind) + " · " + headsUp.PlacedBy,
+                about ?? headsUp.Text ?? HeadsUpRules.Name(kind),
+                about is null ? null : headsUp.Text,
+                PopUpTone.Plain,
+                info?.Rank,
+                info?.EighteenPlus == true));
+        }
+    }
+
+    /// <summary>
+    /// Somebody a Keep an eye stands on has just walked in again: a card, for everybody here,
+    /// placer included, because coming back is what the heads-up was for.
+    /// </summary>
+    private void TellKeptAnEyeOn(Server server, LiveEvent @event)
+    {
+        if (@event.Person is not { } person || _instance is null)
+            return;
+
+        var headsUp = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.HeadsUpsOrNone
+            .FirstOrDefault(h => h.KindOrNull is HeadsUpKind.KeepAnEye
+                && string.Equals(h.SubjectId, person.SubjectId, StringComparison.Ordinal));
+
+        if (headsUp is null)
+            return;
+
+        var info = InfoOf(person.SubjectId);
+
+        _popUps?.Show(new PopUp(
+            "heads-up-joined:" + person.SubjectId,
+            "Keep an eye · joined",
+            person.DisplayName ?? headsUp.SubjectName ?? person.SubjectId,
+            headsUp.Text,
+            PopUpTone.Plain,
+            info?.Rank,
+            info?.EighteenPlus == true));
     }
 
     /// <summary>
@@ -780,7 +1015,10 @@ public sealed class OverlayDriver : IDisposable
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
             Arrivals: roster.Value is { } context ? Arrivals(context) : null,
-            Now: _clock.UtcNow);
+            Now: _clock.UtcNow,
+            HeadsUps: roster.Value?.HeadsUpsOrNone,
+            Draft: _draft,
+            CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected);
     }
 
     /// <summary>

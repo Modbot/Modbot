@@ -221,11 +221,17 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>A name typed on the runtime's keyboard, with the list it searches.</summary>
     public event Action<OverlayPage, string>? NameTyped;
 
+    /// <summary>A heads-up's words, typed on the runtime's keyboard.</summary>
+    public event Action<string>? HeadsUpTyped;
+
     /// <summary>Whether the attached runtime can put a keyboard up. SteamVR can; OpenXR cannot.</summary>
     public bool CanType => _runtime is IOverlayKeyboard { CanType: true };
 
     /// <summary>The list the keyboard that is up is typing a name for, or null.</summary>
     private OverlayPage? _typingFor;
+
+    /// <summary>Whether the keyboard that is up is typing a heads-up's words.</summary>
+    private bool _typingHeadsUp;
 
     /// <summary>
     /// The group's picture for an address, from the companion's own cache, or null while there is
@@ -386,10 +392,21 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (_runtime is not IOverlayKeyboard { CanType: true } keyboard)
             return;
 
-        if (target is OverlayTarget.TypeName box)
+        if (target is OverlayTarget.TypeHeadsUp words)
+        {
+            if (keyboard.ShowKeyboard(words.Text))
+            {
+                _typingHeadsUp = true;
+                _typingFor = null;
+            }
+        }
+        else if (target is OverlayTarget.TypeName box)
         {
             if (keyboard.ShowKeyboard(box.Text))
+            {
                 _typingFor = box.List;
+                _typingHeadsUp = false;
+            }
         }
         else if (target is OverlayTarget.Filter { Part: FilterPart.Name } chip
             && FiltersOf(chip.List) is { } filters
@@ -397,6 +414,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             && keyboard.ShowKeyboard(filters.Name ?? string.Empty))
         {
             _typingFor = chip.List;
+            _typingHeadsUp = false;
         }
     }
 
@@ -519,10 +537,18 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         _runtime.Poll();
 
         // Done pressed on the keyboard: the name goes to the list it was put up for.
-        if (_runtime is IOverlayKeyboard keyboard && keyboard.TakeTyped() is { } typed && _typingFor is { } list)
+        if (_runtime is IOverlayKeyboard keyboard && keyboard.TakeTyped() is { } typed)
         {
-            _typingFor = null;
-            NameTyped?.Invoke(list, typed);
+            if (_typingHeadsUp)
+            {
+                _typingHeadsUp = false;
+                HeadsUpTyped?.Invoke(typed);
+            }
+            else if (_typingFor is { } list)
+            {
+                _typingFor = null;
+                NameTyped?.Invoke(list, typed);
+            }
         }
 
         if (_runtime.Status.State is not OverlayRuntimeState.Running && !KeepLastFrame)

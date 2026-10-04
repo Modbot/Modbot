@@ -1,0 +1,70 @@
+---
+title: Heads-ups
+description: Short notes a moderator leaves from the overlay for the other staff in the same VRChat instance, what leaves your PC when you place one, and who sees it.
+---
+
+A heads-up is a short note you leave, from the [overlay](/companion/overlay) in your headset or on
+your monitor, for the other staff standing in the same VRChat instance. Their overlay shows it, and
+a card pops up for them when it arrives.
+
+VRChat tells Modbot nothing about where anyone stands in a world, so a heads-up is words and
+nothing more. It cannot mark a spot in the world.
+
+## Kinds
+
+| Kind | About | Ends when |
+|---|---|---|
+| **Pin** | the instance | someone clears it, or the instance closes or empties |
+| **Keep an eye** | one person, with an optional short note | someone clears it, or the instance closes or empties. It stays if the person leaves; if they come back, everybody in the instance gets a card. |
+| **Message** | one person, or the instance | someone clears it. One about a person also ends when they leave. |
+| **Ask for help** | a place you pick from a list: Entrance, Spawn, Bar, Stage, Dance floor, Back room, Outside | someone clears it, or the instance closes or empties |
+
+**Keep an eye** and **Message** have nothing to do with watching a person or the
+[notes](/moderation/notes) on a person's page on the website. Those last until someone ends them and
+are kept in the audit log. A heads-up is gone when the instance is.
+
+## Placing one
+
+1. On the **Instance** list, press the **+** at the end of a person's row: the controller's
+   trigger in the headset, or a click on the desktop overlay.
+2. Pick the kind. **Pin** and **Ask for help** are about the instance, so the row you started from
+   does not go with them. For **Message**, pick the person or **Instance**.
+3. For **Ask for help**, pick the place.
+4. Write the note: tap the box for SteamVR's keyboard, or type on the desktop overlay.
+   **Pin** and **Message** need words; the other two do not. A headset with no keyboard (WiVRn,
+   Monado) can still place the two that need no words.
+5. Press **Place** (or Enter on the desktop overlay). **Cancel** drops it, and nothing is sent.
+
+A note is at most 140 characters of plain text. Links are refused. At most 20 heads-ups can stand
+in one instance at a time.
+
+Standing heads-ups are listed above the roster, each with **Clear**. Any staff member in the
+instance can clear any of them. A person with one on them has a small mark on their row.
+
+## What leaves your PC
+
+Nothing, until you press **Place** or **Clear**. Then one request goes to the paired server whose
+group owns the instance you are standing in, with the companion's token:
+
+- **Place** sends the instance's number and world, the kind, your words, the place for **Ask for
+  help**, and, for **Keep an eye** or a **Message** about a person, that person's VRChat id and the
+  name the roster showed.
+- **Clear** sends only which heads-up.
+
+The server notes which Modbot account placed or cleared it, and when.
+
+## Who sees it
+
+Only the staff whose companions the server believes are standing in the same instance: the ones
+that have read that instance's roster or reported from it in the last ten minutes. A companion
+elsewhere is not told, and cannot place or clear one there.
+
+Heads-ups are not written to the audit log, are not shown anywhere on the website, and are never
+sent to Discord. The server keeps each one, with who placed it and when it ended, so that "who
+placed this?" can still be answered.
+
+## How fast it arrives
+
+Over the live connection, the other overlays in the instance are told at once and read it straight
+away. When a companion has fallen back to ordinary requests (the **Servers** page says
+**Polling**), it arrives with the next roster read, at most 20 seconds later.
