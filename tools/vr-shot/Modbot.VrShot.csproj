@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Modbot.VrShot</RootNamespace>
+    <!-- The OpenVR function table is an array of function pointers; calling through it needs
+         unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- A scratch tool, like explore/: outside the solution and outside the repo's central package
+         management, so it pins what it needs without touching Directory.Packages.props. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ImportDirectoryPackagesProps>false</ImportDirectoryPackagesProps>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The same version the overlay uses, so nothing new is downloaded. -->
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Valve's openvr_api.dll that the overlay already vendors (v2.15.6), copied beside the exe.
+         Only the file is shared; this project does not reference Modbot.Overlay. -->
+    <None Include="..\..\src\Modbot.Overlay\native\win-x64\openvr_api.dll" Link="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- out/ holds the pictures taken; it is gitignored and not part of the build. -->
+    <Compile Remove="out\**" />
+    <None Remove="out\**" />
+  </ItemGroup>
+
+</Project>
