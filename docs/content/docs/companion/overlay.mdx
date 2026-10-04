@@ -19,8 +19,8 @@ not want it, [turn it off](#turning-it-off).
   panel when it finds one; when the runtime closes, the panel lets go and comes back the next time
   it is started. Start them in either order.
 - **A paired server** for the group whose instance you are in.
-- **You in one of that group's instances.** Anywhere else, the panel shows its idle screen and no
-  server is contacted.
+- **You in one of that group's instances.** Anywhere else, the panel is blank (see
+  [Idle screen](#idle-screen)) and no server is contacted.
 
 Without SteamVR, or without a headset, the client simply runs without an overlay and keeps
 reporting presence as normal. The overlay never stops the rest of the client from working: if it
@@ -73,7 +73,7 @@ without taking the headset off:
 
 | Card | What is on it |
 |---|---|
-| **Overlay** | **Overlay on**, the main panel's switch, and **Fixed to**: Head, Left wrist, Right wrist or Room |
+| **Overlay** | **Overlay on**, the main panel's switch, with [**Put it back in front of me**](#put-it-back-in-front-of-me) beside it, and **Fixed to**: Head, Left wrist, Right wrist or Room |
 | **Notifications** | **Notification overlay on**, **Where on the screen** (the six spots), and the **Pop-up** ticks, one for each kind of event |
 | **Placement** | The notification overlay's **Across**, **Down**, **Distance**, **Width**, **Opacity** and **Pop-up stays** sliders, each with a minus and a plus |
 
@@ -147,7 +147,9 @@ there is no control at all.
 When you are not in a group instance that one of your paired servers manages (including public,
 friends-only and private instances), the panel shows nothing at all, and the client contacts no
 server for it. The **idle** sample on the [debug page](/companion/settings#debug-mode) draws a
-card reading **Not in a group instance** in the panel's place, so you can see where it sits.
+card reading **Not in a group instance** in the panel's place, so you can see where it sits. The
+panel draws the same card by itself for 5 seconds after you press
+[**Put it back in front of me**](#put-it-back-in-front-of-me), and then goes blank again.
 
 **Save a clip** is the one thing still shown there, when Clips is on, because the companion records
 wherever VRChat is running and a moment worth keeping can happen in a public instance too.
@@ -170,6 +172,20 @@ The panel can be moved with a controller:
 
 Where you leave the panel, its size, opacity and curve are saved and used next time. The
 **SteamVR** page has the same settings, and **Put it back in front of me**.
+
+### Put it back in front of me
+
+For when you cannot find the panel. It is on the window's **SteamVR** page, in the command
+palette, and on the **Overlay** card of the [Modbot tab](#the-modbot-tab-in-the-steamvr-dashboard)
+in the SteamVR dashboard, so you can reach it from inside the headset. Pressing it:
+
+- switches the main panel on if it was off, and shows it again if you had said "hide overlay";
+- fixes it to your head, straight ahead at 0.8 m and a little below your eyes;
+- sets the width back to 0.45 m, opacity to 100% and curve to 0%, and turns the lock and
+  click-through off;
+- shows the **Not in a group instance** card for 5 seconds if the panel would otherwise be blank.
+
+Width, opacity, curve, the lock and click-through are all reset, not kept as they were.
 
 ### The bar under the panel
 
