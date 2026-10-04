@@ -73,6 +73,29 @@ public class NotificationViewTests
         }
     }
 
+    [Theory]
+    [InlineData("left:usr_rin", "Left", null, PopUpTone.Plain)]
+    [InlineData("changed avatar:usr_rin", "Changed avatar", "Tall Cat", PopUpTone.Plain)]
+    [InlineData("alert:a1", "Flagged user joined", "kicked before", PopUpTone.Flagged)]
+    public void EveryCardAboutAPersonDrawsItsMarks(string id, string heading, string? detail, PopUpTone tone)
+    {
+        var marked = new PopUp(id, heading, "Rin", detail, tone, TrustRank.KnownUser, EighteenPlus: true, SubjectId: "usr_rin");
+        var bare = marked with { Rank = null, EighteenPlus = false };
+
+        foreach (var tokens in new[] { DesignTokens.Vr, DesignTokens.Desktop })
+        {
+            var (withMarks, without) = AvaloniaTestHost.Run(() =>
+            {
+                using var renderer = new AvaloniaFrameRenderer(Size, Size);
+                var one = renderer.Render(NotificationView.Build(new NotificationScreen([marked]), tokens)).ToArray();
+                var two = renderer.Render(NotificationView.Build(new NotificationScreen([bare]), tokens)).ToArray();
+                return (one, two);
+            });
+
+            Assert.False(withMarks.SequenceEqual(without));
+        }
+    }
+
     [Fact]
     public void TwoCardsDifferingOnlyInTheirMarksDoNotLookTheSame()
     {

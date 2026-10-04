@@ -103,7 +103,7 @@ public sealed class EventNotifier : IObservationSink
             if (NotificationFilters.KindOf(observation.Kind) is not { } kind)
                 continue;
 
-            var info = kind is NotificationKind.Joined ? _infoOf?.Invoke(observation.SubjectId) : null;
+            var info = kind is NotificationKind.LogStopped ? null : _infoOf?.Invoke(observation.SubjectId);
 
             // A join whose info is not in yet, in an instance a paired server covers, waits for
             // it: the card and its sound go together, as soon as the info is in or the wait is up.
@@ -178,11 +178,12 @@ public sealed class EventNotifier : IObservationSink
     /// <remarks>
     /// The heading names what happened and the large line names who, which is the shape the
     /// flagged-join card already has. The id is the kind and the person, so the same person
-    /// arriving twice restarts one card rather than stacking two. A join card carries the trust
-    /// rank and Modbot's 18+ mark as themselves, not as words in <see cref="PopUp.Detail"/>, so the
-    /// card can draw them the way the roster row does: a dot in the rank's colour and a green chip.
-    /// Somebody without the mark gets no chip, the way the Members list shows the badge only on
-    /// those who have it.
+    /// arriving twice restarts one card rather than stacking two. Every card about a person —
+    /// joined, left, already there, changed avatar — carries the trust rank and Modbot's 18+ mark
+    /// as themselves, not as words in <see cref="PopUp.Detail"/>, so the card can draw them the way
+    /// the roster row and the audit log do: a dot in the rank's colour and a green chip. The
+    /// avatar's name stays the small line. Somebody without the mark gets no chip, the way the
+    /// Members list shows the badge only on those who have it.
     /// </remarks>
     public static PopUp Card(ObservedPresence observation, NotificationKind kind, PersonInfo? info = null)
     {
@@ -203,7 +204,6 @@ public sealed class EventNotifier : IObservationSink
         }
 
         var detail = kind is NotificationKind.ChangedAvatar ? observation.AvatarName : null;
-        var joined = kind is NotificationKind.Joined ? info : null;
 
         return new PopUp(
             $"{NotificationFilters.Word(kind)}:{observation.SubjectId}",
@@ -211,33 +211,33 @@ public sealed class EventNotifier : IObservationSink
             who,
             detail,
             PopUpTone.Plain,
-            joined?.Rank,
-            joined?.EighteenPlus == true);
+            info?.Rank,
+            info?.EighteenPlus == true,
+            observation.SubjectId);
     }
 
     /// <summary>
-    /// Fills in the trust rank and 18+ mark on join cards that are up without them, once the
+    /// Fills in the trust rank and 18+ mark on person cards that are up without them, once the
     /// server has said them.
     /// </summary>
     /// <remarks>
-    /// A card that went up because the wait ran out was up before the server had heard of the
-    /// person: this client reports the join, and the server's roster and live events carry the
-    /// info a couple of seconds later. So the card is filled in where it stands, keeping its time.
-    /// Called on the overlay's own tick.
+    /// A card can go up before the server has heard of the person: a join whose wait ran out, or
+    /// somebody already there when the moderator walked in. This client reports them, and the
+    /// server's roster and live events carry the info a couple of seconds later. So the card is
+    /// filled in where it stands, keeping its time. Any card that names who it is about is filled
+    /// in, a flagged join's included. Called on the overlay's own tick.
     /// </remarks>
     public static void AddInfo(PopUps popUps, Func<string, PersonInfo?> infoOf)
     {
         ArgumentNullException.ThrowIfNull(popUps);
         ArgumentNullException.ThrowIfNull(infoOf);
 
-        var prefix = $"{NotificationFilters.Word(NotificationKind.Joined)}:";
-
         popUps.Amend(card =>
         {
-            if (card.HasPersonInfo || !card.Id.StartsWith(prefix, StringComparison.Ordinal))
+            if (card.HasPersonInfo || card.SubjectId is not { } who)
                 return card;
 
-            var info = infoOf(card.Id[prefix.Length..]);
+            var info = infoOf(who);
             return info is null
                 ? card
                 : card with { Rank = info.Rank, EighteenPlus = info.EighteenPlus == true };

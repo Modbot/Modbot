@@ -106,6 +106,10 @@ public sealed class OverlayDriver : IDisposable
     private readonly List<Server> _servers = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAlerted = new(StringComparer.Ordinal);
 
+    // Each person's rank and 18+ mark as last said here, kept a few minutes after they leave, so
+    // the card about somebody leaving can carry them once the roster has dropped them.
+    private readonly KnownPeople _known;
+
     // What the live link has heard for the instance the moderator is in, newest first.
     private readonly List<LiveEvent> _events = [];
 
@@ -188,6 +192,7 @@ public sealed class OverlayDriver : IDisposable
         _sockets = sockets;
         _popUps = popUps;
         _headsUpClient = headsUps;
+        _known = new KnownPeople(clock);
     }
 
     /// <summary>
@@ -258,6 +263,7 @@ public sealed class OverlayDriver : IDisposable
         _problemShown = null;
         _draft = null;
         _headsUpsTold.Clear();
+        _known.Forget();
         _popUps?.ClearAll();
     }
 
@@ -633,9 +639,10 @@ public sealed class OverlayDriver : IDisposable
     /// instance last said them, or null when it has said neither.
     /// </summary>
     /// <remarks>
-    /// Read from what is already held — the roster and the live events for this instance — and
-    /// never asked of the server. A person who has only just walked in is usually not known yet;
-    /// the server learns of them from this client's own report a couple of seconds later.
+    /// Read from what is already held — the roster and the live events for this instance, then
+    /// what they said about somebody who has since left (<see cref="KnownPeople"/>) — and never
+    /// asked of the server. A person who has only just walked in is usually not known yet; the
+    /// server learns of them from this client's own report a couple of seconds later.
     /// </remarks>
     public PersonInfo? InfoOf(string subjectId)
     {
@@ -653,10 +660,13 @@ public sealed class OverlayDriver : IDisposable
                 && (p.TrustRank is not null || p.EighteenPlus is not null)
                 && string.Equals(p.SubjectId, subjectId, StringComparison.Ordinal));
 
-        return heard is null
-            ? null
-            : PersonInfo.Of(heard.TrustRank is { } word ? TrustRanks.Parse(word) : null, heard.EighteenPlus);
+        return heard is not null
+            ? InfoOf(heard)
+            : _known.InfoOf(subjectId);
     }
+
+    private static PersonInfo? InfoOf(LivePerson person)
+        => PersonInfo.Of(person.TrustRank is { } word ? TrustRanks.Parse(word) : null, person.EighteenPlus);
 
     /// <summary>
     /// One turn. Safe to call on a timer; it does nothing at all when nothing is due.
@@ -708,6 +718,7 @@ public sealed class OverlayDriver : IDisposable
 
         _servers.Clear();
         _events.Clear();
+        _known.Forget();
         _popUps?.ClearAll();
     }
 
@@ -747,6 +758,7 @@ public sealed class OverlayDriver : IDisposable
         {
             case ReadOutcome.Fetched when result.Value is not null:
                 server.Cache.RecordContext(server.Label, result.Value, worldId);
+                Remember(result.Value, worldId);
                 TellHeadsUps(result.Value, worldId);
                 break;
 
@@ -815,6 +827,9 @@ public sealed class OverlayDriver : IDisposable
                 _events.Insert(0, @event);
                 if (_events.Count > MostEventsKept)
                     _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
+
+                if (@event.Person is { } person)
+                    _known.Note(person.SubjectId, InfoOf(person));
             }
 
             // A flagged join is a card here even when this client reported the join itself. It
@@ -831,6 +846,24 @@ public sealed class OverlayDriver : IDisposable
         }
 
         return raised;
+    }
+
+    /// <summary>
+    /// Keeps each listed person's rank and 18+ mark, so they outlast the person's row. Only a read
+    /// for the instance the moderator is still in: an answer for the one just left is about other
+    /// people.
+    /// </summary>
+    private void Remember(InstanceContext context, string? worldId)
+    {
+        if (_instance is not { } here
+            || !string.Equals(context.InstanceId, here.InstanceId, StringComparison.Ordinal)
+            || !string.Equals(worldId, here.WorldId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (var member in context.Members)
+            _known.Note(member.SubjectId, PersonInfo.Of(member.TrustRank, member.EighteenPlus));
     }
 
     /// <summary>
@@ -950,13 +983,19 @@ public sealed class OverlayDriver : IDisposable
 
         // The same news on the notification overlay, where a moderator who is not looking at the
         // main panel will actually see it. Same rule, one decision: an alert the loop dropped is
-        // not put up here either.
+        // not put up here either. It carries the person's rank and 18+ mark like every other card
+        // about a person: from the event itself, already on the Events list, or from the roster.
+        // The reason stays the small line.
+        var info = InfoOf(alert.SubjectId);
         _popUps?.Show(new PopUp(
             "alert:" + alert.AlertId,
             Current()?.Label is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",
             alert.DisplayName ?? alert.SubjectId,
             alert.Reason,
-            PopUpTone.Flagged),
+            PopUpTone.Flagged,
+            alert.TrustRank ?? info?.Rank,
+            info?.EighteenPlus == true,
+            alert.SubjectId),
             NotificationKind.FlaggedJoin);
 
         return true;

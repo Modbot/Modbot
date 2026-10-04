@@ -194,6 +194,84 @@ public class OverlayDriverScreenTests
     }
 
     [Fact]
+    public async Task AFlaggedArrivalsPopUpCarriesTheirRankAndMark()
+    {
+        // Like every card about a person, with the reason kept as the small line.
+        var (driver, _, reads, popUps, _) = Build();
+        var flagged = Event("a1", LiveEventKinds.FlaggedJoin) with
+        {
+            Person = new LivePerson("usr_rin", "Rin", "TrustedUser", RosterStanding.Flagged, 2, ["kicked before"], EighteenPlus: true),
+        };
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(ReadOutcome.Fetched, new LivePollPage([flagged], "a1", false)));
+
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        var popUp = Assert.Single(popUps.Current());
+        Assert.Equal(Modbot.Core.Users.TrustRank.TrustedUser, popUp.Rank);
+        Assert.True(popUp.EighteenPlus);
+        Assert.Equal("kicked before", popUp.Detail);
+        Assert.Equal("usr_rin", popUp.SubjectId);
+    }
+
+    [Fact]
+    public async Task AFlaggedArrivalWithNothingKnownHasNoMarks()
+    {
+        var (driver, _, reads, popUps, _) = Build();
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(
+            ReadOutcome.Fetched,
+            new LivePollPage([Event("a1", LiveEventKinds.FlaggedJoin)], "a1", false)));
+
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(Assert.Single(popUps.Current()).HasPersonInfo);
+    }
+
+    [Fact]
+    public async Task SomebodyWhoLeftIsStillKnownOnceTheRosterHasDroppedThem()
+    {
+        // The Left card is made from the log, and the roster read that follows a leave may already
+        // have taken their row away.
+        var (driver, _, reads, _, clock) = Build();
+        reads.Contexts.Clear();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(
+            Instance,
+            [new RosterMember("usr_rin", "Rin", RosterStanding.Member, 0, [], Modbot.Core.Users.TrustRank.KnownUser, true)])));
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(Instance, [])));
+
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(Modbot.Core.Users.TrustRank.KnownUser, driver.InfoOf("usr_rin")?.Rank);
+
+        clock.Advance(OverlayDriver.ContextRefreshInterval);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new Modbot.Companion.Overlay.PersonInfo(Modbot.Core.Users.TrustRank.KnownUser, true), driver.InfoOf("usr_rin"));
+        Assert.Null(driver.InfoOf("usr_kai"));
+    }
+
+    [Fact]
+    public async Task WalkingIntoAnotherInstanceForgetsWhoWasKnown()
+    {
+        var (driver, _, reads, _, clock) = Build();
+        reads.Contexts.Clear();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(
+            Instance,
+            [new RosterMember("usr_rin", "Rin", RosterStanding.Member, 0, [], Modbot.Core.Users.TrustRank.KnownUser, true)])));
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, new InstanceContext(Instance, [])));
+
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        clock.Advance(OverlayDriver.ContextRefreshInterval);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(driver.InfoOf("usr_rin"));
+
+        driver.EnteredInstance(Location("40000"));
+        driver.EnteredInstance(Location());
+
+        Assert.Null(driver.InfoOf("usr_rin"));
+    }
+
+    [Fact]
     public async Task AProblemIsSaidOncePerProblemRatherThanOncePerTick()
     {
         var (driver, presenter, _, popUps, _) = Build();

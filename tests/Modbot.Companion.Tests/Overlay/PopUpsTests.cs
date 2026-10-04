@@ -187,4 +187,31 @@ public class PopUpsTests
         popUps.Show(Made("alert:a1"), NotificationKind.FlaggedJoin);
         Assert.Single(popUps.Current(TimeSpan.FromSeconds(6)));
     }
+
+    [Fact]
+    public void ACardStillGoesWhenThePCsClockIsSetBack()
+    {
+        // Measured only as "now minus when it went up", a card would stay for as long as the clock
+        // was moved back: an hour, for an hour.
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { Dwell = TimeSpan.FromSeconds(6) };
+
+        popUps.Show(Made());
+        clock.Advance(TimeSpan.FromHours(-1));
+
+        Assert.Empty(popUps.Current());
+        Assert.Empty(popUps.Current(TimeSpan.FromSeconds(6)));
+    }
+
+    [Fact]
+    public void ASmallStepBackLeavesTheCardUp()
+    {
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { Dwell = TimeSpan.FromSeconds(6) };
+
+        popUps.Show(Made());
+        clock.Advance(TimeSpan.FromSeconds(-1));
+
+        Assert.Single(popUps.Current());
+    }
 }

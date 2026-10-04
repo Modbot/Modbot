@@ -2798,8 +2798,17 @@ internal sealed class CompanionHost : IOverlayListener
 
     private async Task OverlayTickAsync()
     {
-        if (_overlay is null || _overlayTicking)
+        if (_overlay is null)
             return;
+
+        // A turn can wait on a roster read for as long as the server takes (up to the HTTP
+        // timeout), and a leave makes that read due at once. The pop-ups are not held up by it:
+        // a card whose time is up is taken down on every turn, waiting or not.
+        if (_overlayTicking)
+        {
+            ShowPopUps();
+            return;
+        }
 
         _overlayTicking = true;
         try
@@ -2860,18 +2869,7 @@ internal sealed class CompanionHost : IOverlayListener
                 _notices?.TellWaiting();
                 var overlay = _overlay;
                 EventNotifier.AddInfo(_popUps, subjectId => overlay.InfoOf(subjectId));
-
-                if (_notifyHost is not null)
-                {
-                    _notifyHost.Update(new NotificationScreen(
-                        _popUps.Current(_state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell)));
-                }
-
-                if (_desktopNotify is not null)
-                {
-                    _desktopNotify.Update(new NotificationScreen(
-                        _popUps.Current(_state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell)));
-                }
+                ShowPopUps();
             }
         }
         catch (OperationCanceledException)
@@ -2881,6 +2879,28 @@ internal sealed class CompanionHost : IOverlayListener
         finally
         {
             _overlayTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// Hands each pop-up surface what is still within its time. A surface draws again only when
+    /// that looks different, so calling this often costs nothing.
+    /// </summary>
+    private void ShowPopUps()
+    {
+        if (_popUps is null)
+            return;
+
+        if (_notifyHost is not null)
+        {
+            _notifyHost.Update(new NotificationScreen(
+                _popUps.Current(_state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell)));
+        }
+
+        if (_desktopNotify is not null)
+        {
+            _desktopNotify.Update(new NotificationScreen(
+                _popUps.Current(_state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell)));
         }
     }
 

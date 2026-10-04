@@ -29,12 +29,16 @@ public enum PopUpTone
 /// <param name="Detail">One more line, or null.</param>
 /// <param name="Rank">
 /// The person's VRChat trust rank, drawn as the roster row draws it: a dot in the rank's own
-/// colour and its name. Null on every card that is not about somebody arriving, and on a join card
+/// colour and its name. Null on every card that is not about a person, and on a person's card
 /// until the server has said it.
 /// </param>
 /// <param name="EighteenPlus">
 /// Whether the person carries Modbot's 18+ mark, drawn as the roster row's green chip. False
 /// draws nothing, the way the Members list shows the badge only on those who have it.
+/// </param>
+/// <param name="SubjectId">
+/// Who the card is about, so their rank and 18+ mark can be written onto it once the server has
+/// said them. Null on a card that is about nobody in particular.
 /// </param>
 /// <remarks>
 /// The rank and the mark are kept as what they are rather than written into <paramref name="Detail"/>,
@@ -47,7 +51,8 @@ public sealed record PopUp(
     string? Detail,
     PopUpTone Tone,
     TrustRank? Rank = null,
-    bool EighteenPlus = false)
+    bool EighteenPlus = false,
+    string? SubjectId = null)
 {
     /// <summary>Whether the card has a rank or an 18+ mark to draw.</summary>
     public bool HasPersonInfo => Rank is not null || EighteenPlus;
@@ -171,16 +176,19 @@ public sealed class PopUps
     /// The same, for a surface that shows a pop-up for its own number of seconds.
     /// </summary>
     /// <remarks>
-    /// Asking for longer than <see cref="Dwell"/> gets <see cref="Dwell"/>: what has already been
-    /// dropped is gone, and nothing is queued.
+    /// <para>Asking for longer than <see cref="Dwell"/> gets <see cref="Dwell"/>: what has already
+    /// been dropped is gone, and nothing is queued.</para>
+    /// <para>A card shown more than its time "after" now goes too. That only happens when this
+    /// PC's clock is set back, and without it the card would stay up for as long as the clock was
+    /// moved.</para>
     /// </remarks>
     public IReadOnlyList<PopUp> Current(TimeSpan dwell)
     {
         lock (_gate)
         {
             var now = _clock.UtcNow;
-            _shown.RemoveAll(s => now - s.ShownAt >= Dwell);
-            return [.. _shown.Where(s => now - s.ShownAt < dwell).Select(s => s.PopUp)];
+            _shown.RemoveAll(s => now - s.ShownAt >= Dwell || s.ShownAt - now >= Dwell);
+            return [.. _shown.Where(s => now - s.ShownAt < dwell && s.ShownAt - now < dwell).Select(s => s.PopUp)];
         }
     }
 

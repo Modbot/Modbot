@@ -89,13 +89,47 @@ public class JoinCardInfoTests
         Assert.Null(noMark.Detail);
     }
 
-    [Fact]
-    public void OnlyJoinCardsCarryTheInfo()
+    [Theory]
+    [InlineData(PresenceKind.Joined, NotificationKind.Joined)]
+    [InlineData(PresenceKind.Left, NotificationKind.Left)]
+    [InlineData(PresenceKind.PresenceObserved, NotificationKind.AlreadyThere)]
+    [InlineData(PresenceKind.AvatarChanged, NotificationKind.ChangedAvatar)]
+    public void EveryCardAboutAPersonCarriesTheInfo(PresenceKind presence, NotificationKind kind)
     {
-        var card = EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, new PersonInfo(TrustRank.TrustedUser, true));
+        var card = EventNotifier.Card(Seen(presence, "usr_rin", "Rin"), kind, new PersonInfo(TrustRank.TrustedUser, true));
+
+        Assert.Equal(TrustRank.TrustedUser, card.Rank);
+        Assert.True(card.EighteenPlus);
+        Assert.Equal("usr_rin", card.SubjectId);
+        Assert.Equal($"{NotificationFilters.Word(kind)}:usr_rin", card.Id);
+    }
+
+    [Fact]
+    public void ALogStoppedCardIsAboutNobody()
+    {
+        var card = EventNotifier.Card(Seen(PresenceKind.LogStopped, "usr_me", "Me"), NotificationKind.LogStopped, new PersonInfo(TrustRank.TrustedUser, true));
 
         Assert.False(card.HasPersonInfo);
-        Assert.Null(card.Detail);
+        Assert.Null(card.SubjectId);
+    }
+
+    [Fact]
+    public void TheNotifierAsksForTheInfoOfWhoeverLeft()
+    {
+        var shown = new List<PopUp>();
+        var notifier = new EventNotifier(
+            () => "usr_me",
+            (popUp, _) => shown.Add(popUp),
+            infoOf: id => id == "usr_rin" ? new PersonInfo(TrustRank.KnownUser, true) : null);
+
+        notifier.Offer([Seen(PresenceKind.Left, "usr_rin", "Rin"), Seen(PresenceKind.Left, "usr_kai", "Kai")]);
+
+        Assert.Equal(TrustRank.KnownUser, shown[0].Rank);
+        Assert.True(shown[0].EighteenPlus);
+
+        // Never known: no marks, and nothing written in their place.
+        Assert.False(shown[1].HasPersonInfo);
+        Assert.Null(shown[1].Detail);
     }
 
     [Fact]
@@ -142,17 +176,37 @@ public class JoinCardInfoTests
     }
 
     [Fact]
-    public void OtherCardsAreLeftAlone()
+    public void InfoThatArrivesLaterIsWrittenOntoEveryCardAboutThatPerson()
     {
         var popUps = new PopUps(_clock);
-        var left = EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left);
-        var flagged = new PopUp("alert-1", "Flagged user joined", "Rin", null, PopUpTone.Flagged);
-        popUps.Show(left);
-        popUps.Show(flagged);
+        popUps.Show(EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left));
+        popUps.Show(EventNotifier.Card(Seen(PresenceKind.PresenceObserved, "usr_kai", "Kai"), NotificationKind.AlreadyThere));
+        popUps.Show(new PopUp("alert:a1", "Flagged user joined", "Rin", "kicked before", PopUpTone.Flagged, SubjectId: "usr_rin"));
+
+        EventNotifier.AddInfo(popUps, id => id == "usr_rin" ? new PersonInfo(TrustRank.TrustedUser, true) : new PersonInfo(TrustRank.User, null));
+
+        var up = popUps.Current();
+        Assert.Equal(["alert:a1", "already there:usr_kai", "left:usr_rin"], up.Select(p => p.Id));
+        Assert.All(up, p => Assert.True(p.HasPersonInfo));
+        Assert.Equal(TrustRank.TrustedUser, up[0].Rank);
+        Assert.Equal("kicked before", up[0].Detail);
+        Assert.Equal(TrustRank.User, up[1].Rank);
+        Assert.False(up[1].EighteenPlus);
+        Assert.True(up[2].EighteenPlus);
+    }
+
+    [Fact]
+    public void CardsAboutNobodyAreLeftAlone()
+    {
+        var popUps = new PopUps(_clock);
+        var problem = new PopUp("problem", "Modbot", "Cannot reach the server", null, PopUpTone.Problem);
+        var flaggedFromBefore = new PopUp("alert-1", "Flagged user joined", "Rin", null, PopUpTone.Flagged);
+        popUps.Show(problem);
+        popUps.Show(flaggedFromBefore);
 
         EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
 
-        Assert.Equal([flagged, left], popUps.Current());
+        Assert.Equal([flaggedFromBefore, problem], popUps.Current());
     }
 
     private sealed class Waits
@@ -281,20 +335,34 @@ public class JoinCardInfoTests
     }
 
     [Fact]
-    public void AnAvatarChangeKeepsItsSmallLineAndGetsNoMarks()
+    public void AnAvatarChangeKeepsItsSmallLineAndGetsTheMarksBesideIt()
     {
         var popUps = new PopUps(_clock);
         var changed = EventNotifier.Card(
             Seen(PresenceKind.AvatarChanged, "usr_rin", "Rin") with { AvatarName = "Tall Cat" },
-            NotificationKind.ChangedAvatar,
-            new PersonInfo(TrustRank.TrustedUser, true));
+            NotificationKind.ChangedAvatar);
         popUps.Show(changed);
 
         EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
 
         var card = Assert.Single(popUps.Current());
         Assert.Equal("Tall Cat", card.Detail);
-        Assert.False(card.HasPersonInfo);
+        Assert.Equal(TrustRank.TrustedUser, card.Rank);
+        Assert.True(card.EighteenPlus);
+    }
+
+    [Fact]
+    public void TheSamePersonLeavingTwiceRestartsOneCard()
+    {
+        var popUps = new PopUps(_clock) { Dwell = TimeSpan.FromSeconds(6) };
+        popUps.Show(EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, Rank(TrustRank.User)));
+        _clock.Advance(TimeSpan.FromSeconds(4));
+        popUps.Show(EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, Rank(TrustRank.User)));
+
+        Assert.Single(popUps.Current());
+
+        _clock.Advance(TimeSpan.FromSeconds(6));
+        Assert.Empty(popUps.Current());
     }
 
     [Fact]
