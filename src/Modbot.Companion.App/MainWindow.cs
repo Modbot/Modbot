@@ -271,6 +271,7 @@ public sealed partial class MainWindow : Window
         SetUpNotificationFilters();
         SetUpClips();
         SetUpListening();
+        SetUpTestEvents();
         SetUpVersion();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
@@ -1804,6 +1805,8 @@ public sealed partial class MainWindow : Window
                 },
             },
             "Sample screens"));
+
+        _body.Children.Add(Ui.Card(TestEventsCard(), "Test events"));
     }
 
     private static string Clock(DateTimeOffset? at) => at is { } time ? time.ToLocalTime().ToString("HH:mm:ss") : "—";
@@ -1870,6 +1873,12 @@ public sealed record MainWindowActions(
 {
     /// <summary>Added after the positional list so nothing that builds the record has to change.</summary>
     public Action<EventFilterSet> SetEventsFilters { get; init; } = _ => { };
+
+    /// <summary>The Debug page's Send: one test event, shown on this PC only. Debug page only.</summary>
+    public Action<TestEvent> SendTestEvent { get; init; } = _ => { };
+
+    /// <summary>The Debug page's Send a run: a join, a flagged join, an avatar change and a leave, a few seconds apart. Debug page only.</summary>
+    public Action<TestEvent> SendTestRun { get; init; } = _ => { };
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };

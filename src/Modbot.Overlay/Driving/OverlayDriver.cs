@@ -824,32 +824,76 @@ public sealed class OverlayDriver : IDisposable
                 server.LastContextAttempt = null;
             }
 
-            // The Events screen. Only this instance's, newest first, and a fixed number of them:
-            // this is what just happened, not a record. The record is the server's audit log.
-            if (IsHere(@event.InstanceId, @event.WorldId))
-            {
-                _events.Insert(0, @event);
-                if (_events.Count > MostEventsKept)
-                    _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
-
-                if (@event.Person is { } person)
-                    _known.Note(person.SubjectId, InfoOf(person));
-            }
-
-            // A flagged join is a card here even when this client reported the join itself. It
-            // used to be skipped on the grounds that the reporting client "already knows", but
-            // what it read out of its own log is that somebody joined, not that the group has
-            // kicked or banned them: the moderator alone in an instance, whose client is always
-            // the one reporting, was the one moderator never warned. The cooldown in Accept still
-            // keeps it to one card per person.
-            if (@event.ToAlert() is { } alert && Accept(alert))
+            if (Take(server, @event))
                 raised = true;
-
-            if (@event.Kind is LiveEventKinds.PersonJoined or LiveEventKinds.FlaggedJoin && IsHere(@event.InstanceId, @event.WorldId))
-                TellKeptAnEyeOn(server, @event);
         }
 
         return raised;
+    }
+
+    /// <summary>
+    /// What one live event does here: a line on the Events screen, the person's rank and 18+ mark
+    /// kept, a card for a flagged join, and a card for somebody a Keep an eye stands on.
+    /// </summary>
+    /// <returns>True when a flagged join became a card.</returns>
+    private bool Take(Server server, LiveEvent @event)
+    {
+        var raised = false;
+
+        // The Events screen. Only this instance's, newest first, and a fixed number of them:
+        // this is what just happened, not a record. The record is the server's audit log.
+        if (IsHere(@event.InstanceId, @event.WorldId))
+        {
+            _events.Insert(0, @event);
+            if (_events.Count > MostEventsKept)
+                _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
+
+            if (@event.Person is { } person)
+                _known.Note(person.SubjectId, InfoOf(person));
+        }
+
+        // A flagged join is a card here even when this client reported the join itself. It
+        // used to be skipped on the grounds that the reporting client "already knows", but
+        // what it read out of its own log is that somebody joined, not that the group has
+        // kicked or banned them: the moderator alone in an instance, whose client is always
+        // the one reporting, was the one moderator never warned. The cooldown in Accept still
+        // keeps it to one card per person.
+        if (@event.ToAlert() is { } alert && Accept(alert))
+            raised = true;
+
+        if (@event.Kind is LiveEventKinds.PersonJoined or LiveEventKinds.FlaggedJoin && IsHere(@event.InstanceId, @event.WorldId))
+            TellKeptAnEyeOn(server, @event);
+
+        return raised;
+    }
+
+    /// <summary>
+    /// Takes a made-up live event from the Debug page's test events as if the paired server had
+    /// just sent it, so the main panel, the notification overlay and the sound all show it the way
+    /// they show a real one.
+    /// </summary>
+    /// <remarks>
+    /// <para>Only when a paired server covers the instance the moderator is in, because only then
+    /// is there a panel for it to be on; false otherwise, and the caller puts the card up itself.
+    /// The event is placed in that instance whatever it said.</para>
+    /// <para>Nothing is asked of any server and nothing is sent: a real join or leave also makes
+    /// the roster due for a read, and a test one does not. The person's last flagged card is
+    /// forgotten first, so a test flagged join is never held back by the five-minute rule.</para>
+    /// </remarks>
+    /// <returns>True when the event was taken.</returns>
+    public bool TakeTestEvent(LiveEvent @event)
+    {
+        ArgumentNullException.ThrowIfNull(@event);
+
+        if (Current() is not { } server || _instance is not { } here || server.TokenRejected)
+            return false;
+
+        var placed = @event with { InstanceId = here.InstanceId, WorldId = here.WorldId };
+        if (placed.Person is { } person)
+            _lastAlerted.Remove(person.SubjectId);
+
+        Take(server, placed);
+        return true;
     }
 
     /// <summary>
@@ -895,16 +939,8 @@ public sealed class OverlayDriver : IDisposable
                 continue;
 
             var info = headsUp.SubjectId is { } subject ? InfoOf(subject) : null;
-            var about = headsUp.About;
 
-            _popUps?.Show(new PopUp(
-                "heads-up:" + headsUp.Id,
-                HeadsUpRules.Name(kind) + " · " + headsUp.PlacedBy,
-                about ?? headsUp.Text ?? HeadsUpRules.Name(kind),
-                about is null ? null : headsUp.Text,
-                PopUpTone.Plain,
-                info?.Rank,
-                info?.EighteenPlus == true));
+            _popUps?.Show(PopUp.HeadsUp(headsUp.Id, kind, headsUp.PlacedBy, headsUp.About, headsUp.Text, info));
         }
     }
 
@@ -990,17 +1026,7 @@ public sealed class OverlayDriver : IDisposable
         // not put up here either. It carries the person's rank and 18+ mark like every other card
         // about a person: from the event itself, already on the Events list, or from the roster.
         // The reason stays the small line.
-        var info = InfoOf(alert.SubjectId);
-        _popUps?.Show(new PopUp(
-            "alert:" + alert.AlertId,
-            Current()?.Label is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",
-            alert.DisplayName ?? alert.SubjectId,
-            alert.Reason,
-            PopUpTone.Flagged,
-            alert.TrustRank ?? info?.Rank,
-            info?.EighteenPlus == true,
-            alert.SubjectId),
-            NotificationKind.FlaggedJoin);
+        _popUps?.Show(PopUp.FlaggedJoin(alert, Current()?.Label, InfoOf(alert.SubjectId)), NotificationKind.FlaggedJoin);
 
         return true;
     }

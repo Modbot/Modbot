@@ -1,6 +1,7 @@
 using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
+using Modbot.Shared.HeadsUps;
 
 namespace Modbot.Companion.Overlay;
 
@@ -56,6 +57,44 @@ public sealed record PopUp(
 {
     /// <summary>Whether the card has a rank or an 18+ mark to draw.</summary>
     public bool HasPersonInfo => Rank is not null || EighteenPlus;
+
+    /// <summary>
+    /// The card a flagged join becomes. One shape wherever it is raised: the overlay's live loop,
+    /// and the Debug page's test events.
+    /// </summary>
+    /// <param name="groupLabel">What the panel calls the group whose server raised it, or null.</param>
+    /// <param name="info">The person's rank and 18+ mark as already held, or null.</param>
+    public static PopUp FlaggedJoin(FlaggedJoinAlert alert, string? groupLabel, PersonInfo? info)
+    {
+        ArgumentNullException.ThrowIfNull(alert);
+
+        return new PopUp(
+            "alert:" + alert.AlertId,
+            groupLabel is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",
+            alert.DisplayName ?? alert.SubjectId,
+            alert.Reason,
+            PopUpTone.Flagged,
+            alert.TrustRank ?? info?.Rank,
+            info?.EighteenPlus == true,
+            alert.SubjectId);
+    }
+
+    /// <summary>
+    /// The card a heads-up another moderator placed becomes. One shape wherever it is raised: the
+    /// overlay's roster read, and the Debug page's test events.
+    /// </summary>
+    /// <param name="about">Who or where it is about, or null for the instance itself.</param>
+    /// <param name="text">What the moderator wrote, or null.</param>
+    /// <param name="info">The person's rank and 18+ mark when it is about a person, or null.</param>
+    public static PopUp HeadsUp(string id, HeadsUpKind kind, string placedBy, string? about, string? text, PersonInfo? info)
+        => new(
+            "heads-up:" + id,
+            HeadsUpRules.Name(kind) + " · " + placedBy,
+            about ?? text ?? HeadsUpRules.Name(kind),
+            about is null ? null : text,
+            PopUpTone.Plain,
+            info?.Rank,
+            info?.EighteenPlus == true);
 }
 
 /// <summary>

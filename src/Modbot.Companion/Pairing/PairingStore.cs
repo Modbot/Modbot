@@ -99,8 +99,9 @@ public sealed class KeyFileSecretProtector : IPairingSecretProtector
     }
 
     /// <summary>The default location: <c>~/.config/Modbot/secret.key</c>, beside the pairings.</summary>
-    public static string DefaultPath(string applicationData)
-        => Path.Combine(applicationData, "Modbot", DefaultFileName);
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>).</param>
+    public static string DefaultPath(string dataFolder)
+        => Path.Combine(dataFolder, DefaultFileName);
 
     public byte[] Protect(byte[] plaintext)
     {
@@ -189,11 +190,12 @@ public static class PairingSecretProtectors
     /// every platform, so the program never has to ask which one it is on before it can store a
     /// token -- which is how a copy run from source on Linux stopped at the first pairing.
     /// </summary>
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>), where the key file goes off Windows.</param>
     public static IPairingSecretProtector ForThisMachine(
-        string applicationData, string purpose = SecretPurposes.DeviceToken)
+        string dataFolder, string purpose = SecretPurposes.DeviceToken)
         => OperatingSystem.IsWindows()
             ? new DpapiSecretProtector(purpose)
-            : new KeyFileSecretProtector(KeyFileSecretProtector.DefaultPath(applicationData), purpose);
+            : new KeyFileSecretProtector(KeyFileSecretProtector.DefaultPath(dataFolder), purpose);
 }
 
 /// <summary>Why a stored pairing could not be used.</summary>
@@ -269,8 +271,9 @@ public sealed class DpapiPairingStore : IPairingStore
     /// nothing to another one. The program itself installs to <c>Program Files</c>: software that
     /// runs from <c>%APPDATA%</c> is scored as hostile, correctly.
     /// </remarks>
-    public static string DefaultPath(string applicationData)
-        => Path.Combine(applicationData, "Modbot", "pairings.json");
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>).</param>
+    public static string DefaultPath(string dataFolder)
+        => Path.Combine(dataFolder, "pairings.json");
 
     public IReadOnlyList<LoadedPairing> Load()
     {

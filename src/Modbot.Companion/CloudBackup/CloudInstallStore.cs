@@ -43,7 +43,8 @@ public sealed class DpapiCloudInstallStore(string path, IPairingSecretProtector 
     private readonly Lock _gate = new();
 
     /// <summary>The default location: <c>%APPDATA%\Modbot\cloud-installs.json</c>.</summary>
-    public static string DefaultPath(string applicationData) => Path.Combine(applicationData, "Modbot", "cloud-installs.json");
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>).</param>
+    public static string DefaultPath(string dataFolder) => Path.Combine(dataFolder, "cloud-installs.json");
 
     public CloudInstall? Find(Uri endpoint)
     {

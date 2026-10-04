@@ -44,9 +44,11 @@ internal static class CompanionLog
     /// <summary>Where the log files are, once <see cref="Start"/> has run.</summary>
     public static string? Folder { get; private set; }
 
-    public static string LogFolder(string appData) => Path.Combine(appData, "Modbot", "logs");
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Modbot.Companion.Startup.DataFolder"/>).</param>
+    public static string LogFolder(string dataFolder) => Path.Combine(dataFolder, "logs");
 
-    public static void Start(string appData)
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Modbot.Companion.Startup.DataFolder"/>).</param>
+    public static void Start(string dataFolder)
     {
         // Before anything touches System.Console, or the attached console is never picked up.
         if (OperatingSystem.IsWindows())
@@ -58,7 +60,7 @@ internal static class CompanionLog
             _ => LogEventLevel.Verbose,
         };
 
-        Folder = LogFolder(appData);
+        Folder = LogFolder(dataFolder);
 
         // The console shape is the same choice every Modbot program offers, so a client started
         // from a script that reads JSON gets JSON. The files are always text: they are opened by a
@@ -84,7 +86,7 @@ internal static class CompanionLog
             .Enrich.WithProperty(ModbotConsoleLog.VersionProperty, ModbotVersion.Release)
             .WriteTo.ModbotConsole(consoleMode, level)
             .WriteTo.File(
-                Path.Combine(LogFolder(appData), "companion-.log"),
+                Path.Combine(LogFolder(dataFolder), "companion-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 7,
                 shared: true,
@@ -94,7 +96,7 @@ internal static class CompanionLog
 
         Log.Information(
             "Modbot Companion {Version} starting; log level {Level}; console {ConsoleMode}; log files in {Directory}",
-            ModbotVersion.Release, level, consoleMode, LogFolder(appData));
+            ModbotVersion.Release, level, consoleMode, LogFolder(dataFolder));
     }
 
     public static void Stop() => Log.CloseAndFlush();

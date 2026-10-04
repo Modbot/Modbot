@@ -105,8 +105,9 @@ public sealed class CloudCredits
     }
 
     /// <summary><c>%APPDATA%\Modbot\credits.json</c>.</summary>
-    public static string DefaultPath(string applicationData)
-        => Path.Combine(applicationData, "Modbot", FileName);
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>).</param>
+    public static string DefaultPath(string dataFolder)
+        => Path.Combine(dataFolder, FileName);
 
     /// <summary>What the Credits page draws right now. Empty until something has been read.</summary>
     public CreditsList Current { get; private set; } = CreditsList.Empty;

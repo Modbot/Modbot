@@ -242,9 +242,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    /// <summary>The default location: <c>%APPDATA%\Modbot\settings.json</c>.</summary>
-    public static string DefaultPath(string applicationData)
-        => Path.Combine(applicationData, "Modbot", "settings.json");
+    /// <summary>The default location: <c>settings.json</c> in Modbot's folder, normally <c>%APPDATA%\Modbot</c>.</summary>
+    /// <param name="dataFolder">Modbot's own folder (<see cref="Startup.DataFolder"/>).</param>
+    public static string DefaultPath(string dataFolder)
+        => Path.Combine(dataFolder, "settings.json");
 
     /// <summary>
     /// Reads the file and the two Cloud environment variables. A missing or unreadable file counts as

@@ -563,5 +563,46 @@ and the window gains a **Debug** page:
 - **Sample screens** pin a made-up screen into the overlay: **idle**, **roster**, **flagged
   join** or **problem**. **Live** lets the real screen back. Samples are built from constants in
   the client; nothing is fetched or sent for them.
+- **Test events** make up something happening, so you can try the pop-ups, the sound, the
+  notification overlay and the main panel without waiting for anybody to walk in. Pick a
+  **Kind** (joined, left, already there, changed avatar, flagged join, problem, or one of the
+  heads-up kinds), give a **Name**, a **Rank** and the **18+** tick if you like, and a
+  **Reason** for a flagged join, a problem or a heads-up, then press **Send**. **Send a run**
+  plays a join, a flagged join, an avatar change and a leave, three seconds apart.
+
+  A test event goes through the same parts of the client a real one does, so your notification
+  ticks still decide which ones pop up. A flagged join, a join and a leave reach the main panel
+  only while you stand in an instance one of your paired servers covers; anywhere else the
+  pop-up and the sound still come. **Test events send nothing to anybody**: no server is told, no
+  server is asked, and nothing is written to the queues, the sent journal, the Cloud backup or
+  `settings.json`. They are not read from VRChat's log, so they never reach your Events page
+  either.
 
 Everything else runs as normal in debug mode, and the setting is read once, at start.
+
+### A test copy with its own folder
+
+Set `MODBOT_DATA_FOLDER` to a folder and the client becomes a **test copy** that keeps everything
+there instead of in `%APPDATA%\Modbot`: settings, pairings, logs, queues, the sent journal, the
+Cloud backup's batches and the downloaded voice and phrase models. Your real copy's pairings and
+settings are never touched. A test copy also:
+
+- leaves `modbot-companion://` links to your real copy, so pairing from the browser always
+  reaches that one (pair a test copy by pasting the token);
+- adds nothing to start with Windows and does not look for updates;
+- has its own one-copy lock, so starting it never hands anything to your real copy;
+- says **Test copy** in the window's title and the tray icon's tooltip;
+- has a Restart button that does nothing: quit it from the tray and start it again.
+
+It refuses to start if the folder is `%APPDATA%\Modbot` itself.
+
+Only one copy can own the SteamVR overlay, so **quit your real copy before starting a test
+copy**, and quit the test copy before starting the real one again.
+
+Set the variable just for the one start, from a terminal in the folder with `Modbot.exe`:
+
+```powershell
+$env:MODBOT_DATA_FOLDER = "$env:LOCALAPPDATA\ModbotTest"
+$env:MODBOT_DEBUG_MODE = "1"
+.\Modbot.exe
+```

@@ -177,6 +177,10 @@ internal sealed class ModbotCompanionApp : Application
     /// <summary>Started by Windows at sign-in: stay in the tray and open no window.</summary>
     internal static bool StartHidden { get; set; }
 
+    /// <summary>Where this copy keeps everything, and whether it is a test copy. Set by <c>Main</c>.</summary>
+    internal static DataFolder Data { get; set; } = new(
+        DataFolder.Real(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)), IsTestCopy: false);
+
     /// <summary>
     /// Avalonia draws a templated control -- a text box, a button, a check box -- only through a
     /// control theme, and an application with none draws nothing where those should be. The
@@ -316,6 +320,9 @@ internal sealed class CompanionHost : IOverlayListener
     private readonly CancellationTokenSource _inboxStop = new();
 
     private string _directory = string.Empty;
+
+    /// <summary>Where this copy keeps everything, and whether it is a test copy (<see cref="DataFolder"/>).</summary>
+    private DataFolder _data = ModbotCompanionApp.Data;
     private CompanionAppState? _state;
     private PairingCoordinator? _pairing;
     private Journal.SentJournal? _journal;
@@ -373,6 +380,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// trust rank and 18+ mark can be told from the timers.
     /// </summary>
     private EventNotifier? _notices;
+
+    /// <summary>The Debug page's test events; null unless the client was started in debug mode.</summary>
+    private TestEvents? _testEvents;
     private Updates? _updates;
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
@@ -497,11 +507,16 @@ internal sealed class CompanionHost : IOverlayListener
     public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
     {
         _desktop = desktop;
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _directory = Path.Combine(appData, "Modbot");
+        _data = ModbotCompanionApp.Data;
+        _directory = _data.Path;
+
+        // A test copy says so wherever this copy names itself, so it is never mistaken for the
+        // real one.
+        if (_data.IsTestCopy)
+            Window.Title = "Modbot (Test copy)";
 
         _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
-        _settingsPath = CompanionSettings.DefaultPath(appData);
+        _settingsPath = CompanionSettings.DefaultPath(_directory);
         _state = new CompanionAppState(_clock, _journal, CompanionSettings.Load(_settingsPath));
 
         // MODBOT_DEBUG_MODE=1 adds the Debug page: the overlay's picture in a window, sample
@@ -514,8 +529,8 @@ internal sealed class CompanionHost : IOverlayListener
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
         var store = new DpapiPairingStore(
-            DpapiPairingStore.DefaultPath(appData),
-            PairingSecretProtectors.ForThisMachine(appData));
+            DpapiPairingStore.DefaultPath(_directory),
+            PairingSecretProtectors.ForThisMachine(_directory));
 
         // One client, kept for the life of the process. A disposed-per-use HttpClient exhausts
         // sockets under any real traffic, and this one is also the single place pairing requests
@@ -525,8 +540,8 @@ internal sealed class CompanionHost : IOverlayListener
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
         _transport = new HttpIngestTransport(_http);
 
-        StartCloudBackup(appData);
-        StartCredits(appData);
+        StartCloudBackup(_directory);
+        StartCredits(_directory);
         StartVoice();
         StartEngine();
 
@@ -555,6 +570,21 @@ internal sealed class CompanionHost : IOverlayListener
             // changed mid-session takes effect at once.
             Wanted = kind => _state!.Settings.NotificationFilters.PopUpShows(kind),
         };
+
+        // The Debug page's test events: made-up people through the same notifier, pop-ups and
+        // overlay loop real ones go through, and nowhere near the queues, the journal or the event
+        // backup (TestEvents). Only in debug mode.
+        if (_state.DebugMode && _notices is not null)
+        {
+            _testEvents = new TestEvents(
+                debugMode: true,
+                _clock,
+                _notices,
+                _popUps,
+                () => CurrentInstance,
+                live => _overlay?.TakeTestEvent(live) == true,
+                alert => ((IOverlayListener)this).AlertShown(alert));
+        }
         _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
         _notifySwitch = new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay, _state.Settings.NotifyOverlay.On);
         _desktopSwitch = new OverlaySwitch(StartDesktopOverlay, StopDesktopOverlay, _state.Settings.DesktopOverlay.On);
@@ -596,7 +626,7 @@ internal sealed class CompanionHost : IOverlayListener
     /// <para>Its own task, so nothing it does — disk, compression, a slow or missing Cloud — ever
     /// holds up the reading loop, which also feeds presence reporting and the overlay.</para>
     /// </remarks>
-    private void StartCloudBackup(string appData)
+    private void StartCloudBackup(string dataFolder)
     {
         var cloud = _state!.Settings.Cloud;
 
@@ -608,8 +638,8 @@ internal sealed class CompanionHost : IOverlayListener
             _clock,
             new HttpCloudLogClient(_http!, _clock),
             new DpapiCloudInstallStore(
-                DpapiCloudInstallStore.DefaultPath(appData),
-                PairingSecretProtectors.ForThisMachine(appData, SecretPurposes.CloudSecret)),
+                DpapiCloudInstallStore.DefaultPath(dataFolder),
+                PairingSecretProtectors.ForThisMachine(dataFolder, SecretPurposes.CloudSecret)),
             ModbotVersion.Release,
             Endpoint: cloud.Endpoint,
             Enabled: !cloud.Disabled,
@@ -649,6 +679,13 @@ internal sealed class CompanionHost : IOverlayListener
     {
         if (_state is null || !OperatingSystem.IsWindows())
             return;
+
+        // A test copy neither adds nor removes the installed copy's entry, and shows no switch.
+        if (_data.IsTestCopy)
+        {
+            _state.Startup = StartupState.Hidden;
+            return;
+        }
 
         var launcher = Updates.InstalledLauncherPath();
         _state.Startup = new StartWithWindows(new StartupRegistration())
@@ -705,10 +742,10 @@ internal sealed class CompanionHost : IOverlayListener
     /// works offline, are on <see cref="CloudCredits"/>. Its own task, and it asks Cloud at most
     /// once every six hours however often this runs.</para>
     /// </remarks>
-    private void StartCredits(string appData)
+    private void StartCredits(string dataFolder)
     {
         var credits = new CloudCredits(
-            _http!, _state!.Settings.Cloud, CloudCredits.DefaultPath(appData), _clock);
+            _http!, _state!.Settings.Cloud, CloudCredits.DefaultPath(dataFolder), _clock);
 
         _credits = credits;
 
@@ -1763,7 +1800,9 @@ internal sealed class CompanionHost : IOverlayListener
                 () => observer.ModeratorId,
                 (popUp, kind) => _popUps?.Show(popUp, kind),
                 (kind, about) => _bleep?.Ask(kind, about),
-                subjectId => _overlay?.InfoOf(subjectId),
+                // A made-up person from the Debug page's test events carries the rank and 18+
+                // mark it was given; everybody real, what the paired server said.
+                subjectId => _testEvents?.InfoOf(subjectId) ?? _overlay?.InfoOf(subjectId),
                 _clock,
                 () => _overlay?.CurrentServer is not null));
 
@@ -2957,7 +2996,9 @@ internal sealed class CompanionHost : IOverlayListener
         _tray = new TrayIcon
         {
             Icon = Brand.Icon(),
-            ToolTipText = "Modbot: reporting presence for your groups",
+            ToolTipText = _data.IsTestCopy
+                ? "Modbot (Test copy): reporting presence for your groups"
+                : "Modbot: reporting presence for your groups",
             IsVisible = true,
             Menu = [open, issues, quit],
         };
@@ -3023,6 +3064,14 @@ internal sealed class CompanionHost : IOverlayListener
     /// <returns>True once a fresh copy has been asked for and this one is shutting down.</returns>
     private async Task<bool> RestartAsync()
     {
+        // The restart address is answered by the installed copy's registration, which would start
+        // the real companion in place of this test copy. A test copy is restarted by hand.
+        if (_data.IsTestCopy)
+        {
+            Log.Information("Test copy: Restart does nothing; quit from the tray and start it again");
+            return false;
+        }
+
         var started = await Window.Launcher.LaunchUriAsync(new Uri(CompanionRestart.Link));
         if (!started)
         {
@@ -3043,6 +3092,12 @@ internal sealed class CompanionHost : IOverlayListener
     /// </summary>
     private void StartUpdateChecks()
     {
+        if (_data.IsTestCopy)
+        {
+            Log.Information("Test copy: this companion will not look for newer versions");
+            return;
+        }
+
         if (_state?.Settings.CheckForUpdates is not true)
         {
             Log.Information("Update checks are turned off in settings.json; this companion will not look for newer versions");
@@ -3064,10 +3119,12 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void ListenForLinks()
     {
-        if (OperatingSystem.IsWindows() && Environment.ProcessPath is { Length: > 0 } executable)
+        // A test copy leaves the link registration to the installed copy, and listens on a pipe of
+        // its own, so a pairing link from the browser always reaches the real one.
+        if (!_data.IsTestCopy && OperatingSystem.IsWindows() && Environment.ProcessPath is { Length: > 0 } executable)
             UrlSchemeRegistration.Register(executable);
 
-        _ = new PairingLinkInbox().ListenAsync(
+        _ = new PairingLinkInbox(_data.PipeName).ListenAsync(
             message => Dispatcher.UIThread.InvokeAsync(() => CrashGuard.RunAsync("handling a pairing link", () => HandleMessageAsync(message))),
             _inboxStop.Token);
     }
@@ -3184,6 +3241,8 @@ internal sealed class CompanionHost : IOverlayListener
                 AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, AnchorOverlay, SetVoice, TestVoice)
             {
                 SetEventsFilters = SetEventsFilters,
+                SendTestEvent = SendTestEvent,
+                SendTestRun = SendTestRun,
                 SetOverlayOn = SetOverlayOn,
                 SetOverlayEditMode = SetOverlayEditMode,
                 PutOverlayBack = PutOverlayBack,
@@ -3476,6 +3535,32 @@ internal sealed class CompanionHost : IOverlayListener
         Render();
     }
 
+    /// <summary>The Debug page's Send: one test event. Does nothing outside debug mode.</summary>
+    private void SendTestEvent(TestEvent test)
+    {
+        if (_testEvents?.Send(test) == true)
+            Log.Information("Debug page: sent a test event, {Kind}", test.Kind);
+    }
+
+    /// <summary>The Debug page's Send a run: a join, a flagged join, an avatar change and a leave, a few seconds apart.</summary>
+    private void SendTestRun(TestEvent from)
+    {
+        if (_testEvents is not { IsOn: true })
+            return;
+
+        _ = CrashGuard.RunAsync("sending test events", async () =>
+        {
+            var steps = TestEvents.Run(from);
+            for (var i = 0; i < steps.Count; i++)
+            {
+                if (i > 0)
+                    await Task.Delay(TestEvents.RunGap, _backupStop.Token);
+
+                SendTestEvent(steps[i]);
+            }
+        });
+    }
+
     private void TogglePause(string serverId)
     {
         if (_state?.Connections.FirstOrDefault(c => c.ServerId == serverId) is not { } connection)
@@ -3604,12 +3689,6 @@ internal sealed class CompanionHost : IOverlayListener
 
 internal static class Program
 {
-    /// <summary>
-    /// Keeps the client to one running copy per Windows account. Named under <c>Local\</c> so two
-    /// people signed in to the same PC each get their own.
-    /// </summary>
-    private const string SingleInstanceName = @"Local\Modbot.Companion";
-
     [STAThread]
     public static int Main(string[] args)
     {
@@ -3632,10 +3711,30 @@ internal static class Program
 
         var startHidden = StartWithWindows.StartsHidden(args);
 
-        CompanionLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        // Where everything this copy keeps goes: %APPDATA%\Modbot, or the folder MODBOT_DATA_FOLDER
+        // names for a test copy. Before the log, because the log goes there too. A test copy
+        // pointed at the real folder is refused before it has touched anything.
+        var choice = DataFolder.Choose(
+            Environment.GetEnvironmentVariable,
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        if (choice.Folder is not { } data)
+        {
+            Console.Error.WriteLine(choice.Refusal);
+            return 2;
+        }
+
+        ModbotCompanionApp.Data = data;
+
+        CompanionLog.Start(data.Path);
         CrashGuard.Install();
 
-        using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
+        if (data.IsTestCopy)
+            Log.Information("Test copy: everything is kept in {Folder} ({Variable})", data.Path, DataFolder.Variable);
+
+        // One running copy per Windows account, under Local\ so two people signed in to the same PC
+        // each get their own. A test copy's lock and pipe are named after its folder, so it never
+        // hands anything to the installed copy or takes anything from it.
+        using var single = new Mutex(initiallyOwned: true, data.SingleInstanceName, out var firstCopy);
 
         // Started to replace a copy that is on its way out: wait for it to go rather than handing
         // it a message and leaving. Its exit frees both the single-copy lock and the pairing link
@@ -3669,7 +3768,7 @@ internal static class Program
             var message = link ?? CompanionHost.ShowCommand;
             for (var attempt = 0; attempt < 5; attempt++)
             {
-                if (PairingLinkInbox.TrySendAsync(message, timeout: TimeSpan.FromSeconds(1)).GetAwaiter().GetResult())
+                if (PairingLinkInbox.TrySendAsync(message, data.PipeName, TimeSpan.FromSeconds(1)).GetAwaiter().GetResult())
                     break;
             }
 
@@ -3678,8 +3777,10 @@ internal static class Program
 
         // Only the copy that will own the tray icon installs a waiting update, and only here,
         // before the window exists: nothing is being recorded yet, so the restart costs nothing,
-        // and a second copy started by a browser link never swaps the files under the first.
-        Updates.InstallDownloadedUpdate(args);
+        // and a second copy started by a browser link never swaps the files under the first. A test
+        // copy installs nothing.
+        if (!data.IsTestCopy)
+            Updates.InstallDownloadedUpdate(args);
 
         ModbotCompanionApp.StartupMessage = link;
         ModbotCompanionApp.StartHidden = startHidden && link is null;
