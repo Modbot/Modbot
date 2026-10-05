@@ -25,7 +25,7 @@ namespace Modbot.Overlay.Rendering;
 /// of its own, and must: it picks the graphics card that drives the screen VRChat is on, which on
 /// a laptop with two cards is routinely not the card Windows lists first, and the screen
 /// duplication it opens belongs to that card. This device is made on the card SteamVR draws on
-/// where SteamVR can say which, else on the strongest real card (<see cref="GraphicsCardChoice"/>),
+/// where SteamVR can say which (and on no other), else on the strongest real card (<see cref="GraphicsCardChoice"/>),
 /// and once made it does not move.</para>
 /// </remarks>
 public static class SharedD3D11Device
@@ -146,6 +146,15 @@ public static class SharedD3D11Device
                 waited = true;
                 Thread.Sleep(OutOfMemoryWait);
             }
+        }
+
+        // SteamVR named the card, so no other was tried: a texture on another card is one the
+        // headset does not show, and the failure is said here rather than hidden behind one.
+        if (order is [{ } only, ..] && order.All(card => card == only))
+        {
+            Log.Warning(
+                "The headset overlay could not make its graphics device on {Card}, the card SteamVR draws on; no other card was tried, because SteamVR decides the card",
+                only.Name);
         }
 
         last.CheckError();

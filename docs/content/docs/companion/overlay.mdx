@@ -30,8 +30,10 @@ reason, and the client tries it again once a minute, up to five times in all. Sw
 off and on again, or restarting Modbot, starts the count again.
 
 On a PC with more than one graphics card, the panel is drawn on the card SteamVR says the headset
-is on. Before SteamVR is attached (in debug mode), it uses the real graphics card with the most
-memory of its own, skipping screen-sharing programs' and Windows' stand-in adapters.
+is on, and only that card: if it cannot make room for the panel, the panel shows **Could not
+start** rather than being drawn on a card the headset cannot show. Without SteamVR (the debug
+mode preview), it uses the real graphics card with the most memory of its own, skipping
+screen-sharing programs' and Windows' stand-in adapters.
 
 The client window's **SteamVR** page shows where the overlay stands: attached (and to what),
 not running, not installed, refused (with the runtime's reason) or could not start (with the

@@ -5,8 +5,8 @@ using SharpGen.Runtime;
 namespace Modbot.Overlay.Tests.Rendering;
 
 /// <summary>
-/// Which graphics card the overlay's device is made on: SteamVR's when it says, else the real card
-/// with the most memory of its own, never a pretend one, and Windows' own choice last.
+/// Which graphics card the overlay's device is made on: SteamVR's and no other when it says, else
+/// the real card with the most memory of its own, never a pretend one, and Windows' own choice last.
 /// </summary>
 /// <remarks>
 /// The cards are the ones on the PC where the companion stopped at start with "out of memory": a
@@ -23,11 +23,12 @@ public class GraphicsCardChoiceTests
     private static readonly GraphicsCard[] OwnersPc = [Parsec, BuiltIn, Headset, BasicRender];
 
     [Fact]
-    public void SteamVrsCardComesFirst()
+    public void SteamVrsCardIsTheOnlyOneTriedTwice()
     {
-        var order = GraphicsCardChoice.Order(OwnersPc, steamVrCard: BuiltIn.Id);
-
-        Assert.Equal([BuiltIn, Headset, null], order);
+        // No other card after it, not even Windows' own choice: a texture on a card other than
+        // the headset's is one SteamVR does not show.
+        Assert.Equal([Headset, Headset], GraphicsCardChoice.Order(OwnersPc, steamVrCard: Headset.Id));
+        Assert.Equal([BuiltIn, BuiltIn], GraphicsCardChoice.Order(OwnersPc, steamVrCard: BuiltIn.Id));
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public class GraphicsCardChoiceTests
     }
 
     [Fact]
-    public void WithNoCardListedOnlyWindowsChoiceIsTried()
+    public void WithNoCardListedOnlyWindowsChoiceIsTriedEvenIfSteamVrNamedOne()
     {
         Assert.Equal([null], GraphicsCardChoice.Order([], steamVrCard: 200));
     }
