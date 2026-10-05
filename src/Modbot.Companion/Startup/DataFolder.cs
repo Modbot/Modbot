@@ -23,6 +23,9 @@ namespace Modbot.Companion.Startup;
 /// junction pointing at it, or a folder above or below it. Each name is turned into the one
 /// folder it really is before the two are compared, and a test copy whose folder is the real one,
 /// sits inside it, or holds it, does not start.</para>
+/// <para><strong>A test copy sends nothing of its own.</strong> No event backup to Modbot Cloud,
+/// no Cloud install, no Credits read, no voice or phrase model download and no update check. The
+/// only requests it can make are to a server somebody paired in the test copy's own folder.</para>
 /// <para><strong>What this reads.</strong> One environment variable, and, to compare folders, the
 /// names on disk: which folders exist, where a link points and a short name's long form. It writes
 /// nothing and sends nothing; the folder is not even created here.</para>
@@ -89,6 +92,34 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
     /// <summary>The pipe a second copy hands a link or "show the window" through.</summary>
     public string PipeName
         => IsTestCopy ? PairingLinkInbox.DefaultPipeName + "-test-" + Key : PairingLinkInbox.DefaultPipeName;
+
+    /// <summary>
+    /// Whether this copy may talk to Modbot Cloud at all: the event backup, the Cloud install it
+    /// registers and the Credits page's read. Never in a test copy, whatever <c>settings.json</c>
+    /// or the environment say, so a copy being tried out never sends a real VRChat log's events
+    /// anywhere.
+    /// </summary>
+    public bool MayUseCloud => !IsTestCopy;
+
+    /// <summary>
+    /// Whether this copy may download the voice or the phrase model. Never in a test copy, which
+    /// makes no request of its own; only a server paired in the test copy's own folder is talked to.
+    /// </summary>
+    public bool MayDownload => !IsTestCopy;
+
+    /// <summary>What a test copy says where a download would have started.</summary>
+    public const string NoDownloadInATestCopy = "A test copy downloads nothing.";
+
+    /// <summary>
+    /// The Cloud settings this copy goes by: as read for the real copy, and switched off for a test
+    /// copy as if <c>cloud.disabled</c> were true.
+    /// </summary>
+    public CloudBackup.CloudSettings CloudFor(CloudBackup.CloudSettings read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+
+        return MayUseCloud ? read : read with { Disabled = true };
+    }
 
     /// <summary>
     /// A short name worked out from the folder, so two test copies in two folders keep apart and

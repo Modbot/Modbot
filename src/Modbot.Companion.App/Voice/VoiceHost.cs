@@ -55,6 +55,9 @@ internal sealed class VoiceHost : IDisposable
     private bool _older;
 
     private Task<VoiceDownloadResult>? _download;
+
+    /// <summary>False in a test copy, which downloads nothing (<c>DataFolder.MayDownload</c>).</summary>
+    private readonly bool _mayDownload;
     private bool _downloadFailed;
     private double _progress;
     private string? _problem;
@@ -68,6 +71,7 @@ internal sealed class VoiceHost : IDisposable
     /// <param name="moderatorId">The moderator's own VRChat id, as the log last said.</param>
     /// <param name="names">How names are spoken. The default strips decoration lightly; the real normaliser plugs in here.</param>
     /// <param name="filters">The Notifications card's Voice column. Null leaves the voice's own three switches deciding.</param>
+    /// <param name="mayDownload">False in a test copy: the voice is never downloaded, and the settings page says so.</param>
     public VoiceHost(
         string companionFolder,
         HttpClient http,
@@ -75,8 +79,10 @@ internal sealed class VoiceHost : IDisposable
         Func<VoiceSettings> settings,
         Func<string?> moderatorId,
         ISpokenName? names = null,
-        Func<NotificationFilters>? filters = null)
+        Func<NotificationFilters>? filters = null,
+        bool mayDownload = true)
     {
+        _mayDownload = mayDownload;
         _voicesFolder = VoiceModel.VoicesFolder(companionFolder);
         _http = http;
         _clock = clock;
@@ -253,6 +259,14 @@ internal sealed class VoiceHost : IDisposable
     {
         _progress = 0;
         _problem = null;
+
+        if (!_mayDownload)
+        {
+            _downloadFailed = true;
+            _problem = Modbot.Companion.Startup.DataFolder.NoDownloadInATestCopy;
+            Log.Information("Test copy: the voice is not downloaded");
+            return;
+        }
         Log.Information("Downloading the voice {Voice} from {Url} ({Size:N0} bytes)", _model.Name, _model.Url, _model.Size);
 
         var progress = new Progress<double>(p => _progress = p);

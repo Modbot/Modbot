@@ -631,7 +631,16 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartCloudBackup(string dataFolder)
     {
-        var cloud = _state!.Settings.Cloud;
+        // A test copy sends nothing to Modbot Cloud, whatever settings.json or the environment say:
+        // nothing is built, so there is no Cloud client, no Cloud install and no loop. The events of
+        // whatever VRChat log it reads stay on this PC.
+        if (!_data.MayUseCloud)
+        {
+            Log.Information("Test copy: event backup to Modbot Cloud is off");
+            return;
+        }
+
+        var cloud = _data.CloudFor(_state!.Settings.Cloud);
 
         if (cloud.RejectedEndpoint is { } rejected)
             Log.Warning("Ignoring the Modbot Cloud address {Endpoint}: it must be an https address; using {Default}", rejected, cloud.Endpoint);
@@ -747,8 +756,15 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartCredits(string dataFolder)
     {
+        // A test copy asks Modbot Cloud nothing, the Credits page's read included.
+        if (!_data.MayUseCloud)
+        {
+            Log.Information("Test copy: the Credits page does not ask Modbot Cloud");
+            return;
+        }
+
         var credits = new CloudCredits(
-            _http!, _state!.Settings.Cloud, CloudCredits.DefaultPath(dataFolder), _clock);
+            _http!, _data.CloudFor(_state!.Settings.Cloud), CloudCredits.DefaultPath(dataFolder), _clock);
 
         _credits = credits;
 
@@ -783,7 +799,8 @@ internal sealed class CompanionHost : IOverlayListener
             _clock,
             () => _state!.Settings.Voice,
             () => _engine?.ModeratorId,
-            filters: () => _state!.Settings.NotificationFilters);
+            filters: () => _state!.Settings.NotificationFilters,
+            mayDownload: _data.MayDownload);
 
         _voiceLoop.Tick += async (_, _) => await CrashGuard.RunAsync("speaking", VoiceTickAsync);
         _voiceLoop.Start();
@@ -1366,6 +1383,15 @@ internal sealed class CompanionHost : IOverlayListener
         var model = PhraseModel.Default;
         _phraseProgress = 0;
         _listeningProblem = null;
+
+        // A test copy downloads nothing; it lists the model as missing and says why.
+        if (!_data.MayDownload)
+        {
+            _phraseFailed = true;
+            _listeningProblem = DataFolder.NoDownloadInATestCopy;
+            Log.Information("Test copy: the phrase model is not downloaded");
+            return;
+        }
 
         Log.Information(
             "Downloading the phrase model {Name} from {Url} ({Size:N0} bytes)", model.Name, model.Url, model.Size);

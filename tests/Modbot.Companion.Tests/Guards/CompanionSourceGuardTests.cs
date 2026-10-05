@@ -601,6 +601,65 @@ public class CompanionSourceGuardTests
             senders);
     }
 
+    [Fact]
+    public void ATestCopyBuildsNoCloudClientNoCreditsReadAndNoDownload()
+    {
+        // A test copy (MODBOT_DATA_FOLDER) once backed a real VRChat log's events up to Modbot
+        // Cloud, registered a Cloud install and read the credits, because event backup is on in a
+        // fresh settings file (2026-10-04). A test copy makes no request of its own now: the only
+        // place each of these is built checks the data folder first and returns before building
+        // it, and none of them is built anywhere else.
+        var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
+        var voice = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "VoiceHost.cs"));
+
+        GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "new HttpCloudLogClient(");
+        GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "new DpapiCloudInstallStore(");
+        GuardedFirst(program, "private void StartCloudBackup(", "if (!_data.MayUseCloud)", "Event backup to Modbot Cloud is on");
+        GuardedFirst(program, "private void StartCredits(", "if (!_data.MayUseCloud)", "new CloudCredits(");
+        GuardedFirst(program, "private void StartPhraseDownload(", "if (!_data.MayDownload)", "new PhraseDownload(");
+        GuardedFirst(voice, "private void StartDownload()", "if (!_mayDownload)", "new VoiceDownload(");
+        Assert.Contains("mayDownload: _data.MayDownload", program, StringComparison.Ordinal);
+        Assert.Contains("Test copy: event backup to Modbot Cloud is off", program, StringComparison.Ordinal);
+
+        foreach (var (made, file) in new[]
+                 {
+                     ("new HttpCloudLogClient(", "Program.cs"),
+                     ("new DpapiCloudInstallStore(", "Program.cs"),
+                     ("new CloudCredits(", "Program.cs"),
+                     ("new PhraseDownload(", "Program.cs"),
+                     ("new VoiceDownload(", "VoiceHost.cs"),
+                     ("new CloudEventBackup(", "Program.cs"),
+                 })
+        {
+            var building = EverythingTheClientShips()
+                .Where(f => File.ReadAllText(f).Contains(made, StringComparison.Ordinal))
+                .Select(Path.GetFileName)
+                .ToList();
+
+            Assert.Equal([file], building);
+
+            var source = file == "Program.cs" ? program : voice;
+            Assert.Equal(source.IndexOf(made, StringComparison.Ordinal), source.LastIndexOf(made, StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>In the method that starts at <paramref name="method"/>, <paramref name="guard"/> comes before <paramref name="made"/>.</summary>
+    private static void GuardedFirst(string source, string method, string guard, string made)
+    {
+        var start = source.IndexOf(method, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{method} was not found");
+
+        var guarded = source.IndexOf(guard, start, StringComparison.Ordinal);
+        var building = source.IndexOf(made, start, StringComparison.Ordinal);
+
+        Assert.True(guarded > start, $"{method} does not check {guard}");
+        Assert.True(building > guarded, $"{method} reaches {made} before checking {guard}");
+
+        // The check belongs to this method, not the next one down.
+        var next = source.IndexOf("    private ", start + method.Length, StringComparison.Ordinal);
+        Assert.True(next < 0 || guarded < next, $"{guard} is not inside {method}");
+    }
+
     /// <summary>Anything that would record sound, by any route: a microphone, a line-in, the
     /// machine's own output, or one named program's output.</summary>
     /// <remarks>

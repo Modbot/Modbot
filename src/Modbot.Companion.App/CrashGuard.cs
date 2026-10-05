@@ -131,7 +131,7 @@ internal static class CrashGuard
                 ? "Modbot ran into a problem it could not recover from and has to close.\n\n"
                 : "Modbot ran into a problem " + doing + ". It is still running, but that part may not be working.\n\n")
             + "What happened:\n" + ex.GetType().Name + ": " + ex.Message + "\n\n"
-            + "The full details are in the companion's log:\n" + (CompanionLog.Folder ?? "%APPDATA%\\Modbot\\logs")
+            + "The full details are in the companion's log:\n" + (CompanionLog.Folder ?? CompanionLog.LogFolder(ModbotCompanionApp.Data.Path))
             + "\n\nPlease send that log file when you report this.";
 
         if (fatal)
