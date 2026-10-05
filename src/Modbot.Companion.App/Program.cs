@@ -363,6 +363,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
+    private EscapeBubbleWindow? _escapeBubble;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
 
     /// <summary>
@@ -3429,6 +3430,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
                 AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, AnchorOverlay, SetVoice, TestVoice)
             {
+                ShowEscapeBubble = ShowEscapeBubble,
                 SetEventsFilters = SetEventsFilters,
                 SendTestEvent = SendTestEvent,
                 SendTestRun = SendTestRun,
@@ -3719,6 +3721,30 @@ internal sealed partial class CompanionHost : IOverlayListener
         }
 
         _preview.Activate();
+    }
+
+    /// <summary>
+    /// The Debug page's Show escape bubble: Modbot's bubble on its own, to look at. A click lights
+    /// and unlights it here; placing it under VRChat's Esc bubble waits for the window lookup
+    /// (Escape Menu design §2.2).
+    /// </summary>
+    private void ShowEscapeBubble()
+    {
+        if (_escapeBubble is null)
+        {
+            _escapeBubble = new EscapeBubbleWindow();
+            _escapeBubble.Apply(EscapeBubbleLayout.For(1918, 1030)!);
+            _escapeBubble.SetLabel(EscapeBubbleLayout.Label(DesktopOverlaySettings.DefaultShortcut) ?? "");
+            _escapeBubble.PlaceAt(new PixelPoint(40, 124));
+            var lit = false;
+            _escapeBubble.Clicked += () => _escapeBubble?.SetLit(lit = !lit);
+            _escapeBubble.Closed += (_, _) => _escapeBubble = null;
+            _escapeBubble.Show();
+        }
+        else
+        {
+            _escapeBubble.Close();
+        }
     }
 
     /// <summary>Pins a sample screen into the overlay, or, with null, lets the live screen back.</summary>

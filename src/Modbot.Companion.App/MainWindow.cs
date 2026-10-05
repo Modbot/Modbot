@@ -1779,8 +1779,11 @@ public sealed partial class MainWindow : Window
         var attach = Ui.Button("Look for SteamVR now");
         attach.Click += (_, _) => _actions.AttachSteamVr();
 
+        var bubble = Ui.Button("Show escape bubble");
+        bubble.Click += (_, _) => _actions.ShowEscapeBubble();
+
         _body.Children.Add(Ui.Card(
-            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { show, attach } },
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { show, attach, bubble } },
             "Overlay"));
 
         var samples = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -1880,6 +1883,9 @@ public sealed record MainWindowActions(
 
     /// <summary>The Debug page's Send a run: a join, a flagged join, an avatar change and a leave, a few seconds apart. Debug page only.</summary>
     public Action<TestEvent> SendTestRun { get; init; } = _ => { };
+
+    /// <summary>The Debug page's Show escape bubble: Modbot's bubble on screen to look at. Debug page only.</summary>
+    public Action ShowEscapeBubble { get; init; } = () => { };
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };

@@ -88,6 +88,7 @@
          depends on the fonts a machine has installed. -->
     <AvaloniaResource Include="Assets\Modbot.ico" />
     <AvaloniaResource Include="Assets\icon-256.png" />
+    <AvaloniaResource Include="Assets\escape-bubble-icon.png" />
     <AvaloniaResource Include="Assets\Fonts\BricolageGrotesque-Wordmark.ttf" />
   </ItemGroup>
 
