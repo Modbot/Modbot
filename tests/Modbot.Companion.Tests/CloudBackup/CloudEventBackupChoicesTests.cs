@@ -416,6 +416,48 @@ public sealed class CloudEventBackupChoicesTests : IDisposable
     }
 
     [Fact]
+    public async Task AnAvatarNameThatIsOffIsWrittenNowhereOnThisPcNotEvenToTheJournal()
+    {
+        // The journal's line describes the event in words, avatar name included. A detail the
+        // moderator held back must not be in sent.jsonl either, whether the event is still queued
+        // or has been taken.
+        var path = Path.Combine(_directory, "sent.jsonl");
+        var journal = new SentJournal(path, _clock);
+        _cloud.Registration = new CloudRegistration(IngestOutcome.NetworkFailure);
+        var backup = Backup(new CloudChoices(new CloudSection(CloudEventKinds.All, AvatarName: false), CloudSection.Default), journal: journal);
+
+        backup.Offer([InGroup(PresenceKind.AvatarChanged, avatar: "Secret Cat")]);
+        await backup.PumpAsync(Ct);
+
+        var queued = Assert.Single(journal.Events());
+        Assert.Equal(JournalEntryKind.Waiting, queued.CloudState);
+        Assert.DoesNotContain("Secret Cat", queued.Summary, StringComparison.Ordinal);
+
+        _cloud.Registration = new CloudRegistration(IngestOutcome.Accepted, Guid.NewGuid(), "the-secret");
+        _clock.Advance(CloudOutbox.MaxBatchAge);
+        await backup.PumpAsync(Ct);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        await backup.PumpAsync(Ct);
+
+        Assert.DoesNotContain("Secret Cat", File.ReadAllText(path), StringComparison.Ordinal);
+        Assert.DoesNotContain("Secret Cat", Assert.Single(journal.Events()).Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnAvatarNameThatIsOnIsKeptInTheJournalRow()
+    {
+        var journal = new SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
+        _cloud.Registration = new CloudRegistration(IngestOutcome.NetworkFailure);
+        var backup = Backup(journal: journal);
+
+        backup.Offer([InGroup(PresenceKind.AvatarChanged, avatar: "Tall Cat")]);
+        await backup.PumpAsync(Ct);
+
+        var row = Assert.Single(journal.Events());
+        Assert.Contains("Tall Cat", row.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AnEventThatLeftOutItsWorldCanStillBeReadBack()
     {
         var left = new CompanionEvent

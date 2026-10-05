@@ -487,13 +487,20 @@ public sealed class CloudEventBackup : IObservationSink
         // Written once the events are on disk, so the screen never shows an event queued for Cloud
         // that a crash a moment later would have lost. The key is worked out from the observation,
         // which is how this line and the paired server's line about the same event become one row.
-        foreach (var (observation, companionEvent, _) in mapped)
+        //
+        // The journal is given the event as it was shaped, not as it was mapped: its line describes
+        // the event in words, and a detail the moderator turned off, the avatar's name above all,
+        // must not be written anywhere on this PC for the backup, the journal included.
+        for (var i = 0; i < mapped.Count; i++)
         {
-            _journal?.RecordQueued(
+            if (_journal is null || CloudWire.ReadBack(events[i]) is not { } shaped)
+                continue;
+
+            _journal.RecordQueued(
                 SentJournal.CloudName,
                 JournalDestination.Cloud,
-                SentJournal.KeyFor(observation),
-                companionEvent);
+                SentJournal.KeyFor(mapped[i].Observation),
+                shaped);
         }
     }
 
