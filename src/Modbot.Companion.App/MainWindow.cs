@@ -4,6 +4,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Clips;
+using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Listening;
@@ -28,6 +29,9 @@ internal enum Page
     SteamVr,
     Log,
     Settings,
+
+    /// <summary>What the Modbot Cloud backup sends. After Settings, before Credits.</summary>
+    CloudServer,
     Credits,
 
     /// <summary>Only with <c>MODBOT_DEBUG_MODE=1</c>.</summary>
@@ -271,6 +275,7 @@ public sealed partial class MainWindow : Window
         SetUpNotificationFilters();
         SetUpClips();
         SetUpListening();
+        SetUpCloud();
         SetUpTestEvents();
         SetUpVersion();
 
@@ -589,6 +594,7 @@ public sealed partial class MainWindow : Window
         NavItem(Page.SteamVr, "SteamVR", !overlay.On ? "off" : overlay.Attached ? "on" : null);
         NavItem(Page.Log, "Log", null);
         NavItem(Page.Settings, "Settings", null);
+        NavItem(Page.CloudServer, "Cloud Server", null);
 
         if (_snapshot.DebugMode)
             NavItem(Page.Debug, "Debug", null);
@@ -708,6 +714,7 @@ public sealed partial class MainWindow : Window
             Page.SteamVr => Parts.Log | Parts.Events | Parts.Settings | Parts.Servers,
             Page.Log => Parts.Events | Parts.Overlays | Parts.Servers,
             Page.Settings => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings | Parts.Servers,
+            Page.CloudServer => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings | Parts.Servers,
             Page.Credits => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings | Parts.Servers,
             Page.Debug => Parts.Log | Parts.Events | Parts.Settings | Parts.Servers,
             _ => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings,
@@ -786,6 +793,10 @@ public sealed partial class MainWindow : Window
             };
         }
 
+        // Modbot Cloud's switch and choices are put into the kept boxes on the two pages that show
+        // them, so no page is built again on their account.
+        next = next with { Cloud = drawn.Cloud };
+
         if (parts.HasFlag(Parts.Servers))
         {
             next = next with
@@ -809,6 +820,9 @@ public sealed partial class MainWindow : Window
         {
             case Page.Settings:
                 RefreshSettings();
+                break;
+            case Page.CloudServer:
+                RefreshCloudServer();
                 break;
             case Page.Events or Page.SteamVr or Page.Log or Page.Credits or Page.Debug:
                 break;
@@ -866,6 +880,9 @@ public sealed partial class MainWindow : Window
                 break;
             case Page.Settings:
                 RenderSettings();
+                break;
+            case Page.CloudServer:
+                RenderCloudServer();
                 break;
             case Page.AddServer:
                 RenderAddServer();
@@ -1339,6 +1356,8 @@ public sealed partial class MainWindow : Window
 
         _body.Children.Add(Ui.Card(ClipsCard(), "Clips"));
 
+        _body.Children.Add(CloudSettingsCard());
+
         _body.Children.Add(Ui.Card(ListeningCard(), "Listening"));
 
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
@@ -1372,6 +1391,7 @@ public sealed partial class MainWindow : Window
         RefreshNotificationControls(_snapshot.NotificationsOrDefault);
         RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
         RefreshClipControls(_snapshot.ClipsOrNone);
+        RefreshCloudControls();
         RefreshListeningControls(_snapshot.ListeningOrNone);
         RefreshLogFolderControls();
     });
@@ -1970,6 +1990,21 @@ public sealed record MainWindowActions(
     /// after the positional list the same way the others were.
     /// </summary>
     public Func<string?> CrashDetails { get; init; } = () => null;
+
+    /// <summary>
+    /// The Modbot Cloud box on the Settings page or the Cloud Server page: true is on. The two boxes
+    /// are one setting. Added after the positional list the same way the others were.
+    /// </summary>
+    public Action<bool> SetCloudOn { get; init; } = _ => { };
+
+    /// <summary>The Cloud Server page's choices changed: the whole record as the controls now read.</summary>
+    public Action<CloudChoices> SetCloudChoices { get; init; } = _ => { };
+
+    /// <summary>
+    /// The events waiting to go to Modbot Cloud, newest first, up to the number asked for, and the
+    /// offset to Cloud's clock they will carry. Asked only while the Cloud Server page is open.
+    /// </summary>
+    public Func<int, CloudWaiting> NextCloudBatch { get; init; } = _ => CloudWaiting.None;
 
     public static MainWindowActions None { get; } = new(
         _ => { },

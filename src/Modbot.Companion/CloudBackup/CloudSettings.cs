@@ -21,8 +21,13 @@ namespace Modbot.Companion.CloudBackup;
 /// backup off; <c>0</c>, <c>false</c>, <c>no</c> or <c>off</c> turns it on. Any other word is not
 /// taken as either, and <c>settings.json</c> decides: a typo never turns sending back on.</item>
 /// </list>
-/// <para><strong>When it applies.</strong> Read once, when the client starts. Nothing here is
-/// sent anywhere.</para>
+/// <para><strong>What it sends is chosen too</strong>: <see cref="Choices"/>, from <c>cloud.group</c> and
+/// <c>cloud.nonGroup</c> in <c>settings.json</c>. The Settings page's Modbot Cloud box and the Cloud
+/// Server page write <c>cloud.disabled</c> and those two objects, and nothing else in the file.</para>
+/// <para><strong>When it applies.</strong> Read when the client starts, and changed afterwards only
+/// by the two screens above. The environment variable still wins: with
+/// <c>MODBOT_CLOUD_DISABLED</c> set, the box shows what it says and cannot be changed
+/// (<see cref="SwitchLocked"/>). Nothing here is sent anywhere.</para>
 /// </remarks>
 /// <param name="Endpoint">The Modbot Cloud to send to.</param>
 /// <param name="Disabled">True when nothing is sent to Modbot Cloud.</param>
@@ -37,25 +42,47 @@ public sealed record CloudSettings(Uri Endpoint, bool Disabled, string? Rejected
 
     public static CloudSettings Default { get; } = new(DefaultEndpoint, false);
 
+    /// <summary>What is sent: which events and which of their details, for group and non-group instances.</summary>
+    public CloudChoices Choices { get; init; } = CloudChoices.Default;
+
+    /// <summary>
+    /// True when something other than the box on screen decides whether the backup is on: the
+    /// <c>MODBOT_CLOUD_DISABLED</c> variable, or this being a test copy. The box then shows the
+    /// answer and cannot be changed.
+    /// </summary>
+    public bool SwitchLocked { get; init; }
+
     /// <summary>Works out the settings from the file's values and the environment.</summary>
     /// <param name="fileEndpoint"><c>cloud.endpoint</c> from <c>settings.json</c>, or null.</param>
     /// <param name="fileDisabled"><c>cloud.disabled</c> from <c>settings.json</c>, or null.</param>
     /// <param name="environment">Reads one environment variable; null when it is not set.</param>
-    public static CloudSettings Resolve(string? fileEndpoint, bool? fileDisabled, Func<string, string?> environment)
+    /// <param name="choices">What to send, from <c>cloud.group</c> and <c>cloud.nonGroup</c>; null is everything.</param>
+    public static CloudSettings Resolve(
+        string? fileEndpoint,
+        bool? fileDisabled,
+        Func<string, string?> environment,
+        CloudChoices? choices = null)
     {
         ArgumentNullException.ThrowIfNull(environment);
 
-        var disabled = Switch(environment(DisabledVariable)) ?? fileDisabled ?? false;
+        var fromEnvironment = Switch(environment(DisabledVariable));
+        var disabled = fromEnvironment ?? fileDisabled ?? false;
 
         var given = Blank(environment(EndpointVariable)) ?? Blank(fileEndpoint);
-        if (given is null)
-            return new CloudSettings(DefaultEndpoint, disabled);
 
-        return Uri.TryCreate(given, UriKind.Absolute, out var endpoint)
-               && endpoint.Scheme is "http" or "https"
-               && ServerAddresses.IsAllowed(endpoint)
-            ? new CloudSettings(endpoint, disabled)
-            : new CloudSettings(DefaultEndpoint, disabled, given);
+        var resolved = given is null
+            ? new CloudSettings(DefaultEndpoint, disabled)
+            : Uri.TryCreate(given, UriKind.Absolute, out var endpoint)
+              && endpoint.Scheme is "http" or "https"
+              && ServerAddresses.IsAllowed(endpoint)
+                ? new CloudSettings(endpoint, disabled)
+                : new CloudSettings(DefaultEndpoint, disabled, given);
+
+        return resolved with
+        {
+            Choices = choices ?? CloudChoices.Default,
+            SwitchLocked = fromEnvironment is not null,
+        };
     }
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

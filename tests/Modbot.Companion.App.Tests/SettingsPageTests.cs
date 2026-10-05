@@ -33,6 +33,7 @@ public sealed class SettingsPageTests
         "Tell me about",
         "Voice",
         "Clips",
+        "Modbot Cloud",
         "Listening",
         "VRChat log folder",
         "Restart",
@@ -197,6 +198,7 @@ public sealed class SettingsPageTests
     [InlineData("SteamVR")]
     [InlineData("Log")]
     [InlineData("Settings")]
+    [InlineData("Cloud Server")]
     [InlineData("Credits")]
     public void EveryPageOpensTheFirstTimeWithoutWritingAnything(string page)
     {

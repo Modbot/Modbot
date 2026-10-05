@@ -1,3 +1,4 @@
+using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
@@ -229,6 +230,15 @@ public sealed record CompanionAppSnapshot(
     /// Added after the positional list so nothing that builds this record has to change.
     /// </summary>
     public string? SoundProblem { get; init; }
+
+    /// <summary>
+    /// Modbot Cloud's switch and what it sends, for the Settings page's box and the Cloud Server
+    /// page. Added after the positional list so nothing that builds this record has to change.
+    /// </summary>
+    public CloudSettings? Cloud { get; init; }
+
+    /// <summary>Modbot Cloud's switch and choices, never null: on with everything chosen until settings have been read.</summary>
+    public CloudSettings CloudOrDefault => Cloud ?? CloudSettings.Default;
 
     /// <summary>A newer version being downloaded, for the sidebar's foot, or null.</summary>
     public string? UpdateFound { get; init; }
@@ -535,6 +545,7 @@ public sealed class CompanionAppState
             Listening with { Settings = Settings.Listening })
         {
             SoundProblem = SoundProblem,
+            Cloud = Settings.Cloud,
             UpdateFound = UpdateFound,
             UpdateReady = UpdateReady,
             CanCheckForUpdates = CanCheckForUpdates,

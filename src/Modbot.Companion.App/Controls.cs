@@ -60,7 +60,16 @@ internal static class Ui
         LetterSpacing = 0.6,
     };
 
-    internal static Border Card(Control child, string? title = null, Control? action = null, Control? picture = null)
+    /// <summary>A card with a heading row and a body.</summary>
+    /// <param name="child">The body, or null for a card that is only its heading row.</param>
+    /// <param name="action">A control at the right end of the heading row.</param>
+    /// <param name="beside">A small control straight after the title, such as an information icon.</param>
+    internal static Border Card(
+        Control? child,
+        string? title = null,
+        Control? action = null,
+        Control? picture = null,
+        Control? beside = null)
     {
         var body = new StackPanel { Spacing = 0 };
 
@@ -80,6 +89,14 @@ internal static class Ui
             DockPanel.SetDock(heading, Dock.Left);
             head.Children.Add(heading);
 
+            if (beside is not null)
+            {
+                beside.Margin = new Thickness(8, 0, 0, 0);
+                beside.VerticalAlignment = VerticalAlignment.Center;
+                DockPanel.SetDock(beside, Dock.Left);
+                head.Children.Add(beside);
+            }
+
             if (action is not null)
             {
                 DockPanel.SetDock(action, Dock.Right);
@@ -90,12 +107,13 @@ internal static class Ui
             {
                 Padding = new Thickness(16, 12),
                 BorderBrush = T.BorderBrush,
-                BorderThickness = new Thickness(0, 0, 0, T.Density.Hairline),
+                BorderThickness = new Thickness(0, 0, 0, child is null ? 0 : T.Density.Hairline),
                 Child = head,
             });
         }
 
-        body.Children.Add(new Border { Padding = new Thickness(16, 14), Child = child });
+        if (child is not null)
+            body.Children.Add(new Border { Padding = new Thickness(16, 14), Child = child });
 
         return new Border
         {

@@ -4,6 +4,9 @@
 - **Status:** Implemented with this document
 - **Covers:** what the companion's screens say about where an event went; the one word an Events row
   shows; the removal of every mention of the backup from the client's window
+- **Reversed in part by:** the Modbot Cloud settings on screen design (2026-10-04), which puts a Modbot
+  Cloud box on the Settings page and a Cloud Server page in the window. The Events page is as this
+  document leaves it: one word per event, no mention of the backup.
 - **Related:** the cloud event backup design (2026-09-15), which this narrows; `Journal/SentJournal.cs`,
   `Presentation/EventFilters.cs`, `Presentation/EventRowDetail.cs`, `MainWindow.cs`,
   `MainWindow.Events.cs`, `PRIVACY_POLICY.md`

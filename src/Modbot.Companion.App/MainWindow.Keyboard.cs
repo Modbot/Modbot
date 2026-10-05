@@ -134,6 +134,7 @@ public sealed partial class MainWindow
             new("g v", "SteamVR", ShortcutGroup.GoTo, () => GoTo(Page.SteamVr)),
             new("g l", "Log", ShortcutGroup.GoTo, () => GoTo(Page.Log)),
             new("g t", "Settings", ShortcutGroup.GoTo, () => GoTo(Page.Settings)),
+            new("g o", "Cloud Server", ShortcutGroup.GoTo, () => GoTo(Page.CloudServer)),
         };
 
         if (_snapshot.DebugMode)
@@ -339,6 +340,7 @@ public sealed partial class MainWindow
             (Page.SteamVr, "SteamVR"),
             (Page.Log, "Log"),
             (Page.Settings, "Settings"),
+            (Page.CloudServer, "Cloud Server"),
             (Page.Debug, "Debug"),
             (Page.Credits, "Credits"),
         })

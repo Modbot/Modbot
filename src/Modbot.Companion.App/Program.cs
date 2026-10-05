@@ -55,8 +55,9 @@ namespace Modbot.Companion.App;
 /// a server is never sent a raw log line or anything about your private, friends-only or public
 /// VRChat use. Separately, and whether or not anything is paired, the same presence events — for
 /// every instance, private ones included, but never a raw log line — are backed up to Modbot Cloud,
-/// unless you turn that off in <c>settings.json</c> or with <c>MODBOT_CLOUD_DISABLED</c> (see
-/// <c>CloudEventBackup</c> and <c>CloudSettings</c>). And once, if you turn the voice on: one
+/// unless you turn that off with the Modbot Cloud box on the Settings page, in <c>settings.json</c>
+/// or with <c>MODBOT_CLOUD_DISABLED</c>; the Cloud Server page chooses which events and which of
+/// their details go (see <c>CloudEventBackup</c>, <c>CloudSettings</c> and <c>CloudChoices</c>). And once, if you turn the voice on: one
 /// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
 /// voice then says is made and played on this PC and goes nowhere. And once, if you turn Listening
 /// on: one download of the phrase model from GitHub, with nothing attached (see
@@ -400,6 +401,13 @@ internal sealed partial class CompanionHost : IOverlayListener
     private Updates? _updates;
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
+
+    /// <summary>
+    /// Stops the backup's loop while Modbot Cloud is switched off, so a switched-off backup wakes
+    /// nothing. Null while no loop is running.
+    /// </summary>
+    private CancellationTokenSource? _cloudLoopStop;
+
     private VoiceHost? _voice;
 
     /// <summary>The recorder, built only while Clips is on and VRChat is running; null otherwise.</summary>
@@ -533,6 +541,10 @@ internal sealed partial class CompanionHost : IOverlayListener
         _settingsPath = CompanionSettings.DefaultPath(_directory);
         _state = new CompanionAppState(_clock, _journal, CompanionSettings.Load(_settingsPath));
 
+        // What the Modbot Cloud box shows is what this copy really does: a test copy sends nothing
+        // whatever the file says, and its box is locked off.
+        _state.Settings = _state.Settings with { Cloud = _data.CloudFor(_state.Settings.Cloud) };
+
         // MODBOT_DEBUG_MODE=1 adds the Debug page: the overlay's picture in a window, sample
         // screens to pin into it. Read once, at start, like the other environment switches.
         _state.DebugMode = TestRemoteSwitch.DebugModeOn(Environment.GetEnvironmentVariable(TestRemoteSwitch.DebugModeVariable));
@@ -634,8 +646,11 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <para><strong>What it sends, and where.</strong> The presence events the client reports, for
     /// every instance, to <c>https://cloud.modbot.co</c> or the Cloud named in <c>settings.json</c> or
     /// <c>MODBOT_CLOUD_ENDPOINT</c>, unless <c>settings.json</c> or <c>MODBOT_CLOUD_DISABLED</c> on
-    /// this PC turns it off. Paired servers have no say in it. Read once, at start. The details are on
-    /// <see cref="CloudEventBackup"/> and <see cref="CloudSettings"/>.</para>
+    /// this PC turns it off. Paired servers have no say in it. Which events and details go is the
+    /// Cloud Server page's choice. Read at start, and changed after that only by the Settings page's
+    /// Modbot Cloud box and the Cloud Server page (<see cref="SetCloudOn"/>,
+    /// <see cref="SetCloudChoices"/>). The details are on <see cref="CloudEventBackup"/>,
+    /// <see cref="CloudSettings"/> and <see cref="CloudChoices"/>.</para>
     /// <para><strong>What it writes to your disk.</strong> Its queue under
     /// <c>%APPDATA%\Modbot\cloud</c>, capped at 20 MB, and <c>cloud-installs.json</c> with this
     /// client's install id and its secret, encrypted to your Windows account.</para>
@@ -653,7 +668,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             return;
         }
 
-        var cloud = _data.CloudFor(_state!.Settings.Cloud);
+        var cloud = _state!.Settings.Cloud;
 
         if (cloud.RejectedEndpoint is { } rejected)
             Log.Warning("Ignoring the Modbot Cloud address {Endpoint}: it must be an https address; using {Default}", rejected, cloud.Endpoint);
@@ -668,26 +683,125 @@ internal sealed partial class CompanionHost : IOverlayListener
             ModbotVersion.Release,
             Endpoint: cloud.Endpoint,
             Enabled: !cloud.Disabled,
-            Journal: _journal));
+            Journal: _journal,
+            Choices: cloud.Choices));
 
         if (cloud.Disabled)
         {
             // The object is still built, because building it is what sweeps away anything left on
             // the disk from before it was turned off. What is not built is the loop: it woke every
             // second for the life of the process to find a backup that was never going to send
-            // anything, and a switched-off feature should be doing nothing at all. Nothing can turn
-            // it back on while the client runs — the address and the switch are read once, here.
+            // anything, and a switched-off feature should be doing nothing at all. The Modbot Cloud
+            // box starts it if somebody ticks it (ApplyCloud).
             Log.Information("Event backup to Modbot Cloud is off");
             return;
         }
 
-        var backup = _cloudBackup;
-        _ = Task.Run(() => backup.RunAsync(
-            _backupStop.Token,
-            ex => Log.Warning(ex, "The event backup to Modbot Cloud hit a problem; it carries on")));
+        StartCloudLoop();
 
         Log.Information("Event backup to Modbot Cloud is on, to {Endpoint}", cloud.Endpoint);
     }
+
+    /// <summary>Starts the backup's loop on its own task, unless it is already running.</summary>
+    private void StartCloudLoop()
+    {
+        if (_cloudBackup is not { } backup || _cloudLoopStop is not null)
+            return;
+
+        var stop = CancellationTokenSource.CreateLinkedTokenSource(_backupStop.Token);
+        _cloudLoopStop = stop;
+
+        _ = Task.Run(() => backup.RunAsync(
+            stop.Token,
+            ex => Log.Warning(ex, "The event backup to Modbot Cloud hit a problem; it carries on")));
+    }
+
+    /// <summary>Stops the backup's loop. It wakes nothing while Modbot Cloud is off.</summary>
+    private void StopCloudLoop()
+    {
+        _cloudLoopStop?.Cancel();
+        _cloudLoopStop = null;
+    }
+
+    /// <summary>
+    /// Makes the running backup match the settings: what it sends, whether it is on, and whether its
+    /// loop runs. Off sweeps away everything queued, as starting with it off does.
+    /// </summary>
+    private void ApplyCloud()
+    {
+        if (_state is null || _cloudBackup is not { } backup)
+            return;
+
+        var cloud = _state.Settings.Cloud;
+        backup.SetChoices(cloud.Choices);
+        backup.SetEnabled(!cloud.Disabled);
+
+        if (cloud.Disabled)
+            StopCloudLoop();
+        else
+            StartCloudLoop();
+    }
+
+    /// <summary>
+    /// The Modbot Cloud box, on the Settings page or the Cloud Server page: on or off, saved as
+    /// <c>cloud.disabled</c> and acted on at once. Nothing happens while the environment variable
+    /// or a test copy decides.
+    /// </summary>
+    private void SetCloudOn(bool on)
+    {
+        if (_state is null || _state.Settings.Cloud.SwitchLocked || _state.Settings.Cloud.Disabled == !on)
+            return;
+
+        _state.Settings = _state.Settings with { Cloud = _state.Settings.Cloud with { Disabled = !on } };
+
+        if (!CompanionSettings.SaveCloudDisabled(_settingsPath, !on))
+            Log.Warning("Could not save the Modbot Cloud setting to {Path}", _settingsPath);
+
+        ApplyCloud();
+
+        Log.Information(
+            on ? "Event backup to Modbot Cloud is on, to {Endpoint}" : "Event backup to Modbot Cloud is off ({Endpoint})",
+            _state.Settings.Cloud.Endpoint);
+
+        Render();
+    }
+
+    /// <summary>
+    /// The Cloud Server page's choices changed: which events and which details go. Saved as
+    /// <c>cloud.group</c> and <c>cloud.nonGroup</c> and acted on from the next event.
+    /// </summary>
+    private void SetCloudChoices(CloudChoices choices)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+
+        if (_state is null || _state.Settings.Cloud.Choices == choices)
+            return;
+
+        // Never nothing: at least one kind of event stays on, whatever asked. The window already
+        // refuses the last one; this is the same rule for any other way here.
+        if (!choices.AnyEventOn)
+            return;
+
+        _state.Settings = _state.Settings with { Cloud = _state.Settings.Cloud with { Choices = choices } };
+
+        if (!CompanionSettings.SaveCloudChoices(_settingsPath, choices))
+            Log.Warning("Could not save the Modbot Cloud choices to {Path}", _settingsPath);
+
+        ApplyCloud();
+
+        Log.Information(
+            "Modbot Cloud now gets {GroupEvents} kinds of event from group instances and {OtherEvents} from the rest",
+            choices.Group.EventCount,
+            choices.NonGroup.EventCount);
+
+        Render();
+    }
+
+    /// <summary>The events waiting for Modbot Cloud, for the Cloud Server page's Next batch card.</summary>
+    private CloudWaiting NextCloudBatch(int max)
+        => _cloudBackup is { Enabled: true } backup
+            ? new CloudWaiting(backup.NextBatch(max), backup.ClockOffset)
+            : CloudWaiting.None;
 
     /// <summary>
     /// Makes Windows' startup entry match "Start Modbot Companion when my computer starts".
@@ -3449,6 +3563,9 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetClips = SetClips,
                 SaveClip = SaveClip,
                 SetListening = SetListening,
+                SetCloudOn = SetCloudOn,
+                SetCloudChoices = SetCloudChoices,
+                NextCloudBatch = NextCloudBatch,
 
                 // Made on this PC at the press, from VRChat's log and the companion's own memory of
                 // the instance, in this PC's own timezone offset. Copied, never sent.

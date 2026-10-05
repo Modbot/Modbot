@@ -169,6 +169,49 @@ public sealed class CloudAddressTests : IDisposable
         Assert.Equal(2, handler.Requests.Count);
     }
 
+    [Theory]
+    [InlineData("""{ "serverTime": "2026-09-15T08:00:01+00:00", "acceptsMissingFields": true }""", true)]
+    [InlineData("""{ "serverTime": "2026-09-15T08:00:01+00:00", "acceptsMissingFields": false }""", false)]
+    [InlineData("""{ "serverTime": "2026-09-15T08:00:01+00:00" }""", false)]
+    [InlineData("""{ "serverTime": "2026-09-15T08:00:01+00:00", "acceptsMissingFields": "yes" }""", null)]
+    public async Task TheTimeAnswerSaysWhetherCloudTakesAWorldOrInstanceLeftOut(string answer, bool? accepts)
+    {
+        // A Cloud that predates the field says nothing, which the client reads as "no": it sends the
+        // word hidden instead of leaving a world or instance out, so the batch is not refused.
+        var handler = new RecordingHandler
+        {
+            Next = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(answer, Encoding.UTF8, "application/json"),
+            },
+        };
+        var client = new HttpCloudLogClient(new HttpClient(handler), _clock);
+
+        var time = await client.MeasureAsync(new Uri("https://cloud.modbot.co"), Ct);
+
+        Assert.Equal("/api/v1/time", handler.Requests[0].RequestUri!.AbsolutePath);
+
+        // A field of the wrong kind is an answer the client cannot read at all.
+        if (accepts is null)
+        {
+            Assert.Null(time);
+            return;
+        }
+
+        Assert.NotNull(time);
+        Assert.Equal(accepts, time.AcceptsMissingFields);
+        Assert.Equal(new DateTimeOffset(2026, 9, 15, 8, 0, 1, TimeSpan.Zero), time.Sample.ServerTime);
+    }
+
+    [Fact]
+    public async Task ATimeCheckThatFailsAnswersNothing()
+    {
+        var handler = new RecordingHandler { Next = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) };
+        var client = new HttpCloudLogClient(new HttpClient(handler), _clock);
+
+        Assert.Null(await client.MeasureAsync(new Uri("https://cloud.modbot.co"), Ct));
+    }
+
     [Fact]
     public void TheSecretIsStoredEncrypted()
     {
