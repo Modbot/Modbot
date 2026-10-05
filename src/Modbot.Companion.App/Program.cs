@@ -16,6 +16,7 @@ using Modbot.Companion.Presentation;
 using Modbot.Companion.Sounds;
 using Modbot.Companion.Startup;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.TestRemote;
 using Modbot.Companion.Time;
 using Modbot.Companion.Voice;
 using Modbot.Companion.App.Voice;
@@ -254,7 +255,7 @@ internal sealed class ModbotCompanionApp : Application
 /// apart is what lets the reading and reporting half stay a small library that can be audited
 /// without reading any UI code.
 /// </remarks>
-internal sealed class CompanionHost : IOverlayListener
+internal sealed partial class CompanionHost : IOverlayListener
 {
     /// <summary>
     /// What a second copy sends when it was started with no link: the person double-clicked the
@@ -524,8 +525,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         // MODBOT_DEBUG_MODE=1 adds the Debug page: the overlay's picture in a window, sample
         // screens to pin into it. Read once, at start, like the other environment switches.
-        _state.DebugMode = Environment.GetEnvironmentVariable("MODBOT_DEBUG_MODE") is { } debug
-            && (debug == "1" || debug.Equals("true", StringComparison.OrdinalIgnoreCase));
+        _state.DebugMode = TestRemoteSwitch.DebugModeOn(Environment.GetEnvironmentVariable(TestRemoteSwitch.DebugModeVariable));
         if (_state.DebugMode)
             Log.Information("Debug mode is on (MODBOT_DEBUG_MODE); the window has a Debug page");
 
@@ -598,6 +598,9 @@ internal sealed class CompanionHost : IOverlayListener
         _desktopSwitch.StartIfOn();
         _desktopNotifySwitch.StartIfOn();
         StartDashboard();
+
+        // Only in a test copy started in debug mode; anywhere else nothing listens.
+        StartTestRemote();
 
         InstallTray(desktop);
         ListenForLinks();
@@ -3055,6 +3058,7 @@ internal sealed class CompanionHost : IOverlayListener
         _inboxStop.Cancel();
         _backupStop.Cancel();
         _testRunStop.Cancel();
+        _testRemoteStop.Cancel();
         _overlay?.Dispose();
         _overlayHost?.Dispose();
         _notifyHost?.Dispose();

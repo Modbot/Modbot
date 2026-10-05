@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Modbot.Remote</RootNamespace>
+    <AssemblyName>modbot-remote</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- A scratch tool like tools/vr-shot and explore/, outside the solution. It takes the
+         companion's own library for one reason: the pipe's name is worked out from the test
+         copy's folder exactly as the companion works it out (DataFolder, TestRemoteSwitch), so the
+         two can never disagree. It adds no package of its own. -->
+    <ProjectReference Include="..\..\src\Modbot.Companion\Modbot.Companion.csproj" />
+  </ItemGroup>
+
+</Project>

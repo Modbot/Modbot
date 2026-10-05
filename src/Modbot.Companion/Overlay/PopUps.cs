@@ -231,5 +231,23 @@ public sealed class PopUps
         }
     }
 
+    /// <summary>
+    /// How long a card still has on a surface that shows cards for <paramref name="dwell"/>, or
+    /// null when it is not up. For the test remote, which says what each surface is showing.
+    /// </summary>
+    public TimeSpan? TimeLeft(string id, TimeSpan dwell)
+    {
+        lock (_gate)
+        {
+            var now = _clock.UtcNow;
+            var shown = _shown.FirstOrDefault(s => string.Equals(s.PopUp.Id, id, StringComparison.Ordinal));
+            if (shown is null)
+                return null;
+
+            var left = shown.ShownAt + (dwell < Dwell ? dwell : Dwell) - now;
+            return left > TimeSpan.Zero ? left : null;
+        }
+    }
+
     private sealed record Shown(PopUp PopUp, DateTimeOffset ShownAt);
 }

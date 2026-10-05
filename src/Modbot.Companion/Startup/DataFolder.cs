@@ -122,6 +122,13 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
     }
 
     /// <summary>
+    /// The test remote's pipe, named after the folder like the lock and the message pipe. Null for
+    /// the real copy, which never has one (<see cref="TestRemote.TestRemoteSwitch"/>).
+    /// </summary>
+    public string? RemotePipeName
+        => IsTestCopy ? TestRemote.TestRemoteSwitch.PipePrefix + Key : null;
+
+    /// <summary>
     /// A short name worked out from the folder, so two test copies in two folders keep apart and
     /// the same folder always gets the same name.
     /// </summary>

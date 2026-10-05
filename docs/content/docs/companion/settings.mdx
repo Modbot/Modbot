@@ -592,6 +592,9 @@ settings are never touched. A test copy also:
 - leaves `modbot-companion://` links to your real copy, so pairing from the browser always
   reaches that one (pair a test copy by pasting the token);
 - adds nothing to start with Windows and does not look for updates;
+- makes no request of its own: no event backup to Modbot Cloud (whatever `settings.json` or
+  `MODBOT_CLOUD_DISABLED` say), no Cloud install, no Credits read, and no voice or phrase model
+  download. Only a server you pair in the test copy itself is ever talked to;
 - has its own one-copy lock, so starting it never hands anything to your real copy;
 - says **Test copy** in the window's title and the tray icon's tooltip;
 - has a Restart button that does nothing: quit it from the tray and start it again.
@@ -610,3 +613,45 @@ $env:MODBOT_DATA_FOLDER = "$env:LOCALAPPDATA\ModbotTest"
 $env:MODBOT_DEBUG_MODE = "1"
 .\Modbot.exe
 ```
+
+### The test remote
+
+A test copy started with `MODBOT_DEBUG_MODE=1` as well also has a **test remote**: a way for a
+program on the same PC, such as a script or a coding assistant, to use the companion's headset
+panels while you play, with nobody holding the controllers. It can press the SteamVR dashboard
+tab's controls, point and click on the main panel with a made-up controller, send test events,
+and read what every panel is showing.
+
+- It exists **only in a test copy in debug mode**. Your real copy never has one, and nor does a
+  test copy started without debug mode: nothing listens at all.
+- It is **local to your Windows account**: a named pipe named after the test copy's folder, which
+  only your account can open (a Unix socket only you can open on Linux). There is no network
+  port, and it never crosses the network.
+- It **sends nothing to any server** and never starts SteamVR. It refuses to tap a real person's
+  row or card, and Place or Clear on a heads-up; test events only ever make up people. Settings it
+  changes are the test copy's own.
+
+Send it commands with the tool in the repository, giving the test copy's folder:
+
+```powershell
+dotnet run --project tools/modbot-remote -c Release -- "$env:LOCALAPPDATA\ModbotTest" state
+dotnet run --project tools/modbot-remote -c Release -- "$env:LOCALAPPDATA\ModbotTest" press "Overlay on"
+```
+
+Each command prints one line of JSON with `"ok": true`, or `"ok": false` and an `error`.
+
+| Command | What it does |
+| --- | --- |
+| `state` | What each panel shows: the main panel, the notification overlay, the dashboard tab and the desktop overlay, with where each is and the dashboard's controls |
+| `press <label>` | Presses a dashboard tab control by its label, as SteamVR's laser does |
+| `slide <label> <0..1>` | Presses a dashboard slider's track that far along |
+| `tap-panel <x> <y>` | Clicks the main panel at a point of its picture, in pixels |
+| `scroll-panel <rows> [x y]` | Scrolls the main panel's list; negative is up |
+| `put-back` | **Put it back in front of me** |
+| `event <kind> <name> [rank] [18+] [reason]` | One test event, as the Debug page's **Send** |
+| `run [name] [rank] [18+]` | The Debug page's **Send a run** |
+| `clear-cards` | Takes every pop-up down |
+| `grab-panel`, `move-panel <x> <y> <z>`, `release-panel` | Holds the main panel, carries it to a place in front of your head (metres: right, up, back), and lets it go |
+| `wait <ms>` | Waits, up to a minute |
+
+The panel and dashboard commands need SteamVR running with the panels attached.

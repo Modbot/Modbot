@@ -351,6 +351,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Holding is null && _interaction.Placement.Anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand;
 
     /// <summary>
+    /// A controller made up in code, read in place of one real hand while it has something to do
+    /// (<see cref="MadeUpHand"/>). Only the test remote sets it. UI thread only.
+    /// </summary>
+    public MadeUpHand? MadeUp { get; set; }
+
+    /// <summary>
     /// One look at the controllers: moves the cursor, holds or lets go of the panel, and raises
     /// taps and scrolls. Cheap when nothing is attached. UI thread only, because a moved cursor
     /// redraws the frame.
@@ -375,6 +381,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         }
 
         _lastTracking = _runtime.ReadTracking();
+
+        // The test remote's made-up controller, standing in for one hand while it has something to
+        // do. Never set outside a test copy started in debug mode.
+        if (MadeUp is { } madeUp)
+            _lastTracking = madeUp.Apply(_lastTracking, _interaction.Placement);
+
         var result = _interaction.Update(_lastTracking, now, elsewhere);
 
         var wasHolding = Holding;

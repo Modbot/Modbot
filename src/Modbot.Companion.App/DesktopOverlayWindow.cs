@@ -305,6 +305,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return false;
 
         _drawn = screen;
+        FramesDrawn++;
 
         // A heads-up's words start from what it holds when it opens, and are let go when it
         // closes. Not read back on every draw, for the same reason as the name.
@@ -335,6 +336,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         return true;
     }
+
+    /// <summary>The screen last drawn, or null before the first. For the test remote's <c>state</c>.</summary>
+    public OverlayScreen? Showing => _drawn;
+
+    /// <summary>How many times a different screen has been drawn.</summary>
+    public int FramesDrawn { get; private set; }
 
     /// <summary>
     /// The group's picture for an address, from the companion's own cache, or null while there is
