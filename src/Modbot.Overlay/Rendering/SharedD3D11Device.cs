@@ -1,5 +1,9 @@
+using Modbot.Overlay.OpenVr;
+using Serilog;
+using SharpGen.Runtime;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
+using Vortice.DXGI;
 
 namespace Modbot.Overlay.Rendering;
 
@@ -20,8 +24,9 @@ namespace Modbot.Overlay.Rendering;
 /// <para><strong>What it is deliberately not shared with.</strong> Clip recording makes a device
 /// of its own, and must: it picks the graphics card that drives the screen VRChat is on, which on
 /// a laptop with two cards is routinely not the card Windows lists first, and the screen
-/// duplication it opens belongs to that card. This device takes whichever card Windows lists
-/// first and is not free to move.</para>
+/// duplication it opens belongs to that card. This device is made on the card SteamVR draws on
+/// where SteamVR can say which, else on the strongest real card (<see cref="GraphicsCardChoice"/>),
+/// and once made it does not move.</para>
 /// </remarks>
 public static class SharedD3D11Device
 {
@@ -52,17 +57,7 @@ public static class SharedD3D11Device
         {
             if (_device is null)
             {
-                // BgraSupport is required for the BGRA format Avalonia hands over; feature level
-                // 11_0 is the floor SteamVR itself requires, so anything that can run VRChat can
-                // run this.
-                D3D11.D3D11CreateDevice(
-                    adapter: null,
-                    DriverType.Hardware,
-                    DeviceCreationFlags.BgraSupport,
-                    [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
-                    out var device,
-                    out _,
-                    out var context).CheckError();
+                var (device, context) = Make(OpenVrSession.Shared.GraphicsCard());
 
                 _device = device;
                 _context = context;
@@ -71,6 +66,129 @@ public static class SharedD3D11Device
 
             _users++;
             return (_device!, _context!);
+        }
+    }
+
+    /// <summary>How long to wait before the next card after one said it was out of memory.</summary>
+    private static readonly TimeSpan OutOfMemoryWait = TimeSpan.FromMilliseconds(500);
+
+    /// <summary><c>E_OUTOFMEMORY</c>, the answer that came and went between starts on one PC.</summary>
+    private const int OutOfMemory = unchecked((int)0x8007000E);
+
+    /// <summary>
+    /// The card the device was last made on, so the log names it once per change rather than every
+    /// time a headset comes and goes.
+    /// </summary>
+    private static string? _lastCard;
+
+    /// <summary>
+    /// Makes the device on the best card that will take it, in <see cref="GraphicsCardChoice"/>'s
+    /// order. Throws the last card's answer when none will.
+    /// </summary>
+    /// <param name="steamVrCard">The id of the card SteamVR draws on, or null when it cannot say.</param>
+    private static (ID3D11Device Device, ID3D11DeviceContext Context) Make(long? steamVrCard)
+    {
+        using var factory = ListCards(out var cards);
+        var order = GraphicsCardChoice.Order(cards, steamVrCard);
+
+        var waited = false;
+        var last = Result.Ok;
+
+        foreach (var card in order)
+        {
+            IDXGIAdapter1? adapter = null;
+            try
+            {
+                if (card is not null && (factory is null || factory.EnumAdapters1(card.Index, out adapter).Failure))
+                    continue;
+
+                // BgraSupport is required for the BGRA format Avalonia hands over; feature level
+                // 11_0 is the floor SteamVR itself requires, so anything that can run VRChat can
+                // run this. A card named outright is asked for as Unknown, which is what Direct3D
+                // requires when it is handed one.
+                last = D3D11.D3D11CreateDevice(
+                    adapter,
+                    adapter is null ? DriverType.Hardware : DriverType.Unknown,
+                    DeviceCreationFlags.BgraSupport,
+                    [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
+                    out var device,
+                    out _,
+                    out var context);
+
+                if (last.Success && device is not null && context is not null)
+                {
+                    var name = card?.Name ?? "the card Windows chose";
+                    if (name != _lastCard)
+                    {
+                        _lastCard = name;
+                        Log.Information("The headset overlay draws on {Card}", name);
+                    }
+
+                    return (device, context);
+                }
+
+                context?.Dispose();
+                device?.Dispose();
+            }
+            finally
+            {
+                adapter?.Dispose();
+            }
+
+            var outOfMemory = last.Code == OutOfMemory;
+            Log.Warning(
+                "The headset overlay could not make its graphics device on {Card}: {Answer}",
+                card?.Name ?? "the card Windows chose",
+                outOfMemory ? "out of memory" : last.ToString());
+
+            if (GraphicsCardChoice.WaitBeforeNext(outOfMemory, waited))
+            {
+                waited = true;
+                Thread.Sleep(OutOfMemoryWait);
+            }
+        }
+
+        last.CheckError();
+        throw new InvalidOperationException("No graphics card would make the headset overlay's device.");
+    }
+
+    /// <summary>
+    /// Every card Windows lists, and the factory that listed them (to ask for one again by its
+    /// place). Null and an empty list when Windows would not list them; then only Windows' own
+    /// choice is tried, as before.
+    /// </summary>
+    private static IDXGIFactory1? ListCards(out List<GraphicsCard> cards)
+    {
+        cards = [];
+
+        IDXGIFactory1? factory = null;
+        try
+        {
+            factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+
+            for (uint index = 0; factory.EnumAdapters1(index, out var adapter).Success && adapter is not null; index++)
+            {
+                using (adapter)
+                {
+                    var told = adapter.Description1;
+                    cards.Add(new GraphicsCard(
+                        index,
+                        told.Description,
+                        told.DedicatedVideoMemory,
+                        told.Luid,
+                        Software: (told.Flags & AdapterFlags.Software) != 0,
+                        Remote: (told.Flags & AdapterFlags.Remote) != 0));
+                }
+            }
+
+            return factory;
+        }
+        catch (SharpGenException ex)
+        {
+            Log.Warning(ex, "Windows would not list this PC's graphics cards; the headset overlay lets Windows choose");
+            factory?.Dispose();
+            cards.Clear();
+            return null;
         }
     }
 

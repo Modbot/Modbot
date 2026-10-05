@@ -351,6 +351,16 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </summary>
     private readonly DispatcherTimer _dashboardLoop = new() { Interval = TimeSpan.FromMilliseconds(50) };
 
+    /// <summary>
+    /// The two headset panels' failed starts, and the timer that tries them again: at most once a
+    /// minute, and not after <see cref="PanelRetries.MostTries"/> tries (see <see cref="PanelRetries"/>).
+    /// It runs only while a panel is waiting for another try.
+    /// </summary>
+    private readonly PanelRetries _overlayRetries = new();
+    private readonly PanelRetries _notifyRetries = new();
+    private readonly DispatcherTimer _panelRetry = new() { Interval = TimeSpan.FromSeconds(10) };
+    private bool _panelRetryWired;
+
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
@@ -2026,25 +2036,41 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartOverlay()
     {
+        _overlayRetries.Clear();
+        MakeOverlayHost();
+
+        StartDriver();
+
+        WireOverlayLoops();
+        _inputLoop.Start();
+    }
+
+    /// <summary>
+    /// Builds the headset panel and wires it up. Whatever that throws (a graphics card out of
+    /// memory included) puts the panel away for a later try instead of reaching the crash box
+    /// (<see cref="OverlayFailed"/>).
+    /// </summary>
+    private void MakeOverlayHost()
+    {
+        try
         {
-            try
-            {
-                _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
-                _overlayHost.KeepLastFrame = _state?.DebugMode is true;
-                _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
-                _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
-                AttachOverlay();
-            }
-            catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
-            {
-                Log.Information(ex, "The headset panel could not be set up on this machine; presence reporting is unaffected");
-                _overlayHost?.Dispose();
-                _overlayHost = null;
-            }
+            _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
+            _overlayHost.KeepLastFrame = _state?.DebugMode is true;
+            _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
+            _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+            AttachOverlay();
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            OverlayFailed(ex);
         }
 
         if (_overlayHost is not null)
         {
+            // Drawing already (debug mode keeps a frame) is as good as attached: it worked.
+            if (_overlayHost.IsDrawing)
+                _overlayRetries.Clear();
+
             // The group's picture out of the companion's own cache, so the panel in the headset
             // names the community the same way the window over VRChat does. The panel fetches
             // nothing.
@@ -2073,11 +2099,72 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _placementSave.Start();
             };
         }
+    }
 
-        StartDriver();
+    /// <summary>
+    /// The headset panel threw on its way up: logged, put away, shown on the SteamVR page as
+    /// <c>Could not start</c>, and tried again in a minute while tries are left. The companion
+    /// carries on either way.
+    /// </summary>
+    private void OverlayFailed(Exception ex)
+    {
+        var again = _overlayRetries.Failed(ex, _clock.UtcNow);
+        Log.Warning(ex, "The headset panel could not start ({Reason}); the companion carries on without it", _overlayRetries.Reason);
+        if (again)
+            Log.Information("The headset panel is tried again in a minute (try {Tries} of {Most})", _overlayRetries.Tries, PanelRetries.MostTries);
+        else
+            Log.Warning("The headset panel is not tried again until it is switched off and on, or Modbot restarts");
 
-        WireOverlayLoops();
-        _inputLoop.Start();
+        _preview?.Close();
+        _overlayHost?.Dispose();
+        _overlayHost = null;
+        _overlayAttachedAt = null;
+
+        if (again)
+            StartPanelRetry();
+    }
+
+    /// <summary>Starts the timer that tries a failed panel again, wiring it the first time.</summary>
+    private void StartPanelRetry()
+    {
+        if (!_panelRetryWired)
+        {
+            _panelRetryWired = true;
+            _panelRetry.Tick += (_, _) => CrashGuard.Run("trying a headset panel again", RetryPanels);
+        }
+
+        _panelRetry.Start();
+    }
+
+    /// <summary>
+    /// Tries again each headset panel that is switched on, failed, and has waited its minute. The
+    /// timer stops once nothing is waiting.
+    /// </summary>
+    private void RetryPanels()
+    {
+        var now = _clock.UtcNow;
+
+        if (_overlayHost is null && _overlaySwitch is { Running: true } && _overlayRetries.Due(now))
+        {
+            MakeOverlayHost();
+            if (_overlayHost is not null)
+                Log.Information("The headset panel started on another try");
+        }
+
+        if (_notifyHost is null && _notifySwitch is { Running: true } && _notifyRetries.Due(now))
+        {
+            if (MakeNotifyHost())
+            {
+                NotifyHostUp();
+                Log.Information("The notification overlay started on another try");
+            }
+        }
+
+        var waiting = (_overlayHost is null && _overlaySwitch is { Running: true } && _overlayRetries is { Failing: true, GaveUp: false })
+            || (_notifyHost is null && _notifySwitch is { Running: true } && _notifyRetries is { Failing: true, GaveUp: false });
+
+        if (!waiting)
+            _panelRetry.Stop();
     }
 
     /// <summary>
@@ -2111,6 +2198,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         _overlayFramesSeen = 0;
         _overlayAttachTriedAt = DateTimeOffset.MinValue;
 
+        // Switched off is a fresh start: switching it on again gets every try back.
+        _overlayRetries.Clear();
+
         StopDriverIfNobodyWantsIt();
 
         Log.Information("The main overlay was switched off");
@@ -2130,6 +2220,18 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartNotifyOverlay()
     {
+        _notifyRetries.Clear();
+
+        if (MakeNotifyHost())
+            NotifyHostUp();
+    }
+
+    /// <summary>
+    /// Builds the notification panel. True when it is up; false when it threw, in which case it is
+    /// put away for a later try (<see cref="NotifyFailed"/>).
+    /// </summary>
+    private bool MakeNotifyHost()
+    {
         var settings = _state?.Settings.NotifyOverlay ?? NotifyOverlaySettings.Default;
 
         try
@@ -2141,13 +2243,38 @@ internal sealed partial class CompanionHost : IOverlayListener
             _notifyHost.PlacementChanged += NotifyPlacementChanged;
             AttachNotifyOverlay();
         }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
-            Log.Information(ex, "The notification overlay could not be set up on this machine; presence reporting is unaffected");
-            _notifyHost = null;
-            return;
+            NotifyFailed(ex);
         }
 
+        return _notifyHost is not null;
+    }
+
+    /// <summary>
+    /// The notification panel threw on its way up: logged, put away, shown on the SteamVR page as
+    /// <c>Could not start</c>, and tried again in a minute while tries are left.
+    /// </summary>
+    private void NotifyFailed(Exception ex)
+    {
+        var again = _notifyRetries.Failed(ex, _clock.UtcNow);
+        Log.Warning(ex, "The notification overlay could not start ({Reason}); the companion carries on without it", _notifyRetries.Reason);
+        if (again)
+            Log.Information("The notification overlay is tried again in a minute (try {Tries} of {Most})", _notifyRetries.Tries, PanelRetries.MostTries);
+        else
+            Log.Warning("The notification overlay is not tried again until it is switched off and on, or Modbot restarts");
+
+        _notifyHost?.Dispose();
+        _notifyHost = null;
+        _notifyAttachedAt = null;
+
+        if (again)
+            StartPanelRetry();
+    }
+
+    /// <summary>What a notification panel that is up needs running behind it.</summary>
+    private void NotifyHostUp()
+    {
         if (_popUps is not null)
             _popUps.Dwell = LongestPopUp();
 
@@ -2200,6 +2327,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _notifyLastDrewAt = null;
         _notifyFramesSeen = 0;
         _notifyAttachTriedAt = DateTimeOffset.MinValue;
+        _notifyRetries.Clear();
 
         // Only when nothing else is showing them. The notification overlay on a monitor reads the
         // same stack, and taking the headset's panel down must not wipe its cards.
@@ -2432,27 +2560,41 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         var settings = _state!.Settings.DesktopOverlay;
 
-        _desktopOverlay = new DesktopOverlayWindow
+        try
         {
-            PlaceNear = Window,
+            _desktopOverlay = new DesktopOverlayWindow
+            {
+                PlaceNear = Window,
 
-            // The group's picture out of the companion's own cache — the same one the window's
-            // server cards draw from. The overlay fetches nothing.
-            GroupIcon = url => Window.Pictures?.For(url),
-            EditMode = _state.Settings.OverlayEditMode,
-        };
+                // The group's picture out of the companion's own cache — the same one the window's
+                // server cards draw from. The overlay fetches nothing.
+                GroupIcon = url => Window.Pictures?.For(url),
+                EditMode = _state.Settings.OverlayEditMode,
+            };
 
-        _desktopOverlay.Apply(settings);
-        _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
+            _desktopOverlay.Apply(settings);
+            _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
 
-        // The strip's lock and hand: saved and applied like any other change to the window.
-        _desktopOverlay.SwitchPressed += SetDesktopOverlay;
-        _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
-        _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
-        _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
+            // The strip's lock and hand: saved and applied like any other change to the window.
+            _desktopOverlay.SwitchPressed += SetDesktopOverlay;
+            _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+            _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
+            _desktopOverlay.HeadsUpTyped += words => _overlay?.SetHeadsUpText(words);
 
-        _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
-        _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+            _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
+            _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            // The window over VRChat is a panel like the headset ones: it can wait, and the
+            // companion does not stop for it.
+            Log.Warning(ex, "The desktop overlay could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
+            _desktopOverlayShortcut?.Dispose();
+            _desktopOverlayShortcut = null;
+            _desktopOverlay?.Close();
+            _desktopOverlay = null;
+            return;
+        }
 
         // The loop that fills the panel and answers its taps. It used to be started only by the
         // two headset panels, so a moderator who plays on a monitor and has both of those off got
@@ -2491,8 +2633,18 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         var settings = _state!.Settings.DesktopNotifyOverlay;
 
-        _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
-        _desktopNotify.Apply(settings);
+        try
+        {
+            _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
+            _desktopNotify.Apply(settings);
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            Log.Warning(ex, "The notification overlay on the monitor could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
+            _desktopNotify?.Close();
+            _desktopNotify = null;
+            return;
+        }
 
         if (_popUps is not null)
             _popUps.Dwell = LongestPopUp();
@@ -2678,18 +2830,18 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             status = _overlayHost.Start();
         }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
             // A headset is running but its texture could not be made. Reporting presence is the
-            // job that cannot be filled in later; the panel is the one that can wait for a
-            // restart, so it is put away rather than retried every ten seconds for the session.
-            Log.Information(ex, "The headset panel could not be set up on this machine; presence reporting is unaffected");
-            _preview?.Close();
-            _overlayHost.Dispose();
-            _overlayHost = null;
-            _overlayAttachedAt = null;
+            // job that cannot be filled in later; the panel is the one that can wait, so it is put
+            // away and tried again at most once a minute, a few times, rather than every ten
+            // seconds for the session.
+            OverlayFailed(ex);
             return;
         }
+
+        if (status.State is OverlayRuntimeState.Running && _overlayHost.IsDrawing)
+            _overlayRetries.Clear();
 
         if (status.State == before.State && status.Detail == before.Detail)
             return;
@@ -2729,16 +2881,17 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             status = _notifyHost.Start();
         }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
             // Same rule as the main panel: a texture that cannot be made puts the pop-up panel
-            // away rather than being tried again every ten seconds for the rest of the session.
-            Log.Information(ex, "The notification overlay could not be set up on this machine; presence reporting is unaffected");
-            _notifyHost.Dispose();
-            _notifyHost = null;
-            _notifyAttachedAt = null;
+            // away and tries it again at most once a minute, a few times, rather than every ten
+            // seconds for the rest of the session.
+            NotifyFailed(ex);
             return;
         }
+
+        if (status.State is OverlayRuntimeState.Running)
+            _notifyRetries.Clear();
 
         if (status.State == before.State && status.Detail == before.Detail)
             return;
@@ -2772,9 +2925,9 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             _dashboard = DashboardHost.Create();
         }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
-            Log.Information(ex, "The SteamVR dashboard tab could not be set up on this machine; presence reporting is unaffected");
+            Log.Warning(ex, "The SteamVR dashboard tab could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
             _dashboard = null;
             return;
         }
@@ -2847,9 +3000,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             status = _dashboard.Start();
         }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
-            Log.Information(ex, "The SteamVR dashboard tab could not be set up on this machine; presence reporting is unaffected");
+            // Not tried again: the tab is made once per SteamVR session and its loop is wired once,
+            // so it stays away until Modbot restarts, as it always has.
+            Log.Warning(ex, "The SteamVR dashboard tab could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
             _dashboardLoop.Stop();
             _dashboard.Dispose();
             _dashboard = null;
@@ -3348,7 +3503,11 @@ internal sealed partial class CompanionHost : IOverlayListener
         var popUps = _popUps?.Current().Count ?? 0;
 
         if (_notifyHost is null)
-            return NotifyOverlayStatus.None with { PopUps = popUps };
+        {
+            return _notifyRetries.Failing
+                ? NotifyOverlayStatus.CouldNotStart(_notifyRetries.Status) with { PopUps = popUps }
+                : NotifyOverlayStatus.None with { PopUps = popUps };
+        }
 
         if (_notifyHost.FramesDrawn != _notifyFramesSeen)
         {
@@ -3386,7 +3545,11 @@ internal sealed partial class CompanionHost : IOverlayListener
             return OverlayStatus.Off with { Placement = saved };
 
         if (_overlayHost is null)
-            return OverlayStatus.None with { Placement = saved };
+        {
+            return _overlayRetries.Failing
+                ? OverlayStatus.CouldNotStart(_overlayRetries.Status) with { Placement = saved }
+                : OverlayStatus.None with { Placement = saved };
+        }
 
         if (_overlayHost.FramesDrawn != _overlayFramesSeen)
         {

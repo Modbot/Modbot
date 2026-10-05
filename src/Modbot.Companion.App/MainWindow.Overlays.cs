@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Presentation;
 
 namespace Modbot.Companion.App;
 
@@ -64,11 +65,16 @@ public sealed partial class MainWindow
                 : notifications.State switch
                 {
                     "refused" => Ui.Pill("Refused", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+                    OverlayStatus.CouldNotStartState => Ui.Pill("Could not start", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
                     "SteamVR not installed" or "not set up" => Ui.Pill("No SteamVR", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
                     _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
                 };
 
         var lines = new StackPanel { Spacing = 12, Children = { _notifyOnBox } };
+
+        // What failed, as the main panel's card says it under its own pill.
+        if (settings.On && notifications.State == OverlayStatus.CouldNotStartState)
+            lines.Children.Add(Ui.Text(notifications.Detail, Ui.T.Density.TextSmall, Ui.T.TextBrush));
 
         // Only while something is running is there anything to say about it.
         if (settings.On && notifications.Attached)

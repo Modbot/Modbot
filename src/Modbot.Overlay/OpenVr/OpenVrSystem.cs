@@ -129,6 +129,10 @@ internal sealed unsafe class OpenVrSystem
     private const int GetDeviceToAbsoluteTrackingPose = 12;
     private const int GetTrackedDeviceIndexForControllerRole = 18;
     private const int GetControllerState = 37;
+    private const int GetOutputDevice = 9;
+
+    /// <summary><c>TextureType_DirectX</c>: asks <c>GetOutputDevice</c> for a Direct3D card's id.</summary>
+    private const int TextureTypeDirectX = 0;
 
     private readonly nint _table;
     private readonly byte[] _poses = new byte[MaxDevices * OpenVrLayouts.PoseSize];
@@ -181,6 +185,18 @@ internal sealed unsafe class OpenVrSystem
         }
 
         return OpenVrLayouts.ReadPose(PoseBytes((int)index)) is null ? null : index;
+    }
+
+    /// <summary>
+    /// Windows' id (the LUID) for the graphics card the headset is on, or null when SteamVR does
+    /// not say. The overlay's texture is made on that card, so SteamVR does not have to carry it
+    /// across from another one.
+    /// </summary>
+    public long? GraphicsCard()
+    {
+        ulong card = 0;
+        ((delegate* unmanaged[Stdcall]<ulong*, int, void*, void>)Slot(GetOutputDevice))(&card, TextureTypeDirectX, null);
+        return card == 0 ? null : (long)card;
     }
 
     public OverlayTracking Read()

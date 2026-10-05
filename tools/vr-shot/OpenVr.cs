@@ -33,6 +33,24 @@ internal static partial class OpenVr
     /// <summary>VR_IVRCompositor_FnTable slot of ReleaseMirrorTextureD3D11.</summary>
     internal const int SlotReleaseMirrorTextureD3D11 = 36;
 
+    /// <summary>The system interface version, from the same header.</summary>
+    internal const string SystemInterfaceVersion = "FnTable:IVRSystem_026";
+
+    /// <summary>VR_IVRSystem_FnTable slot of GetOutputDevice.</summary>
+    internal const int SlotGetOutputDevice = 9;
+
+    /// <summary>
+    /// IVRSystem::GetOutputDevice with TextureType_DirectX: Windows' id (LUID) of the graphics card
+    /// the headset is on, or 0 when SteamVR does not say.
+    /// </summary>
+    internal static unsafe long GetOutputDevice(nint system)
+    {
+        var fn = (delegate* unmanaged[Stdcall]<ulong*, int, void*, void>)((nint*)system)[SlotGetOutputDevice];
+        ulong card = 0;
+        fn(&card, 0, null);
+        return (long)card;
+    }
+
     [LibraryImport("openvr_api", EntryPoint = "VR_InitInternal")]
     internal static partial nint InitInternal(out int error, int applicationType);
 

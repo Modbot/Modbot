@@ -83,7 +83,7 @@ public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 /// know OpenVR, and the page needs only what a moderator can check against the headset.
 /// </remarks>
 /// <param name="Attached">Whether the panel is up in SteamVR right now.</param>
-/// <param name="State">One short phrase: attached, SteamVR not running, SteamVR not installed, refused, not set up, off.</param>
+/// <param name="State">One short phrase: attached, SteamVR not running, SteamVR not installed, refused, not set up, could not start, off.</param>
 /// <param name="Detail">The sentence under it, from the overlay runtime.</param>
 /// <param name="Showing">The group the panel speaks for, or the idle screen's wording.</param>
 /// <param name="People">How many people the roster lists.</param>
@@ -123,6 +123,15 @@ public sealed record OverlayStatus(
         false, "not set up", "The overlay could not be set up on this PC.", null, 0, null,
         "Not in a group instance", 0, "not loaded", null, null, null);
 
+    /// <summary>
+    /// Switched on, and its start threw: the graphics card would not make its device, say. The
+    /// detail says why, in a few words.
+    /// </summary>
+    public static OverlayStatus CouldNotStart(string detail) => None with { State = CouldNotStartState, Detail = detail };
+
+    /// <summary>The <see cref="State"/> of a panel whose start threw.</summary>
+    public const string CouldNotStartState = "could not start";
+
     /// <summary>The overlay switched off on the SteamVR page: nothing is running to report on.</summary>
     public static OverlayStatus Off { get; } = new(
         false, "off", "", null, 0, null,
@@ -156,6 +165,10 @@ public sealed record NotifyOverlayStatus(
 
     /// <summary>Before the host exists, or when it could not be set up on this PC.</summary>
     public static NotifyOverlayStatus None { get; } = new(false, "not set up", "", null, 0, null, 0);
+
+    /// <summary>Switched on, and its start threw. The detail says why, in a few words.</summary>
+    public static NotifyOverlayStatus CouldNotStart(string detail)
+        => None with { State = OverlayStatus.CouldNotStartState, Detail = detail };
 }
 
 /// <summary>What the client window is showing right now.</summary>

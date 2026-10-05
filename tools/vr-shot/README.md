@@ -14,7 +14,8 @@ It prints the file, the size and the eye, e.g. `...\shot.png 3024x3360 left eye 
 ## What it needs
 
 - Windows, SteamVR already running. If it is not, the tool says so and takes nothing (exit 2).
-- A D3D11 GPU. On a PC with more than one GPU the default one must be the headset's.
+- A D3D11 GPU. On a PC with more than one GPU the tool uses the one SteamVR says the headset is on,
+  and Windows' default one when SteamVR does not say.
 - `openvr_api.dll` is the one `src/Modbot.Overlay/native/win-x64` vendors, copied beside the exe.
 
 ## How it works

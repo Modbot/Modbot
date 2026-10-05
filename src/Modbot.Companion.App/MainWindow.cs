@@ -1571,6 +1571,7 @@ public sealed partial class MainWindow : Window
                 : overlay.State switch
                 {
                     "refused" => Ui.Pill("Refused", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+                    OverlayStatus.CouldNotStartState => Ui.Pill("Could not start", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
                     "SteamVR not installed" or "not set up" => Ui.Pill("No SteamVR", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
                     _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
                 };

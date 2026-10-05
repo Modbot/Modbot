@@ -79,15 +79,36 @@ try
         return 1;
     }
 
-    // The default adapter. On a PC with more than one GPU it must be the one the headset is on,
-    // or the shared texture cannot be opened (SteamVR then answers an error, below).
-    D3D11.D3D11CreateDevice(
-        null,
-        DriverType.Hardware,
+    // The card the headset is on, as SteamVR names it; on a PC with more than one GPU any other
+    // card cannot open the shared texture (SteamVR then answers an error, below). Windows' default
+    // card when SteamVR does not say, or that card is not in Windows' list.
+    var system = OpenVr.GetGenericInterface(OpenVr.SystemInterfaceVersion, out var systemError);
+    var headsetCard = system != 0 && systemError == 0 ? OpenVr.GetOutputDevice(system) : 0;
+
+    using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+    IDXGIAdapter1? adapter = null;
+    for (uint index = 0; headsetCard != 0 && factory.EnumAdapters1(index, out var card).Success && card is not null; index++)
+    {
+        if (card.Description1.Luid == headsetCard)
+        {
+            adapter = card;
+            break;
+        }
+
+        card.Dispose();
+    }
+
+    Console.Error.WriteLine($"Using {adapter?.Description1.Description ?? "the card Windows chose"}.");
+
+    var made = D3D11.D3D11CreateDevice(
+        adapter,
+        adapter is null ? DriverType.Hardware : DriverType.Unknown,
         DeviceCreationFlags.BgraSupport,
         [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
         out ID3D11Device? device,
-        out ID3D11DeviceContext? context).CheckError();
+        out ID3D11DeviceContext? context);
+    adapter?.Dispose();
+    made.CheckError();
 
     using (device)
     using (context)

@@ -18,8 +18,9 @@ namespace Modbot.Overlay.OpenVr;
 /// made. That is what lets the companion start with the computer without dragging SteamVR up with
 /// it.</para>
 /// <para><strong>This talks to SteamVR on the same machine and to nothing else.</strong> No
-/// socket is opened and no file is read; what crosses it is a texture pointer, a position and the
-/// poses of the headset and controllers, none of which is sent anywhere.</para>
+/// socket is opened and no file is read; what crosses it is a texture pointer, a position, the
+/// poses of the headset and controllers and which graphics card the headset is on, none of which
+/// is sent anywhere.</para>
 /// </remarks>
 public sealed class OpenVrSession
 {
@@ -217,6 +218,19 @@ public sealed class OpenVrSession
             system = _table == 0 ? null : _system;
 
         return system?.Read() ?? OverlayTracking.None;
+    }
+
+    /// <summary>
+    /// Windows' id for the graphics card the headset is on, or null when SteamVR is not attached
+    /// or does not say.
+    /// </summary>
+    public long? GraphicsCard()
+    {
+        OpenVrSystem? system;
+        lock (_gate)
+            system = _table == 0 ? null : _system;
+
+        return system?.GraphicsCard();
     }
 
     /// <summary>SteamVR's index for a hand's controller, or null when it has none right now.</summary>
