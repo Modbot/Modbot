@@ -34,8 +34,8 @@ public sealed record EventView(
     string? TypeRaw,
     string SubjectId,
     string? DisplayName,
-    string WorldId,
-    string InstanceId,
+    string? WorldId,
+    string? InstanceId,
     string? GroupId,
     string Data);
 

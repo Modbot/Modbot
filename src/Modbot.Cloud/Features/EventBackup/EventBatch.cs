@@ -45,8 +45,8 @@ public sealed record CheckedEvent(
     DateTimeOffset OccurredAt,
     DateTimeOffset? OccurredBefore,
     string SubjectId,
-    string WorldId,
-    string InstanceId,
+    string? WorldId,
+    string? InstanceId,
     string? GroupId,
     string Data);
 
@@ -65,8 +65,9 @@ public sealed record CheckedBatch(
 /// <remarks>
 /// <para>
 /// <strong>Refused</strong> (a <c>400</c>): no events, no <c>sentAt</c>, or an event with no id, no
-/// type, no time, no subject, no world or no instance. A client that sends these is broken and
-/// resending will not fix it.
+/// type, no time or no subject. A client that sends these is broken and resending will not fix it.
+/// The world, the instance and the group may each be missing or blank, and are then stored as null:
+/// the moderator running the client chooses what it sends (cloud settings on screen design).
 /// </para>
 /// <para>
 /// <strong>Tidied, not refused:</strong> ids and text are cut to their column widths and stripped of
@@ -96,11 +97,9 @@ public static class EventBatchCheck
                 || ClientText.Clean(e.CompanionEventId, StoredEvent.MaxEventIdLength) is not { } id
                 || string.IsNullOrWhiteSpace(e.Type)
                 || e.OccurredAt is not { } occurredAt
-                || ClientText.Clean(e.SubjectId, StoredEvent.MaxIdLength) is not { } subject
-                || ClientText.Clean(e.WorldId, StoredEvent.MaxIdLength) is not { } world
-                || ClientText.Clean(e.InstanceId, StoredEvent.MaxInstanceIdLength) is not { } instance)
+                || ClientText.Clean(e.SubjectId, StoredEvent.MaxIdLength) is not { } subject)
             {
-                return (null, "Every event needs an id, a type, a time, a subject, a world and an instance.");
+                return (null, "Every event needs an id, a type, a time and a subject.");
             }
 
             var (type, typeRaw) = EventTypes.Classify(e.Type);
@@ -112,8 +111,8 @@ public static class EventBatchCheck
                 occurredAt.ToUniversalTime(),
                 e.OccurredBefore?.ToUniversalTime(),
                 subject,
-                world,
-                instance,
+                ClientText.Clean(e.WorldId, StoredEvent.MaxIdLength),
+                ClientText.Clean(e.InstanceId, StoredEvent.MaxInstanceIdLength),
                 ClientText.Clean(e.GroupId, StoredEvent.MaxIdLength),
                 Data(e.Data)));
         }

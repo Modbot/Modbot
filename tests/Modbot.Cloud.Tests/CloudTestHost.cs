@@ -273,8 +273,8 @@ public sealed class CloudTestHost : IAsyncDisposable
         DateTimeOffset occurredAt,
         string type = "InstanceJoined",
         string subjectId = "usr_1",
-        string worldId = "wrld_1",
-        string instanceId = "12345",
+        string? worldId = "wrld_1",
+        string? instanceId = "12345",
         string? groupId = null,
         object? data = null) =>
         new { companionEventId = id, type, occurredAt, occurredBefore = (DateTimeOffset?)null, subjectId, worldId, instanceId, groupId, data = data ?? new { displayName = "Rin" } };
