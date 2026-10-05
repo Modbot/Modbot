@@ -34,7 +34,6 @@ public sealed record CloudBackupStatus(CloudBackupState State, long Queued, long
 /// The Events screen's record, told what was queued for Cloud and what Cloud took. Null in tests
 /// and anywhere the screen is not running.
 /// </param>
-/// <param name="Choices">What is sent: which events and which details. Null is everything.</param>
 public sealed record CloudBackupOptions(
     string Directory,
     IModbotClock Clock,
@@ -47,8 +46,7 @@ public sealed record CloudBackupOptions(
     BackoffPolicy? Backoff = null,
     long OutboxCap = CloudOutbox.DefaultCap,
     ICompanionEventIdSource? Ids = null,
-    SentJournal? Journal = null,
-    CloudChoices? Choices = null);
+    SentJournal? Journal = null);
 
 /// <summary>
 /// Where the reader hands every observation it makes, whichever instance it is in.
@@ -68,20 +66,13 @@ public interface IObservationSink
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends.</strong> The client's parsed presence events — joins, "already
-/// here", leaves, avatar changes and a stopped log — in the shape a paired Modbot server gets
+/// here", leaves, avatar changes and a stopped log — in exactly the shape a paired Modbot server gets
 /// them (<see cref="CompanionEvent"/>): an event id, the type, a time, the VRChat user id, their display
 /// name, the avatar name for an avatar change, the world id, the instance id and the group id when
 /// there is one. The difference from a server is the one the moderator is told about: this covers
 /// <strong>every instance</strong> the moderator is in, public, friends-only and private ones included,
 /// not only their group's. It never sends a raw log line, and never an instance's <c>nonce</c>, which
 /// is thrown away when a location is read.</para>
-/// <para><strong>The moderator chooses what.</strong> On the Cloud Server page they pick, for group
-/// instances and for the rest separately, which of the five kinds of event are sent and whether the
-/// world id, instance id, group id and avatar name go with them (<see cref="CloudChoices"/>). A kind
-/// that is off is never queued. A detail that is off is left out of the event when it is queued, so it
-/// is never written to the outbox either. The user id, display name, version, event id, type and the
-/// times are always sent. A change of choices applies to events not yet written to the outbox; one
-/// already waiting there goes as it was queued.</para>
 /// <para><strong>Where.</strong> To one Modbot Cloud: <c>https://cloud.modbot.co</c>, or the one named
 /// in <c>settings.json</c> or <c>MODBOT_CLOUD_ENDPOINT</c> on this PC (<see cref="CloudSettings"/>).
 /// Paired Modbot servers have no say in it, and pairing or unpairing changes nothing here. What each
@@ -89,8 +80,7 @@ public interface IObservationSink
 /// address.</para>
 /// <para><strong>On by default, and off means off.</strong> A client started with the backup off
 /// sends nothing, queues nothing, and deletes anything a previous run left queued. Nothing observed
-/// while it was off is ever sent, and switching it off while the client runs does the same
-/// (<see cref="SetEnabled"/>).</para>
+/// while it was off is ever sent.</para>
 /// <para><strong>What is written to your disk.</strong> The outbox (<see cref="CloudOutbox"/>), capped
 /// at 20 MB, and this client's install id and encrypted secret (<see cref="DpapiCloudInstallStore"/>).</para>
 /// <para><strong>It never slows the log reader.</strong> <see cref="Offer"/> puts observations on an
@@ -108,6 +98,8 @@ public sealed class CloudEventBackup : IObservationSink
     /// <summary>How often the offset to Cloud's clock is re-measured, as for a Modbot server.</summary>
     public static readonly TimeSpan ClockCheckInterval = TimeSpan.FromHours(2);
 
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
     private readonly CloudOutbox _outbox;
     private readonly ICloudLogClient _client;
     private readonly ICloudInstallStore _installs;
@@ -122,17 +114,8 @@ public sealed class CloudEventBackup : IObservationSink
     private readonly Lock _outboxGate = new();
     private readonly Queue<ObservedPresence> _queue = new();
 
-    private volatile bool _enabled;
+    private readonly bool _enabled;
     private readonly Uri _endpoint;
-
-    /// <summary>What is sent. Swapped whole by <see cref="SetChoices"/>, read on every offer and every queueing.</summary>
-    private volatile CloudChoices _choices;
-
-    /// <summary>
-    /// Whether the Cloud this client last asked the time of takes an event with no world id or
-    /// instance id. False until it has said so, and false again when the question failed.
-    /// </summary>
-    private volatile bool _acceptsMissing;
 
     /// <summary>When the oldest observation now queued was offered. A batch's age counts from here.</summary>
     private DateTimeOffset? _queuedSince;
@@ -166,7 +149,6 @@ public sealed class CloudEventBackup : IObservationSink
         _clientVersion = options.CompanionVersion;
         _endpoint = options.Endpoint ?? CloudSettings.DefaultEndpoint;
         _enabled = options.Enabled;
-        _choices = options.Choices ?? CloudChoices.Default;
         _cloudClock = new ServerClock(_clock);
         _mapper = new PresenceEventMapper(_timestamps, _cloudClock, _ids);
 
@@ -186,74 +168,6 @@ public sealed class CloudEventBackup : IObservationSink
 
     /// <summary>False when <c>settings.json</c> or <c>MODBOT_CLOUD_DISABLED</c> turned the backup off.</summary>
     public bool Enabled => _enabled;
-
-    /// <summary>What is being sent right now.</summary>
-    public CloudChoices Choices => _choices;
-
-    /// <summary>
-    /// The offset to Cloud's clock the next batch will carry, for the Cloud Server page's Next batch
-    /// card. Zero until Cloud has been asked the time.
-    /// </summary>
-    public TimeSpan ClockOffset => _cloudClock.Offset;
-
-    /// <summary>
-    /// Changes what is sent from now on. Events already queued go as they were queued; nothing is
-    /// swept away, because the person did not switch the backup off.
-    /// </summary>
-    public void SetChoices(CloudChoices choices)
-    {
-        ArgumentNullException.ThrowIfNull(choices);
-        _choices = choices;
-    }
-
-    /// <summary>
-    /// Switches the backup on or off while the client runs. Off sweeps away everything queued, in
-    /// memory and on disk, exactly as starting with it off does, so nothing seen in between is ever
-    /// sent. On starts from nothing.
-    /// </summary>
-    /// <remarks>Whoever runs <see cref="RunAsync"/> stops it while the backup is off, so a switched-off backup wakes nothing.</remarks>
-    public void SetEnabled(bool on)
-    {
-        if (_enabled == on)
-            return;
-
-        if (on)
-        {
-            Clear();
-            lock (_outboxGate)
-                _outbox.Start();
-
-            _enabled = true;
-        }
-        else
-        {
-            _enabled = false;
-            Clear();
-        }
-    }
-
-    /// <summary>
-    /// The newest events waiting to be sent, newest first, as they will go: for the Cloud Server
-    /// page's Next batch card. Empty while the backup is off or nothing is waiting.
-    /// </summary>
-    public IReadOnlyList<CloudQueuedEvent> NextBatch(int max = 5)
-    {
-        if (!_enabled)
-            return [];
-
-        IReadOnlyList<string> lines;
-        lock (_outboxGate)
-            lines = _outbox.Newest(max);
-
-        var events = new List<CloudQueuedEvent>(lines.Count);
-        foreach (var line in lines)
-        {
-            if (CloudWire.Queued(line) is { } queued)
-                events.Add(queued);
-        }
-
-        return events;
-    }
 
     /// <summary>The Modbot Cloud this client sends to.</summary>
     public Uri Endpoint => _endpoint;
@@ -286,27 +200,14 @@ public sealed class CloudEventBackup : IObservationSink
             return;
 
         var now = _clock.UtcNow;
-        var choices = _choices;
 
         lock (_queueGate)
         {
-            // Checked again inside the gate that clearing takes, so nothing is queued after the
-            // backup was switched off.
-            if (!_enabled)
-                return;
+            if (_queue.Count == 0)
+                _queuedSince = now;
 
             foreach (var observation in observations)
-            {
-                // A kind that is off is never queued, so it is never counted as something to send
-                // and never makes the client ask Cloud the time.
-                if (!choices.Sends(observation.Kind, observation.Instance.GroupId is not null))
-                    continue;
-
-                if (_queue.Count == 0)
-                    _queuedSince = now;
-
                 _queue.Enqueue(observation);
-            }
 
             while (_queue.Count > QueueLimit)
             {
@@ -356,9 +257,7 @@ public sealed class CloudEventBackup : IObservationSink
     /// </summary>
     public async Task<bool> PumpAsync(CancellationToken cancellationToken)
     {
-        // Nothing on in either section, as a hand-edited file can leave it: nothing could be sent,
-        // so there is nothing to register for and no reason to ask Cloud the time.
-        if (!_enabled || !_choices.AnyEventOn)
+        if (!_enabled)
             return false;
 
         var endpoint = _endpoint;
@@ -427,13 +326,19 @@ public sealed class CloudEventBackup : IObservationSink
         if (result.Outcome is not (IngestOutcome.Accepted or IngestOutcome.Malformed or IngestOutcome.TooLarge))
             return;
 
-        // A line the outbox holds that this client cannot read back is left out. The batch's fate is
-        // still recorded for the events that could be read.
         var sent = new List<CompanionEvent>(events.Count);
         foreach (var json in events)
         {
-            if (CloudWire.ReadBack(json) is { } companionEvent)
-                sent.Add(companionEvent);
+            try
+            {
+                if (JsonSerializer.Deserialize<CompanionEvent>(json, Json) is { } companionEvent)
+                    sent.Add(companionEvent);
+            }
+            catch (JsonException)
+            {
+                // A line the outbox holds that this client cannot read back. The batch's fate is
+                // still recorded for the events that could be read.
+            }
         }
 
         if (result.Outcome is IngestOutcome.Accepted)
@@ -460,21 +365,10 @@ public sealed class CloudEventBackup : IObservationSink
             generation = Volatile.Read(ref _generation);
         }
 
-        // Every instance, group or not: that is what the backup is, less what the moderator turned
-        // off. Times are corrected to Cloud's clock as far as it has been measured, exactly as a
-        // server's events are to that server's.
-        var choices = _choices;
-        var mapped = taken
-            .Where(o => choices.Sends(o.Kind, o.Instance.GroupId is not null))
-            .Select(o => (Observation: o, Event: _mapper.MapAnyInstance(o), InGroup: o.Instance.GroupId is not null))
-            .ToList();
-
-        if (mapped.Count == 0)
-            return;
-
-        var events = mapped
-            .Select(m => CloudWire.Shape(m.Event, choices.For(m.InGroup), m.InGroup))
-            .ToList();
+        // Every instance, group or not: that is what the backup is. Times are corrected to Cloud's
+        // clock as far as it has been measured, exactly as a server's events are to that server's.
+        var mapped = taken.Select(o => (Observation: o, Event: _mapper.MapAnyInstance(o))).ToList();
+        var events = mapped.Select(m => JsonSerializer.Serialize(m.Event, Json)).ToList();
 
         lock (_outboxGate)
         {
@@ -487,20 +381,13 @@ public sealed class CloudEventBackup : IObservationSink
         // Written once the events are on disk, so the screen never shows an event queued for Cloud
         // that a crash a moment later would have lost. The key is worked out from the observation,
         // which is how this line and the paired server's line about the same event become one row.
-        //
-        // The journal is given the event as it was shaped, not as it was mapped: its line describes
-        // the event in words, and a detail the moderator turned off, the avatar's name above all,
-        // must not be written anywhere on this PC for the backup, the journal included.
-        for (var i = 0; i < mapped.Count; i++)
+        foreach (var (observation, companionEvent) in mapped)
         {
-            if (_journal is null || CloudWire.ReadBack(events[i]) is not { } shaped)
-                continue;
-
-            _journal.RecordQueued(
+            _journal?.RecordQueued(
                 SentJournal.CloudName,
                 JournalDestination.Cloud,
-                SentJournal.KeyFor(mapped[i].Observation),
-                shaped);
+                SentJournal.KeyFor(observation),
+                companionEvent);
         }
     }
 
@@ -512,7 +399,6 @@ public sealed class CloudEventBackup : IObservationSink
             _mapper = new PresenceEventMapper(_timestamps, _cloudClock, _ids);
             _clockFor = endpoint;
             _lastClockCheck = null;
-            _acceptsMissing = false;
         }
 
         if (_lastClockCheck is { } last && _clock.UtcNow - last < ClockCheckInterval)
@@ -520,13 +406,8 @@ public sealed class CloudEventBackup : IObservationSink
 
         _lastClockCheck = _clock.UtcNow;
 
-        // The same answer says whether this Cloud takes an event with no world or instance id. A
-        // Cloud that does not say, and a check that failed, both mean it might not.
-        var answer = await _client.MeasureAsync(endpoint, cancellationToken).ConfigureAwait(false);
-        _acceptsMissing = answer is { AcceptsMissingFields: true };
-
-        if (answer is not null)
-            _cloudClock.Add(answer.Sample);
+        if (await _client.MeasureAsync(endpoint, cancellationToken).ConfigureAwait(false) is { } sample)
+            _cloudClock.Add(sample);
     }
 
     /// <summary>This client's install with the Cloud, registering on first send.</summary>
@@ -565,14 +446,9 @@ public sealed class CloudEventBackup : IObservationSink
             // No modbotServerId. Cloud still accepts one, but nothing about the backup comes from,
             // or is tied to, a paired Modbot server (cloud event backup spec 3.3).
 
-            // An event with a world or instance left out goes as it is to a Cloud that has said it
-            // takes that. Any other Cloud refuses the whole batch for it, and the client deletes a
-            // refused batch, so the word "hidden" goes there instead.
-            var fill = !_acceptsMissing;
-
             writer.WriteStartArray("events");
             foreach (var json in events)
-                writer.WriteRawValue(fill ? CloudWire.FillMissing(json) : json);
+                writer.WriteRawValue(json);
             writer.WriteEndArray();
 
             writer.WriteEndObject();

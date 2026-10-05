@@ -512,21 +512,15 @@ clip**: that they saved a clip in the group's instance, when, and the file's SHA
 lets the server recognise the clip if they later attach it to a case in a browser. The clip, its
 file name and where it is on their PC are not sent.
 
-**The client's window has a place for this backup, and the person using it chooses what it sends.**
-Since 4 October 2026 the Settings page has a **Modbot Cloud** box, and a **Cloud Server** page lists,
-for the instances a group owns and for the rest separately, which of the five kinds of event are sent
-(joined, already here, left, avatar changed, Modbot stopped logging) and whether the world id, the
-instance id, the group and the avatar name go with them. Everything is on until they turn it off.
-What is always sent is their VRChat user id and display name, the client's version, the event's
-id, its type and its time. That page also lists the events waiting to be sent. The **Audit Log** page
-is as it was: it shows what the client observed and how each event's own group's server took it, and
-does not name the backup, show how it is getting on, or let anyone filter by it. Two consequences
-worth stating plainly: **pausing a paired server does not stop the backup** — pausing stops
-reporting to that server, and this is a separate flow — and a moderator who wants to see what the
-backup did over time has to look outside the window, in the client's own log file and in
-`%APPDATA%\Modbot\sent.jsonl`. That file keeps one line per event and one more as each place takes
-it, Modbot Cloud included, and only the last 1,500 lines. Turning the backup off is below, and it is
-the only thing that stops it.
+**The client's window does not mention this backup, which is why it is written down here.** Its
+Events page shows what the client observed and how each event's own group's server took it; it does
+not name the backup, show how the backup is getting on, or let anyone filter by it, and a backup
+that cannot reach us raises no warning. Two consequences worth stating plainly: **pausing a paired
+server does not stop the backup** — pausing stops reporting to that server, and this is a separate
+flow — and a moderator who wants to see what the backup did has to look outside the window, in the
+client's own log file and in `%APPDATA%\Modbot\sent.jsonl`. That file keeps one line per event and
+one more as each place takes it, Modbot Cloud included, and only the last 1,500 lines. Turning the
+backup off is below, and it is the only thing that stops it.
 
 **What else the client contacts,** each a plain request that sends nothing about the person:
 
@@ -590,15 +584,13 @@ which speakers and headphones the PC has, for its own notification sounds and sp
 that list also stays on the PC.
 
 **How to turn the backup off — on that PC, by the person using it.** Your server cannot do it for
-them. Any of:
+them. Either:
 
-- untick **Modbot Cloud** on the Settings page or the Cloud Server page, which writes
-  `"cloud": { "disabled": true }` to that PC's `settings.json`, or put that there by hand, or
+- put `"cloud": { "disabled": true }` in that PC's `settings.json`, or
 - set `MODBOT_CLOUD_DISABLED=1` in that PC's environment.
 
-The environment variable wins over the file, and while it is set the box shows its answer and cannot
-be changed. Turning it off, in the client or by restarting it with the variable set, also deletes
-anything the client had queued to send, and nothing seen while it is off is ever sent.
+The environment variable wins over the file. Restart the client after changing it. Turning it off
+also deletes anything the client had queued to send.
 
 Turning it off does **not** stop the client checking for a newer version of itself. That check asks
 Modbot Cloud for a short file list, every four hours. The update library the client uses puts the operating system, the

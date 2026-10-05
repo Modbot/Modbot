@@ -108,28 +108,6 @@ public class AdminInstallTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task AnEventWithNoWorldOrInstanceComesBackAsNulls()
-    {
-        // The admin page shows a blank for these: a person running the client chose not to send them.
-        await using var host = await CloudTestHost.StartAsync(db);
-        var (id, bearer) = await host.RegisterAsync();
-
-        using (var batch = await host.PostBatchAsync(bearer, host.Batch(
-                   CloudTestHost.Event("none", Happened, worldId: null, instanceId: null, groupId: null))))
-        {
-            Assert.Equal(HttpStatusCode.OK, batch.StatusCode);
-        }
-
-        var body = await ReadAsync(await host.GetAsync($"/api/admin/installs/{id}/events", bearer: CloudTestHost.RootKey));
-        var only = Assert.Single(body.GetProperty("items").EnumerateArray());
-
-        Assert.Equal("none", only.GetProperty("companionEventId").GetString());
-        Assert.Equal(JsonValueKind.Null, only.GetProperty("worldId").ValueKind);
-        Assert.Equal(JsonValueKind.Null, only.GetProperty("instanceId").ValueKind);
-        Assert.Equal(JsonValueKind.Null, only.GetProperty("groupId").ValueKind);
-    }
-
-    [Fact]
     public async Task RetentionCanBeReadAndChanged()
     {
         await using var host = await CloudTestHost.StartAsync(db);

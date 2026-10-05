@@ -112,14 +112,13 @@ public sealed record DataFolder(string Path, bool IsTestCopy)
 
     /// <summary>
     /// The Cloud settings this copy goes by: as read for the real copy, and switched off for a test
-    /// copy as if <c>cloud.disabled</c> were true, with the box on screen locked so it cannot be
-    /// turned back on.
+    /// copy as if <c>cloud.disabled</c> were true.
     /// </summary>
     public CloudBackup.CloudSettings CloudFor(CloudBackup.CloudSettings read)
     {
         ArgumentNullException.ThrowIfNull(read);
 
-        return MayUseCloud ? read : read with { Disabled = true, SwitchLocked = true };
+        return MayUseCloud ? read : read with { Disabled = true };
     }
 
     /// <summary>

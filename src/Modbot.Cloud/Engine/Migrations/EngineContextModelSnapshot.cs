@@ -222,6 +222,7 @@ namespace Modbot.Cloud.Engine.Migrations
                         .HasColumnName("group_id");
 
                     b.Property<string>("InstanceId")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("instance_id");
@@ -260,6 +261,7 @@ namespace Modbot.Cloud.Engine.Migrations
                         .HasColumnName("type_raw");
 
                     b.Property<string>("WorldId")
+                        .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)")
                         .HasColumnName("world_id");

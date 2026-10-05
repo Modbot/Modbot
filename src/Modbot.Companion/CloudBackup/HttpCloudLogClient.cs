@@ -13,18 +13,6 @@ namespace Modbot.Companion.CloudBackup;
 /// <summary>How registering with a Cloud went.</summary>
 public sealed record CloudRegistration(IngestOutcome Outcome, Guid InstallId = default, string? Secret = null, TimeSpan? RetryAfter = null);
 
-/// <summary>
-/// What Cloud's clock answer said: when it is, and whether it takes an event with no world id or no
-/// instance id.
-/// </summary>
-/// <param name="Sample">The reading, for working out this PC's offset to Cloud's clock.</param>
-/// <param name="AcceptsMissingFields">
-/// True only when the answer said <c>acceptsMissingFields: true</c>. A Cloud that predates the field
-/// refuses a whole batch for one event without a world or an instance, and the backup then sends the
-/// word <c>hidden</c> in their place (cloud settings on screen design, §4).
-/// </param>
-public sealed record CloudTime(ClockSample Sample, bool AcceptsMissingFields);
-
 /// <summary>The three requests the event backup makes to Modbot Cloud.</summary>
 public interface ICloudLogClient
 {
@@ -33,7 +21,7 @@ public interface ICloudLogClient
     /// <param name="body">A whole batch, gzipped JSON.</param>
     Task<IngestResult> SendAsync(CloudInstall install, byte[] body, CancellationToken cancellationToken);
 
-    Task<CloudTime?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken);
+    Task<ClockSample?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -50,8 +38,7 @@ public interface ICloudLogClient
 /// <item><c>POST /api/v1/events</c> with a gzipped batch of <c>CompanionEvent</c> rows — the same presence
 /// events a Modbot server gets, but for every instance — and the install id and secret as a bearer
 /// header. These name other players and the instances you are in; never a raw log line.</item>
-/// <item><c>GET /api/v1/time</c> with no body and no credential. Its answer says whether this Cloud
-/// takes an event with no world id or instance id.</item>
+/// <item><c>GET /api/v1/time</c> with no body and no credential.</item>
 /// </list>
 /// <para>No pairing token or device token is ever sent to Cloud, and nothing from Modbot's own logs.</para>
 /// </remarks>
@@ -134,7 +121,7 @@ public sealed class HttpCloudLogClient : ICloudLogClient
         }
     }
 
-    public async Task<CloudTime?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken)
+    public async Task<ClockSample?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken)
     {
         if (!ServerAddresses.IsAllowed(endpoint))
             return null;
@@ -150,9 +137,7 @@ public sealed class HttpCloudLogClient : ICloudLogClient
                 return null;
 
             var body = await response.Content.ReadFromJsonAsync<TimeBody>(Json, cancellationToken).ConfigureAwait(false);
-            return body?.ServerTime is { } serverTime
-                ? new CloudTime(new ClockSample(sentAt, serverTime, receivedAt), body.AcceptsMissingFields == true)
-                : null;
+            return body?.ServerTime is { } serverTime ? new ClockSample(sentAt, serverTime, receivedAt) : null;
         }
         catch (Exception ex) when (ex is HttpRequestException or JsonException
                                        || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
@@ -178,7 +163,5 @@ public sealed class HttpCloudLogClient : ICloudLogClient
         [property: JsonPropertyName("installId")] Guid InstallId,
         [property: JsonPropertyName("secret")] string? Secret);
 
-    private sealed record TimeBody(
-        [property: JsonPropertyName("serverTime")] DateTimeOffset? ServerTime,
-        [property: JsonPropertyName("acceptsMissingFields")] bool? AcceptsMissingFields = null);
+    private sealed record TimeBody([property: JsonPropertyName("serverTime")] DateTimeOffset? ServerTime);
 }

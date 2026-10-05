@@ -23,7 +23,7 @@ namespace Modbot.Companion.Presentation;
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
 /// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlayOn</c>,
 /// <c>overlay</c>, <c>cloud</c>
-/// (<c>{ "endpoint": "…", "disabled": true, "group": { … }, "nonGroup": { … } }</c>), <c>voice</c>
+/// (<c>{ "endpoint": "…", "disabled": true }</c>), <c>voice</c>
 /// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…", "name": "Bella" }</c>)
 /// and <c>eventsFilters</c> (the Events page's filter chips, one line each, such as <c>"kind:is:joined,left"</c>).
 /// The notification overlay is its own object, <c>notifyOverlay</c>, kept apart from the main overlay's so
@@ -31,11 +31,9 @@ namespace Modbot.Companion.Presentation;
 /// If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
 /// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
-/// else in the file as it was. The Modbot Cloud box on the Settings page and the Cloud Server page
-/// write three fields inside the <c>cloud</c> object — <c>disabled</c>, <c>group</c> and
-/// <c>nonGroup</c> — and never <c>endpoint</c> or anything else that is in it. The environment
-/// variables <c>MODBOT_CLOUD_ENDPOINT</c> and <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over
-/// it (<see cref="CloudSettings"/>).
+/// else in the file as it was. The <c>cloud</c> object is
+/// never written by the client; the environment variables <c>MODBOT_CLOUD_ENDPOINT</c> and
+/// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).
 /// There is also <c>notifications</c>
 /// (<c>{ "bleep": true, "volume": 70, "trayNoticesShown": 0 }</c>), written whole the same way, and
 /// <c>desktopOverlay</c> (<c>{ "on": true, "shortcut": "mod+alt+m", "opacity": 90 }</c>), the
@@ -229,10 +227,6 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string ListeningField = "listenForPhrase";
 
-    public const string CloudField = "cloud";
-
-    public const string CloudDisabledField = "disabled";
-
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -271,11 +265,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             CheckForUpdates = shape?.CheckForUpdates ?? true,
             StartWithWindows = shape?.StartWithWindows ?? true,
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
-            Cloud = CloudSettings.Resolve(
-                shape?.Cloud?.Endpoint,
-                shape?.Cloud?.Disabled,
-                environment,
-                CloudChoices.FromJson(shape?.Cloud?.Group, shape?.Cloud?.NonGroup)),
+            Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             OverlayOn = shape?.OverlayOn ?? true,
             OverlayEditMode = shape?.OverlayEditMode ?? false,
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
@@ -304,29 +294,6 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         : new ListeningSettings(
             listening.On ?? false,
             string.IsNullOrWhiteSpace(listening.Microphone) ? null : listening.Microphone.Trim());
-
-    /// <summary>
-    /// Writes <c>cloud.disabled</c>, keeping every other field in the file and every other field in
-    /// the <c>cloud</c> object, the address included. A file that cannot be read as JSON, or whose
-    /// <c>cloud</c> is not an object, is left alone and false comes back.
-    /// </summary>
-    public static bool SaveCloudDisabled(string path, bool disabled)
-        => SaveInObject(path, CloudField, (CloudDisabledField, JsonValue.Create(disabled)));
-
-    /// <summary>
-    /// Writes <c>cloud.group</c> and <c>cloud.nonGroup</c>, the two things the Cloud Server page
-    /// chooses, keeping every other field in the file and in the <c>cloud</c> object.
-    /// </summary>
-    public static bool SaveCloudChoices(string path, CloudChoices choices)
-    {
-        ArgumentNullException.ThrowIfNull(choices);
-
-        return SaveInObject(
-            path,
-            CloudField,
-            (CloudChoices.GroupField, choices.GroupToJson()),
-            (CloudChoices.NonGroupField, choices.NonGroupToJson()));
-    }
 
     /// <summary>
     /// Writes the whole <c>listenForPhrase</c> object, keeping every other field in the file. The
@@ -570,57 +537,6 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(field);
 
-        return Edit(path, root =>
-        {
-            if (value is null)
-                root.Remove(field);
-            else
-                root[field] = value;
-
-            return true;
-        });
-    }
-
-    /// <summary>
-    /// Writes some fields inside one object of the file — <c>cloud</c> — and leaves every other
-    /// field of that object, and of the file, as it was. The object is made if the file has none.
-    /// Returns false, and changes nothing, when the named field is there and is not an object.
-    /// </summary>
-    private static bool SaveInObject(string path, string objectField, params (string Field, JsonNode Value)[] values)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(objectField);
-
-        return Edit(path, root =>
-        {
-            JsonObject target;
-            if (root[objectField] is null)
-            {
-                target = [];
-                root[objectField] = target;
-            }
-            else if (root[objectField] is JsonObject existing)
-            {
-                target = existing;
-            }
-            else
-            {
-                return false;
-            }
-
-            foreach (var (field, value) in values)
-                target[field] = value;
-
-            return true;
-        });
-    }
-
-    /// <summary>
-    /// Reads the file as one JSON object (or starts an empty one), lets <paramref name="change"/>
-    /// edit it, and writes it back. Nothing is written when the file cannot be read as an object, when
-    /// <paramref name="change"/> says no, or when the write fails.
-    /// </summary>
-    private static bool Edit(string path, Func<JsonObject, bool> change)
-    {
         try
         {
             JsonObject root;
@@ -636,8 +552,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
                 root = [];
             }
 
-            if (!change(root))
-                return false;
+            if (value is null)
+                root.Remove(field);
+            else
+                root[field] = value;
 
             if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
                 Directory.CreateDirectory(directory);
@@ -688,9 +606,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
-        [property: JsonPropertyName("disabled")] bool? Disabled,
-        [property: JsonPropertyName("group")] JsonObject? Group = null,
-        [property: JsonPropertyName("nonGroup")] JsonObject? NonGroup = null);
+        [property: JsonPropertyName("disabled")] bool? Disabled);
 
     private sealed record VoiceShape(
         [property: JsonPropertyName("on")] bool? On,

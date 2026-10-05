@@ -78,14 +78,10 @@ public sealed class StoredEvent
     /// <summary>The VRChat user it is about. Opaque; never checked for shape.</summary>
     public string SubjectId { get; set; } = string.Empty;
 
-    /// <summary>The world, or null when the client left it out because its person chose not to send it.</summary>
-    public string? WorldId { get; set; }
+    public string WorldId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// User-controlled text. Treat as hostile wherever it is shown. Null when the client left it out
-    /// because its person chose not to send it.
-    /// </summary>
-    public string? InstanceId { get; set; }
+    /// <summary>User-controlled text. Treat as hostile wherever it is shown.</summary>
+    public string InstanceId { get; set; } = string.Empty;
 
     /// <summary>The owning group, or null for an instance that has none.</summary>
     public string? GroupId { get; set; }

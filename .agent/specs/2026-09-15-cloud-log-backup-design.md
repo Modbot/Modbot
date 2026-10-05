@@ -12,10 +12,6 @@
   as described here, and the client's screens no longer name it, show its state, or let anybody filter
   by it. Everything it does is still written to `sent.jsonl` and to the client's log, and the privacy
   policy is where a person reads about it.
-- **Reversed in part by:** the Modbot Cloud settings on screen design (2026-10-04). The Settings page
-  now has a Modbot Cloud box and a Cloud Server page chooses what is sent, so §0.1's "the switch is gone
-  from the screen" and §3.1's "the client never writes the `cloud` field" no longer hold. The address
-  and the environment variables are as described here.
 
 ---
 

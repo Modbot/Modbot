@@ -4,11 +4,9 @@ description: Every setting in the companion, including starting with Windows, th
 ---
 
 The client's **Settings** page has the start-with-Windows switch, the **Tell me about** card, the
-**Voice** card, the [**Clips**](/companion/clips) card, the
-[**Modbot Cloud**](#modbot-cloud-backup) box, the [**Listening**](/companion/listening) card and the
-VRChat log folder. The **Cloud Server** page, after it in the sidebar, chooses what the Modbot Cloud
-backup sends. Everything else is set in the client's settings file or in environment variables on
-your PC: the pairing page, update checks, where Modbot Cloud is, and how much the client writes to
+**Voice** card, the [**Clips**](/companion/clips) card, the [**Listening**](/companion/listening)
+card and the VRChat log folder. Everything else is set in the client's settings file or in environment variables on
+your PC: the pairing page, update checks, Modbot Cloud backup, and how much the client writes to
 its own log.
 
 Nothing on this page is sent to any server. These settings decide what the client does on your PC.
@@ -104,11 +102,10 @@ The differences from what a Modbot server gets:
   has no say in where it goes or whether it is sent.
 - **Pausing a paired server does not pause it.** Pausing stops the client reporting to that
   server; the backup is a separate flow and keeps going until it is turned off here.
-- **The Audit Log page does not show it.** That page says what happened to each event's own
-  group's record — sent, waiting, withheld or failed — and nothing about the backup: no line of its
-  own, no state, no filter, and no error if a batch of it fails. What the backup did is in the
-  client's log file and in `%APPDATA%\Modbot\sent.jsonl`. The backup has its own place on screen,
-  below.
+- **The client's window does not show it.** The **Audit Log** page says what happened to each event's
+  own group's record — sent, waiting, withheld or failed — and nothing about the backup: no line
+  of its own, no state, no filter, and no error if a batch of it fails. What the backup did is in
+  the client's log file and in `%APPDATA%\Modbot\sent.jsonl`.
 
 It never sends VRChat's raw log, the secret part of an instance's address that would let someone
 join it, your pairing tokens, the client's own log, your computer's name or your Windows account
@@ -117,53 +114,9 @@ name.
 Each batch also carries a batch id, the client's version, your PC's clock time, and how far your
 clock is from Cloud's.
 
-### The Modbot Cloud box and the Cloud Server page
-
-The **Settings** page has a **Modbot Cloud** card with one box at the right end of its title row.
-Ticked is on, and unticked is off. The small **i** beside the title says what Modbot Cloud is.
-
-The **Cloud Server** page has the same box, and chooses what is sent. They are one setting, so
-changing one changes the other. It takes effect straight away: unticking it deletes everything the
-client had waiting to send, and nothing seen while it is off is ever sent.
-
-Under **Instance Data** are two sections, **Group instances** and **Non-group instances** — an
-instance no group owns. Each says how many of its five events are on. Open it to choose:
-
-| | Choices | |
-|---|---|---|
-| **Events** | **Joined**, **Already here**, **Left**, **Avatar changed**, **Modbot stopped logging** | Only the ones ticked are sent. |
-| **Details** | **World ID**, **Instance ID**, **Group** (group instances only), **Avatar name** | A detail that is not ticked is left out of each event, and is not written to your PC's queue either. |
-
-Everything is ticked until you untick it, so a client that never opens the page sends what it always
-did. **At least one event must stay on, across both sections**: unticking the last one is refused, it
-stays ticked, and the page says so. One section can have all five off, and the other then cannot lose
-its last.
-
-**Always sent** lists what cannot be turned off while Modbot Cloud is on: **Display name** (when
-VRChat's log gave one), **User ID**, **App version**, **Unique ID** (the event's random id),
-**Event Type**, and **Time / Offset to Cloud** (when it happened, how far your PC's clock is from
-Cloud's, and when the batch was sent). They are ticked while Modbot Cloud is on and unticked while it
-is off.
-
-Unticking Modbot Cloud folds every section and greys out every box you could change, keeping their
-ticks, and you can still open any section to read it. Ticking it again opens the ones that were open.
-
-**Next batch** lists the newest events waiting to be sent, up to five, with what each will carry.
-A detail you left out reads **not sent**. With nothing waiting, or with Modbot Cloud off, it says
-**Nothing is sent.**
-
-If `MODBOT_CLOUD_DISABLED` is set, the box shows what it says and cannot be changed. A test copy of
-the client (see [below](#a-test-copy-with-its-own-folder)) shows the box off and cannot be changed either.
-
-A Modbot Cloud that predates this page cannot take an event with no world id or instance id, and
-would refuse the whole batch. Cloud says whether it can in its answer when the client asks the time.
-If it does not say it can, or the client could not ask, the client sends the word `hidden` in place of
-a world id or instance id you left out. A group id or avatar name you left out is just left out.
-
 ### Turning it off, or sending it somewhere else
 
-Only the person using the PC can change this, in the **Modbot Cloud** box or in one of two other
-places:
+Only the person using the PC can change this, in one of two places:
 
 - In `%APPDATA%\Modbot\settings.json`, the `cloud` field:
 
@@ -171,20 +124,12 @@ places:
   {
     "cloud": {
       "endpoint": "https://cloud.example.org",
-      "disabled": true,
-      "group": {
-        "events": ["joined", "left"],
-        "worldId": false
-      },
-      "nonGroup": {
-        "events": ["stoppedLogging"]
-      }
+      "disabled": true
     }
   }
   ```
 
-  Every part is optional, and anything missing is on. The box and the **Cloud Server** page write
-  `disabled`, `group` and `nonGroup`, and leave `endpoint` and everything else as it was.
+  Both parts are optional.
 
 - In Windows environment variables for your account:
 
@@ -206,13 +151,10 @@ Things to know:
   `https://cloud.modbot.co` is used instead. The client's log says when that happens.
 - A value of `MODBOT_CLOUD_DISABLED` that is not one of the words above is ignored, and
   `settings.json` decides.
-- The box and the **Cloud Server** page take effect straight away. The client reads `settings.json`
-  and the variables when it starts, so quit it from the tray and open it again after editing the
-  file by hand or changing a variable.
+- The client reads these when it starts. Quit it from the tray and open it again after changing
+  them.
 - A client that starts with the backup off sends nothing, keeps nothing, and deletes anything left
   waiting from before. Turning it on again sends only what happens from then on.
-- A file whose `group` and `nonGroup` both name no event at all leaves the backup nothing to send,
-  so it does not register with Cloud or ask its time.
 
 ### How Cloud knows your client
 
@@ -231,9 +173,7 @@ batch. If Cloud stops recognising the install, the client registers again.
 - After a failure the client waits before trying again, a little longer each time up to five
   minutes, or as long as Cloud asks.
 - A batch Cloud refuses as broken or too large is deleted, not retried.
-- The client only asks Cloud's time when it has something to send, at most every two hours. The
-  same answer says whether Cloud takes an event with no world id or instance id (see
-  [above](#the-modbot-cloud-box-and-the-cloud-server-page)).
+- The client only asks Cloud's time when it has something to send, at most every two hours.
 - Cloud backup runs on its own, so a slow or missing Cloud never holds up reporting to your group's
   server or the overlay.
 
@@ -304,16 +244,7 @@ the file:
 | `voice.outputDevice` | absent | The chosen **Output device**, by the id the operating system gives it. Absent means the system default. |
 | `voice.name` | `Bella` | Which of the download's ten voices speaks. A name that is not one of them falls back to Bella. |
 | `cloud.endpoint` | `https://cloud.modbot.co` | Where Modbot Cloud backup goes. `MODBOT_CLOUD_ENDPOINT` wins over it. See [Modbot Cloud backup](#turning-it-off-or-sending-it-somewhere-else). |
-| `cloud.disabled` | `false` | `true` turns Modbot Cloud backup off. The **Modbot Cloud** box writes it. `MODBOT_CLOUD_DISABLED` wins over it. |
-| `cloud.group.events` | all five | Which events are sent for an instance a group owns: any of `joined`, `alreadyHere`, `left`, `avatarChanged` and `stoppedLogging`. An empty list sends none of them. See [The Modbot Cloud box and the Cloud Server page](#the-modbot-cloud-box-and-the-cloud-server-page). |
-| `cloud.group.worldId` | `true` | Whether the world id goes with each event. |
-| `cloud.group.instanceId` | `true` | Whether the instance id goes with each event. |
-| `cloud.group.groupId` | `true` | Whether the group id goes with each event. |
-| `cloud.group.avatarName` | `true` | Whether an avatar change carries the avatar's name. |
-| `cloud.nonGroup.events` | all five | The same list, for an instance no group owns. |
-| `cloud.nonGroup.worldId` | `true` | As `cloud.group.worldId`, for those instances. |
-| `cloud.nonGroup.instanceId` | `true` | As `cloud.group.instanceId`. |
-| `cloud.nonGroup.avatarName` | `true` | As `cloud.group.avatarName`. |
+| `cloud.disabled` | `false` | `true` turns Modbot Cloud backup off. `MODBOT_CLOUD_DISABLED` wins over it. |
 | `clips.on` | `false` | The **Keep the last few minutes, with VRChat's sound** switch. Off until you turn it on; nothing is recorded while it is off. See [Clips](/companion/clips). |
 | `clips.minutes` | `3` | How many minutes are kept, 2 to 5. Anything else is brought inside that range. |
 | `clips.discordSound` | `false` | The **Discord's sound too** box. VRChat's sound has no setting of its own — it is what Clips means. Nothing else this PC plays can be recorded, and there is no setting for it. See [the sound](/companion/clips#the-sound). |
@@ -340,9 +271,8 @@ Things to know:
   includes Cloud backup and starting with Windows being on. The environment variables still apply.
 - When you flip a switch, the client changes only that switch's field and leaves the rest of the
   file as it was; a change on the Voice card rewrites the whole `voice` object, and the same goes
-  for `notifyOverlay`, `desktopOverlay`, `desktopNotifyOverlay` and `notifications`. The **Modbot
-  Cloud** box and the **Cloud Server** page write `cloud.disabled`, `cloud.group` and
-  `cloud.nonGroup`, and never `cloud.endpoint` or anything else you put in `cloud`.
+  for `notifyOverlay`, `desktopOverlay`, `desktopNotifyOverlay` and `notifications`. It never
+  writes the `cloud` field.
 - If the file is broken, the client does not overwrite it. A switch you flip then only lasts until
   the client restarts.
 
@@ -663,9 +593,8 @@ settings are never touched. A test copy also:
   reaches that one (pair a test copy by pasting the token);
 - adds nothing to start with Windows and does not look for updates;
 - makes no request of its own: no event backup to Modbot Cloud (whatever `settings.json` or
-  `MODBOT_CLOUD_DISABLED` say, and its **Modbot Cloud** box shows off and cannot be ticked), no
-  Cloud install, no Credits read, and no voice or phrase model download. Only a server you pair in
-  the test copy itself is ever talked to;
+  `MODBOT_CLOUD_DISABLED` say), no Cloud install, no Credits read, and no voice or phrase model
+  download. Only a server you pair in the test copy itself is ever talked to;
 - has its own one-copy lock, so starting it never hands anything to your real copy;
 - says **Test copy** in the window's title and the tray icon's tooltip;
 - has a Restart button that does nothing: quit it from the tray and start it again.

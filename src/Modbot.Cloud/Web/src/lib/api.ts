@@ -55,8 +55,8 @@ export type EventView = {
   typeRaw: string | null
   subjectId: string
   displayName: string | null
-  worldId: string | null
-  instanceId: string | null
+  worldId: string
+  instanceId: string
   groupId: string | null
   data: string
 }

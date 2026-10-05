@@ -188,57 +188,6 @@ public sealed partial class CloudOutbox
         return events;
     }
 
-    /// <summary>
-    /// The newest events waiting, newest first, each as the JSON it will be sent as: the batch being
-    /// filled first, then closed batches from the latest back.
-    /// </summary>
-    /// <remarks>For the Cloud Server page's Next batch card. It changes nothing and reads only as much as it needs.</remarks>
-    public IReadOnlyList<string> Newest(int max)
-    {
-        var found = new List<string>();
-        if (max <= 0)
-            return found;
-
-        if (File.Exists(OpenPath))
-        {
-            try
-            {
-                using var file = new FileStream(OpenPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                using var reader = new StreamReader(file, Encoding.UTF8);
-                var lines = new List<string>();
-                while (reader.ReadLine() is { } line)
-                {
-                    if (line.Length > 0)
-                        lines.Add(line);
-                }
-
-                lines.Reverse();
-                found.AddRange(lines.Take(max));
-            }
-            catch (IOException)
-            {
-                // Being written as this is read. The next look finds it.
-            }
-        }
-
-        foreach (var batch in Batches().Reverse())
-        {
-            if (found.Count >= max)
-                break;
-
-            try
-            {
-                found.AddRange(ReadEvents(batch).Reverse().Take(max - found.Count));
-            }
-            catch (Exception ex) when (ex is IOException or InvalidDataException)
-            {
-                // Sent and deleted between listing it and opening it, or not a batch this client wrote.
-            }
-        }
-
-        return found;
-    }
-
     /// <summary>Deletes a batch Cloud has accepted, or refused for good.</summary>
     public void Delete(OutboxBatch batch)
     {

@@ -42,29 +42,8 @@ internal sealed class FakeCloudClient : ICloudLogClient
         return Answers.TryDequeue(out var answer) ? answer : new IngestResult(IngestOutcome.Accepted);
     }
 
-    /// <summary>
-    /// What Cloud's clock answer says. Null is a check that failed, which is also what a client sees
-    /// of a Cloud it cannot reach; <see cref="OldCloud"/> and <see cref="NewCloud"/> are the two answers
-    /// a Cloud that is up gives.
-    /// </summary>
-    public CloudTime? Time { get; set; }
-
-    /// <summary>How many times Cloud was asked the time.</summary>
-    public int Measured { get; private set; }
-
-    /// <summary>A Cloud that predates <c>acceptsMissingFields</c>: it answers the time and says nothing else.</summary>
-    public static CloudTime OldCloud { get; } = new(new ClockSample(Now, Now, Now), false);
-
-    /// <summary>A Cloud that says it takes an event with no world or instance.</summary>
-    public static CloudTime NewCloud { get; } = new(new ClockSample(Now, Now, Now), true);
-
-    private static readonly DateTimeOffset Now = new(2026, 9, 15, 8, 0, 0, TimeSpan.Zero);
-
-    public Task<CloudTime?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken)
-    {
-        Measured++;
-        return Task.FromResult(Time);
-    }
+    public Task<ClockSample?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken) =>
+        Task.FromResult<ClockSample?>(null);
 
     public int EventsSent => Sent.Sum(s => s.Body.RootElement.GetProperty("events").GetArrayLength());
 }

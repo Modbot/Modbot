@@ -1089,25 +1089,18 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void TheOnlyModbotCloudControlsAreTheTwoBoxesAndTheChoicesInOneFile()
+    public void TheWindowHasNoModbotCloudSwitch()
     {
-        // The window had no Modbot Cloud switch, by two earlier decisions (cloud event backup spec
-        // 3.1, and "stays out of the way", 2026-09-19). That was reversed on 2026-10-04 at the
-        // maintainer's request (cloud settings on screen design): the Settings page has a Modbot
-        // Cloud box and the Cloud Server page chooses what is sent. What has not changed is that it
-        // is all in one place, so a reader can see every control that decides what leaves the
-        // machine to Cloud: no other file of the window may draw one.
-        var drawing = SourcesUnder("Modbot.Companion.App")
-            .Where(f => File.ReadAllText(f).Split('\n')
-                .Any(line => (line.Contains("CheckBox", StringComparison.Ordinal)
-                        || line.Contains("ToggleSwitch", StringComparison.Ordinal)
-                        || line.Contains("ToggleButton", StringComparison.Ordinal))
-                    && line.Contains("Cloud", StringComparison.OrdinalIgnoreCase)))
-            .Select(Path.GetFileName)
-            .Order()
-            .ToList();
+        // Where the event backup goes, and whether it is sent, is set in settings.json or the
+        // environment on this PC (cloud event backup spec 3.1) -- never a control in the window.
+        var window = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Companion.App", "MainWindow.cs"));
 
-        Assert.Equal(["MainWindow.Cloud.cs"], drawing);
+        var toggles = window.Split('\n')
+            .Where(line => line.Contains("CheckBox", StringComparison.Ordinal)
+                || line.Contains("ToggleSwitch", StringComparison.Ordinal)
+                || line.Contains("ToggleButton", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(toggles, line => line.Contains("Cloud", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>The two files allowed to know the backup has a name of its own.</summary>
@@ -1132,10 +1125,6 @@ public class CompanionSourceGuardTests
         // question a reviewer should have to ask every time. So the window cannot see the backup at
         // all: not its name, not its per-row state, not the destination it is written under. What
         // the screen shows is JournalRow.State, one word per event.
-        //
-        // The Cloud Server page (2026-10-04) names Modbot Cloud and shows what is waiting for it,
-        // but it reads that from the backup's own queue (CloudEventBackup.NextBatch), not from the
-        // journal, so none of the above is needed there and the Events page is as it was.
         var offenders = SourcesUnder("Modbot.Companion.App")
             .Where(f => Regex.IsMatch(
                 File.ReadAllText(f),
