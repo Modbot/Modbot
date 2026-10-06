@@ -234,11 +234,11 @@ public sealed class ApiTestHost : IAsyncDisposable
     /// Puts the deployment back to "nobody has ever set this up".
     /// </summary>
     /// <remarks>
-    /// The settings row is a singleton and the user table is shared by every test in this
-    /// assembly, so onboarding tests -- which are almost entirely about the difference between
+    /// The settings row is a singleton and the user table is shared by every test in the class,
+    /// so onboarding tests -- which are almost entirely about the difference between
     /// "no staff account exists" and "one does" -- have to establish that difference rather than
-    /// inherit whatever the previous test left. Safe because the whole assembly shares one
-    /// collection and therefore runs serially.
+    /// inherit whatever the previous test left. Safe because each test class has a database of
+    /// its own (<see cref="PostgresFixture"/>) and a class's tests run one after another.
     /// </remarks>
     public static async Task ResetDeploymentAsync(PostgresFixture db, CancellationToken ct)
     {
