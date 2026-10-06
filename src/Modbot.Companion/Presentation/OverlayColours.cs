@@ -54,6 +54,13 @@ public sealed record OverlayColours(
     /// <summary>The lowest contrast the words may have against the panel and against the button fill.</summary>
     public const double LeastContrast = 3.0;
 
+    /// <summary>
+    /// The lowest contrast small words may have where a palette's dimmest text sits on the panel and
+    /// on a button. A step up from <see cref="LeastContrast"/>, because the row's small words, such as
+    /// when somebody joined, are read at a glance and VRChat's own menu has no such words.
+    /// </summary>
+    public const double LeastSmallContrast = 4.5;
+
     /// <summary>The two colours a selected tab's words fall back to when the palette's text would not read on it.</summary>
     public static readonly PaletteColour LightWords = new(0xF5, 0xF5, 0xF5);
 
@@ -91,6 +98,29 @@ public sealed record OverlayColours(
             Icon: palette.Icons,
             Text: palette.Text,
             Subtext: palette.Subtext);
+    }
+
+    /// <summary>
+    /// <paramref name="words"/> as they are while they read at <paramref name="least"/> on every ground,
+    /// and otherwise moved toward <paramref name="toward"/>, a tenth at a time, until they do.
+    /// </summary>
+    /// <remarks>
+    /// Keeps as much of the palette's own colour as the contrast allows, so a palette whose dim text
+    /// is already clear of the panel is drawn exactly as VRChat has it.
+    /// </remarks>
+    public static PaletteColour LiftedToRead(PaletteColour words, PaletteColour toward, double least, params PaletteColour[] grounds)
+    {
+        ArgumentNullException.ThrowIfNull(grounds);
+
+        for (var tenth = 0; tenth <= 10; tenth++)
+        {
+            var candidate = words.Toward(toward, tenth / 10.0);
+
+            if (grounds.All(ground => PaletteColour.Contrast(candidate, ground) >= least))
+                return candidate;
+        }
+
+        return toward;
     }
 
     /// <summary>

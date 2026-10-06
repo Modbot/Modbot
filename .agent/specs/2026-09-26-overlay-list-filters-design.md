@@ -60,6 +60,16 @@ The row says "<1 min", "12 min", "1 h 15 min" or "already here". The screen carr
 loop's clock (`OverlayScreen.Now`), and `LooksTheSameAs` compares only its minute, and only on the
 two list screens, so the panel is drawn again at most once a minute for the clock.
 
+*Changed 2026-10-05 (user):* "already here" reads "(here before you) ~Xm+" instead, where X is how
+long the moderator has been in the instance, counted to the start of the current minute: somebody
+who was there first has been there at least that long. An hour or more reads "~1hr 4m+", which is
+its own format and not the "1h 15m" the other rows use. The moderator's arrival is
+`OverlayScreen.ModeratorArrived`, from the moderator's own entry in the log's arrival times; when the
+log has none (the overlay was switched on mid-instance) or it is under a minute ago, the row says
+"(here before you)" alone, never a guessed time. The same words are on the Audit Log row, its Kind
+filter's choice and the wrist panel, and the wrist screen joins the two lists in being drawn again
+on the minute.
+
 ## 3. Typing a name
 
 Typing in VR is hostile, which is why every other filter is taps. A name is the one thing that

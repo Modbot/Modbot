@@ -56,15 +56,33 @@ public class NotSyncedViewTests
         => Draw<IReadOnlyList<OverlayTarget>>(screen, look ?? OverlayLook.Headset, root =>
             [.. root.GetLogicalDescendants().OfType<Border>().Select(b => b.Tag).OfType<OverlayTarget>()]);
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void TheNoteIsSaidOnceUnderTheHeadingInBothLooks(bool inVRChatLook)
+    [Fact]
+    public void TheNoteIsSaidOnceUnderTheHeadingInTheHeadsetLook()
     {
-        var texts = Texts(Screen(notSynced: true), inVRChatLook ? VRChatLook() : null);
+        var texts = Texts(Screen(notSynced: true));
 
         Assert.Single(texts, "Not synced with the group");
         Assert.Contains("Not in a group instance", texts);
+    }
+
+    [Fact]
+    public void InVRChatsLookTheNoteIsATagInTheTitleStripAndNotOnThePanel()
+    {
+        // The window's strip draws the tag (DesktopOverlayWindow); the panel keeps the one heading.
+        var texts = Texts(Screen(notSynced: true), VRChatLook());
+
+        Assert.DoesNotContain("Not synced with the group", texts);
+        Assert.Single(texts, "Not in a group instance");
+    }
+
+    [Fact]
+    public void InVRChatsLookAGroupsNameIsInTheStripAndNotAlsoHeadingThePanel()
+    {
+        var group = Screen(notSynced: false) with { GroupLabel = "Thy Kingdom" };
+
+        Assert.DoesNotContain("Thy Kingdom", Texts(group, VRChatLook()));
+        Assert.DoesNotContain("Not in a group instance", Texts(group, VRChatLook()));
+        Assert.Contains("Thy Kingdom", Texts(group));
     }
 
     [Fact]

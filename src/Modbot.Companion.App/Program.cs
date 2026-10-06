@@ -3112,6 +3112,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             // on the Instance list and filters by it; it is never sent.
             _overlay.ArrivedAt = _engine?.ArrivedAt;
 
+            // And who the moderator is in it, so their own arrival can be told from everybody's: a
+            // person already here has been here at least that long. Never sent.
+            _overlay.ModeratorId = _engine?.ModeratorId;
+
             // And who they are, by the name the log gave them: the Instance list in an instance
             // no group owns, where no server has a roster to give. Never sent.
             _overlay.PeopleHere = _engine?.PeopleHere;

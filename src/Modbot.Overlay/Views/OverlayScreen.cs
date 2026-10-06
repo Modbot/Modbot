@@ -96,6 +96,11 @@ public enum OverlayPage
 /// PC's own copy of VRChat's log rather than from a server. The panel says so, draws no rank, flags
 /// or heads-up "+", and keeps the heads-up controls off. False in a group instance.
 /// </param>
+/// <param name="ModeratorArrived">
+/// When the moderator got into this instance, from this PC's own copy of VRChat's log, or null when it
+/// has no record of it (the overlay was switched on mid-instance). Somebody who was already here has
+/// been here at least this long, which is what their row says (<see cref="ListFiltering.HereBeforeYouWords"/>).
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -119,7 +124,8 @@ public sealed record OverlayScreen(
     HeadsUpDraft? Draft = null,
     bool CanPlaceHeadsUps = false,
     IReadOnlyList<RecentLeaver>? Left = null,
-    bool NotSynced = false)
+    bool NotSynced = false,
+    DateTimeOffset? ModeratorArrived = null)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -178,6 +184,7 @@ public sealed record OverlayScreen(
             && Clips == other.Clips
             && ShowIdleCard == other.ShowIdleCard
             && NotSynced == other.NotSynced
+            && ModeratorArrived == other.ModeratorArrived
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor
             && Page == other.Page
@@ -202,12 +209,13 @@ public sealed record OverlayScreen(
     }
 
     /// <summary>
-    /// Whether the clock has moved on far enough to change what is drawn. Only the two lists show
-    /// anything measured against it, and nothing they show is finer than a minute.
+    /// Whether the clock has moved on far enough to change what is drawn. Only the two lists, and the
+    /// wrist's newest event (which can be a person who was here before the moderator), show anything
+    /// measured against it, and nothing they show is finer than a minute.
     /// </summary>
     private bool SameMinute(OverlayScreen other)
     {
-        if (Page is not (OverlayPage.Instance or OverlayPage.Events))
+        if (Page is not (OverlayPage.Instance or OverlayPage.Events or OverlayPage.Wrist))
             return true;
 
         return Now.UtcTicks / TimeSpan.TicksPerMinute == other.Now.UtcTicks / TimeSpan.TicksPerMinute;

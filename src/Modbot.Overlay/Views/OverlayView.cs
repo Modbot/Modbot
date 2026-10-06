@@ -107,10 +107,15 @@ public sealed class OverlayView
         // Whose community this is, said once at the top rather than repeated on every card below.
         // The name and the icon, because that is what a moderator knows their group by; the
         // server's address is a fallback and never the first thing said. In VRChat's look the
-        // title strip above already carries the icon, so this is the large heading alone.
-        stack.Children.Add(V is null ? GroupLine(screen, icon) : Heading(screen));
+        // title strip above already carries the group's name and icon, so inside a group's instance
+        // this says nothing at all, and anywhere else it is the large heading alone: the strip
+        // carries the small "not synced" tag instead of a second copy of the heading.
+        if (V is null)
+            stack.Children.Add(GroupLine(screen, icon));
+        else if (screen.GroupLabel is null)
+            stack.Children.Add(Heading(screen));
 
-        if (screen.NotSynced)
+        if (screen.NotSynced && V is null)
             stack.Children.Add(NotSyncedNote(T.Density.TextSmall));
 
         if (screen.Health is { Length: > 0 } health)
@@ -175,7 +180,7 @@ public sealed class OverlayView
         var panel = new Border
         {
             Background = Brushes.Transparent,
-            Padding = V is null ? new Thickness(20) : new Thickness(18, 16),
+            Padding = V is null ? new Thickness(20) : new Thickness(16, 14),
             Child = content,
         };
 
@@ -230,7 +235,7 @@ public sealed class OverlayView
                 newest.Person?.DisplayName ?? newest.Person?.SubjectId ?? Words(newest.Kind),
                 T.Density.TextBase * 1.5,
                 T.TextDimBrush));
-            lines.Children.Add(Text(Words(newest.Kind), T.Density.TextBase * 1.3, T.TextDimBrush));
+            lines.Children.Add(Text(EventWords(newest, screen), T.Density.TextBase * 1.3, T.TextDimBrush));
         }
 
         return new Border
@@ -357,8 +362,8 @@ public sealed class OverlayView
     }
 
     /// <summary>
-    /// The large heading at the top of the panel in VRChat's look: the group's name, or what stands
-    /// in for it. The same words the title strip says, as the mock has them.
+    /// The large heading at the top of the panel in VRChat's look, drawn only where the title strip
+    /// has no group's name to say: what stands in for the group when there is none.
     /// </summary>
     private Control Heading(OverlayScreen screen)
     {
@@ -414,7 +419,7 @@ public sealed class OverlayView
             Child = new Avalonia.Controls.Shapes.Path
             {
                 Data = Geometry.Parse(icon),
-                Fill = chosen ? v.SelectedText : v.Icon,
+                Fill = chosen ? v.BrightText : v.Icon,
                 Width = 24,
                 Height = 24,
             },
@@ -422,16 +427,19 @@ public sealed class OverlayView
         glyph.Margin = new Thickness(0, 0, 10, 0);
         DockPanel.SetDock(glyph, Avalonia.Controls.Dock.Left);
 
-        var label = Text(caption, 17, chosen ? v.SelectedText : v.Text, FontWeight.Bold);
+        var label = Text(caption, 18, chosen ? v.BrightText : v.Text, FontWeight.ExtraBold);
         label.VerticalAlignment = VerticalAlignment.Center;
 
+        // Standing up, as VRChat's buttons do: a lighter edge along the top and a darker one along
+        // the bottom, and the one showing in the highlights colour at full strength.
         return new Border
         {
             Tag = new OverlayTarget.GoTo(page),
-            Background = chosen ? v.Selected : v.Button,
-            BorderBrush = chosen ? v.SelectedEdge : T.BorderBrush,
+            Background = chosen ? v.Bright : v.Button,
+            BorderBrush = chosen ? v.RaisedBrightEdge : v.RaisedEdge,
             BorderThickness = new Thickness(VRChatLook.EdgeWidth),
             CornerRadius = new CornerRadius(VRChatLook.CardRadius),
+            BoxShadow = v.CardShadow,
             Padding = new Thickness(12, 10),
             Child = new DockPanel { LastChildFill = true, Children = { glyph, label } },
         };
@@ -526,16 +534,21 @@ public sealed class OverlayView
         var open = filters.Open == part;
         var set = picked is not null;
 
+        // In VRChat's look a chip nobody has picked is an ordinary button in the full text colour,
+        // not dim words on a flat grey that read as switched off; one that is picked is the selected
+        // colour. Both stand up like the tabs do.
         var label = Text(
             (set ? PartName(list, part) + ": " + picked : PartName(list, part)) + (open ? "  ▴" : "  ▾"),
             T.Density.TextSmall,
-            set ? T.TextBrush : T.TextDimBrush,
-            FontWeight.SemiBold);
+            V is { } look
+                ? set ? look.SelectedText : look.Text
+                : set ? T.TextBrush : T.TextDimBrush,
+            V is null ? FontWeight.SemiBold : FontWeight.Bold);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.HorizontalAlignment = HorizontalAlignment.Center;
         label.MaxWidth = 260;
 
-        return new Border
+        var chip = new Border
         {
             Tag = new OverlayTarget.Filter(list, part),
             Background = set ? T.AccentDimBrush : T.Surface2Brush,
@@ -547,10 +560,29 @@ public sealed class OverlayView
             Padding = new Thickness(14, 6),
             Child = label,
         };
+
+        if (V is { } v)
+            Raise(chip, set ? v.Selected : v.Button, set || open);
+
+        return chip;
+    }
+
+    /// <summary>
+    /// Gives a button, a chip or a tab VRChat's raised look: the fill, an edge lighter on top and darker
+    /// below, and a soft shadow. <paramref name="lit"/> is the highlights colour's edge rather than
+    /// the button colour's. Only ever called while the screen is drawn in VRChat's look.
+    /// </summary>
+    private void Raise(Border button, IBrush fill, bool lit)
+    {
+        var v = V!;
+        button.Background = fill;
+        button.BorderBrush = lit ? v.RaisedBrightEdge : v.RaisedEdge;
+        button.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
+        button.BoxShadow = v.CardShadow;
     }
 
     /// <summary>How tall a filter or a choice is: short of a tab, still an easy target for a ray.</summary>
-    private double ChipHeight => V is null ? 48 : 36;
+    private double ChipHeight => V is null ? 48 : 38;
 
     /// <summary>
     /// The open filter's choices, in a strip under the row. One tap picks; a filter that takes
@@ -648,14 +680,16 @@ public sealed class OverlayView
         var label = Text(
             chosen ? "✓ " + caption : caption,
             T.Density.TextSmall,
-            chosen ? T.TextBrush : T.TextDimBrush,
-            chosen ? FontWeight.SemiBold : FontWeight.Normal);
+            V is { } look
+                ? chosen ? look.SelectedText : look.Text
+                : chosen ? T.TextBrush : T.TextDimBrush,
+            V is not null ? FontWeight.Bold : chosen ? FontWeight.SemiBold : FontWeight.Normal);
         label.VerticalAlignment = VerticalAlignment.Center;
         line.Children.Add(label);
         line.VerticalAlignment = VerticalAlignment.Center;
         line.HorizontalAlignment = HorizontalAlignment.Center;
 
-        return new Border
+        var choice = new Border
         {
             Tag = target,
             Background = chosen ? T.AccentDimBrush : T.Surface3Brush,
@@ -667,6 +701,11 @@ public sealed class OverlayView
             Padding = new Thickness(12, 6),
             Child = line,
         };
+
+        if (V is { } v)
+            Raise(choice, chosen ? v.Selected : v.Button, chosen);
+
+        return choice;
     }
 
     /// <summary>
@@ -764,7 +803,7 @@ public sealed class OverlayView
         else
         {
             foreach (var @event in events.Take(MostEventRows))
-                rows.Children.Add(EventRow(@event));
+                rows.Children.Add(EventRow(@event, screen));
         }
 
         // In VRChat's look every row is a card of its own, so there is nothing to put them in.
@@ -786,17 +825,35 @@ public sealed class OverlayView
     /// <summary>How many event rows fit the panel. More than this and the oldest simply are not drawn.</summary>
     private const int MostEventRows = 10;
 
-    private Control EventRow(LiveEvent @event)
+    private Control EventRow(LiveEvent @event, OverlayScreen screen)
     {
         var flagged = @event.Flagged || @event.Kind == LiveEventKinds.FlaggedJoin;
 
         var what = Text(
-            Words(@event.Kind),
+            EventWords(@event, screen),
             T.Density.TextSmall,
             flagged ? T.DangerBrush : T.TextDimBrush,
             FontWeight.SemiBold);
         what.VerticalAlignment = VerticalAlignment.Center;
-        what.Width = 110;
+
+        // A column wide enough for the kinds, except for the one that says how long somebody has
+        // been here, which is longer and takes what it needs.
+        if (@event.Kind != LiveEventKinds.PersonHere)
+        {
+            what.Width = 110;
+        }
+        else if (V is null)
+        {
+            what.MinWidth = 110;
+        }
+        else
+        {
+            // On the desktop window it is given a second line instead, so the name keeps its room.
+            what.FontSize = T.Density.TextTiny;
+            what.TextWrapping = TextWrapping.Wrap;
+            what.MaxLines = 2;
+            what.Width = 132;
+        }
 
         var who = Text(
             @event.Person?.DisplayName ?? @event.Person?.SubjectId ?? "—",
@@ -838,10 +895,20 @@ public sealed class OverlayView
         LiveEventKinds.PersonJoined => "Joined",
         LiveEventKinds.FlaggedJoin => "Flagged join",
         LiveEventKinds.PersonLeft => "Left",
-        LiveEventKinds.PersonHere => "Already here",
+        LiveEventKinds.PersonHere => ListFiltering.HereBeforeYou,
         LiveEventKinds.WatchStopped => "Watch ended",
         _ => kind,
     };
+
+    /// <summary>
+    /// What an event row says of its kind: the same words as <see cref="Words(string)"/>, except that
+    /// somebody who was here before the moderator also says how long the moderator has been here, which
+    /// is the least long they have been (<see cref="ListFiltering.HereBeforeYouWords"/>).
+    /// </summary>
+    private string EventWords(LiveEvent @event, OverlayScreen screen)
+        => @event.Kind == LiveEventKinds.PersonHere
+            ? ListFiltering.HereBeforeYouWords(screen.ModeratorArrived, screen.Now)
+            : Words(@event.Kind);
 
     /// <summary>
     /// One person, opened from their roster row: what the roster already knew and what the
@@ -1040,7 +1107,7 @@ public sealed class OverlayView
             foreach (var member in shown.Skip(skip))
             {
                 var joined = arrivals.TryGetValue(member.SubjectId, out var at) && screen.Now != default
-                    ? ListFiltering.JoinedWords(at, screen.Now)
+                    ? ListFiltering.JoinedWords(at, screen.Now, screen.ModeratorArrived)
                     : null;
 
                 // Somebody who just left: a greyed row with the seconds it has left instead of how
@@ -1100,9 +1167,10 @@ public sealed class OverlayView
         return new Border
         {
             Background = V.Button,
-            BorderBrush = T.BorderBrush,
+            BorderBrush = V.RaisedEdge,
             BorderThickness = new Thickness(VRChatLook.EdgeWidth),
             CornerRadius = new CornerRadius(VRChatLook.CardRadius),
+            BoxShadow = V.CardShadow,
             Padding = new Thickness(14, 12),
             Child = lines,
         };
@@ -1133,8 +1201,8 @@ public sealed class OverlayView
             },
         };
 
-        // In VRChat's look the dot sits on a round stand-in for a profile picture, as the mock has
-        // it, and says the same thing it always did.
+        // In VRChat's look the dot sits on a rounded square standing in for a profile picture, as
+        // VRChat's friends list has them, and says the same thing it always did.
         Control badge = V is null ? dot : Avatar(dot);
 
         var name = Text(
@@ -1212,18 +1280,39 @@ public sealed class OverlayView
     }
 
     /// <summary>
-    /// A round stand-in for a person's picture, in the icon colour, with the standing dot at its
-    /// lower edge. Roster rows have no picture to show, so this is not one.
+    /// A rounded square standing in for a person's picture, in the look's own colours, with the
+    /// standing dot at its lower corner.
     /// </summary>
+    /// <remarks>
+    /// Always a stand-in. A roster row carries no picture address (a server's roster has the id, the
+    /// name, the standing, the flags and the rank, and the log has less), and this panel fetches nothing
+    /// of its own, so there is no picture to draw. Where one is added to the data, it goes in the
+    /// square and the head and shoulders stay as what shows while it has not arrived.
+    /// </remarks>
     private Control Avatar(Ellipse standing)
     {
-        const double Size = 30;
+        const double Size = 38;
 
         standing.Stroke = V!.Button;
         standing.StrokeThickness = 2;
         standing.HorizontalAlignment = HorizontalAlignment.Right;
         standing.VerticalAlignment = VerticalAlignment.Bottom;
-        standing.Margin = new Thickness(0, 0, -3, -3);
+        standing.Margin = new Thickness(0, 0, -4, -4);
+
+        var head = new Viewbox
+        {
+            Width = Size * 0.62,
+            Height = Size * 0.62,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse(PersonIcon),
+                Fill = V.IconOnEdge,
+                Width = 24,
+                Height = 24,
+            },
+        };
 
         return new Grid
         {
@@ -1232,7 +1321,12 @@ public sealed class OverlayView
             VerticalAlignment = VerticalAlignment.Center,
             Children =
             {
-                new Ellipse { Fill = V.Icon, Opacity = 0.9 },
+                new Border
+                {
+                    Background = V.Edge,
+                    CornerRadius = new CornerRadius(VRChatLook.CardRadius),
+                    Child = head,
+                },
                 standing,
             },
         };
@@ -1510,10 +1604,10 @@ public sealed class OverlayView
     /// 40 of the texture's 1,024 pixels is still about 1.8 cm on a panel 45 cm wide: easy to land
     /// a controller's ray on.
     /// </remarks>
-    private double RowBoxHeight => V is null ? 40 : 48;
+    private double RowBoxHeight => V is null ? 40 : 56;
 
     /// <summary>The gap between two rows' boxes.</summary>
-    private double RowGap => V is null ? 4 : 8;
+    private double RowGap => V is null ? 4 : 10;
 
     /// <summary>
     /// One row of a list: a box that opens a person's card when <paramref name="subjectId"/> is
@@ -1545,9 +1639,25 @@ public sealed class OverlayView
 
             if (trailing is not null)
             {
-                var end = Text(trailing, T.Density.TextSmall, T.TextDimBrush);
+                // In VRChat's look the words at the end (how long somebody has been here) are in the full
+                // text colour and a heavier weight: they are what the eye comes to the row for.
+                var end = V is { } look
+                    ? Text(trailing, T.Density.TextSmall, look.Text, FontWeight.Bold)
+                    : Text(trailing, T.Density.TextSmall, T.TextDimBrush);
                 end.VerticalAlignment = VerticalAlignment.Center;
                 end.Margin = new Thickness(10, 0, 0, 0);
+
+                // "(here before you) ~1hr 4m+" is long for the end of a row on the desktop window: it
+                // is allowed a second line, and breaks after the first words, so the name keeps its room.
+                if (V is not null && trailing.StartsWith(ListFiltering.HereBeforeYou, StringComparison.Ordinal))
+                {
+                    end.FontSize = T.Density.TextTiny;
+                    end.TextWrapping = TextWrapping.Wrap;
+                    end.TextAlignment = TextAlignment.Right;
+                    end.MaxLines = 2;
+                    end.MaxWidth = 132;
+                }
+
                 DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
                 dock.Children.Add(end);
             }
@@ -1555,6 +1665,11 @@ public sealed class OverlayView
             dock.Children.Add(line);
             content = dock;
         }
+
+        // A long name is cut where the words at the end begin, or at the edge of the row, rather than
+        // drawn under them or past it.
+        if (V is not null)
+            line.ClipToBounds = true;
 
         var row = new Border
         {
@@ -1567,12 +1682,14 @@ public sealed class OverlayView
         if (subjectId is null)
             return row;
 
-        // In VRChat's look a row with somebody behind it is a card, edge and all.
-        if (V is not null)
+        // In VRChat's look a row with somebody behind it is a card, edge and all, standing up the way
+        // the buttons do. Its contents are cut to it by the line inside, not by the card itself, so
+        // the shadow can fall outside.
+        if (V is { } card)
         {
-            row.BorderBrush = T.BorderBrush;
-            row.BorderThickness = new Thickness(T.Density.Hairline);
-            row.ClipToBounds = true;
+            row.BorderBrush = card.RaisedEdge;
+            row.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
+            row.BoxShadow = card.CardShadow;
         }
 
         row.Tag = new OverlayTarget.Person(subjectId);

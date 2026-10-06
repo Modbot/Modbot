@@ -365,6 +365,23 @@ public sealed class OverlayDriver : IDisposable
     public IReadOnlyDictionary<string, DateTime?>? ArrivedAt { get; set; }
 
     /// <summary>
+    /// The moderator's own VRChat id as the log reading last said, or null while it is not known.
+    /// Their entry in <see cref="ArrivedAt"/> is when they got into the instance, which is how long
+    /// somebody who was already here has been here at the least.
+    /// </summary>
+    /// <remarks>Read, never sent. Set by the companion with <see cref="ArrivedAt"/>.</remarks>
+    public string? ModeratorId { get; set; }
+
+    /// <summary>
+    /// When the moderator got into the instance, as an instant, or null when the log has no record of it
+    /// (the overlay was switched on after they arrived, or the id is not known yet). Never guessed.
+    /// </summary>
+    private DateTimeOffset? ModeratorArrived()
+        => ModeratorId is { } id && ArrivedAt is { } arrived && arrived.TryGetValue(id, out var at) && at is { } local
+            ? _timestamps.ToInstant(local)
+            : null;
+
+    /// <summary>
     /// Who is in the moderator's instance, with the names VRChat's log gave them. Set by the
     /// companion, which reads the log, and the only source of the Instance list in an instance no
     /// group owns.
@@ -1310,7 +1327,8 @@ public sealed class OverlayDriver : IDisposable
             Now: _clock.UtcNow,
             CanPlaceHeadsUps: false,
             Left: _leavers.Current(),
-            NotSynced: true);
+            NotSynced: true,
+            ModeratorArrived: ModeratorArrived());
     }
 
     private OverlayScreen Build(Server server)
@@ -1354,7 +1372,8 @@ public sealed class OverlayDriver : IDisposable
             HeadsUps: roster.Value?.HeadsUpsOrNone,
             Draft: _draft,
             CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected,
-            Left: _leavers.Current());
+            Left: _leavers.Current(),
+            ModeratorArrived: ModeratorArrived());
     }
 
     /// <summary>

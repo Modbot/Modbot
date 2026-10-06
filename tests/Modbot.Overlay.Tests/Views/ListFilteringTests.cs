@@ -133,16 +133,57 @@ public class ListFilteringTests
     }
 
     [Theory]
-    [InlineData(null, "already here")]
     [InlineData(0.5, "<1m")]
     [InlineData(5.2, "5m")]
     [InlineData(60.0, "1h")]
     [InlineData(75.0, "1h 15m")]
-    public void JoinTimesAreSaidInFewWords(double? minutesAgo, string words)
+    public void JoinTimesAreSaidInFewWords(double minutesAgo, string words)
     {
-        DateTimeOffset? arrived = minutesAgo is { } m ? Now.AddMinutes(-m) : null;
+        Assert.Equal(words, ListFiltering.JoinedWords(Now.AddMinutes(-minutesAgo), Now));
+    }
 
-        Assert.Equal(words, ListFiltering.JoinedWords(arrived, Now));
+    [Theory]
+    [InlineData(5.0, "(here before you) ~5m+")]
+    [InlineData(59.0, "(here before you) ~59m+")]
+    [InlineData(60.0, "(here before you) ~1hr 0m+")]
+    [InlineData(64.0, "(here before you) ~1hr 4m+")]
+    [InlineData(135.0, "(here before you) ~2hr 15m+")]
+    public void SomebodyAlreadyHereSaysHowLongTheModeratorHasBeenThere(double minutesAgo, string words)
+    {
+        // Their own arrival is not known (null), so they were here before the moderator.
+        Assert.Equal(words, ListFiltering.JoinedWords(null, Now, Now.AddMinutes(-minutesAgo)));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0.0)]
+    [InlineData(0.9)]
+    public void SomebodyAlreadyHereSaysNoTimeWhenThereIsNoneToSay(double? minutesAgo)
+    {
+        // The moderator's arrival is not known (switched on mid-instance), or is under a minute ago: the
+        // words stand alone, and no time is guessed.
+        DateTimeOffset? moderator = minutesAgo is { } m ? Now.AddMinutes(-m) : null;
+
+        Assert.Equal("(here before you)", ListFiltering.JoinedWords(null, Now, moderator));
+        Assert.Equal("(here before you)", ListFiltering.HereBeforeYouWords(moderator, Now));
+    }
+
+    [Fact]
+    public void TheTimeChangesOnTheMinuteTheListIsRedrawnOn()
+    {
+        // Counted in whole minutes on both clocks, so a screen redrawn once a minute is never a
+        // minute behind what it says.
+        var arrived = new DateTimeOffset(2026, 9, 26, 20, 55, 40, TimeSpan.Zero);
+
+        Assert.Equal("(here before you) ~4m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddSeconds(10)));
+        Assert.Equal("(here before you) ~4m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddSeconds(59)));
+        Assert.Equal("(here before you) ~5m+", ListFiltering.HereBeforeYouWords(arrived, Now.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void SomebodyWhoArrivedAfterTheModeratorKeepsTheirJoinTime()
+    {
+        Assert.Equal("5m", ListFiltering.JoinedWords(Now.AddMinutes(-5), Now, Now.AddMinutes(-30)));
     }
 
     private static LiveEvent Event(string id, string kind, string? name, string? rank, int minutesAgo, RosterStanding standing = RosterStanding.Ordinary)

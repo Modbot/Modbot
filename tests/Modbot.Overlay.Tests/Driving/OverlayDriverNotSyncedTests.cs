@@ -1,6 +1,7 @@
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Time;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
@@ -269,6 +270,41 @@ public class OverlayDriverNotSyncedTests
 
         Assert.True(presenter.Last.ArrivalsOrNone["usr_Jo"] is not null);
         Assert.Null(presenter.Last.ArrivalsOrNone["usr_Kai"]);
+    }
+
+    [Fact]
+    public async Task TheModeratorsOwnArrivalIsOnTheScreenForWhoWasHereBeforeThem()
+    {
+        var (driver, presenter, _, _) = Build();
+        driver.PeopleHere = [Here("Me"), Here("Kai")];
+        var arrived = new DateTime(2026, 10, 5, 20, 50, 0, DateTimeKind.Unspecified);
+        driver.ArrivedAt = new Dictionary<string, DateTime?> { ["usr_Me"] = arrived, ["usr_Kai"] = null };
+        driver.ModeratorId = "usr_Me";
+
+        driver.EnteredInstance(Location());
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new LogTimestampConverter().ToInstant(arrived), presenter.Last.ModeratorArrived);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public async Task WithNoRecordOfTheModeratorsArrivalNoTimeIsGuessed(bool knowsWho, bool hasArrival)
+    {
+        // The overlay was switched on mid-instance, or the log has not said who the moderator is.
+        var (driver, presenter, _, _) = Build();
+        driver.PeopleHere = [Here("Kai")];
+        driver.ArrivedAt = hasArrival
+            ? new Dictionary<string, DateTime?> { ["usr_Me"] = new DateTime(2026, 10, 5, 20, 50, 0, DateTimeKind.Unspecified) }
+            : new Dictionary<string, DateTime?> { ["usr_Kai"] = null };
+        driver.ModeratorId = knowsWho ? "usr_Me" : null;
+
+        driver.EnteredInstance(Location());
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(presenter.Last.ModeratorArrived);
     }
 
     [Fact]
