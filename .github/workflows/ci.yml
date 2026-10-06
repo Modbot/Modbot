@@ -20,8 +20,37 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # The .NET build and every test suite, split over parallel jobs. The Api suite alone took 71 of
+  # the roughly 90 minutes of the run of 2026-10-06 (2195 tests, four classes at a time on a
+  # four-processor runner, so every test was slowed by the others), and nothing else in the run
+  # could start before it ended. The matrix below runs it as four shards, each on a runner of its
+  # own, beside one job for every other suite:
+  #
+  #   other        every suite except Api, in the order the old single job ran them. This is the
+  #                job that builds the whole solution and checks the OpenAPI document, so it is
+  #                also the compile check of everything.
+  #   api-1..api-3 the Api test classes listed for that shard in .github/test-shards/api.json.
+  #   api-4        every Api test class not listed for api-1 to api-3, so a new test class that
+  #                nobody has put in the file still runs, in this shard.
+  #
+  # The shards build only the Api test project and what it references. Each shard starts its own
+  # PostgreSQL container (the Api test classes already have one database each and share nothing, so
+  # a shard needs nothing from another).
+  #
+  # A job named `build` (below) gathers the result, because the repository's required check may
+  # name `build`: it was this job's name before the split.
+  tests:
     runs-on: ubuntu-latest
+    # A hung suite is stopped by its own time limit below and still reported; this is the last
+    # resort. The whole job, build and reporting included.
+    timeout-minutes: 90
+    strategy:
+      # One failing shard must not hide the others: each one's result is worth having.
+      fail-fast: false
+      matrix:
+        name: [other, api-1, api-2, api-3, api-4]
+    env:
+      SHARD: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,15 +67,27 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore
+        if: matrix.name == 'other'
         run: dotnet restore
 
       - name: Build
+        if: matrix.name == 'other'
         run: dotnet build --no-restore --configuration Release
+
+      # An Api shard needs only the Api test project and the projects it references.
+      - name: Restore the Api tests
+        if: matrix.name != 'other'
+        run: dotnet restore tests/Modbot.Api.Tests
+
+      - name: Build the Api tests
+        if: matrix.name != 'other'
+        run: dotnet build tests/Modbot.Api.Tests --no-restore --configuration Release
 
       # Building Modbot.Server rewrites docs/openapi/modbot.json from the endpoints themselves. The
       # docs site is built from the committed copy, so a change here means an endpoint changed and
       # the document was not rebuilt and committed with it.
       - name: Check the OpenAPI document is current
+        if: matrix.name == 'other'
         run: |
           if ! git diff --exit-code -- docs/openapi/modbot.json; then
             echo "::error file=docs/openapi/modbot.json::The OpenAPI document is out of date. Build Modbot.Server and commit docs/openapi/modbot.json."
@@ -65,38 +106,45 @@ jobs:
       # is slow and a suite that is stuck look the same in the log (the run of 2026-10-06 was
       # cancelled by hand after 1 h 40 m inside Modbot.Api.Tests with no way to tell which it was).
       # A suite that goes over the limit is now stopped, reported as timed out, and the rest still
-      # run. The whole Test step took 2 to 4 hours on the runs of 2026-10-03 to
-      # 2026-10-05, so the limit is set above any one suite's likely time and must be lowered once
-      # the table in the run's summary shows what each suite takes. A job may not run past 6 hours.
-      # Interrupt first so the suite can clean up (Docker containers), then kill 60 seconds later.
+      # run. The whole Test step took 2 to 4 hours on the runs of 2026-10-03 to 2026-10-05; the Api
+      # suite is now cut into four shards that each take a fraction of that, so the limit is
+      # lowered from 180 to 60 minutes (the job as a whole may not run past the 90 above). Raise it
+      # if a shard or a suite honestly needs more. Interrupt first so the suite can clean up
+      # (Docker containers), then kill 60 seconds later.
       #
       # `-longRunning` makes the suite print a line for any single test still running after that
       # many seconds, so a hang shows in the log long before the time limit ends it. It turns on
       # the suite's diagnostic messages, which is what prints those lines.
       #
-      # Each suite's result and minutes go into the run's summary page as a table.
+      # Each suite's result, minutes and test count go into the run's summary page as a table
+      # (one per job).
       #
-      # The suites run in a fixed order, quick ones first and the three slowest (VRChat, Discord,
-      # Api: over two of the roughly two and a half hours between them) last. They ran in
-      # alphabetical order, so a broken test in a small suite was reported only after the Api
-      # suite had finished; now it is reported within about fifteen minutes. A suite that is in
-      # neither list below still runs, ahead of the slow three, so a new project is never skipped;
-      # and a name in a list that no longer matches a project is a warning, not silently ignored.
+      # The `other` job runs the suites in a fixed order, quick ones first and the two slowest
+      # (VRChat, Discord) last. They ran in alphabetical order, so a broken test in a small suite
+      # was reported only after the Api suite had finished; now it is reported within about
+      # fifteen minutes. A suite that is in neither list below still runs, ahead of the slow two,
+      # so a new project is never skipped; and a name in a list that no longer matches a project is
+      # a warning, not silently ignored. The Api suite is not in this job: the api shards run it.
+      #
+      # An Api shard runs the Api suite once, with a response file that holds all of its arguments
+      # (xUnit reads `@@ file`, one argument per line, so the long list of class names never has
+      # to fit on a command line). The file is made by .github/scripts/shard-args.py from
+      # .github/test-shards/api.json. A shard whose filter matched nothing would otherwise pass
+      # in a few seconds, so a shard that ran fewer than MIN_SHARD_TESTS tests fails.
       - name: Test
         env:
-          SUITE_TIME_LIMIT_MINUTES: 180
+          SUITE_TIME_LIMIT_MINUTES: 60
           LONG_RUNNING_TEST_SECONDS: 120
+          MIN_SHARD_TESTS: 50
         run: |
           failed=""
           {
-            echo "### Test suites"
+            echo "### Test suites ($SHARD)"
             echo
-            echo "| Suite | Result | Minutes |"
-            echo "|---|---|---|"
+            echo "| Suite | Result | Minutes | Tests |"
+            echo "|---|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          # Quick suites in the order they run, then any other suite found, then the slow three.
-          quick_first="Modbot.Companion.App.Tests Modbot.Server.Tests Modbot.Landing.Tests Modbot.My.Tests Modbot.Overlay.Tests Modbot.Companion.Tests Modbot.Core.Tests Modbot.Evidence.Tests Modbot.Moderation.Tests Modbot.Cloud.Tests Modbot.AI.Tests Modbot.Analytics.Tests Modbot.Demo.Tests"
-          slow_last="Modbot.VRChat.Tests Modbot.Discord.Tests Modbot.Api.Tests"
+          api_suite="Modbot.Api.Tests"
           results="$GITHUB_WORKSPACE/test-results"
           mkdir -p "$results"
           suites=""
@@ -113,52 +161,93 @@ jobs:
               *) suites="$suites $1" ;;
             esac
           }
-          for name in $quick_first; do
-            if is_suite "$name"; then
-              add_suite "$name"
+          if [ "$SHARD" = "other" ]; then
+            # Quick suites in the order they run, then any other suite found, then the slow two.
+            quick_first="Modbot.Companion.App.Tests Modbot.Server.Tests Modbot.Landing.Tests Modbot.My.Tests Modbot.Overlay.Tests Modbot.Companion.Tests Modbot.Core.Tests Modbot.Evidence.Tests Modbot.Moderation.Tests Modbot.Cloud.Tests Modbot.AI.Tests Modbot.Analytics.Tests Modbot.Demo.Tests"
+            slow_last="Modbot.VRChat.Tests Modbot.Discord.Tests"
+            for name in $quick_first; do
+              if is_suite "$name"; then
+                add_suite "$name"
+              else
+                echo "::warning::$name is in the quick list of the Test step but is not a test project; update ci.yml."
+              fi
+            done
+            for dir in tests/*/; do
+              name="$(basename "$dir")"
+              case " $slow_last $api_suite " in
+                *" $name "*) continue ;;
+              esac
+              if is_suite "$name"; then
+                add_suite "$name"
+              fi
+            done
+            for name in $slow_last; do
+              if is_suite "$name"; then
+                add_suite "$name"
+              else
+                echo "::warning::$name is in the slow list of the Test step but is not a test project; update ci.yml."
+              fi
+            done
+          else
+            if is_suite "$api_suite"; then
+              add_suite "$api_suite"
             else
-              echo "::warning::$name is in the quick list of the Test step but is not a test project; update ci.yml."
+              echo "::error::$api_suite is not a test project; update ci.yml."
+              failed="$failed $api_suite"
             fi
-          done
-          for dir in tests/*/; do
-            name="$(basename "$dir")"
-            case " $slow_last " in
-              *" $name "*) continue ;;
-            esac
-            if is_suite "$name"; then
-              add_suite "$name"
-            fi
-          done
-          for name in $slow_last; do
-            if is_suite "$name"; then
-              add_suite "$name"
-            else
-              echo "::warning::$name is in the slow list of the Test step but is not a test project; update ci.yml."
-            fi
-          done
+          fi
           echo "Suites, in the order they run:$suites"
           for name in $suites; do
             proj="tests/$name/"
             echo "::group::$name"
             start=$SECONDS
             code=0
-            timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
-              dotnet run --project "$proj" --configuration Release --no-build \
-              -- -longRunning "$LONG_RUNNING_TEST_SECONDS" -result-xml "$results/$name.xml" || code=$?
+            note=""
+            if [ "$SHARD" != "other" ]; then
+              # All of the suite's arguments, one per line, in a response file.
+              args_file="$RUNNER_TEMP/$SHARD.rsp"
+              python3 .github/scripts/shard-args.py "$SHARD" "$args_file" "$results/$name.xml" "$LONG_RUNNING_TEST_SECONDS" || code=$?
+              if [ "$code" -eq 0 ]; then
+                echo "Arguments for this shard ($args_file):"
+                cat "$args_file"
+                timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
+                  dotnet run --project "$proj" --configuration Release --no-build \
+                  -- @@ "$args_file" || code=$?
+              else
+                note=" (the shard's arguments could not be made)"
+              fi
+            else
+              timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
+                dotnet run --project "$proj" --configuration Release --no-build \
+                -- -longRunning "$LONG_RUNNING_TEST_SECONDS" -result-xml "$results/$name.xml" || code=$?
+            fi
             minutes="$(awk -v s=$((SECONDS - start)) 'BEGIN { printf "%.1f", s / 60 }')"
             echo "::endgroup::"
+            # How many tests ran, from the suite's own result file (0 when there is none).
+            tests_run="$(python3 .github/scripts/count-tests.py "$results/$name.xml" || true)"
+            case "$tests_run" in
+              ''|*[!0-9]*) tests_run=0 ;;
+            esac
             # timeout exits 124 when it had to interrupt the suite and 137 when it had to kill it.
             if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
               echo "::error::$name timed out after ${SUITE_TIME_LIMIT_MINUTES}m"
               result="TIMED OUT after ${SUITE_TIME_LIMIT_MINUTES}m"
               failed="$failed $name"
             elif [ "$code" -ne 0 ]; then
-              result="failed (exit $code)"
+              result="failed (exit $code)$note"
+              failed="$failed $name"
+            elif [ "$SHARD" != "other" ] && [ "$tests_run" -lt "$MIN_SHARD_TESTS" ]; then
+              echo "::error::$name [$SHARD] ran only $tests_run tests (at least $MIN_SHARD_TESTS expected): its filter matched too little. Check .github/test-shards/api.json."
+              result="FAILED: only $tests_run tests ran"
               failed="$failed $name"
             else
               result="passed"
             fi
-            echo "| $name | $result | $minutes |" >> "$GITHUB_STEP_SUMMARY"
+            label="$name"
+            if [ "$SHARD" != "other" ]; then
+              label="$name [$SHARD]"
+            fi
+            echo "| $label | $result | $minutes | $tests_run |" >> "$GITHUB_STEP_SUMMARY"
           done
           if [ -n "$failed" ]; then
             echo "::error::Failing suites:$failed"
@@ -172,7 +261,8 @@ jobs:
       # on the summary page and keep the files as a build artifact for a few days. They are
       # reporting only: they run after a failure too, a missing or cut-off file is skipped, and
       # neither can fail the job (the Test step's own result decides that). A suite stopped for
-      # running over its time limit writes no file, since xUnit writes it at the end.
+      # running over its time limit writes no file, since xUnit writes it at the end. Each job
+      # keeps its own files under its own artifact name (two artifacts may not share one).
       - name: Slowest tests
         if: always()
         continue-on-error: true
@@ -183,10 +273,29 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: test-timings
+          name: test-timings-${{ matrix.name }}
           path: test-results/*.xml
           if-no-files-found: ignore
           retention-days: 5
+
+  # The one result for the .NET side of the run: it passes only when every job above passed.
+  # `if: always()` is what makes it run (and fail) when a test job failed, rather than being
+  # skipped, and a skipped job would let a required check pass. `needs.tests.result` is `success`
+  # only when every entry of the matrix succeeded.
+  build:
+    needs: [tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every build and test job passed
+        env:
+          TESTS_RESULT: ${{ needs.tests.result }}
+        run: |
+          echo "tests (every matrix job): $TESTS_RESULT"
+          if [ "$TESTS_RESULT" != "success" ]; then
+            echo "::error::The build and test jobs did not all succeed (result: $TESTS_RESULT). See the tests jobs above."
+            exit 1
+          fi
 
   web:
     runs-on: ubuntu-latest
