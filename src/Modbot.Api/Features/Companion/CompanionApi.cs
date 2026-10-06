@@ -187,12 +187,12 @@ public static class CompanionApi
             .WithName("GetClientPersonPicture")
             .WithSummary("Get person picture")
             .WithDescription(
-                "The picture this server holds for one person, for the overlay's roster rows. The "
-                + "roster names the path in each member's `pictureUrl`. A device names a person and "
-                + "never an address, so it can only be sent a picture already stored for that "
-                + "person. 404 when there is none, and while VRChat pictures are switched off on "
-                + "this server. No API call is made; at most one file fetch from VRChat's picture "
-                + "hosts, on a picture the server's cache does not hold yet.")
+                "The picture this server's cache holds for one person, for the overlay's roster rows. "
+                + "The roster names the path in each member's `pictureUrl`. A device names a person "
+                + "and never an address, so it can only be sent the picture stored for that person. "
+                + "404 when there is none, when the cache does not hold it, and while VRChat "
+                + "pictures are switched off on this server. It only sends what the cache holds: "
+                + "no request is made to VRChat.")
             .Produces<byte[]>(
                 StatusCodes.Status200OK,
                 "image/png", "image/jpeg", "image/webp", "image/gif")

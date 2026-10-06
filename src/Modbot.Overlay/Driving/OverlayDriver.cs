@@ -693,12 +693,36 @@ public sealed class OverlayDriver : IDisposable
         server.LastContextAttempt = null;
     }
 
+    /// <summary>
+    /// Whether a panel keeps the moderator's own row at the top, in a banner, and scrolls only the
+    /// rest under it (the desktop window in VRChat's look). Set by the companion while that window is up.
+    /// </summary>
+    /// <remarks>
+    /// Such a panel's scrolling counts the rows under the banner, so the roster's own count leaves the
+    /// moderator's row out and the last row can be reached without a wheel step that does nothing. The
+    /// headset's list does not pin it, and counts every row, as it always did.
+    /// </remarks>
+    public bool PinsModeratorRow { get; set; }
+
     /// <summary>Scrolls the roster by whole rows, inside what the filters leave of it.</summary>
     public void ScrollRoster(int rows)
     {
-        var count = RosterHere() is { } context
-            ? ListFiltering.Roster(Everyone(context), _rosterFilters, Arrivals(context), _clock.UtcNow).Count
-            : 0;
+        var count = 0;
+
+        if (RosterHere() is { } context)
+        {
+            var shown = ListFiltering.Roster(Everyone(context), _rosterFilters, Arrivals(context), _clock.UtcNow);
+            count = shown.Count;
+
+            // The moderator's own row, when it is a row of somebody present and a banner takes it.
+            if (PinsModeratorRow
+                && ModeratorId is { Length: > 0 } own
+                && context.Members.Any(member => string.Equals(member.SubjectId, own, StringComparison.Ordinal))
+                && shown.Any(member => string.Equals(member.SubjectId, own, StringComparison.Ordinal)))
+            {
+                count--;
+            }
+        }
 
         _rosterSkip = Math.Clamp(_rosterSkip + rows, 0, Math.Max(0, count - 1));
     }

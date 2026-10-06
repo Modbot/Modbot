@@ -153,8 +153,10 @@ read it. The rest of that file is left readable, so you can see which servers th
 The one-time code is never saved.
 
 The token can only send presence events to that server, ask its time, and read that group's
-roster and alerts for the overlay, and the pictures of the people on that roster, when the server
-serves VRChat pictures. It cannot ban, kick, read the member list or do anything else in
+roster and alerts for the overlay. When the server serves VRChat pictures, it can also read the
+picture the server has already saved for any person the server knows, not only the people on a roster
+(these are pictures VRChat shows to anyone holding the address, and the server asks VRChat for
+nothing to answer). It cannot ban, kick, read the member list or do anything else in
 Modbot.
 
 The pairing link itself only holds the one-time code and the server's address. Links end up in

@@ -223,4 +223,40 @@ public class OverlayDriverTapTests
         Assert.Equal(0, driver.RosterSkip);
         Assert.Null(driver.Person);
     }
+
+    [Fact]
+    public async Task WithTheModeratorsRowHeldInABannerTheScrollCountLeavesItOut()
+    {
+        // Three rows, and the moderator's is one of them: a panel that pins it scrolls only two.
+        var (driver, _, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        driver.ModeratorId = "usr_Kai";
+        driver.PinsModeratorRow = true;
+
+        driver.ScrollRoster(5);
+        Assert.Equal(1, driver.RosterSkip);
+
+        driver.ScrollRoster(-5);
+        Assert.Equal(0, driver.RosterSkip);
+    }
+
+    [Fact]
+    public async Task WithNoBannerOrAModeratorWhoIsNotOnTheListEveryRowCounts()
+    {
+        var (driver, _, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        // The headset's list pins nothing.
+        driver.ModeratorId = "usr_Kai";
+        driver.ScrollRoster(5);
+        Assert.Equal(2, driver.RosterSkip);
+
+        // A banner with nobody to put in it takes no row either.
+        driver.ScrollRoster(-5);
+        driver.PinsModeratorRow = true;
+        driver.ModeratorId = "usr_Nobody";
+        driver.ScrollRoster(5);
+        Assert.Equal(2, driver.RosterSkip);
+    }
 }

@@ -3134,6 +3134,9 @@ internal sealed partial class CompanionHost : IOverlayListener
             // person already here has been here at least that long. Never sent.
             _overlay.ModeratorId = _engine?.ModeratorId;
 
+            // Whether a banner holds that row at the top, so scrolling counts the rows under it.
+            _overlay.PinsModeratorRow = _desktopOverlay?.PinsModeratorRow is true;
+
             // And who they are, by the name the log gave them: the Instance list in an instance
             // no group owns, where no server has a roster to give. Never sent.
             _overlay.PeopleHere = _engine?.PeopleHere;

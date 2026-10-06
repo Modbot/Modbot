@@ -779,6 +779,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </summary>
     public IReadOnlyCollection<string> PictureAddresses => _drawn?.PictureAddresses() ?? [];
 
+    /// <summary>
+    /// Whether the roster's first row is the moderator's own, held at the top in a banner while the rest
+    /// scrolls: while this window is up in VRChat's look.
+    /// </summary>
+    public bool PinsModeratorRow => IsVisible && _look.VRChat is not null;
+
     private bool _redrawQueued;
 
     /// <summary>

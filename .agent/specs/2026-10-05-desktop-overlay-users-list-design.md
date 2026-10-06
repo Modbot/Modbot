@@ -30,23 +30,32 @@ Only words that are new: **Users** and **Other users**, VRChat's own labels. The
 is at the heading's far end.
 
 The moderator's own card is first, in a banner in the highlights colour, and has no **+**. The rows
-scrolled past are the others; the banner stays. With no moderator known, or filtered out, there is
+scrolled past are the others; the banner stays. The driver's scroll count leaves the moderator's row
+out while the window pins it (`OverlayDriver.PinsModeratorRow`, set from the window in VRChat's look),
+so the last row is reachable without a wheel step that does nothing; the headset's list pins nothing
+and counts every row. With no moderator known, or filtered out, there is
 no banner and no label.
 
 ## 3. Pictures
 
-**What the data is.** The server's roster carries, for each person it holds a stored picture for, a
-path on itself (`pictureUrl`, `/api/v1/companion/picture/{id}?v=…`): never VRChat's address. VRChat's
-stored addresses need the service account's session cookie (see the VRChat files design), so a PC
-cannot fetch one directly; the path is the server's own route for devices.
+**What the data is.** The server's roster carries, for each person whose stored picture the server's
+cache already holds, a path on itself (`pictureUrl`, `/api/v1/companion/picture/{id}?v=…`): never
+VRChat's address. VRChat's stored addresses need the service account's session cookie (see the VRChat
+files design), so a PC cannot fetch one directly; the path is the server's own route for devices.
 
 **The route** (`ContextHandler.PictureAsync`) takes a device token like every route in the folder,
-names a person and never an address, and sends what the web app's own route
-(`/api/files/vrchat`) would send for that person's stored address, through the same cache. A miss is
-one file fetch from VRChat's picture hosts through the gate: not an API call, and not paced, as
-`VRChatFiles` explains. It answers 404, and the roster names no path, while the operator's
-**Proxy VRChat images through Modbot** switch is off: Modbot does not serve VRChat pictures on a server
-that turned that off, and sending the device on to VRChat would not work.
+names a person and never an address, and sends what the web app's own route (`/api/files/vrchat`)
+would send for that person's stored address, from the same cache, with the same type and ETag.
+**It sends what the cache holds and fetches nothing.** It has no VRChat gate, so it makes no request
+to VRChat of any kind, and a miss is a 404. The cache is filled by the web app's route, when somebody
+has a face shown there (the user's choice, 2026-10-05: serve cached pictures only; the first version
+fetched a miss through the gate, and that was taken out). A path that would 404 is no use, and the
+companion keeps a failed picture for as long as its address is wanted, so the roster only names a
+person's path once the cache holds their picture, from the first roster read after that. Both the
+route and the roster follow the operator's **Proxy VRChat images through Modbot** switch, which is off
+by default: with it off the route answers 404 and the roster names no path, because Modbot does not
+serve VRChat pictures on a server that turned that off, and sending the device on to VRChat would not
+work.
 
 **The companion** makes the path whole against the pairing's own address and takes only the form the
 route has (`ServerPairing.PictureAddress`), so the picture is only ever fetched from the server that
@@ -57,5 +66,5 @@ let go of after. A person whose picture has not arrived, has none, or is in an i
 shows the head and shoulders.
 
 **Choices not taken.** The stored VRChat address is not sent to the companion: it would not load.
-Looking people up for their pictures is not done: the roster only names what the server already
+Looking people up, or fetching a picture to fill the cache, is not done: the roster only names what the server already
 holds. In an instance no group owns there are no pictures (the log has none) and nothing is asked.

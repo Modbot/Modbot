@@ -65,10 +65,10 @@ public sealed record UserSummaryDto(
 /// log, the trust rank and the 18+ mark off the stored profile row, and the member list and roles
 /// the syncs keep (<see cref="MembersAndStaff"/>). No VRChat call is made to answer an overlay read: a
 /// moderator glancing at a roster must not be able to spend the group's shared API budget, and
-/// the answer has to arrive in the time a glance takes. The roster names, for each person whose
-/// picture is stored, the path the picture is served at (<see cref="PictureAsync"/>), and that is
-/// the one read here that can reach VRChat at all: a file fetch for a picture the cache does not
-/// hold, never an API call.</para>
+/// the answer has to arrive in the time a glance takes. That holds for pictures too: the roster
+/// names, for each person whose picture this server's cache already holds, the path it is served
+/// at (<see cref="PictureAsync"/>), and that route sends only what the cache holds. Nothing here
+/// makes a request to VRChat, of any kind.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
 /// the client's local routing enforces, arriving from the other side.</para>
 /// <para><strong>A roster is only believed while a moderator is watching.</strong> This used to be
@@ -97,7 +97,8 @@ public static class ContextHandler
         HeadsUpSignal headsUpSignal,
         ModbotContext database,
         IModbotClock clock,
-        CancellationToken ct)
+        CancellationToken ct,
+        [FromServices] VRChatFileCache? cache = null)
     {
         if (!CompanionApiVersion.IsSupported(apiVersion))
             return CompanionApiErrors.VersionUnsupported(apiVersion);
@@ -165,7 +166,7 @@ public static class ContextHandler
         var ranks = await TrustRanksAsync(database, subjects, ct);
         var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
         var flagged = await FlagRules.ReadAsync(database, subjects, ranks, clock.UtcNow, ct);
-        var pictures = await PictureAddressesAsync(database, apiVersion, subjects, ct);
+        var pictures = await PictureAddressesAsync(database, apiVersion, subjects, cache, ct);
 
         var roster = people.Here
             .Select(person => Describe(
@@ -296,8 +297,8 @@ public static class ContextHandler
 
     /// <summary>
     /// The path on this server where each of these people's picture is served to a paired device,
-    /// for everybody who has one stored. Empty while the operator has VRChat pictures switched off.
-    /// One query, and no VRChat call: it reads the addresses already stored on the profile rows.
+    /// for everybody whose stored picture this server's cache already holds. Empty while the operator
+    /// has VRChat pictures switched off. One query and a look in the cache, and no VRChat call.
     /// </summary>
     /// <remarks>
     /// <para>The address on the row names a version of the picture and never changes for it, so a
@@ -305,17 +306,20 @@ public static class ContextHandler
     /// a different path, and the companion, which keeps pictures by path, fetches the new one rather
     /// than showing the old one until it restarts. The mark is not a secret and the route ignores it.</para>
     /// <para>Only somebody whose stored address is one VRChat serves pictures from
-    /// (<see cref="VRChatFiles.IsPictureAddress(string?)"/>) is listed, so the route is never asked
-    /// for an address it would refuse.</para>
+    /// (<see cref="VRChatFiles.IsPictureAddress(string?)"/>) and whose picture the cache holds is listed,
+    /// so the route is not asked for what it would answer 404. The cache holds a picture once somebody
+    /// has had it shown in the web app; a person whose picture has not been is listed from the
+    /// roster read after it has.</para>
     /// </remarks>
     internal static async Task<Dictionary<string, string>> PictureAddressesAsync(
         ModbotContext database,
         int apiVersion,
         IReadOnlyCollection<string> subjectIds,
+        VRChatFileCache? cache,
         CancellationToken ct)
     {
         var settings = await database.GetSettingsAsync(ct);
-        if (!settings.VRChatImagesProxied)
+        if (!settings.VRChatImagesProxied || cache is null)
             return [];
 
         var rows = await database.VRChatUsers
@@ -331,6 +335,12 @@ public static class ContextHandler
             var address = ProfilePictures.Best(row.ProfilePictureUrl, row.IconUrl, row.CurrentAvatarThumbnailImageUrl);
             if (!VRChatFiles.IsPictureAddress(address))
                 continue;
+
+            // Held, and not merely stored on the profile: the route sends nothing else.
+            if (cache.Find(address!) is not { } held)
+                continue;
+
+            held.Content.Dispose();
 
             found[row.UserId] = PictureRoute(apiVersion, row.UserId, address!);
         }
@@ -349,25 +359,24 @@ public static class ContextHandler
     }
 
     /// <summary>
-    /// One person's stored picture, sent to a paired device: the same bytes the web app is sent for
-    /// that person's face, through the same cache.
+    /// One person's stored picture, sent to a paired device from this server's cache: the same bytes,
+    /// type and ETag the web app is sent for that person's face.
     /// </summary>
     /// <remarks>
     /// <para>The device names a person and never an address, so this can only ever send the picture
-    /// already stored for that person; it is not a way to have the server fetch something a caller
-    /// chose. It answers 404 for somebody with no stored picture and while the operator has VRChat
-    /// pictures switched off, and never sends the device on to VRChat.</para>
-    /// <para>On a picture the cache does not hold yet, the server fetches it the way the web app's
-    /// own picture route does (<see cref="VRChatFileEndpoints"/>): one file fetch from VRChat's
-    /// picture hosts, which VRChat does not rate limit, through the one gate that holds the session. No
-    /// API call is made and nothing is looked up.</para>
+    /// stored for that person. It answers 404 for somebody with no stored picture, while the operator
+    /// has VRChat pictures switched off, and for a picture the cache does not hold, and it never
+    /// sends the device on to VRChat.</para>
+    /// <para><strong>It sends what the cache holds and fetches nothing.</strong> It has no VRChat gate,
+    /// so a moderator glancing at a roster cannot cause any request to VRChat, of any kind. The cache
+    /// is filled by the web app's own picture route (<see cref="VRChatFileEndpoints"/>) when somebody
+    /// has a face shown there.</para>
     /// </remarks>
     public static async Task<IResult> PictureAsync(
         int apiVersion,
         string subjectId,
         HttpContext context,
         DeviceAuthenticator authenticator,
-        [FromServices] IVRChatGate gate,
         [FromServices] VRChatFileCache cache,
         ModbotContext database,
         CancellationToken ct)
@@ -399,7 +408,7 @@ public static class ContextHandler
         if (!VRChatFiles.IsPictureAddress(address))
             return Results.NotFound();
 
-        return await VRChatFileEndpoints.ServeAsync(context, address, gate, cache, database, ct);
+        return VRChatFileEndpoints.ServeCached(context, address!, cache) ?? Results.NotFound();
     }
 
     /// <param name="flagged">What <see cref="FlagRules"/> decided for everybody being described.</param>

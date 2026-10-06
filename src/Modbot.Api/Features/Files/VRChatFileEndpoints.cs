@@ -84,11 +84,11 @@ public static class VRChatFileEndpoints
         return app;
     }
 
-    /// <remarks>
-    /// Shared with the companion's own picture route (<c>ContextHandler.PictureAsync</c>), which names a
-    /// person rather than an address and so can only ever pass an address already stored for them.
-    /// </remarks>
-    internal static async Task<IResult> ServeAsync(
+    /// <summary>
+    /// The web app's picture route. The companion's own picture route does not share this: it sends
+    /// what the cache holds (<see cref="ServeCached"/>) and never fetches.
+    /// </summary>
+    private static async Task<IResult> ServeAsync(
         HttpContext http,
         string? url,
         IVRChatGate gate,
@@ -120,16 +120,8 @@ public static class VRChatFileEndpoints
         // The cache hands back an open file rather than a path, and the result disposes it. A path
         // would only be true until the sweep or another store used the name; the open file is the
         // bytes themselves.
-        if (cache.Find(url) is { } held)
-        {
-            Headers(http, CacheControl);
-
-            return Results.Stream(
-                held.Content,
-                held.ContentType,
-                entityTag: Tag(held.Tag),
-                enableRangeProcessing: true);
-        }
+        if (ServeCached(http, url, cache) is { } cached)
+            return cached;
 
         var fetched = await gate.FetchFileAsync(address, ct);
 
@@ -151,6 +143,24 @@ public static class VRChatFileEndpoints
             fetched.File.Bytes,
             fetched.File.ContentType,
             entityTag: Tag(VRChatFileCache.KeyFor(url)));
+    }
+
+    /// <summary>
+    /// The picture the cache already holds for this address, ready to send, or null when it holds none.
+    /// Nothing is fetched. Shared with the companion's picture route, which sends only what is held.
+    /// </summary>
+    internal static IResult? ServeCached(HttpContext http, string url, VRChatFileCache cache)
+    {
+        if (cache.Find(url) is not { } held)
+            return null;
+
+        Headers(http, CacheControl);
+
+        return Results.Stream(
+            held.Content,
+            held.ContentType,
+            entityTag: Tag(held.Tag),
+            enableRangeProcessing: true);
     }
 
     /// <summary>

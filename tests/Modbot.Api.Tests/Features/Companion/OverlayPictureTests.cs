@@ -16,9 +16,10 @@ using Modbot.VRChat.Files;
 namespace Modbot.Api.Tests.Features.Companion;
 
 /// <summary>
-/// The pictures of the people on the overlay's roster: the roster names a path on this server, the
-/// device is sent the picture stored for that person through the server's own cache, and the roster
-/// names none while the operator has VRChat pictures off.
+/// The pictures of the people on the overlay's roster: the roster names a path on this server for each
+/// person whose picture the server's cache holds, the device is sent that picture from the cache and
+/// nothing else, and no request is ever made to VRChat to answer either. The roster names none, and the
+/// route answers 404, while the operator has VRChat pictures off.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class OverlayPictureTests : IDisposable
@@ -28,6 +29,9 @@ public class OverlayPictureTests : IDisposable
     private const string Instance = "39911";
 
     private const string StoredAddress = "https://api.vrchat.cloud/api/1/file/file_abc/1/file";
+
+    /// <summary>Stored on a profile and a VRChat address, but never fetched: the cache does not hold it.</summary>
+    private const string UncachedAddress = "https://api.vrchat.cloud/api/1/file/file_def/1/file";
 
     private static readonly DateTimeOffset Noon = new(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
 
@@ -67,18 +71,23 @@ public class OverlayPictureTests : IDisposable
             settings.VRChatImagesProxied = proxyPictures;
             settings.VRChatFileCacheBytes = 1_000_000;
 
-            // Profile rows outlive a test, so the same three are put back as they should be.
+            // Profile rows outlive a test, so the same four are put back as they should be.
             await db.VRChatUsers
-                .Where(u => u.UserId == "usr_pic" || u.UserId == "usr_plain" || u.UserId == "usr_elsewhere")
+                .Where(u => u.UserId == "usr_pic" || u.UserId == "usr_uncached" || u.UserId == "usr_plain" || u.UserId == "usr_elsewhere")
                 .ExecuteDeleteAsync(ct);
 
             db.VRChatUsers.AddRange(
                 User("usr_pic", iconUrl: StoredAddress),
+                User("usr_uncached", iconUrl: UncachedAddress),
                 User("usr_plain"),
                 User("usr_elsewhere", iconUrl: "https://example.com/not-vrchat.png"));
 
             await db.SaveChangesAsync(ct);
         }
+
+        // One of the two pictures is in the cache, as it is once somebody has had it shown in the web app.
+        await host.Services.GetRequiredService<VRChatFileCache>()
+            .StoreAsync(StoredAddress, new VRChatFile([1, 2, 3], "image/png"), 1_000_000, ct);
 
         var moderator = await host.PairModeratorAsync(ct);
 
@@ -88,6 +97,7 @@ public class OverlayPictureTests : IDisposable
             [
                 Joined(moderator.VRChatUserId, "Mod", Noon.AddMinutes(-20), moderator.DeviceId),
                 Joined("usr_pic", "Pic", Noon.AddMinutes(-10), moderator.DeviceId),
+                Joined("usr_uncached", "Uncached", Noon.AddMinutes(-10), moderator.DeviceId),
                 Joined("usr_plain", "Plain", Noon.AddMinutes(-9), moderator.DeviceId),
                 Joined("usr_elsewhere", "Elsewhere", Noon.AddMinutes(-8), moderator.DeviceId),
             ]);
@@ -135,11 +145,21 @@ public class OverlayPictureTests : IDisposable
     private static Task<HttpResponseMessage> PictureAsync(CompanionApiTestHost host, string? token, string subject, CancellationToken ct)
         => host.Client.SendAsync(host.WithToken(HttpMethod.Get, $"/api/v1/companion/picture/{subject}", token), ct);
 
+    /// <summary>A gate that would serve any file, so a route that wrongly fetched would succeed and show it.</summary>
+    private static FakeVRChatGate Gate() => new FakeVRChatGate().SignedInAs().Serves([9, 9, 9], "image/png");
+
+    private static void AssertVRChatWasNeverCalled(FakeVRChatGate gate)
+    {
+        Assert.Empty(gate.Fetched);
+        Assert.Empty(gate.Forwarded);
+    }
+
     [Fact]
-    public async Task TheRosterNamesAPathOnThisServerForEachPersonWhoseStoredPictureIsVRChats()
+    public async Task TheRosterNamesAPathOnThisServerOnlyForWhoseStoredPictureTheCacheHolds()
     {
         var ct = TestContext.Current.CancellationToken;
-        var (host, token, _) = await ReadyAsync(new FakeVRChatGate().SignedInAs(), proxyPictures: true, ct);
+        var gate = Gate();
+        var (host, token, _) = await ReadyAsync(gate, proxyPictures: true, ct);
         await using var _ = host;
 
         var roster = await RosterAsync(host, token, ct);
@@ -148,16 +168,19 @@ public class OverlayPictureTests : IDisposable
         Assert.StartsWith("/api/v1/companion/picture/usr_pic?v=", picture, StringComparison.Ordinal);
         Assert.DoesNotContain("vrchat.cloud", picture, StringComparison.Ordinal);
 
-        // Nobody else has a stored picture that VRChat serves.
+        // A VRChat picture stored on a profile but not held by the cache, a profile with none, and an
+        // address that is not VRChat's: no path for any of them.
+        Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == "usr_uncached").PictureUrl);
         Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == "usr_plain").PictureUrl);
         Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == "usr_elsewhere").PictureUrl);
+        AssertVRChatWasNeverCalled(gate);
     }
 
     [Fact]
     public async Task TheRosterNamesNoPictureWhileTheOperatorHasVRChatPicturesOff()
     {
         var ct = TestContext.Current.CancellationToken;
-        var (host, token, _) = await ReadyAsync(new FakeVRChatGate().SignedInAs(), proxyPictures: false, ct);
+        var (host, token, _) = await ReadyAsync(Gate(), proxyPictures: false, ct);
         await using var _ = host;
 
         var roster = await RosterAsync(host, token, ct);
@@ -166,44 +189,52 @@ public class OverlayPictureTests : IDisposable
     }
 
     [Fact]
-    public async Task ADeviceIsSentThePictureStoredForAPersonAndTheSecondAskIsAnsweredFromTheCache()
+    public async Task ADeviceIsSentThePictureTheCacheHoldsWithItsTypeAndETagAndVRChatIsNotCalled()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new FakeVRChatGate().SignedInAs().Serves([1, 2, 3], "image/png");
+        var gate = Gate();
         var (host, token, _) = await ReadyAsync(gate, proxyPictures: true, ct);
         await using var _ = host;
 
-        var first = await PictureAsync(host, token, "usr_pic", ct);
+        var response = await PictureAsync(host, token, "usr_pic", ct);
 
-        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-        Assert.Equal("image/png", first.Content.Headers.ContentType?.MediaType);
-        var bytes = await first.Content.ReadAsByteArrayAsync(ct);
-        Assert.Equal(new byte[] { 1, 2, 3 }, bytes);
-        Assert.Equal([new Uri(StoredAddress)], gate.Fetched);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(response.Headers.ETag);
+        Assert.Equal(new byte[] { 1, 2, 3 }, await response.Content.ReadAsByteArrayAsync(ct));
+        AssertVRChatWasNeverCalled(gate);
+    }
 
-        var second = await PictureAsync(host, token, "usr_pic", ct);
+    [Fact]
+    public async Task APictureTheCacheDoesNotHoldIsA404AndNothingIsFetched()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Gate();
+        var (host, token, _) = await ReadyAsync(gate, proxyPictures: true, ct);
+        await using var _ = host;
 
-        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-        Assert.Single(gate.Fetched);
+        // Stored on the profile, a VRChat address, and a gate that would serve it: still a miss.
+        Assert.Equal(HttpStatusCode.NotFound, (await PictureAsync(host, token, "usr_uncached", ct)).StatusCode);
+        AssertVRChatWasNeverCalled(gate);
     }
 
     [Fact]
     public async Task APictureIsNotSentWithoutADeviceToken()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new FakeVRChatGate().SignedInAs().Serves([1, 2, 3], "image/png");
+        var gate = Gate();
         var (host, _, _) = await ReadyAsync(gate, proxyPictures: true, ct);
         await using var _ = host;
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await PictureAsync(host, null, "usr_pic", ct)).StatusCode);
-        Assert.Empty(gate.Fetched);
+        AssertVRChatWasNeverCalled(gate);
     }
 
     [Fact]
     public async Task ADeviceNamesAPersonAndNeverAnAddress()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new FakeVRChatGate().SignedInAs().Serves([1, 2, 3], "image/png");
+        var gate = Gate();
         var (host, token, _) = await ReadyAsync(gate, proxyPictures: true, ct);
         await using var _ = host;
 
@@ -212,14 +243,14 @@ public class OverlayPictureTests : IDisposable
         foreach (var subject in (string[])["usr_plain", "usr_elsewhere", "usr_nobody"])
             Assert.Equal(HttpStatusCode.NotFound, (await PictureAsync(host, token, subject, ct)).StatusCode);
 
-        Assert.Empty(gate.Fetched);
+        AssertVRChatWasNeverCalled(gate);
     }
 
     [Fact]
-    public async Task WhileTheOperatorHasVRChatPicturesOffADeviceIsNotSentOneAndVRChatIsNotAsked()
+    public async Task WhileTheOperatorHasVRChatPicturesOffADeviceIsNotSentOneEvenIfTheCacheHoldsIt()
     {
         var ct = TestContext.Current.CancellationToken;
-        var gate = new FakeVRChatGate().SignedInAs().Serves([1, 2, 3], "image/png");
+        var gate = Gate();
         var (host, token, _) = await ReadyAsync(gate, proxyPictures: false, ct);
         await using var _ = host;
 
@@ -227,6 +258,6 @@ public class OverlayPictureTests : IDisposable
 
         // Not a redirect to VRChat, which the device could not follow.
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Empty(gate.Fetched);
+        AssertVRChatWasNeverCalled(gate);
     }
 }
