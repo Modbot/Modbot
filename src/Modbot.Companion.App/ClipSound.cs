@@ -38,7 +38,7 @@ namespace Modbot.Companion.App;
 /// — which, in an instance, is what the people around the moderator said, and what makes this a
 /// real disclosure rather than a detail.</para>
 /// <para><strong>How the programs are named, without a list.</strong> VRChat's process is asked of
-/// VRChat's own window, which the recorder already had (<c>ScreenRecording.cs</c>). Discord's is
+/// VRChat's own window, which the recorder already had (<c>VRChatWindow.cs</c>). Discord's is
 /// asked of the connection point Discord itself publishes for other programs to find it by — one
 /// named ask for one named thing, and nothing is sent down it. The client still never walks a list
 /// of what is running, never walks a list of windows, and never asks the sound system which

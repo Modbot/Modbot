@@ -44,13 +44,20 @@ namespace Modbot.Companion.App;
 /// switch can be turned back off. Windows decides where a click goes before this program hears
 /// of it, so the window watches where the mouse is and lets clicks through everywhere but the
 /// strip.</para>
+/// <para><strong>Beside VRChat's menu.</strong> When VRChat's window is there, it sits in the free
+/// strip to the right of VRChat's Esc menu, under its top-right column, and is drawn as big as that
+/// strip allows: the panel is laid out at its own size and scaled, so it follows VRChat's window
+/// when that is resized or moved (<see cref="VRChatHudLayout"/>). With no VRChat window, or a
+/// minimised one, it is where it always was, down the screen's right-hand side. Looking at
+/// VRChat's window is <c>VRChatWindow.cs</c>'s one question, asked four times a second only while
+/// this window is up; the window never activates, moves or sends anything to VRChat's.</para>
 /// </remarks>
 internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 {
     /// <summary>Wide enough for a roster row's name, rank and flags without trimming any of them.</summary>
-    private const double PanelWidth = 520;
+    private const double PanelWidth = VRChatHudLayout.OverlayDesignWidth;
 
-    private const double PanelHeight = 720;
+    private const double PanelHeight = VRChatHudLayout.OverlayDesignHeight;
 
     /// <summary>How far in from the screen's edge it sits.</summary>
     private const int EdgeMargin = 32;
@@ -93,6 +100,16 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     // strip finds it answering, and whether clicks are going through right now.
     private readonly DispatcherTimer _throughWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
     private bool _passingClicks;
+
+    // While the window is up: VRChat's window looked at four times a second, so the panel can sit
+    // beside VRChat's own menu and follow it when it moves or is resized.
+    private readonly DispatcherTimer _followWatch = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly LayoutTransformControl _scaler = new();
+    private nint _vrchat;
+    private (bool Usable, int Left, int Top, int Width, int Height)? _lastVRChat;
+    private bool _scaled;
+    private double _fittedScaling = 1;
+    private int _scalingRetries;
 
     /// <summary>A click on the panel, as the target under it. Null is a click on nothing.</summary>
     public event Action<OverlayTarget?>? PanelTapped;
@@ -166,7 +183,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _head = head;
         DockPanel.SetDock(head, Dock.Top);
 
-        Content = new DockPanel { Children = { head, body } };
+        // The panel is laid out at its own size and then drawn bigger or smaller by the scaler, so
+        // layout, scrolling and clicking all work at any size (the transform is undone for a click).
+        _scaler.Child = new DockPanel { Children = { head, body } };
+        Content = _scaler;
 
         _panel.PointerPressed += OnPanelPressed;
         // The wheel moves the roster, which is the list the panel itself pages through. On the
@@ -185,6 +205,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         TextInput += OnTextInput;
 
         _throughWatch.Tick += (_, _) => WatchTheMouse();
+        _followWatch.Tick += (_, _) => FollowVRChat();
     }
 
     /// <summary>The list whose Name filter is open on the screen drawn now, or null.</summary>
@@ -509,15 +530,26 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     public void Summon()
     {
-        Place(PlaceNear);
+        _lastVRChat = null;
+        _scalingRetries = 0;
+        FollowVRChat();
         Show();
         Activate();
         Focus();
+
+        // Once there is a real window on a real screen, once more: a screen with a different
+        // scale than the one the window was made on can change what a size in the panel's own
+        // units comes out as.
+        _lastVRChat = null;
+        FollowVRChat();
+        _followWatch.Start();
         WatchTheMouseWhileNeeded();
     }
 
     public void Dismiss()
     {
+        _followWatch.Stop();
+
         if (IsVisible)
             Hide();
 
@@ -547,6 +579,82 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Position = new PixelPoint(
             area.X + Math.Max(0, area.Width - width - margin),
             area.Y + Math.Max(0, (area.Height - height) / 2));
+    }
+
+    /// <summary>
+    /// Looks at VRChat's window and, when it has moved or been resized since the last look, puts
+    /// the panel beside VRChat's own menu at the size that fits (<see cref="VRChatHudLayout"/>).
+    /// With no VRChat window, or a minimised one, or one too small to place anything in, it is the
+    /// plain placement down the screen's right-hand side, at the panel's own size.
+    /// </summary>
+    /// <remarks>
+    /// It does nothing when VRChat's window is where it was, so a moderator who drags the panel
+    /// somewhere keeps it there until VRChat moves. It only moves and sizes this window; it never
+    /// activates it, and it asks nothing of VRChat's.
+    /// </remarks>
+    private void FollowVRChat()
+    {
+        var look = VRChatWindow.Look(_vrchat);
+        _vrchat = look.Handle;
+
+        var window = look.Window;
+        var usable = window.HasPicture;
+        var seen = (usable, usable ? look.Left : 0, usable ? look.Top : 0, usable ? window.Width : 0, usable ? window.Height : 0);
+
+        // A screen whose scale is not what the window was sized for is put right again, a few
+        // times at most, so a window that never agrees cannot be rewritten four times a second.
+        if (_scaled && IsVisible && Math.Abs(RenderScaling - _fittedScaling) > 0.001 && _scalingRetries < 3)
+        {
+            _scalingRetries++;
+            _lastVRChat = null;
+        }
+
+        if (_lastVRChat == seen)
+            return;
+
+        _lastVRChat = seen;
+
+        if (usable && FitBesideTheMenu(look))
+            return;
+
+        if (_scaled)
+        {
+            _scaler.LayoutTransform = null;
+            Width = PanelWidth;
+            Height = PanelHeight;
+            _scaled = false;
+        }
+
+        Place(PlaceNear);
+    }
+
+    /// <summary>
+    /// Sizes and places the window for VRChat's picture as it is now. False when nothing fits, and
+    /// then the window is left as it was.
+    /// </summary>
+    private bool FitBesideTheMenu(GameWindowLook look)
+    {
+        if (VRChatHudLayout.OverlayFor(look.Window) is not { } fit)
+            return false;
+
+        // The client rectangle and Position are both in pixels of the desktop (this process is
+        // made aware of each screen's scale). The window's own size is in the panel's units, which
+        // are a screen's pixels over its scale, so the scale is the one of the screen it goes on.
+        var left = look.Left + fit.X;
+        var top = look.Top + fit.Y;
+        var centre = new PixelPoint(left + (fit.Width / 2), top + (fit.Height / 2));
+        var screen = Screens.ScreenFromPoint(centre) ?? Screens.Primary;
+        var scaling = screen is { Scaling: > 0 } ? screen.Scaling : 1;
+
+        var factor = fit.Scale / scaling;
+        _scaler.LayoutTransform = new ScaleTransform(factor, factor);
+        Position = new PixelPoint(left, top);
+        Width = fit.Width / scaling;
+        Height = fit.Height / scaling;
+
+        _fittedScaling = scaling;
+        _scaled = true;
+        return true;
     }
 
     private void OnPanelPressed(object? sender, PointerPressedEventArgs e)

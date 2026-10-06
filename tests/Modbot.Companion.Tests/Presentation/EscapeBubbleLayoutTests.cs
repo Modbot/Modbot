@@ -23,17 +23,48 @@ public sealed class EscapeBubbleLayoutTests
         => Assert.Null(EscapeBubbleLayout.Label(shortcut));
 
     [Theory]
-    [InlineData(1918, 1008, 1.0)]
-    [InlineData(1918, 1030, 1.074)]
-    public void TheKnownClientAreasGiveTheirScale(int width, int height, double scale)
-        => Assert.Equal(scale, EscapeBubbleLayout.For(width, height)!.Scale);
+    [InlineData(1918, 1008, 0.999)]
+    [InlineData(1920, 1009, 1.0)]
+    [InlineData(1920, 1080, 1.0704)]
+    [InlineData(2560, 1440, 1.4272)]
+    [InlineData(1280, 720, 0.7136)]
+    public void AnyClientAreaGivesTheScaleOfItsHeightOver1009(int width, int height, double scale)
+        => Assert.Equal(scale, EscapeBubbleLayout.For(width, height)!.Scale, 3);
 
     [Theory]
-    [InlineData(1920, 1080)]
-    [InlineData(1280, 720)]
-    [InlineData(1918, 1029)]
-    public void AnyOtherClientAreaStaysAwayRatherThanSitInTheWrongPlace(int width, int height)
+    [InlineData(0, 0)]
+    [InlineData(1920, 0)]
+    [InlineData(0, 1080)]
+    [InlineData(-1, 1080)]
+    public void AnEmptyOrNonsensicalClientAreaStillGivesNothing(int width, int height)
         => Assert.Null(EscapeBubbleLayout.For(width, height));
+
+    [Fact]
+    public void TheRowMeasuredAt1920By1009IsWhereTheBubbleGoes()
+    {
+        var m = EscapeBubbleLayout.For(1920, 1009)!;
+
+        // Measured on the real window: icons 64.5 apart, the fifth slot's centre at 313.5,
+        // icons from y 40, label pills from y 78, 20 high.
+        Assert.InRange(m.CentreX, 313, 314);
+        Assert.Equal(40, m.Top);
+        Assert.Equal(78 - 40, m.PillTop);
+        Assert.Equal(20, m.PillHeight);
+    }
+
+    [Fact]
+    public void TheRowMeasuredAt2560By1440GrowsWithTheHeightNotTheWidth()
+    {
+        var m = EscapeBubbleLayout.For(2560, 1440)!;
+
+        // The row's pitch there was 92.3 pixels, which is 64.5 times 1440 over 1009. The slot's
+        // centre is the Esc centre and four pitches: (55.5 + 4 * 64.5) * 1.4272 = 447.
+        Assert.InRange(m.CentreX, 446, 448);
+
+        // The same height at another width is the same row.
+        Assert.Equal(m.CentreX, EscapeBubbleLayout.For(1920, 1440)!.CentreX);
+        Assert.Equal(m.CentreX, EscapeBubbleLayout.For(3440, 1440)!.CentreX);
+    }
 
     [Fact]
     public void ItTakesTheSlotAfterYInTheSameRowAtTheSameHeight()

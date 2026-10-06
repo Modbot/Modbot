@@ -4,11 +4,12 @@ namespace Modbot.Companion.Presentation;
 /// The sizes of Modbot's bubble for one HUD size, all in pixels of VRChat's client area.
 /// </summary>
 /// <remarks>
-/// Everything is the row's own geometry at scale 1, measured off VRChat's interface, times the
-/// HUD's scale. The bubble is the next slot along VRChat's row, so its icon, its label pill and its
-/// height are the other bubbles' (Escape Menu design §3).
+/// Everything is the row's own geometry at scale 1, measured on a real VRChat window at 1920 by
+/// 1009 and again at 2560 by 1440, times the HUD's scale. The bubble is the next slot along
+/// VRChat's row, so its icon, its label pill and its height are the other bubbles' (Escape Menu
+/// design §3).
 /// </remarks>
-/// <param name="Scale">How big VRChat's HUD is, where 1 is the smaller of the two known sizes.</param>
+/// <param name="Scale">How big VRChat's HUD is: the client area's height over 1009, so 1 is a client area 1009 pixels tall (<see cref="VRChatHudLayout.ScaleFor"/>).</param>
 public sealed record EscapeBubbleMetrics(double Scale)
 {
     /// <summary>The Esc bubble's centre at scale 1, from the client area's left edge.</summary>

@@ -1,11 +1,18 @@
 # Desktop overlay — Modbot's Escape Menu and a VRChat-only shortcut
 
 **Date:** 2026-10-05
-**Status:** draft — not built
+**Status:** draft — partly built. Built (2026-10-05, second commit): the window lookup moved out of
+the recorder (§2.2), the one size rule that replaces "two known sizes" (§3.3.1), and the desktop
+overlay's own placement beside VRChat's Esc menu (§3.6). Not built: the VRChat-only shortcut poll,
+the settings fields, wiring the bubble to the real shortcut. Nobody has seen any of it on a live
+VRChat window.
 **Touches (when built):** `src/Modbot.Companion/Presentation/DesktopOverlaySettings.cs`,
 `src/Modbot.Companion.App/DesktopOverlayShortcut.cs`, `src/Modbot.Companion.App/ScreenRecording.cs`
 (or a file split out of it), a new bubble window, `MainWindow.DesktopOverlay.cs`,
-`tests/Modbot.Companion.Tests/Guards/CompanionSourceGuardTests.cs`
+`tests/Modbot.Companion.Tests/Guards/CompanionSourceGuardTests.cs`.
+Built so far also touches: `src/Modbot.Companion.App/VRChatWindow.cs` (new),
+`src/Modbot.Companion/Presentation/VRChatHudLayout.cs` (new), `EscapeBubbleLayout.cs`,
+`EscapeBubbleMetrics.cs` and `src/Modbot.Companion.App/DesktopOverlayWindow.cs`.
 
 **Narrows:** `2026-09-18-desktop-overlay-design.md` §2.3 and §6, which refuse any shortcut with no
 modifier. That rule stays the rule. This spec adds one named exception to it (§2) and says what
@@ -77,6 +84,14 @@ Two ways to keep the rule true:
 guard stays at one file. The new file asks nothing the recorder did not already ask: VRChat's
 window by name, and whether it is in front.
 
+**Done 2026-10-05.** The lookup is now `VRChatWindow.cs`. It is the recorder's own code moved
+across unchanged (the window by class and title, then by title alone; its picture's size and
+where it starts on the desktop; whether it is in front; whether it is minimised; which process
+drew it), and the recorder calls it. The guard now says that exactly one file asks and that file
+is `VRChatWindow.cs`, that it names VRChat and enumerates nothing, and that it holds no keyboard
+hook, no key-state call and no event hook. The desktop overlay's placement (§3.6) is its second
+caller, so the rule is still "one file", not two.
+
 ---
 
 ## 3. Modbot's Escape Menu
@@ -95,8 +110,10 @@ Nine screenshots of VRChat's desktop UI were kept as reference (not committed). 
   Nameplates`, `Ctrl+H Hide Desktop HUD`). A bubble under Esc would hide them. This is why the
   bubble is a fifth slot in the row, not a second row (decided 2026-10-05, between three options:
   under the row, after Y, and under the hints).
-- Two HUD sizes were seen: the nine first screenshots, and a later one with Esc open in which the
-  row is about 7% bigger and starts at the top of the picture (no title bar).
+- Two HUD sizes were seen in pictures: the nine first screenshots, and a later one with Esc open in
+  which the row is about 7% bigger and starts at the top of the picture (no title bar). Measuring
+  on a real window afterwards (§3.3.1) showed the HUD follows the window's height by one rule, so
+  those two pictures are two window sizes, not two HUD sizes.
 
 ### 3.2 What it is
 
@@ -129,40 +146,110 @@ That has three honest limits:
 2. **Covering.** VRChat's own menus draw inside VRChat, so they are *under* an always-on-top
    window and the bubble would sit over them. Whether VRChat's Esc menu is open cannot be known
    from outside VRChat, so the bubble cannot hide itself then. It stays visible and small, and the
-   moderator can turn it off.
+   moderator can turn it off. (The bubble sits in the row; the desktop overlay is placed in the
+   free strip *beside* the menu, §3.6, so the two do not cover VRChat's menu.)
 3. **Exclusive fullscreen.** It cannot show over it, same as the overlay itself (§3.4). Borderless
    works.
 
-#### 3.3.1 Where it starts: two known HUD sizes
+#### 3.3.1 Where it starts: one rule for every window size
 
-The first version knows **two client areas** (VRChat's window without its title bar) and refuses
-every other, so a bubble is never put in the wrong place:
+**This reverses the first draft's "two known sizes only" decision** (and its 1.074 claim and its
+two-size table, which are removed). On 2026-10-05 the owner's real VRChat was measured at two real
+sizes, and one rule fits both: **VRChat's HUD scale follows the window's height.**
 
-| Client area | HUD scale | Where seen |
+> **S = the client area's height / 1009** (the client area is the window without its title bar).
+
+| Client area | S | What was measured there |
 |---|---|---|
-| 1918 × 1008 | 1.00 | The first nine screenshots, 1918 × 1030 *including* a 22 px title bar. **The 1008 is inferred from that and has not been checked** (§9). |
-| 1918 × 1030 | 1.074 | The Esc-open screenshot, which has no title bar. |
+| 1920 × 1009 | 1.000 | Row icons centred at x 56, 120.5, 185.5, 249.5 (pitch 64.5); icon top y 41, icons 30–31 high. |
+| 2560 × 1440 | 1.427 | Pitch 92.3, which is 64.5 × 1440 / 1009. The width does not come into it: 1.427 is the height's ratio, not the width's (1.333). |
 
-The row at scale 1, measured from the client area's top-left: Esc centre x ≈ 55.5, the bubbles
-64.5 apart (so Y is at 249 and Modbot's slot is at 313.5), icons start y ≈ 40, label pills start
-y ≈ 78 and are 20 high and 41 wide at least. Everything grows with the scale. The 1.074 comes from
-the distance between bubbles in the two sets of screenshots; it is **not** the ratio of the window
-heights (1.022), so HUD size is not simply the window's height, and a third size cannot be guessed
-from these two.
+Any other size gets the rule, with no list of known sizes and no minimum: a small window gets a
+small bubble and a small overlay, the way VRChat's own menu shrinks (the owner chose this,
+2026-10-05, over keeping a minimum size). Only an empty or nonsensical client area gives no place.
 
-These are read off pictures by eye, good to a few pixels. They live in one place in the code
-(`EscapeBubbleMetrics`) so the first run in a real window can correct them.
+**The row at scale 1**, from the client area's top-left corner. All of it times S.
+
+| Part | At scale 1 |
+|---|---|
+| Esc bubble's centre, x | 55.5 |
+| Pitch between bubbles | 64.5 (so Modbot's fifth slot is centred at 313.5) |
+| Icon top, y | 40 (30–31 high) |
+| Label pill top, y | 78; 20 high; at least 41 wide |
+
+**The Esc menu, the free strip, and what to keep out of.** All in the same client pixels, times S
+where it is a distance.
+
+| Part | Rule | Seen at |
+|---|---|---|
+| The Esc menu | Centred on the client width. Its right Wings panel ends at **W/2 + 492·S** (the left side is the same distance the other way) | 959 + 493 = 1452 at 1918 × 1008; 960 + 528 = 1488 in a second picture whose true window size is unknown (S ≈ 1.07) |
+| The free strip on the right | From the menu's right edge to the client's: **W/2 − 492·S** wide | 467 at 1918 × 1008, 433 at 1920 × 1080, 578 at 2560 × 1440, 289 at 1280 × 720 (worked out from the rule, not seen) |
+| The top-right column (V, F4, F5) | Right edge 23·S in from the client's right edge, left edge about 118·S in from it (x 1800 at W = 1918), bottom about 198·S down | 1918 × 1008 picture |
+| The top-middle notification band | About y 0 to 175·S, x from W/2 − 300·S to W/2 + 200·S. **Approximate**, used only as a box to keep out of | Red-hand "Moderation" tiles in a picture, which are believed to be notifications |
+
+**Which of this was measured, and what was not.**
+
+- **Measured on the real window:** the HUD scale rule and the row's geometry at 1920 × 1009 and at
+  2560 × 1440 (pitch, icon top). Good to about a pixel.
+- **Read off pictures by eye, good to a few pixels:** the Esc menu's reach (492·S) at 1918 × 1008,
+  the top-right column, the notification band, the label pill's top and size.
+- **Only the Launch Pad page of the Esc menu was measured.** Other pages (and settings that widen
+  the menu) may be wider than 492·S either side; the strip would then be narrower than the code
+  thinks and the overlay would overlap the menu. Follow-up.
+- **Not known:** the true window size of the second picture (960 + 528), whether 1009 is exactly
+  right for the rule at every size, and how the HUD behaves at an unusual UI-size setting.
+- **Nobody has seen the result on a live VRChat window.** The first run on one is the real check.
+
+All of it is a named constant in `VRChatHudLayout` (the menu, strip, column, band and overlay) and
+`EscapeBubbleMetrics` (the row), so a live window can correct a number in one place.
 
 ### 3.4 When it shows
 
-Only while VRChat is in front and the desktop overlay is on, and (first version) only while
-VRChat's client area is one of the two known sizes (§3.3.1). Not in a headset session, not while another
-program is in front.
+Only while VRChat is in front and the desktop overlay is on, at any window size (§3.3.1; no
+longer only two known sizes). Not in a headset session, not while another program is in front.
 
 ### 3.5 Click-through
 
 The bubble takes clicks only on itself. Everywhere else in its window is click-through, so it can
 never block a click meant for VRChat.
+
+### 3.6 Where the desktop overlay goes
+
+Built 2026-10-05. The overlay used to be a fixed 520 × 720 window down the screen's right-hand
+side, which covered VRChat's right Wings panel. It now fits in the free strip beside the Esc menu
+and scales with VRChat's window (`VRChatHudLayout`, `DesktopOverlayWindow`).
+
+- **Size.** Width = the strip's width less a gap of 12·S on each side. The scale k = width / 520,
+  and the height is 720·k. If that is taller than the space from just under the corner column
+  (198·S + 12·S down) to the client's bottom less 12·S, k shrinks until it fits. It is
+  right-aligned with a 12·S margin and starts just under the corner column.
+- **Worked out (rounded to whole pixels)**:
+
+  | Client | S | Strip | Overlay (w × h, k) | Limited by |
+  |---|---|---|---|---|
+  | 1918 × 1008 | 0.999 | 467 | 443 × 613, 0.85 | the strip's width |
+  | 1920 × 1009 | 1.000 | 468 | 444 × 614, 0.85 | the strip's width |
+  | 1920 × 1080 | 1.070 | 433 | 407 × 563, 0.78 | the strip's width |
+  | 2560 × 1440 | 1.427 | 578 | 543 × 751, 1.04 | the strip's width |
+  | 1280 × 720 | 0.714 | 289 | 271 × 375, 0.52 | the strip's width |
+
+  None overlaps the menu, the corner column or the notification band (tested).
+- **How.** The panel is laid out at 520 × 720 and drawn through a scale transform, so layout,
+  scrolling and clicking work at any size. The window is sized in the panel's own units, which are
+  a screen's pixels over its scale, using the scale of the screen the overlay lands on (VRChat's
+  rectangle and the window's position are both in desktop pixels).
+- **When.** When the window is shown it asks `VRChatWindow` where VRChat is. While it stays
+  shown it asks again 4 times a second, and moves and rescales the overlay only when VRChat's
+  window has moved or been resized (so a moderator who drags the panel keeps it there until
+  VRChat changes).
+- **Fallback.** No VRChat window, a minimised one, or one with no room for a strip (narrower than
+  the menu, for example a portrait window) gives today's placement exactly: 520 × 720 down the
+  right-hand side of the screen Modbot's own window is on. This is why the overlay never refuses a
+  size and never overlaps the menu: where it cannot do the first it does the old thing.
+- **What it does not change:** the overlay's contents, its shortcut, its settings, how it is shown
+  and hidden, or the keyboard: it is positioned and sized only, never activated again.
+- **Not done:** `DesktopNotifyWindow` (Modbot's own corner notification) is not moved. The
+  notification band's box is exposed by `VRChatHudLayout` so a later design can keep out of it.
 
 ---
 
@@ -234,7 +321,12 @@ the choice stays with the moderator.
 - The source guard: still exactly one file asks Windows about another window, and it is the new
   one; no hook and no key-state call appears anywhere.
 - The bubble is in the slot after Y, at the row's height, left edge fixed at any width (growing right), and
-  grows with the HUD scale; any unknown client area gives no place.
+  grows with the HUD scale (the client height over 1009, §3.3.1); an empty client area gives no place.
+- The free strip and the overlay's rectangle at 1918 × 1008, 1920 × 1009, 1920 × 1080, 2560 × 1440
+  and 1280 × 720: strip widths 467, 468, 433, 578 and 289; the overlay never overlaps the menu, the
+  corner column or the notification band, and stays inside the window; with no VRChat window, a
+  minimised one, or one narrower than its menu, the overlay is not placed by the maths and keeps
+  today's placement.
 - The bubble is drawn with the right label for a bare key and for a chord, and takes no clicks
   outside itself.
 
@@ -242,7 +334,12 @@ the choice stays with the moderator.
 
 ## 8. Open
 
-- Where the bubble sits at any other window size and UI setting. Only two HUD sizes are known (§3.3.1).
+- Whether the Esc menu's other pages are wider than the Launch Pad page's 492·S (§3.3.1). If any
+  is, the strip is narrower there and the overlay overlaps it.
+- The second picture's true window size (960 + 528), and the HUD at an unusual UI-size setting.
+- Where the bubble and the overlay sit on a live window: nobody has seen either yet.
+- Where Modbot's own corner notification goes beside VRChat's notification tiles (a better design
+  waits for a reference from the owner).
 - Whether the bubble should be hideable from the overlay's own strip as well as from Settings.
 
 ## 9. Handoff to a working environment
@@ -250,13 +347,15 @@ the choice stays with the moderator.
 Written 2026-10-05 from a cloud container with no Windows, no VRChat and no GitHub write access,
 so none of this was built or seen working. The next environment picks it up from here:
 
-1. **Windows with VRChat running**, windowed at 1918 × 1030. The cloud container's Xvfb cannot show
-   VRChat, and `RegisterHotKey`, `FindWindowW` and `GetForegroundWindow` exist only on Windows
-   (the client already returns `NotOnThisSystem` elsewhere).
-2. **Check §3.3.1's numbers** against the live window: read VRChat's client area with
-   `GetClientRect` (and say whether 1008 was right for the first set), put the bubble where the
-   table says, look at it beside the Y bubble, and correct `EscapeBubbleMetrics`. Take a
-   screenshot pair, with and without the bubble, for the next person.
+1. **Windows with VRChat running**, windowed, at more than one size. The cloud container's Xvfb
+   cannot show VRChat, and `RegisterHotKey`, `FindWindowW` and `GetForegroundWindow` exist only on
+   Windows (the client already returns `NotOnThisSystem` elsewhere).
+2. **Check §3.3.1's numbers** against the live window (the rule and the row were measured on one
+   real window at two sizes; the rest was read off pictures): put the bubble where the rule says,
+   look at it beside the Y bubble, open the Esc menu and look at where the overlay sits beside it
+   (on every page of the menu), resize VRChat's window and watch the overlay follow, try a monitor
+   whose Windows scale is not 100%, and correct `VRChatHudLayout` and `EscapeBubbleMetrics`. Take
+   a screenshot pair, with and without the bubble, for the next person.
 3. **Confirm `F1` and `F9`** really do nothing in VRChat on that machine (§5).
 4. **Build order:** the lookup move (§2.2) and its guard change first, then the poll and the
    `onlyInVRChat` setting, then the bubble. Each is useful without the next.

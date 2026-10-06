@@ -299,6 +299,10 @@ public class CompanionSourceGuardTests
     /// means asking Windows about a window that is not Modbot's. That is one named ask for one
     /// named window; the client still never enumerates windows and never enumerates processes, and
     /// exactly one file is allowed to match this.
+    /// On 2026-10-05 the question moved out of the recorder into its own small file,
+    /// <c>VRChatWindow.cs</c>, because the desktop overlay needs the same answer to sit beside
+    /// VRChat's menu; two users of one question are served by one place, and the rule stays at one
+    /// file rather than growing to two.
     /// </remarks>
     private static readonly Regex AsksAboutAnotherWindow = new(
         @"\b(FindWindowW|FindWindowExW|EnumWindows|EnumChildWindows|GetForegroundWindow|GetClientRect"
@@ -307,6 +311,9 @@ public class CompanionSourceGuardTests
 
     /// <summary>The one file allowed to record a picture of a screen.</summary>
     private const string RecordingFile = "ScreenRecording.cs";
+
+    /// <summary>The one file allowed to ask Windows about another program's window.</summary>
+    private const string WindowLookupFile = "VRChatWindow.cs";
 
     /// <summary>The one file allowed to name the moderator's own Videos folder.</summary>
     private const string ClipsFolderFile = "ClipsFolder.cs";
@@ -510,12 +517,13 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsScreenRecordingCs()
+    public void TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsVRChatWindowCs()
     {
         // A clip is VRChat's window, so the recorder has to be told where that window is drawn and
-        // whether it is the one in front. That is a real capability -- knowing something about a
-        // program that is not Modbot -- and it is held to the same shape as the recording itself:
-        // one named file, asking for one named window.
+        // whether it is the one in front; the desktop overlay is told the same to sit beside
+        // VRChat's menu. That is a real capability -- knowing something about a program that is
+        // not Modbot -- and it is held to the same shape as the recording itself: one named file,
+        // asking for one named window, for whoever needs the answer.
         //
         // What is still banned everywhere, this file included, is a *list*: the client does not
         // enumerate windows and does not enumerate processes (the System.Diagnostics.Process ban
@@ -527,14 +535,24 @@ public class CompanionSourceGuardTests
             .Order()
             .ToList();
 
-        Assert.Equal([RecordingFile], asking);
+        Assert.Equal([WindowLookupFile], asking);
 
         var source = File.ReadAllText(
-            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == WindowLookupFile));
 
         // It looks for VRChat by name, rather than walking what else is open.
         Assert.Contains("\"VRChat\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("EnumWindows", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnumChildWindows", source, StringComparison.Ordinal);
+
+        // It reads no key and watches no event: no keyboard hook, no key-state call, no event hook.
+        foreach (var forbidden in new[] { "SetWindowsHookEx", "GetAsyncKeyState", "GetKeyState", "SetWinEventHook" })
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+
+        // The recorder asks it, and asks nothing of Windows itself.
+        var recorder = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+        Assert.Contains("VRChatWindow.Look(", recorder, StringComparison.Ordinal);
     }
 
     [Fact]
