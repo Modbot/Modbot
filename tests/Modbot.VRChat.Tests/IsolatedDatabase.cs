@@ -36,24 +36,11 @@ public sealed class IsolatedDatabase : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        var name = $"modbot_{Guid.NewGuid():N}";
+        // A copy of the database the container migrated once, which is what migrating an empty one
+        // here would produce, without every migration run again for every test.
+        var connectionString = await fixture.CreateMigratedDatabaseAsync(ct);
 
-        await using (var admin = new NpgsqlConnection(fixture.ConnectionString))
-        {
-            await admin.OpenAsync(ct);
-
-            // A fresh GUID with a fixed prefix: nothing here is caller-supplied.
-            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{name}\"", admin);
-            await create.ExecuteNonQueryAsync(ct);
-        }
-
-        var builder = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name };
-        var database = new IsolatedDatabase(builder.ConnectionString, fixture.ConnectionString);
-
-        await using var context = database.NewContext();
-        await context.Database.MigrateAsync(ct);
-
-        return database;
+        return new IsolatedDatabase(connectionString, fixture.ConnectionString);
     }
 
     /// <summary>For the tests that need to build a container around this database.</summary>

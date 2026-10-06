@@ -17,8 +17,9 @@ namespace Modbot.Analytics.Tests;
 /// data.
 /// </para>
 /// <para>
-/// Creating a database is far cheaper than starting a second container, and migrating it proves
-/// the migrations apply from empty -- which is the only way they ever run in production.
+/// Creating a database is far cheaper than starting a second container, and it is a copy of the
+/// database the container migrated from empty once for the whole run, which is what proves the
+/// migrations apply -- the only way they ever run in production.
 /// </para>
 /// </remarks>
 public sealed class IsolatedDatabase : IAsyncDisposable
@@ -37,25 +38,11 @@ public sealed class IsolatedDatabase : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
-        var name = $"modbot_{Guid.NewGuid():N}";
+        // A copy of the database the container migrated once, which is what migrating an empty one
+        // here would produce, without every migration run again for every test.
+        var connectionString = await fixture.CreateMigratedDatabaseAsync(ct);
 
-        await using (var admin = new NpgsqlConnection(fixture.ConnectionString))
-        {
-            await admin.OpenAsync(ct);
-
-            // The name is a fresh GUID with a fixed prefix, so it needs no escaping beyond the
-            // quoting; nothing here is caller-supplied.
-            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{name}\"", admin);
-            await create.ExecuteNonQueryAsync(ct);
-        }
-
-        var builder = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name };
-        var database = new IsolatedDatabase(builder.ConnectionString, fixture.ConnectionString);
-
-        await using var context = database.NewContext();
-        await context.Database.MigrateAsync(ct);
-
-        return database;
+        return new IsolatedDatabase(connectionString, fixture.ConnectionString);
     }
 
     public ModbotContext NewContext()

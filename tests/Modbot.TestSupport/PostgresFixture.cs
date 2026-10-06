@@ -48,10 +48,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         _server = await PostgresServer.GetAsync();
 
-        var database = $"modbot_{Guid.NewGuid():N}";
-        await _server.CreateDatabaseAsync(database);
-
-        ConnectionString = _server.ConnectionStringFor(database);
+        ConnectionString = await CreateMigratedDatabaseAsync();
     }
 
     public async ValueTask DisposeAsync()
@@ -60,6 +57,22 @@ public sealed class PostgresFixture : IAsyncLifetime
         // have run. The container itself is stopped when the process ends.
         if (_server is not null && ConnectionString.Length > 0)
             await TestDatabases.DropAsync(_server.AdminConnectionString, ConnectionString);
+    }
+
+    /// <summary>
+    /// Another database in the same container, migrated and empty, for a test that needs one to
+    /// itself (the fixture's own is shared by the tests of its collection). A copy of the template,
+    /// so it is made in well under the time the migrations take. The caller drops it when it is
+    /// done (<see cref="TestDatabases.DropAsync"/>).
+    /// </summary>
+    public async Task<string> CreateMigratedDatabaseAsync(CancellationToken ct = default)
+    {
+        var server = _server ?? throw new InvalidOperationException("The fixture has not been initialised.");
+
+        var database = $"modbot_{Guid.NewGuid():N}";
+        await server.CreateDatabaseAsync(database, ct);
+
+        return server.ConnectionStringFor(database);
     }
 
     public ModbotContext NewContext()

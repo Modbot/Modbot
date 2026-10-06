@@ -55,19 +55,8 @@ public abstract class InsightTestBase : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        var name = $"modbot_{Guid.NewGuid():N}";
-
-        await using (var admin = new NpgsqlConnection(_fixture.ConnectionString))
-        {
-            await admin.OpenAsync(Ct);
-            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{name}\"", admin);
-            await create.ExecuteNonQueryAsync(Ct);
-        }
-
-        _connectionString = new NpgsqlConnectionStringBuilder(_fixture.ConnectionString) { Database = name }.ConnectionString;
-
-        await using var context = NewContext();
-        await context.Database.MigrateAsync(Ct);
+        // A copy of the database the container migrated once, not a migration run for every test.
+        _connectionString = await _fixture.CreateMigratedDatabaseAsync(Ct);
 
         Model = new ScriptedHandler(request => Answer(request));
     }
