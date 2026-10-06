@@ -227,7 +227,10 @@ public class DiscordCommandHandlerTests
         var reply = await HandleAsync(services, Call("100", DiscordCommands.Modbot), ct);
 
         Assert.Contains("connected", reply.Text, StringComparison.Ordinal);
-        Assert.Contains("3 slash commands", reply.Text, StringComparison.Ordinal);
+        // The number is the one the bot reported (the 3 given to Connected above), not a count of
+        // what DiscordCommands holds, so adding a command breaks nothing here. The word is
+        // "commands" since b84fb254, because the count includes the right-click menus.
+        Assert.Contains("3 commands registered", reply.Text, StringComparison.Ordinal);
         Assert.Contains("being posted to Discord channels", reply.Text, StringComparison.Ordinal);
         Assert.Contains("Web app: https://modbot.example.com", reply.Text, StringComparison.Ordinal);
     }
