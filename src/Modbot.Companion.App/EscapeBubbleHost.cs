@@ -10,7 +10,7 @@ namespace Modbot.Companion.App;
 /// </summary>
 /// <remarks>
 /// <para><strong>What decides is <see cref="EscapeBubblePlan"/></strong>, which is plain code with
-/// tests. This only asks <c>VRChatWindow.cs</c> where VRChat is, four times a second, and carries
+/// tests. This only asks <c>VRChatWindow.cs</c> where VRChat is, about eight times a second (every 120 ms, so a resize catches up quickly), and carries
 /// the answer out on an <see cref="EscapeBubbleWindow"/>.</para>
 /// <para><strong>It never takes the keyboard.</strong> The window is shown without being
 /// activated, and a click on it is the same action as the shortcut (the owner's
@@ -24,7 +24,7 @@ internal sealed class EscapeBubbleHost
 {
     private readonly Func<bool> _overlayVisible;
     private readonly Action _toggle;
-    private readonly DispatcherTimer _watch = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _watch = new() { Interval = TimeSpan.FromMilliseconds(120) };
 
     private EscapeBubbleWindow? _window;
     private EscapeBubblePlan? _drawn;

@@ -72,4 +72,62 @@ public sealed record EscapeBubbleMetrics(double Scale)
     /// <param name="nudgeY">The moderator's own adjustment, in pixels.</param>
     public (int X, int Y) Place(int nudgeX = 0, int nudgeY = 0)
         => (CentreX - PillMinWidth / 2 + nudgeX, Top + nudgeY);
+
+    // The backing panel: VRChat draws a faint rounded dark panel behind its four bubbles, and
+    // Modbot's bubble gets one of its own, in the same window as the bubble. Measured on a real
+    // 1920 by 1080 client (scale 1.0704), where VRChat's own is x 26 to 301 and y 26 to 123.
+
+    /// <summary>How far past VRChat's own panel's right edge (281.2 at scale 1) ours starts, so the two never overlap.</summary>
+    private const double PanelGapAtOne = 3;
+
+    /// <summary>The right edge of VRChat's own panel at scale 1, from the client area's left edge.</summary>
+    private const double VRChatPanelRightAtOne = 281.2;
+
+    /// <summary>The panel's top and bottom at scale 1, which are VRChat's own panel's.</summary>
+    private const double PanelTopAtOne = 24.3;
+
+    private const double PanelBottomAtOne = 114.9;
+
+    /// <summary>Between the pill's right edge and the panel's, at scale 1.</summary>
+    private const double PanelPadRightAtOne = 11;
+
+    /// <summary>The panel's corner radius at scale 1. Looks like about 10 at scale 1.07; not measured closer than that.</summary>
+    private const double PanelRadiusAtOne = 9.5;
+
+    /// <summary>How much of what is behind the panel it covers: black at 22%, which took (57,31,15) to (45,24,10).</summary>
+    public const double PanelAlpha = 0.22;
+
+    /// <summary>
+    /// The panel's left edge, from the client area's left edge. Rounded up, so it is never less
+    /// than the gap past VRChat's own panel, which it must not overlap.
+    /// </summary>
+    public int PanelLeft => (int)Math.Ceiling((VRChatPanelRightAtOne + PanelGapAtOne) * Scale);
+
+    /// <summary>The panel's top, from the client area's top edge.</summary>
+    public int PanelTop => Px(PanelTopAtOne);
+
+    public int PanelHeight => Px(PanelBottomAtOne) - PanelTop;
+
+    public int PanelRadius => Px(PanelRadiusAtOne);
+
+    /// <summary>
+    /// Where the bubble's left edge is inside the panel (the room left of it, between the two
+    /// panels). The bubble keeps its place on the row; the panel is drawn around it.
+    /// </summary>
+    public int PillOffsetX => Place().X - PanelLeft;
+
+    /// <summary>Where the bubble's top is inside the panel.</summary>
+    public int PillOffsetY => Top - PanelTop;
+
+    /// <summary>
+    /// How wide the panel is for a label <paramref name="textWidth"/> pixels wide: the room left of
+    /// the bubble, the bubble, and the room right of it. A long label grows the panel to the right.
+    /// </summary>
+    public int PanelWidth(double textWidth) => PillOffsetX + Width(textWidth) + Px(PanelPadRightAtOne);
+
+    /// <summary>
+    /// Where the top-left of the panel goes, as an offset from VRChat's client area. This is where
+    /// the bubble's window goes: the window is the panel.
+    /// </summary>
+    public (int X, int Y) PanelOrigin() => (PanelLeft, PanelTop);
 }

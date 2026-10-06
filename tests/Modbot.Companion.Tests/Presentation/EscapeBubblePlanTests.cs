@@ -47,14 +47,57 @@ public sealed class EscapeBubblePlanTests
     {
         var plan = EscapeBubblePlan.For(true, false, Window(1920, 1080), 0, 0, Shortcut)!;
 
+        // The window is the backing panel, so the bubble is inside it, where the row's slot is.
         // The slot's centre is about x 336; the left edge is where a normal pill's would be.
-        var centre = plan.ScreenX + (plan.Metrics.PillMinWidth / 2);
-        Assert.InRange(centre, 334, 338);
+        var pillLeft = plan.ScreenX + plan.Metrics.PillOffsetX;
+        Assert.InRange(pillLeft + (plan.Metrics.PillMinWidth / 2), 334, 338);
 
         // Icons from y about 41 to 43; label pills about y 84 to 104.
-        Assert.InRange(plan.ScreenY, 41, 44);
-        Assert.InRange(plan.ScreenY + plan.Metrics.PillTop, 82, 86);
-        Assert.InRange(plan.ScreenY + plan.Metrics.Height, 102, 106);
+        var iconTop = plan.ScreenY + plan.Metrics.PillOffsetY;
+        Assert.InRange(iconTop, 41, 44);
+        Assert.InRange(iconTop + plan.Metrics.PillTop, 82, 86);
+        Assert.InRange(iconTop + plan.Metrics.Height, 102, 106);
+    }
+
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(2560, 1440)]
+    public void TheBackingPanelIsVRChatsOwnTopAndBottomAndStartsAfterItsRightEdge(int width, int height)
+    {
+        var plan = EscapeBubblePlan.For(true, false, Window(width, height), 0, 0, Shortcut)!;
+        var s = plan.Metrics.Scale;
+
+        // VRChat's panel at scale 1 is y 24.3 to 114.9 and ends at x 281.2; ours is the window.
+        Assert.InRange(plan.ScreenY, (24.3 * s) - 1, (24.3 * s) + 1);
+        Assert.InRange(plan.ScreenY + plan.Metrics.PanelHeight, (114.9 * s) - 1, (114.9 * s) + 1);
+        Assert.True(plan.ScreenX >= (281.2 * s) + (3 * s), "overlaps VRChat's own panel");
+    }
+
+    [Fact]
+    public void At1920By1080ThePanelIsWhereVRChatsOwnWasMeasuredPlusTheGap()
+    {
+        var plan = EscapeBubblePlan.For(true, false, Window(1920, 1080), 0, 0, Shortcut)!;
+
+        // VRChat's: x 26 to 301, y 26 to 123. Ours starts a few pixels after 301 and is as tall.
+        Assert.InRange(plan.ScreenX, 304, 306);
+        Assert.InRange(plan.ScreenY, 25, 27);
+        Assert.InRange(plan.Metrics.PanelHeight, 96, 98);
+
+        // The room between the panels, the padding right of the pill, and above it.
+        Assert.InRange(plan.Metrics.PillOffsetX, 8, 11);
+        Assert.InRange(plan.Metrics.PillOffsetY, 16, 18);
+    }
+
+    [Fact]
+    public void ALongLabelGrowsThePanelToTheRightAndKeepsTheBubbleWhereItIs()
+    {
+        var m = EscapeBubbleLayout.For(1920, 1080)!;
+
+        Assert.Equal(m.PillOffsetX + m.PillMinWidth + 12, m.PanelWidth(5));
+        Assert.True(m.PanelWidth(120) > m.PanelWidth(5));
+
+        // The bubble's own left edge is the row's slot at any label width: only the right side grows.
+        Assert.Equal(m.Place().X, m.PanelLeft + m.PillOffsetX);
     }
 
     [Fact]

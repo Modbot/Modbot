@@ -122,8 +122,27 @@ pill, label text height and top as the others. It shows Modbot's face, in the gr
 icons, and the current shortcut written the way VRChat writes its own labels (`F1`, or
 `Ctrl+Alt+M`). It turns Modbot purple (the icon white) while the desktop overlay is open. Clicking
 it opens and closes the overlay, the same as the key. It carries no sentence of text (`CLAUDE.md`:
-controls, not explanations), and no backing panel of its own: VRChat's faint panel is not always
-drawn, and Modbot's bubble should not look like part of a panel that is not there.
+controls, not explanations). The idle label pill is VRChat's near-black, `#0A040C` (about
+rgb(10,4,12), practically opaque), not navy; lit, it is Modbot purple with white text.
+
+**It has a backing panel of its own** (changed 2026-10-05, reversing the first draft's "no backing
+panel", which feared looking like part of a panel that is not there; the owner's real VRChat draws
+one behind its four bubbles, and a bubble without one looked out of place). It is the same look as
+VRChat's, drawn as part of the bubble's one window, so there is one window and one click target and
+the whole window takes the click. Measured on a real 1920 × 1080 client (S = 1.0704), VRChat's panel
+is a rounded dark rectangle at x 26 to 301 and y 26 to 123, which at scale 1 is x 24.3 to 281.2 and
+y 24.3 to 114.9. It is black at about 22% alpha (the pixel (57,31,15) became (45,24,10) inside it),
+with a corner radius of about 10 px at S 1.07 (not measured closer: about 9.5 at scale 1, one
+constant). Its padding at S 1.07 was left 17, right 12, top 17, bottom 19 around the bubbles.
+
+Modbot's panel, all in `EscapeBubbleMetrics` and all times S: its top and bottom are VRChat's
+(24.3 and 114.9, so the two panels line up within a pixel); its left edge is 3 past VRChat's right
+edge (281.2 + 3 = 284.2, rounded up so the panels never overlap); the bubble keeps its place on
+the row (the slot's pill left edge, 293 at scale 1), which leaves about 9 between the panels; the
+padding right of the pill is 11. A long label grows the panel to the right and moves nothing else.
+The window is the panel, so the bubble's window origin is the panel's top-left. Measured: VRChat's
+panel at 1920 × 1080 only. Not measured: its corner radius to the pixel, or its look at any
+other size. At 2560 × 1440 the numbers are the rule's, not seen.
 
 The label has the height of VRChat's own (capitals 11 px at the smaller HUD, 15 px type). A label
 too long for one slot (`Ctrl+Alt+M`) **widens the bubble** rather than shrinking the text, and
@@ -213,7 +232,7 @@ window in front (the overlay does not need that either), which reverses the firs
 while VRChat is in front". It is never given the keyboard: shown without activating, and a click
 runs the shortcut's own action, which opens or closes the overlay. It says the overlay's current
 shortcut (`Ctrl+Alt+M` by default) and changes when the shortcut changes, and it is Modbot purple
-while the overlay is open and grey while it is closed. It looks at VRChat's window 4 times a second
+while the overlay is open and grey while it is closed. It looks at VRChat's window every 120 ms (about 8 times a second, so a resize catches up quickly)
 and moves or resizes when VRChat does (`EscapeBubblePlan` decides, `EscapeBubbleHost` carries it
 out). Its own timer runs while the overlay setting is on; the overlay's follow timer runs only while
 the overlay is open, so they are two timers. Checked against the owner's real 1920 × 1080 window: the row's icons are

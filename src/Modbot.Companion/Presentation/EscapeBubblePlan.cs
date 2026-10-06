@@ -11,8 +11,8 @@ namespace Modbot.Companion.Presentation;
 /// the bubble only carries it out.
 /// </remarks>
 /// <param name="Metrics">The bubble's sizes, in pixels of VRChat's picture, for this window size.</param>
-/// <param name="ScreenX">Where its left edge goes across the whole desktop, in pixels.</param>
-/// <param name="ScreenY">Where its top edge goes down the whole desktop, in pixels.</param>
+/// <param name="ScreenX">Where the window's left edge (the backing panel's) goes across the whole desktop, in pixels.</param>
+/// <param name="ScreenY">Where the window's top edge goes down the whole desktop, in pixels.</param>
 /// <param name="Label">The shortcut as VRChat writes its own labels, such as <c>Ctrl+Alt+M</c>.</param>
 /// <param name="Lit">Whether the desktop overlay is open: Modbot purple, rather than grey.</param>
 public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, int ScreenY, string Label, bool Lit)
@@ -42,7 +42,9 @@ public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, 
         if (EscapeBubbleLayout.For(window.Width, window.Height) is not { } metrics)
             return null;
 
-        var (x, y) = metrics.Place();
+        // The window is the bubble's backing panel, which is larger than the bubble, so the
+        // window's origin is the panel's top-left. The bubble inside keeps its place on the row.
+        var (x, y) = metrics.PanelOrigin();
         return new EscapeBubblePlan(
             metrics,
             clientLeft + x,

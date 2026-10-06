@@ -18,8 +18,9 @@ namespace Modbot.Companion.App;
 /// </summary>
 /// <remarks>
 /// <para><strong>It is a window of its own, because VRChat's HUD is not ours to draw in.</strong>
-/// The window is exactly the bubble, so it has no empty margin to block a click meant for the game:
-/// whatever it covers is the bubble, and clicking the bubble is the one thing it is for.</para>
+/// The window is the bubble and its faint backing panel, drawn like the one VRChat puts behind its
+/// own four bubbles, so it has no empty margin to block a click meant for the game: whatever it
+/// covers is the bubble or its panel, and clicking either is the one thing it is for.</para>
 /// <para><strong>It never takes the keyboard from VRChat.</strong> It is shown without being
 /// activated and, on Windows, marked as a window a click does not activate.</para>
 /// <para><strong>It reads nothing and sends nothing.</strong> It is told what to say and whether
@@ -31,8 +32,11 @@ internal sealed class EscapeBubbleWindow : Window
 {
     private const string IconAsset = "avares://Modbot/Assets/escape-bubble-icon.png";
 
-    /// <summary>VRChat's own label pill: a dark navy with light text. Not ours, so not a token.</summary>
-    private static readonly Color PillOff = Color.Parse("#10132a");
+    /// <summary>VRChat's own label pill: a near-black, practically opaque, with light text. Not ours, so not a token.</summary>
+    private static readonly Color PillOff = Color.Parse("#0A040C");
+
+    /// <summary>VRChat's faint backing panel: black at 22%, which darkens what is behind it by that much.</summary>
+    private static readonly Color PanelGround = Color.FromArgb((byte)Math.Round(EscapeBubbleMetrics.PanelAlpha * 255), 0, 0, 0);
 
     private static readonly Color PillText = Color.Parse("#d8d8e4");
 
@@ -50,6 +54,7 @@ internal sealed class EscapeBubbleWindow : Window
     private static readonly Lazy<Bitmap> IconPicture = new(
         () => new Bitmap(AssetLoader.Open(new Uri(IconAsset, UriKind.Absolute))));
 
+    private readonly Border _panel;
     private readonly Rectangle _icon;
     private readonly Border _pill;
     private readonly TextBlock _label;
@@ -90,7 +95,11 @@ internal sealed class EscapeBubbleWindow : Window
             Child = _label,
         };
 
-        Content = new Canvas { Children = { _icon, _pill } };
+        // VRChat's own faint dark panel, behind the bubble, in the same window: one window, one
+        // click target. The whole window takes the click.
+        _panel = new Border { Background = new SolidColorBrush(PanelGround) };
+
+        Content = new Canvas { Children = { _panel, _icon, _pill } };
 
         Apply(new EscapeBubbleMetrics(1.0));
         Paint();
@@ -118,9 +127,11 @@ internal sealed class EscapeBubbleWindow : Window
         _icon.Height = metrics.IconHeight;
         _icon.Width = metrics.IconHeight * 68.0 / 64;
         _pill.Height = metrics.PillHeight;
-        Canvas.SetTop(_icon, 0);
-        Canvas.SetTop(_pill, metrics.PillTop);
-        Height = metrics.Height;
+        _panel.CornerRadius = new CornerRadius(metrics.PanelRadius);
+        _panel.Height = metrics.PanelHeight;
+        Canvas.SetTop(_icon, metrics.PillOffsetY);
+        Canvas.SetTop(_pill, metrics.PillOffsetY + metrics.PillTop);
+        Height = metrics.PanelHeight;
         Fit();
     }
 
@@ -132,22 +143,24 @@ internal sealed class EscapeBubbleWindow : Window
         Fit();
     }
 
-    /// <summary>The window's width, which is the pill's: the bubble is as wide as its label needs.</summary>
+    /// <summary>The window's width, which is the backing panel's: as wide as the bubble and its label need.</summary>
     public int BubbleWidth => (int)Width;
 
     /// <summary>
-    /// Makes the window as wide as the label needs and puts the icon over the middle of the pill,
-    /// which is the middle of the window.
+    /// Makes the panel, and so the window, as wide as the label needs, keeps the bubble where it
+    /// is on the row, and puts the icon over the middle of the pill.
     /// </summary>
     private void Fit()
     {
         _label.Measure(Size.Infinity);
-        var width = _metrics.Width(_label.DesiredSize.Width);
+        var pillWidth = _metrics.Width(_label.DesiredSize.Width);
+        var width = _metrics.PanelWidth(_label.DesiredSize.Width);
 
         Width = width;
-        _pill.Width = width;
-        Canvas.SetLeft(_pill, 0);
-        Canvas.SetLeft(_icon, (width - _icon.Width) / 2);
+        _panel.Width = width;
+        _pill.Width = pillWidth;
+        Canvas.SetLeft(_pill, _metrics.PillOffsetX);
+        Canvas.SetLeft(_icon, _metrics.PillOffsetX + ((pillWidth - _icon.Width) / 2));
     }
 
     /// <summary>Lit while the desktop overlay is open.</summary>
