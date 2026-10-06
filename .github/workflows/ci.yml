@@ -75,6 +75,13 @@ jobs:
       # the suite's diagnostic messages, which is what prints those lines.
       #
       # Each suite's result and minutes go into the run's summary page as a table.
+      #
+      # The suites run in a fixed order, quick ones first and the three slowest (VRChat, Discord,
+      # Api: over two of the roughly two and a half hours between them) last. They ran in
+      # alphabetical order, so a broken test in a small suite was reported only after the Api
+      # suite had finished; now it is reported within about fifteen minutes. A suite that is in
+      # neither list below still runs, ahead of the slow three, so a new project is never skipped;
+      # and a name in a list that no longer matches a project is a warning, not silently ignored.
       - name: Test
         env:
           SUITE_TIME_LIMIT_MINUTES: 180
@@ -87,30 +94,69 @@ jobs:
             echo "| Suite | Result | Minutes |"
             echo "|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
-          for proj in tests/*/; do
-            if [ -f "$proj"*.csproj ] && [ "$(basename "$proj")" != "Modbot.TestSupport" ]; then
-              name="$(basename "$proj")"
-              echo "::group::$name"
-              start=$SECONDS
-              code=0
-              timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
-                dotnet run --project "$proj" --configuration Release --no-build \
-                -- -longRunning "$LONG_RUNNING_TEST_SECONDS" || code=$?
-              minutes="$(awk -v s=$((SECONDS - start)) 'BEGIN { printf "%.1f", s / 60 }')"
-              echo "::endgroup::"
-              # timeout exits 124 when it had to interrupt the suite and 137 when it had to kill it.
-              if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
-                echo "::error::$name timed out after ${SUITE_TIME_LIMIT_MINUTES}m"
-                result="TIMED OUT after ${SUITE_TIME_LIMIT_MINUTES}m"
-                failed="$failed $name"
-              elif [ "$code" -ne 0 ]; then
-                result="failed (exit $code)"
-                failed="$failed $name"
-              else
-                result="passed"
-              fi
-              echo "| $name | $result | $minutes |" >> "$GITHUB_STEP_SUMMARY"
+          # Quick suites in the order they run, then any other suite found, then the slow three.
+          quick_first="Modbot.Companion.App.Tests Modbot.Server.Tests Modbot.Landing.Tests Modbot.My.Tests Modbot.Overlay.Tests Modbot.Companion.Tests Modbot.Core.Tests Modbot.Evidence.Tests Modbot.Moderation.Tests Modbot.Cloud.Tests Modbot.AI.Tests Modbot.Analytics.Tests Modbot.Demo.Tests"
+          slow_last="Modbot.VRChat.Tests Modbot.Discord.Tests Modbot.Api.Tests"
+          suites=""
+          is_suite() {
+            # A project under tests/ that holds tests. Modbot.TestSupport is shared code only.
+            if [ "$1" != "Modbot.TestSupport" ] && [ -f "tests/$1/$1.csproj" ]; then
+              return 0
             fi
+            return 1
+          }
+          add_suite() {
+            case " $suites " in
+              *" $1 "*) ;;
+              *) suites="$suites $1" ;;
+            esac
+          }
+          for name in $quick_first; do
+            if is_suite "$name"; then
+              add_suite "$name"
+            else
+              echo "::warning::$name is in the quick list of the Test step but is not a test project; update ci.yml."
+            fi
+          done
+          for dir in tests/*/; do
+            name="$(basename "$dir")"
+            case " $slow_last " in
+              *" $name "*) continue ;;
+            esac
+            if is_suite "$name"; then
+              add_suite "$name"
+            fi
+          done
+          for name in $slow_last; do
+            if is_suite "$name"; then
+              add_suite "$name"
+            else
+              echo "::warning::$name is in the slow list of the Test step but is not a test project; update ci.yml."
+            fi
+          done
+          echo "Suites, in the order they run:$suites"
+          for name in $suites; do
+            proj="tests/$name/"
+            echo "::group::$name"
+            start=$SECONDS
+            code=0
+            timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
+              dotnet run --project "$proj" --configuration Release --no-build \
+              -- -longRunning "$LONG_RUNNING_TEST_SECONDS" || code=$?
+            minutes="$(awk -v s=$((SECONDS - start)) 'BEGIN { printf "%.1f", s / 60 }')"
+            echo "::endgroup::"
+            # timeout exits 124 when it had to interrupt the suite and 137 when it had to kill it.
+            if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
+              echo "::error::$name timed out after ${SUITE_TIME_LIMIT_MINUTES}m"
+              result="TIMED OUT after ${SUITE_TIME_LIMIT_MINUTES}m"
+              failed="$failed $name"
+            elif [ "$code" -ne 0 ]; then
+              result="failed (exit $code)"
+              failed="$failed $name"
+            else
+              result="passed"
+            fi
+            echo "| $name | $result | $minutes |" >> "$GITHUB_STEP_SUMMARY"
           done
           if [ -n "$failed" ]; then
             echo "::error::Failing suites:$failed"
