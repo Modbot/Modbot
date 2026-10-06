@@ -53,6 +53,14 @@ public class EveryModbotFactHasAWriterTests
         @"==|!=|\bcase\b|\.Contains\(|\bis\s+FactType|\bnot\s+FactType",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// A line that picks between two types (<c>state == Sent ? FactType.A : FactType.B</c>). The
+    /// <c>==</c> in front belongs to the condition, not to the types, which are what gets written.
+    /// </summary>
+    private static readonly Regex PicksBetweenTwo = new(
+        @"\?\s*(?:Core\.Data\.Entities\.)?FactType\.\w+\s*:\s*(?:Core\.Data\.Entities\.)?FactType\.\w+",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     /// <summary>A type that is a whole line by itself: an element of a list, or the first argument of a call.</summary>
     private static readonly Regex OnItsOwn = new(
         @"^\s*(?:Core\.Data\.Entities\.)?FactType\.\w+,?\s*$",
@@ -116,7 +124,7 @@ public class EveryModbotFactHasAWriterTests
 
                 return all
                     .Select((line, index) => (line, previous: index == 0 ? string.Empty : all[index - 1].TrimEnd()))
-                    .Where(x => !Compares.IsMatch(x.line) && !AnEntry.IsMatch(x.line))
+                    .Where(x => PicksBetweenTwo.IsMatch(x.line) || (!Compares.IsMatch(x.line) && !AnEntry.IsMatch(x.line)))
                     .Where(x => !OnItsOwn.IsMatch(x.line) || x.previous.EndsWith('('))
                     .Select(x => x.line);
             })
