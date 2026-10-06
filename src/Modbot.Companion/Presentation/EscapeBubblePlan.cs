@@ -17,10 +17,14 @@ namespace Modbot.Companion.Presentation;
 /// <param name="Lit">Whether the desktop overlay is open: Modbot purple, rather than grey.</param>
 public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, int ScreenY, string Label, bool Lit)
 {
+    /// <summary>The shortest a backing panel may come out, in pixels, before there is no bubble.</summary>
+    public const int MinPanelHeight = 4;
+
     /// <summary>
     /// The bubble for what is known now, or null when there should be none: the desktop overlay is
-    /// off, VRChat's window is not there or is minimised, or its picture is too small to place
-    /// anything in. VRChat does not have to be the window in front.
+    /// off, VRChat's window is not there or is minimised, its picture is too small to place
+    /// anything in, the panel would start past the picture's right edge, or the panel would be
+    /// under <see cref="MinPanelHeight"/> pixels tall. VRChat does not have to be the window in front.
     /// </summary>
     /// <param name="overlayOn">The desktop overlay setting.</param>
     /// <param name="overlayVisible">Whether the overlay's window is up now.</param>
@@ -45,6 +49,12 @@ public sealed record EscapeBubblePlan(EscapeBubbleMetrics Metrics, int ScreenX, 
         // The window is the bubble's backing panel, which is larger than the bubble, so the
         // window's origin is the panel's top-left. The bubble inside keeps its place on the row.
         var (x, y) = metrics.PanelOrigin();
+
+        // A window too narrow for the panel to start inside it, or so short the panel is a sliver,
+        // has no row to put a bubble in.
+        if (x >= window.Width || metrics.PanelHeight < MinPanelHeight)
+            return null;
+
         return new EscapeBubblePlan(
             metrics,
             clientLeft + x,

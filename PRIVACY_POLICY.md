@@ -547,6 +547,14 @@ saved clip is a file in a folder on their own PC (by default a *Modbot Clips* fo
 and if it ever becomes evidence on a case it is because they chose that file in a browser, the same
 as any other attachment.
 
+**The desktop overlay, and the small Modbot bubble it puts in VRChat's row of key hints, ask
+Windows where VRChat's window is, how big it is and whether it is minimised.** They use the answer
+to sit beside VRChat's own menu and to follow its size. They read no pixels, no keys and nothing
+from inside VRChat's window, they do not move or press anything in it, and nothing about it is
+sent anywhere, to us or to anyone else. It is the same one question about VRChat's window that the
+clip recorder asks, and it is asked of that one named window only, never of a list of windows or
+programs.
+
 **A clip has sound in it, and in a VRChat instance that sound is other people's voices.** Until 19
 September 2026 a clip was silent, and this policy said so; that is no longer true and this paragraph
 is the replacement. The sound in a clip is **VRChat's own**, and **Discord's** if the person using

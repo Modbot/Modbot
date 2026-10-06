@@ -38,7 +38,30 @@ internal sealed class EscapeBubbleHost
     {
         _overlayVisible = overlayVisible ?? throw new ArgumentNullException(nameof(overlayVisible));
         _toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
-        _watch.Tick += (_, _) => Refresh();
+        _watch.Tick += (_, _) => RefreshSafely();
+    }
+
+    /// <summary>Whether the last tick failed, so a failure that repeats is logged once, not eight times a second.</summary>
+    private bool _failing;
+
+    /// <summary>
+    /// One tick of the watch. A failure from a Windows call or from showing the window is logged
+    /// once and the watch carries on: a bubble is never worth taking the client down for.
+    /// </summary>
+    private void RefreshSafely()
+    {
+        try
+        {
+            Refresh();
+            _failing = false;
+        }
+        catch (Exception ex)
+        {
+            if (!_failing)
+                Serilog.Log.Warning(ex, "The escape bubble could not be updated ({Reason}); the client carries on", ex.Message);
+
+            _failing = true;
+        }
     }
 
     /// <summary>Whether a bubble is on screen now.</summary>

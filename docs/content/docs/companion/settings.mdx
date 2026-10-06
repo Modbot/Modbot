@@ -417,6 +417,13 @@ The lock and the hand in the window's top strip work like the ones under the hea
 the strip no longer drags the window; with the hand on, clicks on the panel go through to VRChat,
 while the strip itself still takes clicks so you can turn it back off.
 
+While VRChat's window is showing, the window sits in the free space beside VRChat's Esc menu and
+follows VRChat's size, and a small Modbot bubble with the shortcut's key sits in VRChat's top-left
+row of key hints (see [The desktop overlay and its bubble](/companion/overlay#the-desktop-overlay-and-its-bubble)).
+To do that the client asks Windows where VRChat's window is, how big it is and whether it is
+minimised. It reads no pixels, no keys and nothing from inside VRChat's window, and nothing about it
+is sent anywhere.
+
 VRChat in exclusive fullscreen will hide the window. Run VRChat in borderless windowed mode if you
 want the overlay over it.
 

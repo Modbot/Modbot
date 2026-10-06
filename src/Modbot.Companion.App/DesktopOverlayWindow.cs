@@ -205,7 +205,29 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         TextInput += OnTextInput;
 
         _throughWatch.Tick += (_, _) => WatchTheMouse();
-        _followWatch.Tick += (_, _) => FollowVRChat();
+        _followWatch.Tick += (_, _) => FollowVRChatSafely();
+    }
+
+    private bool _followFailing;
+
+    /// <summary>
+    /// One tick of the follow watch. A failure from a Windows call or from moving the window is
+    /// logged once and the watch carries on: following VRChat is never worth taking the client down.
+    /// </summary>
+    private void FollowVRChatSafely()
+    {
+        try
+        {
+            FollowVRChat();
+            _followFailing = false;
+        }
+        catch (Exception ex)
+        {
+            if (!_followFailing)
+                Serilog.Log.Warning(ex, "The desktop overlay could not follow VRChat's window ({Reason}); the client carries on", ex.Message);
+
+            _followFailing = true;
+        }
     }
 
     /// <summary>The list whose Name filter is open on the screen drawn now, or null.</summary>

@@ -29,6 +29,30 @@ public sealed class EscapeBubblePlanTests
         => Assert.Null(EscapeBubblePlan.For(true, false, Window(1920, 1080, minimised: true), 0, 0, Shortcut));
 
     [Fact]
+    public void WithAWindowTooNarrowForThePanelToStartInsideItThereIsNoBubble()
+    {
+        // 300 by 1400: the row is drawn at the height's scale (1.39), so the panel would start at
+        // about x 395, past the window's right edge.
+        Assert.Null(EscapeBubblePlan.For(true, false, Window(300, 1400), 0, 0, Shortcut));
+    }
+
+    [Fact]
+    public void ANarrowTallWindowWhoseRowStillFitsStillGetsABubbleInsideIt()
+    {
+        // 600 by 1400: the panel starts at about x 395, inside the window.
+        var plan = EscapeBubblePlan.For(true, false, Window(600, 1400), 0, 0, Shortcut)!;
+
+        Assert.True(plan.ScreenX < 600);
+    }
+
+    [Theory]
+    [InlineData(100, 30)]
+    [InlineData(1000, 30)]
+    [InlineData(40, 20)]
+    public void ATinyWindowWhosePanelWouldBeASliverHasNoBubble(int width, int height)
+        => Assert.Null(EscapeBubblePlan.For(true, false, Window(width, height), 0, 0, Shortcut));
+
+    [Fact]
     public void WithAWindowThatHasNoSizeThereIsNoBubble()
         => Assert.Null(EscapeBubblePlan.For(true, false, Window(0, 0), 0, 0, Shortcut));
 

@@ -2745,9 +2745,11 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// The shortcut, pressed: the overlay comes up over the game, or goes away again.
     /// </summary>
     /// <remarks>
-    /// It is shown beside the client's own window so it lands on the screen that window is on,
-    /// which is the closest thing to "the monitor the moderator is using" that can be known
-    /// without going looking at other programs' windows.
+    /// When VRChat's window is there it is placed beside VRChat's own menu, from where that window
+    /// is and how big it is (<c>VRChatWindow.cs</c>, the one question the client asks about
+    /// another program's window). Otherwise it is shown beside the client's own window so it lands
+    /// on the screen that window is on, which is the closest thing to "the monitor the moderator
+    /// is using" that can be known without it.
     /// </remarks>
     private void ToggleDesktopOverlay()
     {
@@ -3243,6 +3245,18 @@ internal sealed partial class CompanionHost : IOverlayListener
         // that is going away.
         _desktopOverlayShortcut?.Dispose();
         _desktopNotify?.Clear();
+
+        // The bubble's window and its watch go with the client, not with the process's last gasp.
+        var bubble = _escapeBubbleHost;
+        _escapeBubbleHost = null;
+        if (bubble is not null)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
+                bubble.Stop();
+            else
+                Dispatcher.UIThread.Post(bubble.Stop);
+        }
+
         _voice?.Dispose();
 
         // Stops the recording and deletes the two rolling files: a client that is going away must

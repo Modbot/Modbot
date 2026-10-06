@@ -291,6 +291,21 @@ server or quit the client.
   head. Move it with a controller or from the **SteamVR** page; see
   [Holding it](#holding-it) and [On your wrist](#on-your-wrist).
 
+## The desktop overlay and its bubble
+
+The [desktop overlay](/companion/settings#desktop-overlay) is the same panel in a window on a
+monitor. While VRChat's window is there, the window sits in the free space to the right of
+VRChat's own Esc menu and gets bigger or smaller with VRChat's window, so it does not cover the
+menu. Modbot also puts a small bubble in VRChat's top-left row of key hints, after the Y one,
+showing the key that opens the overlay (`Ctrl+Alt+M` unless you changed it). It is purple while
+the overlay is open, and clicking it opens and closes the overlay, the same as the key. The bubble
+is there whenever the desktop overlay is on and VRChat's window is showing, and is gone when
+either is not.
+
+To do this the client asks Windows where VRChat's window is, how big it is and whether it is
+minimised. It reads no pixels, no keys and nothing from inside VRChat's window, it does not
+move, resize or press anything in it, and nothing about it is sent anywhere.
+
 ## What it sends
 
 Nothing at all while the overlay is [switched off](#turning-it-off). Otherwise, only while you are
