@@ -240,7 +240,10 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
 
         if (did.StartsWith("did:plc:", StringComparison.Ordinal) && did.Length > "did:plc:".Length && PlcId().IsMatch(did["did:plc:".Length..]))
         {
-            address = new Uri(new Uri(PlcDirectory), did);
+            // Joined as text: given to `new Uri(baseUri, did)`, "did:plc:…" reads as an address of its
+            // own with the scheme "did", and the request would never reach plc.directory. The id after
+            // "did:plc:" is held to base32 letters and digits above, so it stays one path part.
+            address = new Uri(PlcDirectory + did);
         }
         else if (did.StartsWith("did:web:", StringComparison.Ordinal))
         {
