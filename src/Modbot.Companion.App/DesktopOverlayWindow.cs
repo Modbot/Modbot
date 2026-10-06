@@ -1,9 +1,11 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
@@ -51,6 +53,13 @@ namespace Modbot.Companion.App;
 /// minimised one, it is where it always was, down the screen's right-hand side. Looking at
 /// VRChat's window is <c>VRChatWindow.cs</c>'s one question, asked four times a second only while
 /// this window is up; the window never activates, moves or sends anything to VRChat's.</para>
+/// <para><strong>VRChat's colours.</strong> When the person using this PC has a colour palette
+/// selected in VRChat and the client knows who they are from VRChat's log, the window is drawn in
+/// the look of VRChat's own menu in that palette; with none it looks as it always did. The palette
+/// is one value in the Windows registry, read when the window opens and every two seconds while it
+/// is up (<see cref="VRChatPaletteRegistry"/>), so a palette changed in VRChat shows here a moment
+/// later. Nothing is written back and nothing is sent. Only this window is drawn so: the headset
+/// panel is built from the same screens and never asks for it.</para>
 /// </remarks>
 internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 {
@@ -74,10 +83,24 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private OverlayScreen? _drawn;
     private DesktopOverlaySettings _settings = DesktopOverlaySettings.Default;
 
+    // How the panel is drawn now: the headset's look, which is what this window always had, until
+    // a palette has been read from VRChat's settings.
+    private OverlayLook _look = OverlayLook.Headset;
+    private OverlayColours? _colours;
+    private readonly Border _frame = new();
+    private readonly List<Style> _hoverStyles = [];
+
+    // While the window is up: VRChat's selected palette looked at every two seconds, off the UI
+    // thread, since it is a read from Windows. At most one look is out at a time.
+    private readonly DispatcherTimer _paletteWatch = new() { Interval = TimeSpan.FromSeconds(2) };
+    private bool _lookingAtPalette;
+    private bool _paletteFailing;
+
     // The strip, and its two switches, repainted whenever the settings change.
-    private Control? _head;
+    private Border? _head;
     private readonly Button _lockButton = SwitchButton();
     private readonly Button _throughButton = SwitchButton();
+    private readonly Button _closeButton = Ui.Button("Close");
 
     private bool _editMode;
 
@@ -110,6 +133,12 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private bool _scaled;
     private double _fittedScaling = 1;
     private int _scalingRetries;
+
+    /// <summary>
+    /// The moderator's own VRChat user id as the client's log reading last said, or null while it
+    /// is not known. The palette is looked for under this id and no other.
+    /// </summary>
+    public Func<string?>? LocalUserId { get; set; }
 
     /// <summary>A click on the panel, as the target under it. Null is a click on nothing.</summary>
     public event Action<OverlayTarget?>? PanelTapped;
@@ -185,7 +214,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         // The panel is laid out at its own size and then drawn bigger or smaller by the scaler, so
         // layout, scrolling and clicking all work at any size (the transform is undone for a click).
-        _scaler.Child = new DockPanel { Children = { head, body } };
+        // The frame is what VRChat's look draws its rounded edge on; it is bare otherwise.
+        _frame.Child = new DockPanel { Children = { head, body } };
+        _scaler.Child = _frame;
         Content = _scaler;
 
         _panel.PointerPressed += OnPanelPressed;
@@ -206,6 +237,21 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         _throughWatch.Tick += (_, _) => WatchTheMouse();
         _followWatch.Tick += (_, _) => FollowVRChatSafely();
+        _paletteWatch.Tick += (_, _) => _ = WatchThePaletteAsync();
+    }
+
+    /// <summary>
+    /// Whether the window can be drawn with rounded corners: only where it can really be see-through.
+    /// Where it cannot, the corners would show a square of whatever the window is cleared to.
+    /// </summary>
+    private bool CanRoundTheCorners => ActualTransparencyLevel == WindowTransparencyLevel.Transparent;
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == ActualTransparencyLevelProperty)
+            PaintGround();
     }
 
     private bool _followFailing;
@@ -284,11 +330,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// starts on the strip itself and never on the Close button, which used to swallow the press
     /// that was meant to close the window.</para>
     /// </remarks>
-    private Control Head()
+    private Border Head()
     {
         _groupName.VerticalAlignment = VerticalAlignment.Center;
 
-        var close = Ui.Button("Close");
+        var close = _closeButton;
         close.Click += (_, _) => Dismiss();
 
         _lockButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { Locked = !_settings.Locked });
@@ -337,6 +383,126 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>
+    /// The window's ground, the strip's and the group's name, drawn for the look in use: today's,
+    /// or VRChat's with its bar, its rounded panel and its edge.
+    /// </summary>
+    private void PaintGround()
+    {
+        Background = GroundBrush();
+
+        if (_look.VRChat is { } v)
+        {
+            // The panel, thinned out by the opacity setting while everything on it stays solid.
+            _frame.Background = v.Panel(_settings.Alpha);
+            _frame.BorderBrush = v.Edge;
+            _frame.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
+            _frame.CornerRadius = CanRoundTheCorners ? new CornerRadius(VRChatLook.FrameRadius) : default;
+            _frame.ClipToBounds = true;
+
+            if (_head is not null)
+            {
+                _head.Background = v.Bar(_settings.Alpha);
+                _head.BorderThickness = default;
+            }
+        }
+        else
+        {
+            _frame.Background = null;
+            _frame.BorderBrush = null;
+            _frame.BorderThickness = default;
+            _frame.CornerRadius = default;
+            _frame.ClipToBounds = false;
+
+            if (_head is not null)
+            {
+                _head.Background = Ui.T.Surface2Brush;
+                _head.BorderBrush = Ui.T.BorderBrush;
+                _head.BorderThickness = new Thickness(0, 0, 0, Ui.T.Density.Hairline);
+            }
+        }
+
+        PaintGroupName();
+        PaintClose();
+    }
+
+    /// <summary>The group's name in the strip: the title of the mock in VRChat's look, today's words otherwise.</summary>
+    private void PaintGroupName()
+    {
+        if (_look.VRChat is { } v)
+        {
+            _groupName.FontSize = 13;
+            _groupName.FontWeight = FontWeight.Bold;
+            _groupName.Foreground = v.Subtext;
+            return;
+        }
+
+        _groupName.FontSize = Ui.T.Density.TextBase;
+        _groupName.FontWeight = FontWeight.SemiBold;
+        _groupName.Foreground = _drawn?.GroupLabel is null && _drawn is not null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
+    }
+
+    /// <summary>The Close button, as a rounded bordered button in VRChat's look and as <see cref="Ui.Button"/> makes it otherwise.</summary>
+    private void PaintClose()
+    {
+        _closeButton.Classes.Set("vrchat", _look.VRChat is not null);
+
+        if (_look.VRChat is { } v)
+        {
+            _closeButton.Height = 30;
+            _closeButton.CornerRadius = new CornerRadius(VRChatLook.ButtonRadius);
+            _closeButton.Background = v.Button;
+            _closeButton.BorderBrush = v.Edge;
+            _closeButton.BorderThickness = new Thickness(VRChatLook.EdgeWidth);
+
+            if (_closeButton.Content is TextBlock caption)
+            {
+                caption.FontSize = 13;
+                caption.FontWeight = FontWeight.Bold;
+                caption.Foreground = v.Text;
+            }
+
+            return;
+        }
+
+        _closeButton.Height = Ui.T.Density.ControlHeight;
+        _closeButton.CornerRadius = new CornerRadius(Ui.T.Density.Radius);
+        _closeButton.Background = Ui.T.Surface2Brush;
+        _closeButton.BorderBrush = Ui.T.Border2Brush;
+        _closeButton.BorderThickness = new Thickness(Ui.T.Density.Hairline);
+
+        if (_closeButton.Content is TextBlock plain)
+        {
+            plain.FontSize = Ui.T.Density.TextSmall;
+            plain.FontWeight = FontWeight.Medium;
+            plain.Foreground = Ui.T.TextBrush;
+        }
+    }
+
+    /// <summary>
+    /// The three strip buttons light up under the mouse in the palette's own colours rather than
+    /// in the theme's grey. One style, replaced when the look changes.
+    /// </summary>
+    private void PaintHoverStyle()
+    {
+        foreach (var old in _hoverStyles)
+            Styles.Remove(old);
+
+        _hoverStyles.Clear();
+
+        if (_look.VRChat is not { } v)
+            return;
+
+        foreach (var state in new[] { ":pointerover", ":pressed" })
+        {
+            var style = new Style(x => x.OfType<Button>().Class("vrchat").Class(state).Template().OfType<ContentPresenter>().Name("PART_ContentPresenter"));
+            style.Setters.Add(new Setter(ContentPresenter.BackgroundProperty, v.Hover));
+            style.Setters.Add(new Setter(ContentPresenter.BorderBrushProperty, v.Edge));
+            Styles.Add(style);
+            _hoverStyles.Add(style);
+        }
+    }
+
+    /// <summary>
     /// A screen from the drive loop. Redrawn only when it would look different, the same rule the
     /// headset panel uses and for the same reason: this shares a machine with a game.
     /// </summary>
@@ -365,19 +531,109 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         }
 
         _groupName.Text = screen.GroupLabel ?? "Not in a group instance";
-        _groupName.Foreground = screen.GroupLabel is null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
+        PaintGroupName();
 
         var picture = GroupIcon?.Invoke(screen.GroupIconUrl);
         _groupIcon.Source = picture;
         _groupIconFrame.IsVisible = picture is not null;
 
+        DrawScreen();
+
+        return true;
+    }
+
+    /// <summary>
+    /// Builds the panel's controls for the screen drawn now, in the look in use. Called when a
+    /// different screen arrives and again when the look changes under the same one.
+    /// </summary>
+    private void DrawScreen()
+    {
+        if (_drawn is not { } screen)
+            return;
+
         // The idle screen draws nothing at all in a headset, where the panel hangs in the world.
         // In a window there is a window either way, so it says so rather than going blank.
         _panel.Content = screen.IsIdle
-            ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon)
-            : OverlayView.Build(screen, GroupIcon);
+            ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon, _look)
+            : OverlayView.Build(screen, GroupIcon, _look);
+    }
 
-        return true;
+    /// <summary>
+    /// One look at the palette selected in VRChat's settings, taken off the UI thread and acted on
+    /// back on it. A failed look is logged once per run of failures and leaves the look as it is.
+    /// </summary>
+    private async Task WatchThePaletteAsync()
+    {
+        if (_lookingAtPalette || !IsVisible)
+            return;
+
+        _lookingAtPalette = true;
+
+        try
+        {
+            var user = LocalUserId?.Invoke();
+            var read = await Task.Run(() => ReadPalette(user));
+            UsePalette(read);
+        }
+        catch (Exception ex)
+        {
+            NoteFailedLook(ex.GetType().Name);
+        }
+        finally
+        {
+            _lookingAtPalette = false;
+        }
+    }
+
+    /// <summary>The same look taken on the spot, for the moment the window opens, so it never opens in the wrong colours.</summary>
+    private void LookAtPaletteNow()
+    {
+        try
+        {
+            UsePalette(ReadPalette(LocalUserId?.Invoke()));
+        }
+        catch (Exception ex)
+        {
+            NoteFailedLook(ex.GetType().Name);
+        }
+    }
+
+    private static PaletteRead ReadPalette(string? userId)
+        => OperatingSystem.IsWindows() ? VRChatPaletteRegistry.Read(userId) : new PaletteRead(null);
+
+    private void UsePalette(PaletteRead read)
+    {
+        if (read.Problem is { } problem)
+        {
+            NoteFailedLook(problem);
+            return;
+        }
+
+        _paletteFailing = false;
+        UseColours(OverlayColours.From(read.Palette));
+    }
+
+    private void NoteFailedLook(string reason)
+    {
+        if (!_paletteFailing)
+            Serilog.Log.Warning("The desktop overlay could not read VRChat's selected colour palette ({Reason}); it keeps the look it has", reason);
+
+        _paletteFailing = true;
+    }
+
+    /// <summary>Switches the whole window to a look, when it is not the one it is in.</summary>
+    private void UseColours(OverlayColours? colours)
+    {
+        if (colours == _colours)
+            return;
+
+        _colours = colours;
+        _look = colours is null ? OverlayLook.Headset : OverlayLook.FromColours(colours);
+
+        PaintHoverStyle();
+        PaintGround();
+        PaintSwitches();
+        DrawScreen();
     }
 
     /// <summary>The screen last drawn, or null before the first. For the test remote's <c>state</c>.</summary>
@@ -416,7 +672,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         ArgumentNullException.ThrowIfNull(settings);
 
         _settings = settings;
-        Background = GroundBrush();
+        PaintGround();
         PaintSwitches();
         WatchTheMouseWhileNeeded();
 
@@ -436,19 +692,39 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     };
 
     /// <summary>The two switches drawn as they stand: the accent colour while on.</summary>
+    /// <remarks>
+    /// In VRChat's look they are the mock's rounded buttons, in the icon colour, and the highlights
+    /// colour while on. The lock and the hand are the same two drawings as ever, because the mock's
+    /// own are stand-ins that cannot show on from off.
+    /// </remarks>
     private void PaintSwitches()
     {
+        var v = _look.VRChat;
+
+        _lockButton.Classes.Set("vrchat", v is not null);
+        _throughButton.Classes.Set("vrchat", v is not null);
+
         Paint(_lockButton, _settings.Locked, on => PanelFrame.LockIcon(on, Foreground(on)));
         Paint(_throughButton, _settings.ClickThrough, on => PanelFrame.HandIcon(on, Foreground(on), Background(on)));
 
-        static IBrush Foreground(bool on) => on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush;
+        IBrush Foreground(bool on) => v is null
+            ? on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush
+            : on ? v.SelectedText : v.Icon;
 
-        static IBrush Background(bool on) => on ? Ui.T.AccentBrush : Ui.T.Surface2Brush;
+        IBrush Background(bool on) => v is null
+            ? on ? Ui.T.AccentBrush : Ui.T.Surface2Brush
+            : on ? v.Selected : v.Button;
 
-        static void Paint(Button button, bool on, Func<bool, Control> icon)
+        void Paint(Button button, bool on, Func<bool, Control> icon)
         {
             button.Background = Background(on);
-            button.BorderBrush = on ? Ui.T.AccentBrush : Ui.T.Border2Brush;
+            button.BorderBrush = v is null
+                ? on ? Ui.T.AccentBrush : Ui.T.Border2Brush
+                : on ? v.SelectedEdge : v.Edge;
+            button.Width = button.Height = v is null ? Ui.T.Density.ControlHeight : 30;
+            button.CornerRadius = new CornerRadius(v is null ? Ui.T.Density.Radius : VRChatLook.ButtonRadius);
+            button.BorderThickness = new Thickness(v is null ? Ui.T.Density.Hairline : VRChatLook.EdgeWidth);
+            button.Padding = new Thickness(v is null ? 6 : 5);
             button.Content = new Viewbox { Child = icon(on) };
         }
     }
@@ -552,6 +828,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     public void Summon()
     {
+        // The palette first, so the window opens in its colours rather than changing a moment later.
+        LookAtPaletteNow();
+
         _lastVRChat = null;
         _scalingRetries = 0;
         FollowVRChat();
@@ -565,12 +844,14 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _lastVRChat = null;
         FollowVRChat();
         _followWatch.Start();
+        _paletteWatch.Start();
         WatchTheMouseWhileNeeded();
     }
 
     public void Dismiss()
     {
         _followWatch.Stop();
+        _paletteWatch.Stop();
 
         if (IsVisible)
             Hide();
@@ -766,6 +1047,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     private IBrush GroundBrush()
     {
+        // In VRChat's look the panel inside paints its own ground, with rounded corners, and the
+        // window behind it is clear.
+        if (_look.VRChat is not null)
+            return Brushes.Transparent;
+
         var ground = Ui.T.Palette.Background;
         return new SolidColorBrush(Color.FromArgb(_settings.Alpha, ground.R, ground.G, ground.B));
     }

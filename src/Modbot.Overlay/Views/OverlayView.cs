@@ -33,13 +33,21 @@ namespace Modbot.Overlay.Views;
 /// fixed line count so a name built out of newlines cannot push the rest of the card off the
 /// panel.</para>
 /// </remarks>
-public static class OverlayView
+public sealed class OverlayView
 {
-    /// <summary>The headset's tokens: the VR palette at the VR density.</summary>
-    private static DesignTokens T => DesignTokens.Vr;
+    private readonly OverlayLook _look;
+
+    private OverlayView(OverlayLook look) => _look = look;
+
+    /// <summary>The tokens this screen is drawn in: the headset's, unless the desktop window asked for another look.</summary>
+    private DesignTokens T => _look.Tokens;
+
+    /// <summary>The look of VRChat's own menu, or null while the screen is drawn the headset's way.</summary>
+    private VRChatLook? V => _look.VRChat;
 
     /// <summary>A trust rank's dot and name, drawn the way every surface draws it.</summary>
-    private static StackPanel RankLine(TrustRank rank, double size) => PersonMarks.RankLine(rank, size, T);
+    private Control RankLine(TrustRank rank, double size)
+        => V is null ? PersonMarks.RankLine(rank, size, T) : RankPill(rank, size);
 
     /// <summary>How big the group's icon is drawn, in panel pixels.</summary>
     private const double IconSize = 28;
@@ -50,6 +58,19 @@ public static class OverlayView
     /// and a picture that has not arrived leaves the name standing on its own.
     /// </param>
     public static Control Build(OverlayScreen screen, Func<string?, IImage?>? icon = null)
+        => Build(screen, icon, OverlayLook.Headset);
+
+    /// <param name="look">
+    /// How to draw it. The headset panel never passes one; the desktop window passes the look of
+    /// VRChat's own menu while it has a palette to take it from.
+    /// </param>
+    public static Control Build(OverlayScreen screen, Func<string?, IImage?>? icon, OverlayLook look)
+    {
+        ArgumentNullException.ThrowIfNull(look);
+        return new OverlayView(look).Draw(screen, icon);
+    }
+
+    private Control Draw(OverlayScreen screen, Func<string?, IImage?>? icon)
     {
         ArgumentNullException.ThrowIfNull(screen);
 
@@ -79,12 +100,13 @@ public static class OverlayView
         if (screen.Page is OverlayPage.Wrist)
             return Framed(WristCard(screen, icon), screen.Cursor);
 
-        var stack = new StackPanel { Spacing = 12 };
+        var stack = new StackPanel { Spacing = V is null ? 12 : 14 };
 
         // Whose community this is, said once at the top rather than repeated on every card below.
         // The name and the icon, because that is what a moderator knows their group by; the
-        // server's address is a fallback and never the first thing said.
-        stack.Children.Add(GroupLine(screen, icon));
+        // server's address is a fallback and never the first thing said. In VRChat's look the
+        // title strip above already carries the icon, so this is the large heading alone.
+        stack.Children.Add(V is null ? GroupLine(screen, icon) : Heading(screen));
 
         if (screen.Health is { Length: > 0 } health)
             stack.Children.Add(HealthBanner(health));
@@ -143,12 +165,12 @@ public static class OverlayView
     /// drawn into the same frame: SteamVR draws lasers only for dashboard overlays and OpenXR
     /// draws none, so the panel shows its own.
     /// </remarks>
-    private static Control Framed(Control content, PanelCursor? cursor)
+    private Control Framed(Control content, PanelCursor? cursor)
     {
         var panel = new Border
         {
             Background = Brushes.Transparent,
-            Padding = new Thickness(20),
+            Padding = V is null ? new Thickness(20) : new Thickness(18, 16),
             Child = content,
         };
 
@@ -172,7 +194,7 @@ public static class OverlayView
     /// nothing else to press, because there is nothing else a wrist is the right place to do.
     /// Pointing at it with the other hand works like pointing at any other placement.</para>
     /// </remarks>
-    private static Control WristCard(OverlayScreen screen, Func<string?, IImage?>? icon)
+    private Control WristCard(OverlayScreen screen, Func<string?, IImage?>? icon)
     {
         var lines = new StackPanel { Spacing = 10 };
         lines.Children.Add(GroupLine(screen, icon, T.Density.TextBase * 1.6, IconSize * 1.6));
@@ -231,9 +253,9 @@ public static class OverlayView
             {
                 Width = Radius * 2,
                 Height = Radius * 2,
-                Stroke = T.TextBrush,
+                Stroke = DesignTokens.Vr.TextBrush,
                 StrokeThickness = 3,
-                Fill = new SolidColorBrush(T.Palette.Text, 0.25),
+                Fill = new SolidColorBrush(DesignTokens.Vr.Palette.Text, 0.25),
             });
         }
 
@@ -258,7 +280,7 @@ public static class OverlayView
     /// </remarks>
     /// <param name="size">How big the name is drawn; the wrist panel asks for more.</param>
     /// <param name="iconSize">How big the picture is drawn, in panel pixels.</param>
-    private static Control GroupLine(OverlayScreen screen, Func<string?, IImage?>? icon, double? size = null, double? iconSize = null)
+    private Control GroupLine(OverlayScreen screen, Func<string?, IImage?>? icon, double? size = null, double? iconSize = null)
     {
         var picture = iconSize ?? IconSize;
 
@@ -297,8 +319,11 @@ public static class OverlayView
     /// The tabs across the top: the three screens, with the one showing marked. The Person tab is
     /// there only while a person is open, because a tab that opens nothing is a dead control.
     /// </summary>
-    private static Control Tabs(OverlayScreen screen)
+    private Control Tabs(OverlayScreen screen)
     {
+        if (V is { } vrchat)
+            return VRChatTabs(screen, vrchat);
+
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
         row.Children.Add(Tab("Instance", OverlayPage.Instance, screen.Page));
@@ -310,7 +335,88 @@ public static class OverlayView
         return row;
     }
 
-    private static Control Tab(string caption, OverlayPage page, OverlayPage showing)
+    /// <summary>
+    /// The large heading at the top of the panel in VRChat's look: the group's name, or what stands
+    /// in for it. The same words the title strip says, as the mock has them.
+    /// </summary>
+    private Control Heading(OverlayScreen screen)
+    {
+        var words = Text(screen.GroupLabel ?? "Not in a group instance", HeadingSize, V!.Text, FontWeight.Bold);
+        words.LetterSpacing = 0.2;
+        return words;
+    }
+
+    private const double HeadingSize = 26;
+
+    /// <summary>A person's head and shoulders, on the mock's 24-unit square.</summary>
+    private const string PersonIcon = "F1 M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z";
+
+    /// <summary>A sheet of paper with a folded corner, on the mock's 24-unit square.</summary>
+    private const string PageIcon = "F1 M6 3h9l5 5v13H6zM14 4v5h5M8 12h8v2H8zm0 4h8v2H8z";
+
+    /// <summary>
+    /// The tabs as the mock has them: equal rounded buttons, each with an icon and a bold label,
+    /// and the one showing in the highlights colour. The same tabs, in the same order, doing the
+    /// same thing when pressed.
+    /// </summary>
+    private Control VRChatTabs(OverlayScreen screen, VRChatLook v)
+    {
+        var tabs = new List<Control>
+        {
+            VRChatTab(v, "Instance", PersonIcon, OverlayPage.Instance, screen.Page),
+            VRChatTab(v, "Audit Log", PageIcon, OverlayPage.Events, screen.Page),
+        };
+
+        if (screen.Person is { } person)
+            tabs.Add(VRChatTab(v, person.DisplayName ?? person.SubjectId, PersonIcon, OverlayPage.Person, screen.Page));
+
+        var row = new Grid { ColumnSpacing = 10 };
+        for (var i = 0; i < tabs.Count; i++)
+        {
+            row.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
+            Grid.SetColumn(tabs[i], i);
+            row.Children.Add(tabs[i]);
+        }
+
+        return row;
+    }
+
+    private Control VRChatTab(VRChatLook v, string caption, string icon, OverlayPage page, OverlayPage showing)
+    {
+        var chosen = page == showing;
+
+        var glyph = new Viewbox
+        {
+            Width = 22,
+            Height = 22,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Avalonia.Controls.Shapes.Path
+            {
+                Data = Geometry.Parse(icon),
+                Fill = chosen ? v.SelectedText : v.Icon,
+                Width = 24,
+                Height = 24,
+            },
+        };
+        glyph.Margin = new Thickness(0, 0, 10, 0);
+        DockPanel.SetDock(glyph, Avalonia.Controls.Dock.Left);
+
+        var label = Text(caption, 17, chosen ? v.SelectedText : v.Text, FontWeight.Bold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.GoTo(page),
+            Background = chosen ? v.Selected : v.Button,
+            BorderBrush = chosen ? v.SelectedEdge : T.BorderBrush,
+            BorderThickness = new Thickness(VRChatLook.EdgeWidth),
+            CornerRadius = new CornerRadius(VRChatLook.CardRadius),
+            Padding = new Thickness(12, 10),
+            Child = new DockPanel { LastChildFill = true, Children = { glyph, label } },
+        };
+    }
+
+    private Control Tab(string caption, OverlayPage page, OverlayPage showing)
     {
         var chosen = page == showing;
         var label = Text(caption, T.Density.TextBase, chosen ? T.TextBrush : T.TextDimBrush, chosen ? FontWeight.SemiBold : FontWeight.Normal);
@@ -345,7 +451,7 @@ public static class OverlayView
     /// <para>Name is left off a headset that has no keyboard, unless a name was typed on the
     /// desktop window, because then it is hiding people and has to say so.</para>
     /// </remarks>
-    private static Control FilterRow(OverlayScreen screen, OverlayPage list, ListFilters filters)
+    private Control FilterRow(OverlayScreen screen, OverlayPage list, ListFilters filters)
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
 
@@ -370,7 +476,7 @@ public static class OverlayView
     }
 
     /// <summary>Whether the list showing has anything in it before any filter.</summary>
-    private static bool HasRows(OverlayScreen screen) => screen.Page switch
+    private bool HasRows(OverlayScreen screen) => screen.Page switch
     {
         OverlayPage.Instance => screen.Roster.Value is { Members.Count: > 0 },
         OverlayPage.Events => screen.EventsOrNone.Count > 0,
@@ -378,7 +484,7 @@ public static class OverlayView
     };
 
     /// <summary>A filter's own name on its chip: "Joined" on the Instance list, "When" on the Audit Log.</summary>
-    private static string PartName(OverlayPage list, FilterPart part) => part switch
+    private string PartName(OverlayPage list, FilterPart part) => part switch
     {
         FilterPart.Who => "Who",
         FilterPart.Rank => "Rank",
@@ -389,7 +495,7 @@ public static class OverlayView
     };
 
     /// <param name="picked">What is picked, in words, or null while nothing is.</param>
-    private static Control FilterChip(OverlayPage list, FilterPart part, ListFilters filters, string? picked)
+    private Control FilterChip(OverlayPage list, FilterPart part, ListFilters filters, string? picked)
     {
         var open = filters.Open == part;
         var set = picked is not null;
@@ -418,13 +524,13 @@ public static class OverlayView
     }
 
     /// <summary>How tall a filter or a choice is: short of a tab, still an easy target for a ray.</summary>
-    private const double ChipHeight = 48;
+    private double ChipHeight => V is null ? 48 : 36;
 
     /// <summary>
     /// The open filter's choices, in a strip under the row. One tap picks; a filter that takes
     /// several (rank, kind) stays open so the next can be ticked.
     /// </summary>
-    private static Control Choices(OverlayPage list, FilterPart part, ListFilters filters)
+    private Control Choices(OverlayPage list, FilterPart part, ListFilters filters)
     {
         var strip = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
 
@@ -498,7 +604,7 @@ public static class OverlayView
     }
 
     /// <param name="rank">A rank's colour mark beside its name, for the rank choices.</param>
-    private static Control Choice(string caption, bool chosen, OverlayTarget target, TrustRank? rank = null)
+    private Control Choice(string caption, bool chosen, OverlayTarget target, TrustRank? rank = null)
     {
         var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
 
@@ -541,7 +647,7 @@ public static class OverlayView
     /// The name searched for, in a box that looks like one. The text is drawn as text, never
     /// read as anything else, like every name on the panel.
     /// </summary>
-    private static Control NameBox(OverlayPage list, string? name)
+    private Control NameBox(OverlayPage list, string? name)
     {
         var label = Text((name ?? string.Empty) + "|", T.Density.TextBase, T.TextBrush);
         label.VerticalAlignment = VerticalAlignment.Center;
@@ -560,7 +666,7 @@ public static class OverlayView
         };
     }
 
-    private static string WhoWords(Who who) => who switch
+    private string WhoWords(Who who) => who switch
     {
         Who.Flagged => "Flagged",
         Who.Members => "Members",
@@ -569,14 +675,14 @@ public static class OverlayView
         _ => "All",
     };
 
-    private static string RankWords(RankPick ranks)
+    private string RankWords(RankPick ranks)
     {
         var first = ranks.Picked.First();
         var name = first is { } known ? TrustRanks.Name(known) : "Not known";
         return ranks.Count == 1 ? name : name + " +" + (ranks.Count - 1);
     }
 
-    private static string KindWords(KindPick kinds)
+    private string KindWords(KindPick kinds)
     {
         var picked = kinds.Picked.ToList();
         return picked.Count switch
@@ -588,7 +694,7 @@ public static class OverlayView
     }
 
     /// <summary>The time filter's chip, as a window rather than a length: "5m", "15m", "1h", "earlier".</summary>
-    private static string WindowWords(TimeWindow window) => window switch
+    private string WindowWords(TimeWindow window) => window switch
     {
         TimeWindow.FiveMinutes => "5m",
         TimeWindow.FifteenMinutes => "15m",
@@ -597,7 +703,7 @@ public static class OverlayView
         _ => "any time",
     };
 
-    private static string OrderWords(RosterOrder order) => order switch
+    private string OrderWords(RosterOrder order) => order switch
     {
         RosterOrder.Newest => "Newest",
         RosterOrder.Name => "Name",
@@ -612,7 +718,7 @@ public static class OverlayView
     /// Drawn from what the drive loop already drained. Nothing is asked of a server to fill this
     /// screen — opening it makes no request at all.
     /// </remarks>
-    private static Control EventsPanel(OverlayScreen screen)
+    private Control EventsPanel(OverlayScreen screen)
     {
         var rows = new StackPanel { Spacing = RowGap };
 
@@ -626,13 +732,18 @@ public static class OverlayView
 
         if (events.Count == 0)
         {
-            rows.Children.Add(Text(all.Count > 0 ? "Nothing matches." : "Nothing yet.", T.Density.TextBase, T.TextDimBrush));
+            var nothing = all.Count > 0 ? "Nothing matches." : "Nothing yet.";
+            rows.Children.Add(V is null ? Text(nothing, T.Density.TextBase, T.TextDimBrush) : InfoCard(nothing));
         }
         else
         {
             foreach (var @event in events.Take(MostEventRows))
                 rows.Children.Add(EventRow(@event));
         }
+
+        // In VRChat's look every row is a card of its own, so there is nothing to put them in.
+        if (V is not null)
+            return new Border { Tag = new OverlayTarget.Events(), Background = Brushes.Transparent, Child = rows };
 
         return new Border
         {
@@ -649,7 +760,7 @@ public static class OverlayView
     /// <summary>How many event rows fit the panel. More than this and the oldest simply are not drawn.</summary>
     private const int MostEventRows = 10;
 
-    private static Control EventRow(LiveEvent @event)
+    private Control EventRow(LiveEvent @event)
     {
         var flagged = @event.Flagged || @event.Kind == LiveEventKinds.FlaggedJoin;
 
@@ -664,8 +775,8 @@ public static class OverlayView
         var who = Text(
             @event.Person?.DisplayName ?? @event.Person?.SubjectId ?? "—",
             T.Density.TextBase,
-            flagged ? T.TextBrush : T.TextDimBrush,
-            flagged ? FontWeight.SemiBold : FontWeight.Normal);
+            flagged || V is not null ? T.TextBrush : T.TextDimBrush,
+            V is not null ? FontWeight.Bold : flagged ? FontWeight.SemiBold : FontWeight.Normal);
         who.VerticalAlignment = VerticalAlignment.Center;
 
         // Trimmed rather than allowed to push the clock off the end of the row.
@@ -696,7 +807,7 @@ public static class OverlayView
     }
 
     /// <summary>An event kind in plain words. An unknown kind is shown as it came, never guessed at.</summary>
-    private static string Words(string kind) => kind switch
+    private string Words(string kind) => kind switch
     {
         LiveEventKinds.PersonJoined => "Joined",
         LiveEventKinds.FlaggedJoin => "Flagged join",
@@ -710,7 +821,7 @@ public static class OverlayView
     /// One person, opened from their roster row: what the roster already knew and what the
     /// server's profile read added, with Back and Refresh under it.
     /// </summary>
-    private static Control PersonCard(UserSummary person)
+    private Control PersonCard(UserSummary person)
     {
         var lines = new StackPanel { Spacing = 6 };
 
@@ -770,7 +881,7 @@ public static class OverlayView
     /// Discord and no browser, so for the person doing moderation at the moment it matters, this
     /// is the entire notification surface.
     /// </summary>
-    private static Control HealthBanner(string message) => new Border
+    private Control HealthBanner(string message) => new Border
     {
         // The tint sits on the surface colour rather than on the world behind the panel.
         Background = T.SurfaceBrush,
@@ -790,7 +901,7 @@ public static class OverlayView
     /// The highest-value thing the overlay does: somebody with prior kicks, an active warning or a
     /// flag has just walked into this instance.
     /// </summary>
-    private static Control AlertCard(FlaggedJoinAlert alert, string? groupLabel)
+    private Control AlertCard(FlaggedJoinAlert alert, string? groupLabel)
     {
         var lines = new StackPanel { Spacing = 6 };
 
@@ -828,7 +939,7 @@ public static class OverlayView
         };
     }
 
-    private static Control RosterPanel(OverlayScreen screen)
+    private Control RosterPanel(OverlayScreen screen)
     {
         var rows = new StackPanel { Spacing = RowGap };
 
@@ -839,43 +950,41 @@ public static class OverlayView
             ? ListFiltering.Roster(loaded.Members, filters, arrivals, screen.Now)
             : [];
 
-        rows.Children.Add(new DockPanel
-        {
-            LastChildFill = false,
-            Children =
-            {
-                Dock(Text(
-                    filters.Hides ? shown.Count + " of " + here + " here"
-                        : here == 1 ? "1 here"
-                        : here + " here",
-                    T.Density.TextSmall,
-                    T.TextDimBrush,
-                    FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
+        var count = filters.Hides ? shown.Count + " of " + here + " here"
+            : here == 1 ? "1 here"
+            : here + " here";
 
-                // Always stated, on every panel that came from a server.
-                Dock(Text(
-                    screen.Roster.Describe(),
-                    T.Density.TextSmall,
-                    screen.Freshness == Freshness.Fresh
-                        ? T.TextDimBrush
-                        : T.WarnBrush), Avalonia.Controls.Dock.Right),
-            },
-        });
+        // Always stated, on every panel that came from a server.
+        var freshness = screen.Roster.Describe();
+        var freshnessBrush = screen.Freshness == Freshness.Fresh ? T.TextDimBrush : T.WarnBrush;
 
-        if (screen.Roster.Value is not { } context || context.Members.Count == 0)
+        string? nobody = screen.Roster.Value is not { } context || context.Members.Count == 0
+            ? screen.Freshness == Freshness.Never ? "No roster loaded for this instance." : "Nobody here."
+            : shown.Count == 0 ? "Nobody matches." : null;
+
+        if (V is not null)
         {
-            rows.Children.Add(Text(
-                screen.Freshness == Freshness.Never
-                    ? "No roster loaded for this instance."
-                    : "Nobody here.",
-                T.Density.TextBase,
-                T.TextDimBrush));
-        }
-        else if (shown.Count == 0)
-        {
-            rows.Children.Add(Text("Nobody matches.", T.Density.TextBase, T.TextDimBrush));
+            // The count and its freshness in a card of their own; the people go under it, each in
+            // a card of theirs.
+            rows.Children.Add(InfoCard(count, freshness, freshnessBrush, nobody));
         }
         else
+        {
+            rows.Children.Add(new DockPanel
+            {
+                LastChildFill = false,
+                Children =
+                {
+                    Dock(Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
+                    Dock(Text(freshness, T.Density.TextSmall, freshnessBrush), Avalonia.Controls.Dock.Right),
+                },
+            });
+
+            if (nobody is not null)
+                rows.Children.Add(Text(nobody, T.Density.TextBase, T.TextDimBrush));
+        }
+
+        if (nobody is null)
         {
             // Unless the moderator picked another order: flagged first, then staff, then everybody
             // else. The overlay's job is to put the row that matters where the eye lands
@@ -898,6 +1007,9 @@ public static class OverlayView
             }
         }
 
+        if (V is not null)
+            return new Border { Tag = new OverlayTarget.Roster(), Background = Brushes.Transparent, Child = rows };
+
         return new Border
         {
             Tag = new OverlayTarget.Roster(),
@@ -910,12 +1022,50 @@ public static class OverlayView
         };
     }
 
+    /// <summary>
+    /// A card in VRChat's look that says one thing large, with the state of it at the far end and a
+    /// line of words under it: the roster's count and how fresh it is, or "Nothing yet".
+    /// </summary>
+    private Control InfoCard(string big, string? state = null, IBrush? stateBrush = null, string? message = null)
+    {
+        var lines = new StackPanel { Spacing = 4 };
+
+        var top = new DockPanel { LastChildFill = false };
+
+        var heading = Text(big, 19, V!.Text, FontWeight.Bold);
+        DockPanel.SetDock(heading, Avalonia.Controls.Dock.Left);
+        top.Children.Add(heading);
+
+        if (state is not null)
+        {
+            var end = Text(state, T.Density.TextSmall, stateBrush ?? V.Subtext, FontWeight.Bold);
+            end.VerticalAlignment = VerticalAlignment.Bottom;
+            DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+            top.Children.Add(end);
+        }
+
+        lines.Children.Add(top);
+
+        if (message is not null)
+            lines.Children.Add(Text(message, 15, V.Subtext));
+
+        return new Border
+        {
+            Background = V.Button,
+            BorderBrush = T.BorderBrush,
+            BorderThickness = new Thickness(VRChatLook.EdgeWidth),
+            CornerRadius = new CornerRadius(VRChatLook.CardRadius),
+            Padding = new Thickness(14, 12),
+            Child = lines,
+        };
+    }
+
     /// <param name="joined">How long they have been here, in words, or null when it is not known.</param>
     /// <param name="headsUp">The kind of heads-up standing on this person, or null.</param>
     /// <param name="canAdd">Draw the "+" that starts a heads-up from this row.</param>
-    private static Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false)
+    private Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false)
     {
-        var badge = new Ellipse
+        var dot = new Ellipse
         {
             Width = 12,
             Height = 12,
@@ -929,13 +1079,17 @@ public static class OverlayView
             },
         };
 
+        // In VRChat's look the dot sits on a round stand-in for a profile picture, as the mock has
+        // it, and says the same thing it always did.
+        Control badge = V is null ? dot : Avatar(dot);
+
         var name = Text(
             member.DisplayName ?? member.SubjectId,
             T.Density.TextBase,
-            member.Standing == RosterStanding.Flagged
+            V is not null || member.Standing == RosterStanding.Flagged
                 ? T.TextBrush
                 : T.TextDimBrush,
-            member.Standing == RosterStanding.Flagged ? FontWeight.SemiBold : FontWeight.Normal);
+            V is not null ? FontWeight.Bold : member.Standing == RosterStanding.Flagged ? FontWeight.SemiBold : FontWeight.Normal);
         name.VerticalAlignment = VerticalAlignment.Center;
 
         // A long name trims rather than shoving what follows it off the end of the row. That is
@@ -970,10 +1124,71 @@ public static class OverlayView
     }
 
     /// <summary>
+    /// A round stand-in for a person's picture, in the icon colour, with the standing dot at its
+    /// lower edge. Roster rows have no picture to show, so this is not one.
+    /// </summary>
+    private Control Avatar(Ellipse standing)
+    {
+        const double Size = 30;
+
+        standing.Stroke = V!.Button;
+        standing.StrokeThickness = 2;
+        standing.HorizontalAlignment = HorizontalAlignment.Right;
+        standing.VerticalAlignment = VerticalAlignment.Bottom;
+        standing.Margin = new Thickness(0, 0, -3, -3);
+
+        return new Grid
+        {
+            Width = Size,
+            Height = Size,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children =
+            {
+                new Ellipse { Fill = V.Icon, Opacity = 0.9 },
+                standing,
+            },
+        };
+    }
+
+    /// <summary>
+    /// A trust rank as the mock draws a small mark: a dark, half see-through pill with the rank's
+    /// VRChat colour as a dot and its name in bold. The colour is the same one every surface uses.
+    /// </summary>
+    private Control RankPill(TrustRank rank, double size)
+    {
+        var dot = new Ellipse
+        {
+            Width = 8,
+            Height = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(rank))),
+        };
+
+        var name = Text(TrustRanks.Name(rank), T.Density.TextTiny, T.TextBrush, FontWeight.Bold);
+        name.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = VRChatLook.PillGround,
+            BorderBrush = T.BorderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(VRChatLook.PillRadius),
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children = { dot, name },
+            },
+        };
+    }
+
+    /// <summary>
     /// The kind of the heads-up standing on a person, for the chip on their row: Keep an eye before
     /// Message, because it is the one that outlasts them leaving.
     /// </summary>
-    private static HeadsUpKind? HeadsUpOn(IReadOnlyList<HeadsUp> headsUps, string subjectId)
+    private HeadsUpKind? HeadsUpOn(IReadOnlyList<HeadsUp> headsUps, string subjectId)
     {
         HeadsUpKind? found = null;
 
@@ -992,9 +1207,9 @@ public static class OverlayView
     }
 
     /// <summary>A heads-up's kind as a mark on the row of the person it is about.</summary>
-    private static Control HeadsUpChip(string caption)
+    private Control HeadsUpChip(string caption)
     {
-        var label = Text(caption, T.Density.TextSmall, T.AccentForegroundBrush, FontWeight.SemiBold);
+        var label = Text(caption, V is null ? T.Density.TextSmall : T.Density.TextTiny, T.AccentForegroundBrush, V is null ? FontWeight.SemiBold : FontWeight.Bold);
         label.VerticalAlignment = VerticalAlignment.Center;
 
         return new Border
@@ -1002,7 +1217,7 @@ public static class OverlayView
             Background = T.AccentDimBrush,
             BorderBrush = T.AccentBrush,
             BorderThickness = new Thickness(T.Density.Hairline),
-            CornerRadius = T.CornerRadius,
+            CornerRadius = SmallCorner,
             Padding = new Thickness(8, 2),
             VerticalAlignment = VerticalAlignment.Center,
             Child = label,
@@ -1013,7 +1228,7 @@ public static class OverlayView
     /// The "+" at a roster row's far end, which starts a heads-up from that row. Its own target
     /// inside the row's, so it wins over opening the person.
     /// </summary>
-    private static Control AddHeadsUpPress(string subjectId)
+    private Control AddHeadsUpPress(string subjectId)
     {
         var label = Text("+", T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
         label.VerticalAlignment = VerticalAlignment.Center;
@@ -1037,7 +1252,7 @@ public static class OverlayView
     /// A heads-up being written: its kind, the place for Ask for help, its words, and Place and
     /// Cancel. Nothing in it has left the PC until Place is pressed.
     /// </summary>
-    private static Control DraftStrip(HeadsUpDraft draft, bool noKeyboard)
+    private Control DraftStrip(HeadsUpDraft draft, bool noKeyboard)
     {
         var lines = new StackPanel { Spacing = 10 };
 
@@ -1109,7 +1324,7 @@ public static class OverlayView
     /// A heads-up's words, in a box that looks like one, wrapping onto a second line rather than
     /// trimming what the moderator is still writing.
     /// </summary>
-    private static Control HeadsUpBox(string text)
+    private Control HeadsUpBox(string text)
     {
         var label = Text(text + "|", T.Density.TextBase, T.TextBrush);
         label.TextWrapping = TextWrapping.Wrap;
@@ -1137,7 +1352,7 @@ public static class OverlayView
     /// Every word in it is another moderator's or a display name, so each is placed as text and cut
     /// to its line, like every name on the panel.
     /// </remarks>
-    private static Control HeadsUpList(IReadOnlyList<HeadsUp> headsUps, bool canClear)
+    private Control HeadsUpList(IReadOnlyList<HeadsUp> headsUps, bool canClear)
     {
         var rows = new StackPanel { Spacing = RowGap };
 
@@ -1207,10 +1422,10 @@ public static class OverlayView
     /// 40 of the texture's 1,024 pixels is still about 1.8 cm on a panel 45 cm wide: easy to land
     /// a controller's ray on.
     /// </remarks>
-    private const double RowBoxHeight = 40;
+    private double RowBoxHeight => V is null ? 40 : 48;
 
     /// <summary>The gap between two rows' boxes.</summary>
-    private const double RowGap = 4;
+    private double RowGap => V is null ? 4 : 8;
 
     /// <summary>
     /// One row of a list: a box that opens a person's card when <paramref name="subjectId"/> is
@@ -1224,7 +1439,7 @@ public static class OverlayView
     /// </remarks>
     /// <param name="trailing">Words at the row's far end, such as how long somebody has been here.</param>
     /// <param name="press">A control at the very end of the row, after the words, or null.</param>
-    private static Control Row(Control line, string? subjectId, string? trailing = null, Control? press = null)
+    private Control Row(Control line, string? subjectId, string? trailing = null, Control? press = null)
     {
         line.VerticalAlignment = VerticalAlignment.Center;
 
@@ -1264,6 +1479,14 @@ public static class OverlayView
         if (subjectId is null)
             return row;
 
+        // In VRChat's look a row with somebody behind it is a card, edge and all.
+        if (V is not null)
+        {
+            row.BorderBrush = T.BorderBrush;
+            row.BorderThickness = new Thickness(T.Density.Hairline);
+            row.ClipToBounds = true;
+        }
+
         row.Tag = new OverlayTarget.Person(subjectId);
         row.Background = T.Surface3Brush;
         row.PointerEntered += (_, _) => row.Background = T.AccentDimBrush;
@@ -1281,9 +1504,9 @@ public static class OverlayView
     /// It used to be plain text at the end of a horizontal row, which put it wherever the name
     /// happened to leave it — usually far to the right, next to nobody.
     /// </remarks>
-    private static Control FlagChip(string caption)
+    private Control FlagChip(string caption)
     {
-        var label = Text(caption, T.Density.TextSmall, T.DangerBrush, FontWeight.SemiBold);
+        var label = Text(caption, V is null ? T.Density.TextSmall : T.Density.TextTiny, T.DangerBrush, V is null ? FontWeight.SemiBold : FontWeight.Bold);
         label.VerticalAlignment = VerticalAlignment.Center;
         label.MaxWidth = 200;
 
@@ -1292,7 +1515,7 @@ public static class OverlayView
             Background = new SolidColorBrush(T.Palette.Danger, 0.16),
             BorderBrush = T.DangerBrush,
             BorderThickness = new Thickness(T.Density.Hairline),
-            CornerRadius = T.CornerRadius,
+            CornerRadius = SmallCorner,
             Padding = new Thickness(8, 2),
             VerticalAlignment = VerticalAlignment.Center,
             Child = label,
@@ -1303,7 +1526,12 @@ public static class OverlayView
     /// Modbot's 18+ mark on a roster row. Shown only on those who carry it, so somebody without it
     /// gets no mark at all.
     /// </summary>
-    private static Control EighteenPlusChip() => PersonMarks.EighteenPlusChip(T);
+    private Control EighteenPlusChip() => V is null
+        ? PersonMarks.EighteenPlusChip(T)
+        : PersonMarks.EighteenPlusChip(T, new CornerRadius(VRChatLook.PillRadius), T.Density.TextTiny);
+
+    /// <summary>How round a small mark on a row is: the headset's own corner, or the mock's smaller one.</summary>
+    private CornerRadius SmallCorner => V is null ? T.CornerRadius : new CornerRadius(VRChatLook.PillRadius);
 
     /// <summary>
     /// Save a clip: keep the last few minutes of VRChat as a file on this PC.
@@ -1318,7 +1546,7 @@ public static class OverlayView
     /// <para><strong>And it says when a clip landed</strong>, for a few seconds, because that is
     /// the only way to find out from inside VR.</para>
     /// </remarks>
-    private static Control SaveClipBar(ClipButton clip)
+    private Control SaveClipBar(ClipButton clip)
     {
         var label = Text(
             clip.Caption ?? string.Empty,
@@ -1359,7 +1587,7 @@ public static class OverlayView
     }
 
     /// <summary>A control a controller can press, sized for a hand in a headset.</summary>
-    private static Control Press(string caption, OverlayTarget target)
+    private Control Press(string caption, OverlayTarget target)
     {
         var label = Text(caption, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
         label.VerticalAlignment = VerticalAlignment.Center;
@@ -1379,7 +1607,7 @@ public static class OverlayView
         };
     }
 
-    private static TextBlock Text(
+    private TextBlock Text(
         string content,
         double size,
         IBrush brush,
@@ -1398,7 +1626,7 @@ public static class OverlayView
             MaxLines = 1,
         };
 
-    private static Control Dock(Control control, Dock side)
+    private Control Dock(Control control, Dock side)
     {
         DockPanel.SetDock(control, side);
         return control;

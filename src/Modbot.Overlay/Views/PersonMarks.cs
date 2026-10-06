@@ -54,11 +54,13 @@ public static class PersonMarks
     /// Modbot's 18+ mark, in the green the website's Members list gives it. Shown only on those who
     /// carry it, so somebody without it gets no mark at all.
     /// </summary>
-    public static Control EighteenPlusChip(DesignTokens t)
+    /// <param name="corner">How round its corners are; the surface's own when null.</param>
+    /// <param name="size">How big the words are; the surface's small text when null.</param>
+    public static Control EighteenPlusChip(DesignTokens t, CornerRadius? corner = null, double? size = null)
     {
         ArgumentNullException.ThrowIfNull(t);
 
-        var label = Text("18+", t.Density.TextSmall, t.OkBrush, FontWeight.SemiBold);
+        var label = Text("18+", size ?? t.Density.TextSmall, t.OkBrush, FontWeight.SemiBold);
         label.VerticalAlignment = VerticalAlignment.Center;
 
         return new Border
@@ -66,7 +68,7 @@ public static class PersonMarks
             Background = new SolidColorBrush(t.Palette.Ok, 0.16),
             BorderBrush = t.OkBrush,
             BorderThickness = new Thickness(t.Density.Hairline),
-            CornerRadius = t.CornerRadius,
+            CornerRadius = corner ?? t.CornerRadius,
             Padding = new Thickness(6, 1),
             VerticalAlignment = VerticalAlignment.Center,
             Child = label,

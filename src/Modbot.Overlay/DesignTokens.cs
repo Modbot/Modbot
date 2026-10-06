@@ -194,6 +194,16 @@ public sealed class DesignTokens
     /// <summary>The in-headset overlay.</summary>
     public static DesignTokens Vr { get; } = new(ModbotPalette.VrDark, Density.Vr);
 
+    /// <summary>
+    /// Tokens for a palette and density of the caller's own, such as the desktop overlay's look when
+    /// it takes its colours from VRChat's. The two sets above stay the product's own.
+    /// </summary>
+    public static DesignTokens Create(ModbotPalette palette, Density density)
+    {
+        ArgumentNullException.ThrowIfNull(palette);
+        return new DesignTokens(palette, density);
+    }
+
     public ModbotPalette Palette { get; }
 
     public Density Density { get; }

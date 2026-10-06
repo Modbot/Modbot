@@ -182,12 +182,14 @@ public class CompanionSourceGuardTests
             + string.Join(", ", offenders));
     }
 
-    /// <summary>The two files allowed to touch the registry, and the keys each may touch.</summary>
+    /// <summary>The three files allowed to touch the registry, and the keys each may touch.</summary>
     private const string SchemeRegistrationFile = "UrlSchemeRegistration.cs";
 
     private const string SchemeRegistrationKey = @"Software\Classes\";
 
     private const string StartupRegistrationFile = "StartupRegistration.cs";
+
+    private const string PaletteRegistryFile = "VRChatPaletteRegistry.cs";
 
     [Fact]
     public void TheOnlyRegistryKeysTheClientTouchesAreItsLinkRegistrationAndItsStartupEntry()
@@ -196,17 +198,19 @@ public class CompanionSourceGuardTests
         // this program if Windows has been told the scheme is ours: one key under Software\Classes.
         // Starting with Windows is one value in the current user's own Run key, plus reading
         // Task Manager's record of whether the user turned it off. That is the whole of what the
-        // client does with the registry: it does not read Steam's keys, VRChat's, or anybody else's.
+        // client does with the registry besides one read: the colour palette selected in VRChat, so
+        // the desktop overlay can match it. It does not read Steam's keys or anybody else's.
         //
         // The ban used to be total, then narrowed to the link registration; it is widened by exactly
-        // one file for the startup entry, so neither file can quietly grow a second purpose.
+        // one file for the startup entry and one for the palette, so no file can quietly grow a
+        // second purpose.
         var touching = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("Microsoft.Win32.Registry", StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.Equal([StartupRegistrationFile, SchemeRegistrationFile], touching);
+        Assert.Equal([StartupRegistrationFile, SchemeRegistrationFile, PaletteRegistryFile], touching);
 
         var registration = File.ReadAllText(EverythingTheClientShips()
             .Single(f => Path.GetFileName(f) == SchemeRegistrationFile));
@@ -223,7 +227,18 @@ public class CompanionSourceGuardTests
         Assert.DoesNotContain("ApprovedKeyPath, writable", startup, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateSubKey(ApprovedKeyPath", startup, StringComparison.Ordinal);
 
-        foreach (var source in new[] { registration, startup })
+        // The palette file reads one key under the current user and only opens it read-only.
+        var palette = File.ReadAllText(EverythingTheClientShips()
+            .Single(f => Path.GetFileName(f) == PaletteRegistryFile));
+
+        Assert.Contains(@"Software\VRChat\VRChat", palette, StringComparison.Ordinal);
+        Assert.Contains("writable: false", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateSubKey", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetValue", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeleteValue", palette, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeleteSubKey", palette, StringComparison.Ordinal);
+
+        foreach (var source in new[] { registration, startup, palette })
         {
             Assert.DoesNotContain("LocalMachine", source, StringComparison.Ordinal);
             Assert.DoesNotContain("HKEY_LOCAL_MACHINE", source, StringComparison.Ordinal);

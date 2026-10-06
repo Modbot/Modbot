@@ -2577,6 +2577,10 @@ internal sealed partial class CompanionHost : IOverlayListener
                 // server cards draw from. The overlay fetches nothing.
                 GroupIcon = url => Window.Pictures?.For(url),
                 EditMode = _state.Settings.OverlayEditMode,
+
+                // Whose colour palette to look for in VRChat's settings: the moderator's own id,
+                // as VRChat's log gave it. Without one the window keeps its usual look.
+                LocalUserId = () => _engine?.ModeratorId,
             };
 
             _desktopOverlay.Apply(settings);
