@@ -97,6 +97,8 @@ jobs:
           # Quick suites in the order they run, then any other suite found, then the slow three.
           quick_first="Modbot.Companion.App.Tests Modbot.Server.Tests Modbot.Landing.Tests Modbot.My.Tests Modbot.Overlay.Tests Modbot.Companion.Tests Modbot.Core.Tests Modbot.Evidence.Tests Modbot.Moderation.Tests Modbot.Cloud.Tests Modbot.AI.Tests Modbot.Analytics.Tests Modbot.Demo.Tests"
           slow_last="Modbot.VRChat.Tests Modbot.Discord.Tests Modbot.Api.Tests"
+          results="$GITHUB_WORKSPACE/test-results"
+          mkdir -p "$results"
           suites=""
           is_suite() {
             # A project under tests/ that holds tests. Modbot.TestSupport is shared code only.
@@ -142,7 +144,7 @@ jobs:
             code=0
             timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
               dotnet run --project "$proj" --configuration Release --no-build \
-              -- -longRunning "$LONG_RUNNING_TEST_SECONDS" || code=$?
+              -- -longRunning "$LONG_RUNNING_TEST_SECONDS" -result-xml "$results/$name.xml" || code=$?
             minutes="$(awk -v s=$((SECONDS - start)) 'BEGIN { printf "%.1f", s / 60 }')"
             echo "::endgroup::"
             # timeout exits 124 when it had to interrupt the suite and 137 when it had to kill it.
@@ -162,6 +164,29 @@ jobs:
             echo "::error::Failing suites:$failed"
             exit 1
           fi
+
+      # Each suite also writes a per-test timing file (xUnit's own -result-xml, one <test> element
+      # with a `time` in seconds per test), because the minutes per suite above cannot say which
+      # tests are slow: the Api suite alone took 112 minutes on the run of 2026-10-06 and xUnit
+      # prints nothing for a passing test. The next two steps put the slowest tests and classes
+      # on the summary page and keep the files as a build artifact for a few days. They are
+      # reporting only: they run after a failure too, a missing or cut-off file is skipped, and
+      # neither can fail the job (the Test step's own result decides that). A suite stopped for
+      # running over its time limit writes no file, since xUnit writes it at the end.
+      - name: Slowest tests
+        if: always()
+        continue-on-error: true
+        run: python3 .github/scripts/slowest-tests.py test-results >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Keep the test timing files
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-timings
+          path: test-results/*.xml
+          if-no-files-found: ignore
+          retention-days: 5
 
   web:
     runs-on: ubuntu-latest

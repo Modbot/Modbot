@@ -1345,12 +1345,14 @@ public class ChatTests
     /// <summary>Waits for something the reply's own task stores after the browser has gone.</summary>
     private static async Task<T> EventuallyAsync<T>(Func<Task<T?>> read) where T : class
     {
-        for (var attempt = 0; attempt < 100; attempt++)
+        // Five hundred looks twenty milliseconds apart: the same ten seconds as before, but a
+        // reply that is stored after a few milliseconds no longer costs a hundred.
+        for (var attempt = 0; attempt < 500; attempt++)
         {
             if (await read() is { } value)
                 return value;
 
-            await Task.Delay(100, Ct);
+            await Task.Delay(20, Ct);
         }
 
         throw new TimeoutException("Nothing was stored.");
