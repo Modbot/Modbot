@@ -110,6 +110,14 @@ public sealed class OverlayDriver : IDisposable
     // the card about somebody leaving can carry them once the roster has dropped them.
     private readonly KnownPeople _known;
 
+    // Who left the instance in the last minute, kept so their rows can stay on the list, greyed.
+    private readonly RecentLeavers _leavers;
+
+    // When each person was last known to have got here, for a row that outlives the log's own
+    // note of it: somebody who just left is still placed by their arrival where the list is
+    // ordered by it, so the order does not jump as they go.
+    private readonly Dictionary<string, DateTimeOffset?> _arrivedSeen = new(StringComparer.Ordinal);
+
     // What the live link has heard for the instance the moderator is in, newest first.
     private readonly List<LiveEvent> _events = [];
 
@@ -193,6 +201,7 @@ public sealed class OverlayDriver : IDisposable
         _popUps = popUps;
         _headsUpClient = headsUps;
         _known = new KnownPeople(clock);
+        _leavers = new RecentLeavers(clock);
     }
 
     /// <summary>
@@ -236,6 +245,8 @@ public sealed class OverlayDriver : IDisposable
         // And what it said about each person. Only one server covers an instance, but forgetting
         // everyone costs nothing: the next roster read notes them again.
         _known.Forget();
+        _leavers.Forget();
+        _arrivedSeen.Clear();
     }
 
     /// <summary>Each paired server's live link, in one word, for the Servers card.</summary>
@@ -268,6 +279,8 @@ public sealed class OverlayDriver : IDisposable
         _draft = null;
         _headsUpsTold.Clear();
         _known.Forget();
+        _leavers.Forget();
+        _arrivedSeen.Clear();
         _popUps?.ClearAll();
     }
 
@@ -575,7 +588,7 @@ public sealed class OverlayDriver : IDisposable
     {
         var count = Current() is { } server && _instance is not null
             && server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value is { } context
-            ? ListFiltering.Roster(context.Members, _rosterFilters, Arrivals(context), _clock.UtcNow).Count
+            ? ListFiltering.Roster(Everyone(context), _rosterFilters, Arrivals(context), _clock.UtcNow).Count
             : 0;
 
         _rosterSkip = Math.Clamp(_rosterSkip + rows, 0, Math.Max(0, count - 1));
@@ -595,11 +608,35 @@ public sealed class OverlayDriver : IDisposable
         foreach (var member in context.Members)
         {
             if (arrived.TryGetValue(member.SubjectId, out var at))
+            {
                 arrivals[member.SubjectId] = at is { } local ? _timestamps.ToInstant(local) : null;
+                _arrivedSeen[member.SubjectId] = arrivals[member.SubjectId];
+            }
+        }
+
+        // Somebody who just left: the log may have let go of them already, so what it said while
+        // they were here stands in.
+        foreach (var leaver in _leavers.Current())
+        {
+            var id = leaver.Member.SubjectId;
+            if (arrivals.ContainsKey(id))
+                continue;
+
+            if (arrived.TryGetValue(id, out var at))
+                arrivals[id] = at is { } local ? _timestamps.ToInstant(local) : null;
+            else if (_arrivedSeen.TryGetValue(id, out var seen))
+                arrivals[id] = seen;
         }
 
         return arrivals;
     }
+
+    /// <summary>
+    /// Everybody the Instance list may show: who the roster says is here, then who left in the last
+    /// minute and is not back.
+    /// </summary>
+    private IReadOnlyList<RosterMember> Everyone(InstanceContext context)
+        => ListFiltering.Everyone(context.Members, _leavers.Current());
 
     /// <summary>
     /// Opens a person's card: the roster's own row at once, then the server's profile read when it
@@ -618,7 +655,9 @@ public sealed class OverlayDriver : IDisposable
         _personWanted = subjectId;
         _page = OverlayPage.Person;
 
-        var known = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId);
+        // A row still on the list for somebody who just left opens too: their row is what is known.
+        var known = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId)
+            ?? _leavers.Find(subjectId);
         _person = known is null
             ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
             : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, []);
@@ -740,6 +779,8 @@ public sealed class OverlayDriver : IDisposable
         _servers.Clear();
         _events.Clear();
         _known.Forget();
+        _leavers.Forget();
+        _arrivedSeen.Clear();
         _popUps?.ClearAll();
     }
 
@@ -780,6 +821,7 @@ public sealed class OverlayDriver : IDisposable
             case ReadOutcome.Fetched when result.Value is not null:
                 server.Cache.RecordContext(server.Label, result.Value, worldId);
                 Remember(result.Value, worldId);
+                NoteWhoLeft(result.Value, worldId);
                 TellHeadsUps(result.Value, worldId);
                 break;
 
@@ -929,6 +971,23 @@ public sealed class OverlayDriver : IDisposable
 
         foreach (var member in context.Members)
             _known.Note(member.SubjectId, PersonInfo.Of(member.TrustRank, member.EighteenPlus));
+    }
+
+    /// <summary>
+    /// Tells the leavers about a roster read for the instance the moderator is still in, so whoever
+    /// the read no longer lists is kept as having just left. An answer for an instance already left
+    /// is about other people.
+    /// </summary>
+    private void NoteWhoLeft(InstanceContext context, string? worldId)
+    {
+        if (_instance is not { } here
+            || !string.Equals(context.InstanceId, here.InstanceId, StringComparison.Ordinal)
+            || !string.Equals(worldId, here.WorldId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _leavers.Update(context.Members);
     }
 
     /// <summary>
@@ -1104,7 +1163,8 @@ public sealed class OverlayDriver : IDisposable
             Now: _clock.UtcNow,
             HeadsUps: roster.Value?.HeadsUpsOrNone,
             Draft: _draft,
-            CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected);
+            CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected,
+            Left: _leavers.Current());
     }
 
     /// <summary>

@@ -86,6 +86,11 @@ public enum OverlayPage
 /// Whether this panel can place and clear heads-ups. Without it there is no "+" on a row and no
 /// Clear on a heads-up, so nothing is drawn that a tap would have to ignore.
 /// </param>
+/// <param name="Left">
+/// The people who left in the last minute, as the drive loop counts it, first to go first. Their
+/// rows stay on the Instance list, greyed, and are not counted in "here". Never in
+/// <see cref="Roster"/>, which is who is present.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -107,7 +112,8 @@ public sealed record OverlayScreen(
     bool NoKeyboard = false,
     IReadOnlyList<HeadsUp>? HeadsUps = null,
     HeadsUpDraft? Draft = null,
-    bool CanPlaceHeadsUps = false)
+    bool CanPlaceHeadsUps = false,
+    IReadOnlyList<RecentLeaver>? Left = null)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -122,6 +128,9 @@ public sealed record OverlayScreen(
 
     /// <summary>The heads-ups standing here, never null.</summary>
     public IReadOnlyList<HeadsUp> HeadsUpsOrNone => HeadsUps ?? [];
+
+    /// <summary>Who left in the last minute, never null.</summary>
+    public IReadOnlyList<RecentLeaver> LeftOrNone => Left ?? [];
 
     /// <summary>When each person got here, never null.</summary>
     public IReadOnlyDictionary<string, DateTimeOffset?> ArrivalsOrNone => Arrivals ?? NoArrivals;
@@ -172,6 +181,7 @@ public sealed record OverlayScreen(
             && EventFiltersOrNone == other.EventFiltersOrNone
             && SameMinute(other)
             && SameArrivals(ArrivalsOrNone, other.ArrivalsOrNone)
+            && SameLeft(other)
             && SameEvents(EventsOrNone, other.EventsOrNone)
             && Person?.SubjectId == other.Person?.SubjectId
             && Person?.DisplayName == other.Person?.DisplayName
@@ -193,6 +203,32 @@ public sealed record OverlayScreen(
             return true;
 
         return Now.UtcTicks / TimeSpan.TicksPerMinute == other.Now.UtcTicks / TimeSpan.TicksPerMinute;
+    }
+
+    /// <summary>
+    /// Whether the rows of people who just left, and the seconds each has left, would draw the same.
+    /// Only the Instance list draws them, so no other screen is redrawn for a countdown.
+    /// </summary>
+    private bool SameLeft(OverlayScreen other)
+    {
+        if (Page is not OverlayPage.Instance)
+            return true;
+
+        var (mine, theirs) = (LeftOrNone, other.LeftOrNone);
+        if (mine.Count != theirs.Count)
+            return false;
+
+        for (var i = 0; i < mine.Count; i++)
+        {
+            if (mine[i].Member.SubjectId != theirs[i].Member.SubjectId
+                || mine[i].Member.DisplayName != theirs[i].Member.DisplayName
+                || mine[i].SecondsLeft(Now) != theirs[i].SecondsLeft(other.Now))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool SameArrivals(IReadOnlyDictionary<string, DateTimeOffset?> a, IReadOnlyDictionary<string, DateTimeOffset?> b)

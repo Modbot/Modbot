@@ -478,7 +478,7 @@ public sealed class OverlayView
     /// <summary>Whether the list showing has anything in it before any filter.</summary>
     private bool HasRows(OverlayScreen screen) => screen.Page switch
     {
-        OverlayPage.Instance => screen.Roster.Value is { Members.Count: > 0 },
+        OverlayPage.Instance => screen.Roster.Value is { Members.Count: > 0 } || screen.LeftOrNone.Count > 0,
         OverlayPage.Events => screen.EventsOrNone.Count > 0,
         _ => false,
     };
@@ -943,14 +943,23 @@ public sealed class OverlayView
     {
         var rows = new StackPanel { Spacing = RowGap };
 
-        var here = screen.Roster.Value?.Members.Count ?? 0;
+        // Who is here: only the people present. The rows of people who just left are drawn among
+        // them, greyed, and are never part of the count.
+        var present = screen.Roster.Value?.Members ?? [];
+        var here = present.Count;
         var filters = screen.RosterFiltersOrNone;
         var arrivals = screen.ArrivalsOrNone;
-        var shown = screen.Roster.Value is { } loaded
-            ? ListFiltering.Roster(loaded.Members, filters, arrivals, screen.Now)
-            : [];
+        var everyone = ListFiltering.Everyone(present, screen.LeftOrNone);
+        var shown = ListFiltering.Roster(everyone, filters, arrivals, screen.Now);
 
-        var count = filters.Hides ? shown.Count + " of " + here + " here"
+        var secondsLeft = screen.LeftOrNone
+            .GroupBy(leaver => leaver.Member.SubjectId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().SecondsLeft(screen.Now), StringComparer.Ordinal);
+        var presentIds = present.Select(member => member.SubjectId).ToHashSet(StringComparer.Ordinal);
+        bool JustLeft(RosterMember member) => !presentIds.Contains(member.SubjectId) && secondsLeft.ContainsKey(member.SubjectId);
+        var shownHere = shown.Count(member => !JustLeft(member));
+
+        var count = filters.Hides ? shownHere + " of " + here + " here"
             : here == 1 ? "1 here"
             : here + " here";
 
@@ -958,7 +967,7 @@ public sealed class OverlayView
         var freshness = screen.Roster.Describe();
         var freshnessBrush = screen.Freshness == Freshness.Fresh ? T.TextDimBrush : T.WarnBrush;
 
-        string? nobody = screen.Roster.Value is not { } context || context.Members.Count == 0
+        string? nobody = everyone.Count == 0
             ? screen.Freshness == Freshness.Never ? "No roster loaded for this instance." : "Nobody here."
             : shown.Count == 0 ? "Nobody matches." : null;
 
@@ -1002,6 +1011,14 @@ public sealed class OverlayView
                 var joined = arrivals.TryGetValue(member.SubjectId, out var at) && screen.Now != default
                     ? ListFiltering.JoinedWords(at, screen.Now)
                     : null;
+
+                // Somebody who just left: a greyed row with the seconds it has left instead of how
+                // long they were here, and no "+", because a heads-up is placed on somebody present.
+                if (JustLeft(member))
+                {
+                    rows.Children.Add(RosterRow(member, null, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), false, secondsLeft[member.SubjectId]));
+                    continue;
+                }
 
                 rows.Children.Add(RosterRow(member, joined, HeadsUpOn(screen.HeadsUpsOrNone, member.SubjectId), screen.CanPlaceHeadsUps));
             }
@@ -1063,8 +1080,14 @@ public sealed class OverlayView
     /// <param name="joined">How long they have been here, in words, or null when it is not known.</param>
     /// <param name="headsUp">The kind of heads-up standing on this person, or null.</param>
     /// <param name="canAdd">Draw the "+" that starts a heads-up from this row.</param>
-    private Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false)
+    /// <param name="secondsLeft">
+    /// Set for somebody who has just left: the row is greyed, carries a "Left" tag, and says how many
+    /// seconds it stays. Null for somebody who is here.
+    /// </param>
+    private Control RosterRow(RosterMember member, string? joined, HeadsUpKind? headsUp = null, bool canAdd = false, int? secondsLeft = null)
     {
+        var left = secondsLeft is not null;
+
         var dot = new Ellipse
         {
             Width = 12,
@@ -1086,7 +1109,7 @@ public sealed class OverlayView
         var name = Text(
             member.DisplayName ?? member.SubjectId,
             T.Density.TextBase,
-            V is not null || member.Standing == RosterStanding.Flagged
+            !left && (V is not null || member.Standing == RosterStanding.Flagged)
                 ? T.TextBrush
                 : T.TextDimBrush,
             V is not null ? FontWeight.Bold : member.Standing == RosterStanding.Flagged ? FontWeight.SemiBold : FontWeight.Normal);
@@ -1120,7 +1143,41 @@ public sealed class OverlayView
         if (headsUp is { } kind)
             line.Children.Add(HeadsUpChip(HeadsUpRules.Name(kind)));
 
+        if (secondsLeft is { } seconds)
+        {
+            // Greyed by fading everything about the person, in the colours the look already has,
+            // so it follows the palette on the desktop window and the headset's own on a headset.
+            // The tag and the countdown stay at full strength: they are what the row now says.
+            line.Opacity = LeftRowOpacity;
+
+            return Row(
+                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { line, LeftChip() } },
+                member.SubjectId,
+                seconds + "s");
+        }
+
         return Row(line, member.SubjectId, joined, canAdd ? AddHeadsUpPress(member.SubjectId) : null);
+    }
+
+    /// <summary>How much of its strength a row keeps once somebody has left.</summary>
+    private const double LeftRowOpacity = 0.5;
+
+    /// <summary>The "Left" tag on the row of somebody who has just gone.</summary>
+    private Control LeftChip()
+    {
+        var label = Text("Left", V is null ? T.Density.TextSmall : T.Density.TextTiny, T.TextDimBrush, V is null ? FontWeight.SemiBold : FontWeight.Bold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = new SolidColorBrush(T.Palette.TextDim, 0.16),
+            BorderBrush = T.TextDimBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = SmallCorner,
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
     }
 
     /// <summary>

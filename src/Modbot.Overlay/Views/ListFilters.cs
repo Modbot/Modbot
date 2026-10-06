@@ -203,6 +203,21 @@ public sealed record ListFilters(
 public static class ListFiltering
 {
     /// <summary>
+    /// Everybody the Instance list may show: those here, then those who left in the last minute.
+    /// Somebody on both is shown once, as present. Sorting and filtering then treat a row of
+    /// somebody who left exactly as it was treated while they were here, which is what keeps the
+    /// order from jumping when they go.
+    /// </summary>
+    public static IReadOnlyList<RosterMember> Everyone(IReadOnlyList<RosterMember> present, IReadOnlyList<RecentLeaver> left)
+    {
+        if (left.Count == 0)
+            return present;
+
+        var here = present.Select(member => member.SubjectId).ToHashSet(StringComparer.Ordinal);
+        return [.. present, .. left.Select(leaver => leaver.Member).Where(member => !here.Contains(member.SubjectId))];
+    }
+
+    /// <summary>
     /// The Instance list as the filters leave it, in the order it is drawn.
     /// </summary>
     /// <param name="arrivals">
