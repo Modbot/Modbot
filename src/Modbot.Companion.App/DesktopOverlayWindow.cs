@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
@@ -59,7 +60,10 @@ namespace Modbot.Companion.App;
 /// is one value in the Windows registry, read when the window opens and every two seconds while it
 /// is up (<see cref="VRChatPaletteRegistry"/>), so a palette changed in VRChat shows here a moment
 /// later. Nothing is written back and nothing is sent. Only this window is drawn so: the headset
-/// panel is built from the same screens and never asks for it.</para>
+/// panel is built from the same screens and never asks for it. While the client does not know who
+/// the moderator is yet and VRChat is up, the window stays hidden and looks again, until the palette
+/// is found or <see cref="OverlayOpening.LongestWait"/> has passed, so it does not open in the usual
+/// look and change; the escape bubble never waits (<see cref="OverlayOpening"/>).</para>
 /// </remarks>
 internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 {
@@ -105,6 +109,17 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly DispatcherTimer _paletteWatch = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _lookingAtPalette;
     private bool _paletteFailing;
+
+    // Between a shortcut press that found no palette because VRChat's user id is not known yet and
+    // the window coming up (OverlayOpening): the window is hidden, and this looks at the palette
+    // again every few hundred milliseconds, off the UI thread, for at most OverlayOpening.LongestWait.
+    // A pressed-again shortcut, a Dismiss or a settings change ends it; the count is what tells a
+    // look that finishes late that its wait is already over.
+    private readonly DispatcherTimer _openingWatch = new() { Interval = OverlayOpening.LookEvery };
+    private bool _waitingToOpen;
+    private bool _lookingWhileWaiting;
+    private int _waitCount;
+    private long _waitStartedAt;
 
     // The strip, and its two switches, repainted whenever the settings change.
     private Border? _head;
@@ -265,6 +280,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _throughWatch.Tick += (_, _) => WatchTheMouse();
         _followWatch.Tick += (_, _) => FollowVRChatSafely();
         _paletteWatch.Tick += (_, _) => _ = WatchThePaletteAsync();
+        _openingWatch.Tick += (_, _) => _ = LookWhileWaitingToOpenAsync();
     }
 
     /// <summary>
@@ -719,16 +735,114 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         }
     }
 
-    /// <summary>The same look taken on the spot, for the moment the window opens, so it never opens in the wrong colours.</summary>
-    private void LookAtPaletteNow()
+    /// <summary>
+    /// The same look taken on the spot, for the moment the shortcut is pressed, so the window never
+    /// opens in the wrong colours. Gives back what the look found, for <see cref="OverlayOpening"/>.
+    /// </summary>
+    private PaletteRead LookAtPaletteNow(string? user)
     {
         try
         {
-            UsePalette(ReadPalette(LocalUserId?.Invoke()));
+            var read = ReadPalette(user);
+            UsePalette(read);
+            return read;
         }
         catch (Exception ex)
         {
             NoteFailedLook(ex.GetType().Name);
+            return new PaletteRead(null, ex.GetType().Name);
+        }
+    }
+
+    /// <summary>Whether the client knows who the moderator is, which is what a look for the palette needs. Not a check of the id's shape.</summary>
+    private static bool UserIsKnown(string? user) => !string.IsNullOrEmpty(user);
+
+    /// <summary>Whether VRChat's window is there. With it gone there is no log being written to learn an id from.</summary>
+    private bool VRChatIsUp() => VRChatWindow.Look(_vrchat).Window.Found;
+
+    /// <summary>Ends a wait to open, if there is one. Looks that are still out find their wait over.</summary>
+    private void StopWaitingToOpen()
+    {
+        if (!_waitingToOpen)
+            return;
+
+        _waitingToOpen = false;
+        _waitCount++;
+        _openingWatch.Stop();
+    }
+
+    /// <summary>
+    /// One tick of the wait to open: the palette looked at again off the UI thread, and the window
+    /// brought up when it is found or the wait has run out. Does nothing once the wait is over, so a
+    /// press that cancelled it, or a late look, cannot bring the window up.
+    /// </summary>
+    private async Task LookWhileWaitingToOpenAsync()
+    {
+        if (!_waitingToOpen)
+            return;
+
+        var wait = _waitCount;
+        var waited = Stopwatch.GetElapsedTime(_waitStartedAt);
+
+        // The limit holds even while a look is still out, so a slow read cannot keep the window hidden.
+        if (OverlayOpening.IsOver(waited))
+        {
+            OpenAfterWaiting();
+            return;
+        }
+
+        if (_lookingWhileWaiting)
+            return;
+
+        _lookingWhileWaiting = true;
+        var showNow = false;
+
+        try
+        {
+            var user = LocalUserId?.Invoke();
+            var read = UserIsKnown(user) ? await Task.Run(() => ReadPalette(user)) : new PaletteRead(null);
+
+            if (_waitingToOpen && wait == _waitCount)
+            {
+                UsePalette(read);
+
+                showNow = OverlayOpening.Next(
+                    read.Palette is not null,
+                    UserIsKnown(user),
+                    VRChatIsUp(),
+                    Stopwatch.GetElapsedTime(_waitStartedAt)) == OverlayOpeningStep.ShowNow;
+            }
+        }
+        catch (Exception ex)
+        {
+            // A look that cannot be made is not worth keeping the window back for.
+            NoteFailedLook(ex.GetType().Name);
+            showNow = true;
+        }
+        finally
+        {
+            _lookingWhileWaiting = false;
+        }
+
+        if (showNow && _waitingToOpen && wait == _waitCount)
+            OpenAfterWaiting();
+    }
+
+    /// <summary>
+    /// The wait is over: the window comes up. From a timer tick, so a failure is logged once and
+    /// the client carries on rather than losing it as an unobserved task error.
+    /// </summary>
+    private void OpenAfterWaiting()
+    {
+        StopWaitingToOpen();
+
+        try
+        {
+            Open();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "The desktop overlay could not come up after waiting for VRChat's palette ({Reason}); the client carries on", ex.Message);
         }
     }
 
@@ -974,7 +1088,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </summary>
     public void Press()
     {
-        if (_settings.NextShowing(IsVisible))
+        // Hidden and waiting for the palette is the window on its way up: the shortcut pressed
+        // now is the one that takes it back, not a second wait.
+        if (_waitingToOpen)
+            Dismiss();
+        else if (_settings.NextShowing(IsVisible))
             Summon();
         else
             Dismiss();
@@ -996,9 +1114,34 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     public void Summon()
     {
-        // The palette first, so the window opens in its colours rather than changing a moment later.
-        LookAtPaletteNow();
+        // Already on its way up, waiting for the palette: not a second wait.
+        if (_waitingToOpen)
+            return;
 
+        // The palette first, so the window opens in its colours rather than changing a moment later.
+        var user = LocalUserId?.Invoke();
+        var read = LookAtPaletteNow(user);
+
+        // Nothing found because the client does not know who the moderator is yet (it learns that
+        // from VRChat's log, a moment after it starts or after VRChat does): stay hidden and look
+        // again, for no longer than OverlayOpening.LongestWait, rather than opening in the usual
+        // look and changing a moment later. A window that is already up has nothing to wait for.
+        if (!IsVisible
+            && OverlayOpening.Next(read.Palette is not null, UserIsKnown(user), VRChatIsUp(), TimeSpan.Zero) == OverlayOpeningStep.WaitAndLookAgain)
+        {
+            _waitingToOpen = true;
+            _waitCount++;
+            _waitStartedAt = Stopwatch.GetTimestamp();
+            _openingWatch.Start();
+            return;
+        }
+
+        Open();
+    }
+
+    /// <summary>Puts the window up over the game with the keyboard, the look being settled.</summary>
+    private void Open()
+    {
         _lastVRChat = null;
         _scalingRetries = 0;
         FollowVRChat();
@@ -1018,6 +1161,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     public void Dismiss()
     {
+        // Dismissed while waiting for the palette: the window never comes up.
+        StopWaitingToOpen();
+
         _followWatch.Stop();
         _paletteWatch.Stop();
 
