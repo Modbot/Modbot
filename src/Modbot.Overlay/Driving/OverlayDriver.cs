@@ -1328,7 +1328,8 @@ public sealed class OverlayDriver : IDisposable
             CanPlaceHeadsUps: false,
             Left: _leavers.Current(),
             NotSynced: true,
-            ModeratorArrived: ModeratorArrived());
+            ModeratorArrived: ModeratorArrived(),
+            ModeratorId: ModeratorId);
     }
 
     private OverlayScreen Build(Server server)
@@ -1373,7 +1374,8 @@ public sealed class OverlayDriver : IDisposable
             Draft: _draft,
             CanPlaceHeadsUps: _headsUpClient is not null && !server.TokenRejected,
             Left: _leavers.Current(),
-            ModeratorArrived: ModeratorArrived());
+            ModeratorArrived: ModeratorArrived(),
+            ModeratorId: ModeratorId);
     }
 
     /// <summary>

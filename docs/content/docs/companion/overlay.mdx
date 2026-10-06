@@ -110,7 +110,8 @@ is shown instead.
 ### The roster
 
 A list of who is in the instance right now, as your group's server knows it. At the top it says how
-many people are here and how fresh the list is.
+many people are here and how fresh the list is. (In the desktop overlay's VRChat look that is the
+**Users** heading, [below](#in-the-desktop-overlay).)
 
 People are sorted so the rows that matter come first:
 
@@ -129,6 +130,33 @@ yet, it says **No roster loaded for this instance.**
 When somebody leaves, their row stays on the list for 60 seconds, greyed and tagged **Left**, with
 the seconds still to go where their join time was. Tapping it still opens their card. They are not
 counted in how many are here, and if they come back the row goes back to normal.
+
+#### In the desktop overlay
+
+When the desktop overlay is drawn in VRChat's own look, the list reads like VRChat's **Users** list:
+
+- A heading, **Users (12)**, with the number of people here and, at its far end, how fresh the list
+  is. Somebody who has just left is not counted, and a filter shows **Users (3 of 12)**.
+- Your own row comes first, in a banner in your palette's highlight colour, with **Other users (11)**
+  under it. It has no **+**. If Modbot does not know who you are yet, or your row is filtered out,
+  there is no banner and no label.
+- Every person is a card: a rounded square picture on the left, their name in bold, their rank,
+  18+ mark, flags and heads-up at the end of the name's line, and a small line under it saying when
+  they came (or `(here before you) ~5m+`, or **Left** and the seconds). The **+** that starts a
+  [heads-up](/companion/heads-ups) is a square button at the right end. Tapping the card still
+  opens the person's card, and scrolling still moves the rows under the banner.
+- The Audit Log tab uses the same cards: who, then what happened, with the time at the right.
+- The panel is always the same width, whichever tab it is on, however long a name is, and whatever
+  is filtered; long names are cut with an ellipsis. The group's name at the top is in a light
+  version of the palette's highlight colour, as VRChat's own title is.
+
+The picture is the person's VRChat picture, when the server has one stored and the deployment's
+**Proxy VRChat images through Modbot** switch is on (it is off until somebody turns it on, so with it
+off every card shows the head-and-shoulders outline instead). The roster names a path on the same
+server for each picture, and the companion fetches it from there, with its token, and never from
+VRChat. Until a picture has arrived, and for anybody in an [instance outside any
+group](#outside-group-instances), the outline is shown. The headset panel is drawn as it always was,
+without pictures.
 
 ### The Audit Log tab
 
@@ -358,6 +386,10 @@ instance belonging to one of your paired groups, only to that group's server:
   [live updates](/api/live-updates) for the rules and the timings.
 - a [heads-up](/companion/heads-ups), only when you press **Place** or **Clear** on one;
 - one request for a person's card, only when you tap their row. It names that person.
+- on the desktop overlay in VRChat's look only, one request for each person's picture, to that same
+  server and only for the people the roster named a picture for. It names that person and carries
+  the token. The pictures are kept in memory while they are on the screen, never written to disk, and
+  VRChat is not contacted from your PC for them.
 
 The first two carry the client's token for that server, the instance you are in, and nothing else.
 The person's card also goes out while you are in an [instance outside any group](#outside-group-instances),

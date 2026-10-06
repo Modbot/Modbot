@@ -420,6 +420,11 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     {
         Background = GroundBrush();
 
+        // One width for the panel on every tab and in every state: the window's own, less the room the
+        // shadow falls into. Not left to what happens to be on the screen.
+        _frame.Width = PanelWidth - (_look.VRChat is not null && CanRoundTheCorners ? 2 * VRChatLook.ShadowRoom : 0);
+        _frame.HorizontalAlignment = HorizontalAlignment.Left;
+
         if (_look.VRChat is { } v)
         {
             // The panel, thinned out by the opacity setting while everything on it stays solid. Where
@@ -518,7 +523,9 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _groupName.IsVisible = group is not null;
             _groupName.FontSize = 20;
             _groupName.FontWeight = FontWeight.ExtraBold;
-            _groupName.Foreground = v.Text;
+
+            // In the look's heading colour, as VRChat's own "Here" is.
+            _groupName.Foreground = v.Heading;
 
             // The title sits between the buttons' room on both sides; the icon and its gap take 36 of
             // what is left, and a longer name is cut with an ellipsis rather than run under them.
@@ -765,6 +772,34 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
     /// <summary>The screen last drawn, or null before the first. For the test remote's <c>state</c>.</summary>
     public OverlayScreen? Showing => _drawn;
+
+    /// <summary>
+    /// The picture addresses the screen showing may ask the picture store for, so the store keeps those
+    /// pictures while they are on the screen and lets the rest go. Empty while nothing is drawn.
+    /// </summary>
+    public IReadOnlyCollection<string> PictureAddresses => _drawn?.PictureAddresses() ?? [];
+
+    private bool _redrawQueued;
+
+    /// <summary>
+    /// A picture has arrived in the picture store: the panel is drawn again with it. Arrivals that come
+    /// together are one redraw, and nothing is drawn while the window is not up.
+    /// </summary>
+    public void PictureArrived()
+    {
+        if (_redrawQueued || !IsVisible || _drawn is null)
+            return;
+
+        _redrawQueued = true;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _redrawQueued = false;
+
+            if (IsVisible)
+                DrawScreen();
+        });
+    }
 
     /// <summary>How many times a different screen has been drawn.</summary>
     public int FramesDrawn { get; private set; }

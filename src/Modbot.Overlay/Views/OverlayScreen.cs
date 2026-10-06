@@ -101,6 +101,10 @@ public enum OverlayPage
 /// has no record of it (the overlay was switched on mid-instance). Somebody who was already here has
 /// been here at least this long, which is what their row says (<see cref="ListFiltering.HereBeforeYouWords"/>).
 /// </param>
+/// <param name="ModeratorId">
+/// The moderator's own VRChat id as this PC's log reading last said, or null while it is not known. The
+/// desktop window's list puts their own row first, in a banner of its own. Never sent anywhere.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -125,7 +129,8 @@ public sealed record OverlayScreen(
     bool CanPlaceHeadsUps = false,
     IReadOnlyList<RecentLeaver>? Left = null,
     bool NotSynced = false,
-    DateTimeOffset? ModeratorArrived = null)
+    DateTimeOffset? ModeratorArrived = null,
+    string? ModeratorId = null)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -146,6 +151,30 @@ public sealed record OverlayScreen(
 
     /// <summary>When each person got here, never null.</summary>
     public IReadOnlyDictionary<string, DateTimeOffset?> ArrivalsOrNone => Arrivals ?? NoArrivals;
+
+    /// <summary>
+    /// Every picture address a row on this screen may ask for: the people present and the ones who just
+    /// left. The companion keeps these pictures in memory while the screen shows them and lets go of
+    /// them after.
+    /// </summary>
+    public IReadOnlyCollection<string> PictureAddresses()
+    {
+        var found = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var member in Roster.Value?.Members ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(member.PictureUrl))
+                found.Add(member.PictureUrl);
+        }
+
+        foreach (var leaver in LeftOrNone)
+        {
+            if (!string.IsNullOrWhiteSpace(leaver.Member.PictureUrl))
+                found.Add(leaver.Member.PictureUrl);
+        }
+
+        return found;
+    }
 
     /// <summary>The filters of the list showing now, or null on a screen with no list.</summary>
     public ListFilters? ShownFilters => Page switch
@@ -185,6 +214,7 @@ public sealed record OverlayScreen(
             && ShowIdleCard == other.ShowIdleCard
             && NotSynced == other.NotSynced
             && ModeratorArrived == other.ModeratorArrived
+            && ModeratorId == other.ModeratorId
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor
             && Page == other.Page
@@ -288,6 +318,7 @@ public sealed record OverlayScreen(
                 || left.PriorActions != right.PriorActions
                 || left.TrustRank != right.TrustRank
                 || left.EighteenPlus != right.EighteenPlus
+                || left.PictureUrl != right.PictureUrl
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

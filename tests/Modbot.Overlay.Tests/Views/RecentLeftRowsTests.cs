@@ -131,7 +131,8 @@ public class RecentLeftRowsTests
     {
         var texts = Texts(Screen([Kai, Jo], [Left(Rin), Left(Ash)]), inVRChatLook ? VRChatLook() : null);
 
-        Assert.Contains("2 here", texts);
+        // In VRChat's look the count is VRChat's own heading over the list of users.
+        Assert.Contains(inVRChatLook ? "Users (2)" : "2 here", texts);
     }
 
     [Fact]

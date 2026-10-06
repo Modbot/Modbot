@@ -169,6 +169,66 @@ public sealed class VRChatLook
     public IBrush BrightText => Solid(OverlayColours.ReadableOn(Colours.SelectedBorder, Colours.Text));
 
     /// <summary>
+    /// The colour of VRChat's own headings: the highlights colour, lightened toward the palette's text
+    /// colour only as far as it needs to read on the panel and on the title strip. A light gold in a
+    /// palette whose text is gold and whose highlights are red.
+    /// </summary>
+    public IBrush Heading => Solid(HeadingColour);
+
+    private PaletteColour HeadingColour => OverlayColours.LiftedToRead(
+        Colours.SelectedBorder,
+        Colours.Text,
+        OverlayColours.LeastContrast,
+        Colours.Panel,
+        Colours.Bar);
+
+    /// <summary>
+    /// The ground of the banner that holds the moderator's own row: the highlights colour at the left,
+    /// running into the selected fill at the right.
+    /// </summary>
+    public IBrush Banner => _banner ??= new LinearGradientBrush
+    {
+        StartPoint = new RelativePoint(0, 0.5, RelativeUnit.Relative),
+        EndPoint = new RelativePoint(1, 0.5, RelativeUnit.Relative),
+        GradientStops =
+        {
+            new GradientStop(ToColor(Colours.SelectedBorder), 0),
+            new GradientStop(ToColor(Colours.Selected), 1),
+        },
+    };
+
+    private IBrush? _banner;
+
+    /// <summary>
+    /// Words on <see cref="Banner"/>: the palette's text while it reads at both ends of the banner,
+    /// else near-white or near-black, whichever reads better at the worse end.
+    /// </summary>
+    public IBrush BannerText => Solid(WordsOnBanner);
+
+    private PaletteColour WordsOnBanner
+    {
+        get
+        {
+            double Worst(PaletteColour words)
+                => Math.Min(
+                    PaletteColour.Contrast(words, Colours.SelectedBorder),
+                    PaletteColour.Contrast(words, Colours.Selected));
+
+            var best = Colours.Text;
+            foreach (var candidate in new[] { Colours.Text, OverlayColours.LightWords, OverlayColours.DarkWords })
+            {
+                if (Worst(candidate) >= OverlayColours.LeastContrast)
+                    return candidate;
+
+                if (Worst(candidate) > Worst(best))
+                    best = candidate;
+            }
+
+            return best;
+        }
+    }
+
+    /// <summary>
     /// The edge of a button, a tab or a chip as VRChat draws one standing up: lighter along the top,
     /// darker along the bottom. Worked out from the button colour and its edge, so it follows any palette.
     /// </summary>

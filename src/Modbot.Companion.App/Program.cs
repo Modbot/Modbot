@@ -553,7 +553,25 @@ internal sealed partial class CompanionHost : IOverlayListener
         // sockets under any real traffic, and this one is also the single place pairing requests
         // leave from.
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        Window.Pictures = new GroupPictures(_http, Render);
+        Window.Pictures = new GroupPictures(_http, () =>
+        {
+            Render();
+
+            // A picture that arrives changes what the window over VRChat would draw without changing
+            // the screen it was handed, so that window is told.
+            _desktopOverlay?.PictureArrived();
+        })
+        {
+            // The pictures of the people in an instance come from the paired server, with its own
+            // token and from nowhere else; a server's token is never offered to another address.
+            DeviceTokenFor = address => _state?.Connections
+                .Select(connection => connection.Pairing)
+                .FirstOrDefault(pairing => pairing.IsPictureAddress(address))
+                ?.DeviceToken,
+        };
+
+        // What the window over VRChat is showing, so the pictures it asks for are kept while it does.
+        Window.OverlayPictures = () => _desktopOverlay?.PictureAddresses ?? [];
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
         _transport = new HttpIngestTransport(_http);
 

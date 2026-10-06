@@ -167,6 +167,12 @@ public sealed partial class MainWindow : Window
     /// <summary>Set by the host once it has an HTTP client; null until then and pictures simply wait.</summary>
     internal GroupPictures? Pictures { get; set; }
 
+    /// <summary>
+    /// The picture addresses the window over VRChat is showing, asked for when the picture store is told
+    /// what it may let go of. Null until the host sets it, and then nothing is kept for that window.
+    /// </summary>
+    internal Func<IReadOnlyCollection<string>>? OverlayPictures { get; set; }
+
     private Page _page = Page.Servers;
     private CompanionAppSnapshot _snapshot = CompanionAppSnapshot.Empty;
     private MainWindowActions _actions = MainWindowActions.None;
@@ -901,6 +907,8 @@ public sealed partial class MainWindow : Window
     /// the rest of the session.</para>
     /// <para>Run after the page is built rather than before, so what it is asked to keep is what
     /// the page it has just drawn actually asked for.</para>
+    /// <para>The pictures of the people the window over VRChat is showing are among them for as long
+    /// as it shows them (<see cref="OverlayPictures"/>), and let go of after that.</para>
     /// </remarks>
     private void LetGoOfPicturesNothingShows()
     {
@@ -911,6 +919,10 @@ public sealed partial class MainWindow : Window
 
         foreach (var server in _snapshot.Servers)
             Want(server.GroupIconUrl);
+
+        // The people in the instance, while the window over VRChat is showing them.
+        foreach (var address in OverlayPictures?.Invoke() ?? [])
+            Want(address);
 
         if (_page == Page.Credits)
         {

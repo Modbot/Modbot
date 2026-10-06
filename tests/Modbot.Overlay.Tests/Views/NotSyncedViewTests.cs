@@ -122,7 +122,7 @@ public class NotSyncedViewTests
 
         Assert.Contains("Jo", texts);
         Assert.Contains("Kai", texts);
-        Assert.Contains("2 here", texts);
+        Assert.Contains(inVRChatLook ? "Users (2)" : "2 here", texts);
         Assert.DoesNotContain("up to date", texts);
     }
 

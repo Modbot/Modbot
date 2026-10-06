@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Serilog;
@@ -15,6 +16,12 @@ namespace Modbot.Companion.App;
 /// nothing goes with it: no token, no cookie, no identity. The bytes come back and become a
 /// picture; nothing is written to your disk, and the address is not reported anywhere. A picture
 /// that will not load leaves the name standing on its own.</para>
+/// <para><strong>The pictures of the people in an instance</strong> are the one other thing asked
+/// for here. Their address is a path on a paired server (the roster carries it, and only a path of
+/// that server's own picture route is taken), so the GET goes to that server and to no one else, with
+/// that server's device token on it, the same token every other request to it carries, and no more
+/// than that. VRChat is not contacted from this PC for them. They are read into memory at the size the
+/// panel draws them, never written to disk, and let go of once no screen shows them.</para>
 /// <para>Fetched on the UI thread's behalf and handed back to it, because the window redraws on a
 /// timer and asks for the same icon many times a minute; a miss starts one fetch, and every ask
 /// until it lands gets nothing.</para>
@@ -61,18 +68,38 @@ internal sealed class GroupPictures
         _changed = changed;
     }
 
+    /// <summary>
+    /// The device token of the paired server whose own picture route this address is, or null when it
+    /// is not one. Set by the host, which knows the pairings. A picture whose address this names is
+    /// fetched with that token and read at <see cref="PersonPictureWidth"/>; any other is fetched with
+    /// nothing attached.
+    /// </summary>
+    public Func<Uri, string?>? DeviceTokenFor { get; set; }
+
+    /// <summary>
+    /// How wide, in pixels, a person's picture is read: the panel draws one 48 units across, which on a
+    /// large screen is at most about three times that, so a larger file is not kept at its full size.
+    /// </summary>
+    public const int PersonPictureWidth = 160;
+
     /// <summary>The picture for an address, or null while it is loading or when it will not load.</summary>
     public Bitmap? For(string? url)
     {
-        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address)
-            || address.Scheme != Uri.UriSchemeHttps)
+        if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address))
+            return null;
+
+        // Only a paired server's own picture route is ever asked for with a token, and only that
+        // server's: a pairing to a server on this PC is plain http, which is allowed for nothing else.
+        var token = DeviceTokenFor?.Invoke(address);
+
+        if (token is null && address.Scheme != Uri.UriSchemeHttps)
             return null;
 
         if (_pictures.TryGetValue(url, out var known))
             return known;
 
         if (_inFlight.TryAdd(url, true))
-            _ = FetchAsync(url, address);
+            _ = FetchAsync(url, address, token);
 
         return null;
     }
@@ -110,15 +137,30 @@ internal sealed class GroupPictures
         }
     }
 
-    private async Task FetchAsync(string key, Uri address)
+    private async Task FetchAsync(string key, Uri address, string? deviceToken)
     {
         Bitmap? picture = null;
         try
         {
             using var timeout = new CancellationTokenSource(Timeout);
-            var bytes = await _http.GetByteArrayAsync(address, timeout.Token).ConfigureAwait(false);
+
+            byte[] bytes;
+            if (deviceToken is null)
+            {
+                bytes = await _http.GetByteArrayAsync(address, timeout.Token).ConfigureAwait(false);
+            }
+            else
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, address);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", deviceToken);
+
+                using var response = await _http.SendAsync(request, timeout.Token).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                bytes = await response.Content.ReadAsByteArrayAsync(timeout.Token).ConfigureAwait(false);
+            }
+
             using var stream = new MemoryStream(bytes);
-            picture = new Bitmap(stream);
+            picture = deviceToken is null ? new Bitmap(stream) : Bitmap.DecodeToWidth(stream, PersonPictureWidth);
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException or ArgumentException)
         {
