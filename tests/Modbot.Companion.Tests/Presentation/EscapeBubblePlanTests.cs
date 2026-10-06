@@ -129,7 +129,11 @@ public sealed class EscapeBubblePlanTests
     {
         var plan = EscapeBubblePlan.For(true, false, Window(2560, 1440), 0, 0, Shortcut)!;
 
-        Assert.InRange(plan.ScreenX + (plan.Metrics.PillMinWidth / 2), 445, 449);
+        // The slot's centre scales with the height: 336 at 1920 by 1080 (scale 1.0704) is 313.9 at
+        // scale 1 and 448 at 1.4272. The window is the backing panel, so the pill's left edge is
+        // the window's plus PillOffsetX, as in the 1920 test: 406 + 12 + 59 / 2 = 447.
+        var pillLeft = plan.ScreenX + plan.Metrics.PillOffsetX;
+        Assert.InRange(pillLeft + (plan.Metrics.PillMinWidth / 2), 445, 449);
         Assert.InRange(plan.Metrics.Scale, 1.42, 1.43);
     }
 
