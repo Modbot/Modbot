@@ -134,8 +134,23 @@ public sealed class CompanionEngineTests : IDisposable
 
         // The overlay's list for an instance no group owns is made from these, and from the names
         // the engine holds; the router still drops all of it, so no server hears of it.
-        Assert.Equal(3, offered.Count);
+        //
+        // Five come out of this turn, not three. The three lines written here are three in the new
+        // instance. The first live line after the replay also restates, once, who the fixture's
+        // log left standing in its last instance ("already here", c9463c9e): the friends-only
+        // Popcorn Palace, with -winter~ and the moderator in it. That is deliberate, and it is
+        // what the overlay's Audit Log shows as "Already here" (f9dc763b), so it is offered too.
+        Assert.Equal(5, offered.Count);
         Assert.All(offered, o => Assert.False(o.Instance.IsGroupInstance));
+
+        var inTheNewInstance = offered.Where(o => o.Instance.WorldId == "wrld_w").ToList();
+        Assert.Equal(3, inTheNewInstance.Count);
+
+        var alreadyThere = offered.Except(inTheNewInstance).ToList();
+        Assert.Equal(2, alreadyThere.Count);
+        Assert.All(alreadyThere, o => Assert.Equal(PresenceKind.PresenceObserved, o.Kind));
+        Assert.Contains(alreadyThere, o => o.DisplayName == "-winter~");
+
         Assert.Contains(engine.PeopleHere, p => p.UserId == "usr_newcomer" && p.DisplayName == "newcomer");
         Assert.Contains(engine.PeopleHere, p => p.UserId == "usr_roster");
 
