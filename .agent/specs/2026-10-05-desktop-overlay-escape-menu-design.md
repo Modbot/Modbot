@@ -3,9 +3,9 @@
 **Date:** 2026-10-05
 **Status:** draft — partly built. Built (2026-10-05, second commit): the window lookup moved out of
 the recorder (§2.2), the one size rule that replaces "two known sizes" (§3.3.1), and the desktop
-overlay's own placement beside VRChat's Esc menu (§3.6). Not built: the VRChat-only shortcut poll,
-the settings fields, wiring the bubble to the real shortcut. Nobody has seen any of it on a live
-VRChat window.
+overlay's own placement beside VRChat's Esc menu (§3.6), and the bubble in VRChat's row, shown by
+default with the overlay (§3.4). Not built: the VRChat-only shortcut poll and the settings fields
+(including any switch for the bubble). Nobody has seen any of it on a live VRChat window.
 **Touches (when built):** `src/Modbot.Companion/Presentation/DesktopOverlaySettings.cs`,
 `src/Modbot.Companion.App/DesktopOverlayShortcut.cs`, `src/Modbot.Companion.App/ScreenRecording.cs`
 (or a file split out of it), a new bubble window, `MainWindow.DesktopOverlay.cs`,
@@ -205,8 +205,27 @@ All of it is a named constant in `VRChatHudLayout` (the menu, strip, column, ban
 
 ### 3.4 When it shows
 
-Only while VRChat is in front and the desktop overlay is on, at any window size (§3.3.1; no
-longer only two known sizes). Not in a headset session, not while another program is in front.
+Built 2026-10-05 and **on by default with the desktop overlay: there is no switch for it yet.**
+The bubble is shown while all of these are true: the desktop overlay setting is on, VRChat's
+window is found, it is not minimised, and its client area gives sizes (any size, §3.3.1). Otherwise
+it is hidden and its window closed, so nothing is left behind. VRChat does **not** have to be the
+window in front (the overlay does not need that either), which reverses the first draft's "only
+while VRChat is in front". It is never given the keyboard: shown without activating, and a click
+runs the shortcut's own action, which opens or closes the overlay. It says the overlay's current
+shortcut (`Ctrl+Alt+M` by default) and changes when the shortcut changes, and it is Modbot purple
+while the overlay is open and grey while it is closed. It looks at VRChat's window 4 times a second
+and moves or resizes when VRChat does (`EscapeBubblePlan` decides, `EscapeBubbleHost` carries it
+out). Its own timer runs while the overlay setting is on; the overlay's follow timer runs only while
+the overlay is open, so they are two timers. Checked against the owner's real 1920 × 1080 window: the row's icons are
+centred at x 60, 129, 198 and 267, so the fifth slot's centre is about 336, which is what the rule gives;
+VRChat's faint backing panel ends at about x 301 and the bubble sits just outside it.
+Not in a headset session.
+
+**Reversed 2026-10-05 at the owner's request.** This spec first had the bubble off by default
+(§4). The owner ran the build, expected the bubble in VRChat's row as soon as the overlay was on,
+and did not find it, because only the Debug-page preview existed. The Debug page's Show escape
+bubble button stays; it does nothing while the real bubble is showing, and a preview open when the
+real one appears is closed, so there is never a second bubble.
 
 ### 3.5 Click-through
 
@@ -273,8 +292,12 @@ and scales with VRChat's window (`VRChatHudLayout`, `DesktopOverlayWindow`).
 | `bubble` | Show Modbot's bubble in VRChat's row, after Y | `false` |
 | `bubbleOffset` | Nudge from the worked-out position, in pixels | `0, 0` |
 
-Both new switches are **off by default**: each is a claim on the moderator's screen or keyboard
-that is asked for, not assumed. Reading an old `settings.json` without them gives the defaults.
+`onlyInVRChat` is **off by default**: it is a claim on the moderator's keyboard that is asked for,
+not assumed. **`bubble` was meant to be off by default too, and that is reversed (2026-10-05, at the
+owner's request): the bubble is shown whenever the desktop overlay is on, and neither `bubble` nor
+`bubbleOffset` exists yet.** They are the switch and the nudge to add if a moderator wants the
+bubble off or moved; until then the row above is the design, not the code. Reading an old
+`settings.json` without the fields gives the defaults.
 
 A shortcut that cannot be read, or has no modifier while `onlyInVRChat` is off, still falls back to
 `mod+alt+m`.

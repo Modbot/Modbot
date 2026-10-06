@@ -364,6 +364,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
     private EscapeBubbleWindow? _escapeBubble;
+
+    /// <summary>Modbot's bubble in VRChat's HUD row, kept while the desktop overlay is on.</summary>
+    private EscapeBubbleHost? _escapeBubbleHost;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
 
     /// <summary>
@@ -2546,7 +2549,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopOverlay.Apply(desktopOverlay);
 
             if (before.ShortcutOrDefault != desktopOverlay.ShortcutOrDefault)
+            {
                 _desktopOverlayShortcut?.Ask(desktopOverlay.ShortcutOrDefault);
+                _escapeBubbleHost?.SetShortcut(desktopOverlay.ShortcutOrDefault);
+            }
         }
 
         Render();
@@ -2584,6 +2590,12 @@ internal sealed partial class CompanionHost : IOverlayListener
 
             _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
             _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+
+            // Modbot's bubble in VRChat's HUD row, for as long as the overlay is on. A click on it
+            // is the shortcut's own action, not a second copy of it.
+            _escapeBubbleHost = new EscapeBubbleHost(() => _desktopOverlay?.IsVisible is true, ToggleDesktopOverlay);
+            _escapeBubbleHost.Appeared += () => _escapeBubble?.Close();
+            _escapeBubbleHost.Start(settings.ShortcutOrDefault);
         }
         catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
@@ -2592,6 +2604,8 @@ internal sealed partial class CompanionHost : IOverlayListener
             Log.Warning(ex, "The desktop overlay could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
             _desktopOverlayShortcut?.Dispose();
             _desktopOverlayShortcut = null;
+            _escapeBubbleHost?.Stop();
+            _escapeBubbleHost = null;
             _desktopOverlay?.Close();
             _desktopOverlay = null;
             return;
@@ -2610,6 +2624,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     {
         _desktopOverlayShortcut?.Dispose();
         _desktopOverlayShortcut = null;
+
+        _escapeBubbleHost?.Stop();
+        _escapeBubbleHost = null;
 
         if (_desktopOverlay is not null)
         {
@@ -3730,6 +3747,13 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </summary>
     private void ShowEscapeBubble()
     {
+        // The real bubble is in VRChat's row: a preview beside it would be a second one.
+        if (_escapeBubbleHost?.Showing is true)
+        {
+            _escapeBubble?.Close();
+            return;
+        }
+
         if (_escapeBubble is null)
         {
             _escapeBubble = new EscapeBubbleWindow();
