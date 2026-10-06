@@ -1195,9 +1195,10 @@ public class ImportTests
             if (waited.Elapsed > TimeSpan.FromSeconds(30))
                 throw new TimeoutException($"Import {id} is still {status}.");
 
-            // Short: the import is a few rows, so the first look is nearly always too early and a
-            // long pause here is paid by each of the thirty-odd tests that wait for it.
-            await Task.Delay(20, Ct);
+            // 100 ms, not shorter: the runner marks an import Done and writes its ImportDone audit
+            // entry in a second step a few milliseconds later, and tests that read that entry right
+            // after this returns would sometimes find it missing if this looked every 20 ms.
+            await Task.Delay(100, Ct);
         }
     }
 }
