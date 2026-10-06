@@ -123,8 +123,7 @@ public sealed class PresenceObserver
     /// not running, VRChat stopped writing and is presumed gone (see
     /// <see cref="InstanceStaleAfter"/>), the moderator has left an instance and not yet entered
     /// another, or the log named a location this client could not read. The overlay treats every
-    /// one of them as "show the idle screen and contact nobody", which is the right answer to all
-    /// four.
+    /// one of them as "nowhere to be": the idle screen, with nobody contacted.
     /// </remarks>
     public InstanceLocation? CurrentInstance => LogIsLive ? _tracker.CurrentInstance : null;
 
@@ -145,6 +144,13 @@ public sealed class PresenceObserver
 
     /// <summary>Who is in it. Used by the overlay, which renders from local state only.</summary>
     public IReadOnlyCollection<string> Roster => _tracker.Roster;
+
+    /// <summary>
+    /// Who is in the instance, with the name the log gave each, while the log is live: the same
+    /// answer as <see cref="Roster"/>, with names. Read by the overlay's list for an instance no
+    /// group owns, and never sent.
+    /// </summary>
+    public IReadOnlyList<PersonHere> PeopleHere => LogIsLive ? _tracker.People : [];
 
     /// <summary>When each person in the instance got here. See <see cref="InstanceSessionTracker.ArrivedAt"/>.</summary>
     public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _tracker.ArrivedAt;

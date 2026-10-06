@@ -1,5 +1,6 @@
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Ingest;
+using Modbot.Companion.Instances;
 using Modbot.Companion.LogReading;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Tests.CloudBackup;
@@ -108,6 +109,38 @@ public sealed class CompanionEngineTests : IDisposable
 
         Assert.Equal(3, _transport.ByServer["cats"].Count);
         Assert.False(_transport.ByServer.ContainsKey("dogs"));
+    }
+
+    [Fact]
+    public async Task WhatTheLogCompletesInAPlainInstanceIsOfferedToAListenerAndStillSentToNobody()
+    {
+        var observer = Observer();
+        CopyFixture();
+
+        var cats = Connection("cats", LogFixture.GroupId);
+        var engine = new CompanionEngine(observer, _clock, [cats]);
+
+        var offered = new List<ObservedPresence>();
+        engine.Observed += observed => offered.AddRange(observed);
+
+        await engine.TickAsync(TestContext.Current.CancellationToken);
+        AppendLive(
+            "2026.09.03 21:00:00 Debug      -  [Behaviour] Joining wrld_w:777~region(use)",
+            "2026.09.03 21:00:01 Debug      -  [Behaviour] OnPlayerJoined roster (usr_roster)",
+            "2026.09.03 21:00:02 Debug      -  [Behaviour] OnPlayerJoined bin¹ (" + LogFixture.LocalUserId + ")",
+            "2026.09.03 21:00:30 Debug      -  [Behaviour] OnPlayerJoined newcomer (usr_newcomer)");
+
+        await engine.TickAsync(TestContext.Current.CancellationToken);
+
+        // The overlay's list for an instance no group owns is made from these, and from the names
+        // the engine holds; the router still drops all of it, so no server hears of it.
+        Assert.Equal(3, offered.Count);
+        Assert.All(offered, o => Assert.False(o.Instance.IsGroupInstance));
+        Assert.Contains(engine.PeopleHere, p => p.UserId == "usr_newcomer" && p.DisplayName == "newcomer");
+        Assert.Contains(engine.PeopleHere, p => p.UserId == "usr_roster");
+
+        await DrainAsync(engine);
+        Assert.False(_transport.ByServer.ContainsKey("cats"));
     }
 
     [Fact]

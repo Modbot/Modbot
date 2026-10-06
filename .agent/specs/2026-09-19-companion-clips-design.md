@@ -637,6 +637,11 @@ face for most of their VRChat time. Save a clip is the one exception, because th
 wherever VRChat does and a moment worth keeping can happen in a public instance as easily as a
 group one. It is only ever there because somebody switched Clips on themselves.
 
+> **Narrowed 2026-10-05.** With a server paired, a public, friends-only or private instance now shows
+> the Instance list from the log and the line "Not synced with the group", and Save a clip sits
+> under the tabs there like anywhere else (M3 design §5.5.2). The panel is still blank in a group
+> instance no paired server manages and with no server paired.
+
 ### 11.2 No second keyboard shortcut
 
 The client asks Windows for exactly one keyboard combination, by name, and says so in its own

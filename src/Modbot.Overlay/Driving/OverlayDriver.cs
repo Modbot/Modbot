@@ -57,8 +57,13 @@ public interface IOverlayListener
 /// overlay that blanks in that window is backwards. Staleness is shown rather than hidden.</para>
 /// <para><strong>The overlay follows the instance.</strong> With several servers paired, exactly
 /// one of them manages the instance the moderator is standing in, and that is the only one this
-/// loop reads from or shows. A moderator not in any group instance sees the idle screen, and no
-/// server is contacted at all.</para>
+/// loop reads a roster from, follows live, or shows. A moderator in a public, friends-only or
+/// private instance, which is most of anybody's VRChat use, gets lists made from this PC's own copy
+/// of VRChat's log and marked as not synced with the group. No roster or live read is made for it
+/// and nothing about that instance (its number or its world) is sent: the one request that can go
+/// to a server there is the profile read for a person the moderator taps, which names that person
+/// and nothing else. A moderator in a group instance no paired server manages, or with no server
+/// paired at all, sees the idle screen, and nothing is contacted.</para>
 /// <para><strong>Nothing here can be commanded.</strong> Every request is client-initiated, and
 /// what comes back is data to display. There is no endpoint that tells this loop to do anything.</para>
 /// </remarks>
@@ -120,6 +125,18 @@ public sealed class OverlayDriver : IDisposable
 
     // What the live link has heard for the instance the moderator is in, newest first.
     private readonly List<LiveEvent> _events = [];
+
+    // Who joined, left or was already here in an instance no group owns, as this PC's own log
+    // said, newest first. It is the Audit Log there, where no server has anything to say. Each is
+    // tagged with its instance, because the log is read a moment before the driver is told which
+    // instance the moderator is in. Held in memory only, and never sent.
+    private readonly List<LiveEvent> _localEvents = [];
+    private int _localEventNumber;
+
+    // The server that managed the last group instance the moderator stood in this run. Where a
+    // person's card is asked for in an instance no group owns, so the answer is that group's own
+    // view of them. With none, the first paired server is asked.
+    private Server? _lastGroupServer;
 
     private InstanceLocation? _instance;
     private FlaggedJoinAlert? _showing;
@@ -242,6 +259,9 @@ public sealed class OverlayDriver : IDisposable
         server.Link.Dispose();
         _servers.Remove(server);
 
+        if (ReferenceEquals(_lastGroupServer, server))
+            _lastGroupServer = null;
+
         // And what it said about each person. Only one server covers an instance, but forgetting
         // everyone costs nothing: the next roster read notes them again.
         _known.Forget();
@@ -262,6 +282,11 @@ public sealed class OverlayDriver : IDisposable
             return;
 
         _instance = instance;
+
+        // What this PC's log said about people in the instance just left goes too. What it said
+        // about the one entered stays: the log is read a moment before this is told where the
+        // moderator is, and the people who were already here are in what it just said.
+        _localEvents.RemoveAll(e => instance is null || !IsHere(e.InstanceId, e.WorldId));
 
         // A card about the instance you just left is worse than no card. Leaving clears it, and
         // so does an open person card, the events list, the screen and the scroll position:
@@ -338,6 +363,74 @@ public sealed class OverlayDriver : IDisposable
     /// measures, and nothing else.
     /// </remarks>
     public IReadOnlyDictionary<string, DateTime?>? ArrivedAt { get; set; }
+
+    /// <summary>
+    /// Who is in the moderator's instance, with the names VRChat's log gave them. Set by the
+    /// companion, which reads the log, and the only source of the Instance list in an instance no
+    /// group owns.
+    /// </summary>
+    /// <remarks>
+    /// Read, never sent. It carries ids and names and nothing else: no rank, flags or standing,
+    /// which only a group's server knows.
+    /// </remarks>
+    public IReadOnlyList<PersonHere>? PeopleHere { get; set; }
+
+    /// <summary>
+    /// Takes what the log completed this turn. Who joined, left or was already here in an
+    /// instance no group owns becomes a row on the Audit Log there; everything else is ignored,
+    /// because a group instance's Audit Log comes from its server.
+    /// </summary>
+    /// <remarks>
+    /// <para>Made from what the log said and nothing a server did, and not sent anywhere. A change
+    /// of avatar and the log going quiet are not rows.</para>
+    /// <para>The log can state who is here a second time, when it has stopped and started again.
+    /// Somebody already listed as here or as having joined, and not since gone, is not listed as
+    /// already here again.</para>
+    /// </remarks>
+    public void NoteObserved(IReadOnlyList<ObservedPresence> observed)
+    {
+        ArgumentNullException.ThrowIfNull(observed);
+
+        foreach (var seen in observed)
+        {
+            if (seen.Instance.IsGroupInstance)
+                continue;
+
+            var kind = seen.Kind switch
+            {
+                PresenceKind.Joined => LiveEventKinds.PersonJoined,
+                PresenceKind.PresenceObserved => LiveEventKinds.PersonHere,
+                PresenceKind.Left => LiveEventKinds.PersonLeft,
+                _ => null,
+            };
+
+            if (kind is null)
+                continue;
+
+            if (kind == LiveEventKinds.PersonHere
+                && _localEvents.FirstOrDefault(e => string.Equals(e.Person?.SubjectId, seen.SubjectId, StringComparison.Ordinal)
+                    && string.Equals(e.InstanceId, seen.Instance.InstanceId, StringComparison.Ordinal)
+                    && string.Equals(e.WorldId, seen.Instance.WorldId, StringComparison.Ordinal)) is { Kind: not LiveEventKinds.PersonLeft })
+            {
+                continue;
+            }
+
+            _localEvents.Insert(0, new LiveEvent(
+                "log-" + ++_localEventNumber,
+                string.Empty,
+                kind,
+                _timestamps.ToInstant(seen.OccurredAtLocal),
+                seen.Instance.InstanceId,
+                new LivePerson(seen.SubjectId, seen.DisplayName, null, RosterStanding.Ordinary, 0, []),
+                Flagged: false,
+                Reason: null,
+                ByThisDevice: true,
+                WorldId: seen.Instance.WorldId));
+        }
+
+        if (_localEvents.Count > MostEventsKept)
+            _localEvents.RemoveRange(MostEventsKept, _localEvents.Count - MostEventsKept);
+    }
 
     /// <summary>
     /// The name a list is searched for, as typed on SteamVR's keyboard or the desktop window.
@@ -586,8 +679,7 @@ public sealed class OverlayDriver : IDisposable
     /// <summary>Scrolls the roster by whole rows, inside what the filters leave of it.</summary>
     public void ScrollRoster(int rows)
     {
-        var count = Current() is { } server && _instance is not null
-            && server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value is { } context
+        var count = RosterHere() is { } context
             ? ListFiltering.Roster(Everyone(context), _rosterFilters, Arrivals(context), _clock.UtcNow).Count
             : 0;
 
@@ -645,18 +737,23 @@ public sealed class OverlayDriver : IDisposable
     /// <remarks>
     /// One GET to the current server, for the one person tapped, with the device token; the
     /// answer is shown and kept only while the card is open. Nothing is asked about anyone who
-    /// was not tapped.
+    /// was not tapped. In an instance no group owns the server is the one that managed the last
+    /// group instance this run, or the first paired one (<see cref="SyncServer"/>); the request
+    /// names the person only, never the instance the moderator is in.
     /// </remarks>
     public async Task OpenPersonAsync(string subjectId)
     {
-        if (Current() is not { } server || _instance is null)
+        var server = Current() ?? (NotSynced ? SyncServer() : null);
+        if (server is null || _instance is null)
             return;
 
         _personWanted = subjectId;
         _page = OverlayPage.Person;
 
         // A row still on the list for somebody who just left opens too: their row is what is known.
-        var known = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId)
+        var known = (Current() is not null
+                ? server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId)
+                : LocalMembers().FirstOrDefault(m => m.SubjectId == subjectId))
             ?? _leavers.Find(subjectId);
         _person = known is null
             ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
@@ -689,8 +786,10 @@ public sealed class OverlayDriver : IDisposable
     /// <summary>The server whose group owns the instance the moderator is standing in.</summary>
     /// <remarks>
     /// Null when they are in a public, friends-only or private instance, which is most of anybody's
-    /// VRChat use, and null when the group is one no paired server manages. In both cases the
-    /// overlay shows the idle screen and nothing is contacted.
+    /// VRChat use, and null when the group is one no paired server manages. Nothing is read from
+    /// any server for the instance in either case. In a public, friends-only or private one the
+    /// panel lists the people from this PC's log and says it is not synced; in a group no paired
+    /// server manages it is idle.
     /// </remarks>
     public ServerPairing? CurrentServer => Current()?.Pairing;
 
@@ -737,17 +836,24 @@ public sealed class OverlayDriver : IDisposable
 
         if (server is null)
         {
-            // Not in any paired group's instance: no server is contacted, and a link that was
-            // open for the instance just left is closed.
+            // Not in any paired group's instance: no roster or live read is made, and a link that
+            // was open for the instance just left is closed.
             foreach (var paired in _servers)
                 paired.Link.Follow(null);
 
             ExpireAlert();
 
+            // A public, friends-only or private instance, with a server to look people up on: the
+            // lists come from this PC's own log, and the panel says it is not synced.
+            if (NotSynced)
+                return new OverlayTick(Presenter.Update(BuildNotSynced()), false, false);
+
             // Still idle — the panel says nothing about a group it is not in. Save a clip travels
             // with it, because the recorder runs wherever VRChat does.
             return new OverlayTick(Presenter.Update(OverlayScreen.Idle with { Clips = Clips }), false, false);
         }
+
+        _lastGroupServer = server;
 
         foreach (var other in _servers.Where(s => s != server))
             other.Link.Follow(null);
@@ -778,6 +884,8 @@ public sealed class OverlayDriver : IDisposable
 
         _servers.Clear();
         _events.Clear();
+        _localEvents.Clear();
+        _lastGroupServer = null;
         _known.Forget();
         _leavers.Forget();
         _arrivedSeen.Clear();
@@ -789,6 +897,51 @@ public sealed class OverlayDriver : IDisposable
             ? _servers.FirstOrDefault(s =>
                 string.Equals(s.Pairing.ManagedGroupId, groupId, StringComparison.Ordinal))
             : null;
+
+    /// <summary>
+    /// Whether the moderator is in an instance no group owns, with a paired server to look people
+    /// up on. The overlay then lists the people from this PC's log (<see cref="BuildNotSynced"/>).
+    /// </summary>
+    /// <remarks>
+    /// A group's instance that no paired server manages is not this: it is somebody else's group,
+    /// and the panel stays idle for it as it always has. With no server paired there is nothing to
+    /// look people up on, so that is idle too.
+    /// </remarks>
+    private bool NotSynced => _instance is { GroupId: null } && SyncServer() is not null;
+
+    /// <summary>
+    /// The server a person's card is asked of when no group owns the instance: the one that managed
+    /// the last group instance the moderator stood in this run, else the first paired.
+    /// </summary>
+    private Server? SyncServer()
+        => _lastGroupServer is { } last && _servers.Contains(last) ? last : _servers.FirstOrDefault();
+
+    /// <summary>
+    /// The people the log says are in the instance, as rows with nothing known about them: no
+    /// standing, prior actions, flags or rank, which only a group's server holds.
+    /// </summary>
+    private IReadOnlyList<RosterMember> LocalMembers()
+        => [.. (PeopleHere ?? []).Select(person => new RosterMember(
+            person.UserId,
+            string.IsNullOrWhiteSpace(person.DisplayName) ? null : person.DisplayName,
+            RosterStanding.Ordinary,
+            0,
+            []))];
+
+    /// <summary>
+    /// Who the Instance list is made from: the server's roster for a group instance, this PC's log
+    /// for one no group owns, and nothing otherwise.
+    /// </summary>
+    private InstanceContext? RosterHere()
+    {
+        if (_instance is null)
+            return null;
+
+        if (Current() is { } server)
+            return server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value;
+
+        return NotSynced ? new InstanceContext(_instance.InstanceId, LocalMembers()) : null;
+    }
 
     /// <summary>
     /// Re-reads the roster when it is due, and records a failure as a failure rather than as an
@@ -1121,6 +1274,43 @@ public sealed class OverlayDriver : IDisposable
     {
         if (_showingSince is { } since && _clock.UtcNow - since >= AlertDwell)
             Dismiss();
+    }
+
+    /// <summary>
+    /// The screen for an instance no group owns: the people the log names, the log's own Joined,
+    /// Left and Already here rows, and the note that none of it is from the group.
+    /// </summary>
+    /// <remarks>
+    /// <para>No rank, flags, standing or heads-ups: a server that knows nothing about the instance
+    /// has told this client nothing, and the "+" and the Place control stay off
+    /// (<see cref="OverlayScreen.CanPlaceHeadsUps"/>). The roster is Fresh because it is as current as
+    /// the log; there is no server to be out of date with.</para>
+    /// <para>Who has just left is worked out here, each turn, by comparing the log's people with
+    /// the turn before, the way a roster read does for a group instance.</para>
+    /// </remarks>
+    private OverlayScreen BuildNotSynced()
+    {
+        var members = LocalMembers();
+        _leavers.Update(members);
+
+        var context = new InstanceContext(_instance!.InstanceId, members);
+
+        return new OverlayScreen(
+            null,
+            new Cached<InstanceContext>(context, Freshness.Fresh, TimeSpan.Zero),
+            Freshness.Fresh,
+            Person: _person,
+            RosterSkip: _rosterSkip,
+            Page: _page,
+            Events: [.. _localEvents.Where(e => IsHere(e.InstanceId, e.WorldId))],
+            Clips: Clips,
+            RosterFilters: _rosterFilters,
+            EventFilters: _eventFilters,
+            Arrivals: Arrivals(context),
+            Now: _clock.UtcNow,
+            CanPlaceHeadsUps: false,
+            Left: _leavers.Current(),
+            NotSynced: true);
     }
 
     private OverlayScreen Build(Server server)

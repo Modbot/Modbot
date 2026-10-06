@@ -19,8 +19,11 @@ not want it, [turn it off](#turning-it-off).
   panel when it finds one; when the runtime closes, the panel lets go and comes back the next time
   it is started. Start them in either order.
 - **A paired server** for the group whose instance you are in.
-- **You in one of that group's instances.** Anywhere else, the panel is blank (see
-  [Idle screen](#idle-screen)) and no server is contacted.
+- **You in one of that group's instances** for the group's roster, flags and alerts. In a public,
+  friends-only or private instance the panel still lists the people from your own copy of VRChat's
+  log (see [Outside group instances](#outside-group-instances)). With no server paired, or in a
+  group instance none of your servers manages, the panel is blank (see [Idle screen](#idle-screen))
+  and no server is contacted.
 
 Without SteamVR, or without a headset, the client simply runs without an overlay and keeps
 reporting presence as normal. The overlay never stops the rest of the client from working: if it
@@ -123,6 +126,16 @@ mark anyone as staff yet.
 If there is nobody to list, it says **Nobody here.** If no list has been loaded for this instance
 yet, it says **No roster loaded for this instance.**
 
+When somebody leaves, their row stays on the list for 60 seconds, greyed and tagged **Left**, with
+the seconds still to go where their join time was. Tapping it still opens their card. They are not
+counted in how many are here, and if they come back the row goes back to normal.
+
+### The Audit Log tab
+
+Despite its name this is not your group's audit log (that is on the web app). It is the live feed
+for the instance you are in, newest first: who joined, who left, who was already here, flagged joins
+and a watch ending. It is made from the same live connection as the roster.
+
 ### Flagged user card
 
 When someone one of your group's [flag rules](/moderation/live#who-is-flagged) matches joins the
@@ -152,13 +165,33 @@ being kept it says why instead — *Waiting for VRChat*, *The folder cannot be u
 pressed; after a clip is written it says **Clip saved** for a few seconds. With Clips switched off
 there is no control at all.
 
+### Outside group instances
+
+In a public, friends-only or private instance the group's server knows nothing about the room, so
+the panel works from your own copy of VRChat's log instead. It says **Not in a group instance**
+across the top and **Not synced with the group** under it, and there are no rank, flags or heads-up
+**+** on it, because those come from the group:
+
+- **Instance** lists the people the log says are here, with how long each has been here, and keeps
+  the **Left** rows for a minute as above.
+- **Audit Log** lists who joined, who left and who was already here, as your log reports it. There
+  are no flagged joins, because those come from the group's server.
+- Tapping a person still opens their card from the server.
+
+No roster is read and no live connection is opened for these instances, and nothing about the
+instance (its id or its world) is sent. The one request that goes out is the person's card, which
+names the person and nothing else. With several servers paired it goes to the server whose group
+you were last in an instance of since the client started, or the first paired one if you have not
+been in any.
+
 ### Idle screen
 
-When you are not in a group instance that one of your paired servers manages (including public,
-friends-only and private instances), the panel shows nothing at all, and the client contacts no
-server for it. The **idle** sample on the [debug page](/companion/settings#debug-mode) draws a
-card reading **Not in a group instance** in the panel's place, so you can see where it sits. The
-panel draws the same card by itself for 5 seconds after you press
+When there is nothing to show, the panel shows nothing at all, and the client contacts no server
+for it. That is when you are not in any instance yet, when VRChat's log has stopped, when you are in
+a group instance none of your paired servers manages, and when no server is paired. The **idle**
+sample on the [debug page](/companion/settings#debug-mode) draws a card reading **Not in a group
+instance** in the panel's place, so you can see where it sits. The panel draws the same card by
+itself for 5 seconds after you press
 [**Put it back in front of me**](#put-it-back-in-front-of-me), and then goes blank again.
 
 **Save a clip** is the one thing still shown there, when Clips is on, because the companion records
@@ -308,8 +341,8 @@ move, resize or press anything in it, and nothing about it is sent anywhere.
 
 ## What it sends
 
-Nothing at all while the overlay is [switched off](#turning-it-off). Otherwise, only while you are
-in an instance belonging to one of your paired groups, and only to that group's server:
+Nothing at all while the overlay is [switched off](#turning-it-off). Otherwise, while you are in an
+instance belonging to one of your paired groups, only to that group's server:
 
 - a request for the roster of the instance you are in, every 20 seconds and again after each
   join or leave, which tells the server the instance id;
@@ -317,9 +350,12 @@ in an instance belonging to one of your paired groups, and only to that group's 
   card. It is a WebSocket; when the socket cannot be opened or keeps dropping, the companion asks
   for the same events with ordinary requests instead, and tries the socket again later. See
   [live updates](/api/live-updates) for the rules and the timings.
-- a [heads-up](/companion/heads-ups), only when you press **Place** or **Clear** on one.
+- a [heads-up](/companion/heads-ups), only when you press **Place** or **Clear** on one;
+- one request for a person's card, only when you tap their row. It names that person.
 
-The first two carry the client's token for that server, the instance you are in, and nothing else. Nothing
+The first two carry the client's token for that server, the instance you are in, and nothing else.
+The person's card also goes out while you are in an [instance outside any group](#outside-group-instances),
+to one paired server, carrying the token and the person and nothing about the instance. Nothing
 the overlay does is sent to Modbot Cloud, and SteamVR is only handed the picture to draw.
 
 The client window's **Servers** page shows the connection in one word next to each server:

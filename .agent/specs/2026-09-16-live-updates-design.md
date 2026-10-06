@@ -223,8 +223,10 @@ seconds, and still is as a floor); a `flagged_join` that this device did not rep
 the card, through the same dwell, cooldown and same-room rules as before.
 
 The link is open only while the moderator is in one of that server's group instances -- the same
-boundary the roster read keeps -- and closed the moment they leave, so no server is contacted from
-anywhere else.
+boundary the roster read keeps -- and closed the moment they leave, so no live connection is made
+from anywhere else. (Narrowed 2026-10-05: in a public, friends-only or private instance the panel
+lists people from the log, and the only request that can go out is the card of a person tapped, which
+names the person and not the instance. See M3 design §5.5.2.)
 
 ## 7. Why a WebSocket now, when the protocol said not
 

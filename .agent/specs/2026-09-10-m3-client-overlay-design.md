@@ -454,6 +454,20 @@ instance the moderator is currently in**. Flagged-user alerts, history lookups a
 that group's Modbot, and the overlay makes clear which group it is speaking for — a moderator seeing
 a flag needs to know whose flag it is.
 
+A moderator in a public, friends-only or private instance, or in a group instance no paired server
+manages, used to get the idle screen, and **no server was contacted at all**.
+
+> **Narrowed 2026-10-05.** For a public, friends-only or private instance, with a server paired, the
+> overlay is no longer idle. The moderator wanted the Instance list and the Audit Log tab (the live
+> feed of joins and leaves, not the group's own audit log) to be there wherever they stand, so both
+> are made from this PC's own copy of VRChat's log, under a line saying **Not synced with the
+> group**. They carry no rank, flags or heads-up controls, because only a group's server knows those.
+> What did not change: no roster read and no live connection is opened for such an instance, and
+> neither the instance id nor the world id is sent. The one thing that can reach a server there is
+> the person's card the moderator taps, asked for by the person's id alone, from the server that
+> managed the last group instance this run, or the first paired one. A group instance no paired
+> server manages, and a PC with no server paired, are still idle with nothing contacted.
+
 ---
 
 ## 6. The SteamVR overlay

@@ -74,9 +74,11 @@ public sealed class OverlayView
     {
         ArgumentNullException.ThrowIfNull(screen);
 
-        // Outside a group instance the panel says nothing: a card reading "not in a group
-        // instance" is a card in the moderator's face for most of their VRChat time. The debug
-        // page can still ask for it, to see where the panel sits.
+        // With no server to speak for, and nothing of this PC's own log to list, the panel says
+        // nothing: a card reading "not in a group instance" is a card in the moderator's face for
+        // most of their VRChat time. The debug page can still ask for it, to see where the panel
+        // sits. (With a server paired, a public or private instance is not idle: it lists the
+        // people from the log and says it is not synced.)
         //
         // Save a clip is the one thing that still shows there. The recorder runs wherever VRChat
         // does, so a moment worth keeping can happen in a public instance as easily as a group
@@ -107,6 +109,9 @@ public sealed class OverlayView
         // server's address is a fallback and never the first thing said. In VRChat's look the
         // title strip above already carries the icon, so this is the large heading alone.
         stack.Children.Add(V is null ? GroupLine(screen, icon) : Heading(screen));
+
+        if (screen.NotSynced)
+            stack.Children.Add(NotSyncedNote(T.Density.TextSmall));
 
         if (screen.Health is { Length: > 0 } health)
             stack.Children.Add(HealthBanner(health));
@@ -198,6 +203,9 @@ public sealed class OverlayView
     {
         var lines = new StackPanel { Spacing = 10 };
         lines.Children.Add(GroupLine(screen, icon, T.Density.TextBase * 1.6, IconSize * 1.6));
+
+        if (screen.NotSynced)
+            lines.Children.Add(NotSyncedNote(T.Density.TextBase * 1.2));
 
         var here = screen.Roster.Value?.Members.Count ?? 0;
         lines.Children.Add(Text(
@@ -314,6 +322,19 @@ public sealed class OverlayView
 
         return row;
     }
+
+    /// <summary>
+    /// The one line a list made from this PC's own log carries, directly under the heading: the
+    /// people are real, and the group is not being asked about them.
+    /// </summary>
+    /// <remarks>
+    /// In the dim text colour of the look in use, so it is read as a note and not as a warning.
+    /// </remarks>
+    private Control NotSyncedNote(double size)
+        => Text(NotSyncedWords, size, V is null ? T.TextDimBrush : V.Subtext);
+
+    /// <summary>What the panel says while its lists come from this PC's log and not from the group.</summary>
+    public const string NotSyncedWords = "Not synced with the group";
 
     /// <summary>
     /// The tabs across the top: the three screens, with the one showing marked. The Person tab is
@@ -455,8 +476,13 @@ public sealed class OverlayView
     {
         var row = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
 
-        row.Children.Add(FilterChip(list, FilterPart.Who, filters, filters.Who is Who.All ? null : WhoWords(filters.Who)));
-        row.Children.Add(FilterChip(list, FilterPart.Rank, filters, filters.Ranks.IsEmpty ? null : RankWords(filters.Ranks)));
+        // Who is a member or staff, and what rank somebody holds, are things a group's server says.
+        // A list made from this PC's log has neither, so a filter on them would only ever be empty.
+        if (!screen.NotSynced)
+        {
+            row.Children.Add(FilterChip(list, FilterPart.Who, filters, filters.Who is Who.All ? null : WhoWords(filters.Who)));
+            row.Children.Add(FilterChip(list, FilterPart.Rank, filters, filters.Ranks.IsEmpty ? null : RankWords(filters.Ranks)));
+        }
 
         if (list is OverlayPage.Events)
             row.Children.Add(FilterChip(list, FilterPart.Kind, filters, filters.Kinds.IsEmpty ? null : KindWords(filters.Kinds)));
@@ -963,8 +989,9 @@ public sealed class OverlayView
             : here == 1 ? "1 here"
             : here + " here";
 
-        // Always stated, on every panel that came from a server.
-        var freshness = screen.Roster.Describe();
+        // Always stated, on every panel that came from a server. A list made from this PC's log has
+        // no server to be as old as, so it says nothing of the kind.
+        var freshness = screen.NotSynced ? null : screen.Roster.Describe();
         var freshnessBrush = screen.Freshness == Freshness.Fresh ? T.TextDimBrush : T.WarnBrush;
 
         string? nobody = everyone.Count == 0
@@ -979,15 +1006,19 @@ public sealed class OverlayView
         }
         else
         {
-            rows.Children.Add(new DockPanel
+            var head = new DockPanel
             {
                 LastChildFill = false,
                 Children =
                 {
                     Dock(Text(count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
-                    Dock(Text(freshness, T.Density.TextSmall, freshnessBrush), Avalonia.Controls.Dock.Right),
                 },
-            });
+            };
+
+            if (freshness is not null)
+                head.Children.Add(Dock(Text(freshness, T.Density.TextSmall, freshnessBrush), Avalonia.Controls.Dock.Right));
+
+            rows.Children.Add(head);
 
             if (nobody is not null)
                 rows.Children.Add(Text(nobody, T.Density.TextBase, T.TextDimBrush));

@@ -575,10 +575,12 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task OutsideAGroupInstanceNothingIsContactedAndTheIdleScreenIsShown()
+    public async Task OutsideAGroupInstanceNoRosterOrLiveReadIsMadeAndThePanelSaysItIsNotSynced()
     {
-        // A moderator's public, friends-only and private VRChat use. The overlay has nothing to
-        // say and asks nobody about it.
+        // A moderator's public, friends-only and private VRChat use. No roster is read and no
+        // live link is opened for it, so nothing about the instance reaches a server. The panel
+        // is not idle: it lists the people from the log and says it is not synced with the group
+        // (OverlayDriverNotSyncedTests has the rest of it).
         var (driver, presenter, reads, _) = Build();
 
         driver.EnteredInstance(Location(group: null));
@@ -589,6 +591,8 @@ public class OverlayDriverTests
         Assert.Equal(0, reads.LiveCalls);
         Assert.Null(presenter.Last.GroupLabel);
         Assert.Null(driver.CurrentServer);
+        Assert.True(presenter.Last.NotSynced);
+        Assert.False(presenter.Last.IsIdle);
     }
 
     [Fact]

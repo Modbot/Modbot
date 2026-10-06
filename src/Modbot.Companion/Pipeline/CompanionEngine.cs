@@ -85,6 +85,16 @@ public sealed class CompanionEngine
 
     public List<ServerConnection> Connections { get; }
 
+    /// <summary>
+    /// Raised once per turn that saw something, with what the log completed, before anything is
+    /// routed: the overlay's list for an instance no group owns is made from it.
+    /// </summary>
+    /// <remarks>
+    /// A listener only reads. Nothing a listener does here is sent, and an observation in an
+    /// instance no group owns is still dropped by the router below exactly as before.
+    /// </remarks>
+    public event Action<IReadOnlyList<ObservedPresence>>? Observed;
+
     public LogHealth LogHealth => _observer.Health;
 
     /// <summary>
@@ -94,9 +104,9 @@ public sealed class CompanionEngine
     /// <remarks>
     /// <para>This is the engine's one output that is <em>not</em> about reporting. The overlay
     /// follows the moderator: whichever paired server manages this instance is the only one it
-    /// reads a roster from or shows a card for, and a moderator who is not in a group instance —
-    /// most of anybody's VRChat use — sees the idle screen while nothing is contacted at
-    /// all.</para>
+    /// reads a roster from or shows a card for. A moderator who is not in a group instance — most
+    /// of anybody's VRChat use — gets a list of the people from this PC's own log, marked as not
+    /// synced, and no roster, live link or heads-up is asked of any server for it.</para>
     /// <para>Nothing is transmitted to obtain this. It is the same parse of the same log lines the
     /// reporting half already made, read a second time by a different consumer.</para>
     /// </remarks>
@@ -114,6 +124,13 @@ public sealed class CompanionEngine
 
     /// <summary>The moderator's own display name as the log last said it, or null while unknown.</summary>
     public string? ModeratorName => _observer.ModeratorName;
+
+    /// <summary>
+    /// Who is in the moderator's instance, with the names the log gave them. Like
+    /// <see cref="CurrentInstance"/>, read by the overlay and never sent. See
+    /// <see cref="PresenceObserver.PeopleHere"/>.
+    /// </summary>
+    public IReadOnlyList<PersonHere> PeopleHere => _observer.PeopleHere;
 
     /// <summary>
     /// When each person in the moderator's instance got here, as the log said. Like
@@ -165,6 +182,9 @@ public sealed class CompanionEngine
         _backup?.Offer(observations);
         _voice?.Offer(observations);
         _notices?.Offer(observations);
+
+        if (observations.Count > 0)
+            Observed?.Invoke(observations);
 
         // What no server hears about still goes on the Events screen, without a group: the
         // moderator can see the companion saw it, and see that it went nowhere.

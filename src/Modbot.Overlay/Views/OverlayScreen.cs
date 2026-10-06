@@ -91,6 +91,11 @@ public enum OverlayPage
 /// rows stay on the Instance list, greyed, and are not counted in "here". Never in
 /// <see cref="Roster"/>, which is who is present.
 /// </param>
+/// <param name="NotSynced">
+/// The moderator is in a public, friends-only or private instance, and the lists are made from this
+/// PC's own copy of VRChat's log rather than from a server. The panel says so, draws no rank, flags
+/// or heads-up "+", and keeps the heads-up controls off. False in a group instance.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -113,7 +118,8 @@ public sealed record OverlayScreen(
     IReadOnlyList<HeadsUp>? HeadsUps = null,
     HeadsUpDraft? Draft = null,
     bool CanPlaceHeadsUps = false,
-    IReadOnlyList<RecentLeaver>? Left = null)
+    IReadOnlyList<RecentLeaver>? Left = null,
+    bool NotSynced = false)
 {
     private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
 
@@ -144,10 +150,11 @@ public sealed record OverlayScreen(
     };
 
     /// <summary>
-    /// Nothing to say: no group, no roster, no alert, no problem. Drawn as nothing at all unless
-    /// <see cref="ShowIdleCard"/> asks for the card, which only the companion's debug page does.
+    /// Nothing to say: no group, no roster, no alert, no problem, and not a list made from the log.
+    /// Drawn as nothing at all unless <see cref="ShowIdleCard"/> asks for the card, which only the
+    /// companion's debug page does.
     /// </summary>
-    public bool IsIdle => GroupLabel is null && Roster.Value is null && Alert is null && Health is null;
+    public bool IsIdle => GroupLabel is null && Roster.Value is null && Alert is null && Health is null && !NotSynced;
 
     /// <summary>The overlay when the moderator is not in any managed group's instance.</summary>
     public static OverlayScreen Idle { get; } = new(
@@ -170,6 +177,7 @@ public sealed record OverlayScreen(
             && GroupIconUrl == other.GroupIconUrl
             && Clips == other.Clips
             && ShowIdleCard == other.ShowIdleCard
+            && NotSynced == other.NotSynced
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor
             && Page == other.Page

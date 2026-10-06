@@ -96,6 +96,7 @@ public static class TestRemoteState
             ["page"] = Word(screen.Page.ToString()),
             ["idle"] = screen.IsIdle,
             ["idleCard"] = screen.ShowIdleCard,
+            ["notSynced"] = screen.NotSynced,
             ["group"] = screen.GroupLabel,
             ["roster"] = screen.Roster.Value?.Members.Count,
             ["events"] = screen.EventsOrNone.Count,

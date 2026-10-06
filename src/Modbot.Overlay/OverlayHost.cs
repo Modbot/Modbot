@@ -280,8 +280,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// when there is nothing to say, so it can be found. UI thread only.
     /// </summary>
     /// <remarks>
-    /// Outside a group instance the panel draws nothing at all (<see cref="OverlayView"/>), so a
-    /// panel put right in front of the moderator there is still an empty, see-through square.
+    /// With nothing to say (no instance, or no paired server to speak for) the panel draws nothing
+    /// at all (<see cref="OverlayView"/>), so a panel put right in front of the moderator there is
+    /// still an empty, see-through square.
     /// The card is what makes it findable; after a few seconds the panel goes back to drawing
     /// what it always draws.
     /// </remarks>

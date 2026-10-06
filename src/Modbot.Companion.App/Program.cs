@@ -1852,6 +1852,10 @@ internal sealed partial class CompanionHost : IOverlayListener
                 _clock,
                 () => _overlay?.CurrentServer is not null));
 
+        // What the log completes also fills the overlay's Audit Log in an instance no group owns,
+        // where no server has anything to say. Read only; nothing here is sent.
+        _engine.Observed += observed => _overlay?.NoteObserved(observed);
+
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
     }
@@ -3107,6 +3111,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             // When each person got here, from the same read of the same log. The panel shows it
             // on the Instance list and filters by it; it is never sent.
             _overlay.ArrivedAt = _engine?.ArrivedAt;
+
+            // And who they are, by the name the log gave them: the Instance list in an instance
+            // no group owns, where no server has a roster to give. Never sent.
+            _overlay.PeopleHere = _engine?.PeopleHere;
             await _overlay.TickAsync();
 
             // The pop-ups, after the tick that may have made one: what is still within its time,
@@ -3160,10 +3168,11 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// </summary>
     /// <remarks>
     /// <para>Read from the engine rather than pushed into it, so there is exactly one answer and
-    /// one place that decides it. Null means "not known", which covers VRChat not running, VRChat
-    /// having stopped writing and being presumed gone, and the moderator standing in a public,
-    /// friends-only or private instance — all of which correctly produce the idle screen and no
-    /// contact with any server.</para>
+    /// one place that decides it. Null means "not known", which covers VRChat not running and VRChat
+    /// having stopped writing and being presumed gone — both of which correctly produce the idle
+    /// screen and no contact with any server. A public, friends-only or private instance is known
+    /// (it has no group); the overlay lists its people from the log and asks no server for the
+    /// instance.</para>
     /// <para>Nothing is asked of a server to obtain it. It is the same parse of the same log lines
     /// the reporting half already made.</para>
     /// </remarks>
