@@ -358,8 +358,17 @@ public class WholePersonLookupTests
     [Fact]
     public void TheStaffCommands_AreHiddenFromMembers_AndTheMemberCommandsAreNot()
     {
-        var staff = DiscordCommands.All.Where(c => c.StaffOnly).Select(c => c.Name).Order(StringComparer.Ordinal);
+        // The typed commands. The right-click menus (b84fb254) are registered in the same list and
+        // are hidden from members the same way, so they are checked apart rather than counted in.
+        var staff = DiscordCommands.All
+            .Where(c => c.StaffOnly && c.Kind == DiscordCommandKind.Slash)
+            .Select(c => c.Name)
+            .Order(StringComparer.Ordinal);
         Assert.Equal([DiscordCommands.Lookup, DiscordCommands.Modbot, DiscordCommands.Recent], staff);
+
+        var menus = DiscordCommands.All.Where(c => c.Kind != DiscordCommandKind.Slash).ToList();
+        Assert.NotEmpty(menus);
+        Assert.All(menus, menu => Assert.True(menu.StaffOnly, $"{menu.Name} is a right-click menu members would see"));
 
         foreach (var name in new[] { DiscordCommands.Link, DiscordCommands.Me, DiscordCommands.Help })
             Assert.False(DiscordCommands.All.Single(c => c.Name == name).StaffOnly);
