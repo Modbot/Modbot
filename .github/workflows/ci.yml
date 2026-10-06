@@ -60,15 +60,56 @@ jobs:
       # Every suite runs even after one fails, and the job fails at the end. `set -e` stopped at
       # the first failure, so a single broken suite hid every suite after it -- and the ones it
       # hid were the two that had never been proven to run on Linux at all.
+      #
+      # Each suite also has a time limit. xUnit prints nothing for a passing test, so a suite that
+      # is slow and a suite that is stuck look the same in the log (the run of 2026-10-06 was
+      # cancelled by hand after 1 h 40 m inside Modbot.Api.Tests with no way to tell which it was).
+      # A suite that goes over the limit is now stopped, reported as timed out, and the rest still
+      # run. The whole Test step took 2 to 4 hours on the runs of 2026-10-03 to
+      # 2026-10-05, so the limit is set above any one suite's likely time and must be lowered once
+      # the table in the run's summary shows what each suite takes. A job may not run past 6 hours.
+      # Interrupt first so the suite can clean up (Docker containers), then kill 60 seconds later.
+      #
+      # `-longRunning` makes the suite print a line for any single test still running after that
+      # many seconds, so a hang shows in the log long before the time limit ends it. It turns on
+      # the suite's diagnostic messages, which is what prints those lines.
+      #
+      # Each suite's result and minutes go into the run's summary page as a table.
       - name: Test
+        env:
+          SUITE_TIME_LIMIT_MINUTES: 180
+          LONG_RUNNING_TEST_SECONDS: 120
         run: |
           failed=""
+          {
+            echo "### Test suites"
+            echo
+            echo "| Suite | Result | Minutes |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
           for proj in tests/*/; do
             if [ -f "$proj"*.csproj ] && [ "$(basename "$proj")" != "Modbot.TestSupport" ]; then
               name="$(basename "$proj")"
               echo "::group::$name"
-              dotnet run --project "$proj" --configuration Release --no-build || failed="$failed $name"
+              start=$SECONDS
+              code=0
+              timeout --signal=INT --kill-after=60s "${SUITE_TIME_LIMIT_MINUTES}m" \
+                dotnet run --project "$proj" --configuration Release --no-build \
+                -- -longRunning "$LONG_RUNNING_TEST_SECONDS" || code=$?
+              minutes="$(awk -v s=$((SECONDS - start)) 'BEGIN { printf "%.1f", s / 60 }')"
               echo "::endgroup::"
+              # timeout exits 124 when it had to interrupt the suite and 137 when it had to kill it.
+              if [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then
+                echo "::error::$name timed out after ${SUITE_TIME_LIMIT_MINUTES}m"
+                result="TIMED OUT after ${SUITE_TIME_LIMIT_MINUTES}m"
+                failed="$failed $name"
+              elif [ "$code" -ne 0 ]; then
+                result="failed (exit $code)"
+                failed="$failed $name"
+              else
+                result="passed"
+              fi
+              echo "| $name | $result | $minutes |" >> "$GITHUB_STEP_SUMMARY"
             fi
           done
           if [ -n "$failed" ]; then
