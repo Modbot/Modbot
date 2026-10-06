@@ -13,7 +13,13 @@ public sealed class IsolatedDatabase : IAsyncDisposable
 {
     private readonly string _connectionString;
 
-    private IsolatedDatabase(string connectionString) => _connectionString = connectionString;
+    private readonly string _adminConnectionString;
+
+    private IsolatedDatabase(string connectionString, string adminConnectionString)
+    {
+        _connectionString = connectionString;
+        _adminConnectionString = adminConnectionString;
+    }
 
     /// <param name="migrate">False leaves the database empty, for a test that migrates it one step at a time.</param>
     public static async Task<IsolatedDatabase> CreateAsync(PostgresFixture fixture, CancellationToken ct, bool migrate = true)
@@ -32,7 +38,7 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         }
 
         var builder = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name };
-        var database = new IsolatedDatabase(builder.ConnectionString);
+        var database = new IsolatedDatabase(builder.ConnectionString, fixture.ConnectionString);
 
         if (migrate)
         {
@@ -55,14 +61,12 @@ public sealed class IsolatedDatabase : IAsyncDisposable
     }
 
     /// <summary>
-    /// Closes the idle connections this database's pool keeps. Every test makes its own database,
-    /// and a pool left open per test runs the shared server out of connections part way through
-    /// the suite.
+    /// Drops the database. Every test makes its own, so a pool left open per test runs the shared
+    /// server out of connections part way through the suite ("too many clients already", which
+    /// surfaces as whichever tests run last failing in setup), and the container's data is in
+    /// memory, so a database left behind per test would fill it. The pool's idle connections are
+    /// closed and the drop forces out any other (<see cref="TestDatabases.DropAsync"/>).
     /// </summary>
-    public ValueTask DisposeAsync()
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        NpgsqlConnection.ClearPool(connection);
-        return ValueTask.CompletedTask;
-    }
+    public async ValueTask DisposeAsync()
+        => await TestDatabases.DropAsync(_adminConnectionString, _connectionString);
 }

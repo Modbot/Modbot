@@ -72,7 +72,12 @@ public abstract class InsightTestBase : IAsyncLifetime
         Model = new ScriptedHandler(request => Answer(request));
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    // The container's data is in memory, so the database this test made is dropped, not left behind.
+    public async ValueTask DisposeAsync()
+    {
+        if (_connectionString.Length > 0)
+            await TestDatabases.DropAsync(_fixture.ConnectionString, _connectionString);
+    }
 
     protected ModbotContext NewContext()
         => new(new DbContextOptionsBuilder<ModbotContext>().UseNpgsql(_connectionString).Options);

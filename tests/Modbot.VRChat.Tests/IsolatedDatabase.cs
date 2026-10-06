@@ -24,7 +24,13 @@ public sealed class IsolatedDatabase : IAsyncDisposable
 {
     private readonly string _connectionString;
 
-    private IsolatedDatabase(string connectionString) => _connectionString = connectionString;
+    private readonly string _adminConnectionString;
+
+    private IsolatedDatabase(string connectionString, string adminConnectionString)
+    {
+        _connectionString = connectionString;
+        _adminConnectionString = adminConnectionString;
+    }
 
     public static async Task<IsolatedDatabase> CreateAsync(PostgresFixture fixture, CancellationToken ct)
     {
@@ -42,7 +48,7 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         }
 
         var builder = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name };
-        var database = new IsolatedDatabase(builder.ConnectionString);
+        var database = new IsolatedDatabase(builder.ConnectionString, fixture.ConnectionString);
 
         await using var context = database.NewContext();
         await context.Database.MigrateAsync(ct);
@@ -63,19 +69,12 @@ public sealed class IsolatedDatabase : IAsyncDisposable
     }
 
     /// <summary>
-    /// Closes this database's idle pooled connections. The database itself is left for the container
-    /// to take with it; dropping it here only fights the pool.
+    /// Drops the database. Every test makes its own, so a pool left open per test runs the shared
+    /// server out of connections part way through the suite ("too many clients already", which
+    /// surfaces as whichever tests run last failing in setup), and the container's data is in
+    /// memory, so a database left behind per test would fill it. The pool's idle connections are
+    /// closed and the drop forces out any other (<see cref="TestDatabases.DropAsync"/>).
     /// </summary>
-    /// <remarks>
-    /// Every test gets its own database and so its own connection pool, and a pool keeps its idle
-    /// connections open for minutes. Left alone, a suite of a few hundred database tests holds them
-    /// all at once and PostgreSQL refuses new ones with "too many clients already" -- which surfaces
-    /// as whichever tests happen to run last failing in setup, not as anything they did.
-    /// </remarks>
-    public ValueTask DisposeAsync()
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        NpgsqlConnection.ClearPool(connection);
-        return ValueTask.CompletedTask;
-    }
+    public async ValueTask DisposeAsync()
+        => await TestDatabases.DropAsync(_adminConnectionString, _connectionString);
 }
