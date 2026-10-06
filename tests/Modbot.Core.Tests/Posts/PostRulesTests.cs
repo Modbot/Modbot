@@ -107,9 +107,22 @@ public class PostRulesTests
     [Fact]
     public void ASiteNotBuiltYetIsNeverSetUp()
     {
-        var sites = new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: true);
+        // Bluesky used to be the example; 75c2bf17 built it, so it has its own switch and rule now
+        // (next test). A network name the code has no case for stands in for the next site.
+        var sites = new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: true, BlueskyOn: true, BlueskySetUp: true);
 
-        Assert.Equal(PostHolds.NotSetUp, sites.HoldFor(PostNetworks.Bluesky));
+        Assert.Equal(PostHolds.NotSetUp, sites.HoldFor("mastodon"));
+    }
+
+    [Fact]
+    public void BlueskyOffOrNotSetUpHoldsBlueskyOnly()
+    {
+        Assert.Equal(PostHolds.Off, new PostSites(false, true, true, BlueskyOn: false, BlueskySetUp: true).HoldFor(PostNetworks.Bluesky));
+        Assert.Equal(PostHolds.NotSetUp, new PostSites(false, true, true, BlueskyOn: true, BlueskySetUp: false).HoldFor(PostNetworks.Bluesky));
+        Assert.Null(new PostSites(false, true, true, BlueskyOn: true, BlueskySetUp: true).HoldFor(PostNetworks.Bluesky));
+
+        // Bluesky's switch says nothing about Discord or VRChat.
+        Assert.Null(new PostSites(false, true, true, VRChatOn: true, VRChatSetUp: true, BlueskyOn: false, BlueskySetUp: false).HoldFor(PostNetworks.VRChat));
     }
 
     [Fact]
