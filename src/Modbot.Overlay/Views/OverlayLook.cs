@@ -178,7 +178,13 @@ public sealed class VRChatLook
     public IBrush RaisedBrightEdge => Raised(Colours.SelectedBorder, Colours.SelectedBorder);
 
     /// <summary>The soft shadow under the panel. Falls into <see cref="ShadowRoom"/>.</summary>
-    public BoxShadows PanelShadow => new(new BoxShadow { OffsetX = 0, OffsetY = 4, Blur = 14, Color = ShadowColour(0xA0) });
+    /// <remarks>
+    /// Its reach is the offset plus the blur, 8 px at the bottom and less elsewhere, which is exactly
+    /// <see cref="ShadowRoom"/>, so the window's edge never cuts it. Change one, change the other.
+    /// </remarks>
+    public BoxShadows PanelShadow => new(new BoxShadow { OffsetX = 0, OffsetY = ShadowOffset, Blur = ShadowRoom - ShadowOffset, Color = ShadowColour(0xA0) });
+
+    private const double ShadowOffset = 2;
 
     /// <summary>The softer one under a row, a tab or a chip.</summary>
     public BoxShadows CardShadow => new(new BoxShadow { OffsetX = 0, OffsetY = 2, Blur = 5, Color = ShadowColour(0x70) });

@@ -519,7 +519,10 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             _groupName.FontSize = 20;
             _groupName.FontWeight = FontWeight.ExtraBold;
             _groupName.Foreground = v.Text;
-            _groupName.MaxWidth = 280;
+
+            // The title sits between the buttons' room on both sides; the icon and its gap take 36 of
+            // what is left, and a longer name is cut with an ellipsis rather than run under them.
+            _groupName.MaxWidth = 230;
 
             _groupIconFrame.Width = _groupIconFrame.Height = VRChatIconSize;
             _groupIcon.Width = _groupIcon.Height = VRChatIconSize;
