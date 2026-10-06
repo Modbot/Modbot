@@ -322,7 +322,9 @@ A few things are open to anyone who can reach the server, without signing in:
 - **A health check and the version numbers,** which can carry error text from the database.
 - **The instances a group chose to publish,** described above, which name nobody.
 - **A paired companion,** with its device token, can read the instance roster and a person's summary
-  (name, standing, earlier actions, flags, roles) for the instances it reports on.
+  (name, standing, earlier actions, flags, roles) for the instances it reports on, and the VRChat
+  picture the server has stored for a person, when the operator has switched on **Proxy VRChat images
+  through Modbot**. VRChat shows the same picture to anyone who has its address.
 
 Everything else about people needs an account or an API key. A server started as a public demo
 serves every visitor as an administrator; its data is made up.

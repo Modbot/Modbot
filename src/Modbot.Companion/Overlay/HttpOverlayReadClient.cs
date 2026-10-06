@@ -66,6 +66,10 @@ public interface IOverlayReadClient
 /// <para><strong>What it does not send.</strong> Nothing about the moderator's machine, nothing
 /// from the log, and nothing about instances belonging to any other group. A pairing sees exactly
 /// one group's context.</para>
+/// <para><strong>Pictures.</strong> The roster may carry, for each person, the path of their picture
+/// on that same server. It is read here and made into the server's whole address, and nothing is
+/// fetched by this class: the window's picture store asks for the picture later, with the same token,
+/// from the same server and from no one else.</para>
 /// <para><strong>Nothing that comes back is a command.</strong> These are reads. The server has no
 /// way to tell this client to do anything, by design, which is what keeps the client's behaviour
 /// fully described by its own source.</para>
@@ -86,12 +90,28 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
         _clock = clock;
     }
 
-    public Task<ReadResult<InstanceContext>> GetContextAsync(
+    public async Task<ReadResult<InstanceContext>> GetContextAsync(
         ServerPairing pairing,
         string instanceId,
         string? worldId,
         CancellationToken cancellationToken)
-        => GetAsync<InstanceContext>(pairing, pairing.ContextEndpoint(instanceId, worldId), cancellationToken);
+    {
+        var read = await GetAsync<InstanceContext>(pairing, pairing.ContextEndpoint(instanceId, worldId), cancellationToken)
+            .ConfigureAwait(false);
+
+        return read.Value is { } context
+            ? read with { Value = WithWholePictureAddresses(pairing, context) }
+            : read;
+    }
+
+    /// <summary>
+    /// The roster with each person's picture path made into the paired server's whole address for it,
+    /// and dropped where the path is not the server's own picture route (<see cref="ServerPairing.PictureAddress"/>).
+    /// </summary>
+    private static InstanceContext WithWholePictureAddresses(ServerPairing pairing, InstanceContext context)
+        => context.Members.Any(member => member.PictureUrl is not null)
+            ? context with { Members = [.. context.Members.Select(member => member with { PictureUrl = pairing.PictureAddress(member.PictureUrl) })] }
+            : context;
 
     public Task<ReadResult<UserSummary>> GetUserAsync(
         ServerPairing pairing,

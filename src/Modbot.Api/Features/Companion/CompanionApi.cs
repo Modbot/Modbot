@@ -183,6 +183,23 @@ public static class CompanionApi
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .AllowAnonymous();
 
+        companion.MapGet("/picture/{subjectId}", ContextHandler.PictureAsync)
+            .WithName("GetClientPersonPicture")
+            .WithSummary("Get person picture")
+            .WithDescription(
+                "The picture this server holds for one person, for the overlay's roster rows. The "
+                + "roster names the path in each member's `pictureUrl`. A device names a person and "
+                + "never an address, so it can only be sent a picture already stored for that "
+                + "person. 404 when there is none, and while VRChat pictures are switched off on "
+                + "this server. No API call is made; at most one file fetch from VRChat's picture "
+                + "hosts, on a picture the server's cache does not hold yet.")
+            .Produces<byte[]>(
+                StatusCodes.Status200OK,
+                "image/png", "image/jpeg", "image/webp", "image/gif")
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .AllowAnonymous();
+
         companion.MapGet("/alerts", AlertsEndpoint.WaitAsync)
             .WithName("WaitForClientAlert")
             .WithSummary("Wait for an alert")

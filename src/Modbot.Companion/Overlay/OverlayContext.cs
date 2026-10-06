@@ -31,6 +31,12 @@ public enum RosterStanding
 /// <param name="Flags">Short labels, already resolved server-side. Shown verbatim, never parsed.</param>
 /// <param name="TrustRank">Their VRChat trust rank as the server last stored it. Null when the server does not know it yet, or is too old to send it.</param>
 /// <param name="EighteenPlus">Whether they carry Modbot's 18+ mark. Null when the server has not read their profile yet, or is too old to send it.</param>
+/// <param name="PictureUrl">
+/// Where their picture is, as the paired server's own address for it (never VRChat's), or null when the
+/// server holds none, has VRChat pictures switched off, or is too old to say. The server sends a path;
+/// <see cref="HttpOverlayReadClient"/> makes it whole, and only for a path of the form the server's
+/// picture route has, so what is fetched from it is always from the paired server.
+/// </param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -38,7 +44,8 @@ public sealed record RosterMember(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
-    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
+    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.

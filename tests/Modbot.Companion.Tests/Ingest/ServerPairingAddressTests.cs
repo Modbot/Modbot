@@ -39,6 +39,39 @@ public class ServerPairingAddressTests
     }
 
     [Fact]
+    public void APicturePathOfTheServersOwnRouteIsMadeWholeOnThatServer()
+    {
+        Assert.Equal(
+            "https://modbot.example/api/v1/companion/picture/usr_a?v=0a1b2c3d",
+            Pairing.PictureAddress("/api/v1/companion/picture/usr_a?v=0a1b2c3d"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("https://elsewhere.example/api/v1/companion/picture/usr_a")]
+    [InlineData("//elsewhere.example/api/v1/companion/picture/usr_a")]
+    [InlineData("/api/v1/companion/context?instanceId=Main")]
+    [InlineData("/api/v2/companion/picture/usr_a")]
+    [InlineData("/api/v1/companion/picture/../user/usr_a")]
+    [InlineData("/api/v1/companion/picture/usr_a/..%5c..")]
+    [InlineData("/api/files/vrchat?url=https://api.vrchat.cloud/api/1/file/file_x/1/file")]
+    public void AnythingElseInTheRosterIsNotTakenAsAPictureAddress(string? path)
+    {
+        Assert.Null(Pairing.PictureAddress(path));
+    }
+
+    [Fact]
+    public void OnlyTheServersOwnPictureRouteIsOneThatTheTokenMayGoTo()
+    {
+        Assert.True(Pairing.IsPictureAddress(new Uri("https://modbot.example/api/v1/companion/picture/usr_a?v=1")));
+        Assert.False(Pairing.IsPictureAddress(new Uri("https://elsewhere.example/api/v1/companion/picture/usr_a")));
+        Assert.False(Pairing.IsPictureAddress(new Uri("http://modbot.example/api/v1/companion/picture/usr_a")));
+        Assert.False(Pairing.IsPictureAddress(new Uri("https://modbot.example/api/v1/companion/context?instanceId=Main")));
+        Assert.False(Pairing.IsPictureAddress(new Uri("https://api.vrchat.cloud/api/1/file/file_x/1/file")));
+    }
+
+    [Fact]
     public void WithNoWorldKnownTheNumberIsSentAlone()
     {
         Assert.Equal("?instanceId=Main", Pairing.ContextEndpoint("Main").Query);

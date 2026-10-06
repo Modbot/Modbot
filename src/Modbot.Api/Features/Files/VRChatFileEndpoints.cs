@@ -84,7 +84,11 @@ public static class VRChatFileEndpoints
         return app;
     }
 
-    private static async Task<IResult> ServeAsync(
+    /// <remarks>
+    /// Shared with the companion's own picture route (<c>ContextHandler.PictureAsync</c>), which names a
+    /// person rather than an address and so can only ever pass an address already stored for them.
+    /// </remarks>
+    internal static async Task<IResult> ServeAsync(
         HttpContext http,
         string? url,
         IVRChatGate gate,

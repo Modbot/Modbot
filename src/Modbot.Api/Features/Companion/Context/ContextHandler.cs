@@ -1,18 +1,30 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.HeadsUps;
+using Modbot.Api.Features.Files;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
+using Modbot.VRChat;
+using Modbot.VRChat.Files;
 
 namespace Modbot.Api.Features.Companion.Context;
 
+/// <param name="PictureUrl">
+/// Where this server serves the person's picture to a paired device, as a path on this server
+/// (<see cref="PictureRoute"/>), or null when the server holds no picture for them or the operator
+/// has switched VRChat pictures off. Never a VRChat address: the companion asks this server for the
+/// picture and never VRChat. Older companions ignore it.
+/// </param>
 public sealed record RosterMemberDto(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
@@ -20,7 +32,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
     [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
-    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null,
+    [property: JsonPropertyName("pictureUrl")] string? PictureUrl = null);
 
 /// <param name="HeadsUps">
 /// What stands in this instance (heads-ups, 2026-10-03), oldest first. Sent only with this
@@ -52,7 +65,10 @@ public sealed record UserSummaryDto(
 /// log, the trust rank and the 18+ mark off the stored profile row, and the member list and roles
 /// the syncs keep (<see cref="MembersAndStaff"/>). No VRChat call is made to answer an overlay read: a
 /// moderator glancing at a roster must not be able to spend the group's shared API budget, and
-/// the answer has to arrive in the time a glance takes.</para>
+/// the answer has to arrive in the time a glance takes. The roster names, for each person whose
+/// picture is stored, the path the picture is served at (<see cref="PictureAsync"/>), and that is
+/// the one read here that can reach VRChat at all: a file fetch for a picture the cache does not
+/// hold, never an API call.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
 /// the client's local routing enforces, arriving from the other side.</para>
 /// <para><strong>A roster is only believed while a moderator is watching.</strong> This used to be
@@ -149,6 +165,7 @@ public static class ContextHandler
         var ranks = await TrustRanksAsync(database, subjects, ct);
         var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
         var flagged = await FlagRules.ReadAsync(database, subjects, ranks, clock.UtcNow, ct);
+        var pictures = await PictureAddressesAsync(database, apiVersion, subjects, ct);
 
         var roster = people.Here
             .Select(person => Describe(
@@ -157,7 +174,8 @@ public static class ContextHandler
                 flagged,
                 members,
                 ranks.GetValueOrDefault(person.UserId),
-                eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null))
+                eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null,
+                pictures.GetValueOrDefault(person.UserId)))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster, headsUps));
@@ -276,15 +294,125 @@ public static class ContextHandler
             .Select(u => new { u.UserId, u.Is18PlusVerified })
             .ToDictionaryAsync(u => u.UserId, u => u.Is18PlusVerified, StringComparer.Ordinal, ct);
 
+    /// <summary>
+    /// The path on this server where each of these people's picture is served to a paired device,
+    /// for everybody who has one stored. Empty while the operator has VRChat pictures switched off.
+    /// One query, and no VRChat call: it reads the addresses already stored on the profile rows.
+    /// </summary>
+    /// <remarks>
+    /// <para>The address on the row names a version of the picture and never changes for it, so a
+    /// short mark made from it goes on the end of the path. A person who changes their picture gets
+    /// a different path, and the companion, which keeps pictures by path, fetches the new one rather
+    /// than showing the old one until it restarts. The mark is not a secret and the route ignores it.</para>
+    /// <para>Only somebody whose stored address is one VRChat serves pictures from
+    /// (<see cref="VRChatFiles.IsPictureAddress(string?)"/>) is listed, so the route is never asked
+    /// for an address it would refuse.</para>
+    /// </remarks>
+    internal static async Task<Dictionary<string, string>> PictureAddressesAsync(
+        ModbotContext database,
+        int apiVersion,
+        IReadOnlyCollection<string> subjectIds,
+        CancellationToken ct)
+    {
+        var settings = await database.GetSettingsAsync(ct);
+        if (!settings.VRChatImagesProxied)
+            return [];
+
+        var rows = await database.VRChatUsers
+            .AsNoTracking()
+            .Where(u => subjectIds.Contains(u.UserId))
+            .Select(u => new { u.UserId, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+            .ToListAsync(ct);
+
+        var found = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            var address = ProfilePictures.Best(row.ProfilePictureUrl, row.IconUrl, row.CurrentAvatarThumbnailImageUrl);
+            if (!VRChatFiles.IsPictureAddress(address))
+                continue;
+
+            found[row.UserId] = PictureRoute(apiVersion, row.UserId, address!);
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// The path a person's picture is served at to a paired device, with the short mark that
+    /// changes when the stored picture does.
+    /// </summary>
+    internal static string PictureRoute(int apiVersion, string subjectId, string storedAddress)
+    {
+        var mark = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(storedAddress)))[..8].ToLowerInvariant();
+        return $"/api/v{apiVersion}/companion/picture/{Uri.EscapeDataString(subjectId)}?v={mark}";
+    }
+
+    /// <summary>
+    /// One person's stored picture, sent to a paired device: the same bytes the web app is sent for
+    /// that person's face, through the same cache.
+    /// </summary>
+    /// <remarks>
+    /// <para>The device names a person and never an address, so this can only ever send the picture
+    /// already stored for that person; it is not a way to have the server fetch something a caller
+    /// chose. It answers 404 for somebody with no stored picture and while the operator has VRChat
+    /// pictures switched off, and never sends the device on to VRChat.</para>
+    /// <para>On a picture the cache does not hold yet, the server fetches it the way the web app's
+    /// own picture route does (<see cref="VRChatFileEndpoints"/>): one file fetch from VRChat's
+    /// picture hosts, which VRChat does not rate limit, through the one gate that holds the session. No
+    /// API call is made and nothing is looked up.</para>
+    /// </remarks>
+    public static async Task<IResult> PictureAsync(
+        int apiVersion,
+        string subjectId,
+        HttpContext context,
+        DeviceAuthenticator authenticator,
+        [FromServices] IVRChatGate gate,
+        [FromServices] VRChatFileCache cache,
+        ModbotContext database,
+        CancellationToken ct)
+    {
+        if (!CompanionApiVersion.IsSupported(apiVersion))
+            return CompanionApiErrors.VersionUnsupported(apiVersion);
+
+        var authentication = await authenticator.AuthenticateAsync(context, ct);
+        if (!authentication.Succeeded)
+            return authentication.Failure!;
+
+        if (subjectId is not { Length: > 0 })
+            return CompanionApiErrors.Malformed("A subjectId is required.");
+
+        var settings = await database.GetSettingsAsync(ct);
+        if (!settings.VRChatImagesProxied)
+            return Results.NotFound();
+
+        var row = await database.VRChatUsers
+            .AsNoTracking()
+            .Where(u => u.UserId == subjectId)
+            .Select(u => new { u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+            .FirstOrDefaultAsync(ct);
+
+        var address = row is null
+            ? null
+            : ProfilePictures.Best(row.ProfilePictureUrl, row.IconUrl, row.CurrentAvatarThumbnailImageUrl);
+
+        if (!VRChatFiles.IsPictureAddress(address))
+            return Results.NotFound();
+
+        return await VRChatFileEndpoints.ServeAsync(context, address, gate, cache, database, ct);
+    }
+
     /// <param name="flagged">What <see cref="FlagRules"/> decided for everybody being described.</param>
     /// <param name="belonging">What <see cref="MembersAndStaff"/> read for everybody being described.</param>
+    /// <param name="pictureUrl">The path this person's picture is served at, or null (<see cref="RosterMemberDto"/>).</param>
     internal static RosterMemberDto Describe(
         string subjectId,
         string? displayName,
         IReadOnlyDictionary<string, FlagMatch> flagged,
         MembersAndStaff belonging,
         TrustRank? trustRank = null,
-        bool? eighteenPlus = null)
+        bool? eighteenPlus = null,
+        string? pictureUrl = null)
     {
         var match = flagged.GetValueOrDefault(subjectId) ?? FlagMatch.None;
 
@@ -295,7 +423,8 @@ public static class ContextHandler
             match.PriorActions,
             match.Reasons,
             trustRank,
-            eighteenPlus);
+            eighteenPlus,
+            pictureUrl);
     }
 
     /// <summary>

@@ -22,7 +22,8 @@ public readonly record struct DeviceAuthentication(CompanionDevice? Device, IRes
 /// <em>client</em>, never a person. It cannot ban, cannot kick, cannot read the member list and
 /// cannot reach any endpoint outside this feature — a moderator acting on what they see in the
 /// overlay goes through the normal authenticated API as themselves. Stolen, this token can submit
-/// presence facts and read one group's roster context, which is the whole blast radius.</para>
+/// presence facts and read one group's roster context, along with the pictures VRChat already
+/// shows anybody who has an address for one, which is the whole blast radius.</para>
 /// <para><strong>Revoked and unknown are the same answer.</strong> Revocation is server-side and
 /// immediate; a client that could tell "revoked" from "never existed" would learn that its token
 /// had once been valid.</para>

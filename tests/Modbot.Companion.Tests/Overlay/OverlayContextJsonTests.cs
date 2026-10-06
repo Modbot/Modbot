@@ -51,6 +51,24 @@ public class OverlayContextJsonTests
     }
 
     [Fact]
+    public void ARosterRowCarriesThePicturePathAndAServerThatSendsNoneLeavesItNull()
+    {
+        const string roster = """
+            {"instanceId":"39911","members":[
+              {"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"flags":[],"pictureUrl":"/api/v1/companion/picture/usr_a?v=0a1b2c3d"},
+              {"subjectId":"usr_b","displayName":"Mei","standing":"Member","priorActions":0,"flags":[],"pictureUrl":null},
+              {"subjectId":"usr_c","displayName":"Kai","standing":"Member","priorActions":0,"flags":[]}
+            ]}
+            """;
+
+        var context = JsonSerializer.Deserialize<InstanceContext>(roster, Json)!;
+
+        Assert.Equal("/api/v1/companion/picture/usr_a?v=0a1b2c3d", context.Members[0].PictureUrl);
+        Assert.Null(context.Members[1].PictureUrl);
+        Assert.Null(context.Members[2].PictureUrl);
+    }
+
+    [Fact]
     public void AServerThatDoesNotSendTheRankStillAnswers()
     {
         const string roster = """{"instanceId":"39911","members":[{"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"flags":[]}]}""";

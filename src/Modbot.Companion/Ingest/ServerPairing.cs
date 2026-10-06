@@ -107,6 +107,43 @@ public sealed record ServerPairing
     public Uri UserEndpoint(string subjectId)
         => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");
 
+    /// <summary>The start of every path the server's own picture route has, one person's id after it.</summary>
+    public string PictureRoutePrefix => $"/api/v{ApiVersion}/companion/picture/";
+
+    /// <summary>
+    /// The whole address of a picture the server named by its path, or null when the path is not one of
+    /// the server's own picture routes.
+    /// </summary>
+    /// <remarks>
+    /// Only a path of the form <see cref="PictureRoutePrefix"/> is taken, and it is joined to this
+    /// pairing's own address, so a picture is only ever fetched from the server it was named by:
+    /// a whole address, another host, or any other path in the roster is dropped rather than followed.
+    /// </remarks>
+    public string? PictureAddress(string? path)
+    {
+        if (path is not { Length: > 0 } || !path.StartsWith(PictureRoutePrefix, StringComparison.Ordinal))
+            return null;
+
+        // A path with a second slash at the start is a host in disguise; one with dot segments could
+        // climb out of the route. Neither is ever sent by the server.
+        if (path.Contains("..", StringComparison.Ordinal) || path.Contains('\\') || path.Contains("//", StringComparison.Ordinal))
+            return null;
+
+        return Uri.TryCreate(BaseUri, path, out var address) && address.Authority == BaseUri.Authority
+            ? address.AbsoluteUri
+            : null;
+    }
+
+    /// <summary>
+    /// Whether an address is one of this server's own picture routes: the one place the device token
+    /// goes besides the server's other endpoints, and only to this server.
+    /// </summary>
+    public bool IsPictureAddress(Uri address)
+        => address.IsAbsoluteUri
+            && address.Scheme == BaseUri.Scheme
+            && address.Authority == BaseUri.Authority
+            && address.AbsolutePath.StartsWith(PictureRoutePrefix, StringComparison.Ordinal);
+
     /// <summary>
     /// Live updates over a WebSocket: who joins and leaves the instance the moderator is standing
     /// in, flagged joins included. <paramref name="after"/> is the cursor to carry on from.
