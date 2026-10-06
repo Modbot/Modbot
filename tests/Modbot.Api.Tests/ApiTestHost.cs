@@ -210,10 +210,24 @@ public sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddModbotAi();
         builder.Services.AddModbotApi();
 
+        // The Modbot Cloud term-list client has no handler of its own, so without this a test that
+        // opens the Modbot Hub list (AutoModActionsTests' old-path check) made a real request to
+        // cloud.modbot.co from the build machine. A test that wants an answer from it still sets its
+        // own handler below, and that one, being later, wins.
+        builder.Services.AddHttpClient(HubTermLists.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new NoOutsideNetwork());
+
         if (companion)
             builder.Services.AddClientApi();
 
         configure?.Invoke(builder.Services);
+    }
+
+    /// <summary>Answers every request as a dropped connection, so a test never reaches the real internet by accident.</summary>
+    private sealed class NoOutsideNetwork : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException($"The test host has no outside network ({request.RequestUri?.Host}).");
     }
 
     /// <summary>
