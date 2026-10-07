@@ -185,7 +185,8 @@ You can also run `/modbot` in Discord.
 ## Slash commands
 
 The bot registers its commands on your server only. Every reply is visible only to the person who
-ran the command. One Discord bot can serve several Modbots: each one answers only in its own server.
+ran the command, except `/events`, which answers in public unless the member asks otherwise. One
+Discord bot can serve several Modbots: each one answers only in its own server.
 
 | Command | What it does | Who can use it |
 |---|---|---|
@@ -197,22 +198,24 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 | `/live` | The group's open instances right now, one card each: the world, how many people are in (such as `12/40`), and when it opened. Names, up to 20 and then "and N more", appear only while a moderator's Companion App is watching that instance, the same rule as the Live page; otherwise you see the count only. No flags and no watched tags. An **Open Live** button opens the Live page. Seen only by you. | **See live instances** |
 | `/ban member: vrchat:` | Bans one person, with the same meaning as **Ban** in the web app. Fill in one of the two: `member` takes a member picked from Discord's list, and `vrchat` takes a VRChat display name or id and suggests names from Modbot's records as you type. A VRChat person, or a member who has [linked their accounts](/discord/account-linking), is banned from the VRChat group, and their linked Discord account is banned with them, as for any ban made in Modbot. A member with no VRChat link is banned from the Discord server only. Nothing is sent until you have sent the form (the group's reasons and a note for a group ban; a reason and **Delete their messages from** — **None**, **1 day** or **7 days** — for a Discord ban) and pressed the red button on the confirmation. Never the bot, the server's owner or a Discord account linked to a Modbot staff account. Without **See profiles**, `vrchat` takes an exact id only: no names are suggested or searched, and no reply names the person. See [Ban and kick](/discord/acting-from-discord#ban-and-kick). | **Ban** for a VRChat person or a linked member; **Ban on Discord** for a member with no VRChat link; and a VRChat account linked to your Modbot account |
 | `/kick member: vrchat: from:` | Removes one person. Name them as for `/ban`. A Discord member is removed from the Discord server and a VRChat person is kicked from the group, unless `from` says otherwise: **Discord server**, **VRChat group** or **Both**, for a person with both accounts linked. The form and the confirmation work as for `/ban`; **Both** is one confirmation that acts in both places. Seen only by you. | **Kick** for the group; **Remove from Discord** for the Discord server; both for **Both**; and a VRChat account linked to your Modbot account |
+| `/gate waiting`, `/gate let-in member:`, `/gate hold`, `/gate lift` | The [join gate](/discord/join-gate) from Discord. `waiting` lists up to 10 people at the gate, oldest first, with when they joined and a **Let in** button for each; if more are waiting it says "and N more". `let-in` takes a member picked from Discord's list and gives them the member role now, whatever steps they have left. `hold` holds new joiners at once, with nothing to confirm first, and the reply has a **Lift hold** button; `lift` lifts the hold. They do what the buttons on the [join gate](/discord/join-gate) page and under a join spike alert do, and write the same entries to the audit log under the name of your Modbot account. Seen only by you. | **Manage the join gate**, and a VRChat account linked to your Modbot account; `waiting` also needs **See members**, as the page does |
+| `/events private:` | The next five dates in the next 14 days, soonest first: the event's name, its time in each reader's own time zone, how long until it starts, the world's name, and **Open now** while its instance is open. Only events already published in this Discord, as a Discord event or a post in a channel; never a draft, a cancelled event or a deleted one. A **Join** button (at most five) opens VRChat for an event anyone can join whose instance is open; events only members can join have none. The answer is public unless `private` is yes. If a public `/events` was already posted in that channel in the last minute, the answer is private instead. Each person can ask five times a minute. Only there when **/events** is on the **Commands** card. | Anyone in the server |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 | `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
-| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
 
 ### Switching commands on and off
 
 **Settings → Discord → Commands** has one switch for every command and right-click menu, labelled with its
 name. A command that is off is not registered: nobody sees it in Discord. Press
 **Save commands**; the bot registers the new list within a few seconds, without reconnecting.
-Everything is on except `/me`, which stays off until you turn it on. The commands you never touched
+Everything is on except `/me` and `/events`, which stay off until you turn them on. The commands you never touched
 keep following their default if a later version changes it. Nothing can be saved in the demo.
 
 ### Who sees the commands in Discord
 
-`/lookup`, `/recent`, `/modbot`, `/note`, `/watch`, `/live`, `/ban` and `/kick` are shown only to members who may time others out (Discord's
+`/lookup`, `/recent`, `/modbot`, `/note`, `/watch`, `/live`, `/ban`, `/kick` and `/gate` are shown only to members who may time others out (Discord's
 **Timeout Members** permission). Everyone else does not see them in the command list. To change
 who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
 members for each command. `/verify` is shown to everyone, because many moderators don't hold
@@ -223,7 +226,7 @@ permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link`, `/me`, `/verify` and `/help` only answers people Modbot can match to
+Every command except `/link`, `/me`, `/events`, `/verify` and `/help` only answers people Modbot can match to
 a Modbot account. Each moderator connects their own Discord account from their **Your account**
 page in Modbot, under **Your Discord account**, in one of two ways. Either way, the card then says
 **Connected as** and their Discord name. Nobody can do this for somebody else, and nobody can type

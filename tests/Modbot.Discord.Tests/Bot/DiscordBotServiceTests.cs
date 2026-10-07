@@ -148,7 +148,7 @@ public class DiscordBotServiceTests
 
         Assert.Equal(2, gateway.RegisterCalls);
         Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
-        Assert.Equal(DiscordCommands.All.Count, services.Status.Snapshot().CommandsRegistered);
+        Assert.Equal(DiscordCommands.All.Count - 1, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
         await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);

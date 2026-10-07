@@ -14,6 +14,8 @@
   (TASK-039) as step 0 of the Discord commands design: **Report this message** is gone (§8), the
   menus and the staff slash commands share one `StaffOnly` setting (§10), and the join gate's
   buttons are still acknowledged first (§11).
+- **Updated 2026-10-07,** with `/gate` and `/events` (Discord commands design §3.2, §3.6 and §3.7, steps 4 and 5):
+  the join gate from Discord, and a public list of the next events for members (§14).
 - **Updated 2026-10-07,** with `/ban` and `/kick` (Discord commands design §3.3, step 3): the same form,
   confirmation and acting once, started from a typed command and able to act on the Discord server (§13).
 - **Updated 2026-10-07,** step 2 of the Discord commands design: `/note`, `/watch` and `/live` are
@@ -303,3 +305,73 @@ The same as §5. A finished or refused step writes `modbot.discord.command` with
 `outcome` (`done`, `repeat`, `partial` when only one of two places did it, `refused`, `failed`, `error`, `off`,
 `invalid`, `no-permission`, ...), `target` for the VRChat account and `targetDiscord` for the Discord one. A ban or
 removal on the server also writes `modbot.action.discord.ban` / `.kick` under the moderator's name.
+
+## 14. `/gate` and `/events` (added 2026-10-07)
+
+Discord commands design §3.2, §3.6, §3.7 and decisions 6, 8 and 12. `/gate` is a staff command like `/ban`;
+`/events` is the first command that answers in public and the first for members with no Modbot account.
+
+### `/gate`
+
+Shown to moderators, on by default, private. It needs Manage the join gate, and the steps that write
+(`let-in`, `hold`, `lift`) need a VRChat account linked, as everything in the web app does. The checks run in §3's
+order, and write the `modbot.discord.command` fact with `command` `gate`.
+
+| Step | What it does | Code it calls |
+|---|---|---|
+| `waiting` | Up to 10 people at the gate, oldest first: name, when they joined, a **Let in** button each, and "and N more". | `discord_gate_entry`, as the web app's list reads it |
+| `let-in member:` | Gives them the member role now. | `JoinGate.LetInAsync` |
+| `hold` | Holds new joiners at once. The reply has **Lift hold**. | `JoinGate.HoldAsync` |
+| `lift` | Lifts the hold. | `JoinGate.LiftHoldAsync` |
+
+- **They are the gate's own actions.** The facts (`discord.gate.let-in`, `.held`, `.hold-lifted`), the lock the
+  passes and presses share, and the refusals ("The join gate is not on.", "That person is not at the join gate.")
+  are the ones the web app and the alert's buttons already give.
+- **Hold asks for nothing first** (decision 12), as the alert's button does. Both build the reply from one method,
+  `JoinGate.HeldReplyAsync`, so the **Lift hold** button is the same.
+- **The Let in button is new, and it is the gate's.** The gate had Hold, Lift hold and Pause invites for staff and
+  no button that names a person. It is `modbot:gate:letin:<Discord id>`, under the gate's prefix, so the bot's
+  routing sends it to `JoinGate.PressAsync` before anything else and it is acknowledged the moment it arrives, as
+  the others are. A press checks the presser's account and Manage the join gate again.
+- **`waiting` also needs See members.** The web app shows who is at the gate only with See members (it says so on
+  the card), and the bot shows no more than the web app. It shows no linked VRChat account and no 18+ check, which
+  need See profiles there.
+- A name is shown as text, escaped, and a button's label is "Let in" and the name, cut to 40 characters.
+
+### `/events`
+
+Shown to everyone, **off by default** (decision 6), answers in **public** unless the member sets `private` to yes.
+No Modbot account is needed. Written to the access record with the caller's Discord id and no account.
+
+- **Which dates.** The next 5 dates in the next 14 days, from `CalendarRepeat.Between`, so a date moved or
+  cancelled on its own is right, and a date with its own title shows it.
+- **Which events** (decision 8). Scheduled or open, not deleted, and **published in this Discord**: a
+  `calendar_event_place` row for the Discord event or the channel post in state `published`, with the event's own
+  switch for that place still on (the row can be a pass behind a switch turned off). Never a draft, a cancelled or
+  finished event, or one that was never posted. The answer therefore says nothing the server does not already show.
+- **A line** is `**Title** · <t:unix:f> (<t:unix:R>)`, then the world's name when Modbot knows it, then "Open now"
+  while the event is open and this date is the open one. The title is escaped. Times are Discord's own timestamps,
+  so each reader sees their own time zone.
+- **Join buttons**, at most 5, only when Who can join is Anyone **and** the event's instance is open and not closed
+  (`CalendarJoinLink.OpenAsync`, which the Discord event and the channel post use too). The link is
+  `InstanceJoinLink.For(location)`, VRChat's launch page, so it works without a public address. An event only
+  members, or members and their friends, can join is listed with no button.
+- **The 60-second channel rule.** After a public `/events` in a channel, a second one there inside 60 seconds is
+  answered in private. Public or private is fixed when the interaction is acknowledged, so the gateway decides
+  **before** it acknowledges: `DiscordNetGateway.RepliesInPublic(…, channel, window, now)` asks
+  `PublicReplyWindow.TryTake`, which also takes the window for a public one. A private ask does not take it, and a
+  refused try does not extend it. The window is kept in memory per process, like the member limits, so a restart
+  forgets it. It comes from the command's definition (`DiscordCommandDefinition.PublicOncePer`), not from a
+  special case. If nothing says which channel, the answer is not limited.
+- **A member limit** of 5 a minute per Discord account (`MemberCommandLimits`, its own instance under the key
+  `events`, so `/me` and `/verify` do not use it up). A refused run answers "Slow down. Try again in a minute." and is
+  not recorded, as with `/me`.
+- **A late run of a switched-off `/events`** is told so by the generic switch check. Because the acknowledgement
+  was made before the check, that sentence is public too; the command is not registered while it is off, so this
+  is only the minute before Discord drops it.
+
+### Facts
+
+`modbot.discord.command` as in §5 for both commands. For `/gate`: `outcome` is `answered`, `refused`, `invalid`,
+`no-permission`, `no-vrchat`, `not-linked`, `disabled` or `off`, and `targetDiscord` names the member let in. For
+`/events`: `answered` or `off`, with no target.

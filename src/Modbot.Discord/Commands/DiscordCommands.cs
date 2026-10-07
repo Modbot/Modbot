@@ -11,13 +11,16 @@ namespace Modbot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/> and
-/// <see cref="Help"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
+/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/>, <see cref="Help"/>
+/// and <see cref="Events"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
 /// equivalent web page asks for, so the bot never shows anybody more than the web app would.
 /// <see cref="Link"/> is for every member: it answers with the link page's address and nothing else
 /// (Discord account linking design §2). <see cref="Me"/> is for every member too, and only ever about
 /// the member who ran it; it is registered only while the operator has switched it on (Discord /me
-/// design). <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
+/// design). <see cref="Events"/> is for every member too and answers in public unless the member
+/// asks otherwise; it is registered only while the operator has switched it on, and shows nothing
+/// that is not already published in the Discord server (Discord commands design §3.6).
+/// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Verify"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
 /// not hold Timeout Members, and it tells nobody anything without a right code.
@@ -57,6 +60,8 @@ public static class DiscordCommands
     public const string Live = "live";
     public const string Ban = "ban";
     public const string Kick = "kick";
+    public const string Gate = "gate";
+    public const string Events = "events";
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -109,6 +114,30 @@ public static class DiscordCommands
     public const string FromDiscord = "discord";
     public const string FromVRChat = "vrchat";
     public const string FromBoth = "both";
+
+    /// <summary>The steps under <c>/gate</c>.</summary>
+    public const string GateWaiting = "waiting";
+    public const string GateLetIn = "let-in";
+    public const string GateHold = "hold";
+    public const string GateLift = "lift";
+
+    /// <summary>How many people <c>/gate waiting</c> lists, each with a button to let them in.</summary>
+    public const int GateWaitingMost = 10;
+
+    /// <summary>The yes/no option that makes <c>/events</c> answer in private.</summary>
+    public const string EventsPrivateOption = "private";
+
+    /// <summary>How many dates <c>/events</c> shows.</summary>
+    public const int EventsMost = 5;
+
+    /// <summary>How far ahead <c>/events</c> looks, in days.</summary>
+    public const int EventsDays = 14;
+
+    /// <summary>
+    /// After a public <c>/events</c> in a channel, how long a second one in the same channel answers
+    /// in private (Discord commands design §3.2).
+    /// </summary>
+    public static readonly TimeSpan EventsPublicOncePer = TimeSpan.FromSeconds(60);
 
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
@@ -205,6 +234,28 @@ public static class DiscordCommands
             ],
             ShownTo: DiscordShownTo.Moderators),
         new(
+            Gate,
+            "The join gate",
+            [],
+            ShownTo: DiscordShownTo.Moderators,
+            Subcommands:
+            [
+                new DiscordSubcommand(GateWaiting, "Who is waiting", []),
+                new DiscordSubcommand(
+                    GateLetIn,
+                    "Let someone in",
+                    [new DiscordCommandOption(MemberOption, "Who", DiscordOptionKind.Member, Required: true)]),
+                new DiscordSubcommand(GateHold, "Hold new joiners", []),
+                new DiscordSubcommand(GateLift, "Lift the hold", []),
+            ]),
+        new(
+            Events,
+            "Upcoming events, in your time zone",
+            [new DiscordCommandOption(EventsPrivateOption, "Only show me", DiscordOptionKind.YesNo, Required: false)],
+            Reply: DiscordReplyKind.Chosen,
+            PrivateOption: EventsPrivateOption,
+            PublicOncePer: EventsPublicOncePer),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -244,7 +295,7 @@ public static class DiscordCommands
         => For(switches).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>
@@ -259,6 +310,7 @@ public static class DiscordCommands
         Live => ModbotPermissions.ViewLiveInstances,
         Ban => ModbotPermissions.Ban,
         Kick => ModbotPermissions.Kick,
+        Gate => ModbotPermissions.ManageJoinGate,
         _ => null,
     };
 
@@ -286,9 +338,13 @@ public static class DiscordCommands
 
     /// <summary>
     /// Commands that write something. The web app refuses every request from an account with no
-    /// VRChat link, so these do too (acting from Discord design §3).
+    /// VRChat link, so these do too (acting from Discord design §3). <c>/gate waiting</c> only
+    /// reads; the other steps of <c>/gate</c> write. Asked without a step, <c>/gate</c> counts as
+    /// writing, which is the safe way for a list of what somebody may use.
     /// </summary>
-    public static bool Writes(string command) => command is Note or Watch or Ban or Kick;
+    public static bool Writes(string command, string? subcommand = null)
+        => command is Note or Watch or Ban or Kick
+            || (command == Gate && subcommand != GateWaiting);
 
     /// <summary>The permission's label as the web app's role editor shows it.</summary>
     public static string Label(ModbotPermissions permission) => permission switch
@@ -301,6 +357,8 @@ public static class DiscordCommands
         ModbotPermissions.ViewLiveInstances => "See live instances",
         ModbotPermissions.DiscordBan => "Ban on Discord",
         ModbotPermissions.DiscordKick => "Remove from Discord",
+        ModbotPermissions.ManageJoinGate => "Manage the join gate",
+        ModbotPermissions.ViewMembers => "See members",
         ModbotPermissions.AnswerJoinRequests => "Answer join requests",
         _ => permission.ToString(),
     };

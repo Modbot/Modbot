@@ -41,7 +41,7 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<ModerationLogOptions>();
         // IPictures, when the VRChat side is there, so an event cover linked from VRChat can be
         // fetched with its session (calendar design §15.2).
-        services.TryAddSingleton<IDiscordGatewayFactory>(p => new DiscordNetGatewayFactory(p.GetService<Core.Files.IPictures>()));
+        services.TryAddSingleton<IDiscordGatewayFactory>(p => new DiscordNetGatewayFactory(p.GetService<Core.Files.IPictures>(), p.GetService<IModbotClock>()));
 
         // The pictures on cards (Discord embeds design §3). A singleton, so what one pass fetched
         // the next one does not fetch again. IPictures comes from the VRChat side and is absent in
@@ -142,6 +142,11 @@ public static class DiscordServiceCollectionExtensions
         // /verify counts its own tries, apart from /me's (Discord account linking design §14).
         services.TryAddKeyedSingleton<MemberCommandLimits>(VerifyCommand.LimitsKey);
         services.AddScoped<VerifyCommand>();
+
+        // /events counts its own tries too, and /gate runs the join gate's own code.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(EventsCommand.LimitsKey);
+        services.AddScoped<EventsCommand>();
+        services.AddScoped<GateCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

@@ -37,12 +37,13 @@ public class CommandLayerTests
     // ── Registration by the set of names ───────────────────────────────────────────────────
 
     [Fact]
-    public void WithNothingStored_TheDefaultsAreRegistered_AndMeIsLeftOut()
+    public void WithNothingStored_TheDefaultsAreRegistered_AndMeAndEventsAreLeftOut()
     {
         var registered = DiscordCommands.For(DiscordCommandSwitches.Empty);
 
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Me);
-        Assert.Equal(DiscordCommands.All.Count - 1, registered.Count);
+        Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Events);
+        Assert.Equal(DiscordCommands.All.Count - 2, registered.Count);
         Assert.Equal(registered.Select(c => c.Name).ToHashSet(), DiscordCommands.NamesFor(null));
     }
 
@@ -142,10 +143,16 @@ public class CommandLayerTests
         => options.ToDictionary(o => o.Name, o => o.Value, StringComparer.Ordinal);
 
     [Fact]
-    public void EveryCommandThereIsToday_RepliesInPrivate()
+    public void EveryCommandButEvents_RepliesInPrivate()
     {
-        Assert.All(DiscordCommands.All, c => Assert.Equal(DiscordReplyKind.Private, c.Reply));
-        Assert.All(DiscordCommands.All, c => Assert.False(c.RepliesInPublic(Typed())));
+        var others = DiscordCommands.All.Where(c => c.Name != DiscordCommands.Events).ToList();
+
+        Assert.All(others, c => Assert.Equal(DiscordReplyKind.Private, c.Reply));
+        Assert.All(others, c => Assert.False(c.RepliesInPublic(Typed())));
+
+        var events = DiscordCommands.All.Single(c => c.Name == DiscordCommands.Events);
+        Assert.Equal(DiscordReplyKind.Chosen, events.Reply);
+        Assert.True(events.RepliesInPublic(Typed()));
     }
 
     [Fact]

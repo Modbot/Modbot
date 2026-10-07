@@ -1105,26 +1105,8 @@ public sealed class CalendarDiscordPublisher
     }
 
     /// <summary>The instance's join link, while the occurrence Modbot opened is still open.</summary>
-    private async Task<string?> JoinLinkAsync(CalendarEvent e, CancellationToken ct)
-    {
-        if (e.State != CalendarEventStates.Open || e.OccurrenceStartsAt is not { } occurrence)
-            return null;
-
-        var opening = await _db.CalendarOpenings.AsNoTracking()
-            .FirstOrDefaultAsync(o => o.EventId == e.Id && o.OccurrenceStartsAt == occurrence && o.Location != null, ct)
-            .ConfigureAwait(false);
-
-        if (opening?.Location is not { } location)
-            return null;
-
-        if (opening.InstanceId is { } instanceId
-            && await _db.VRChatInstances.AsNoTracking().AnyAsync(i => i.Id == instanceId && i.ClosedAt != null, ct).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        return InstanceJoinLink.For(location);
-    }
+    private Task<string?> JoinLinkAsync(CalendarEvent e, CancellationToken ct)
+        => CalendarJoinLink.OpenAsync(_db, e, ct);
 
     private CalendarEventPlace AddPlace(CalendarEvent e, string place)
     {

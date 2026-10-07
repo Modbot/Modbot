@@ -133,6 +133,11 @@ public enum DiscordCommandKind
 /// <param name="Subcommands">
 /// The steps under the command, or null for none. Then <paramref name="Options"/> must be empty.
 /// </param>
+/// <param name="PublicOncePer">
+/// For a command that replies in public: after one public answer in a channel, the answers in that
+/// channel for this long are private instead, so the command cannot fill a channel
+/// (<see cref="PublicReplyWindow"/>). Null for no such limit.
+/// </param>
 public sealed record DiscordCommandDefinition(
     string Name,
     string Description,
@@ -141,7 +146,8 @@ public sealed record DiscordCommandDefinition(
     DiscordShownTo ShownTo = DiscordShownTo.Everyone,
     DiscordReplyKind Reply = DiscordReplyKind.Private,
     string? PrivateOption = null,
-    IReadOnlyList<DiscordSubcommand>? Subcommands = null)
+    IReadOnlyList<DiscordSubcommand>? Subcommands = null,
+    TimeSpan? PublicOncePer = null)
 {
     /// <summary>Hidden from members who lack the Discord permission for <see cref="ShownTo"/>.</summary>
     public bool StaffOnly => ShownTo != DiscordShownTo.Everyone;

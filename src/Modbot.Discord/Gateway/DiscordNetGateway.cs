@@ -72,10 +72,20 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     /// <summary>Whether this session has been ready at least once, so a later connect is a resume.</summary>
     private volatile bool _sessionReady;
 
-    public DiscordNetGateway(DiscordGatewayOptions? options = null, ILogger? log = null, Core.Files.IPictures? pictures = null)
+    /// <summary>Where a public answer last went in each channel, for commands that limit them.</summary>
+    private readonly PublicReplyWindow _publicReplies = new();
+
+    private readonly IModbotClock _clock;
+
+    public DiscordNetGateway(
+        DiscordGatewayOptions? options = null,
+        ILogger? log = null,
+        Core.Files.IPictures? pictures = null,
+        IModbotClock? clock = null)
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
         _pictures = pictures;
+        _clock = clock ?? new SystemModbotClock();
 
         options ??= new DiscordGatewayOptions();
         _intents = IntentsFor(options);
@@ -2723,8 +2733,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 }
 
 /// <param name="pictures">VRChat's pictures, for event covers linked from VRChat (calendar design §15.2).</param>
-public sealed class DiscordNetGatewayFactory(Core.Files.IPictures? pictures = null) : IDiscordGatewayFactory
+public sealed class DiscordNetGatewayFactory(Core.Files.IPictures? pictures = null, IModbotClock? clock = null) : IDiscordGatewayFactory
 {
-    public IDiscordGateway Create(DiscordGatewayOptions options) => new DiscordNetGateway(options, pictures: pictures);
+    public IDiscordGateway Create(DiscordGatewayOptions options) => new DiscordNetGateway(options, pictures: pictures, clock: clock);
 }
 

@@ -53,6 +53,8 @@ public sealed class DiscordCommandHandler
     private readonly MeCommand? _me;
     private readonly VerifyCommand? _verify;
     private readonly StaffCommands _staffCommands;
+    private readonly EventsCommand? _events;
+    private readonly GateCommand? _gate;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -63,7 +65,9 @@ public sealed class DiscordCommandHandler
         CardPictures? pictures = null,
         MeCommand? me = null,
         VerifyCommand? verify = null,
-        IStaffActions? staff = null)
+        IStaffActions? staff = null,
+        EventsCommand? events = null,
+        GateCommand? gate = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -80,6 +84,8 @@ public sealed class DiscordCommandHandler
         _me = me;
         _verify = verify;
         _staffCommands = new StaffCommands(db, clock, lookup, staff);
+        _events = events;
+        _gate = gate;
     }
 
     /// <summary>
@@ -93,7 +99,8 @@ public sealed class DiscordCommandHandler
     /// for a run that was typed before Discord dropped the command, or from a client that had the
     /// old list. <c>/me</c> keeps its own wording and its demo rule inside <see cref="HandleAsync"/>.
     /// </remarks>
-    public async Task<DiscordReply?> RunAsync(DiscordCommandCall call, CancellationToken ct)
+    /// <param name="gateway">The session, for the commands that act through it (<c>/gate let-in</c>).</param>
+    public async Task<DiscordReply?> RunAsync(DiscordCommandCall call, CancellationToken ct, IDiscordGateway? gateway = null)
     {
         ArgumentNullException.ThrowIfNull(call);
 
@@ -105,15 +112,20 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: false));
         }
 
-        return await HandleAsync(call, ct).ConfigureAwait(false);
+        return await HandleAsync(call, ct, gateway).ConfigureAwait(false);
     }
 
-    public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct)
+    public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct, IDiscordGateway? gateway = null)
     {
         ArgumentNullException.ThrowIfNull(call);
 
         if (call.CommandName == DiscordCommands.Me)
             return await MeAsync(call, ct).ConfigureAwait(false);
+
+        // For every member, and answers in public unless asked not to: no Modbot account, so it
+        // comes before the link-your-account branch below (Discord commands design 3.6).
+        if (call.CommandName == DiscordCommands.Events)
+            return await EventsAsync(call, ct).ConfigureAwait(false);
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
@@ -145,7 +157,7 @@ public sealed class DiscordCommandHandler
             outcome = "disabled";
             reply = DiscordReply.Say("Your Modbot account is disabled.");
         }
-        else if (DiscordCommands.Writes(call.CommandName) && !user.IsVRChatLinked)
+        else if (DiscordCommands.Writes(call.CommandName, call.Subcommand) && !user.IsVRChatLinked)
         {
             // The web app refuses every request from an account with no VRChat link
             // (VRChatLinkedRequirement); a command that writes does the same.
@@ -169,6 +181,14 @@ public sealed class DiscordCommandHandler
             // (StaffInteractionHandler.HandleCommandAsync); the bot sends them there.
             outcome = "unknown-command";
             reply = DiscordReply.Say("Modbot does not know that command.");
+        }
+        else if (call.CommandName == DiscordCommands.Gate)
+        {
+            var done = _gate is null
+                ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
+                : await _gate.RunAsync(call, user, gateway, ct).ConfigureAwait(false);
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
         }
         else if (call.CommandName is DiscordCommands.Note or DiscordCommands.Watch or DiscordCommands.Live)
         {
@@ -330,6 +350,27 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say(MeCommand.TooFastMessage);
 
         var reply = await _me.AnswerAsync(call.DiscordUserId, call.DiscordUsername, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
+    }
+
+    /// <summary>
+    /// <c>/events</c>: the next dates already published in this Discord, for any member. A call
+    /// over the per-person limit is refused and not recorded, as with <c>/me</c>, so holding a key
+    /// down cannot fill the audit log. Recorded like every command, with no Modbot account.
+    /// </summary>
+    private async Task<DiscordReply> EventsAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_events is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_events.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(EventsCommand.TooFastMessage);
+
+        var reply = await _events.AnswerAsync(ct).ConfigureAwait(false);
         await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
         return reply;
     }

@@ -66,7 +66,7 @@ public sealed partial class DiscordNetGateway
         var answer = new DiscordInteractionAnswer(
             new SocketSender(command),
             _log,
-            inPublic: RepliesInPublic(_registered, command.Data.Name, options));
+            inPublic: RepliesInPublic(_registered, command.Data.Name, options, command.ChannelId, _publicReplies, _clock.UtcNow));
         answer.AcknowledgeIfSilent();
 
         var call = new DiscordCommandCall(
@@ -100,6 +100,38 @@ public sealed partial class DiscordNetGateway
             c.Kind == DiscordCommandKind.Slash && string.Equals(c.Name, commandName, StringComparison.Ordinal));
 
         return definition?.RepliesInPublic(options) ?? false;
+    }
+
+    /// <summary>
+    /// <see cref="RepliesInPublic(IReadOnlyList{DiscordCommandDefinition}, string, IReadOnlyDictionary{string, string})"/>
+    /// with the channel rule on top: a command that limits how often it answers in public
+    /// (<see cref="DiscordCommandDefinition.PublicOncePer"/>) answers in private when it already
+    /// answered in public in this channel inside that time. Still decided before anything is
+    /// acknowledged, because the deferral fixes the audience.
+    /// </summary>
+    /// <param name="channelId">The channel the command was run in; null when Discord did not say.</param>
+    /// <param name="now">From <c>IModbotClock</c>.</param>
+    public static bool RepliesInPublic(
+        IReadOnlyList<DiscordCommandDefinition> registered,
+        string commandName,
+        IReadOnlyDictionary<string, string> options,
+        ulong? channelId,
+        PublicReplyWindow window,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        if (!RepliesInPublic(registered, commandName, options))
+            return false;
+
+        var definition = registered.First(c =>
+            c.Kind == DiscordCommandKind.Slash && string.Equals(c.Name, commandName, StringComparison.Ordinal));
+
+        // Nothing to count against without a channel, and no limit without a window.
+        if (definition.PublicOncePer is not { } once || channelId is not { } channel)
+            return true;
+
+        return window.TryTake(definition.Name, channel, now, once);
     }
 
     /// <summary>

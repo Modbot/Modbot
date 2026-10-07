@@ -41,7 +41,8 @@ public static class DiscordCommandSwitches
     /// <summary>
     /// Every command with a switch. Staff commands are on by default, and so are the commands every
     /// member already had before the switches existed; <c>/me</c> was always opt-in and stays so.
-    /// Commands for members that come later are off until the operator turns them on.
+    /// Commands for members that come later (<c>/events</c> so far) are off until the operator turns
+    /// them on.
     /// </summary>
     public static IReadOnlyList<DiscordCommandSwitch> All { get; } =
     [
@@ -57,6 +58,8 @@ public static class DiscordCommandSwitches
         new("live", OnByDefault: true),
         new("ban", OnByDefault: true),
         new("kick", OnByDefault: true),
+        new("gate", OnByDefault: true),
+        new("events", OnByDefault: false),
         new("Look up in Modbot", OnByDefault: true, Menu: true),
         new("Add a note", OnByDefault: true, Menu: true),
     ];

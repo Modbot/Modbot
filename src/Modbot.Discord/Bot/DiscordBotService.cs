@@ -993,7 +993,7 @@ public sealed class DiscordBotService : BackgroundService
             // A slash command may answer with a form as its first answer too; a null reply means
             // it did.
             var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
-            if (await handler.RunAsync(call, CancellationToken.None).ConfigureAwait(false) is { } reply)
+            if (await handler.RunAsync(call, CancellationToken.None, ReadyGateway).ConfigureAwait(false) is { } reply)
                 await call.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e)

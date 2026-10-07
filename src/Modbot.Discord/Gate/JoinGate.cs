@@ -24,11 +24,37 @@ public static class JoinGateButtons
     public const string LiftHold = "modbot:gate:lift";
     public const string PauseInvites = "modbot:gate:pause";
 
+    /// <summary>
+    /// Let in, under each person <c>/gate waiting</c> lists: this and <c>:</c> and their Discord id.
+    /// The one gate button that names a person, so the only one that carries an id.
+    /// </summary>
+    public const string LetIn = "modbot:gate:letin";
+
     public const string GetInLabel = "Get in";
+    public const string LetInLabel = "Let in";
+    public const string LiftHoldLabel = "Lift hold";
 
     /// <summary>Whether a pressed button is one of the gate's, server mark or not.</summary>
     public static bool Is(string buttonId)
         => DiscordActionButton.Plain(buttonId).StartsWith("modbot:gate:", StringComparison.Ordinal);
+
+    /// <summary>The id of the Let in button for one person.</summary>
+    public static string LetInFor(string discordUserId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+        return LetIn + ":" + discordUserId;
+    }
+
+    /// <summary>The Discord id a Let in button names, or null when this is not one.</summary>
+    public static string? LetInTarget(string buttonId)
+    {
+        ArgumentNullException.ThrowIfNull(buttonId);
+
+        var id = DiscordActionButton.Plain(buttonId);
+        return id.Length > LetIn.Length + 1 && id.StartsWith(LetIn + ":", StringComparison.Ordinal)
+            ? id[(LetIn.Length + 1)..]
+            : null;
+    }
 }
 
 /// <summary>What one pass of the gate did.</summary>
@@ -450,8 +476,11 @@ public sealed class JoinGate
 
         var id = DiscordActionButton.Plain(press.ButtonId);
 
-        if (id is JoinGateButtons.Hold or JoinGateButtons.LiftHold or JoinGateButtons.PauseInvites)
+        if (id is JoinGateButtons.Hold or JoinGateButtons.LiftHold or JoinGateButtons.PauseInvites
+            || JoinGateButtons.LetInTarget(id) is not null)
+        {
             return await StaffPressAsync(gateway, press, id, ct).ConfigureAwait(false);
+        }
 
         if (id is not (JoinGateButtons.GetIn or JoinGateButtons.Agree or JoinGateButtons.Check))
             return DiscordReply.Say("Modbot does not know that button.");
@@ -548,28 +577,51 @@ public sealed class JoinGate
         if (!DiscordCommands.Allows(user.EffectivePermissions, ModbotPermissions.ManageJoinGate))
             return DiscordReply.Say("You need the \"Manage the join gate\" permission in Modbot.");
 
+        var letIn = JoinGateButtons.LetInTarget(id);
+
         var outcome = id switch
         {
             JoinGateButtons.Hold => await HoldAsync(user.Id, ct).ConfigureAwait(false),
             JoinGateButtons.LiftHold => await LiftHoldAsync(user.Id, ct).ConfigureAwait(false),
+            _ when letIn is not null => gateway is null
+                ? JoinGateOutcome.Offline
+                : await LetInAsync(gateway, letIn, user.Id, ct).ConfigureAwait(false),
             _ => gateway is null ? JoinGateOutcome.Offline : await PauseInvitesAsync(gateway, user.Id, ct).ConfigureAwait(false),
         };
 
         if (!outcome.Done)
             return DiscordReply.Say(outcome.Error ?? "That did not work.");
 
-        var settings = await SettingsAsync(ct).ConfigureAwait(false);
-        var guild = settings.GuildId ?? string.Empty;
+        if (letIn is not null)
+            return LetInReply(letIn);
 
         return id switch
         {
-            JoinGateButtons.Hold => new DiscordReply(
-                "New joiners are held.",
-                [],
-                Actions: [new DiscordActionButton("Lift hold", DiscordActionButton.Marked(JoinGateButtons.LiftHold, guild))]),
-            JoinGateButtons.LiftHold => DiscordReply.Say("Hold lifted."),
+            JoinGateButtons.Hold => await HeldReplyAsync(ct).ConfigureAwait(false),
+            JoinGateButtons.LiftHold => DiscordReply.Say(HoldLifted),
             _ => DiscordReply.Say($"Invites are paused until {DiscordTime.Absolute(_clock.UtcNow + InvitePause)}."),
         };
+    }
+
+    public const string HoldLifted = "Hold lifted.";
+
+    /// <summary>The answer to somebody let in: who, and nothing else.</summary>
+    public static DiscordReply LetInReply(string discordUserId) => DiscordReply.Say($"Let in <@{discordUserId}>.");
+
+    /// <summary>
+    /// The answer to a hold, wherever it was asked from -- the button on an alert or <c>/gate hold</c>:
+    /// that new joiners are held, with the button that lifts it. No confirmation comes first (Discord
+    /// commands design 3.3, decision 12).
+    /// </summary>
+    public async Task<DiscordReply> HeldReplyAsync(CancellationToken ct)
+    {
+        var settings = await SettingsAsync(ct).ConfigureAwait(false);
+        var guild = settings.GuildId ?? string.Empty;
+
+        return new DiscordReply(
+            "New joiners are held.",
+            [],
+            Actions: [new DiscordActionButton(JoinGateButtons.LiftHoldLabel, DiscordActionButton.Marked(JoinGateButtons.LiftHold, guild))]);
     }
 
     // ── Staff actions (IJoinGateActions goes through these) ──────────────────────────────────
