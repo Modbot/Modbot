@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261007214256_WatchTwitchForLiveStreams")]
+    [Migration("20261007220956_WatchTwitchForLiveStreams")]
     partial class WatchTwitchForLiveStreams
     {
         /// <inheritdoc />
@@ -5002,6 +5002,128 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("mcp_grant", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CloseNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("close_note");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<string>("ClosedByUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("closed_by_username");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.PrimitiveCollection<string>("MessageAttachments")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("message_attachments");
+
+                    b.Property<string>("MessageChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_channel_id");
+
+                    b.Property<string>("MessageChannelName")
+                        .HasColumnType("text")
+                        .HasColumnName("message_channel_name");
+
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<DateTimeOffset?>("MessageSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("message_sent_at");
+
+                    b.Property<string>("MessageText")
+                        .HasColumnType("text")
+                        .HasColumnName("message_text");
+
+                    b.Property<string>("MessageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("message_url");
+
+                    b.Property<string>("ReportedDiscordId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reported_discord_id");
+
+                    b.Property<string>("ReportedName")
+                        .HasColumnType("text")
+                        .HasColumnName("reported_name");
+
+                    b.Property<string>("ReportedVRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("reported_vrchat_user_id");
+
+                    b.Property<string>("ReporterDiscordId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reporter_discord_id");
+
+                    b.Property<string>("ReporterName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reporter_name");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("text")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset?>("TextRemovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("text_removed_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_report");
+
+                    b.HasIndex("ClosedAt")
+                        .HasDatabaseName("ix_member_report_removable")
+                        .HasFilter("state = 'closed' AND text_removed_at IS NULL");
+
+                    b.HasIndex("ReportedDiscordId")
+                        .HasDatabaseName("ix_member_report_reported");
+
+                    b.HasIndex("ReporterDiscordId", "CreatedAt")
+                        .HasDatabaseName("ix_member_report_reporter");
+
+                    b.HasIndex("ReporterDiscordId", "MessageId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_member_report_message")
+                        .HasFilter("message_id IS NOT NULL");
+
+                    b.HasIndex("ReporterDiscordId", "ReportedDiscordId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_member_report_open")
+                        .HasFilter("state = 'open'");
+
+                    b.HasIndex("State", "CreatedAt")
+                        .HasDatabaseName("ix_member_report_state");
+
+                    b.ToTable("member_report", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -7841,6 +7963,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("McpServerEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("mcp_server_enabled");
+
+                    b.Property<int>("MemberReportRetentionDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("member_report_retention_days");
 
                     b.Property<DateTimeOffset?>("MemberSweepCompletedAt")
                         .HasColumnType("timestamp with time zone")
