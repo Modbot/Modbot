@@ -168,9 +168,12 @@ public class StaffReportFactVisibilityTests
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
         Assert.True(EventFilter.TryCreate(null, null, out var everything, out _));
 
+        // The log was emptied, not restarted, so the first id is not 1; start just before it or the feed waits on the gap.
+        var before = (await db.Events.MinAsync(e => (long?)e.Id, Ct) ?? 1) - 1;
+
         async Task<IReadOnlyList<ModbotEvent>> ReadAsync(ModbotPermissions held)
             => (await EventPollEndpoint.ReadAsync(
-                db, new FactFeed(db), 0, 100, everything, held, host.Clock.UtcNow, 100, 3, Ct)).Events;
+                db, new FactFeed(db), before, 100, everything, held, host.Clock.UtcNow, 100, 3, Ct)).Events;
 
         var plain = await ReadAsync(OperationalLogOnly);
         Assert.DoesNotContain(plain, e => ReportTypes.Contains(e.Type) && e.SubjectId == Staff);

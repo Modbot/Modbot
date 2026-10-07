@@ -70,6 +70,7 @@ public class EventAndPostRoutingTests
     {
         var (services, gateway) = await ConnectedAsync(_db);
         await using var _ = services;
+        await gateway.RaiseReadyAsync();
 
         foreach (var name in new[] { "event", "post" })
         {

@@ -38,8 +38,11 @@ public class DiscordCommandsSettingsTests
     {
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
-        return (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct))?.DiscordCommands
+        var stored = (await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct))?.DiscordCommands
             ?? DiscordCommandSwitches.Empty;
+
+        // The column is jsonb, which hands the text back with its own spacing; compare the content.
+        return System.Text.Json.Nodes.JsonNode.Parse(stored)!.ToJsonString();
     }
 
     [Fact]

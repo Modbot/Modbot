@@ -114,7 +114,7 @@ public class PostActionsForDiscordTests(PostgresFixture db)
         Assert.Equal(composer.GetProperty("discord").GetProperty("content").GetString(), preview.Content);
 
         // And the sender's: PostTexts.Discord(post, destination) of the row Post now saved.
-        var saved = await actions.PostNowAsync("discord:one", draft, Staff(user), Ct);
+        var saved = await actions.PostNowAsync($"discord:{Guid.NewGuid():N}", draft, Staff(user), Ct);
         Assert.True(saved.Created);
 
         await using var context = db.NewContext();
@@ -179,7 +179,7 @@ public class PostActionsForDiscordTests(PostgresFixture db)
 
         using var scope = host.Services.CreateScope();
         var actions = Actions(scope);
-        await actions.PostNowAsync("discord:one", Draft(), Staff(user), Ct);
+        await actions.PostNowAsync($"discord:{Guid.NewGuid():N}", Draft(), Staff(user), Ct);
 
         Assert.Single((await actions.ListAsync(10, Staff(user), Ct)).Waiting);
 
@@ -198,7 +198,7 @@ public class PostActionsForDiscordTests(PostgresFixture db)
         var (user, manager) = await host.SignedInAsync(Host, Ct);
 
         using var scope = host.Services.CreateScope();
-        var saved = await Actions(scope).PostNowAsync("discord:one", Draft(), Staff(user), Ct);
+        var saved = await Actions(scope).PostNowAsync($"discord:{Guid.NewGuid():N}", Draft(), Staff(user), Ct);
 
         Assert.True(saved.Created);
         Assert.False(saved.Repeat);

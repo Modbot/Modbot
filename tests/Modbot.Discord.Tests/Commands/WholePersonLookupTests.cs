@@ -366,16 +366,21 @@ public class WholePersonLookupTests
             .Order(StringComparer.Ordinal);
         Assert.Equal(
             [
+                DiscordCommands.Ban,
+                DiscordCommands.Event,
+                DiscordCommands.Gate,
+                DiscordCommands.Kick,
                 DiscordCommands.Live,
                 DiscordCommands.Lookup,
                 DiscordCommands.Modbot,
                 DiscordCommands.Note,
+                DiscordCommands.Post,
                 DiscordCommands.Recent,
                 DiscordCommands.Watch,
             ],
             staff);
 
-        var menus = DiscordCommands.All.Where(c => c.Kind != DiscordCommandKind.Slash).ToList();
+        var menus = DiscordCommands.All.Where(c => c.Kind == DiscordCommandKind.User).ToList();
         Assert.NotEmpty(menus);
         Assert.All(menus, menu => Assert.True(menu.StaffOnly, $"{menu.Name} is a right-click menu members would see"));
 

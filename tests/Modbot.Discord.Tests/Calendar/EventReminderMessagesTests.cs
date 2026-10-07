@@ -171,7 +171,7 @@ public class EventReminderMessagesTests
     /// <summary>What the VRChat side leaves when it opens the instance: the instance and the opening row.</summary>
     private static async Task<string> OpenInstanceAsync(TestServices services, CalendarEvent e, bool closed = false)
     {
-        var number = e.Id.ToString("N")[..10];
+        var number = e.Id.ToString("N")[^10..];
         var location = $"{World}:{number}~group({Group})~groupAccessType({e.AccessType})~region(us)";
         var now = services.Clock.UtcNow;
 

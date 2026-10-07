@@ -323,7 +323,7 @@ public class MemberReportsTests : AnalyticsTestBase
             Assert.Equal(MemberReportResult.TooMany, (await NewReports(eleventh).OpenAsync(new NewMemberReport(Reporter, "r", Person(10), null, "x"), Ct)).Result);
 
         // The first one was made 110 minutes ago; a day after it, there is room again.
-        Clock.Advance(TimeSpan.FromHours(22));
+        Clock.Advance(TimeSpan.FromHours(22) + TimeSpan.FromMinutes(11));
 
         await using var later = Database.NewContext();
         Assert.Equal(MemberReportResult.Sent, (await NewReports(later).OpenAsync(new NewMemberReport(Reporter, "r", Person(10), null, "x"), Ct)).Result);

@@ -523,7 +523,7 @@ public class StaffCommandsTests
     // ── /live ───────────────────────────────────────────────────────────────────────────────
 
     private static async Task<Guid> OpenInstanceAsync(
-        TestServices services, string number, int people, string? name = null, CancellationToken ct = default, string world = World)
+        TestServices services, string number, int people, string? name = null, CancellationToken ct = default, string world = World, int openedMinutesAgo = 90)
     {
         await using var db = services.Database.NewContext();
 
@@ -538,7 +538,7 @@ public class StaffCommandsTests
             GroupAccessType = "plus",
             Region = "us",
             Name = name,
-            OpenedAt = services.Clock.UtcNow.AddMinutes(-90),
+            OpenedAt = services.Clock.UtcNow.AddMinutes(-openedMinutesAgo),
             LastSeenAt = services.Clock.UtcNow,
             LastUserCount = people,
             PeakUserCount = people,
@@ -646,7 +646,7 @@ public class StaffCommandsTests
         await using var services = await LiveServicesAsync(_db, ct);
         await AddWorldAsync(services, World, "The Great Pug", 40, ct);
         await OpenInstanceAsync(services, "68681", 12, ct: ct);
-        await OpenInstanceAsync(services, "70002", 0, name: "Movie night", ct: ct, world: "wrld_other");
+        await OpenInstanceAsync(services, "70002", 0, name: "Movie night", ct: ct, world: "wrld_other", openedMinutesAgo: 60);
 
         var reply = await HandleAsync(services, Call(Caller, DiscordCommands.Live), ct);
 

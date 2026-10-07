@@ -134,7 +134,7 @@ public class EventsCommandTests
     private static async Task<string> OpenInstanceAsync(TestServices services, CalendarEvent e, bool closed = false)
     {
         // One instance for each event, so each has a link of its own.
-        var number = e.Id.ToString("N")[..10];
+        var number = e.Id.ToString("N")[^10..];
         var location = $"{World}:{number}~group({Group})~groupAccessType({e.AccessType})~region(us)";
         var now = services.Clock.UtcNow;
 

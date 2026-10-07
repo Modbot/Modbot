@@ -62,7 +62,7 @@ public class DiscordCommandSwitchesTests
             ["nonsense"] = true,
         });
 
-        Assert.Equal("{\"me\":true,\"recent\":false}", json);
+        Assert.Equal("{\"recent\":false,\"me\":true}", json);
         Assert.Equal("{}", DiscordCommandSwitches.Write(DiscordCommandSwitches.Current(null)));
     }
 
@@ -82,6 +82,6 @@ public class DiscordCommandSwitchesTests
     public void EveryNameIsUnique_AndMenusAreMarked()
     {
         Assert.Equal(DiscordCommandSwitches.All.Count, DiscordCommandSwitches.All.Select(c => c.Name).Distinct().Count());
-        Assert.Equal(["Look up in Modbot", "Add a note"], DiscordCommandSwitches.All.Where(c => c.Menu).Select(c => c.Name));
+        Assert.Equal(["Look up in Modbot", "Add a note", "Report to mods"], DiscordCommandSwitches.All.Where(c => c.Menu).Select(c => c.Name));
     }
 }

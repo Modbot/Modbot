@@ -104,9 +104,8 @@ public static class DiscordCommandSwitches
 
     /// <summary>Whether a command is on: the stored choice, or its default when there is none.</summary>
     public static bool IsOn(string? json, string name)
-        => Read(json).TryGetValue(name, out var stored)
-            ? stored
-            : Find(name)?.OnByDefault ?? false;
+        => Find(name) is { } command
+            && (Read(json).TryGetValue(name, out var stored) ? stored : command.OnByDefault);
 
     /// <summary>Every command's name with whether it is on, in list order.</summary>
     public static IReadOnlyDictionary<string, bool> Current(string? json)

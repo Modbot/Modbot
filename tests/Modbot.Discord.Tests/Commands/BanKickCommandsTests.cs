@@ -1101,8 +1101,8 @@ public class BanKickCommandsTests
         using var scope = services.Scope();
         var handler = Handler(scope);
 
-        var several = await handler.HandleCommandAsync(Slash(Caller, "ban", recorder, ("vrchat", "wanda")), null, ct);
-        Assert.StartsWith("Several people match \"wanda\"", several?.Text, StringComparison.Ordinal);
+        var several = await handler.HandleCommandAsync(Slash(Caller, "ban", recorder, ("vrchat", "wand")), null, ct);
+        Assert.StartsWith("Several people match \"wand\"", several?.Text, StringComparison.Ordinal);
         Assert.Contains(Stranger, several!.Text, StringComparison.Ordinal);
         Assert.Empty(recorder.Forms);
 

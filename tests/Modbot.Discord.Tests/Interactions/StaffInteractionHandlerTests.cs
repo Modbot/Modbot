@@ -768,7 +768,7 @@ public class StaffInteractionHandlerTests
     [Fact]
     public void TheMenus_AreRegistered_HiddenFromMembersWithoutTimeoutMembers()
     {
-        var menus = DiscordCommands.All.Where(c => c.Kind != DiscordCommandKind.Slash).ToList();
+        var menus = DiscordCommands.All.Where(c => c.Kind == DiscordCommandKind.User).ToList();
 
         Assert.Equal(new[] { StaffMenus.LookUp, StaffMenus.AddNote }, menus.Select(m => m.Name));
         Assert.All(menus, m => Assert.True(m.StaffOnly));

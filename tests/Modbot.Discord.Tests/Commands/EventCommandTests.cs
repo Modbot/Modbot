@@ -472,6 +472,7 @@ public class EventCommandTests
     public async Task Yes_CancelsTheDate_AsTheAccount_AndSaysWhat()
     {
         await using var services = await SetUpAsync(_db);
+        services.Calendar.Plan = new CalendarCancelPlan(true, null, "Movie night", Friday, WholeEvent: false);
         var (_, yes, _) = await AskToCancelAsync(services);
         var recorder = new Recorder();
 
