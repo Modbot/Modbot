@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Reports;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -224,7 +225,7 @@ internal sealed class EventSocketSession
 
             foreach (var fact in page.Facts)
             {
-                if (!filter.Matches(fact) || !EventVisibility.CanSee(_permissions, fact.Type))
+                if (!filter.Matches(fact) || !EventVisibility.CanSee(_permissions, fact.Type) || await IsHiddenAsync(fact, ct))
                     continue;
 
                 if (!await SendAsync(new EventMessage("event", EventEnvelopes.From(fact)), ct))
@@ -239,6 +240,21 @@ internal sealed class EventSocketSession
         }
 
         return "client went away";
+    }
+
+    /// <summary>
+    /// Whether this fact is one the caller must not be sent because of who it is about: a member
+    /// report about a staff account, for somebody without Review tickets. A scope is opened only
+    /// for such a fact, so every other one costs nothing.
+    /// </summary>
+    private async Task<bool> IsHiddenAsync(ModbotEvent fact, CancellationToken ct)
+    {
+        if (!MemberReportAccess.IsReportFact(fact.Type) || MemberReportAccess.SeesReportsAboutStaff(_permissions))
+            return false;
+
+        using var scope = _scopes.CreateScope();
+        return await MemberReportAccess.HidesAsync(
+            scope.ServiceProvider.GetRequiredService<ModbotContext>(), _permissions, fact, _clock.UtcNow, ct);
     }
 
     /// <summary>

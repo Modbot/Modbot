@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Reports;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Events;
@@ -78,7 +79,9 @@ public sealed class LiveReader
 
             foreach (var fact in page.Facts)
             {
-                if (built.TryGetValue(fact.Id, out var @event) && scope.Wants(@event))
+                if (built.TryGetValue(fact.Id, out var @event)
+                    && scope.Wants(@event)
+                    && !await MemberReportAccess.HidesAsync(_db, scope.Permissions, fact, now, ct))
                 {
                     if (events.Count == limit)
                         return new LivePage(events, cursor, More: true);

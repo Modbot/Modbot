@@ -245,7 +245,8 @@ database, on the [Reports](/moderation/reports) page:
 
 **The reporter is shown on the Reports page to everyone who can see reports, and nowhere else.** Not in Discord,
 not in a notification, not in the audit log. The audit log gets two entries, **Member report made** and **Member
-report closed**, naming the person reported and the report's id, and nothing written or quoted. Running `/report`
+report closed**, naming the person reported and the report's id, and nothing written or quoted; when the person
+is a staff account, only people who also hold Review tickets see them. Running `/report`
 or the menu is not recorded as **Discord command used**, because that entry would name the reporter.
 
 A closed report keeps its text and the message copy for **Closed reports** days, 365 unless you change it under

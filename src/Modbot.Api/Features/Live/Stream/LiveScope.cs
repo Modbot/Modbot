@@ -15,6 +15,12 @@ namespace Modbot.Api.Features.Live.Stream;
 /// (the sidebar count's). A permission removed mid-connection stops the next event.
 /// </para>
 /// <para>
+/// One rule is about the fact and not only its type, so <see cref="CanSee"/> cannot hold it: a
+/// member-report fact about a staff account is for those who hold Review tickets only. The reader
+/// applies it to each fact it is about to send (<see cref="LiveReader"/>,
+/// <c>MemberReportAccess.HidesAsync</c>).
+/// </para>
+/// <para>
 /// <strong>A companion device</strong> sees presence in the one instance it named, and nothing
 /// else: its token is ingest-scoped and reads one group's roster context, and this stream is that
 /// roster as it changes. It is not sent alerts, reviews or instance events, and it is not sent

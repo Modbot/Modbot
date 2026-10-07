@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Reports;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -59,7 +60,10 @@ public sealed record AuditRequest(
 /// </remarks>
 /// <param name="held">
 /// The caller's permissions, for the links an entry carries to a case file or a review (see
-/// <see cref="AuditRecords"/>). Which entries they may read is settled by the type list, not this.
+/// <see cref="AuditRecords"/>), and for one rule the type list cannot hold: a member-report fact about
+/// a staff account is left out unless they hold Review tickets (<see cref="MemberReportAccess"/>).
+/// Otherwise which entries they may read is settled by the type list, not this. Left out, it is
+/// the caller with nothing, which leaves that rule at its strictest.
 /// </param>
 public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = ModbotPermissions.None)
 {
@@ -93,7 +97,8 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
         ArgumentNullException.ThrowIfNull(request);
 
         var limit = Math.Clamp(request.Limit, 1, MaxLimit);
-        var rows = await Filtered(request)
+        var hidden = await HiddenAsync(request.Types, now, ct);
+        var rows = await Filtered(request, hidden)
             .OrderByDescending(e => e.OccurredAt)
             .ThenByDescending(e => e.Id)
             // One more than asked for, so "is there another page" is answered by the same query
@@ -114,7 +119,7 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
             ? new AuditCursor(rows[^1].OccurredAt, rows[^1].Id)
             : null;
 
-        return new AuditPage(entries, next, await CoverageAsync(request.Types, ct), now);
+        return new AuditPage(entries, next, await CoverageAsync(request.Types, hidden, ct), now);
     }
 
     /// <summary>
@@ -125,14 +130,16 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     /// the caller's own visible set, so an entry they may not read answers the same as one that is
     /// not there.
     /// </remarks>
-    public async Task<AuditEntry?> EntryAsync(long id, IReadOnlyList<string> types, CancellationToken ct = default)
+    public async Task<AuditEntry?> EntryAsync(long id, IReadOnlyList<string> types, DateTimeOffset now, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(types);
 
         if (types.Count == 0)
             return null;
 
+        var hidden = await HiddenAsync(types, now, ct);
         var row = await db.Events.AsNoTracking()
+            .WithoutReportsAbout(hidden)
             .FirstOrDefaultAsync(e => e.Id == id && types.Contains(e.Type), ct);
 
         if (row is null)
@@ -159,14 +166,16 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     /// all of them.
     /// </para>
     /// </remarks>
-    public async Task<AuditAround?> AroundAsync(long id, IReadOnlyList<string> types, CancellationToken ct = default)
+    public async Task<AuditAround?> AroundAsync(long id, IReadOnlyList<string> types, DateTimeOffset now, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(types);
 
         if (types.Count == 0)
             return null;
 
+        var hidden = await HiddenAsync(types, now, ct);
         var row = await db.Events.AsNoTracking()
+            .WithoutReportsAbout(hidden)
             .FirstOrDefaultAsync(e => e.Id == id && types.Contains(e.Type), ct);
 
         if (row is null)
@@ -181,11 +190,11 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
 
         List<ModbotEvent>? byActor = null;
         if (row.ActorId is not null && row.ActorPlatform is not null)
-            byActor = await AroundOneAsync(row, near with { ActorId = row.ActorId, ActorPlatform = row.ActorPlatform }, ct);
+            byActor = await AroundOneAsync(row, near with { ActorId = row.ActorId, ActorPlatform = row.ActorPlatform }, hidden, ct);
 
         List<ModbotEvent>? aboutSubject = null;
         if (FactSubjects.For(row.Type) == SubjectKind.Person)
-            aboutSubject = await AroundOneAsync(row, near with { SubjectId = row.SubjectId, SubjectPlatform = row.SubjectPlatform }, ct);
+            aboutSubject = await AroundOneAsync(row, near with { SubjectId = row.SubjectId, SubjectPlatform = row.SubjectPlatform }, hidden, ct);
 
         var all = (byActor ?? []).Concat(aboutSubject ?? []).DistinctBy(e => e.Id).ToList();
         var named = (await WithLinkedAsync(all, ct)).ToDictionary(e => e.Id);
@@ -196,15 +205,15 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     }
 
     /// <summary>Up to <see cref="AroundEach"/> after the entry, the entry, and up to as many before: newest first.</summary>
-    private async Task<List<ModbotEvent>> AroundOneAsync(ModbotEvent row, AuditRequest request, CancellationToken ct)
+    private async Task<List<ModbotEvent>> AroundOneAsync(ModbotEvent row, AuditRequest request, IReadOnlyList<string> hidden, CancellationToken ct)
     {
-        var before = await Filtered(request with { Before = new AuditCursor(row.OccurredAt, row.Id) })
+        var before = await Filtered(request with { Before = new AuditCursor(row.OccurredAt, row.Id) }, hidden)
             .OrderByDescending(e => e.OccurredAt)
             .ThenByDescending(e => e.Id)
             .Take(AroundEach)
             .ToListAsync(ct);
 
-        var after = await Filtered(request)
+        var after = await Filtered(request, hidden)
             .Where(e => e.OccurredAt > row.OccurredAt || (e.OccurredAt == row.OccurredAt && e.Id > row.Id))
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Id)
@@ -282,10 +291,19 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     /// </remarks>
     public async Task<AuditCoverage> CoverageAsync(
         IReadOnlyList<string> types,
+        DateTimeOffset now,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(types);
 
+        return await CoverageAsync(types, await HiddenAsync(types, now, ct), ct);
+    }
+
+    private async Task<AuditCoverage> CoverageAsync(
+        IReadOnlyList<string> types,
+        IReadOnlyList<string> hidden,
+        CancellationToken ct)
+    {
         var settings = await db.Settings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == 1, ct);
 
@@ -293,6 +311,7 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
             return new AuditCoverage(null, null, settings?.AuditLogCatchUpComplete ?? false);
 
         var oldest = await db.Events.AsNoTracking()
+            .WithoutReportsAbout(hidden)
             .Where(e => types.Contains(e.Type))
             .MinAsync(e => (DateTimeOffset?)e.OccurredAt, ct);
 
@@ -313,6 +332,7 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     public async Task<IReadOnlyList<AuditActor>> ActorsAsync(
         IReadOnlyList<string> types,
         DateTimeOffset since,
+        DateTimeOffset now,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(types);
@@ -320,7 +340,9 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
         if (types.Count == 0)
             return [];
 
+        var hidden = await HiddenAsync(types, now, ct);
         var grouped = await db.Events.AsNoTracking()
+            .WithoutReportsAbout(hidden)
             .Where(e => types.Contains(e.Type)
                 && e.ActorId != null
                 && e.ActorPlatform != null
@@ -362,10 +384,18 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
             .ToList();
     }
 
-    private IQueryable<ModbotEvent> Filtered(AuditRequest request)
+    /// <summary>
+    /// The accounts whose member-report facts this caller must not see (<see cref="MemberReportAccess"/>):
+    /// the staff accounts, unless they hold Review tickets. Empty, and nothing looked up, when the
+    /// types hold no report fact. Every read of facts in this class starts from it.
+    /// </summary>
+    private Task<IReadOnlyList<string>> HiddenAsync(IReadOnlyCollection<string> types, DateTimeOffset now, CancellationToken ct)
+        => MemberReportAccess.HiddenSubjectsAsync(db, held, types, now, ct);
+
+    private IQueryable<ModbotEvent> Filtered(AuditRequest request, IReadOnlyList<string> hidden)
     {
         var types = request.Types.ToList();
-        var query = Searched(request.Text).AsNoTracking().Where(e => types.Contains(e.Type));
+        var query = Searched(request.Text).AsNoTracking().WithoutReportsAbout(hidden).Where(e => types.Contains(e.Type));
 
         // A fact that is the second record of a decision is not a line of its own: it is shown
         // inside the entry for the decision, by WithLinkedAsync (spec 5.3.2). Two rows a second

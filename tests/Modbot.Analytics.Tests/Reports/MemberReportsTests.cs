@@ -606,4 +606,123 @@ public class MemberReportsTests : AnalyticsTestBase
         var admin = await (await MemberReportAccess.VisibleAsync(context, ModbotPermissions.Administrator, Start, Ct)).Select(r => r.Id).ToListAsync(Ct);
         Assert.Equal(2, admin.Count);
     }
+
+    // ── The two facts a report writes, about a staff account ─────────────────────────────────
+
+    private static readonly string[] ReportFactTypes = [FactType.MemberReportOpened, FactType.MemberReportClosed];
+
+    /// <summary>
+    /// A staff account (<c>Other</c>) and an ordinary one (<c>Reported</c>), each with both report
+    /// facts, and one other fact about the staff account.
+    /// </summary>
+    private async Task SeedReportFactsAsync()
+    {
+        await using (var setup = Database.NewContext())
+        {
+            var staff = await TestAccounts.CreateAsync(setup, "staffer", TestAccounts.Password, ModbotPermissions.ViewMembers, linked: true, Ct);
+            staff.DiscordUserId = Other;
+            staff.DiscordVerifiedAt = Start;
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        // The opening facts come from the real code.
+        await using (var context = Database.NewContext())
+        {
+            Assert.Equal(MemberReportResult.Sent, (await NewReports(context).OpenAsync(new NewMemberReport(Reporter, "r", Other, null, "x"), Ct)).Result);
+            Assert.Equal(MemberReportResult.Sent, (await NewReports(context).OpenAsync(new NewMemberReport(Reporter, "r", Reported, null, "x"), Ct)).Result);
+        }
+
+        await using (var context = Database.NewContext())
+        {
+            var writer = new FactWriter(context, Clock);
+
+            foreach (var subject in new[] { Other, Reported })
+            {
+                await writer.WriteAsync(
+                    new FactRecord
+                    {
+                        Type = FactType.MemberReportClosed,
+                        OccurredAt = Clock.UtcNow,
+                        SubjectPlatform = FactPlatform.Discord,
+                        SubjectId = subject,
+                        Source = FactSource.Modbot,
+                        Data = new System.Text.Json.Nodes.JsonObject { ["reportId"] = Guid.NewGuid().ToString() },
+                    },
+                    Ct);
+            }
+
+            // Another operational fact about the same staff account: not a report fact.
+            await writer.WriteAsync(
+                new FactRecord
+                {
+                    Type = FactType.DiscordLinkPrompted,
+                    OccurredAt = Clock.UtcNow,
+                    SubjectPlatform = FactPlatform.Discord,
+                    SubjectId = Other,
+                    Source = FactSource.Modbot,
+                },
+                Ct);
+        }
+    }
+
+    [Fact]
+    public async Task TheReportFacts_AboutAStaffAccount_AreLeftOutOfAList_ForSomebodyWithoutReviewTickets()
+    {
+        await SeedReportFactsAsync();
+
+        await using var context = Database.NewContext();
+
+        // Somebody who reads the operational log and cannot review: the staff account is hidden.
+        var plain = await MemberReportAccess.HiddenSubjectsAsync(context, ModbotPermissions.ViewOperationalLog, ReportFactTypes, Start, Ct);
+        Assert.Equal([Other], plain);
+
+        // Nothing is looked up for a read that holds no report fact.
+        Assert.Empty(await MemberReportAccess.HiddenSubjectsAsync(context, ModbotPermissions.ViewOperationalLog, [FactType.SettingsChanged], Start, Ct));
+
+        // Review tickets, or Administrator, hides nothing.
+        Assert.Empty(await MemberReportAccess.HiddenSubjectsAsync(context, ModbotPermissions.ViewOperationalLog | ModbotPermissions.ReviewTickets, ReportFactTypes, Start, Ct));
+        Assert.Empty(await MemberReportAccess.HiddenSubjectsAsync(context, ModbotPermissions.Administrator, ReportFactTypes, Start, Ct));
+
+        async Task<List<(string Type, string Subject)>> ListedAsync(IReadOnlyList<string> hidden)
+            => (await context.Events.AsNoTracking()
+                    .WithoutReportsAbout(hidden)
+                    .Where(e => e.SubjectId == Other || e.SubjectId == Reported)
+                    .Select(e => new { e.Type, e.SubjectId })
+                    .ToListAsync(Ct))
+                .Select(e => (e.Type, e.SubjectId))
+                .ToList();
+
+        // Operational log only: both facts about the ordinary account, and the staff account's other fact.
+        var seenByPlain = await ListedAsync(plain);
+        Assert.Equal(3, seenByPlain.Count);
+        Assert.Contains((FactType.MemberReportOpened, Reported), seenByPlain);
+        Assert.Contains((FactType.MemberReportClosed, Reported), seenByPlain);
+        Assert.Contains((FactType.DiscordLinkPrompted, Other), seenByPlain);
+        Assert.DoesNotContain(seenByPlain, e => ReportFactTypes.Contains(e.Type) && e.Subject == Other);
+
+        // Review tickets as well: all five.
+        Assert.Equal(5, (await ListedAsync([])).Count);
+    }
+
+    [Fact]
+    public async Task AReportFact_AboutAStaffAccount_IsHiddenOneByOne_ForSomebodyWithoutReviewTickets()
+    {
+        await SeedReportFactsAsync();
+
+        await using var context = Database.NewContext();
+        var facts = await context.Events.AsNoTracking()
+            .Where(e => e.SubjectId == Other || e.SubjectId == Reported)
+            .ToListAsync(Ct);
+
+        Assert.Equal(5, facts.Count);
+
+        foreach (var fact in facts)
+        {
+            var aboutStaffReport = ReportFactTypes.Contains(fact.Type) && fact.SubjectId == Other;
+
+            Assert.Equal(aboutStaffReport, await MemberReportAccess.HidesAsync(context, ModbotPermissions.ViewOperationalLog, fact, Start, Ct));
+            Assert.False(await MemberReportAccess.HidesAsync(context, ModbotPermissions.ViewOperationalLog | ModbotPermissions.ReviewTickets, fact, Start, Ct));
+            Assert.False(await MemberReportAccess.HidesAsync(context, ModbotPermissions.Administrator, fact, Start, Ct));
+        }
+    }
 }

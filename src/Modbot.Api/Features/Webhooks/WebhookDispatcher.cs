@@ -119,7 +119,7 @@ public sealed class WebhookDispatcher
 
             foreach (var fact in page.Facts)
             {
-                if (!filter.Matches(fact) || !EventVisibility.CanSee(owner.Permissions, fact.Type))
+                if (!filter.Matches(fact) || !await EventVisibility.CanSeeAsync(_db, owner.Permissions, fact, _clock.UtcNow, ct))
                 {
                     hook.DeliveredThrough = fact.Id;
                     continue;

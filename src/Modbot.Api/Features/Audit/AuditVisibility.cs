@@ -290,7 +290,11 @@ public static class AuditVisibility
         // The facts carry only the report's id, but "somebody reported this person" is still not
         // something the moderation timeline of a person, who may be a staff account, should say to
         // everyone who reads it: it is the operator's log, and the Reports page is where a report
-        // is read under its own permissions (Discord commands design §3.4).
+        // is read under its own permissions (Discord commands design §3.4). When the reported person
+        // is a staff account the type is not enough: those two facts are then shown only to somebody
+        // who also holds Review tickets, as the Reports page does. That depends on who the fact is
+        // about, so it is not in this table: MemberReportAccess applies it where facts are read
+        // (AuditQuery) and where they are sent (EventVisibility.CanSeeAsync, LiveReader).
         [FactType.MemberReportOpened] = AuditCategory.Operational,
         [FactType.MemberReportClosed] = AuditCategory.Operational,
 

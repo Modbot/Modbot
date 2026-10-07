@@ -124,7 +124,7 @@ public static class AuditLogEndpoints
                 // Nothing visible left after the intersection: an honest empty page with the
                 // coverage still attached, not a 403 for asking.
                 if (visible.Count == 0)
-                    return Results.Ok(new AuditPage([], null, await new AuditQuery(db).CoverageAsync([], ct), clock.UtcNow));
+                    return Results.Ok(new AuditPage([], null, await new AuditQuery(db, held).CoverageAsync([], clock.UtcNow, ct), clock.UtcNow));
 
                 return Results.Ok(await new AuditQuery(db, held).PageAsync(request, clock.UtcNow, ct));
             })
@@ -173,6 +173,7 @@ public static class AuditLogEndpoints
                 HttpContext http,
                 [FromRoute] long id,
                 [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
                 var held = ModbotAuth.PermissionsOf(http.User);
@@ -181,7 +182,7 @@ public static class AuditLogEndpoints
                 if (visible.Count == 0)
                     return Results.Forbid();
 
-                var entry = await new AuditQuery(db, held).EntryAsync(id, visible, ct);
+                var entry = await new AuditQuery(db, held).EntryAsync(id, visible, clock.UtcNow, ct);
 
                 return entry is null ? Results.NotFound() : Results.Ok(entry);
             })
@@ -199,6 +200,7 @@ public static class AuditLogEndpoints
                 HttpContext http,
                 [FromRoute] long id,
                 [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
                 var held = ModbotAuth.PermissionsOf(http.User);
@@ -207,7 +209,7 @@ public static class AuditLogEndpoints
                 if (visible.Count == 0)
                     return Results.Forbid();
 
-                var around = await new AuditQuery(db, held).AroundAsync(id, visible, ct);
+                var around = await new AuditQuery(db, held).AroundAsync(id, visible, clock.UtcNow, ct);
 
                 return around is null ? Results.NotFound() : Results.Ok(around);
             })
@@ -235,8 +237,8 @@ public static class AuditLogEndpoints
                 if (visible.Count == 0)
                     return Results.Forbid();
 
-                var actors = await new AuditQuery(db)
-                    .ActorsAsync(visible, clock.UtcNow - AuditQuery.ActorWindow, ct);
+                var actors = await new AuditQuery(db, held)
+                    .ActorsAsync(visible, clock.UtcNow - AuditQuery.ActorWindow, clock.UtcNow, ct);
 
                 return Results.Ok(new AuditFilters(
                     visible.Select(t => new AuditTypeOption(

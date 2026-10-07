@@ -37,7 +37,7 @@ internal static class AuditSearch
 
         var db = (ModbotContext)context.Services.GetService(typeof(ModbotContext))!;
         var clock = (IModbotClock)context.Services.GetService(typeof(IModbotClock))!;
-        var page = await new AuditQuery(db).PageAsync(
+        var page = await new AuditQuery(db, context.Held).PageAsync(
             new AuditRequest(visible, [], subjectId, null, actorId, null, from, to, null, limit), clock.UtcNow, ct);
 
         return page.Entries;
@@ -88,7 +88,7 @@ internal static class AuditSearch
         var clock = (IModbotClock)context.Services.GetService(typeof(IModbotClock))!;
 
         var person = await PersonTimeline.ResolveAsync(db, clock, context.Held, vrchatUserId, FactPlatform.VRChat, ct);
-        var page = await new AuditQuery(db).PageAsync(
+        var page = await new AuditQuery(db, context.Held).PageAsync(
             new AuditRequest(visible, [], null, null, null, null, null, null, before, limit, Person: person),
             clock.UtcNow,
             ct);

@@ -63,7 +63,8 @@ spot somebody reporting out of spite. Nobody else does:
   notifications, to people who hold **See reports**, and at most one every 15 minutes.
 - Not the audit log: **Member report made** names the person reported and the report's id, and nothing
   the member wrote or quoted. Running `/report` or the menu is not recorded as **Discord command used**,
-  because that entry would name the member.
+  because that entry would name the member. Who may see **Member report made** is under
+  [Reports about staff](#reports-about-staff).
 
 ### Reports about staff
 
@@ -72,6 +73,12 @@ people who also hold **Review tickets**, the permission the people being reviewe
 For everyone else it is not in the list, not in the count beside **Open**, and not in the sidebar's
 number, and the notification for it goes only to people who hold both permissions. It follows the same
 rule as [Reviews](/moderation/reviews).
+
+The two entries it leaves, **Member report made** and **Member report closed**, follow the same rule.
+When the person reported is a staff account, they are shown only to people who hold **Review tickets** as
+well as **See the operational log**: not in the [audit log](/moderation/audit-log), not in that person's
+timeline, not on the live feed, in webhooks or on the live updates stream. Someone who holds the
+operational log alone still sees these entries for everyone else, and every other operational entry.
 
 ## Permissions
 

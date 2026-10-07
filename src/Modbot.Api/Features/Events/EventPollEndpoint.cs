@@ -133,7 +133,7 @@ public static class EventPollEndpoint
                     {
                         // Taken before the read, so a fact written between the read and the wait wakes it.
                         var written = signal.Next();
-                        var read = await ReadAsync(feed, after, take, filter, held, clock.UtcNow, options.PageSize, options.LongPollMaxPages, ct);
+                        var read = await ReadAsync(db, feed, after, take, filter, held, clock.UtcNow, options.PageSize, options.LongPollMaxPages, ct);
                         var left = deadline - elapsed.Elapsed;
 
                         if (read.Events.Count > 0 || read.More || left <= TimeSpan.Zero)
@@ -200,6 +200,7 @@ public static class EventPollEndpoint
     /// even if it turns out not to be for this caller.
     /// </remarks>
     public static async Task<EventPollRead> ReadAsync(
+        ModbotContext db,
         FactFeed feed,
         long after,
         int limit,
@@ -210,6 +211,7 @@ public static class EventPollEndpoint
         int maxPages,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(feed);
         ArgumentNullException.ThrowIfNull(filter);
 
@@ -222,7 +224,7 @@ public static class EventPollEndpoint
 
             foreach (var fact in page.Facts)
             {
-                var wanted = filter.Matches(fact) && EventVisibility.CanSee(held, fact.Type);
+                var wanted = filter.Matches(fact) && await EventVisibility.CanSeeAsync(db, held, fact, now, ct);
 
                 if (wanted && events.Count == limit)
                     return new EventPollRead(events, cursor, More: true);

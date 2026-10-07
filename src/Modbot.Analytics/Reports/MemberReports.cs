@@ -541,4 +541,84 @@ public static class MemberReportAccess
         var staff = (await StaffDiscordIdsAsync(db, now, ct).ConfigureAwait(false)).ToList();
         return staff.Count == 0 ? all : all.Where(r => !staff.Contains(r.ReportedDiscordId));
     }
+
+    // ── The two facts a report writes ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The two facts a report writes: one when it is made and one when it is closed. Both name the
+    /// reported account as their subject and never the reporter.
+    /// </summary>
+    public static readonly IReadOnlyList<string> FactTypes = [FactType.MemberReportOpened, FactType.MemberReportClosed];
+
+    /// <summary>Whether this fact type is one of the two a report writes.</summary>
+    public static bool IsReportFact(string type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        return type == FactType.MemberReportOpened || type == FactType.MemberReportClosed;
+    }
+
+    /// <summary>
+    /// Whether facts of these types, read by these permissions, can include one that must be left
+    /// out: a report fact, by somebody without Review tickets. When this is false there is nothing
+    /// to look up, so a read of other facts costs nothing extra.
+    /// </summary>
+    public static bool MayHideAny(ModbotPermissions held, IEnumerable<string> types)
+    {
+        ArgumentNullException.ThrowIfNull(types);
+        return !SeesReportsAboutStaff(held) && types.Any(IsReportFact);
+    }
+
+    /// <summary>
+    /// The Discord ids whose report facts these permissions must not see, for a read of facts in a
+    /// list: empty for somebody who holds Review tickets, or when none of <paramref name="types"/> is
+    /// a report fact. Pass the result to <see cref="WithoutReportsAbout"/>.
+    /// </summary>
+    public static async Task<IReadOnlyList<string>> HiddenSubjectsAsync(
+        ModbotContext db, ModbotPermissions held, IEnumerable<string> types, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        if (!MayHideAny(held, types))
+            return [];
+
+        return (await StaffDiscordIdsAsync(db, now, ct).ConfigureAwait(false)).ToList();
+    }
+
+    /// <summary>
+    /// Leaves out the report facts about the given accounts. A fact of any other type, and a report
+    /// fact about anybody else, stays. With no accounts it changes nothing.
+    /// </summary>
+    public static IQueryable<ModbotEvent> WithoutReportsAbout(this IQueryable<ModbotEvent> facts, IReadOnlyCollection<string> hidden)
+    {
+        ArgumentNullException.ThrowIfNull(facts);
+        ArgumentNullException.ThrowIfNull(hidden);
+
+        if (hidden.Count == 0)
+            return facts;
+
+        var reportTypes = new[] { FactType.MemberReportOpened, FactType.MemberReportClosed };
+        var accounts = hidden.ToList();
+
+        return facts.Where(e => !(reportTypes.Contains(e.Type)
+            && e.SubjectPlatform == FactPlatform.Discord
+            && accounts.Contains(e.SubjectId)));
+    }
+
+    /// <summary>
+    /// Whether one fact must be left out for these permissions, for a fact sent as it is written
+    /// (the event feed, webhooks, the live stream). The same rule as <see cref="WithoutReportsAbout"/>,
+    /// worked out at the moment of sending, so an account made staff since is followed. Only a report
+    /// fact for somebody without Review tickets looks anything up.
+    /// </summary>
+    public static async Task<bool> HidesAsync(
+        ModbotContext db, ModbotPermissions held, ModbotEvent fact, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(fact);
+
+        if (!IsReportFact(fact.Type) || SeesReportsAboutStaff(held) || fact.SubjectPlatform != FactPlatform.Discord)
+            return false;
+
+        return (await StaffDiscordIdsAsync(db, now, ct).ConfigureAwait(false)).Contains(fact.SubjectId);
+    }
 }

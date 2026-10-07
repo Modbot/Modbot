@@ -597,6 +597,23 @@ is as if it did not exist (404 on close). Everyone who can see reports sees who 
   actor's name. **Not the close note**, which may name the reporter.
 - Both are in the **operational** audit category, not the moderation timeline: "somebody reported this person" is
   not something a staff account's timeline should say to everyone who reads it.
+- **When the subject is a staff account** (the same counted Discord id as the page's rule, worked out when read or
+  sent, `MemberReportAccess.StaffDiscordIdsAsync`), the two facts are shown only to someone who holds **Review
+  tickets** as well as See the operational log (added 2026-10-07; before it, See the operational log alone showed
+  that a staff account was reported, never by whom). Administrator holds both. The category table cannot say this,
+  because it depends on who the fact is about, so `MemberReportAccess` carries the one rule in two forms and every
+  place facts are shown uses one of them:
+  - **a list** (`HiddenSubjectsAsync` and the `WithoutReportsAbout` query filter): the audit log page, one entry,
+    "around this", the coverage dates, the actor list, a person's timeline, the brief's and Chat's reads. All go
+    through `AuditQuery`, which asks for the staff ids once per read and only when the types asked for hold a report
+    fact and the caller lacks Review tickets. `AuditQuery` takes the caller's permissions for this; with none given it
+    hides, the strictest answer.
+  - **a fact sent as it is written** (`MemberReportAccess.HidesAsync`): the event WebSocket, event long poll,
+    webhooks (`EventVisibility.CanSeeAsync`) and the live stream (`LiveReader`, after `LiveScope.Wants`). It looks
+    nothing up for any other fact.
+  Other operational facts, and a report fact about anyone who is not a staff account, are unaffected. `GET
+  /api/events/types` and the audit filters still list the two types for someone with the operational log: the type is
+  theirs to see, some of its facts are not.
 - **No `modbot.discord.command` fact** for a run, a refusal or a switched-off run: its subject would be the reporter.
 - `INotifier` kind `modbot.report.new`, "Modbot: new report" / "Somebody reported a member.", link `/reports`,
   audience holders of See reports (for a staff subject, See reports and Review tickets), `SameAs` the kind (the kind
