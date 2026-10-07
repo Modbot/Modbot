@@ -99,6 +99,11 @@ export const NAV = [
   // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is
   // moderation history, not only membership (decided 2026-10-01). Making one is the page's own check.
   { id: 'lists', label: 'Lists', group: 'Community', needsAll: ['ViewMembers', 'ViewProfile'], words: ['segments', 'regulars', 'export'] },
+  // When the team is free each week: each person's own times, and everyone's together as a heatmap
+  // (availability design). Last under Community, with the pages opened less often. Either of its
+  // two permissions opens it, and which tabs there are is the page's own check: Enter availability
+  // is the Mine tab, See availability the Team tab.
+  { id: 'availability', label: 'Availability', group: 'Community', needsAny: ['EnterAvailability', 'ViewAvailability'], words: ['free', 'schedule', 'times', 'heatmap', 'hours'] },
   // The "Integrations" heading itself (2026-09-30): a card for each outside service Modbot is
   // connected to, its status, and a Set up button into the part of Settings where it is set up.
   // Not a row of its own: the heading is its link (`heads`, `sidebarRows`), and on a phone its tile
@@ -208,6 +213,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'marketing-failed': '',
   giveaways: 'p',
   lists: 'u',
+  availability: 'z',
   chat: 'c',
   bans: 'b',
   flags: 'f',

@@ -148,14 +148,14 @@ test('Reviews sits beside Flags, under the same heading', () => {
   assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
 })
 
-test('Community heads the pages from Requests to Lists, each of which names it', () => {
+test('Community heads the pages from Requests to Availability, each of which names it', () => {
   const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
   const community = shown.filter((n) => 'group' in n && n.group === 'Community')
   const first = shown.indexOf(community[0])
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -524,4 +524,48 @@ test('Integrations is offered by name in the palette, with no go-to letter', () 
   assert.ok(item && goesByName(item))
   assert.equal(GO_TO_KEYS.integrations, '')
   assert.ok(!listedPages(person('ManageSettings')).some((n) => n.id === 'integrations'))
+})
+
+test('Availability opens with either of its two permissions, and with neither it is not offered', () => {
+  assert.equal(mayOpen(person('EnterAvailability'), 'availability'), true)
+  assert.equal(mayOpen(person('ViewAvailability'), 'availability'), true)
+  assert.equal(mayOpen(person('EnterAvailability', 'ViewAvailability'), 'availability'), true)
+  assert.equal(mayOpen(person('ViewCalendar', 'ViewMembers', 'ViewProfile'), 'availability'), false)
+  assert.equal(mayOpen(person('Administrator'), 'availability'), true)
+
+  const item = NAV.find((n) => n.id === 'availability')
+  assert.ok(item)
+  assert.equal(offered(person('ViewAvailability'), item), true)
+  assert.equal(offered(person('ViewCalendar'), item), false)
+  assert.ok(!listedPages(person('ViewCalendar')).some((n) => n.id === 'availability'))
+})
+
+test('Availability is the last page under Community, labelled Availability, and goes by g z', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const community = shown.filter((n) => 'group' in n && n.group === 'Community')
+  const item = NAV.find((n) => n.id === 'availability')
+
+  assert.ok(item && 'group' in item && item.group === 'Community')
+  assert.equal(item.label, 'Availability')
+  assert.equal(community.at(-1)?.id, 'availability')
+  assert.equal(GO_TO_KEYS.availability, 'z')
+  assert.equal(Object.values(GO_TO_KEYS).filter((k) => k === 'z').length, 1)
+})
+
+test('somebody who may only enter their times still gets the Community heading and the page', () => {
+  const rows = sidebarRows(person('EnterAvailability'))
+
+  assert.deepEqual(
+    rows.map((r) => (r.kind === 'heading' ? r.label : r.item.id)),
+    ['now', 'Community', 'availability'],
+  )
+})
+
+test('the palette finds Availability by the words a moderator types', () => {
+  const item = NAV.find((n) => n.id === 'availability')
+
+  assert.ok(item)
+  assert.notEqual(matchRank('availability', item.label, otherWords(item)), null)
+  assert.notEqual(matchRank('free', item.label, otherWords(item)), null)
+  assert.notEqual(matchRank('heatmap', item.label, otherWords(item)), null)
 })
