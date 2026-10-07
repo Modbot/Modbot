@@ -28964,6 +28964,184 @@
         ]
       }
     },
+    "/api/availability/mine": {
+      "get": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Get my availability",
+        "description": "The signed-in person's own week: the time zone it is in and the hours they are free or free if needed. An hour that is not listed is not free. Days count from Monday as 0.\n\nNeeds the `EnterAvailability` permission.",
+        "operationId": "GetMyAvailability",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAvailabilityView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Save my availability",
+        "description": "Replaces the signed-in person's whole week with the hours sent: at most 168, one for each hour at most, each `free` or `ifNeeded`, with the IANA time zone they are in. Days count from Monday as 0, hours from 0 to 23 on the person's own clock. Only the caller's own week is ever changed.\n\nNeeds the `EnterAvailability` permission.",
+        "operationId": "SaveMyAvailability",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyAvailabilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyAvailabilityView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/availability": {
+      "get": {
+        "tags": [
+          "Availability"
+        ],
+        "summary": "Get the team's availability",
+        "description": "Everyone who may enter availability and whose account is neither disabled nor deleted: name, role names, the time zone their week is in and the hours they are free or free if needed, each on that person's own clock. Someone who has saved nothing has no zone and no hours.\n\nNeeds the `ViewAvailability` permission.",
+        "operationId": "GetTeamAvailability",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamAvailabilityView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/posts": {
       "get": {
         "tags": [
@@ -33471,6 +33649,27 @@
             "additionalProperties": {
               "type": "boolean"
             }
+          }
+        }
+      },
+      "AvailabilityCell": {
+        "required": [
+          "day",
+          "hour",
+          "state"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "state": {
+            "type": "string"
           }
         }
       },
@@ -47508,6 +47707,59 @@
           }
         }
       },
+      "MyAvailabilityRequest": {
+        "required": [
+          "timeZone",
+          "cells"
+        ],
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cells": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AvailabilityCell"
+            }
+          }
+        }
+      },
+      "MyAvailabilityView": {
+        "required": [
+          "timeZone",
+          "cells",
+          "savedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AvailabilityCell"
+            }
+          },
+          "savedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "NewMembersStayed": {
         "required": [
           "days",
@@ -53307,6 +53559,57 @@
           }
         }
       },
+      "TeamAvailabilityPerson": {
+        "required": [
+          "id",
+          "name",
+          "roles",
+          "timeZone",
+          "cells"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AvailabilityCell"
+            }
+          }
+        }
+      },
+      "TeamAvailabilityView": {
+        "required": [
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamAvailabilityPerson"
+            }
+          }
+        }
+      },
       "TeamMiddle": {
         "required": [
           "moderators",
@@ -56335,6 +56638,10 @@
     {
       "name": "Announcements",
       "x-displayName": "Announcements"
+    },
+    {
+      "name": "Availability",
+      "x-displayName": "Availability"
     },
     {
       "name": "Briefs",

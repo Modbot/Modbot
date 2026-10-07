@@ -44,6 +44,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 52, (long)ModbotPermissions.ViewPosts);
         Assert.Equal(1L << 53, (long)ModbotPermissions.ManagePosts);
         Assert.Equal(1L << 54, (long)ModbotPermissions.AnnounceInInstances);
+        Assert.Equal(1L << 55, (long)ModbotPermissions.EnterAvailability);
+        Assert.Equal(1L << 56, (long)ModbotPermissions.ViewAvailability);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -104,6 +106,19 @@ public class ModbotPermissionsTests
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewGiveaways));
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.RunGiveaways));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.RunGiveaways));
+    }
+
+    /// <summary>
+    /// A team's weekly habits are about named people, and entering them puts the person on the
+    /// team's list, so both are granted on purpose (availability design §3).
+    /// </summary>
+    [Fact]
+    public void TheAvailabilityPermissions_AreNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.EnterAvailability));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.EnterAvailability));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ViewAvailability));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewAvailability));
     }
 
     /// <summary>

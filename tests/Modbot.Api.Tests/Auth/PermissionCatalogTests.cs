@@ -49,6 +49,23 @@ public class PermissionCatalogTests
     }
 
     [Fact]
+    public void TheAvailabilityPermissionsAreDescribedUnderOneHeading_AndParse()
+    {
+        var enter = Assert.Single(PermissionCatalog.All, p => p.Name == nameof(ModbotPermissions.EnterAvailability));
+        var view = Assert.Single(PermissionCatalog.All, p => p.Name == nameof(ModbotPermissions.ViewAvailability));
+
+        Assert.Equal("Enter availability", enter.Label);
+        Assert.Equal("See availability", view.Label);
+        Assert.Equal("Availability", enter.Group);
+        Assert.Equal("Availability", view.Group);
+
+        var parsed = PermissionCatalog.Parse(["EnterAvailability", "ViewAvailability"], out var error);
+
+        Assert.Null(error);
+        Assert.Equal(ModbotPermissions.EnterAvailability | ModbotPermissions.ViewAvailability, parsed);
+    }
+
+    [Fact]
     public void NamesRoundTripThroughParse()
     {
         var held = ModbotPermissions.Ban | ModbotPermissions.EditAgeVerification | ModbotPermissions.ViewProfile;

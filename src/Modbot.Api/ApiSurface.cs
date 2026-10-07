@@ -638,6 +638,11 @@ public static class ApiSurface
         // name one among their rules.
         Features.Lists.ListEndpoints.MapLists(app);
 
+        // Availability: the hours of the week each person on the team is free, entered by each person
+        // for themselves, and the team's hours together (availability design). Modbot's own tables
+        // only; nothing here reaches VRChat or Discord.
+        Features.Availability.AvailabilityEndpoints.MapAvailability(app);
+
         // Posts on the Marketing tab, and its Settings topic (posts design). Sending happens in each
         // site's own loop; these store what a person decides, and edit or delete a post on a site.
         Features.Posts.PostEndpoints.MapPosts(app);

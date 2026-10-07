@@ -459,6 +459,28 @@ public enum ModbotPermissions : long
     /// </remarks>
     AnnounceInInstances = 1L << 54,
 
+    // --- Availability (availability design §3). Bits 55 and 56. ---
+
+    /// <summary>
+    /// Fill in your own weekly times: which hours of the week you are free, and in which time zone.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewAvailability"/>: a person who gives their
+    /// times is not automatically a person who may see everyone else's, and the other way round.
+    /// Holding this also puts the person on the team's list, so it is granted on purpose. Not in
+    /// the built-in roles; Administrator holds it.
+    /// </remarks>
+    EnterAvailability = 1L << 55,
+
+    /// <summary>
+    /// See when the team is free: the heatmap, the best times and who is in each hour.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="EnterAvailability"/> because a team's weekly habits are about named
+    /// people. Not in the built-in roles; Administrator holds it.
+    /// </remarks>
+    ViewAvailability = 1L << 56,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

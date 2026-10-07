@@ -259,6 +259,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<StaffDiscordCode> StaffDiscordCodes => Set<StaffDiscordCode>();
 
+    /// <summary>
+    /// The hours of the week each staff account is free or free if needed, in the account's own time
+    /// zone (availability design §4).
+    /// </summary>
+    public DbSet<StaffAvailability> StaffAvailabilities => Set<StaffAvailability>();
+
+    /// <summary>The time zone each account's <see cref="StaffAvailabilities"/> hours are in.</summary>
+    public DbSet<StaffAvailabilityZone> StaffAvailabilityZones => Set<StaffAvailabilityZone>();
+
     /// <summary>People's time at the join gate, open while they wait (join gate design §11).</summary>
     public DbSet<DiscordGateEntry> DiscordGateEntries => Set<DiscordGateEntry>();
 
@@ -2099,6 +2108,34 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // /verify finds a code by what was typed, and no two accounts may hold the same one.
             entity.HasIndex(e => e.Code).IsUnique();
+
+            entity.HasOne<ModbotUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StaffAvailability>(entity =>
+        {
+            entity.ToTable("staff_availability");
+
+            // One row per person per hour of the week: the key is the unique index.
+            entity.HasKey(e => new { e.UserId, e.Day, e.Hour });
+            entity.Property(e => e.State).HasMaxLength(16);
+
+            entity.HasOne<ModbotUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StaffAvailabilityZone>(entity =>
+        {
+            entity.ToTable("staff_availability_zone");
+
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).ValueGeneratedNever();
+            entity.Property(e => e.TimeZone).HasMaxLength(StaffAvailabilityRules.MaxZoneLength);
 
             entity.HasOne<ModbotUser>()
                 .WithMany()
