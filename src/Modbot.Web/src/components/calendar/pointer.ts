@@ -22,6 +22,8 @@ export type PointerSession = {
   onTap?: (at: PointerPoint) => void
   /** The browser took the pointer away (a scroll, a second finger): nothing is saved. */
   onCancel?: () => void
+  /** How long a finger is held before it picks something up, when this press wants a different wait. */
+  holdMs?: number
 }
 
 /**
@@ -119,7 +121,7 @@ export function beginPress(event: ReactPointerEvent, session: PointerSession): v
       holdTimer = null
       start()
       navigator.vibrate?.(10)
-    }, LONG_PRESS_MS)
+    }, session.holdMs ?? LONG_PRESS_MS)
   }
 }
 

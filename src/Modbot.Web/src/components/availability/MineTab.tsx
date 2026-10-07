@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Labelled, ZoneSelect } from '@/components/availability/Parts'
 import { cellAt, type GridCell } from '@/components/availability/cells'
+import { beginPaintStroke } from '@/components/availability/paintStroke'
+import { cellsBetween, PAINT_HOLD_MS, strokeAction, type Tool } from '@/components/availability/strokes'
 import { WeekGrid } from '@/components/availability/WeekGrid'
-import { beginPress } from '@/components/calendar/pointer'
+import { beginPress, type PointerPoint } from '@/components/calendar/pointer'
 import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,16 +19,19 @@ import {
   type AvailabilityCell,
   type AvailabilityState,
 } from '@/lib/availabilityZones'
+import { firstFingerMode, rememberFingerMode, useTouchInput, type FingerMode } from '@/lib/fingerMode'
 import { usePhoneLayout } from '@/lib/phoneLayout'
+import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
-
-type Tool = AvailabilityState | 'erase'
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
 const ALL_HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 
 /** Free is solid; if needed is striped, so the two differ by more than a colour. */
 const IF_NEEDED_STRIPES = 'repeating-linear-gradient(135deg, var(--warn) 0 2px, transparent 2px 6px)'
+
+/** The cell a hold has just picked up, lifted off the grid so the finger over it can be seen to have taken. */
+const LIFTED = 'z-10 scale-125 shadow-lg outline-2 outline-foreground transition-transform'
 
 function week(saved: MyAvailability): (AvailabilityState | null)[] {
   const cells: (AvailabilityState | null)[] = Array.from({ length: HOURS_IN_WEEK }, () => null)
@@ -47,9 +52,11 @@ function listed(cells: readonly (AvailabilityState | null)[]): AvailabilityCell[
  * in the zone they pick. Nothing is saved until Save is pressed. The hours are kept on the person's
  * own clock, so the grid is never converted here.
  *
- * A mouse paints by dragging. A finger taps a cell, or holds for a moment and then paints, because a
- * finger that moves straight away is scrolling the page (the same press the calendar uses). Pressing
- * a cell that already holds the chosen state clears it, and the rest of that stroke clears too.
+ * A mouse paints by dragging. A finger paints as soon as it moves while the Finger switch says Paint,
+ * and the grid does not scroll under it. On Scroll a finger taps a cell, or holds for a moment and
+ * then paints, because a finger that moves straight away is scrolling the page (the same press the
+ * calendar uses, with a shorter hold). Pressing a cell that already holds the chosen state clears
+ * it, and the rest of that stroke clears too.
  */
 export function MineTab() {
   const [saved, setSaved] = useState<MyAvailability | null>(null)
@@ -61,6 +68,9 @@ export function MineTab() {
   const [saving, setSaving] = useState(false)
   const [outcome, setOutcome] = useState<{ tone: 'ok' | 'problem'; text: string } | null>(null)
   const flipped = usePhoneLayout()
+  const touch = useTouchInput()
+  const [finger, setFinger] = useState<FingerMode>(firstFingerMode)
+  const [lifted, setLifted] = useState<GridCell | null>(null)
 
   // The week as the grid holds it, read synchronously by a stroke that paints many cells in a frame.
   const held = useRef(cells)
@@ -107,20 +117,45 @@ export function MineTab() {
   }
 
   // What pressing this cell does: paint the chosen state, or clear the cell when it already has it.
-  const actionAt = (cell: GridCell): AvailabilityState | null => {
-    const painting = tool === 'erase' ? null : tool
-    return painting !== null && held.current[cell.day * 24 + cell.hour] === painting ? null : painting
+  const actionAt = (cell: GridCell): AvailabilityState | null => strokeAction(tool, held.current[cell.day * 24 + cell.hour])
+
+  const chooseFinger = (mode: FingerMode) => {
+    setFinger(mode)
+    rememberFingerMode(mode)
   }
+
+  // A finger paints at once only on a touch screen that offers the switch, and only while it says Paint.
+  const fingerPaints = touch && finger === 'paint'
 
   const press = (event: ReactPointerEvent, first: GridCell) => {
     const action = actionAt(first)
+    const byTouch = event.pointerType === 'touch'
+
+    // Every cell between one sample and the next, so a fast move does not leave gaps in the stroke.
+    let last = first
+    const paintTo = (at: PointerPoint) => {
+      const cell = cellAt(at)
+      if (!cell) return
+      for (const between of cellsBetween(last, cell, flipped)) apply(between, action)
+      last = cell
+    }
+
+    if (byTouch && fingerPaints) {
+      apply(first, action)
+      beginPaintStroke(event, { onMove: paintTo })
+      return
+    }
+
     beginPress(event, {
+      holdMs: PAINT_HOLD_MS,
       onTap: () => apply(first, action),
-      onStart: () => apply(first, action),
-      onMove: (at) => {
-        const cell = cellAt(at)
-        if (cell) apply(cell, action)
+      onStart: () => {
+        apply(first, action)
+        if (byTouch) setLifted(first)
       },
+      onMove: paintTo,
+      onEnd: () => setLifted(null),
+      onCancel: () => setLifted(null),
     })
   }
 
@@ -176,13 +211,33 @@ export function MineTab() {
               ]}
             />
           </Labelled>
+
+          {touch ? (
+            <Labelled label="Finger">
+              <SwitchBank
+                label="Finger"
+                value={finger}
+                onChange={chooseFinger}
+                options={[
+                  { value: 'paint', label: 'Paint' },
+                  { value: 'scroll', label: 'Scroll' },
+                ]}
+              />
+            </Labelled>
+          ) : null}
         </div>
 
         <WeekGrid
           days={ALL_DAYS}
           hours={ALL_HOURS}
           flipped={flipped}
-          cellClass={(cell) => (stateAt(cell) === 'free' ? 'bg-primary' : stateAt(cell) === 'ifNeeded' ? 'bg-warn/30' : 'bg-muted')}
+          lockTouch={fingerPaints}
+          cellClass={(cell) =>
+            cn(
+              stateAt(cell) === 'free' ? 'bg-primary' : stateAt(cell) === 'ifNeeded' ? 'bg-warn/30' : 'bg-muted',
+              lifted?.day === cell.day && lifted.hour === cell.hour && LIFTED,
+            )
+          }
           cellStyle={(cell) => (stateAt(cell) === 'ifNeeded' ? { backgroundImage: IF_NEEDED_STRIPES } : undefined)}
           cellLabel={(cell) => {
             const state = stateAt(cell)

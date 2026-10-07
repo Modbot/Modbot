@@ -26,6 +26,7 @@ export function WeekGrid({
   onPress,
   onKey,
   onHover,
+  lockTouch = false,
 }: {
   days: readonly number[]
   hours: readonly number[]
@@ -43,6 +44,8 @@ export function WeekGrid({
   onKey?: (cell: GridCell) => void
   /** The mouse over a cell, and null when it leaves the grid. */
   onHover?: (cell: GridCell | null) => void
+  /** A finger on the grid does not scroll the page, so a press can paint as it moves. */
+  lockTouch?: boolean
 }) {
   const grid = useRef<HTMLDivElement>(null)
   const [focus, setFocus] = useState<GridCell>({ day: days[0] ?? 0, hour: hours[0] ?? 0 })
@@ -94,7 +97,10 @@ export function WeekGrid({
         role="grid"
         aria-label="Week"
         className={cn('grid w-full gap-0.5 select-none', !flipped && 'min-w-[34rem]')}
-        style={{ gridTemplateColumns: `${flipped ? '2.75rem' : '2.5rem'} repeat(${columnCount}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `${flipped ? '2.75rem' : '2.5rem'} repeat(${columnCount}, minmax(0, 1fr))`,
+          touchAction: lockTouch ? 'none' : undefined,
+        }}
         onMouseLeave={() => onHover?.(null)}
       >
         <div role="row" className="contents">
