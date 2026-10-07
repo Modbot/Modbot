@@ -272,7 +272,10 @@ public sealed partial class DiscordNetGateway
     /// of Discord's three.
     /// </remarks>
     public static bool AnswersInPlace(string buttonId)
-        => buttonId is { Length: > 0 } && Interactions.StaffMenus.IsStaffButton(buttonId);
+        => buttonId is { Length: > 0 }
+            && (Interactions.StaffMenus.IsStaffButton(buttonId)
+                || Commands.EventCommand.IsButton(buttonId)
+                || Commands.PostCommand.IsButton(buttonId));
 
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {

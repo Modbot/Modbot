@@ -56,6 +56,8 @@ public sealed class DiscordCommandHandler
     private readonly EventsCommand? _events;
     private readonly GateCommand? _gate;
     private readonly RemindMeCommand? _remind;
+    private readonly EventCommand? _event;
+    private readonly PostCommand? _post;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -69,7 +71,9 @@ public sealed class DiscordCommandHandler
         IStaffActions? staff = null,
         EventsCommand? events = null,
         GateCommand? gate = null,
-        RemindMeCommand? remind = null)
+        RemindMeCommand? remind = null,
+        EventCommand? eventCommand = null,
+        PostCommand? post = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -89,6 +93,8 @@ public sealed class DiscordCommandHandler
         _events = events;
         _gate = gate;
         _remind = remind;
+        _event = eventCommand;
+        _post = post;
     }
 
     /// <summary>
@@ -115,10 +121,17 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: false));
         }
 
-        return await HandleAsync(call, ct, gateway).ConfigureAwait(false);
+        return await HandleCoreAsync(call, ct, gateway).ConfigureAwait(false);
     }
 
+    /// <summary>The reply a command that opened a form gives to a caller who wanted a reply. Never seen in Discord.</summary>
+    public const string FormShownMessage = "Fill in the form.";
+
     public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct, IDiscordGateway? gateway = null)
+        => await HandleCoreAsync(call, ct, gateway).ConfigureAwait(false) ?? DiscordReply.Say(FormShownMessage);
+
+    /// <returns>The reply, or null when the command answered with a form (<c>/post new</c>).</returns>
+    private async Task<DiscordReply?> HandleCoreAsync(DiscordCommandCall call, CancellationToken ct, IDiscordGateway? gateway)
     {
         ArgumentNullException.ThrowIfNull(call);
 
@@ -171,7 +184,7 @@ public sealed class DiscordCommandHandler
             outcome = "no-vrchat";
             reply = DiscordReply.Say(Interactions.StaffInteractionHandler.NeedsVRChatMessage);
         }
-        else if (DiscordCommands.Requires(call.CommandName) is not { } required)
+        else if (DiscordCommands.RequiresFor(call.CommandName, call.Subcommand) is not { } required)
         {
             outcome = "unknown-command";
             reply = DiscordReply.Say("Modbot does not know that command.");
@@ -194,6 +207,26 @@ public sealed class DiscordCommandHandler
             var done = _gate is null
                 ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
                 : await _gate.RunAsync(call, user, gateway, ct).ConfigureAwait(false);
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
+        }
+        else if (call.CommandName == DiscordCommands.Event)
+        {
+            var done = _event is null
+                ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
+                : await _event.RunAsync(call, user, ct).ConfigureAwait(false);
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
+        }
+        else if (call.CommandName == DiscordCommands.Post)
+        {
+            var done = _post is null
+                ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
+                : await _post.RunAsync(call, user, ct).ConfigureAwait(false);
+
+            // A form is not a finished step, so it is not recorded: the form's own press is.
+            if (done is null)
+                return null;
 
             (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
         }
@@ -310,6 +343,20 @@ public sealed class DiscordCommandHandler
                    && await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.RemindMe, ct).ConfigureAwait(false)
                 ? await _remind.SuggestAsync(ask.Typed, ct).ConfigureAwait(false)
                 : [];
+        }
+
+        // The events and dates under /event are the calendar's, for Manage calendar (and See calendar,
+        // which the calendar service asks for itself).
+        if (ask.CommandName == DiscordCommands.Event)
+        {
+            if (_event is null)
+                return [];
+
+            var host = await AccountAsync(ask.DiscordUserId, ct).ConfigureAwait(false);
+
+            return host is null || !DiscordCommands.Allows(host.EffectivePermissions, ModbotPermissions.ManageCalendar)
+                ? []
+                : await _event.SuggestAsync(ask, host, ct).ConfigureAwait(false);
         }
 
         // The permission the command itself needs: /lookup user: for See profiles, and the vrchat
@@ -951,6 +998,10 @@ public sealed class DiscordCommandHandler
             ["command"] = call.CommandName,
             ["outcome"] = outcome,
         };
+
+        // Which step of a command with steps: /gate hold, /event cancel-date, /post list.
+        if (call.Subcommand is { Length: > 0 } step)
+            data["subcommand"] = step;
 
         if (target is not null)
             data["target"] = target;

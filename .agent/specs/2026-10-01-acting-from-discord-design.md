@@ -14,6 +14,8 @@
   (TASK-039) as step 0 of the Discord commands design: **Report this message** is gone (§8), the
   menus and the staff slash commands share one `StaffOnly` setting (§10), and the join gate's
   buttons are still acknowledged first (§11).
+- **Updated 2026-10-07,** with `/event` and `/post` (Discord commands design §3.3, §3.7 and §4, steps 7 and 8):
+  the calendar's Open now and cancel one date, and a Discord post written and listed from the command (§16).
 - **Updated 2026-10-07,** with `/gate` and `/events` (Discord commands design §3.2, §3.6 and §3.7, steps 4 and 5):
   the join gate from Discord, and a public list of the next events for members (§14).
 - **Updated 2026-10-07,** with `/ban` and `/kick` (Discord commands design §3.3, step 3): the same form,
@@ -464,3 +466,83 @@ the rows of the Discord account linked to it, counted in the purge fact as `even
 two direct messages through Discord to that member. Nothing goes to Modbot Cloud. Documented in `bot-setup.mdx` and
 `privacy.mdx`.
 
+## 16. `/event` and `/post` (added 2026-10-07)
+
+Discord commands design §3.3, §3.7, §4 and decision 7. Both are staff commands for **event hosts**: Discord shows
+them to members who may manage events (`DiscordShownTo.EventHosts`, Manage Events), and Modbot still checks the
+caller's account on every step. Both are on by default. They write the `modbot.discord.command` fact with `command`
+`event` or `post`, and now also `subcommand`, for every step: the command, the form, the question, the press.
+
+### `/event`
+
+| Step | Needs | What it does |
+|---|---|---|
+| `open event:` | Manage calendar, a VRChat link | `CalendarOpener.OpenNowAsync`, the code behind the calendar page's Open now. Refusals are worded once, in `CalendarOpenWords`, which the endpoint uses too: "Pick a managed group first.", "The event has no world.", "It is too early to open the instance.", "That event has already ended.", "The instance is already open.", "Checking whether VRChat opened the instance.", and for an event that is not there "That event does not exist." |
+| `cancel-date event: date: say-so:` | Manage calendar, a VRChat link | Asks "Cancel **Title** on &lt;t:…:f&gt;?" with **Cancel this date** (red) and **Keep it**; the press cancels the date. |
+
+- **One service for the cancels.** The rules and writes of "Cancel event" and "Cancel one date" were inside two
+  endpoint lambdas. They are now `CalendarCancellations` (Api); the endpoints call it and turn its result back into
+  the answers they have always given (204, 400, 404 or 409 with the same words), and `CalendarActionsForDiscord`
+  (the Api's implementation of the new Core `ICalendarActions`) calls it for the bot, because `Modbot.Discord`
+  reaches only Core. The date checks (`DateProblem`) and `MovedOn` moved with it and are shared with the "change one
+  date" endpoint. The facts, the rows, the version and the transaction are unchanged.
+- **Everything is checked before the question.** `PlanCancelDateAsync` makes every check the cancel makes (no such
+  event, already cancelled, a cancelled or ended event or date, a time the repeat has no date at, no channel for
+  say-so) and changes nothing, so a question is only asked about something that would be done. The question is held
+  in memory for 15 minutes (`PendingConfirmations`, the same rule as `PendingStaffActions`) and only the person who
+  asked may press it.
+- **The press checks again.** Account, enabled, VRChat link and Manage calendar, in that order, and that the command
+  is still switched on. The question is rewritten to "Cancelling…" first, so its buttons are gone at once.
+- **Acting once.** The first press runs the cancel; a second press, even a simultaneous one, gets the first answer
+  (`PendingConfirmations.RunOnceAsync`). If the question was lost to a restart, a second ask finds the date already
+  cancelled and the service answers "cancelled already" without a second `modbot.calendar.date.cancel` fact, which
+  is how the endpoint behaves too.
+- **A one-off event's only date is the whole event.** The endpoint refuses a date of an event that does not repeat
+  ("Only a repeating event has dates of its own."), because the page has a Cancel event button. A command has only
+  one verb, so for an event that does not repeat the bot cancels the event itself, by the Cancel event code, after the
+  same checks for a finished or ended event; the button says **Cancel the event**. The endpoint's refusal is
+  unchanged.
+- **Say so** is today's cancel behaviour: with `say-so` yes the calendar's Discord loop posts, once, that it is
+  cancelled in the event's channel (`CancelPostChannelId` on the date, a `cancel_post` place for an event). Event posts
+  of the Marketing tab are not on this branch.
+- **Suggestions.** `event` lists the upcoming scheduled or open events whose title holds what was typed, soonest
+  first, 25 at most, as "Title · Sat 10 Oct, 20:00 Europe/London" with the event's id as the value. `date` reads the
+  `event` already picked from the other options of the request (`DiscordSuggestionAsk.Options`) and lists that event's
+  next ten dates by the repeat, a moved date at its new time and marked "(moved)", a cancelled one left out; the value
+  is the planned start. Both need Manage calendar **and See calendar** (the page lists events only with See
+  calendar), a VRChat link and an enabled account; anybody else gets an empty list. They are not recorded.
+
+### `/post`
+
+| Step | Needs | What it does |
+|---|---|---|
+| `new channel:` | Manage posts, a VRChat link | Opens a form (Title, Text), then a private preview with **Post now** and **Cancel**. |
+| `list` | See posts | The next 10 posts waiting to go out, soonest first, then the failed posts, each with its time and where it goes. |
+
+- **The Marketing tab's own code, and nothing sent from here.** `PostActionsForDiscord` (the Api's implementation of
+  the new Core `IPostActions`) builds the same request the composer would for Discord alone, due now, and checks it
+  with `PostRequests.CheckAsync`, the code the preview and Schedule use. The preview is the check's own
+  `PostTexts.Discord(title, text, role)`, which is what `PostDiscordSender` builds from the saved row
+  (`PostTexts.Discord(post, destination)`), so what is previewed is what is sent. **Post now** saves the post
+  with `PostRequests.Apply`, due now, with the `modbot.post.create` fact; the Discord sender's loop claims it,
+  tries once with the library's retries off and looks in the channel when Discord gave no clear answer, so
+  at-most-once is the post row's, as for any post. The command never calls Discord itself.
+- **One confirmation, one row.** The post's id is made from the confirmation's key (`discord:<token>`), so a second
+  press, or a press after a restart that somehow kept the key, finds the row and saves nothing.
+- **A post that could not go is not saved.** Pause all posting, the Discord posts switch off, or Discord not set up
+  would leave the row waiting where the person is not looking, so the preview refuses with the reason in one
+  sentence. A channel that is not a text or announcement channel, a text over Discord's limit, and every other check
+  the composer makes are refused the same way, all at once.
+- **The permission is checked at the command, at the form and at the press**, and again in `IPostActions`.
+  `/post list` needs See posts only; `/post new` needs Manage posts, which in the web app is a flag apart from See
+  posts, so holding only one of them still shows `/post` in `/help`.
+- **The reply after Post now** is "Posting to #channel." and not "Posted.": the sender takes the row within about
+  twenty seconds, and a reply must not say a message is in the channel before it is.
+- **Only Discord.** VRChat and Bluesky destinations are the composer's. They need no change here.
+
+### Facts
+
+For both: `modbot.discord.command` with `outcome` `answered`, `asked` (the question or the preview was shown),
+`done`, `repeat`, `refused`, `invalid`, `error`, `off`, `no-permission`, `no-vrchat`, `not-linked` or `disabled`.
+`/event` also leaves the calendar's facts (`modbot.calendar.date.cancel` or `modbot.calendar.event.cancel`, and the opener's own)
+under the Modbot account; `/post new` leaves `modbot.post.create`. A form being opened is not recorded.

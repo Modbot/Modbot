@@ -59,6 +59,8 @@ public static class DiscordCommandSwitches
         new("ban", OnByDefault: true),
         new("kick", OnByDefault: true),
         new("gate", OnByDefault: true),
+        new("event", OnByDefault: true),
+        new("post", OnByDefault: true),
         new("events", OnByDefault: false),
         new("remindme", OnByDefault: false),
         new("Look up in Modbot", OnByDefault: true, Menu: true),

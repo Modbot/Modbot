@@ -143,6 +143,14 @@ public static class ApiSurface
         // services, built as the endpoints build them (acting from Discord design §5).
         services.AddScoped<IStaffActions, Features.Moderation.StaffActionsForDiscord>();
 
+        // Cancelling an event or one date: the endpoints' rules and writes, in one service the
+        // endpoints and /event in Discord both call (Discord commands design §3.7, step 7).
+        services.AddScoped<Features.Calendar.CalendarCancellations>();
+        services.AddScoped<Core.Calendar.ICalendarActions, Features.Calendar.CalendarActionsForDiscord>();
+
+        // What /post does: the Marketing tab's own checks and rows (Discord commands design §3.7, step 8).
+        services.AddScoped<Core.Posts.IPostActions, Features.Posts.PostActionsForDiscord>();
+
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
         // and an undecided DemoMode is never on -- so the fallback cannot serve anybody as an

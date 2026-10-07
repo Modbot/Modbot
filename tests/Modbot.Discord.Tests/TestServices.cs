@@ -56,6 +56,12 @@ public sealed class TestServices : IAsyncDisposable
     /// <summary>What the staff menus, buttons and forms asked the API's services to do.</summary>
     public FakeStaffActions Staff { get; private init; } = new();
 
+    /// <summary>What <c>/event</c> asked the API's calendar code to do.</summary>
+    public FakeCalendarActions Calendar { get; private init; } = new();
+
+    /// <summary>What <c>/post</c> asked the API's post code to do.</summary>
+    public FakePostActions Posts { get; private init; } = new();
+
     public static async Task<TestServices> CreateAsync(PostgresFixture fixture, CancellationToken ct)
     {
         var database = await IsolatedDatabase.CreateAsync(fixture, ct);
@@ -65,9 +71,17 @@ public sealed class TestServices : IAsyncDisposable
         var checker = new RecordingChecker();
         var vrchat = new FakeVRChatActions();
         var staff = new FakeStaffActions();
+        var calendar = new FakeCalendarActions();
+        var posts = new FakePostActions();
 
         var services = new ServiceCollection();
         services.AddSingleton<Modbot.Core.Discord.IStaffActions>(staff);
+        services.AddSingleton<Modbot.Core.Calendar.ICalendarActions>(calendar);
+        services.AddSingleton<Modbot.Core.Posts.IPostActions>(posts);
+        services.AddSingleton<Modbot.Discord.Interactions.PendingConfirmations<PendingDateCancel, Modbot.Core.Calendar.CalendarCancelAnswer>>();
+        services.AddSingleton<Modbot.Discord.Interactions.PendingConfirmations<PendingPost, Modbot.Core.Posts.PostNowAnswer>>();
+        services.AddScoped<EventCommand>();
+        services.AddScoped<PostCommand>();
         services.AddSingleton<Modbot.Discord.Interactions.PendingStaffActions>();
         services.AddScoped<Modbot.Discord.Interactions.StaffInteractionHandler>();
         services.AddDbContext<ModbotContext>(o => o.UseNpgsql(database.ConnectionString));
@@ -122,7 +136,12 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Discord.Sync.ListRoleSync>();
 
         var provider = services.BuildServiceProvider();
-        var built = new TestServices(database, provider, clock, status, checker, vrchat) { Staff = staff };
+        var built = new TestServices(database, provider, clock, status, checker, vrchat)
+        {
+            Staff = staff,
+            Calendar = calendar,
+            Posts = posts,
+        };
 
         // Facts in these tests all fall around the fake clock's month.
         using var scope = provider.CreateScope();

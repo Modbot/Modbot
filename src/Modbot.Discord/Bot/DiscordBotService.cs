@@ -1032,6 +1032,29 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /event's question and /post's preview (Discord commands design §3.3, steps 7 and 8).
+            if (EventCommand.IsButton(press.ButtonId))
+            {
+                var eventAnswer = await scope.ServiceProvider.GetRequiredService<EventCommand>()
+                    .HandleButtonAsync(press, CancellationToken.None).ConfigureAwait(false);
+
+                if (eventAnswer is not null)
+                    await press.ReplyAsync(eventAnswer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
+            if (PostCommand.IsButton(press.ButtonId))
+            {
+                var postAnswer = await scope.ServiceProvider.GetRequiredService<PostCommand>()
+                    .HandleButtonAsync(press, CancellationToken.None).ConfigureAwait(false);
+
+                if (postAnswer is not null)
+                    await press.ReplyAsync(postAnswer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             // The staff buttons under cards, lookups and confirmations; everything else is /me's.
             if (StaffMenus.IsStaffButton(press.ButtonId))
             {
@@ -1103,6 +1126,16 @@ public sealed class DiscordBotService : BackgroundService
         try
         {
             using var scope = _scopes.CreateScope();
+
+            // /post new's form; every other form is the staff handler's.
+            if (PostCommand.IsForm(submit.FormId))
+            {
+                var written = await scope.ServiceProvider.GetRequiredService<PostCommand>()
+                    .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
+                await submit.ReplyAsync(written, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
             var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
             var reply = await staff.HandleFormAsync(submit, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
             await submit.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);

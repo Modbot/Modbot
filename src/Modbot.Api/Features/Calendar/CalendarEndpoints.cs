@@ -364,15 +364,11 @@ public static class CalendarEndpoints
 
                 var result = await opener.OpenNowAsync(id, actor, ct);
 
+                // The words are shared with /event open in Discord (CalendarOpenWords).
                 var refusal = result.Outcome switch
                 {
                     CalendarOpenNowOutcome.NoSuchEvent => Results.NotFound(),
-                    CalendarOpenNowOutcome.NotConfigured => Results.Conflict(new { error = "Pick a managed group first." }),
-                    CalendarOpenNowOutcome.NoWorld => Results.Conflict(new { error = "The event has no world." }),
-                    CalendarOpenNowOutcome.TooEarly => Results.Conflict(new { error = "It is too early to open the instance." }),
-                    CalendarOpenNowOutcome.Over => Results.Conflict(new { error = "That event has already ended." }),
-                    CalendarOpenNowOutcome.AlreadyOpen => Results.Conflict(new { error = "The instance is already open." }),
-                    CalendarOpenNowOutcome.Checking => Results.Conflict(new { error = "Checking whether VRChat opened the instance." }),
+                    var outcome when CalendarOpenWords.Refusal(outcome) is { } words => Results.Conflict(new { error = words }),
                     _ => null,
                 };
 
@@ -402,55 +398,12 @@ public static class CalendarEndpoints
                 HttpContext http,
                 [FromRoute] Guid id,
                 [FromBody] CalendarCancelRequest? body,
-                [FromServices] ModbotContext db,
-                [FromServices] AccountFacts facts,
-                [FromServices] IModbotClock clock,
+                [FromServices] CalendarCancellations cancellations,
                 CancellationToken ct) =>
             {
-                var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
-                if (calendarEvent is null)
-                    return Results.NotFound();
-
-                // Already cancelled: nothing changes, and a second cancel post is never made.
-                if (calendarEvent.State == CalendarEventStates.Cancelled)
-                    return Results.NoContent();
-
-                var post = body?.PostInChannel ?? false;
-                var channelId = calendarEvent.ChannelId?.Trim();
-
-                if (post && string.IsNullOrEmpty(channelId))
-                    return Results.BadRequest(new { error = "The event has no channel to post in." });
-
-                var now = clock.UtcNow;
-                var occurrence = calendarEvent.OccurrenceStartsAt ?? calendarEvent.StartsAt;
-                calendarEvent.State = CalendarEventStates.Cancelled;
-                calendarEvent.CancelledAt = now;
-                calendarEvent.UpdatedAt = now;
-                calendarEvent.Version++;
-
-                // The calendar's Discord loop posts it, once, and marks the row published.
-                if (post && await db.CalendarEventPlaces.AllAsync(
-                        p => p.EventId != calendarEvent.Id || p.Place != CalendarPlaces.CancelPost, ct))
-                {
-                    db.CalendarEventPlaces.Add(new CalendarEventPlace
-                    {
-                        EventId = calendarEvent.Id,
-                        Place = CalendarPlaces.CancelPost,
-                        State = CalendarPlaceStates.Waiting,
-                        ChannelId = channelId,
-                        OccurrenceStartsAt = occurrence,
-                        UpdatedAt = now,
-                    });
-                }
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
-                await db.SaveChangesAsync(ct);
-                await facts.RecordAsync(
-                    FactType.PlannedEventCancelled, calendarEvent.Id.ToString(), Actor.Of(http),
-                    new JsonObject { ["title"] = calendarEvent.Title, ["postInChannel"] = post }, ct);
-                await transaction.CommitAsync(ct);
-
-                return Results.NoContent();
+                // The rules and the writes are CalendarCancellations', which /event in Discord calls too.
+                var result = await cancellations.CancelEventAsync(id, body?.PostInChannel ?? false, Actor.Of(http), ct);
+                return CancelAnswer(result);
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CancelCalendarEvent")
@@ -531,7 +484,7 @@ public static class CalendarEndpoints
 
                 var after = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
 
-                MovedOn(calendarEvent, now);
+                CalendarCancellations.MovedOn(calendarEvent, now);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
                 await db.SaveChangesAsync(ct);
@@ -571,77 +524,13 @@ public static class CalendarEndpoints
                 HttpContext http,
                 [FromRoute] Guid id,
                 [FromBody] CalendarDateCancelRequest body,
-                [FromServices] ModbotContext db,
-                [FromServices] AccountFacts facts,
-                [FromServices] IModbotClock clock,
+                [FromServices] CalendarCancellations cancellations,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                var calendarEvent = await db.CalendarEvents.FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
-                if (calendarEvent is null)
-                    return Results.NotFound();
-
-                var now = clock.UtcNow;
-                var planned = body.PlannedStartsAt;
-                var change = calendarEvent.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == planned);
-
-                if (change is { Cancelled: true })
-                    return Results.NoContent();
-
-                if (DateProblem(calendarEvent, planned, now) is { } problem)
-                    return problem;
-
-                var was = CalendarRepeat.ForDate(calendarEvent, planned)!.Value;
-                var channelId = calendarEvent.ChannelId?.Trim();
-
-                if (body.PostInChannel && string.IsNullOrEmpty(channelId))
-                    return Results.BadRequest(new { error = "The event has no channel to post in." });
-
-                if (change is null)
-                {
-                    change = new CalendarDateChange
-                    {
-                        Id = Guid.CreateVersion7(),
-                        EventId = calendarEvent.Id,
-                        PlannedStartsAt = planned,
-                        CreatedAt = now,
-                    };
-
-                    calendarEvent.DateChanges.Add(change);
-                }
-
-                // The calendar's Discord loop posts it, once (calendar design §14.4).
-                if (body.PostInChannel)
-                    change.CancelPostChannelId = channelId;
-
-                // The times it was moved to are kept: VRChat may have the date there, and taking it
-                // off VRChat's calendar has to find it.
-                change.Cancelled = true;
-                change.UpdatedAt = now;
-
-                MovedOn(calendarEvent, now);
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
-                await db.SaveChangesAsync(ct);
-
-                await facts.RecordAsync(
-                    FactType.PlannedDateCancelled,
-                    calendarEvent.Id.ToString(),
-                    Actor.Of(http),
-                    new JsonObject
-                    {
-                        ["title"] = calendarEvent.Title,
-                        ["date"] = planned.ToString("O", CultureInfo.InvariantCulture),
-                        ["startsAt"] = was.StartsAt.ToString("O", CultureInfo.InvariantCulture),
-                        ["endsAt"] = was.EndsAt.ToString("O", CultureInfo.InvariantCulture),
-                        ["postInChannel"] = body.PostInChannel,
-                    },
-                    ct);
-
-                await transaction.CommitAsync(ct);
-
-                return Results.NoContent();
+                var result = await cancellations.CancelDateAsync(id, body.PlannedStartsAt, body.PostInChannel, Actor.Of(http), ct);
+                return CancelAnswer(result);
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CancelCalendarDate")
@@ -1632,25 +1521,20 @@ public static class CalendarEndpoints
             : null;
 
     /// <summary>Why one date of this event cannot be cancelled or changed now, or null when it can.</summary>
-    private static IResult? DateProblem(CalendarEvent calendarEvent, DateTimeOffset planned, DateTimeOffset now)
+    private static IResult? DateProblem(CalendarEvent calendarEvent, DateTimeOffset planned, DateTimeOffset now) =>
+        CalendarCancellations.DateProblem(calendarEvent, planned, now) is { } problem ? Refusal(problem.Status, problem.Error) : null;
+
+    /// <summary>A cancel's result as the endpoints have always answered it: 204, 404, or 400 or 409 with the words.</summary>
+    private static IResult CancelAnswer(CalendarCancelResult result) => result.Status switch
     {
-        if (calendarEvent.State == CalendarEventStates.Cancelled)
-            return Results.Conflict(new { error = "A cancelled event cannot be changed." });
+        CalendarCancelStatus.Done or CalendarCancelStatus.AlreadyCancelled => Results.NoContent(),
+        CalendarCancelStatus.NotFound => Results.NotFound(),
+        _ => Refusal(result.HttpStatus, result.Error ?? string.Empty),
+    };
 
-        if (calendarEvent.State == CalendarEventStates.Finished)
-            return Results.Conflict(new { error = "That event has already ended." });
-
-        if (calendarEvent.Repeat == CalendarRepeats.None)
-            return Results.BadRequest(new { error = "Only a repeating event has dates of its own." });
-
-        if (!CalendarRepeat.IsPlannedDate(calendarEvent, planned))
-            return Results.BadRequest(new { error = "That event has no date then." });
-
-        if (CalendarRepeat.ForDate(calendarEvent, planned) is { } date && date.EndsAt <= now)
-            return Results.Conflict(new { error = "That date has already ended." });
-
-        return null;
-    }
+    private static IResult Refusal(int status, string error) => status == StatusCodes.Status409Conflict
+        ? Results.Conflict(new { error })
+        : Results.BadRequest(new { error });
 
     /// <summary>Checks a change to one date. Returns what is wrong, or null.</summary>
     private static string? ApplyDate(CalendarDateRequest body, CalendarEvent calendarEvent, CalendarOccurrence was, DateTimeOffset now)
@@ -1727,22 +1611,6 @@ public static class CalendarEndpoints
     {
         var trimmed = text?.Trim();
         return string.IsNullOrEmpty(trimmed) || string.Equals(trimmed, eventText, StringComparison.Ordinal) ? null : trimmed;
-    }
-
-    /// <summary>
-    /// After one date changed: the event is a newer version, and the date it is dealing with is
-    /// worked out again -- a cancelled one is skipped, a moved one opens at its new time.
-    /// </summary>
-    private static void MovedOn(CalendarEvent calendarEvent, DateTimeOffset now)
-    {
-        calendarEvent.Version++;
-        calendarEvent.UpdatedAt = now;
-
-        if (!CalendarEventStates.IsLive(calendarEvent.State))
-            return;
-
-        calendarEvent.OccurrenceStartsAt = null;
-        CalendarTimeline.Advance(calendarEvent, now);
     }
 
     private static JsonObject DateFields(CalendarEvent calendarEvent, CalendarOccurrence date) => new()

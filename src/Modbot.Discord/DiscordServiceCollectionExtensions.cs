@@ -152,6 +152,13 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
         services.AddScoped<RemindMeCommand>();
         services.AddScoped<Calendar.EventReminderMessages>();
+
+        // /event and /post: the calendar's and the Marketing tab's own code, which the API
+        // implements (ICalendarActions, IPostActions), and the questions waiting on a press.
+        services.TryAddSingleton<Interactions.PendingConfirmations<PendingDateCancel, Modbot.Core.Calendar.CalendarCancelAnswer>>();
+        services.TryAddSingleton<Interactions.PendingConfirmations<PendingPost, Modbot.Core.Posts.PostNowAnswer>>();
+        services.AddScoped<EventCommand>();
+        services.AddScoped<PostCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

@@ -24,6 +24,10 @@ namespace Modbot.Discord.Commands;
 /// turns it on, sends the member one direct message before an event they pick, and offers only the
 /// events <see cref="Events"/> would show (Discord commands design §3.5).
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
+/// <see cref="Event"/> and <see cref="Post"/> are for event hosts: Discord shows them to members who
+/// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
+/// <c>/event</c>, Manage posts for <c>/post new</c> and See posts for <c>/post list</c>
+/// (<see cref="RequiresFor"/>).
 /// <see cref="Verify"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
 /// not hold Timeout Members, and it tells nobody anything without a right code.
@@ -66,6 +70,8 @@ public static class DiscordCommands
     public const string Gate = "gate";
     public const string Events = "events";
     public const string RemindMe = "remindme";
+    public const string Event = "event";
+    public const string Post = "post";
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -127,6 +133,29 @@ public static class DiscordCommands
 
     /// <summary>How many people <c>/gate waiting</c> lists, each with a button to let them in.</summary>
     public const int GateWaitingMost = 10;
+
+    /// <summary>The steps under <c>/event</c>.</summary>
+    public const string EventOpen = "open";
+    public const string EventCancelDate = "cancel-date";
+
+    /// <summary>
+    /// The event <c>/event</c> is about: an upcoming event picked from the suggestions, carried by its
+    /// id.
+    /// </summary>
+    public const string EventOption = "event";
+
+    /// <summary>The date of the event <c>/event cancel-date</c> cancels, picked from the suggestions.</summary>
+    public const string EventDateOption = "date";
+
+    /// <summary>Also say, in the event's channel, that the date is cancelled.</summary>
+    public const string EventSayOption = "say-so";
+
+    /// <summary>The steps under <c>/post</c>.</summary>
+    public const string PostNew = "new";
+    public const string PostList = "list";
+
+    /// <summary>The Discord channel <c>/post new</c> posts in, picked from Discord's own list.</summary>
+    public const string PostChannelOption = "channel";
 
     /// <summary>The yes/no option that makes <c>/events</c> answer in private.</summary>
     public const string EventsPrivateOption = "private";
@@ -262,6 +291,39 @@ public static class DiscordCommands
                 new DiscordSubcommand(GateLift, "Lift the hold", []),
             ]),
         new(
+            Event,
+            "Calendar events",
+            [],
+            ShownTo: DiscordShownTo.EventHosts,
+            Subcommands:
+            [
+                new DiscordSubcommand(
+                    EventOpen,
+                    "Open the instance now",
+                    [new DiscordCommandOption(EventOption, "Which event", DiscordOptionKind.Text, Required: true, Suggests: true)]),
+                new DiscordSubcommand(
+                    EventCancelDate,
+                    "Cancel one date",
+                    [
+                        new DiscordCommandOption(EventOption, "Which event", DiscordOptionKind.Text, Required: true, Suggests: true),
+                        new DiscordCommandOption(EventDateOption, "Which date", DiscordOptionKind.Text, Required: true, Suggests: true),
+                        new DiscordCommandOption(EventSayOption, "Say so in the event's channel", DiscordOptionKind.YesNo, Required: false),
+                    ]),
+            ]),
+        new(
+            Post,
+            "Posts",
+            [],
+            ShownTo: DiscordShownTo.EventHosts,
+            Subcommands:
+            [
+                new DiscordSubcommand(
+                    PostNew,
+                    "Write a post now",
+                    [new DiscordCommandOption(PostChannelOption, "Where to post", DiscordOptionKind.Channel, Required: true)]),
+                new DiscordSubcommand(PostList, "Posts waiting to go out", []),
+            ]),
+        new(
             Events,
             "Upcoming events, in your time zone",
             [new DiscordCommandOption(EventsPrivateOption, "Only show me", DiscordOptionKind.YesNo, Required: false)],
@@ -341,8 +403,22 @@ public static class DiscordCommands
         Ban => ModbotPermissions.Ban,
         Kick => ModbotPermissions.Kick,
         Gate => ModbotPermissions.ManageJoinGate,
+        Event => ModbotPermissions.ManageCalendar,
+
+        // The lowest a step of /post needs: reading the list. RequiresFor names the step's own.
+        Post => ModbotPermissions.ViewPosts,
         _ => null,
     };
+
+    /// <summary>
+    /// The permission one step of a command needs. The same as <see cref="Requires"/> for a command
+    /// that asks one thing of every step; <c>/post new</c> writes a post, which the web app asks
+    /// Manage posts for, while <c>/post list</c> only reads them (See posts).
+    /// </summary>
+    public static ModbotPermissions? RequiresFor(string command, string? subcommand)
+        => command == Post && subcommand == PostNew
+            ? ModbotPermissions.ManagePosts
+            : Requires(command);
 
     /// <summary>
     /// The permission a command needs on the other platform, when it acts on both: <c>/ban</c> on
@@ -364,17 +440,20 @@ public static class DiscordCommands
     public static bool CanUse(string command, ModbotPermissions held)
         => Requires(command) is { } required
             && (Allows(held, required)
-                || (RequiresOnDiscord(command) is { } onDiscord && Allows(held, onDiscord)));
+                || (RequiresOnDiscord(command) is { } onDiscord && Allows(held, onDiscord))
+                || (command == Post && Allows(held, ModbotPermissions.ManagePosts)));
 
     /// <summary>
     /// Commands that write something. The web app refuses every request from an account with no
     /// VRChat link, so these do too (acting from Discord design §3). <c>/gate waiting</c> only
-    /// reads; the other steps of <c>/gate</c> write. Asked without a step, <c>/gate</c> counts as
-    /// writing, which is the safe way for a list of what somebody may use.
+    /// reads; the other steps of <c>/gate</c> write. <c>/post list</c> only reads; <c>/post new</c>
+    /// writes. Both steps of <c>/event</c> write. Asked without a step, <c>/gate</c> and
+    /// <c>/post</c> count as writing, which is the safe way for a list of what somebody may use.
     /// </summary>
     public static bool Writes(string command, string? subcommand = null)
-        => command is Note or Watch or Ban or Kick
-            || (command == Gate && subcommand != GateWaiting);
+        => command is Note or Watch or Ban or Kick or Event
+            || (command == Gate && subcommand != GateWaiting)
+            || (command == Post && subcommand != PostList);
 
     /// <summary>The permission's label as the web app's role editor shows it.</summary>
     public static string Label(ModbotPermissions permission) => permission switch
@@ -389,6 +468,10 @@ public static class DiscordCommands
         ModbotPermissions.DiscordKick => "Remove from Discord",
         ModbotPermissions.ManageJoinGate => "Manage the join gate",
         ModbotPermissions.ViewMembers => "See members",
+        ModbotPermissions.ManageCalendar => "Manage calendar",
+        ModbotPermissions.ViewCalendar => "See calendar",
+        ModbotPermissions.ManagePosts => "Manage posts",
+        ModbotPermissions.ViewPosts => "See posts",
         ModbotPermissions.AnswerJoinRequests => "Answer join requests",
         _ => permission.ToString(),
     };

@@ -944,7 +944,7 @@ public static class PostEndpoints
                 || d.State == PostDestinationStates.Checking)),
     };
 
-    private static IQueryable<Post> Ordered(IQueryable<Post> posts, string list) => list switch
+    internal static IQueryable<Post> Ordered(IQueryable<Post> posts, string list) => list switch
     {
         PostLists.Scheduled => posts.OrderBy(p => p.SendAt).ThenBy(p => p.CreatedAt),
         PostLists.Sent => posts.OrderByDescending(p => p.SendAt).ThenByDescending(p => p.CreatedAt),
