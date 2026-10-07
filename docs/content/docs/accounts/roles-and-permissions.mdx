@@ -25,8 +25,8 @@ Each role is a card showing its name, its one-line description, how many permiss
 how many people hold it. Click a card to open it:
 
 - **Name** and **One line about it** (the description).
-- A checklist of every permission, grouped under **Reading**, **Evidence**, **Moderation** and
-  **Administration**. Each has a short label and a line saying what it covers.
+- A checklist of every permission, grouped under **Reading**, **Evidence**, **Moderation**,
+  **Availability** and **Administration**. Each has a short label and a line saying what it covers.
 - **Save changes**, and for roles you made yourself, **Delete role** — press it again, in red, to
   confirm, or **Cancel** to back out.
 
@@ -57,7 +57,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
-day-to-day moderation: **See live instances**, **See calendar**, **See giveaways**, **Use AI chat**, **Read Discord
+day-to-day moderation: **See live instances**, **See calendar**, **See giveaways**, **See availability**, **Enter availability**, **Use AI chat**, **Read Discord
 messages**, **Manage Discord links**, **Write notes**, and the evidence and administration permissions not listed above. Grant them on
 purpose, to a role of your own or by editing a built-in one.
 
@@ -577,6 +577,23 @@ in that instance, now or at a time, and **Cancel** calls off one not sent yet. S
 [Instance announcements](/moderation/announcements). Needs **See live instances** as well. Modbot's
 VRChat account needs **Create Instance Announcement** in the group's roles on VRChat. Not in the
 built-in Moderator or Viewer roles.
+
+### See availability
+
+Name: `ViewAvailability`
+
+Open the [**Availability**](/moderation/availability) page's **Team** tab: the heatmap of when the
+team is free, who is free in each hour, and the best times. Shows everyone who holds **Enter
+availability**, by name, with their roles. Not in the built-in Moderator or Viewer roles.
+
+### Enter availability
+
+Name: `EnterAvailability`
+
+Open the [**Availability**](/moderation/availability) page's **Mine** tab and fill in your own week
+of free hours, in your own time zone. Holding it also puts you on the team's list for anybody with
+**See availability**. It reaches your own times only, never anyone else's. Not in the built-in
+Moderator or Viewer roles.
 
 ### Run giveaways
 
