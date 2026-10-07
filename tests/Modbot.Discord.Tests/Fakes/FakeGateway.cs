@@ -52,9 +52,15 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Set to make every role change fail with this sentence.</summary>
     public string? RoleError { get; set; }
 
+    /// <summary>Set to make the next direct messages blow up, as a crash would, before anything is recorded.</summary>
+    public Exception? DirectMessageCrash { get; set; }
+
     public Task<DiscordPostOutcome> SendDirectMessageAsync(
         string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
     {
+        if (DirectMessageCrash is not null)
+            throw DirectMessageCrash;
+
         if (DirectMessagesClosed)
         {
             return Task.FromResult(new DiscordPostOutcome(

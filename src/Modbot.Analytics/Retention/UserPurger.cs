@@ -63,6 +63,7 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// the weight (giveaways design §6.3).
 /// </param>
 /// <param name="EventInvitesDeleted">Rows on events' invite queues (calendar auto-invite design §8).</param>
+/// <param name="EventRemindersDeleted">Reminders they asked for with <c>/remindme</c>, whatever their state (Discord commands design §3.5).</param>
 public sealed record PurgeResult(
     int FactsDeleted,
     int CountedDailyTotalsDeleted,
@@ -70,7 +71,8 @@ public sealed record PurgeResult(
     int MessagesDeleted = 0,
     int GiveawayEntriesDeleted = 0,
     int GiveawayEntrantsBlanked = 0,
-    int EventInvitesDeleted = 0);
+    int EventInvitesDeleted = 0,
+    int EventRemindersDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -250,6 +252,21 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // The reminders they asked for with /remindme name their Discord account (Discord commands
+            // design §3.5): waiting, sent and stopped alike. For a VRChat account, the Discord account
+            // linked to it now, since that is who the reminders were for.
+            var remindersDeleted = await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM event_reminder WHERE discord_user_id = @subject"
+                    : """
+                      DELETE FROM event_reminder
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // Which Discord roles a list gave them names them too (roles from lists design §8).
             // Without the row Modbot no longer knows it gave the role, so it never takes it away:
             // the role stays in Discord until somebody removes it there.
@@ -273,7 +290,7 @@ public sealed class UserPurger : IUserPurger
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
             var result = new PurgeResult(
-                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted);
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted);
 
             await RecordAsync(platform, actor, result, ct);
 
@@ -400,6 +417,7 @@ public sealed class UserPurger : IUserPurger
             ["giveawayEntries"] = result.GiveawayEntriesDeleted,
             ["giveawayPlaces"] = result.GiveawayEntrantsBlanked,
             ["eventInvites"] = result.EventInvitesDeleted,
+            ["eventReminders"] = result.EventRemindersDeleted,
         };
 
         if (actor is not null)

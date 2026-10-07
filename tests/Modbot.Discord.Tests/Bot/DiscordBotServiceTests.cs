@@ -148,7 +148,8 @@ public class DiscordBotServiceTests
 
         Assert.Equal(2, gateway.RegisterCalls);
         Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
-        Assert.Equal(DiscordCommands.All.Count - 1, services.Status.Snapshot().CommandsRegistered);
+        // Events and reminders are off by default too.
+        Assert.Equal(DiscordCommands.All.Count - 2, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
         await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);
@@ -173,7 +174,9 @@ public class DiscordBotServiceTests
         await bot.TickAsync(ct);
         await gateway.RaiseReadyAsync();
 
-        Assert.Equal(DiscordCommands.All.Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
+        Assert.Equal(
+            DiscordCommands.All.Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe)).Select(c => c.Name),
+            gateway.RegisteredCommands.Select(c => c.Name));
 
         await bot.TickAsync(ct);
         Assert.Equal(1, gateway.RegisterCalls);

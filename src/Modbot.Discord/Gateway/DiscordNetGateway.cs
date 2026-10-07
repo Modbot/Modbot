@@ -2368,8 +2368,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     /// presser "This interaction failed", which is right.
     /// <para>
     /// A press in a direct message carries no server. It is ours only when its id ends with
-    /// <see cref="DiscordActionButton.ServerMark"/> and this server's id, which only the join gate's
-    /// buttons do.
+    /// <see cref="DiscordActionButton.ServerMark"/> and this server's id, which the join gate's
+    /// buttons and a reminder's Stop (<c>/remindme</c>) do.
     /// </para>
     /// </remarks>
     public static bool IsOurButton(string? ourGuildId, ulong? fromGuildId, string? buttonId)

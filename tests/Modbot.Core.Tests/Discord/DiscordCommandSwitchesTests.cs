@@ -9,7 +9,7 @@ namespace Modbot.Core.Tests.Discord;
 public class DiscordCommandSwitchesTests
 {
     [Fact]
-    public void NothingStored_EveryCommandTakesItsDefault_MeAndEventsBeingTheOnesThatAreOff()
+    public void NothingStored_EveryCommandTakesItsDefault_MeEventsAndRemindMeBeingTheOnesThatAreOff()
     {
         foreach (var json in new string?[] { null, "", "   ", "{}" })
         {
@@ -19,7 +19,7 @@ public class DiscordCommandSwitchesTests
             Assert.False(DiscordCommandSwitches.IsOn(json, "me"));
         }
 
-        Assert.Equal(["me", "events"], DiscordCommandSwitches.All.Where(c => !c.OnByDefault).Select(c => c.Name));
+        Assert.Equal(["me", "events", "remindme"], DiscordCommandSwitches.All.Where(c => !c.OnByDefault).Select(c => c.Name));
     }
 
     [Fact]

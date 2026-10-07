@@ -233,6 +233,103 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.Equal(0, result.DaysRecomputed);
     }
 
+    /// <summary>
+    /// The reminders a member asked for with <c>/remindme</c> (Discord commands design §3.5) name their
+    /// Discord account, so a purge takes them whatever their state -- for the Discord account, and for
+    /// the VRChat account it is linked to -- and leaves everybody else's.
+    /// </summary>
+    [Fact]
+    public async Task TheRemindersTheyAskedFor_GoToo_ForTheDiscordAccountAndItsLinkedVRChatAccount()
+    {
+        const string DiscordSubject = "7001";
+        const string DiscordBystander = "7002";
+
+        var calendarEvent = new CalendarEvent
+        {
+            Id = Guid.CreateVersion7(),
+            Title = "Movie night",
+            StartsAt = Start.AddDays(1),
+            EndsAt = Start.AddDays(1).AddHours(2),
+            TimeZone = "UTC",
+            State = CalendarEventStates.Scheduled,
+            CreatedAt = Start,
+            UpdatedAt = Start,
+        };
+
+        EventReminder Reminder(string user, string state) => new()
+        {
+            DiscordUserId = user,
+            EventId = calendarEvent.Id,
+            OccurrenceStartsAt = calendarEvent.StartsAt,
+            MinutesBefore = 60,
+            RemindAt = calendarEvent.StartsAt.AddHours(-1),
+            State = state,
+            CreatedAt = Start,
+            UpdatedAt = Start,
+        };
+
+        async Task SetUpAsync()
+        {
+            await using var setup = Database.NewContext();
+            await setup.EventReminders.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.CalendarEvents.AnyAsync(e => e.Id == calendarEvent.Id, Ct))
+                setup.CalendarEvents.Add(calendarEvent);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            setup.EventReminders.AddRange(
+                Reminder(DiscordSubject, EventReminderStates.Waiting),
+                Reminder(DiscordSubject, EventReminderStates.Sent),
+                Reminder(DiscordSubject, EventReminderStates.Stopped),
+                Reminder(DiscordBystander, EventReminderStates.Waiting));
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(3, result.EventRemindersDeleted);
+        }
+
+        await using (var read = Database.NewContext())
+        {
+            var left = await read.EventReminders.AsNoTracking().ToListAsync(Ct);
+            Assert.Equal(DiscordBystander, Assert.Single(left).DiscordUserId);
+        }
+
+        // The same, asked about the VRChat account the Discord one is linked to.
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+            Assert.Equal(3, result.EventRemindersDeleted);
+        }
+
+        await using var again = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await again.EventReminders.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+
+        // And the record of the purge counts them, naming nobody.
+        var record = await again.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.UserPurged)
+            .OrderByDescending(e => e.Id)
+            .FirstAsync(Ct);
+        Assert.Contains("\"eventReminders\": 3", record.Data, StringComparison.Ordinal);
+        Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
+    }
+
     private async Task<int> CountAsync(string subjectId)
     {
         await using var context = Database.NewContext();

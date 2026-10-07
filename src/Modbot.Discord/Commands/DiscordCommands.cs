@@ -11,8 +11,8 @@ namespace Modbot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/>, <see cref="Help"/>
-/// and <see cref="Events"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
+/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/>, <see cref="Help"/>,
+/// <see cref="Events"/> and <see cref="RemindMe"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
 /// equivalent web page asks for, so the bot never shows anybody more than the web app would.
 /// <see cref="Link"/> is for every member: it answers with the link page's address and nothing else
 /// (Discord account linking design §2). <see cref="Me"/> is for every member too, and only ever about
@@ -20,6 +20,9 @@ namespace Modbot.Discord.Commands;
 /// design). <see cref="Events"/> is for every member too and answers in public unless the member
 /// asks otherwise; it is registered only while the operator has switched it on, and shows nothing
 /// that is not already published in the Discord server (Discord commands design §3.6).
+/// <see cref="RemindMe"/> is for every member too and answers in private; it is off until the operator
+/// turns it on, sends the member one direct message before an event they pick, and offers only the
+/// events <see cref="Events"/> would show (Discord commands design §3.5).
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Verify"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
@@ -62,6 +65,7 @@ public static class DiscordCommands
     public const string Kick = "kick";
     public const string Gate = "gate";
     public const string Events = "events";
+    public const string RemindMe = "remindme";
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -138,6 +142,15 @@ public static class DiscordCommands
     /// in private (Discord commands design §3.2).
     /// </summary>
     public static readonly TimeSpan EventsPublicOncePer = TimeSpan.FromSeconds(60);
+
+    /// <summary>The event <c>/remindme</c> is about: picked from the suggestions, whose value is the event's id.</summary>
+    public const string RemindEventOption = "event";
+
+    /// <summary>How long before the event <c>/remindme</c> sends its message: one of the <c>RemindBefore…</c> values.</summary>
+    public const string RemindBeforeOption = "before";
+    public const string RemindBefore15Minutes = "15m";
+    public const string RemindBefore1Hour = "1h";
+    public const string RemindBefore1Day = "1d";
 
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
@@ -256,6 +269,23 @@ public static class DiscordCommands
             PrivateOption: EventsPrivateOption,
             PublicOncePer: EventsPublicOncePer),
         new(
+            RemindMe,
+            "Get a message before an event",
+            [
+                new DiscordCommandOption(RemindEventOption, "Which event", DiscordOptionKind.Text, Required: false, Suggests: true),
+                new DiscordCommandOption(
+                    RemindBeforeOption,
+                    "How long before",
+                    DiscordOptionKind.Choice,
+                    Required: false,
+                    Choices:
+                    [
+                        new("15 minutes", RemindBefore15Minutes),
+                        new("1 hour", RemindBefore1Hour),
+                        new("1 day", RemindBefore1Day),
+                    ]),
+            ]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -295,7 +325,7 @@ public static class DiscordCommands
         => For(switches).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

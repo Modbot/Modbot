@@ -338,7 +338,8 @@ public sealed record DiscordActionButton(string Label, string Id, DiscordButtonS
     /// <summary>
     /// What a button in a direct message ends with: this mark and the server's id. A press in a
     /// direct message carries no server, so the mark is how the one Modbot it belongs to knows it
-    /// among several sharing one bot (the join gate's Get in, join gate design §4).
+    /// among several sharing one bot (the join gate's Get in, join gate design §4, and a reminder's
+    /// Stop, Discord commands design §3.5).
     /// </summary>
     public const string ServerMark = "@";
 

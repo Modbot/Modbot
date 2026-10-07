@@ -55,6 +55,7 @@ public sealed class DiscordCommandHandler
     private readonly StaffCommands _staffCommands;
     private readonly EventsCommand? _events;
     private readonly GateCommand? _gate;
+    private readonly RemindMeCommand? _remind;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -67,7 +68,8 @@ public sealed class DiscordCommandHandler
         VerifyCommand? verify = null,
         IStaffActions? staff = null,
         EventsCommand? events = null,
-        GateCommand? gate = null)
+        GateCommand? gate = null,
+        RemindMeCommand? remind = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -86,6 +88,7 @@ public sealed class DiscordCommandHandler
         _staffCommands = new StaffCommands(db, clock, lookup, staff);
         _events = events;
         _gate = gate;
+        _remind = remind;
     }
 
     /// <summary>
@@ -126,6 +129,10 @@ public sealed class DiscordCommandHandler
         // comes before the link-your-account branch below (Discord commands design 3.6).
         if (call.CommandName == DiscordCommands.Events)
             return await EventsAsync(call, ct).ConfigureAwait(false);
+
+        // For every member too, and private: the confirmation message goes through the session.
+        if (call.CommandName == DiscordCommands.RemindMe)
+            return await RemindMeAsync(call, gateway, ct).ConfigureAwait(false);
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
@@ -295,6 +302,16 @@ public sealed class DiscordCommandHandler
     {
         ArgumentNullException.ThrowIfNull(ask);
 
+        // The events under /remindme event: are for every member, so no account is asked for; they are
+        // offered only while the command is on, and are not recorded either.
+        if (ask is { CommandName: DiscordCommands.RemindMe, OptionName: DiscordCommands.RemindEventOption })
+        {
+            return _remind is not null
+                   && await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.RemindMe, ct).ConfigureAwait(false)
+                ? await _remind.SuggestAsync(ask.Typed, ct).ConfigureAwait(false)
+                : [];
+        }
+
         // The permission the command itself needs: /lookup user: for See profiles, and the vrchat
         // option of /note and /watch for Write notes, and of /ban and /kick for Ban and Kick (the
         // VRChat person's own permission: a Discord-only holder cannot act on a VRChat person).
@@ -376,6 +393,27 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
+    /// <c>/remindme</c>: a direct message before an event, for any member. A call over the
+    /// per-person limit is refused and not recorded, as with <c>/events</c>. Recorded like every
+    /// command, with no Modbot account and no target.
+    /// </summary>
+    private async Task<DiscordReply> RemindMeAsync(DiscordCommandCall call, IDiscordGateway? gateway, CancellationToken ct)
+    {
+        if (_remind is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_remind.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(RemindMeCommand.TooFastMessage);
+
+        var answer = await _remind.RunAsync(call, gateway, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, answer.Outcome, null, ct).ConfigureAwait(false);
+        return answer.Reply;
+    }
+
+    /// <summary>
     /// <c>/verify code:</c>: proves the caller's Discord account is the Modbot account that was
     /// shown the code (<see cref="VerifyCommand"/>). Recorded like every command, with the account
     /// as the actor once it is connected and never with the code; a call over the per-person limit
@@ -409,14 +447,24 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
-    /// A press on one of the bot's buttons. Today only the ones under <c>/me</c> exist -- what
-    /// Modbot keeps, asking to delete, and getting or stopping event invites -- and they follow the
-    /// same switch and the same per-person limit as the command.
+    /// A press on one of the bot's buttons. The ones under <c>/me</c> -- what Modbot keeps, asking to
+    /// delete, and getting or stopping event invites -- follow the same switch and the same
+    /// per-person limit as the command. A reminder's Stop is the other kind that gets here.
     /// </summary>
     /// <param name="gateway">The session, for the line a deletion request posts to the alerts channel.</param>
     public async Task<DiscordReply> HandleButtonAsync(DiscordButtonPress press, IDiscordGateway? gateway, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(press);
+
+        // A reminder's Stop, from the confirmation or the list: always works, even after the
+        // command was switched off, and needs no Modbot account (it is checked against the Discord
+        // account that was reminded).
+        if (RemindMeCommand.IsStopButton(press.ButtonId))
+        {
+            return _remind is null
+                ? DiscordReply.Say(RemindMeCommand.NothingToStopMessage)
+                : await _remind.StopAsync(press.DiscordUserId, press.ButtonId, ct).ConfigureAwait(false);
+        }
 
         if (press.ButtonId is not (MeCommand.KeepsButton or MeCommand.DeleteButton
             or MeCommand.InvitesOnButton or MeCommand.InvitesOffButton))

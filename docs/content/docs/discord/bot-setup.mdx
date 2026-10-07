@@ -200,18 +200,31 @@ Discord bot can serve several Modbots: each one answers only in its own server.
 | `/kick member: vrchat: from:` | Removes one person. Name them as for `/ban`. A Discord member is removed from the Discord server and a VRChat person is kicked from the group, unless `from` says otherwise: **Discord server**, **VRChat group** or **Both**, for a person with both accounts linked. The form and the confirmation work as for `/ban`; **Both** is one confirmation that acts in both places. Seen only by you. | **Kick** for the group; **Remove from Discord** for the Discord server; both for **Both**; and a VRChat account linked to your Modbot account |
 | `/gate waiting`, `/gate let-in member:`, `/gate hold`, `/gate lift` | The [join gate](/discord/join-gate) from Discord. `waiting` lists up to 10 people at the gate, oldest first, with when they joined and a **Let in** button for each; if more are waiting it says "and N more". `let-in` takes a member picked from Discord's list and gives them the member role now, whatever steps they have left. `hold` holds new joiners at once, with nothing to confirm first, and the reply has a **Lift hold** button; `lift` lifts the hold. They do what the buttons on the [join gate](/discord/join-gate) page and under a join spike alert do, and write the same entries to the audit log under the name of your Modbot account. Seen only by you. | **Manage the join gate**, and a VRChat account linked to your Modbot account; `waiting` also needs **See members**, as the page does |
 | `/events private:` | The next five dates in the next 14 days, soonest first: the event's name, its time in each reader's own time zone, how long until it starts, the world's name, and **Open now** while its instance is open. Only events already published in this Discord, as a Discord event or a post in a channel; never a draft, a cancelled event or a deleted one. A **Join** button (at most five) opens VRChat for an event anyone can join whose instance is open; events only members can join have none. The answer is public unless `private` is yes. If a public `/events` was already posted in that channel in the last minute, the answer is private instead. Each person can ask five times a minute. Only there when **/events** is on the **Commands** card. | Anyone in the server |
+| `/remindme event: before:` | Sends you one direct message before an event, so you don't miss it. Pick the event from the list under `event`, which suggests only the events `/events` would show. `before` is **15 minutes**, **1 hour** (if you leave it out) or **1 day**. Running it with an event is the whole opt-in: Modbot sends you a confirmation direct message at once, with a **Stop** button, and the reply you see says when the reminder will come. If your direct messages are closed, it tells you so and keeps nothing. Run it with no event to list your reminders, each with a **Stop** button. The reminder says "**Title** starts" and the time in your own time zone, and has a **Join** link only if anyone can join the event and its instance is open. A repeating event is reminded for its next date only. The reminder follows a date that moves, is dropped if the date or event is cancelled, and is not sent if it is more than 15 minutes late. You can have one waiting reminder per event date and ten in all. Only there when **/remindme** is on the **Commands** card; see [What Modbot keeps for reminders](#what-modbot-keeps-for-reminders). | Anyone in the server |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 | `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
-| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/remindme`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
 
 ### Switching commands on and off
 
 **Settings → Discord → Commands** has one switch for every command and right-click menu, labelled with its
 name. A command that is off is not registered: nobody sees it in Discord. Press
 **Save commands**; the bot registers the new list within a few seconds, without reconnecting.
-Everything is on except `/me` and `/events`, which stay off until you turn them on. The commands you never touched
+Everything is on except `/me`, `/events` and `/remindme`, which stay off until you turn them on. The commands you never touched
 keep following their default if a later version changes it. Nothing can be saved in the demo.
+
+### What Modbot keeps for reminders
+
+`/remindme` is off until you turn it on. Each reminder is one row in Modbot's database: the member's Discord
+id, the event, the date it is about, how long before it was asked for, when it is due and its state
+(waiting, sending, sent, stopped, skipped or failed), with the times they changed. No name and no message text.
+Sent, stopped, skipped and failed reminders are deleted 30 days after they last changed, and
+[purging a person](/moderation/purge) deletes all of theirs. What leaves your server is two direct messages
+through Discord to that member: the confirmation, and the reminder. Turning `/remindme` off stops the
+reminders being sent too; **Stop** keeps working. Reminders are separate from
+[event invites](/moderation/calendar#inviting-people): asking for one signs nobody up for the other, and
+stopping event invites under `/me` does not stop a reminder. Each member can run `/remindme` five times a minute.
 
 ### Who sees the commands in Discord
 
@@ -226,7 +239,7 @@ permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link`, `/me`, `/events`, `/verify` and `/help` only answers people Modbot can match to
+Every command except `/link`, `/me`, `/events`, `/remindme`, `/verify` and `/help` only answers people Modbot can match to
 a Modbot account. Each moderator connects their own Discord account from their **Your account**
 page in Modbot, under **Your Discord account**, in one of two ways. Either way, the card then says
 **Connected as** and their Discord name. Nobody can do this for somebody else, and nobody can type

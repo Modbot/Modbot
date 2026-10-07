@@ -173,7 +173,7 @@ public class MeCommandTests
     {
         Assert.DoesNotContain(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.Me);
         Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.With(null, DiscordCommands.Me, true)), c => c.Name == DiscordCommands.Me);
-        Assert.Equal(DiscordCommands.All.Count - 2, DiscordCommands.For(DiscordCommandSwitches.Empty).Count);
+        Assert.Equal(DiscordCommands.All.Count - 3, DiscordCommands.For(DiscordCommandSwitches.Empty).Count);
         Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.Me));
         Assert.Null(DiscordCommands.Requires(DiscordCommands.Me));
     }

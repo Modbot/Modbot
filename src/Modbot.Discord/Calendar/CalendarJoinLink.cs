@@ -10,6 +10,27 @@ namespace Modbot.Discord.Calendar;
 /// </summary>
 public static class CalendarJoinLink
 {
+    /// <summary>The event's Who can join when anyone may: <see cref="CalendarEvent.AccessType"/>.</summary>
+    public const string AnyoneCanJoin = "public";
+
+    /// <summary>
+    /// The link for a date to show anyone in Discord: only when Who can join is Anyone, this date is
+    /// the one the event has open, and its instance is still open (<see cref="OpenAsync"/>). The
+    /// rule <c>/events</c> and <c>/remindme</c> share.
+    /// </summary>
+    /// <param name="startsAt">When the date starts, as it now happens.</param>
+    public static async Task<string?> ForAnyoneAsync(
+        ModbotContext db, CalendarEvent calendarEvent, DateTimeOffset startsAt, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.State == CalendarEventStates.Open
+            && calendarEvent.OccurrenceStartsAt == startsAt
+            && calendarEvent.AccessType == AnyoneCanJoin
+                ? await OpenAsync(db, calendarEvent, ct).ConfigureAwait(false)
+                : null;
+    }
+
     /// <summary>
     /// The instance's join link, while the occurrence Modbot opened is still open; null when the
     /// event is not open, nothing was opened for this date, or the instance has since closed.

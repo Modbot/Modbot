@@ -37,13 +37,14 @@ public class CommandLayerTests
     // ── Registration by the set of names ───────────────────────────────────────────────────
 
     [Fact]
-    public void WithNothingStored_TheDefaultsAreRegistered_AndMeAndEventsAreLeftOut()
+    public void WithNothingStored_TheDefaultsAreRegistered_AndMeEventsAndRemindMeAreLeftOut()
     {
         var registered = DiscordCommands.For(DiscordCommandSwitches.Empty);
 
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Me);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Events);
-        Assert.Equal(DiscordCommands.All.Count - 2, registered.Count);
+        Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.RemindMe);
+        Assert.Equal(DiscordCommands.All.Count - 3, registered.Count);
         Assert.Equal(registered.Select(c => c.Name).ToHashSet(), DiscordCommands.NamesFor(null));
     }
 

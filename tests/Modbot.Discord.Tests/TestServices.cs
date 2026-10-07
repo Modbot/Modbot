@@ -85,6 +85,9 @@ public sealed class TestServices : IAsyncDisposable
         services.AddKeyedSingleton<MemberCommandLimits>(EventsCommand.LimitsKey);
         services.AddScoped<EventsCommand>();
         services.AddScoped<GateCommand>();
+        services.AddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
+        services.AddScoped<RemindMeCommand>();
+        services.AddScoped<Modbot.Discord.Calendar.EventReminderMessages>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();

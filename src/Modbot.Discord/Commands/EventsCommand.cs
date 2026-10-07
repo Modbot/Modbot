@@ -57,8 +57,6 @@ public sealed class EventsCommand
     /// <summary>A button label holds 80 characters, of which "Join " takes five.</summary>
     private const int TitleInLabel = 60;
 
-    private const string AnyoneCanJoin = "public";
-
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly MemberCommandLimits _limits;
@@ -80,23 +78,33 @@ public sealed class EventsCommand
     /// <summary>Counts one use for this person and says whether it is allowed. See <see cref="MemberCommandLimits"/>.</summary>
     public bool TryUse(string discordUserId) => _limits.TryUse(discordUserId, _clock.UtcNow);
 
+    /// <summary>
+    /// The events <c>/events</c> may show, and <c>/remindme</c> may suggest: scheduled or open, not
+    /// deleted, and published in this Discord and still switched on there -- the place row says it
+    /// went out, the event's own switch says it is still meant to be there. Never a draft, a
+    /// cancelled or finished event, or one that was never posted.
+    /// </summary>
+    public static Task<List<CalendarEvent>> ListedAsync(ModbotContext db, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        return db.CalendarEvents.AsNoTracking()
+            .Where(e => e.DeletedAt == null
+                        && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open)
+                        && db.CalendarEventPlaces.Any(p => p.EventId == e.Id
+                            && p.State == CalendarPlaceStates.Published
+                            && ((p.Place == CalendarPlaces.DiscordEvent && e.PublishToDiscord)
+                                || (p.Place == CalendarPlaces.ChannelPost && e.PostToChannel))))
+            .ToListAsync(ct);
+    }
+
     /// <summary>The answer: the next dates, and a Join button under each one that can be joined now.</summary>
     public async Task<DiscordReply> AnswerAsync(CancellationToken ct)
     {
         var now = _clock.UtcNow;
         var until = now.AddDays(DiscordCommands.EventsDays);
 
-        // Published in this Discord, and still switched on there: the place row says it went out,
-        // the event's own switch says it is still meant to be there.
-        var events = await _db.CalendarEvents.AsNoTracking()
-            .Where(e => e.DeletedAt == null
-                        && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open)
-                        && _db.CalendarEventPlaces.Any(p => p.EventId == e.Id
-                            && p.State == CalendarPlaceStates.Published
-                            && ((p.Place == CalendarPlaces.DiscordEvent && e.PublishToDiscord)
-                                || (p.Place == CalendarPlaces.ChannelPost && e.PostToChannel))))
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
+        var events = await ListedAsync(_db, ct).ConfigureAwait(false);
 
         var next = events
             .SelectMany(e => CalendarRepeat.Between(e, now, until).Select(date => (Event: e, Date: date)))
@@ -133,8 +141,7 @@ public sealed class EventsCommand
 
             // Anyone-can-join, and the instance is open now: a link straight to it.
             if (open
-                && calendarEvent.AccessType == AnyoneCanJoin
-                && await CalendarJoinLink.OpenAsync(_db, calendarEvent, ct).ConfigureAwait(false) is { } link)
+                && await CalendarJoinLink.ForAnyoneAsync(_db, calendarEvent, date.StartsAt, ct).ConfigureAwait(false) is { } link)
             {
                 joins.Add(new DiscordLinkButton($"{JoinLabel} {CardText.Plain(title, TitleInLabel)}", link));
             }

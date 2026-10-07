@@ -125,6 +125,14 @@ wherever you choose to store them. These pages describe what is kept and how it 
   account (nobody else's friends): from the invites it sends, and from the friends list VRChat sends
   with that account when Modbot signs in. A [purge](/moderation/purge) deletes a person's note, but
   if they are still a friend of that account, the next sign-in notes them again.
+- [Event reminders](/discord/bot-setup#what-modbot-keeps-for-reminders): off until you turn on **/remindme**
+  on the **Commands** card. A member who runs it with an event gets two Discord direct messages from the
+  server's Modbot bot: a confirmation at once, and the reminder before the event, naming the event and its
+  time, with a join link only for an event anyone can join whose instance is open. Modbot keeps the member's
+  Discord id, the event, the date, when the reminder is due and its state. Sent, stopped, skipped and failed
+  reminders are deleted 30 days after they last changed, a [purge](/moderation/purge) deletes all of a
+  person's, and nothing is sent to Modbot Cloud. A member whose direct messages are closed is told so and
+  nothing is kept.
 - [Posts](/moderation/marketing): a post written on the **Marketing** page goes only to the sites
   ticked on it, and every site starts unticked. For **Discord**, Modbot's bot sends the post's
   title, text and picture to the channel picked, mentions the role picked if any, and publishes it

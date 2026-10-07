@@ -213,8 +213,8 @@ first, then to the staff buttons, then to `/me`'s.
 
 The own-server guard runs before any of this, unchanged: a menu, a button or a form from another
 server, or whose id does not start with `modbot:`, is left completely alone. A press in a direct
-message is this Modbot's only when its id ends with this server's mark (`@<server id>`), which only
-the join gate's buttons carry today.
+message is this Modbot's only when its id ends with this server's mark (`@<server id>`), which the
+join gate's buttons and a reminder's Stop (§15) carry.
 
 ## 12. Not in this version
 
@@ -375,3 +375,85 @@ No Modbot account is needed. Written to the access record with the caller's Disc
 `modbot.discord.command` as in §5 for both commands. For `/gate`: `outcome` is `answered`, `refused`, `invalid`,
 `no-permission`, `no-vrchat`, `not-linked`, `disabled` or `off`, and `targetDiscord` names the member let in. For
 `/events`: `answered` or `off`, with no target.
+
+## 15. `/remindme` (added 2026-10-07)
+
+Discord commands design §3.5, §4 and §5, and decisions 6 and 9. A member asks for one direct message before the
+next date of an event. For every member, no Modbot account, private, **off by default**.
+
+### What it does
+
+| Run | Result |
+|---|---|
+| `/remindme event: before:` | Stores one reminder and sends one confirmation direct message, "I'll remind you about **Title** <t:f>.", with **Stop**. The private reply is "I'll remind you <t:f>." Both times are when the reminder is due. |
+| `/remindme` (no event) | Lists the member's waiting reminders, soonest first, each with a **Stop** button ("Stop 1", "Stop 2"... when there is more than one). |
+| 50007 on the confirmation | "Your direct messages are closed, so Modbot can't remind you." and **nothing is stored**: the row is written in a transaction that is rolled back unless the confirmation went out. Any other failure to send gets "Modbot could not send you a message." and stores nothing too. |
+
+- `event` suggests, and accepts, only what `/events` would show (`EventsCommand.ListedAsync`, one query for both):
+  scheduled or open, not deleted, published in this Discord. It is the event's id as the value; a title typed by
+  hand also works when exactly one listed event has it. The suggestion is the event's next date that has not
+  started, soonest first, at most 25, and only for a caller whose switch is on. Suggestions are not facts.
+- `before` is **15 minutes**, **1 hour** (the default) or **1 day**.
+- **Running it is the opt-in** (decision 6), for that one reminder. It signs nobody up for event invites, and
+  stopping event invites under `/me` does not stop a reminder.
+- **Repeating events** (decision 9): the next date only. The next date is the first one that starts after now,
+  by `CalendarRepeat.Between`, so a date running now is not it.
+- **Refused**, in plain words and with nothing stored: "Modbot can't find that event.", "That event has no dates
+  left.", "That is too close to the start. Pick a shorter time." (the time it would be sent is more than 15 minutes
+  ago, so it never would be), "You already have a reminder for that date." and "You already have 10 reminders."
+- **Member limit** of 5 a minute per Discord account, its own `MemberCommandLimits` under the key `remindme`.
+  A refused run answers "Slow down. Try again in a minute." and is not recorded. Stop is not counted: it only
+  ever makes less happen.
+- Recorded as `modbot.discord.command` with no Modbot account: `outcome` is `answered`, `listed`, `dms-closed`,
+  `failed`, `no-event`, `no-dates`, `too-close`, `duplicate`, `limit` or `off`.
+
+### The table
+
+`event_reminder` (`EventReminder`): Discord id, event id (cascades with the event), the date's **planned** start,
+minutes before, remind at, state, created, updated, sent and stopped times. The state is `waiting`, `sending`,
+`sent`, `stopped`, `skipped` or `failed`. A unique index over the **waiting** rows says one per member per event
+date; ten waiting per member is checked when asking. A date is named by its planned start
+(`CalendarOccurrence.PlannedStartsAt`), the name it keeps when it is moved on its own.
+
+### The sending pass
+
+`EventReminderMessages.RunOnceAsync`, run from `CalendarDiscordService`'s loop (so only while the bot is
+connected), in a `try` of its own so neither it nor the calendar's pass holds the other up.
+
+1. Deletes `sent`, `stopped`, `skipped` and `failed` rows 30 days after they last changed. This runs whether or not
+   the command is on.
+2. Does nothing more while `/remindme` is switched off: the operator's switch stops the messages as well as the
+   command. **Stop** always works.
+3. Looks at the waiting reminders due within the next 2 days (at most 500), because a date moved earlier brings
+   its reminder forward. For each, the date is worked out as it stands now (`CalendarRepeat.ForDate`):
+   - event gone, deleted, or not scheduled or open, or the date cancelled: `skipped`;
+   - the time is worked out again from where the date is: a moved date is followed, and a reminder not due yet is
+     left waiting with its new time;
+   - the date has started, or the reminder is more than **15 minutes late** (a bot that was off): `skipped`.
+4. A due reminder is marked with one statement, `waiting` to `sending`, **before** the message goes out. A crash
+   between the two leaves it `sending`: counted as sent and never sent again. The same statement is how **Stop**
+   works (`waiting` to `stopped`), so a press as the message goes out either stops it or finds it sent.
+5. 2 seconds between messages (`CalendarInviteMessages.Between`), none before the first, at most 5 a pass.
+6. The message is "**Title** starts <t:f> (<t:R>)." (the date's own title when it has one, escaped). A **Join** link
+   button only when Who can join is Anyone, this date is the one the event has open, and its instance is not
+   closed (`CalendarJoinLink.ForAnyoneAsync`, the rule `/events` uses). `sent` when Discord took it; `failed` when
+   it did not (direct messages closed, or a refusal), never tried again.
+
+### Stop
+
+`modbot:remind:stop:<reminder id>@<server id>`, on the confirmation and on each line of the list. A press in a
+direct message names no server, so the mark is how this Modbot, and no other sharing the bot, answers it
+(`DiscordNetGateway.IsOurButton`); it is **acknowledged the moment it arrives** like every button that never shows a
+form (`AnswersInPlace` is false), and the bot's routing hands it to `DiscordCommandHandler.HandleButtonAsync`
+after the join gate and the staff buttons. Only the member the reminder belongs to can stop it. "Reminder stopped."
+for a waiting or already stopped reminder; "Nothing to stop." for one that was sent, skipped, failed, is being sent,
+or is not theirs. The reminder message itself carries no Stop: for a repeating event it would stop nothing.
+
+### Privacy
+
+Stored: the member's Discord id, the event, the date, when it is due and its state. No name, no message text. Kept
+until 30 days after it finishes; a person purge deletes every row for the Discord account, and for a VRChat account
+the rows of the Discord account linked to it, counted in the purge fact as `eventReminders`. Leaves the server:
+two direct messages through Discord to that member. Nothing goes to Modbot Cloud. Documented in `bot-setup.mdx` and
+`privacy.mdx`.
+

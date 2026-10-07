@@ -147,6 +147,11 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddKeyedSingleton<MemberCommandLimits>(EventsCommand.LimitsKey);
         services.AddScoped<EventsCommand>();
         services.AddScoped<GateCommand>();
+
+        // /remindme counts its own tries too; its messages go out from the calendar's Discord loop.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
+        services.AddScoped<RemindMeCommand>();
+        services.AddScoped<Calendar.EventReminderMessages>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

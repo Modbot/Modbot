@@ -345,6 +345,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Who asked for event invites through <c>/me</c>, or stopped them (calendar auto-invite design §2.1).</summary>
     public DbSet<EventInviteChoice> EventInviteChoices => Set<EventInviteChoice>();
 
+    /// <summary>Members' reminders for one date of an event, from <c>/remindme</c> (Discord commands design §3.5).</summary>
+    public DbSet<EventReminder> EventReminders => Set<EventReminder>();
+
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
@@ -2711,6 +2714,37 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // A list gives a VRChat id as often as a Discord one.
             entity.HasIndex(e => e.VRChatUserId).HasDatabaseName("ix_event_invite_choice_vrchat_user_id");
+        });
+
+        builder.Entity<EventReminder>(entity =>
+        {
+            entity.ToTable("event_reminder");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+
+            // At most one waiting reminder per member per date: the promise that nobody is told
+            // twice about one date because they asked twice.
+            entity.HasIndex(e => new { e.DiscordUserId, e.EventId, e.OccurrenceStartsAt })
+                .IsUnique()
+                .HasFilter("state = 'waiting'")
+                .HasDatabaseName("ux_event_reminder_waiting");
+
+            // "Which are due?" -- asked every twenty seconds, over the waiting rows only.
+            entity.HasIndex(e => e.RemindAt)
+                .HasFilter("state = 'waiting'")
+                .HasDatabaseName("ix_event_reminder_due");
+
+            // A member's own list, and the clean-up of old finished rows.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_event_reminder_discord_user_id");
+            entity.HasIndex(e => e.UpdatedAt).HasDatabaseName("ix_event_reminder_updated_at");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<VRChatFriend>(entity =>
