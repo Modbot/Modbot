@@ -36,7 +36,9 @@
       "Modbot.Api.Tests.Features.GroupPage.GroupMemberWritesTests",
       "Modbot.Api.Tests.Features.Health.MachineUsageEndpointTests",
       "Modbot.Api.Tests.Features.Live.LiveSocketTeardownTests",
+      "Modbot.Api.Tests.Features.Live.LiveStreamTests",
       "Modbot.Api.Tests.Features.Logs.LogEndpointTests",
+      "Modbot.Api.Tests.Features.Members.MembersTests",
       "Modbot.Api.Tests.Features.Moderation.StaffActionsForDiscordTests",
       "Modbot.Api.Tests.Features.Onboarding.AdministratorEmailTests",
       "Modbot.Api.Tests.Features.Onboarding.OnboardingAccessTests",
@@ -50,6 +52,7 @@
       "Modbot.Api.Tests.Features.Settings.AutoModActionsTests",
       "Modbot.Api.Tests.Features.Settings.CloudReportSwitchTests",
       "Modbot.Api.Tests.Features.Settings.EmailLimitTests",
+      "Modbot.Api.Tests.Features.Users.RoleOrderTests",
       "Modbot.Api.Tests.Features.Users.VRChatUserProfileTests"
     ],
     "api-2": [
@@ -132,8 +135,6 @@
       "Modbot.Api.Tests.Features.GroupPage.GroupPageTabsEndpointTests",
       "Modbot.Api.Tests.Features.Health.HealthPayloadEnumTests",
       "Modbot.Api.Tests.Features.Lists.ListEndpointTests",
-      "Modbot.Api.Tests.Features.Live.LiveStreamTests",
-      "Modbot.Api.Tests.Features.Members.MembersTests",
       "Modbot.Api.Tests.Features.Onboarding.OnboardingSavesAreRecordedTests",
       "Modbot.Api.Tests.Features.Onboarding.SignInWaitTests",
       "Modbot.Api.Tests.Features.People.PeopleTests",
@@ -153,7 +154,6 @@
       "Modbot.Api.Tests.Features.Settings.SettingsAreRecordedTests",
       "Modbot.Api.Tests.Features.Users.AccountEmailTests",
       "Modbot.Api.Tests.Features.Users.DeleteUserTests",
-      "Modbot.Api.Tests.Features.Users.RoleOrderTests",
       "Modbot.Api.Tests.Features.Users.UsernameCharactersTests",
       "Modbot.Api.Tests.Features.WorldLists.WorldListEndpointTests"
     ]
