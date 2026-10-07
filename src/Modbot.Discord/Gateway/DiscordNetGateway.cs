@@ -2597,11 +2597,24 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             .WithRequired(option.Required)
             .WithAutocomplete(option.Suggests && type == ApplicationCommandOptionType.String);
 
-        if (option.Min is { } min)
-            built.WithMinValue(min);
+        // On a text option the same two numbers are the shortest and longest the box takes, which
+        // Discord checks before the command is sent; on a number they are its lowest and highest.
+        if (type == ApplicationCommandOptionType.String)
+        {
+            if (option.Min is { } shortest)
+                built.WithMinLength((int)shortest);
 
-        if (option.Max is { } max)
-            built.WithMaxValue(max);
+            if (option.Max is { } longest)
+                built.WithMaxLength((int)longest);
+        }
+        else
+        {
+            if (option.Min is { } min)
+                built.WithMinValue(min);
+
+            if (option.Max is { } max)
+                built.WithMaxValue(max);
+        }
 
         if (option.Kind == DiscordOptionKind.Choice)
         {

@@ -192,6 +192,9 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 | `/lookup user: discord:` | Looks up one person in what Modbot has stored. Fill in one of the two: `user` takes a VRChat display name or id, and suggests names from Modbot's records as you type; `discord` takes a member picked from Discord's list. If the person [linked their accounts](/discord/account-linking), the reply covers both. It shows their VRChat profile as VRChat shows it — their name, their picture, their banner, and the group they represent — with whether they have been seen as 18+ verified and when the profile was last refreshed; their Discord account; whether they are banned in the group and on Discord (with the reason Discord holds), or timed out on Discord; how many bans, kicks and warns in the group; how many bans, kicks and timeouts on Discord; how many times Modbot's rules flagged them; and their latest moderation events, with the reason where there is one. Notes are included for people with **See the audit log**, and join requests for people with **See join requests**. Somebody known only on Discord gets a reply headed by their Discord name and picture. Nothing is fetched from VRChat or Discord. If several VRChat names match, it lists them with their ids so you can run it again with one. | **See profiles** |
 | `/recent count:` | The latest moderation events, in the group and on Discord, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone who connected Discord to their Modbot account |
+| `/note text: member: vrchat:` | Writes a note about one person, the same note as in the web app. `text` is 1 to 2,000 characters. Fill in one of the other two: `member` takes a member picked from Discord's list, and `vrchat` takes a VRChat display name or id and suggests names from Modbot's records as you type. The reply, seen only by you, is "Note saved." with an **Open in Modbot** button on their profile. If several VRChat names match, it lists them with their ids so you can run it again with one. | **Write notes**, and a VRChat account linked to your Modbot account |
+| `/watch reason: for: member: vrchat: follow-up:` | Starts watching one person, the same watch as the **Watch** button in the web app. `reason` is 1 to 200 characters. `for` is **1 day**, **1 week**, **30 days** or **Until stopped**. `follow-up` is **None**, **Tomorrow** or **In a week**, and is optional. Fill in one of `member` and `vrchat`, as for `/note`. The reply, seen only by you, says who you are watching and until when, with an **Open in Modbot** button. If somebody is already watching that person it says so. | **Write notes**, and a VRChat account linked to your Modbot account |
+| `/live` | The group's open instances right now, one card each: the world, how many people are in (such as `12/40`), and when it opened. Names, up to 20 and then "and N more", appear only while a moderator's Companion App is watching that instance, the same rule as the Live page; otherwise you see the count only. No flags and no watched tags. An **Open Live** button opens the Live page. Seen only by you. | **See live instances** |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 | `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
@@ -207,7 +210,7 @@ keep following their default if a later version changes it. Nothing can be saved
 
 ### Who sees the commands in Discord
 
-`/lookup`, `/recent` and `/modbot` are shown only to members who may time others out (Discord's
+`/lookup`, `/recent`, `/modbot`, `/note`, `/watch` and `/live` are shown only to members who may time others out (Discord's
 **Timeout Members** permission). Everyone else does not see them in the command list. To change
 who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
 members for each command. `/verify` is shown to everyone, because many moderators don't hold
@@ -259,8 +262,8 @@ the bot answers neither.
 </Callout>
 
 Every command run, answered or refused, is recorded in the audit log as **Discord command used**.
-The names suggested while you type into `/lookup user:` are not recorded; the `/lookup` you then
-run is. Names are only suggested to people `/lookup` would answer.
+The names suggested while you type into `/lookup user:`, `/note vrchat:` and `/watch vrchat:` are not
+recorded; the command you then run is. Names are only suggested to people that command would answer.
 
 ### Right-click menus
 

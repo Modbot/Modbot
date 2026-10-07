@@ -198,4 +198,54 @@ public class StaffActionsForDiscordTests
         Assert.False(written.Written);
         Assert.Empty(await FactsAboutAsync(host, Person, ct));
     }
+
+    [Fact]
+    public async Task AWatchFromDiscord_IsTheWebAppsWatch_WithItsDaysAndItsFact()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
+        await host.ResetAsync(ct);
+        var by = await SeedAsync(host, ModbotPermissions.WriteNotes, ct);
+
+        var endsAt = Day.AddDays(7);
+        var followUpAt = Day.AddDays(1);
+
+        var started = await InScopeAsync(host, s => s.StartWatchAsync(FactPlatform.Discord, "445566", "Spam in voice.", endsAt, followUpAt, by, ct));
+
+        Assert.True(started.Started);
+
+        var fact = Assert.Single(await FactsAboutAsync(host, "445566", ct));
+        Assert.Equal(FactType.WatchStarted, fact.Type);
+        Assert.Equal(FactPlatform.Discord, fact.SubjectPlatform);
+        Assert.Equal(by.UserId.ToString(), fact.ActorId);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var watch = await db.PersonWatches.AsNoTracking().SingleAsync(ct);
+        Assert.Equal(started.WatchId, watch.Id);
+        Assert.Equal("Spam in voice.", watch.Reason);
+        Assert.Equal(endsAt, watch.EndsAt);
+        Assert.Equal(followUpAt, watch.FollowUpAt);
+        Assert.Equal(by.UserId, watch.SetByUserId);
+    }
+
+    [Fact]
+    public async Task AWatchWithoutThePermission_OrOnAWatchedPerson_IsRefusedWithTheServicesWords()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Accepting());
+        await host.ResetAsync(ct);
+        var by = await SeedAsync(host, ModbotPermissions.WriteNotes, ct);
+        var without = new StaffMember(by.UserId, by.Username, ModbotPermissions.ViewAuditLog);
+
+        var refused = await InScopeAsync(host, s => s.StartWatchAsync(FactPlatform.VRChat, Person, "Why.", null, null, without, ct));
+        Assert.False(refused.Started);
+        Assert.Empty(await FactsAboutAsync(host, Person, ct));
+
+        Assert.True((await InScopeAsync(host, s => s.StartWatchAsync(FactPlatform.VRChat, Person, "Why.", null, null, by, ct))).Started);
+
+        var again = await InScopeAsync(host, s => s.StartWatchAsync(FactPlatform.VRChat, Person, "Again.", null, null, by, ct));
+        Assert.False(again.Started);
+        Assert.Equal("Somebody is already watching this person.", again.Error);
+    }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.Notes;
+using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -178,6 +179,39 @@ public sealed class StaffActionsForDiscord : IStaffActions
         catch (NoteRefused refused)
         {
             return new StaffNoteAnswer(null, refused.Message);
+        }
+    }
+
+    public async Task<StaffWatchAnswer> StartWatchAsync(
+        FactPlatform platform,
+        string userId,
+        string reason,
+        DateTimeOffset? endsAt,
+        DateTimeOffset? followUpAt,
+        StaffMember by,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(by);
+
+        // Built as the DI registration builds it (ApiSurface), with the same optional fact log.
+        var watches = new WatchService(
+            _db,
+            _clock,
+            _services.GetService<IFactWriter>(),
+            _services.GetService<EventPartitionMaintainer>());
+
+        try
+        {
+            var started = await watches.StartAsync(
+                new StartWatchRequest(userId, platform.ToString(), reason, endsAt, followUpAt),
+                new Caller(by.UserId, by.Username, by.Held),
+                ct);
+
+            return new StaffWatchAnswer(started.Id, null);
+        }
+        catch (WatchRefused refused)
+        {
+            return new StaffWatchAnswer(null, refused.Message);
         }
     }
 

@@ -1,6 +1,6 @@
 ---
 title: Acting from Discord
-description: Look people up, write notes, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
+description: Look people up, write notes, watch people, see who is live, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
 ---
 
 Moderators can act on what they see in Discord without opening Modbot: right-click a member, or
@@ -19,12 +19,14 @@ permission it needs in the web app:
 | What | Needs |
 |---|---|
 | **Look up in Modbot** | **See profiles** |
-| **Add a note**, the **Add note** button | **Write notes** |
+| **Add a note**, the **Add note** button, `/note` | **Write notes** |
+| `/watch` | **Write notes** |
+| `/live` | **See live instances** |
 | **Kick** | **Kick** |
 | **Ban** | **Ban** |
 | **Approve**, **Reject** | **Answer join requests** |
 
-Anything that writes — a note or an action — also needs a VRChat account linked to the moderator's
+Anything that writes — a note, a watch or an action — also needs a VRChat account linked to the moderator's
 Modbot account, as the web app does. Without one the bot replies "Link your VRChat account in
 Modbot first." Without the permission, the reply names it, for example
 `You need the "Ban" permission in Modbot.`
@@ -49,6 +51,25 @@ The menus are shown only to members with Discord's **Timeout Members** permissio
 open your server's **Server Settings → Integrations**, pick the bot, and choose the roles or members
 for each menu. This only changes who sees them: Modbot still checks the moderator's Modbot
 permissions on every press.
+
+## Typed commands
+
+Three commands do the same jobs without a menu. Each is shown only to members with **Timeout Members**
+and answers only you; the full options are in the [command list](/discord/bot-setup#slash-commands).
+
+| Command | What it does |
+|---|---|
+| `/note text:` with `member:` or `vrchat:` | Writes a note. The reply is "Note saved." with an **Open in Modbot** button on the person. |
+| `/watch reason: for:` with `member:` or `vrchat:` | Starts a watch, for 1 day, 1 week, 30 days or until stopped, with an optional follow-up tomorrow or in a week. Nothing is changed on VRChat or Discord. |
+| `/live` | The group's open instances, one card each, with an **Open Live** button. |
+
+Name the person with exactly one of `member` (picked from Discord's list) and `vrchat` (a VRChat
+name or id, with suggestions from Modbot's records). Naming neither or both is refused before anything
+is written. A note about a member is on their Discord account, and one about a VRChat person is on
+their VRChat account, as with the menus.
+
+`/live` shows what the Live page shows, less. Names appear only while a moderator's Companion App is
+watching that instance, up to 20 and then "and N more". It has no flags and no watched tags.
 
 ## Buttons under cards
 
@@ -120,7 +141,8 @@ stays.
 
 ## What is recorded
 
-Notes and actions from Discord are the same records as from the web app: the same note, the same
-kick or ban in the audit log under the moderator's name, the same case file. Every menu, button and
-form that finishes or is refused is also recorded as **Discord command used**, which shows that it
-came through Discord.
+Notes, watches and actions from Discord are the same records as from the web app: the same note, the
+same watch, the same kick or ban in the audit log under the moderator's name, the same case file.
+Every menu, button, form and typed command that finishes or is refused is also recorded as
+**Discord command used**, which shows that it came through Discord. The names suggested while you
+type are not recorded.

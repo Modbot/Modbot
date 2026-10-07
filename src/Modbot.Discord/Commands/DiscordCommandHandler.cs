@@ -52,6 +52,7 @@ public sealed class DiscordCommandHandler
     private readonly CardPictures _pictures;
     private readonly MeCommand? _me;
     private readonly VerifyCommand? _verify;
+    private readonly StaffCommands _staffCommands;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -61,7 +62,8 @@ public sealed class DiscordCommandHandler
         LookupQuery lookup,
         CardPictures? pictures = null,
         MeCommand? me = null,
-        VerifyCommand? verify = null)
+        VerifyCommand? verify = null,
+        IStaffActions? staff = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -77,6 +79,7 @@ public sealed class DiscordCommandHandler
         _pictures = pictures ?? new CardPictures();
         _me = me;
         _verify = verify;
+        _staffCommands = new StaffCommands(db, clock, lookup, staff);
     }
 
     /// <summary>
@@ -142,6 +145,13 @@ public sealed class DiscordCommandHandler
             outcome = "disabled";
             reply = DiscordReply.Say("Your Modbot account is disabled.");
         }
+        else if (DiscordCommands.Writes(call.CommandName) && !user.IsVRChatLinked)
+        {
+            // The web app refuses every request from an account with no VRChat link
+            // (VRChatLinkedRequirement); a command that writes does the same.
+            outcome = "no-vrchat";
+            reply = DiscordReply.Say(Interactions.StaffInteractionHandler.NeedsVRChatMessage);
+        }
         else if (DiscordCommands.Requires(call.CommandName) is not { } required)
         {
             outcome = "unknown-command";
@@ -152,6 +162,17 @@ public sealed class DiscordCommandHandler
             outcome = "no-permission";
             reply = DiscordReply.Say(
                 $"You need the \"{DiscordCommands.Label(required)}\" permission in Modbot to use /{call.CommandName}.");
+        }
+        else if (call.CommandName is DiscordCommands.Note or DiscordCommands.Watch or DiscordCommands.Live)
+        {
+            var done = call.CommandName switch
+            {
+                DiscordCommands.Note => await _staffCommands.NoteAsync(call, user, ct).ConfigureAwait(false),
+                DiscordCommands.Watch => await _staffCommands.WatchAsync(call, user, ct).ConfigureAwait(false),
+                _ => await _staffCommands.LiveAsync(ct).ConfigureAwait(false),
+            };
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
         }
         else
         {
@@ -198,6 +219,7 @@ public sealed class DiscordCommandHandler
             .Where(c => c.Kind == DiscordCommandKind.Slash && (c.Name != DiscordCommands.Me || meOn))
             .Where(c => DiscordCommands.IsForEveryone(c.Name)
                         || (held is { } permissions
+                            && !(DiscordCommands.Writes(c.Name) && user is { IsVRChatLinked: false })
                             && DiscordCommands.Requires(c.Name) is { } required
                             && DiscordCommands.Allows(permissions, required)))
             .SelectMany(HelpLines);
@@ -235,8 +257,9 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
-    /// Suggestions under <c>/lookup user:</c> while a name is typed. Nothing for anybody the
-    /// command itself would refuse, so the list cannot be used to read the records around it.
+    /// Suggestions under <c>/lookup user:</c>, and under the <c>vrchat</c> option of <c>/note</c>
+    /// and <c>/watch</c>, while a name is typed. Nothing for anybody the command itself would
+    /// refuse, so the list cannot be used to read the records around it.
     /// </summary>
     /// <remarks>
     /// Not recorded as a <c>modbot.discord.command</c> fact: Discord asks on every key press, and
@@ -246,14 +269,27 @@ public sealed class DiscordCommandHandler
     {
         ArgumentNullException.ThrowIfNull(ask);
 
-        if (ask.CommandName != DiscordCommands.Lookup || ask.OptionName != DiscordCommands.LookupUserOption)
+        // The permission the command itself needs: /lookup user: for See profiles, and the vrchat
+        // option of /note and /watch for Write notes. Any other option suggests nothing.
+        var required = (ask.CommandName, ask.OptionName) switch
+        {
+            (DiscordCommands.Lookup, DiscordCommands.LookupUserOption) => ModbotPermissions.ViewProfile,
+            (DiscordCommands.Note or DiscordCommands.Watch, DiscordCommands.VRChatOption)
+                => DiscordCommands.Requires(ask.CommandName),
+            _ => null,
+        };
+
+        if (required is not { } permission)
             return [];
 
         var user = await AccountAsync(ask.DiscordUserId, ct).ConfigureAwait(false);
 
+        // Exactly the callers the command would answer, in its own order: an account, enabled, a
+        // VRChat link for a command that writes, and the permission.
         if (user is null
             || user.IsDisabled
-            || !DiscordCommands.Allows(user.EffectivePermissions, ModbotPermissions.ViewProfile))
+            || (DiscordCommands.Writes(ask.CommandName) && !user.IsVRChatLinked)
+            || !DiscordCommands.Allows(user.EffectivePermissions, permission))
         {
             return [];
         }

@@ -48,6 +48,12 @@ public sealed record StaffNoteAnswer(long? NoteId, string? Error)
     public bool Written => NoteId is not null;
 }
 
+/// <summary>How starting a watch from Discord went: the watch's id, or why not.</summary>
+public sealed record StaffWatchAnswer(Guid? WatchId, string? Error)
+{
+    public bool Started => WatchId is not null;
+}
+
 /// <summary>
 /// What a staff member may do from Discord, done exactly the way the web app does it (acting from
 /// Discord design §5).
@@ -96,4 +102,20 @@ public interface IStaffActions
     /// <summary>Writes a note about a person on VRChat or on Discord.</summary>
     Task<StaffNoteAnswer> WriteNoteAsync(
         FactPlatform platform, string userId, string text, StaffMember by, CancellationToken ct = default);
+
+    /// <summary>
+    /// Starts watching a person on VRChat or on Discord, as the web app's Watch button does: the
+    /// reason is required, and the end day and the follow-up day are optional. Nothing is changed
+    /// on VRChat or Discord.
+    /// </summary>
+    /// <param name="endsAt">When the watch stops on its own, or null to keep it until somebody stops it.</param>
+    /// <param name="followUpAt">When somebody should check on the person again, or null for no follow-up.</param>
+    Task<StaffWatchAnswer> StartWatchAsync(
+        FactPlatform platform,
+        string userId,
+        string reason,
+        DateTimeOffset? endsAt,
+        DateTimeOffset? followUpAt,
+        StaffMember by,
+        CancellationToken ct = default);
 }

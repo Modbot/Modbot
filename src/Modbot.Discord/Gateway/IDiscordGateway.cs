@@ -49,6 +49,8 @@ public sealed record DiscordOptionChoice(string Name, string Value)
 /// Discord asks the bot for suggestions while the option is being typed
 /// (<see cref="DiscordSuggestionAsk"/>). Text options only.
 /// </param>
+/// <param name="Min">A number's lowest value, or a text option's shortest length.</param>
+/// <param name="Max">A number's highest value, or a text option's longest length.</param>
 /// <param name="Choices">The list a <see cref="DiscordOptionKind.Choice"/> option offers, at most 25.</param>
 public sealed record DiscordCommandOption(
     string Name,

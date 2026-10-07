@@ -14,6 +14,8 @@
   (TASK-039) as step 0 of the Discord commands design: **Report this message** is gone (§8), the
   menus and the staff slash commands share one `StaffOnly` setting (§10), and the join gate's
   buttons are still acknowledged first (§11).
+- **Updated 2026-10-07,** step 2 of the Discord commands design: `/note`, `/watch` and `/live` are
+  typed commands beside the menus (§2), with `IStaffActions.StartWatchAsync` (§5).
 
 ---
 
@@ -33,6 +35,10 @@ warn, a kick or a join request had to open Modbot, find the person and press the
 | Button **Kick** / **Ban** under a card | A form with the group's reasons and a note, then a confirmation | Kick / Ban |
 | Button **Approve** / **Reject** under a join request card | Reject: the reasons form; both: a confirmation | Answer join requests |
 | Link button **Open case** under a ban card | Opens the case file in Modbot | (Modbot's own sign-in) |
+
+| `/note` (added 2026-10-07) | `text` (1 to 2,000) and exactly one of `member` or `vrchat` (a VRChat name or id, with suggestions); "Note saved." and an **Open in Modbot** link | Write notes |
+| `/watch` (added 2026-10-07) | `reason` (1 to 200), `for` (1 day, 1 week, 30 days, Until stopped), `follow-up` (None, Tomorrow, In a week), and one of `member` or `vrchat`; "Watching …" and an **Open in Modbot** link | Write notes |
+| `/live` (added 2026-10-07) | A private card for each open group instance: world, people (`12/40`), when it opened; names (at most 20, then "and N more") only while a moderator's companion is watching it, by the Live page's rule (`InstancePeopleReader`); an **Open Live** link; no flags and no watched tags (user decision 2026-10-01) | See live instances |
 
 The lookup reply carries **Add note**, **Kick** and **Ban** too, for a member linked to VRChat, so a
 moderator can go from a right-click to a ban without leaving Discord.
@@ -91,7 +97,13 @@ exactly as the web endpoint builds it (the case-file writer, the profile refresh
 ban for ban and unban; the join request reader for approve and reject). So a ban from Discord writes
 the same `modbot.action.ban` fact, the same case file from the reasons and the note, and bans the
 linked Discord account the same way. A note goes through `NoteService` and is the same
-`modbot.note.add` fact.
+`modbot.note.add` fact. A watch (`/watch`, added 2026-10-07) goes through `WatchService.StartAsync`
+by `IStaffActions.StartWatchAsync`, built as the DI registration builds it, and is the same
+watch fact; the service checks Write notes again and refuses a person who is already watched in
+its own words, which the reply repeats. `/note` and `/watch` follow §3's order (account,
+disabled, VRChat link, permission) and write the `modbot.discord.command` fact with the person
+under `target` (VRChat) or `targetDiscord` (Discord) and an outcome of `answered`, `refused` (the
+service said no) or `invalid` (no person, two people, an empty note).
 
 On top of those, every interaction writes a `modbot.discord.command` fact like a slash command does
 (`command`: the menu or the action, `outcome`, `target`), so the audit log says the ban came through
@@ -163,7 +175,7 @@ The menus are registered with **Timeout Members** as their default Discord permi
 can change who sees them under Server Settings → Integrations → the bot. This only hides them:
 Modbot's own permission check (§3) is what decides.
 
-The staff slash commands (`/lookup`, `/recent`, `/modbot`) are hidden the same way, by the same
+The staff slash commands (`/lookup`, `/recent`, `/modbot`, and from 2026-10-07 `/note`, `/watch` and `/live`) are hidden the same way, by the same
 `DiscordCommandDefinition.StaffOnly` (cards and commands, TASK-039): one setting, one Discord
 permission, for every staff command and menu.
 

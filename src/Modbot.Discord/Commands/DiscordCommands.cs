@@ -52,6 +52,9 @@ public static class DiscordCommands
     public const string Me = "me";
     public const string Help = "help";
     public const string Verify = StaffDiscordCodes.Command;
+    public const string Note = "note";
+    public const string Watch = "watch";
+    public const string Live = "live";
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -65,6 +68,35 @@ public static class DiscordCommands
 
     public const int RecentDefault = 10;
     public const int RecentMax = 25;
+
+    /// <summary>
+    /// The Discord side of <c>/note</c> and <c>/watch</c>: a member, picked from Discord's own list.
+    /// Exactly one of this and <see cref="VRChatOption"/> is filled in; Discord cannot require "one
+    /// of", so the handler checks.
+    /// </summary>
+    public const string MemberOption = "member";
+
+    /// <summary>The VRChat side of <c>/note</c> and <c>/watch</c>: a name or an id, typed, with suggestions.</summary>
+    public const string VRChatOption = "vrchat";
+
+    public const string NoteTextOption = "text";
+    public const int NoteTextMax = 2000;
+
+    public const string WatchReasonOption = "reason";
+    public const int WatchReasonMax = 200;
+
+    /// <summary>How long a watch lasts: one of the <c>ForOneDay</c>.. values below.</summary>
+    public const string WatchForOption = "for";
+    public const string ForOneDay = "1d";
+    public const string ForOneWeek = "7d";
+    public const string ForThirtyDays = "30d";
+    public const string ForUntilStopped = "until-stopped";
+
+    /// <summary>When somebody should check on a watched person again.</summary>
+    public const string WatchFollowUpOption = "follow-up";
+    public const string FollowUpNone = "none";
+    public const string FollowUpTomorrow = "tomorrow";
+    public const string FollowUpInAWeek = "week";
 
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
@@ -84,6 +116,53 @@ public static class DiscordCommands
         new(
             Modbot,
             "Whether the bot is working, and where the Modbot web app is",
+            [],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
+            Note,
+            "Write a note about someone",
+            [
+                // Discord wants the required option first, so the note comes before the person.
+                new DiscordCommandOption(NoteTextOption, "The note", DiscordOptionKind.Text, Required: true, Min: 1, Max: NoteTextMax),
+                new DiscordCommandOption(MemberOption, "Discord member", DiscordOptionKind.Member, Required: false),
+                new DiscordCommandOption(VRChatOption, "VRChat name or id", DiscordOptionKind.Text, Required: false, Suggests: true),
+            ],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
+            Watch,
+            "Start watching someone",
+            [
+                new DiscordCommandOption(WatchReasonOption, "Why", DiscordOptionKind.Text, Required: true, Min: 1, Max: WatchReasonMax),
+                new DiscordCommandOption(
+                    WatchForOption,
+                    "How long",
+                    DiscordOptionKind.Choice,
+                    Required: true,
+                    Choices:
+                    [
+                        new("1 day", ForOneDay),
+                        new("1 week", ForOneWeek),
+                        new("30 days", ForThirtyDays),
+                        new("Until stopped", ForUntilStopped),
+                    ]),
+                new DiscordCommandOption(MemberOption, "Discord member", DiscordOptionKind.Member, Required: false),
+                new DiscordCommandOption(VRChatOption, "VRChat name or id", DiscordOptionKind.Text, Required: false, Suggests: true),
+                new DiscordCommandOption(
+                    WatchFollowUpOption,
+                    "Check again",
+                    DiscordOptionKind.Choice,
+                    Required: false,
+                    Choices:
+                    [
+                        new("None", FollowUpNone),
+                        new("Tomorrow", FollowUpTomorrow),
+                        new("In a week", FollowUpInAWeek),
+                    ]),
+            ],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
+            Live,
+            "Who is in the group's instances now",
             [],
             ShownTo: DiscordShownTo.Moderators),
         new(
@@ -137,8 +216,16 @@ public static class DiscordCommands
         Lookup => ModbotPermissions.ViewProfile,
         Recent => ModbotPermissions.ViewAuditLog,
         Modbot => ModbotPermissions.None,
+        Note or Watch => ModbotPermissions.WriteNotes,
+        Live => ModbotPermissions.ViewLiveInstances,
         _ => null,
     };
+
+    /// <summary>
+    /// Commands that write something. The web app refuses every request from an account with no
+    /// VRChat link, so these do too (acting from Discord design §3).
+    /// </summary>
+    public static bool Writes(string command) => command is Note or Watch;
 
     /// <summary>The permission's label as the web app's role editor shows it.</summary>
     public static string Label(ModbotPermissions permission) => permission switch
@@ -148,6 +235,7 @@ public static class DiscordCommands
         ModbotPermissions.Kick => "Kick",
         ModbotPermissions.Ban => "Ban",
         ModbotPermissions.WriteNotes => "Write notes",
+        ModbotPermissions.ViewLiveInstances => "See live instances",
         ModbotPermissions.AnswerJoinRequests => "Answer join requests",
         _ => permission.ToString(),
     };

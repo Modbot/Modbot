@@ -41,6 +41,12 @@ public sealed class FakeStaffActions : IStaffActions
     /// <summary>Every note written.</summary>
     public List<(FactPlatform Platform, string UserId, string Text, StaffMember By)> Notes { get; } = [];
 
+    /// <summary>Every watch started.</summary>
+    public List<(FactPlatform Platform, string UserId, string Reason, DateTimeOffset? EndsAt, DateTimeOffset? FollowUpAt, StaffMember By)> Watches { get; } = [];
+
+    /// <summary>Set to make every watch refuse with this sentence, as the service does for a person already watched.</summary>
+    public string? WatchRefusal { get; set; }
+
     public Task<StaffReasons> ReasonsAsync(string action, CancellationToken ct = default)
         => Task.FromResult(action == "approve" ? StaffReasons.None : new StaffReasons([.. Reasons], action == "ban" || ReasonRequired));
 
@@ -78,5 +84,24 @@ public sealed class FakeStaffActions : IStaffActions
 
         Notes.Add((platform, userId, text, by));
         return Task.FromResult(new StaffNoteAnswer(_nextNoteId++, null));
+    }
+
+    public Task<StaffWatchAnswer> StartWatchAsync(
+        FactPlatform platform,
+        string userId,
+        string reason,
+        DateTimeOffset? endsAt,
+        DateTimeOffset? followUpAt,
+        StaffMember by,
+        CancellationToken ct = default)
+    {
+        if (!by.Held.HasFlag(ModbotPermissions.WriteNotes) && !by.Held.HasFlag(ModbotPermissions.Administrator))
+            return Task.FromResult(new StaffWatchAnswer(null, "You do not have permission to watch people."));
+
+        if (WatchRefusal is { } refusal)
+            return Task.FromResult(new StaffWatchAnswer(null, refusal));
+
+        Watches.Add((platform, userId, reason, endsAt, followUpAt, by));
+        return Task.FromResult(new StaffWatchAnswer(Guid.CreateVersion7(), null));
     }
 }

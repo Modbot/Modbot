@@ -364,7 +364,16 @@ public class WholePersonLookupTests
             .Where(c => c.StaffOnly && c.Kind == DiscordCommandKind.Slash)
             .Select(c => c.Name)
             .Order(StringComparer.Ordinal);
-        Assert.Equal([DiscordCommands.Lookup, DiscordCommands.Modbot, DiscordCommands.Recent], staff);
+        Assert.Equal(
+            [
+                DiscordCommands.Live,
+                DiscordCommands.Lookup,
+                DiscordCommands.Modbot,
+                DiscordCommands.Note,
+                DiscordCommands.Recent,
+                DiscordCommands.Watch,
+            ],
+            staff);
 
         var menus = DiscordCommands.All.Where(c => c.Kind != DiscordCommandKind.Slash).ToList();
         Assert.NotEmpty(menus);
