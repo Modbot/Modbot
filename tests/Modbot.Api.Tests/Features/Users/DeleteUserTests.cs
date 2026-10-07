@@ -58,6 +58,41 @@ public class DeleteUserTests
     }
 
     /// <summary>
+    /// Deleting keeps the row, so the person's availability would otherwise stay under the emptied
+    /// account's id. It goes with the account, and nobody else's does.
+    /// </summary>
+    [Fact]
+    public async Task DeletingAnAccount_RemovesItsAvailability_AndOnlyIts()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var (user, theirs) = await host.SignedInAsync(ModbotPermissions.EnterAvailability, Ct);
+        var (other, othersCookie) = await host.SignedInAsync(ModbotPermissions.EnterAvailability, Ct);
+
+        foreach (var who in new[] { theirs, othersCookie })
+        {
+            var saved = await host.SendJsonAsync(
+                HttpMethod.Put, "/api/availability/mine",
+                new { timeZone = "Europe/London", cells = new[] { new { day = 1, hour = 18, state = "free" } } }, who, Ct);
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        }
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path(user.Id), new { username = user.Username }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await using var context = _db.NewContext();
+
+        // The account row is still there, emptied: this is not a hard delete.
+        Assert.NotNull((await context.Users.SingleAsync(u => u.Id == user.Id, Ct)).DeletedAt);
+
+        Assert.False(await context.StaffAvailabilities.AnyAsync(a => a.UserId == user.Id, Ct));
+        Assert.False(await context.StaffAvailabilityZones.AnyAsync(z => z.UserId == user.Id, Ct));
+
+        Assert.Equal(1, await context.StaffAvailabilities.CountAsync(a => a.UserId == other.Id, Ct));
+        Assert.True(await context.StaffAvailabilityZones.AnyAsync(z => z.UserId == other.Id, Ct));
+    }
+
+    /// <summary>
     /// DELETE /api/users/{id} is the same deletion at the address the rest of the API would give it
     /// (API conventions design §4), with the same typed-out username.
     /// </summary>

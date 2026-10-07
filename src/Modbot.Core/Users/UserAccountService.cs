@@ -138,6 +138,11 @@ public sealed class UserAccountService
     /// (<see cref="RevokeCompanionDevicesAsync"/>).
     /// </para>
     /// <para>
+    /// The person's availability goes: their weekly hours and time zone are about the person, and the
+    /// row they hung from stays only as a number (availability design §2). Bare deletes, so they
+    /// share the transaction the caller opened and commit or roll back with the rest.
+    /// </para>
+    /// <para>
     /// Writes no fact — the fact writer lives a layer up, as everywhere else here — so the caller
     /// records the deletion in the same transaction.
     /// </para>
@@ -181,6 +186,8 @@ public sealed class UserAccountService
         user.SessionsValidAfter = _clock.UtcNow;
 
         await RevokeCompanionDevicesAsync(user.Id, ct);
+        await _db.StaffAvailabilities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync(ct);
+        await _db.StaffAvailabilityZones.Where(z => z.UserId == user.Id).ExecuteDeleteAsync(ct);
         await _db.SaveChangesAsync(ct);
 
         return name;
