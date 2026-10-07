@@ -58,6 +58,10 @@ public sealed class StaffInteractionHandler
     public const string NoReasonsMessage = "Modbot's reason list has none for this. Add one in Modbot first.";
     public const string UnknownReasonMessage = "One of those reasons is not on the list.";
     public const string FailedMessage = "Something went wrong on Modbot's side. Check the person in Modbot before pressing again.";
+    public const string NoLinkedVRChatMessage = "They are not linked to a VRChat account.";
+    public const string NoLinkedDiscordMessage = "They have no linked Discord account.";
+    public const string BanNeedsAReasonMessage = "A ban needs a reason.";
+    public const string PickDaysMessage = "Pick how many days of their messages to delete.";
 
     /// <summary>The longest note, as the note service allows.</summary>
     public const int NoteLength = 2000;
@@ -71,6 +75,18 @@ public sealed class StaffInteractionHandler
     public const string NoteField = "note";
     public const string ReasonsField = "reasons";
 
+    /// <summary>The reason on the form for an action on the Discord server alone: free words, not the group's list.</summary>
+    public const string WhyField = "why";
+
+    /// <summary>"Delete their messages from" on a Discord ban's form: 0, 1 or 7 (days).</summary>
+    public const string DeleteDaysField = "deletedays";
+
+    /// <summary>
+    /// The longest reason on the Discord server. Discord keeps 512 characters in its audit log, and
+    /// "Modbot: banned by &lt;name&gt;: " goes in front of the reason.
+    /// </summary>
+    public const int DiscordWhyLength = 400;
+
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
     private readonly IModbotClock _clock;
@@ -78,6 +94,7 @@ public sealed class StaffInteractionHandler
     private readonly PendingStaffActions _pending;
     private readonly CardPictures _pictures;
     private readonly IStaffActions? _staff;
+    private readonly StaffCommands _people;
     private readonly ILogger _log;
 
     public StaffInteractionHandler(
@@ -102,6 +119,9 @@ public sealed class StaffInteractionHandler
         _pending = pending;
         _pictures = pictures ?? new CardPictures();
         _staff = staff;
+
+        // The one rule for naming a person on a command (/note, /watch, /ban, /kick), not a copy.
+        _people = new StaffCommands(db, clock, lookup, staff);
         _log = Log.Logger.ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -217,6 +237,206 @@ public sealed class StaffInteractionHandler
         return await ShowAsync(call.ShowFormAsync, NoteForm(formId), ct).ConfigureAwait(false);
     }
 
+    // ── /ban and /kick ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>Whether this slash command is one of the two that open a form and wait for a confirmation.</summary>
+    public static bool HandlesCommand(string commandName) => commandName is DiscordCommands.Ban or DiscordCommands.Kick;
+
+    /// <summary>
+    /// <c>/ban</c> or <c>/kick</c>: who is acting, who it is about, where it acts, and then the
+    /// reasons form (Discord commands design §3.3, acting from Discord design §4). Null means the
+    /// form was shown; anything else is the reply to send.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>What <c>/ban</c> means is the web app's.</strong> A VRChat person, or a Discord member
+    /// linked to VRChat, is banned from the group, and Modbot's own rule bans their linked Discord
+    /// account with them. A Discord member with no link is banned from the Discord server, which is
+    /// a different permission ("Ban on Discord").
+    /// </para>
+    /// <para>
+    /// <strong><c>/kick</c> goes by who is named</strong>: a Discord member is removed from the
+    /// server, a VRChat person from the group. <c>from</c> picks the other place, or both, for
+    /// somebody who has both accounts linked.
+    /// </para>
+    /// <para>
+    /// <strong>Nothing is searched or named for a caller without See profiles</strong>
+    /// (<see cref="StaffCommands.PersonAsync"/>): the VRChat option takes an exact id, every refusal
+    /// is one sentence, and the confirmation shows the id they typed, never a VRChat name. A Discord
+    /// member is named by their Discord name, which Discord itself showed in the picker.
+    /// </para>
+    /// </remarks>
+    public async Task<DiscordReply?> HandleCommandAsync(DiscordCommandCall call, IDiscordGateway? gateway, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+
+        if (!HandlesCommand(call.CommandName))
+            return DiscordReply.Say("Modbot does not know that command.");
+
+        var action = call.CommandName == DiscordCommands.Ban ? StaffActionWords.Ban : StaffActionWords.Kick;
+
+        // A command the operator switched off is no longer registered; this is for a run that came
+        // before Discord dropped it (Discord commands design §3.8).
+        if (!await CommandSwitchSetting.IsOnAsync(_db, call.CommandName, ct).ConfigureAwait(false))
+        {
+            await RecordAsync(call.DiscordUserId, null, call.CommandName, "off", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: false));
+        }
+
+        // An account, enabled, a VRChat link: the order design §3 gives for anything that writes.
+        var (user, refusal, outcome) = await StaffAsync(call.DiscordUserId, ModbotPermissions.None, writes: true, ct).ConfigureAwait(false);
+        if (refusal is not null)
+        {
+            await RecordAsync(call.DiscordUserId, user, call.CommandName, outcome, null, ct).ConfigureAwait(false);
+            return refusal;
+        }
+
+        // Then the permission, for either place. Which one a run needs depends on who it is about,
+        // and is checked once that is known.
+        if (!DiscordCommands.CanUse(call.CommandName, user!.EffectivePermissions))
+        {
+            await RecordAsync(call.DiscordUserId, user, call.CommandName, "no-permission", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say(NeedsPermissionMessage(DiscordCommands.Requires(call.CommandName)!.Value, call.CommandName));
+        }
+
+        if (_staff is null)
+            return DiscordReply.Say(NotSetUpMessage);
+
+        var (person, problem) = await _people.PersonAsync(call, StaffCommands.SeesNames(user), ct).ConfigureAwait(false);
+        if (problem is not null)
+        {
+            await RecordAsync(call.DiscordUserId, user, call.CommandName, problem.Outcome, null, ct).ConfigureAwait(false);
+            return problem.Reply;
+        }
+
+        var (pending, no, noOutcome, noTarget, noDiscordTarget) = await PlanAsync(call, action, person!, user, gateway, ct).ConfigureAwait(false);
+        if (no is not null)
+        {
+            await RecordAsync(call.DiscordUserId, user, call.CommandName, noOutcome, noTarget, ct, noDiscordTarget).ConfigureAwait(false);
+            return no;
+        }
+
+        return await OpenFormAsync(call.ShowFormAsync, pending!, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Where the command acts and on whom, checked against what the caller may do there, as a
+    /// pending action ready for its form, or the reply that refuses it and what to record.
+    /// </summary>
+    private async Task<(PendingStaffAction? Pending, DiscordReply? Refusal, string Outcome, string? Target, string? DiscordTarget)> PlanAsync(
+        DiscordCommandCall call, string action, StaffCommands.Person person, ModbotUser user, IDiscordGateway? gateway, CancellationToken ct)
+    {
+        var onDiscordFirst = person.Platform == FactPlatform.Discord;
+        string? vrchatId;
+        string? discordId;
+        string name;
+
+        if (onDiscordFirst)
+        {
+            discordId = person.Id;
+
+            if (IsBot(discordId, gateway))
+                return (null, DiscordReply.Say(OwnAccountMessage), "own-account", null, discordId);
+
+            vrchatId = await _db.LinkedVRChatUserIdAsync(discordId, ct).ConfigureAwait(false);
+            name = await DiscordNameAsync(discordId, ct).ConfigureAwait(false) ?? discordId;
+        }
+        else
+        {
+            vrchatId = person.Id;
+            discordId = await _db.LinkedDiscordUserIdAsync(vrchatId, ct).ConfigureAwait(false);
+
+            // Only what the caller may see: Modbot's name for them when they hold See profiles,
+            // otherwise the id they typed.
+            name = person.Name is { Length: > 0 } known ? known : vrchatId;
+        }
+
+        StaffActionWhere where;
+
+        if (action == StaffActionWords.Ban)
+        {
+            // The web app's meaning: the group, with the linked Discord account banned beside it by
+            // the moderation service; the Discord server alone only for somebody with no VRChat link.
+            where = vrchatId is not null ? StaffActionWhere.VRChat : StaffActionWhere.Discord;
+        }
+        else
+        {
+            where = call.Option(DiscordCommands.KickFromOption) switch
+            {
+                DiscordCommands.FromDiscord => StaffActionWhere.Discord,
+                DiscordCommands.FromVRChat => StaffActionWhere.VRChat,
+                DiscordCommands.FromBoth => StaffActionWhere.Both,
+                _ => onDiscordFirst ? StaffActionWhere.Discord : StaffActionWhere.VRChat,
+            };
+        }
+
+        // The permission for each place it acts, the web app's own for each. Asked before anything
+        // about what the person has linked, so nobody is told about an account in a place they may
+        // not act in.
+        var held = user.EffectivePermissions;
+
+        foreach (var needed in new[]
+                 {
+                     where.HasFlag(StaffActionWhere.VRChat) ? StaffActionWords.Requires(action) : ModbotPermissions.None,
+                     where.HasFlag(StaffActionWhere.Discord) ? StaffActionWords.RequiresOnDiscord(action) : ModbotPermissions.None,
+                 })
+        {
+            if (!DiscordCommands.Allows(held, needed))
+            {
+                return (null, DiscordReply.Say(NeedsPermissionMessage(needed, call.CommandName)), "no-permission", vrchatId, discordId);
+            }
+        }
+
+        if (where.HasFlag(StaffActionWhere.VRChat) && vrchatId is null)
+            return (null, DiscordReply.Say(NoLinkedVRChatMessage), "invalid", null, discordId);
+
+        if (where.HasFlag(StaffActionWhere.Discord) && discordId is null)
+            return (null, DiscordReply.Say(NoLinkedDiscordMessage), "invalid", vrchatId, null);
+
+        var member = Member(user);
+
+        if (where.HasFlag(StaffActionWhere.Discord)
+            && await _staff!.DiscordCheckAsync(action, discordId!, member, ct).ConfigureAwait(false) is { } off)
+        {
+            return (null, DiscordReply.Say(off), "refused", vrchatId, discordId);
+        }
+
+        var pending = new PendingStaffAction(
+            PendingStaffActions.NewToken(),
+            call.DiscordUserId,
+            action,
+            where == StaffActionWhere.Discord ? discordId! : vrchatId!,
+            name,
+            null,
+            null,
+            _clock.UtcNow,
+            [],
+            [],
+            string.Empty,
+            Ready: false,
+            where,
+            where.HasFlag(StaffActionWhere.Discord) ? discordId : null,
+            DeleteMessageDays: 0,
+            AlsoBansDiscord: action == StaffActionWords.Ban && where == StaffActionWhere.VRChat && discordId is not null);
+
+        return (pending, null, "answered", null, null);
+    }
+
+    private static string NeedsPermissionMessage(ModbotPermissions permission, string command)
+        => $"You need the \"{DiscordCommands.Label(permission)}\" permission in Modbot to use /{command}.";
+
+    /// <summary>The name the Discord server shows for a member, as Modbot last saw it; null when it never has.</summary>
+    private async Task<string?> DiscordNameAsync(string discordUserId, CancellationToken ct)
+    {
+        var shown = await _db.DiscordMembers.AsNoTracking()
+            .Where(m => m.UserId == discordUserId)
+            .Select(m => m.DisplayName)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return string.IsNullOrWhiteSpace(shown) ? null : shown.Trim();
+    }
+
     // ── Buttons ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -324,33 +544,69 @@ public sealed class StaffInteractionHandler
             return Confirmation(pending);
         }
 
-        var reasons = await _staff.ReasonsAsync(action, ct).ConfigureAwait(false);
-        if (reasons.Required && reasons.Reasons.Count == 0)
-            return DiscordReply.Say(NoReasonsMessage);
+        return await OpenFormAsync(press.ShowFormAsync, pending, ct).ConfigureAwait(false);
+    }
 
-        if (!_pending.TryAdd(pending, now))
-            return DiscordReply.Say(TooManyMessage);
-
+    /// <summary>
+    /// Holds the pending action and shows its form: the group's reasons and a note for an action on
+    /// the group, or a free reason (and for a ban, how many days of messages to delete) for an action
+    /// on the Discord server alone. Null means the form was shown.
+    /// </summary>
+    private async Task<DiscordReply?> OpenFormAsync(
+        Func<DiscordForm, CancellationToken, Task> show, PendingStaffAction pending, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
         var fields = new List<DiscordFormField>();
 
-        if (reasons.Reasons.Count > 0)
+        if (pending.OnVRChat)
         {
-            var offered = reasons.Reasons.Take(MaxReasonsOffered).ToList();
+            var reasons = await _staff!.ReasonsAsync(pending.Action, ct).ConfigureAwait(false);
+            if (reasons.Required && reasons.Reasons.Count == 0)
+                return DiscordReply.Say(NoReasonsMessage);
 
-            fields.Add(new DiscordFormField(
-                ReasonsField,
-                "Reasons",
-                DiscordFormFieldKind.Choice,
-                reasons.Required,
-                Choices: [.. offered.Select(r => new DiscordChoice(r.Label, r.Id.ToString("N"), r.Description))],
-                MaxChoices: offered.Count));
+            if (!_pending.TryAdd(pending, now))
+                return DiscordReply.Say(TooManyMessage);
+
+            if (reasons.Reasons.Count > 0)
+            {
+                var offered = reasons.Reasons.Take(MaxReasonsOffered).ToList();
+
+                fields.Add(new DiscordFormField(
+                    ReasonsField,
+                    "Reasons",
+                    DiscordFormFieldKind.Choice,
+                    reasons.Required,
+                    Choices: [.. offered.Select(r => new DiscordChoice(r.Label, r.Id.ToString("N"), r.Description))],
+                    MaxChoices: offered.Count));
+            }
+
+            fields.Add(new DiscordFormField(NoteField, "Note", DiscordFormFieldKind.LongText, Required: false, MaxLength: ActionNoteLength));
+        }
+        else
+        {
+            if (!_pending.TryAdd(pending, now))
+                return DiscordReply.Say(TooManyMessage);
+
+            var banning = pending.Action == StaffActionWords.Ban;
+
+            fields.Add(new DiscordFormField(WhyField, "Reason", DiscordFormFieldKind.LongText, Required: banning, MaxLength: DiscordWhyLength));
+
+            if (banning)
+            {
+                fields.Add(new DiscordFormField(
+                    DeleteDaysField,
+                    "Delete their messages from",
+                    DiscordFormFieldKind.Choice,
+                    Required: false,
+                    Choices: [new DiscordChoice("None", "0"), new DiscordChoice("1 day", "1"), new DiscordChoice("7 days", "7")],
+                    MaxChoices: 1));
+            }
         }
 
-        fields.Add(new DiscordFormField(NoteField, "Note", DiscordFormFieldKind.LongText, Required: false, MaxLength: ActionNoteLength));
+        var name = pending.SubjectName;
+        var form = new DiscordForm(StaffActionWords.FormTitle(pending.Action, name), StaffMenus.ActForm + pending.Token, fields);
 
-        var form = new DiscordForm(StaffActionWords.FormTitle(action, name), StaffMenus.ActForm + pending.Token, fields);
-
-        var shown = await ShowAsync(press.ShowFormAsync, form, ct).ConfigureAwait(false);
+        var shown = await ShowAsync(show, form, ct).ConfigureAwait(false);
         if (shown is not null)
             _pending.Forget(pending.Token);
 
@@ -379,14 +635,16 @@ public sealed class StaffInteractionHandler
         // database would make the gateway acknowledge it as "thinking…" instead, and the answer
         // would arrive as a new message under a confirmation that still has its buttons.
         var name = CardText.EscapeName(pending.SubjectName);
-        await press.UpdateAsync(DiscordReply.Say(StaffActionWords.Doing(pending.Action, name)), ct).ConfigureAwait(false);
+        await press.UpdateAsync(DiscordReply.Say(StaffActionWords.Doing(pending, name)), ct).ConfigureAwait(false);
 
-        var (user, refusal, outcome) = await StaffAsync(press.DiscordUserId, StaffActionWords.Requires(pending.Action), writes: true, ct)
+        var (target, discordTarget) = Targets(pending);
+
+        var (user, refusal, outcome) = await StaffAsync(press.DiscordUserId, pending.Needs, writes: true, ct)
             .ConfigureAwait(false);
 
         if (refusal is not null)
         {
-            await RecordAsync(press.DiscordUserId, user, pending.Action, outcome, pending.SubjectId, ct).ConfigureAwait(false);
+            await RecordAsync(press.DiscordUserId, user, pending.Action, outcome, target, ct, discordTarget).ConfigureAwait(false);
             await press.UpdateAsync(refusal, ct).ConfigureAwait(false);
             return null;
         }
@@ -397,13 +655,31 @@ public sealed class StaffInteractionHandler
             return null;
         }
 
-        StaffActionAnswer answer;
+        StaffLegAnswers legs;
+        var again = false;
 
         try
         {
-            answer = await _staff.RunAsync(
-                    pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, Member(user!), ct)
-                .ConfigureAwait(false);
+            if (pending.OnDiscord)
+            {
+                // The server has no key of its own to claim, so the confirmation is claimed here:
+                // a second press gets the first answers and sends nothing.
+                var staff = _staff;
+                var member = Member(user!);
+                var (answers, first) = await _pending
+                    .RunOnceAsync(pending.Token, () => RunLegsAsync(staff, pending, member, ct))
+                    .ConfigureAwait(false);
+
+                (legs, again) = (answers, !first);
+            }
+            else
+            {
+                legs = new StaffLegAnswers(
+                    await _staff.RunAsync(
+                            pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, Member(user!), ct)
+                        .ConfigureAwait(false),
+                    null);
+            }
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -421,15 +697,16 @@ public sealed class StaffInteractionHandler
                 _log.Debug(updateError, "Could not rewrite the confirmation after a failure");
             }
 
-            await RecordAsync(press.DiscordUserId, user, pending.Action, "error", pending.SubjectId, ct).ConfigureAwait(false);
+            await RecordAsync(press.DiscordUserId, user, pending.Action, "error", target, ct, discordTarget).ConfigureAwait(false);
             return null;
         }
 
         var publicAddress = await PublicAddressAsync(ct).ConfigureAwait(false);
-        await press.UpdateAsync(Answer(pending, answer, publicAddress), ct).ConfigureAwait(false);
+        await press.UpdateAsync(Answer(pending, legs, publicAddress), ct).ConfigureAwait(false);
 
         // The one thing the channel sees: who dealt with the card, once, and only when it is done.
-        if (answer is { Done: true, Repeat: false }
+        if (legs.VRChat is { Done: true, Repeat: false }
+            && !pending.OnDiscord
             && pending is { CardChannelId: { } channelId, CardMessageId: { } messageId }
             && gateway is not null)
         {
@@ -457,17 +734,69 @@ public sealed class StaffInteractionHandler
             }
         }
 
-        var result = answer switch
+        var answered = new[] { legs.VRChat, legs.Discord }.Where(a => a is not null).Select(a => a!).ToList();
+
+        var result = answered switch
         {
-            { Repeat: true } => "repeat",
-            { Done: true } => "done",
-            { Refused: true } => "refused",
+            _ when again || answered.Any(a => a.Repeat) => "repeat",
+            _ when answered.All(a => a.Done) => "done",
+            _ when answered.Any(a => a.Done) => "partial",
+            _ when answered.Any(a => a.Refused) => "refused",
             _ => "failed",
         };
 
-        await RecordAsync(press.DiscordUserId, user, pending.Action, result, pending.SubjectId, ct).ConfigureAwait(false);
+        await RecordAsync(press.DiscordUserId, user, pending.Action, result, target, ct, discordTarget).ConfigureAwait(false);
         return null;
     }
+
+    /// <summary>
+    /// Every place the action acts, group first. Each answers on its own: the server is not left
+    /// alone because the group said no, and the group is not undone because the server did.
+    /// </summary>
+    private static async Task<StaffLegAnswers> RunLegsAsync(IStaffActions staff, PendingStaffAction pending, StaffMember member, CancellationToken ct)
+    {
+        StaffActionAnswer? vrchat = null;
+        StaffActionAnswer? discord = null;
+
+        if (pending.OnVRChat)
+        {
+            vrchat = await staff
+                .RunAsync(pending.Action, pending.Key, pending.SubjectId, pending.ReasonIds, pending.Note, member, ct)
+                .ConfigureAwait(false);
+        }
+
+        if (pending.OnDiscord)
+        {
+            var why = DiscordReason(pending);
+
+            discord = pending.Action == StaffActionWords.Ban
+                ? await staff.DiscordBanAsync(pending.TargetDiscordId!, why, pending.DeleteMessageDays, member, ct).ConfigureAwait(false)
+                : await staff.DiscordKickAsync(pending.TargetDiscordId!, why, member, ct).ConfigureAwait(false);
+        }
+
+        return new StaffLegAnswers(vrchat, discord);
+    }
+
+    /// <summary>
+    /// Why, for Discord's audit log: what was written on the server's form, or for an action on both
+    /// places the reasons picked and the note, as the group's own record has them.
+    /// </summary>
+    private static string DiscordReason(PendingStaffAction pending)
+    {
+        var parts = new List<string>();
+
+        if (pending.ReasonLabels.Count > 0)
+            parts.Add(string.Join(", ", pending.ReasonLabels));
+
+        if (pending.Note.Length > 0)
+            parts.Add(pending.Note);
+
+        return string.Join(": ", parts);
+    }
+
+    /// <summary>The access record's targets: the VRChat id and the Discord id the action was about.</summary>
+    private static (string? Target, string? DiscordTarget) Targets(PendingStaffAction pending)
+        => (pending.OnVRChat ? pending.SubjectId : null, pending.OnDiscord ? pending.TargetDiscordId : null);
 
     // ── Forms ────────────────────────────────────────────────────────────────────────────────
 
@@ -542,17 +871,23 @@ public sealed class StaffInteractionHandler
         if (pending.DiscordUserId != submit.DiscordUserId)
             return DiscordReply.Say(NotYoursMessage);
 
-        var (user, refusal, outcome) = await StaffAsync(submit.DiscordUserId, StaffActionWords.Requires(pending.Action), writes: true, ct)
+        var (target, discordTarget) = Targets(pending);
+
+        var (user, refusal, outcome) = await StaffAsync(submit.DiscordUserId, pending.Needs, writes: true, ct)
             .ConfigureAwait(false);
 
         if (refusal is not null)
         {
-            await RecordAsync(submit.DiscordUserId, user, pending.Action, outcome, pending.SubjectId, ct).ConfigureAwait(false);
+            await RecordAsync(submit.DiscordUserId, user, pending.Action, outcome, target, ct, discordTarget).ConfigureAwait(false);
             return refusal;
         }
 
         if (_staff is null)
             return DiscordReply.Say(NotSetUpMessage);
+
+        // An action on the Discord server alone has a free reason, not the group's list.
+        if (!pending.OnVRChat)
+            return await ReadDiscordFormAsync(submit, pending, user!, ct).ConfigureAwait(false);
 
         // No list on the form (the action has no reasons), or a list left empty, is no reasons
         // picked; the service then decides whether one was needed.
@@ -574,8 +909,16 @@ public sealed class StaffInteractionHandler
         // shown for something that would be sent.
         if (await _staff.CheckAsync(pending.Action, pending.SubjectId, picked, note, Member(user!), ct).ConfigureAwait(false) is { } no)
         {
-            await RecordAsync(submit.DiscordUserId, user, pending.Action, "refused", pending.SubjectId, ct).ConfigureAwait(false);
+            await RecordAsync(submit.DiscordUserId, user, pending.Action, "refused", target, ct, discordTarget).ConfigureAwait(false);
             return DiscordReply.Say(no);
+        }
+
+        // Both places: the server's own checks too (the bot, the owner, staff), before the confirmation.
+        if (pending.OnDiscord
+            && await _staff.DiscordCheckAsync(pending.Action, pending.TargetDiscordId!, Member(user!), ct).ConfigureAwait(false) is { } offLimits)
+        {
+            await RecordAsync(submit.DiscordUserId, user, pending.Action, "refused", target, ct, discordTarget).ConfigureAwait(false);
+            return DiscordReply.Say(offLimits);
         }
 
         var reasons = await _staff.ReasonsAsync(pending.Action, ct).ConfigureAwait(false);
@@ -586,6 +929,39 @@ public sealed class StaffInteractionHandler
             .ToList();
 
         var ready = pending with { ReasonIds = picked, ReasonLabels = labels, Note = note, Ready = true };
+        _pending.Update(ready);
+
+        return Confirmation(ready);
+    }
+
+    /// <summary>
+    /// The form for an action on the Discord server alone was sent: the reason, and for a ban how
+    /// many days of messages to delete, then every check the server makes, then the confirmation.
+    /// </summary>
+    private async Task<DiscordReply> ReadDiscordFormAsync(
+        DiscordFormSubmit submit, PendingStaffAction pending, ModbotUser user, CancellationToken ct)
+    {
+        var (target, discordTarget) = Targets(pending);
+        var banning = pending.Action == StaffActionWords.Ban;
+        var why = Cut(submit.Text(WhyField), DiscordWhyLength);
+
+        if (banning && why.Length == 0)
+            return DiscordReply.Say(BanNeedsAReasonMessage);
+
+        var days = 0;
+        if (banning && submit.Picked(DeleteDaysField).FirstOrDefault() is { } picked
+            && (!int.TryParse(picked, NumberStyles.None, CultureInfo.InvariantCulture, out days) || days is not (0 or 1 or 7)))
+        {
+            return DiscordReply.Say(PickDaysMessage);
+        }
+
+        if (await _staff!.DiscordCheckAsync(pending.Action, pending.TargetDiscordId!, Member(user), ct).ConfigureAwait(false) is { } no)
+        {
+            await RecordAsync(submit.DiscordUserId, user, pending.Action, "refused", target, ct, discordTarget).ConfigureAwait(false);
+            return DiscordReply.Say(no);
+        }
+
+        var ready = pending with { Note = why, DeleteMessageDays = days, Ready = true };
         _pending.Update(ready);
 
         return Confirmation(ready);
@@ -604,13 +980,20 @@ public sealed class StaffInteractionHandler
     {
         ArgumentNullException.ThrowIfNull(pending);
 
-        var sb = new StringBuilder(StaffActionWords.Question(pending.Action, CardText.EscapeName(pending.SubjectName)));
+        var sb = new StringBuilder(StaffActionWords.Question(pending, CardText.EscapeName(pending.SubjectName)));
 
         if (pending.ReasonLabels.Count > 0)
             sb.Append("\nReasons: ").Append(CardText.EscapeText(string.Join(", ", pending.ReasonLabels)));
 
         if (pending.Note.Length > 0)
-            sb.Append("\nNote: ").Append(CardText.Fit(CardText.EscapeText(pending.Note), 1000));
+            sb.Append(pending.OnVRChat ? "\nNote: " : "\nReason: ").Append(CardText.Fit(CardText.EscapeText(pending.Note), 1000));
+
+        if (pending.OnDiscord && pending.Action == StaffActionWords.Ban && pending.DeleteMessageDays > 0)
+        {
+            sb.Append("\nTheir messages from the last ")
+                .Append(pending.DeleteMessageDays == 1 ? "day" : pending.DeleteMessageDays.ToString(CultureInfo.InvariantCulture) + " days")
+                .Append(" will be deleted.");
+        }
 
         return new DiscordReply(
             sb.ToString(),
@@ -619,7 +1002,7 @@ public sealed class StaffInteractionHandler
             null,
             [
                 new DiscordActionButton(
-                    StaffActionWords.Label(pending.Action),
+                    StaffActionWords.Label(pending),
                     StaffMenus.YesButton + pending.Token,
                     StaffActionWords.Style(pending.Action)),
                 new DiscordActionButton("Cancel", StaffMenus.NoButton + pending.Token),
@@ -662,6 +1045,43 @@ public sealed class StaffInteractionHandler
                 : null;
 
         return new DiscordReply(sb.ToString(), [], links);
+    }
+
+    /// <summary>
+    /// What the confirmation says once every place the action acted has answered. The group alone is
+    /// <see cref="Answer(PendingStaffAction, StaffActionAnswer, string?)"/>; the server alone and both
+    /// say what each did on its own line. Public for tests.
+    /// </summary>
+    public static DiscordReply Answer(PendingStaffAction pending, StaffLegAnswers legs, string? publicAddress)
+    {
+        ArgumentNullException.ThrowIfNull(pending);
+        ArgumentNullException.ThrowIfNull(legs);
+
+        if (legs.VRChat is { } vrchat && legs.Discord is null)
+            return Answer(pending, vrchat, publicAddress);
+
+        var name = CardText.EscapeName(pending.SubjectName);
+        var lines = new List<string>();
+        IReadOnlyList<DiscordLinkButton>? links = null;
+
+        if (legs.VRChat is { } group)
+        {
+            var inGroup = Answer(pending, group, publicAddress);
+            lines.Add(inGroup.Text ?? string.Empty);
+            links = inGroup.Links;
+        }
+
+        if (legs.Discord is { } server)
+        {
+            lines.Add(server switch
+            {
+                { Done: true } => StaffActionWords.DoneOnDiscord(pending.Action, name, server.Unchanged),
+                { Refused: true } => server.Error ?? "Nothing was sent.",
+                _ => "Discord did not do it: " + CardText.EscapeText(server.Error ?? "it did not say why."),
+            });
+        }
+
+        return new DiscordReply(string.Join('\n', lines), [], links);
     }
 
     private async Task<DiscordReply> NoteAddedAsync(bool onDiscord, string personId, CancellationToken ct)
@@ -745,7 +1165,7 @@ public sealed class StaffInteractionHandler
 
     /// <summary>The same access record a slash command leaves (<c>modbot.discord.command</c>).</summary>
     private async Task RecordAsync(
-        string discordUserId, ModbotUser? user, string command, string outcome, string? target, CancellationToken ct)
+        string discordUserId, ModbotUser? user, string command, string outcome, string? target, CancellationToken ct, string? discordTarget = null)
     {
         var data = new JsonObject
         {
@@ -755,6 +1175,9 @@ public sealed class StaffInteractionHandler
 
         if (target is not null)
             data["target"] = target;
+
+        if (discordTarget is not null)
+            data["targetDiscord"] = discordTarget;
 
         await _facts.WriteAsync(new FactRecord
             {

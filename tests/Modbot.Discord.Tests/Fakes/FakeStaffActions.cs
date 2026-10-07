@@ -47,6 +47,21 @@ public sealed class FakeStaffActions : IStaffActions
     /// <summary>Set to make every watch refuse with this sentence, as the service does for a person already watched.</summary>
     public string? WatchRefusal { get; set; }
 
+    /// <summary>Set to make every check on the Discord server refuse with this sentence (the bot, the owner, staff).</summary>
+    public string? DiscordRefusal { get; set; }
+
+    /// <summary>What an action on the Discord server answers. Done by default.</summary>
+    public StaffActionAnswer DiscordAnswer { get; set; } = new(true, null);
+
+    /// <summary>Every Discord ban asked for, each one a call to Discord.</summary>
+    public List<(string DiscordUserId, string Reason, int DeleteMessageDays, StaffMember By)> DiscordBans { get; } = [];
+
+    /// <summary>Every Discord removal asked for, each one a call to Discord.</summary>
+    public List<(string DiscordUserId, string Reason, StaffMember By)> DiscordKicks { get; } = [];
+
+    /// <summary>Every check on the Discord server asked for.</summary>
+    public List<(string Action, string DiscordUserId)> DiscordChecks { get; } = [];
+
     public Task<StaffReasons> ReasonsAsync(string action, CancellationToken ct = default)
         => Task.FromResult(action == "approve" ? StaffReasons.None : new StaffReasons([.. Reasons], action == "ban" || ReasonRequired));
 
@@ -103,5 +118,36 @@ public sealed class FakeStaffActions : IStaffActions
 
         Watches.Add((platform, userId, reason, endsAt, followUpAt, by));
         return Task.FromResult(new StaffWatchAnswer(Guid.CreateVersion7(), null));
+    }
+
+    public Task<string?> DiscordCheckAsync(string action, string discordUserId, StaffMember by, CancellationToken ct = default)
+    {
+        DiscordChecks.Add((action, discordUserId));
+
+        var needed = action == "ban" ? ModbotPermissions.DiscordBan : ModbotPermissions.DiscordKick;
+        if (!by.Held.HasFlag(needed) && !by.Held.HasFlag(ModbotPermissions.Administrator))
+            return Task.FromResult<string?>("You do not have permission to do that.");
+
+        return Task.FromResult(DiscordRefusal);
+    }
+
+    public Task<StaffActionAnswer> DiscordBanAsync(
+        string discordUserId, string reason, int deleteMessageDays, StaffMember by, CancellationToken ct = default)
+    {
+        if (!by.Held.HasFlag(ModbotPermissions.DiscordBan) && !by.Held.HasFlag(ModbotPermissions.Administrator))
+            return Task.FromResult(StaffActionAnswer.RefusedWith("You do not have permission to do that."));
+
+        DiscordBans.Add((discordUserId, reason, deleteMessageDays, by));
+        return Task.FromResult(DiscordAnswer);
+    }
+
+    public Task<StaffActionAnswer> DiscordKickAsync(
+        string discordUserId, string reason, StaffMember by, CancellationToken ct = default)
+    {
+        if (!by.Held.HasFlag(ModbotPermissions.DiscordKick) && !by.Held.HasFlag(ModbotPermissions.Administrator))
+            return Task.FromResult(StaffActionAnswer.RefusedWith("You do not have permission to do that."));
+
+        DiscordKicks.Add((discordUserId, reason, by));
+        return Task.FromResult(DiscordAnswer);
     }
 }

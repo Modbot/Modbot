@@ -979,6 +979,17 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /ban and /kick open the reasons form and keep a confirmation waiting, which is the
+            // staff handler's (Discord commands design §3.3).
+            if (StaffInteractionHandler.HandlesCommand(call.CommandName))
+            {
+                var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
+                if (await staff.HandleCommandAsync(call, ReadyGateway, CancellationToken.None).ConfigureAwait(false) is { } answer)
+                    await call.ReplyAsync(answer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             // A slash command may answer with a form as its first answer too; a null reply means
             // it did.
             var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();

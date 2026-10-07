@@ -175,6 +175,8 @@ public class CommandSwitchRegistrationTests
     [InlineData("note", "/note is turned off on this server.")]
     [InlineData("watch", "/watch is turned off on this server.")]
     [InlineData("live", "/live is turned off on this server.")]
+    [InlineData("ban", "/ban is turned off on this server.")]
+    [InlineData("kick", "/kick is turned off on this server.")]
     [InlineData("me", MeCommand.OffMessage)]
     public async Task EveryCommandThatIsSwitchedOff_IsRefusedThroughRunAsync(string command, string expected)
     {

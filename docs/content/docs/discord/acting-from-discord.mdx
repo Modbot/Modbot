@@ -1,6 +1,6 @@
 ---
 title: Acting from Discord
-description: Look people up, write notes, watch people, see who is live, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app.
+description: Look people up, write notes, watch people, see who is live, and kick, ban or answer join requests from Discord, with the same permissions and records as the web app. Includes the /ban and /kick commands.
 ---
 
 Moderators can act on what they see in Discord without opening Modbot: right-click a member, or
@@ -24,6 +24,7 @@ permission it needs in the web app:
 | `/live` | **See live instances** |
 | **Kick** | **Kick** |
 | **Ban** | **Ban** |
+| `/ban`, `/kick` | **Ban** or **Kick** for the VRChat group; **Ban on Discord** or **Remove from Discord** for the Discord server. Which one depends on who is named; see [Ban and kick](#ban-and-kick) |
 | **Approve**, **Reject** | **Answer join requests** |
 
 Anything that writes — a note, a watch or an action — also needs a VRChat account linked to the moderator's
@@ -54,8 +55,9 @@ permissions on every press.
 
 ## Typed commands
 
-Three commands do the same jobs without a menu. Each is shown only to members with **Timeout Members**
+Five commands do the same jobs without a menu. Each is shown only to members with **Timeout Members**
 and answers only you; the full options are in the [command list](/discord/bot-setup#slash-commands).
+`/ban` and `/kick` have their own section, [Ban and kick](#ban-and-kick).
 
 | Command | What it does |
 |---|---|
@@ -70,6 +72,65 @@ their VRChat account, as with the menus.
 
 `/live` shows what the Live page shows, less. Names appear only while a moderator's Companion App is
 watching that instance, up to 20 and then "and N more". It has no flags and no watched tags.
+
+## Ban and kick
+
+`/ban` and `/kick` name the person the same way as `/note` and `/watch`: exactly one of `member`
+(picked from Discord's list) and `vrchat` (a VRChat name or id). Then they work like the buttons
+under a card: a form, a check of everything the web app checks, and a confirmation that acts once.
+Seen only by you.
+
+### What `/ban` means
+
+It means what **Ban** means in the web app.
+
+| Who you name | What is banned | Needs |
+|---|---|---|
+| A VRChat person | They are banned from the VRChat group. If they have a linked Discord account, it is banned with them. | **Ban** |
+| A Discord member who has linked their VRChat account | The same: the VRChat group, and their Discord account with it. | **Ban** |
+| A Discord member with no VRChat link | They are banned from the Discord server. | **Ban on Discord** |
+
+The confirmation says which: "Ban **name** from the VRChat group and the Discord server?" when a
+linked Discord account goes too, and "Ban **name** from the Discord server?" for a member with no link.
+A group ban's form has the group's reasons and a note. A Discord ban's form has a reason, which it
+needs, and **Delete their messages from**: **None**, **1 day** or **7 days**.
+
+### What `/kick` means
+
+It goes by who you name. A Discord member is removed from the Discord server, and a VRChat person is
+kicked from the group. `from` chooses the other place, or both, for somebody who has both accounts linked:
+
+| `from` | Does | Needs |
+|---|---|---|
+| left out | Removes a member from the Discord server; kicks a VRChat person from the group | **Remove from Discord**, or **Kick** |
+| **Discord server** | Removes them from the Discord server | **Remove from Discord** |
+| **VRChat group** | Kicks them from the group | **Kick** |
+| **Both** | Does both, with one confirmation | **Kick** and **Remove from Discord** |
+
+If the person has no account in the place you asked for, nothing starts: "They are not linked to a
+VRChat account." or "They have no linked Discord account." With **Both**, each place answers on its
+own line, and one saying no does not undo or stop the other.
+
+### The same steps as a card button
+
+Send the form, then press the red button on the confirmation. The permission is checked when you run
+the command, when you send the form and when you confirm. The bot, the server's owner and any Discord
+account linked to a Modbot staff account are refused for anything on the Discord server, as they are
+in the API, before a confirmation is shown. One confirmation acts once: a second press, from the same
+device or another, gets the first answer and sends nothing.
+
+A group action has the same facts, case file and linked Discord ban as one from the web app. A Discord
+ban or removal is the same action the API's **Ban on Discord** and **Remove from Discord** make: Discord's
+audit log says "Modbot: banned by *your name*: *reason*", and Modbot records who asked. VRChat's rate
+limits are not retried: a refusal because of one is shown, and nothing else is sent.
+
+### Names and See profiles
+
+A VRChat name is a profile's, so it needs **See profiles**, as in the web app. Without it, `vrchat`
+takes an exact id only. Nothing is suggested or searched, and a name, a typo and an id Modbot has
+never seen all get the same sentence, which quotes nothing back. The form and the confirmation show the
+id you typed, never the person's VRChat name. A Discord member is shown by the name Discord shows
+for them.
 
 ## Buttons under cards
 
@@ -144,5 +205,7 @@ stays.
 Notes, watches and actions from Discord are the same records as from the web app: the same note, the
 same watch, the same kick or ban in the audit log under the moderator's name, the same case file.
 Every menu, button, form and typed command that finishes or is refused is also recorded as
-**Discord command used**, which shows that it came through Discord. The names suggested while you
+**Discord command used**, which shows that it came through Discord. For `/ban` and `/kick` it names the
+VRChat person, the Discord account, or both. A ban or removal on the Discord server alone is recorded
+as **Banned on Discord** or **Removed from Discord** with the moderator's name and the reason. The names suggested while you
 type are not recorded.

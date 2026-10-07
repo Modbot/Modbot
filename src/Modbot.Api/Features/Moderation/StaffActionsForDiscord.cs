@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.Notes;
 using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
@@ -43,6 +44,7 @@ namespace Modbot.Api.Features.Moderation;
 public sealed class StaffActionsForDiscord : IStaffActions
 {
     private const string NotSetUp = "This deployment is not set up to act in VRChat.";
+    private const string NotSetUpOnDiscord = "This deployment is not set up to act on Discord.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -213,6 +215,102 @@ public sealed class StaffActionsForDiscord : IStaffActions
         {
             return new StaffWatchAnswer(null, refused.Message);
         }
+    }
+
+    // ── On the Discord server alone ──────────────────────────────────────────────────────────
+
+    /// <summary>The permission each action needs on the Discord server, as the <c>/api/discord</c> endpoints require it.</summary>
+    public static ModbotPermissions? RequiresOnDiscord(string action) => action switch
+    {
+        ModerationActionService.Ban => DiscordMemberActionService.Requires(DiscordMemberVerb.Ban),
+        ModerationActionService.Kick => DiscordMemberActionService.Requires(DiscordMemberVerb.Kick),
+        _ => null,
+    };
+
+    public async Task<string?> DiscordCheckAsync(string action, string discordUserId, StaffMember by, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(by);
+
+        if (DiscordRefusal(action, by) is { } refusal)
+            return refusal;
+
+        if (DiscordService() is not { } service)
+            return NotSetUpOnDiscord;
+
+        return (await service.CheckAsync(discordUserId, ct))?.Message;
+    }
+
+    public async Task<StaffActionAnswer> DiscordBanAsync(
+        string discordUserId, string reason, int deleteMessageDays, StaffMember by, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(by);
+
+        if (DiscordRefusal(ModerationActionService.Ban, by) is { } refusal)
+            return StaffActionAnswer.RefusedWith(refusal);
+
+        if (deleteMessageDays is < 0 or > 7)
+            return StaffActionAnswer.RefusedWith("Discord deletes 0 to 7 days of messages.");
+
+        if (DiscordService() is not { } service)
+            return StaffActionAnswer.RefusedWith(NotSetUpOnDiscord);
+
+        return Answer(await service.ActAsync(
+            DiscordMemberVerb.Ban, by.UserId, by.Username, discordUserId, reason, deleteMessageDays, null, ct));
+    }
+
+    public async Task<StaffActionAnswer> DiscordKickAsync(
+        string discordUserId, string reason, StaffMember by, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(by);
+
+        if (DiscordRefusal(ModerationActionService.Kick, by) is { } refusal)
+            return StaffActionAnswer.RefusedWith(refusal);
+
+        if (DiscordService() is not { } service)
+            return StaffActionAnswer.RefusedWith(NotSetUpOnDiscord);
+
+        return Answer(await service.ActAsync(
+            DiscordMemberVerb.Kick, by.UserId, by.Username, discordUserId, reason, 0, null, ct));
+    }
+
+    /// <summary>
+    /// What the shared service said, as the bot reads it: Modbot's own refusals (no server, the bot,
+    /// the owner, staff) are refusals; Discord saying no, or the bot being away, is a failure with the
+    /// sentence Discord gave.
+    /// </summary>
+    private static StaffActionAnswer Answer(DiscordMemberActionResult result)
+        => result.Status switch
+        {
+            DiscordMemberActionStatus.Done => new StaffActionAnswer(true, null, Unchanged: !result.Changed),
+            DiscordMemberActionStatus.BotOffline or DiscordMemberActionStatus.DiscordRefused
+                => new StaffActionAnswer(false, result.Message),
+            _ => StaffActionAnswer.RefusedWith(result.Message ?? NotSetUpOnDiscord),
+        };
+
+    /// <summary>The web app's permission rule for an action on the Discord server, or the sentence for a refusal.</summary>
+    private static string? DiscordRefusal(string action, StaffMember by)
+    {
+        if (RequiresOnDiscord(action) is not { } required)
+            return $"'{action}' is not something Modbot can do on Discord.";
+
+        return by.Held.HasFlag(ModbotPermissions.Administrator) || (by.Held & required) == required
+            ? null
+            : "You do not have permission to do that.";
+    }
+
+    /// <summary>The service the <c>/api/discord</c> endpoints use, built the way they build it.</summary>
+    private DiscordMemberActionService? DiscordService()
+    {
+        var discord = _services.GetService<IDiscordMemberActions>();
+
+        return discord is null
+            ? null
+            : new DiscordMemberActionService(
+                _db,
+                _clock,
+                discord,
+                _services.GetService<IFactWriter>(),
+                _services.GetService<EventPartitionMaintainer>());
     }
 
     /// <summary>The web app's permission rule for this action, or the sentence for a refusal.</summary>

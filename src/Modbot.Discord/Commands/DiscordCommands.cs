@@ -55,6 +55,8 @@ public static class DiscordCommands
     public const string Note = "note";
     public const string Watch = "watch";
     public const string Live = "live";
+    public const string Ban = "ban";
+    public const string Kick = "kick";
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -97,6 +99,16 @@ public static class DiscordCommands
     public const string FollowUpNone = "none";
     public const string FollowUpTomorrow = "tomorrow";
     public const string FollowUpInAWeek = "week";
+
+    /// <summary>
+    /// Where <c>/kick</c> removes somebody from: one of <see cref="FromDiscord"/>, <see cref="FromVRChat"/>
+    /// or <see cref="FromBoth"/>. Left out, it follows the person named: a Discord member is removed
+    /// from the server, a VRChat person from the group (Discord commands design §3.3, decision 5).
+    /// </summary>
+    public const string KickFromOption = "from";
+    public const string FromDiscord = "discord";
+    public const string FromVRChat = "vrchat";
+    public const string FromBoth = "both";
 
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
@@ -166,6 +178,33 @@ public static class DiscordCommands
             [],
             ShownTo: DiscordShownTo.Moderators),
         new(
+            Ban,
+            "Ban someone",
+            [
+                new DiscordCommandOption(MemberOption, "Discord member", DiscordOptionKind.Member, Required: false),
+                new DiscordCommandOption(VRChatOption, "VRChat name or id", DiscordOptionKind.Text, Required: false, Suggests: true),
+            ],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
+            Kick,
+            "Remove someone",
+            [
+                new DiscordCommandOption(MemberOption, "Discord member", DiscordOptionKind.Member, Required: false),
+                new DiscordCommandOption(VRChatOption, "VRChat name or id", DiscordOptionKind.Text, Required: false, Suggests: true),
+                new DiscordCommandOption(
+                    KickFromOption,
+                    "Remove from",
+                    DiscordOptionKind.Choice,
+                    Required: false,
+                    Choices:
+                    [
+                        new("Discord server", FromDiscord),
+                        new("VRChat group", FromVRChat),
+                        new("Both", FromBoth),
+                    ]),
+            ],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -218,14 +257,38 @@ public static class DiscordCommands
         Modbot => ModbotPermissions.None,
         Note or Watch => ModbotPermissions.WriteNotes,
         Live => ModbotPermissions.ViewLiveInstances,
+        Ban => ModbotPermissions.Ban,
+        Kick => ModbotPermissions.Kick,
         _ => null,
     };
+
+    /// <summary>
+    /// The permission a command needs on the other platform, when it acts on both: <c>/ban</c> on
+    /// somebody with no VRChat link is a Discord ban ("Ban on Discord"), and <c>/kick</c> can remove
+    /// somebody from the Discord server alone ("Remove from Discord"). Null for every other command.
+    /// </summary>
+    public static ModbotPermissions? RequiresOnDiscord(string command) => command switch
+    {
+        Ban => ModbotPermissions.DiscordBan,
+        Kick => ModbotPermissions.DiscordKick,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Whether these permissions let somebody use the command at all: the one <see cref="Requires"/>
+    /// names, or for <c>/ban</c> and <c>/kick</c> either that or the Discord one. Which of the two a
+    /// run needs depends on who it is about, and is checked once that is known.
+    /// </summary>
+    public static bool CanUse(string command, ModbotPermissions held)
+        => Requires(command) is { } required
+            && (Allows(held, required)
+                || (RequiresOnDiscord(command) is { } onDiscord && Allows(held, onDiscord)));
 
     /// <summary>
     /// Commands that write something. The web app refuses every request from an account with no
     /// VRChat link, so these do too (acting from Discord design §3).
     /// </summary>
-    public static bool Writes(string command) => command is Note or Watch;
+    public static bool Writes(string command) => command is Note or Watch or Ban or Kick;
 
     /// <summary>The permission's label as the web app's role editor shows it.</summary>
     public static string Label(ModbotPermissions permission) => permission switch
@@ -236,6 +299,8 @@ public static class DiscordCommands
         ModbotPermissions.Ban => "Ban",
         ModbotPermissions.WriteNotes => "Write notes",
         ModbotPermissions.ViewLiveInstances => "See live instances",
+        ModbotPermissions.DiscordBan => "Ban on Discord",
+        ModbotPermissions.DiscordKick => "Remove from Discord",
         ModbotPermissions.AnswerJoinRequests => "Answer join requests",
         _ => permission.ToString(),
     };

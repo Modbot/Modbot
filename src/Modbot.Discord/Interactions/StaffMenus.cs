@@ -156,6 +156,17 @@ public static class StaffActionWords
         _ => ModbotPermissions.AnswerJoinRequests,
     };
 
+    /// <summary>
+    /// The permission an action needs on the Discord server, apart from the group's: "Ban on
+    /// Discord" and "Remove from Discord". None for the actions that have no Discord side.
+    /// </summary>
+    public static ModbotPermissions RequiresOnDiscord(string action) => action switch
+    {
+        Ban => ModbotPermissions.DiscordBan,
+        Kick => ModbotPermissions.DiscordKick,
+        _ => ModbotPermissions.None,
+    };
+
     /// <summary>The word on the button and on the confirmation's yes.</summary>
     public static string Label(string action) => action switch
     {
@@ -194,6 +205,59 @@ public static class StaffActionWords
         Kick => $"Kicked **{name}**.",
         Approve => $"Let **{name}** into the group.",
         _ => $"Turned down **{name}**'s request to join.",
+    };
+
+    /// <summary>
+    /// The confirmation's question for an action that may act on the Discord server, with the name
+    /// already escaped. The group alone is the card button's own wording, unless the ban takes the
+    /// linked Discord account with it.
+    /// </summary>
+    public static string Question(PendingStaffAction pending, string name)
+    {
+        ArgumentNullException.ThrowIfNull(pending);
+
+        return (pending.Action, pending.Where) switch
+        {
+            (Ban, StaffActionWhere.Discord) => $"Ban **{name}** from the Discord server?",
+            (Ban, StaffActionWhere.VRChat) when pending.AlsoBansDiscord => $"Ban **{name}** from the VRChat group and the Discord server?",
+            (Kick, StaffActionWhere.Discord) => $"Remove **{name}** from the Discord server?",
+            (Kick, StaffActionWhere.Both) => $"Kick **{name}** from the VRChat group and remove them from the Discord server?",
+            _ => Question(pending.Action, name),
+        };
+    }
+
+    /// <summary>The word on the confirmation's yes for an action that may act on the Discord server.</summary>
+    public static string Label(PendingStaffAction pending)
+    {
+        ArgumentNullException.ThrowIfNull(pending);
+
+        return (pending.Action, pending.Where) switch
+        {
+            (Kick, StaffActionWhere.Discord) => "Remove",
+            (Kick, StaffActionWhere.Both) => "Kick and remove",
+            _ => Label(pending.Action),
+        };
+    }
+
+    /// <summary>What shows while an action that may act on the Discord server is being sent.</summary>
+    public static string Doing(PendingStaffAction pending, string name)
+    {
+        ArgumentNullException.ThrowIfNull(pending);
+
+        return (pending.Action, pending.Where) switch
+        {
+            (Kick, StaffActionWhere.Discord) => $"Removing **{name}**…",
+            _ => Doing(pending.Action, name),
+        };
+    }
+
+    /// <summary>What an action on the Discord server alone says once Discord said yes.</summary>
+    public static string DoneOnDiscord(string action, string name, bool unchanged) => (action, unchanged) switch
+    {
+        (Ban, false) => $"Banned **{name}** from the Discord server.",
+        (Ban, true) => $"**{name}** is already banned on Discord.",
+        (_, false) => $"Removed **{name}** from the Discord server.",
+        _ => $"**{name}** is not in the Discord server.",
     };
 
     /// <summary>The line a handled card gets, with the moderator's name already escaped.</summary>

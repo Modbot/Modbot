@@ -102,20 +102,24 @@ public sealed class StaffCommands
 
     // ── Who the command is about ─────────────────────────────────────────────────────────────
 
-    /// <summary>One person a note or a watch is about.</summary>
-    /// <param name="Name">What Modbot calls them, when it knows.</param>
-    private sealed record Person(FactPlatform Platform, string Id, string? Name);
+    /// <summary>One person a command is about.</summary>
+    /// <param name="Name">
+    /// What Modbot calls them, when it knows and the caller may see it. Null for a Discord member
+    /// (the command gets an id) and for a VRChat person named to a caller without See profiles.
+    /// </param>
+    public sealed record Person(FactPlatform Platform, string Id, string? Name);
 
     /// <summary>
     /// The person named by exactly one of <c>member</c> and <c>vrchat</c>, or the reply that says
-    /// why not.
+    /// why not. The one rule for every command that names a person: <c>/note</c>, <c>/watch</c>,
+    /// <c>/ban</c> and <c>/kick</c> (Discord commands design §3.7).
     /// </summary>
     /// <param name="seesNames">
     /// Whether the caller may see profiles. A VRChat name is a profile's: the web app shows it only
     /// with See profiles (<c>PersonSight.VRChatName</c>). Without it the <c>vrchat</c> option takes an
     /// exact id only, no name is searched or shown, and every refusal is one sentence.
     /// </param>
-    private async Task<(Person? Person, StaffCommandAnswer? Problem)> PersonAsync(
+    public async Task<(Person? Person, StaffCommandAnswer? Problem)> PersonAsync(
         DiscordCommandCall call, bool seesNames, CancellationToken ct)
     {
         var member = call.Option(DiscordCommands.MemberOption)?.Trim() ?? string.Empty;
@@ -184,7 +188,8 @@ public sealed class StaffCommands
     private static (string? Target, string? DiscordTarget) Targets(Person person)
         => person.Platform == FactPlatform.VRChat ? (person.Id, null) : (null, person.Id);
 
-    private static bool SeesNames(ModbotUser user)
+    /// <summary>Whether this caller may see a VRChat person's name: the web app's See profiles.</summary>
+    public static bool SeesNames(ModbotUser user)
         => DiscordCommands.Allows(user.EffectivePermissions, ModbotPermissions.ViewProfile);
 
     private static StaffMember Member(ModbotUser user) => new(user.Id, user.Username, user.EffectivePermissions);

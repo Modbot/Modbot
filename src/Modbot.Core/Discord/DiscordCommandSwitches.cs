@@ -55,6 +55,8 @@ public static class DiscordCommandSwitches
         new("note", OnByDefault: true),
         new("watch", OnByDefault: true),
         new("live", OnByDefault: true),
+        new("ban", OnByDefault: true),
+        new("kick", OnByDefault: true),
         new("Look up in Modbot", OnByDefault: true, Menu: true),
         new("Add a note", OnByDefault: true, Menu: true),
     ];

@@ -163,6 +163,13 @@ public sealed class DiscordCommandHandler
             reply = DiscordReply.Say(
                 $"You need the \"{DiscordCommands.Label(required)}\" permission in Modbot to use /{call.CommandName}.");
         }
+        else if (call.CommandName is DiscordCommands.Ban or DiscordCommands.Kick)
+        {
+            // These open a form and keep a confirmation waiting, which is the staff handler's
+            // (StaffInteractionHandler.HandleCommandAsync); the bot sends them there.
+            outcome = "unknown-command";
+            reply = DiscordReply.Say("Modbot does not know that command.");
+        }
         else if (call.CommandName is DiscordCommands.Note or DiscordCommands.Watch or DiscordCommands.Live)
         {
             var done = call.CommandName switch
@@ -220,8 +227,7 @@ public sealed class DiscordCommandHandler
             .Where(c => DiscordCommands.IsForEveryone(c.Name)
                         || (held is { } permissions
                             && !(DiscordCommands.Writes(c.Name) && user is { IsVRChatLinked: false })
-                            && DiscordCommands.Requires(c.Name) is { } required
-                            && DiscordCommands.Allows(permissions, required)))
+                            && DiscordCommands.CanUse(c.Name, permissions)))
             .SelectMany(HelpLines);
 
         await RecordAsync(call, user, "answered", null, ct).ConfigureAwait(false);
@@ -257,8 +263,8 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
-    /// Suggestions under <c>/lookup user:</c>, and under the <c>vrchat</c> option of <c>/note</c>
-    /// and <c>/watch</c>, while a name is typed. Nothing for anybody the command itself would
+    /// Suggestions under <c>/lookup user:</c>, and under the <c>vrchat</c> option of <c>/note</c>,
+    /// <c>/watch</c>, <c>/ban</c> and <c>/kick</c>, while a name is typed. Nothing for anybody the command itself would
     /// refuse, so the list cannot be used to read the records around it.
     /// </summary>
     /// <remarks>
@@ -270,11 +276,13 @@ public sealed class DiscordCommandHandler
         ArgumentNullException.ThrowIfNull(ask);
 
         // The permission the command itself needs: /lookup user: for See profiles, and the vrchat
-        // option of /note and /watch for Write notes. Any other option suggests nothing.
+        // option of /note and /watch for Write notes, and of /ban and /kick for Ban and Kick (the
+        // VRChat person's own permission: a Discord-only holder cannot act on a VRChat person).
+        // Any other option suggests nothing.
         var required = (ask.CommandName, ask.OptionName) switch
         {
             (DiscordCommands.Lookup, DiscordCommands.LookupUserOption) => ModbotPermissions.ViewProfile,
-            (DiscordCommands.Note or DiscordCommands.Watch, DiscordCommands.VRChatOption)
+            (DiscordCommands.Note or DiscordCommands.Watch or DiscordCommands.Ban or DiscordCommands.Kick, DiscordCommands.VRChatOption)
                 => DiscordCommands.Requires(ask.CommandName),
             _ => null,
         };

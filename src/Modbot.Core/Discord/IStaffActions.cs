@@ -19,8 +19,11 @@ public sealed record StaffReasons(IReadOnlyList<StaffReason> Reasons, bool Requi
 }
 
 /// <summary>How an action asked for from Discord went.</summary>
-/// <param name="Done">True only when VRChat accepted. False means nothing changed in VRChat.</param>
-/// <param name="Error">What VRChat or Modbot said, when it was not done.</param>
+/// <param name="Done">
+/// True only when VRChat accepted (or, for an action on the Discord server alone, when Discord did).
+/// False means nothing changed.
+/// </param>
+/// <param name="Error">What VRChat, Discord or Modbot said, when it was not done.</param>
 /// <param name="Refused">Modbot refused before anything was sent (a reason missing, no group set up).</param>
 /// <param name="Repeat">This confirmation had already acted; this is its first answer again.</param>
 /// <param name="Gone">VRChat said there was nothing to act on: the request was already answered.</param>
@@ -28,6 +31,10 @@ public sealed record StaffReasons(IReadOnlyList<StaffReason> Reasons, bool Requi
 /// <param name="DiscordDone">The linked Discord account was banned or unbanned too.</param>
 /// <param name="DiscordError">Why the linked Discord account was not, when Discord refused.</param>
 /// <param name="CaseFileError">Done, but the case file could not be written or marked.</param>
+/// <param name="Unchanged">
+/// An action on the Discord server alone: Discord was already so (already banned, not in the server),
+/// so it was accepted and nothing was written.
+/// </param>
 public sealed record StaffActionAnswer(
     bool Done,
     string? Error,
@@ -37,7 +44,8 @@ public sealed record StaffActionAnswer(
     Guid? CaseId = null,
     bool DiscordDone = false,
     string? DiscordError = null,
-    string? CaseFileError = null)
+    string? CaseFileError = null,
+    bool Unchanged = false)
 {
     public static StaffActionAnswer RefusedWith(string error) => new(false, error, Refused: true);
 }
@@ -72,6 +80,12 @@ public sealed record StaffWatchAnswer(Guid? WatchId, string? Error)
 /// <para>
 /// Actions are the web app's own words: <c>ban</c>, <c>kick</c>, <c>unban</c>, <c>approve</c>,
 /// <c>reject</c>.
+/// </para>
+/// <para>
+/// <strong>On the Discord server alone</strong> (<see cref="DiscordCheckAsync"/>,
+/// <see cref="DiscordBanAsync"/>, <see cref="DiscordKickAsync"/>) is what the API's
+/// <c>/api/discord</c> endpoints do, through the same service: a different permission ("Ban on
+/// Discord", "Remove from Discord"), and never the bot, the server's owner or a staff account.
 /// </para>
 /// </remarks>
 public interface IStaffActions
@@ -118,4 +132,23 @@ public interface IStaffActions
         DateTimeOffset? followUpAt,
         StaffMember by,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Every check an action on the Discord server alone makes before it asks Discord anything:
+    /// the permission, the server being set up, and the three accounts never acted on (the bot, the
+    /// server's owner, a staff account). Nothing is sent. Null means it may go ahead; otherwise the
+    /// sentence to show.
+    /// </summary>
+    /// <param name="action"><c>ban</c> or <c>kick</c>.</param>
+    Task<string?> DiscordCheckAsync(string action, string discordUserId, StaffMember by, CancellationToken ct = default);
+
+    /// <summary>Bans one person from the Discord server, as <c>POST /api/discord/bans</c> does.</summary>
+    /// <param name="reason">Why, for Discord's audit log and Modbot's. May be empty.</param>
+    /// <param name="deleteMessageDays">How many days of their messages Discord deletes too, 0 to 7.</param>
+    Task<StaffActionAnswer> DiscordBanAsync(
+        string discordUserId, string reason, int deleteMessageDays, StaffMember by, CancellationToken ct = default);
+
+    /// <summary>Removes one person from the Discord server without banning them, as <c>POST /api/discord/members/{id}/kick</c> does.</summary>
+    Task<StaffActionAnswer> DiscordKickAsync(
+        string discordUserId, string reason, StaffMember by, CancellationToken ct = default);
 }

@@ -14,6 +14,8 @@
   (TASK-039) as step 0 of the Discord commands design: **Report this message** is gone (§8), the
   menus and the staff slash commands share one `StaffOnly` setting (§10), and the join gate's
   buttons are still acknowledged first (§11).
+- **Updated 2026-10-07,** with `/ban` and `/kick` (Discord commands design §3.3, step 3): the same form,
+  confirmation and acting once, started from a typed command and able to act on the Discord server (§13).
 - **Updated 2026-10-07,** step 2 of the Discord commands design: `/note`, `/watch` and `/live` are
   typed commands beside the menus (§2), with `IStaffActions.StartWatchAsync` (§5).
 
@@ -219,4 +221,85 @@ the join gate's buttons carry today.
 - Buttons under `/lookup`'s reply (the right-click lookup has them).
 - A switch to hide the buttons from a channel members can read. Pressing one without the permission
   is refused, so a visible button is only a visible button.
-- Discord-side actions (a Discord ban or timeout by hand) from a button: the web app has none either.
+- Discord-side actions (a Discord ban or removal) from a button under a card. The web app has no button
+  for them; they are done with `/ban` and `/kick` (§13). A Discord timeout has no command yet.
+
+## 13. `/ban` and `/kick` (added 2026-10-07)
+
+Discord commands design §3.3 and decisions 4 and 5. Everything in §3 to §5 and §11 applies unchanged: who is
+acting, a form, a confirmation, the key, the facts. What is new is that a typed command starts the flow, and
+that the flow can act on the Discord server.
+
+### What each one means
+
+**`/ban` is the web app's ban.** `member` (picked from Discord's list) or `vrchat` (a name or an id), exactly one.
+
+| Who is named | What is banned | Needs |
+|---|---|---|
+| A VRChat person | The VRChat group; the moderation service bans their linked Discord account too (`AlsoInDiscordAsync`, whatever the ban sync switches say) | Ban |
+| A member linked to VRChat | The same, for their linked VRChat account | Ban |
+| A member with no VRChat link | The Discord server only | Ban on Discord |
+
+The confirmation says which: "Ban **name** from the VRChat group and the Discord server?" when a linked Discord
+account goes too, "Ban **name** from the Discord server?" for the server alone, and the card button's "Ban **name**
+from the group?" for a VRChat person with no link.
+
+**`/kick` goes by who is named**: a member is removed from the server (Remove from Discord), a VRChat person is
+kicked from the group (Kick). `from` (Discord server / VRChat group / Both) picks the other place for somebody with
+both accounts linked; one without the account asked for is refused in plain words. **Both** is one confirmation
+and needs both permissions.
+
+### The flow
+
+1. The command checks, in §3's order, an account, enabled, a VRChat link (both commands write), then that the
+   caller holds either of the two permissions (`DiscordCommands.CanUse`). Which one a run needs depends on who is
+   named and where it acts, so the exact permission is checked once that is known (`PendingStaffAction.Needs`), and
+   again when the form is sent and when the confirmation is pressed. The permission is checked before anything
+   about what the person has linked, so nobody is told about an account in a place they may not act in.
+2. The bot's own account is refused (§9). For the Discord server the service's own refusals come before any form:
+   the bot, the server's owner and any Discord account linked to a Modbot staff account (TASK-058), the same three
+   as the API, from the same code.
+3. **The form.** A group action has the group's reasons and a note, as under a card. A Discord ban has a reason
+   (required, as a group ban always needs one) and "Delete their messages from": None, 1 day or 7 days. A Discord
+   removal has an optional reason.
+4. **The confirmation**, red, with Cancel, then "Banning…" or "Removing…", then the answer. A Discord action has
+   no key to claim in the moderation service, so the token claims it in `PendingStaffActions.RunOnceAsync`: the
+   first press runs every place the action acts, and any later press, even a simultaneous one, gets those answers
+   again and sends nothing. A group-only action keeps the service's `discord:<token>` key as before.
+5. **Both places answer on their own.** A group kick that VRChat refuses does not stop the Discord removal, and a
+   refusal from Discord does not undo the group kick. Each says what happened on its own line.
+6. A 429 on `groups.moderate` is reported as VRChat said it and never retried (§4.3.1 of the foundation spec).
+
+### One service for the Discord server
+
+The four `/api/discord` endpoints used to hold their rules in a private method. It is now
+`DiscordMemberActionService` (Api), which the endpoints and `IStaffActions` (`DiscordCheckAsync`,
+`DiscordBanAsync`, `DiscordKickAsync`) both call, so the refusals, the audit-log reason ("Modbot: banned by
+<account>: <reason>"), the fact (`modbot.action.discord.ban` / `.kick`, written only when Discord changed
+something) and the order of the checks cannot drift. Every status, sentence and code the endpoints gave is kept.
+
+### Privacy
+
+A VRChat display name is a profile's: the web app shows it only with See profiles (`PersonSight.VRChatName`), and
+Ban, Kick and Write notes do not include it. So `/ban` and `/kick` use the one helper `/note` and `/watch` use
+(`StaffCommands.PersonAsync`):
+
+- Without See profiles the `vrchat` option takes an exact id Modbot holds. A name, a typo and an unknown id get
+  one identical sentence that quotes nothing back, and no name is searched.
+- The form's title and the confirmation then show the id the caller typed, never the person's VRChat name.
+  A Discord member is shown by the name Discord showed in its picker (`discord_member.display_name`), also when
+  they are linked: the linked VRChat name is never used.
+- The suggestions under `vrchat` need See profiles, and the permission for acting on a VRChat person (Ban for
+  `/ban`, Kick for `/kick`).
+
+One thing the design makes visible: the confirmation's wording and the permission that is asked for depend on
+whether a member is linked to VRChat, so a caller who holds only one of the two permissions learns whether the
+member is linked from which permission they are told they lack. The link table is not otherwise readable
+without a profile permission; this follows from decision 4's one meaning for `/ban`.
+
+### Facts
+
+The same as §5. A finished or refused step writes `modbot.discord.command` with `command` (`ban` or `kick`), an
+`outcome` (`done`, `repeat`, `partial` when only one of two places did it, `refused`, `failed`, `error`, `off`,
+`invalid`, `no-permission`, ...), `target` for the VRChat account and `targetDiscord` for the Discord one. A ban or
+removal on the server also writes `modbot.action.discord.ban` / `.kick` under the moderator's name.

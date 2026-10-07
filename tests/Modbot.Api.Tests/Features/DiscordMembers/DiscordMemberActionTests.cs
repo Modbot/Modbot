@@ -251,4 +251,67 @@ public class DiscordMemberActionTests
 
         Assert.Equal(HttpStatusCode.OK, other.StatusCode);
     }
+
+    /// <summary>
+    /// The endpoints now answer from <see cref="Modbot.Api.Features.DiscordMembers.DiscordMemberActionService"/>
+    /// (Discord commands design step 3), which the bot's <c>/ban</c> and <c>/kick</c> share. These are
+    /// the sentences and codes they have always given, so a script that reads them is not surprised.
+    /// </summary>
+    [Fact]
+    public async Task AfterTheMoveIntoAService_TheEndpointsStillSayWhatTheyAlwaysSaid()
+    {
+        const string Bot = "300000000000000003";
+        const string Owner = "400000000000000004";
+        const string Colleague = "500000000000000005";
+
+        var fake = new FakeActions { OffLimits = new DiscordOffLimits(Bot, Owner) };
+        await using var host = await StartAsync(fake);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.DiscordBan, Ct);
+        var (colleague, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var row = await db.Users.SingleAsync(u => u.Id == colleague.Id, Ct);
+            row.DiscordUserId = Colleague;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        async Task<(HttpStatusCode Status, string Code, string Detail)> BanAsync(string userId)
+        {
+            var response = await host.SendJsonAsync(HttpMethod.Post, "/api/discord/bans", new { userId }, cookie, Ct);
+            var body = await ApiTestHost.BodyOf(response, Ct);
+            return (
+                response.StatusCode,
+                body.GetProperty("code").GetString() ?? string.Empty,
+                body.GetProperty("detail").GetString() ?? string.Empty);
+        }
+
+        Assert.Equal(
+            (HttpStatusCode.Forbidden, "refused", "That is the Discord account Modbot's bot runs as. Modbot will not act on itself."),
+            await BanAsync(Bot));
+        Assert.Equal(
+            (HttpStatusCode.Forbidden, "refused", "That is the owner of the Discord server. Modbot will not act on them."),
+            await BanAsync(Owner));
+        Assert.Equal(
+            (HttpStatusCode.Forbidden, "refused", "That Discord account belongs to a Modbot staff account. Modbot will not act on staff."),
+            await BanAsync(Colleague));
+
+        var nobody = await host.SendJsonAsync(HttpMethod.Post, "/api/discord/bans", new { userId = " " }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, nobody.StatusCode);
+        Assert.Equal("Say who, by their Discord id.", (await ApiTestHost.BodyOf(nobody, Ct)).GetProperty("detail").GetString());
+
+        var tooMany = await host.SendJsonAsync(HttpMethod.Post, "/api/discord/bans", new { userId = Person, deleteMessageDays = 8 }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+        Assert.Equal("`deleteMessageDays` is 0 to 7.", (await ApiTestHost.BodyOf(tooMany, Ct)).GetProperty("detail").GetString());
+
+        Assert.Empty(fake.Asked);
+
+        // And a ban that goes through still carries the days and is recorded with them.
+        var given = await host.SendJsonAsync(HttpMethod.Post, "/api/discord/bans", new { userId = Person, deleteMessageDays = 3 }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, given.StatusCode);
+
+        var fact = Assert.Single(await FactsAsync(host, FactType.ActionDiscordBan));
+        Assert.Equal(3, System.Text.Json.JsonDocument.Parse(fact.Data).RootElement.GetProperty("deleteMessageDays").GetInt32());
+    }
 }

@@ -1,9 +1,7 @@
-using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
 using Modbot.Api.Conventions;
@@ -39,7 +37,7 @@ namespace Modbot.Api.Features.DiscordMembers;
 public static class DiscordMemberActionEndpoints
 {
     /// <summary>Discord keeps at most this many characters of a reason in its audit log.</summary>
-    public const int MaxReasonLength = 512;
+    public const int MaxReasonLength = DiscordMemberActionService.MaxReasonLength;
 
     /// <summary>Discord's longest timeout: 28 days.</summary>
     public const int MaxTimeoutMinutes = 28 * 24 * 60;
@@ -67,10 +65,8 @@ public static class DiscordMemberActionEndpoints
                     return Task.FromResult(Problems.Of(StatusCodes.Status400BadRequest, "`deleteMessageDays` is 0 to 7."));
 
                 return ActAsync(
-                    http, db, clock, discord, facts, partitions, body.UserId, body.Reason, "banned", FactType.ActionDiscordBan,
-                    (guild, reason) => discord.BanAsync(guild, body.UserId, reason, body.DeleteMessageDays, ct),
-                    new JsonObject { ["deleteMessageDays"] = body.DeleteMessageDays },
-                    ct);
+                    DiscordMemberVerb.Ban, http, db, clock, discord, facts, partitions,
+                    body.UserId, body.Reason, body.DeleteMessageDays, null, ct);
             })
             .RequiresFlag(ModbotPermissions.DiscordBan)
             .WithName("BanDiscordMember")
@@ -100,10 +96,8 @@ public static class DiscordMemberActionEndpoints
                 [FromServices] EventPartitionMaintainer? partitions,
                 CancellationToken ct) =>
                 ActAsync(
-                    http, db, clock, discord, facts, partitions, id, reason, "unbanned", FactType.ActionDiscordUnban,
-                    (guild, why) => discord.UnbanAsync(guild, id, why, ct),
-                    [],
-                    ct))
+                    DiscordMemberVerb.Unban, http, db, clock, discord, facts, partitions,
+                    id, reason, 0, null, ct))
             .RequiresFlag(ModbotPermissions.DiscordUnban)
             .WithName("UnbanDiscordMember")
             .WithSummary("Unban on Discord")
@@ -131,10 +125,8 @@ public static class DiscordMemberActionEndpoints
                 [FromServices] EventPartitionMaintainer? partitions,
                 CancellationToken ct) =>
                 ActAsync(
-                    http, db, clock, discord, facts, partitions, id, body?.Reason, "removed", FactType.ActionDiscordKick,
-                    (guild, why) => discord.KickAsync(guild, id, why, ct),
-                    [],
-                    ct))
+                    DiscordMemberVerb.Kick, http, db, clock, discord, facts, partitions,
+                    id, body?.Reason, 0, null, ct))
             .RequiresFlag(ModbotPermissions.DiscordKick)
             .WithName("KickDiscordMember")
             .WithSummary("Remove from Discord")
@@ -173,10 +165,8 @@ public static class DiscordMemberActionEndpoints
                 var duration = TimeSpan.FromMinutes(body.Minutes);
 
                 return ActAsync(
-                    http, db, clock, discord, facts, partitions, id, body.Reason, "timed out", FactType.ActionDiscordTimeOut,
-                    (guild, why) => discord.TimeOutAsync(guild, id, duration, why, ct),
-                    new JsonObject { ["minutes"] = body.Minutes, ["until"] = clock.UtcNow + duration },
-                    ct);
+                    DiscordMemberVerb.TimeOut, http, db, clock, discord, facts, partitions,
+                    id, body.Reason, 0, duration, ct);
             })
             .RequiresFlag(ModbotPermissions.DiscordTimeOut)
             .WithName("TimeOutDiscordMember")
@@ -197,8 +187,13 @@ public static class DiscordMemberActionEndpoints
         return app;
     }
 
-    /// <summary>What every one of the four does the same way.</summary>
+    /// <summary>
+    /// What every one of the four does the same way. The rules are
+    /// <see cref="DiscordMemberActionService"/>'s, shared with the bot's own commands; this only turns
+    /// what it says into the API's answer.
+    /// </summary>
     private static async Task<IResult> ActAsync(
+        DiscordMemberVerb verb,
         HttpContext http,
         ModbotContext db,
         IModbotClock clock,
@@ -207,118 +202,24 @@ public static class DiscordMemberActionEndpoints
         EventPartitionMaintainer? partitions,
         string? userId,
         string? why,
-        string verb,
-        string factType,
-        Func<string, string, Task<DiscordMemberOutcome>> act,
-        JsonObject data,
+        int deleteMessageDays,
+        TimeSpan? timeout,
         CancellationToken ct)
     {
         if (ModbotAuth.UserIdOf(http.User) is not { } actor)
             return Results.Forbid();
 
-        if (facts is null || partitions is null)
-            return Problems.Of(StatusCodes.Status503ServiceUnavailable, "This deployment cannot record actions.", Problems.NotSetUp);
+        var result = await new DiscordMemberActionService(db, clock, discord, facts, partitions)
+            .ActAsync(verb, actor, http.User.Identity?.Name, userId, why, deleteMessageDays, timeout, ct);
 
-        if (string.IsNullOrWhiteSpace(userId))
-            return Problems.Of(StatusCodes.Status400BadRequest, "Say who, by their Discord id.");
-
-        var guildId = await db.Settings.AsNoTracking()
-            .Where(s => s.Id == 1)
-            .Select(s => s.DiscordGuildId)
-            .FirstOrDefaultAsync(ct);
-
-        if (string.IsNullOrWhiteSpace(guildId))
-            return Problems.Of(StatusCodes.Status409Conflict, "No Discord server is set up yet.", Problems.NotSetUp);
-
-        // Three accounts are never acted on from here, however the request is worded. Modbot's own
-        // bot (taking it out of the server would end every Discord feature, from inside the thing
-        // doing it, as ModerationActionService refuses for Modbot's VRChat account), the server's
-        // owner (whom Discord refuses anyway, and a refusal here is plainer), and any Discord account
-        // linked to a Modbot staff account (a key that may time people out is not a way to lock
-        // another moderator out of the server).
-        var refusal = await OffLimitsAnswerAsync(db, discord, guildId, userId, ct);
-        if (refusal is not null)
-            return refusal;
-
-        var reason = Reason(verb, http.User.Identity?.Name ?? "a Modbot account", why);
-
-        var outcome = await act(guildId, reason);
-
-        if (outcome.BotOffline)
-            return Problems.Of(StatusCodes.Status503ServiceUnavailable, outcome.Error, Problems.Unavailable);
-
-        if (!outcome.Done)
-            return Problems.Of(StatusCodes.Status502BadGateway, outcome.Error ?? "Discord refused.", Problems.DiscordRefused);
-
-        if (!outcome.NothingToDo)
-        {
-            var now = clock.UtcNow;
-            await partitions.EnsureForAsync(now, ct);
-
-            data["reason"] = string.IsNullOrWhiteSpace(why) ? null : why.Trim();
-            data["guildId"] = guildId;
-
-            await facts.WriteAsync(
-                new FactRecord
-                {
-                    Type = factType,
-                    OccurredAt = now,
-                    SubjectPlatform = FactPlatform.Discord,
-                    SubjectId = userId,
-                    ActorPlatform = FactPlatform.Modbot,
-                    ActorId = actor.ToString(),
-                    Source = FactSource.Manual,
-                    Data = data,
-                },
-                ct);
-        }
-
-        return Results.Ok(new DiscordActionDone(!outcome.NothingToDo));
+        return result.Done
+            ? Results.Ok(new DiscordActionDone(result.Changed))
+            : Problems.Of(result.HttpStatus, result.Message, result.Code);
     }
-
-    /// <summary>
-    /// The answer for an account that may not be acted on, or null when it may. Ids are compared as
-    /// the number they spell, because Discord reads "0123" as 123 and a text comparison would let
-    /// that through (the id is otherwise opaque, foundation §3.1.1).
-    /// </summary>
-    private static async Task<IResult?> OffLimitsAnswerAsync(
-        ModbotContext db, IDiscordMemberActions discord, string guildId, string userId, CancellationToken ct)
-    {
-        // Not a number: nothing here can match it, and Discord's side says it is not an id.
-        if (!ulong.TryParse(userId, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var target))
-            return null;
-
-        var off = await discord.OffLimitsAsync(guildId, ct);
-
-        if (Spells(off.BotUserId, target))
-            return Problems.Of(StatusCodes.Status403Forbidden, "That is the Discord account Modbot's bot runs as. Modbot will not act on itself.", Problems.Refused);
-
-        if (Spells(off.OwnerId, target))
-            return Problems.Of(StatusCodes.Status403Forbidden, "That is the owner of the Discord server. Modbot will not act on them.", Problems.Refused);
-
-        // A staff account's Discord id, proven or typed in: either way it names a moderator.
-        var staff = await db.Users.AsNoTracking()
-            .Where(u => u.DeletedAt == null && u.DiscordUserId != null && u.DiscordUserId != string.Empty)
-            .Select(u => u.DiscordUserId!)
-            .ToListAsync(ct);
-
-        if (staff.Any(id => Spells(id, target)))
-            return Problems.Of(StatusCodes.Status403Forbidden, "That Discord account belongs to a Modbot staff account. Modbot will not act on staff.", Problems.Refused);
-
-        return null;
-    }
-
-    private static bool Spells(string? id, ulong number)
-        => id is not null
-            && ulong.TryParse(id, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
-            && parsed == number;
 
     /// <summary>What Discord's audit log shows: who asked, in Modbot, and why.</summary>
     internal static string Reason(string verb, string by, string? why)
-    {
-        var text = $"Modbot: {verb} by {by}" + (string.IsNullOrWhiteSpace(why) ? string.Empty : $": {why.Trim()}");
-        return text.Length <= MaxReasonLength ? text : text[..(MaxReasonLength - 1)] + "…";
-    }
+        => DiscordMemberActionService.Reason(verb, by, why);
 }
 
 /// <summary>A Discord ban to make.</summary>
