@@ -59,8 +59,9 @@ public class EventReminderMessagesTests
             .RunOnceAsync(gateway, Ct);
     }
 
+    /// <summary>A scheduled event published to this Discord, as the calendar leaves it once its post is up.</summary>
     private static async Task<CalendarEvent> AddEventAsync(
-        TestServices services, string title, TimeSpan startsIn, Action<CalendarEvent>? shape = null)
+        TestServices services, string title, TimeSpan startsIn, Action<CalendarEvent>? shape = null, string? place = CalendarPlaces.DiscordEvent)
     {
         var now = services.Clock.UtcNow;
         var e = new CalendarEvent
@@ -74,6 +75,7 @@ public class EventReminderMessagesTests
             WorldId = World,
             State = CalendarEventStates.Scheduled,
             PublishToDiscord = true,
+            PostToChannel = false,
             ChannelId = Channel,
             AccessType = "members",
             CreatedAt = now,
@@ -85,6 +87,21 @@ public class EventReminderMessagesTests
 
         await using var context = services.Database.NewContext();
         context.CalendarEvents.Add(e);
+
+        if (place is not null)
+        {
+            context.CalendarEventPlaces.Add(new CalendarEventPlace
+            {
+                EventId = e.Id,
+                Place = place,
+                State = CalendarPlaceStates.Published,
+                ExternalId = "5551234",
+                ChannelId = Channel,
+                OccurrenceStartsAt = e.OccurrenceStartsAt,
+                UpdatedAt = now,
+            });
+        }
+
         await context.SaveChangesAsync(Ct);
         return e;
     }
@@ -254,12 +271,12 @@ public class EventReminderMessagesTests
         await using var services = await SetUpAsync(_db);
         var e = await AddEventAsync(services, "Movie night", TimeSpan.FromHours(2));
         var reminder = await AddReminderAsync(services, e);
-        var gateway = new FakeGateway { DirectMessageCrash = new InvalidOperationException("the process died") };
+        var gateway = new FakeGateway { DirectMessageCrash = new OperationCanceledException("the process is stopping") };
 
         services.Clock.Advance(TimeSpan.FromHours(1));
 
-        // The pass blows up after the row was written, as a crash would...
-        await Assert.ThrowsAsync<InvalidOperationException>(() => PassAsync(services, gateway));
+        // The process stops in the middle of the send, after the row was written...
+        await Assert.ThrowsAsync<OperationCanceledException>(() => PassAsync(services, gateway));
         Assert.Equal(EventReminderStates.Sending, (await ReminderAsync(services, reminder.Id)).State);
 
         // ...and the next pass, after the restart, finds it sending and leaves it alone: counted as
@@ -317,6 +334,117 @@ public class EventReminderMessagesTests
         gateway.DirectMessagesClosed = false;
         Assert.Equal(0, await PassAsync(services, gateway));
         Assert.Empty(gateway.DirectMessages);
+    }
+
+    [Fact]
+    public async Task AnUnexpectedErrorWhileSending_FailsThatReminder_AndTheOthersStillGoOut()
+    {
+        await using var services = await SetUpAsync(_db);
+        var e = await AddEventAsync(services, "Movie night", TimeSpan.FromHours(2));
+        var first = await AddReminderAsync(services, e, "100");
+        var second = await AddReminderAsync(services, e, "200");
+        var gateway = new FakeGateway { DirectMessageCrash = new InvalidOperationException("Discord blew up") };
+
+        services.Clock.Advance(TimeSpan.FromHours(1));
+
+        // The first throws; it is failed, not left sending, and never tried again. The pause before
+        // the second message is where the fake stops throwing.
+        await using (var context = services.Database.NewContext())
+        {
+            var pass = new EventReminderMessages(context, services.Clock, delay: (_, _) =>
+            {
+                gateway.DirectMessageCrash = null;
+                return Task.CompletedTask;
+            });
+
+            Assert.Equal(1, await pass.RunOnceAsync(gateway, Ct));
+        }
+
+        var states = new[] { (await ReminderAsync(services, first.Id)).State, (await ReminderAsync(services, second.Id)).State };
+        Assert.Equal([EventReminderStates.Failed, EventReminderStates.Sent], states.Order());
+        Assert.Single(gateway.DirectMessages);
+
+        Assert.Equal(0, await PassAsync(services, gateway));
+        Assert.Single(gateway.DirectMessages);
+    }
+
+    // ── The listing rule, asked again before sending ────────────────────────────────────────
+
+    public static TheoryData<string> TakenOff =>
+    [
+        "switched-off",
+        "post-removed",
+        "place-gone",
+        "channel-post-only",
+    ];
+
+    [Theory]
+    [MemberData(nameof(TakenOff))]
+    public async Task AnEventTakenOffDiscordAfterTheMemberAsked_IsSkipped_AndNothingNamesIt(string how)
+    {
+        await using var services = await SetUpAsync(_db);
+        var e = await AddEventAsync(services, "Secret party", TimeSpan.FromHours(2), x => x.AccessType = "public");
+        var reminder = await AddReminderAsync(services, e);
+        var gateway = new FakeGateway();
+
+        await using (var context = services.Database.NewContext())
+        {
+            switch (how)
+            {
+                case "switched-off":
+                    await context.CalendarEvents.Where(x => x.Id == e.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.PublishToDiscord, false), Ct);
+                    break;
+                case "post-removed":
+                    await context.CalendarEventPlaces.Where(p => p.EventId == e.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.State, CalendarPlaceStates.Removed), Ct);
+                    break;
+                case "place-gone":
+                    await context.CalendarEventPlaces.Where(p => p.EventId == e.Id).ExecuteDeleteAsync(Ct);
+                    break;
+                default:
+                    // Only the channel post is switched on, and the event was posted as a Discord event.
+                    await context.CalendarEvents.Where(x => x.Id == e.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.PublishToDiscord, false).SetProperty(x => x.PostToChannel, true), Ct);
+                    break;
+            }
+        }
+
+        services.Clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Equal(0, await PassAsync(services, gateway));
+        Assert.Empty(gateway.DirectMessages);
+        Assert.Equal(EventReminderStates.Skipped, (await ReminderAsync(services, reminder.Id)).State);
+    }
+
+    [Fact]
+    public async Task AnEventStillListed_ThroughItsChannelPost_IsSent()
+    {
+        await using var services = await SetUpAsync(_db);
+        var e = await AddEventAsync(
+            services, "Movie night", TimeSpan.FromHours(2), x => (x.PublishToDiscord, x.PostToChannel) = (false, true), CalendarPlaces.ChannelPost);
+        await AddReminderAsync(services, e);
+        var gateway = new FakeGateway();
+
+        services.Clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Equal(1, await PassAsync(services, gateway));
+    }
+
+    [Fact]
+    public async Task APublicEventMadeMembersOnlyAfterTheMemberAsked_IsStillSent_ButWithNoJoinLink()
+    {
+        await using var services = await SetUpAsync(_db);
+        var e = await OpenSoonAsync(services, "public");
+        await OpenInstanceAsync(services, e);
+        await AddReminderAsync(services, e, minutes: 15);
+        await SetEventAsync(services, e.Id, x => x.AccessType = "members");
+        var gateway = new FakeGateway();
+
+        services.Clock.Advance(TimeSpan.FromMinutes(6));
+
+        Assert.Equal(1, await PassAsync(services, gateway));
+        Assert.Empty(Assert.Single(gateway.DirectMessages).Links);
     }
 
     // ── The date as it stands now ───────────────────────────────────────────────────────────
@@ -658,19 +786,25 @@ public class EventReminderMessagesTests
 
         // Not finished: kept however old.
         var waiting = await AddReminderAsync(services, e, "600", shape: r => r.UpdatedAt = now - TimeSpan.FromDays(90));
-        var sending = await AddReminderAsync(services, e, "700", state: EventReminderStates.Sending, shape: r => r.UpdatedAt = now - TimeSpan.FromDays(90));
+        var sending = await AddReminderAsync(services, e, "700", state: EventReminderStates.Sending, shape: r => r.UpdatedAt = now - TimeSpan.FromHours(23));
+
+        // Stuck sending for over a day, or waiting since long before the thirty days: no member id
+        // is kept without an end.
+        var stuck = await AddReminderAsync(services, e, "800", state: EventReminderStates.Sending, shape: r => r.UpdatedAt = now - TimeSpan.FromHours(25));
+        var unhandled = await AddReminderAsync(services, e, "900", shape: r => r.RemindAt = now - TimeSpan.FromDays(31));
 
         await PassAsync(services, new FakeGateway());
 
         await using var context = services.Database.NewContext();
         var left = await context.EventReminders.AsNoTracking().Select(r => r.Id).ToListAsync(Ct);
 
-        Assert.DoesNotContain(left, id => old.Any(o => o.Id == id));
+        Assert.DoesNotContain(left, id => old.Any(o => o.Id == id) || id == stuck.Id || id == unhandled.Id);
         Assert.Contains(recent.Id, left);
         Assert.Contains(waiting.Id, left);
         Assert.Contains(sending.Id, left);
         Assert.Equal(3, left.Count);
         Assert.Equal(TimeSpan.FromDays(30), EventReminderMessages.KeptFor);
+        Assert.Equal(TimeSpan.FromDays(1), EventReminderMessages.StuckFor);
     }
 
     [Fact]

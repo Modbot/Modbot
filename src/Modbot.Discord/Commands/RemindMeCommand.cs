@@ -116,11 +116,15 @@ public sealed class RemindMeCommand
         _ => minutes.ToString(CultureInfo.InvariantCulture) + " minutes",
     };
 
-    /// <summary>The confirmation direct message: <c>I'll remind you about **Title** &lt;t:…:f&gt;.</c></summary>
-    public static string ConfirmationText(string title, DateTimeOffset remindAt)
+    /// <summary>
+    /// The confirmation direct message, with both times named: <c>I'll remind you about **Title** at
+    /// &lt;t:…:f&gt;. It starts &lt;t:…:f&gt;.</c>
+    /// </summary>
+    public static string ConfirmationText(string title, DateTimeOffset remindAt, DateTimeOffset startsAt)
     {
         ArgumentNullException.ThrowIfNull(title);
-        return $"I'll remind you about **{Escaped(title)}** {DiscordTime.Absolute(remindAt)}.";
+
+        return $"I'll remind you about **{Escaped(title)}** at {DiscordTime.Absolute(remindAt)}. It starts {DiscordTime.Absolute(startsAt)}.";
     }
 
     /// <summary>The private reply to a sign-up: <c>I'll remind you &lt;t:…:f&gt;.</c></summary>
@@ -224,21 +228,6 @@ public sealed class RemindMeCommand
         if (now - remindAt > LateBy)
             return new(DiscordReply.Say(TooCloseMessage), "too-close");
 
-        if (await _db.EventReminders.AsNoTracking()
-                .AnyAsync(r => r.DiscordUserId == userId && r.EventId == match.Id
-                               && r.OccurrenceStartsAt == date.PlannedStartsAt && r.State == EventReminderStates.Waiting, ct)
-                .ConfigureAwait(false))
-        {
-            return new(DiscordReply.Say(DuplicateMessage), "duplicate");
-        }
-
-        if (await _db.EventReminders.AsNoTracking()
-                .CountAsync(r => r.DiscordUserId == userId && r.State == EventReminderStates.Waiting, ct)
-                .ConfigureAwait(false) >= EventReminder.MostWaiting)
-        {
-            return new(DiscordReply.Say(TooManyMessage), "limit");
-        }
-
         var guildId = await GuildIdAsync(ct).ConfigureAwait(false);
         if (gateway is null || guildId is null)
             return new(DiscordReply.Say(CouldNotMessage), "failed");
@@ -261,6 +250,29 @@ public sealed class RemindMeCommand
         // the row exists before the message does.
         await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
+        // One member at a time, so the rules below are checked and acted on as a single step: two
+        // runs at once cannot both count nine waiting and both add a tenth. The lock is on the
+        // member and is let go when the transaction ends. (The unique index backs up the
+        // one-per-date rule; nothing else would stop an eleventh.)
+        await _db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({"event_reminder:" + userId}, 0))", ct)
+            .ConfigureAwait(false);
+
+        if (await _db.EventReminders.AsNoTracking()
+                .AnyAsync(r => r.DiscordUserId == userId && r.EventId == match.Id
+                               && r.OccurrenceStartsAt == date.PlannedStartsAt && r.State == EventReminderStates.Waiting, ct)
+                .ConfigureAwait(false))
+        {
+            return new(DiscordReply.Say(DuplicateMessage), "duplicate");
+        }
+
+        if (await _db.EventReminders.AsNoTracking()
+                .CountAsync(r => r.DiscordUserId == userId && r.State == EventReminderStates.Waiting, ct)
+                .ConfigureAwait(false) >= EventReminder.MostWaiting)
+        {
+            return new(DiscordReply.Say(TooManyMessage), "limit");
+        }
+
         _db.EventReminders.Add(reminder);
 
         try
@@ -277,7 +289,7 @@ public sealed class RemindMeCommand
         var title = CalendarRepeat.TitleOf(match, date);
         var sent = await gateway.SendDirectMessageAsync(
                 userId,
-                ConfirmationText(title, remindAt > now ? remindAt : now),
+                ConfirmationText(title, remindAt > now ? remindAt : now, date.StartsAt),
                 null,
                 [StopFor(reminder.Id, guildId)],
                 ct)

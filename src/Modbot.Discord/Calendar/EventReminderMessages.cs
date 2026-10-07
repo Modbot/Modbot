@@ -38,7 +38,8 @@ namespace Modbot.Discord.Calendar;
 /// <strong>Only while <c>/remindme</c> is on.</strong> The operator's switch stops the messages as
 /// well as the command; reminders wait, and are skipped if they are too late by the time it is
 /// switched on again. Stop always works. Sent, stopped, skipped and failed rows are deleted
-/// <see cref="KeptFor"/> after they last changed, whether or not the command is on.
+/// <see cref="KeptFor"/> after they last changed, one stuck sending after <see cref="StuckFor"/>, and a
+/// waiting one <see cref="KeptFor"/> after it was due, whether or not the command is on.
 /// </para>
 /// </remarks>
 public sealed class EventReminderMessages
@@ -51,6 +52,9 @@ public sealed class EventReminderMessages
 
     /// <summary>How long a finished reminder is kept before it is deleted.</summary>
     public static readonly TimeSpan KeptFor = TimeSpan.FromDays(30);
+
+    /// <summary>How long a reminder may stay sending before it is deleted: the process ended while it went out.</summary>
+    public static readonly TimeSpan StuckFor = TimeSpan.FromDays(1);
 
     /// <summary>
     /// How far ahead a waiting reminder is looked at. A date moved earlier brings its reminder
@@ -114,7 +118,11 @@ public sealed class EventReminderMessages
             return 0;
 
         var ids = rows.Select(r => r.EventId).Distinct().ToList();
-        var events = await _db.CalendarEvents.AsNoTracking()
+        // Only events /events would still show: the same rule, asked again now. An event taken off
+        // Discord, cancelled or deleted since the member asked is not in this list, and its
+        // reminder is skipped before anything is sent, so no message names what the server no
+        // longer shows.
+        var events = await EventsCommand.Listed(_db)
             .Where(e => ids.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id, ct)
             .ConfigureAwait(false);
@@ -129,9 +137,7 @@ public sealed class EventReminderMessages
 
             now = _clock.UtcNow;
 
-            if (!events.TryGetValue(row.EventId, out var calendarEvent)
-                || calendarEvent.DeletedAt is not null
-                || !CalendarEventStates.IsLive(calendarEvent.State))
+            if (!events.TryGetValue(row.EventId, out var calendarEvent))
             {
                 await FinishAsync(row.Id, EventReminderStates.Waiting, EventReminderStates.Skipped, now, ct).ConfigureAwait(false);
                 continue;
@@ -175,12 +181,26 @@ public sealed class EventReminderMessages
             var title = CalendarRepeat.TitleOf(calendarEvent, date);
             var link = await CalendarJoinLink.ForAnyoneAsync(_db, calendarEvent, date.StartsAt, ct).ConfigureAwait(false);
 
-            var outcome = await gateway.SendDirectMessageAsync(
-                    row.DiscordUserId,
-                    Text(title, date.StartsAt),
-                    link is null ? null : [new DiscordLinkButton(EventsCommand.JoinLabel, link)],
-                    ct)
-                .ConfigureAwait(false);
+            DiscordPostOutcome outcome;
+
+            try
+            {
+                outcome = await gateway.SendDirectMessageAsync(
+                        row.DiscordUserId,
+                        Text(title, date.StartsAt),
+                        link is null ? null : [new DiscordLinkButton(EventsCommand.JoinLabel, link)],
+                        ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // Whether it went out is not known, so it is failed and never tried again: the
+                // row must not stay sending. (A stop in the middle -- the process ending -- leaves
+                // it sending, which the clean-up deletes after a day.)
+                _log.Warning(e, "A reminder for the event {EventId} blew up while it was sent", row.EventId);
+                await FinishAsync(row.Id, EventReminderStates.Sending, EventReminderStates.Failed, _clock.UtcNow, ct).ConfigureAwait(false);
+                continue;
+            }
 
             if (outcome.Sent)
             {
@@ -196,17 +216,25 @@ public sealed class EventReminderMessages
         return sent;
     }
 
-    /// <summary>Deletes the reminders that finished long enough ago. Their ids name a member, so they do not stay.</summary>
+    /// <summary>
+    /// Deletes the reminders that are over. Their ids name a member, so none stays without an end:
+    /// a finished one goes <see cref="KeptFor"/> after it last changed, one stuck sending (the
+    /// process ended in the middle of it) after <see cref="StuckFor"/>, and a waiting one nobody
+    /// handled -- the command was off -- <see cref="KeptFor"/> after it was due.
+    /// </summary>
     private Task<int> DeleteOldAsync(DateTimeOffset now, CancellationToken ct)
     {
-        var before = now - KeptFor;
+        var finished = now - KeptFor;
+        var stuck = now - StuckFor;
 
         return _db.EventReminders
-            .Where(r => r.UpdatedAt < before
-                        && (r.State == EventReminderStates.Sent
-                            || r.State == EventReminderStates.Stopped
-                            || r.State == EventReminderStates.Skipped
-                            || r.State == EventReminderStates.Failed))
+            .Where(r => (r.UpdatedAt < finished
+                         && (r.State == EventReminderStates.Sent
+                             || r.State == EventReminderStates.Stopped
+                             || r.State == EventReminderStates.Skipped
+                             || r.State == EventReminderStates.Failed))
+                        || (r.State == EventReminderStates.Sending && r.UpdatedAt < stuck)
+                        || (r.State == EventReminderStates.Waiting && r.RemindAt < finished))
             .ExecuteDeleteAsync(ct);
     }
 

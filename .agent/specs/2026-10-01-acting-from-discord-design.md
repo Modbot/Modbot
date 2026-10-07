@@ -385,7 +385,7 @@ next date of an event. For every member, no Modbot account, private, **off by de
 
 | Run | Result |
 |---|---|
-| `/remindme event: before:` | Stores one reminder and sends one confirmation direct message, "I'll remind you about **Title** <t:f>.", with **Stop**. The private reply is "I'll remind you <t:f>." Both times are when the reminder is due. |
+| `/remindme event: before:` | Stores one reminder and sends one confirmation direct message, "I'll remind you about **Title** at <t:f>. It starts <t:f>.", with **Stop**: the first time is when the reminder is due, the second when the date starts. The private reply is "I'll remind you <t:f>." (the due time). |
 | `/remindme` (no event) | Lists the member's waiting reminders, soonest first, each with a **Stop** button ("Stop 1", "Stop 2"... when there is more than one). |
 | 50007 on the confirmation | "Your direct messages are closed, so Modbot can't remind you." and **nothing is stored**: the row is written in a transaction that is rolled back unless the confirmation went out. Any other failure to send gets "Modbot could not send you a message." and stores nothing too. |
 
@@ -401,6 +401,9 @@ next date of an event. For every member, no Modbot account, private, **off by de
 - **Refused**, in plain words and with nothing stored: "Modbot can't find that event.", "That event has no dates
   left.", "That is too close to the start. Pick a shorter time." (the time it would be sent is more than 15 minutes
   ago, so it never would be), "You already have a reminder for that date." and "You already have 10 reminders."
+- **The ten-waiting limit and the one-per-date rule are checked under a per-member lock** (`pg_advisory_xact_lock`
+  on the member's id, held for the sign-up's transaction), so two runs at once cannot both count nine and both add
+  a tenth.
 - **Member limit** of 5 a minute per Discord account, its own `MemberCommandLimits` under the key `remindme`.
   A refused run answers "Slow down. Try again in a minute." and is not recorded. Stop is not counted: it only
   ever makes less happen.
@@ -420,13 +423,17 @@ date; ten waiting per member is checked when asking. A date is named by its plan
 `EventReminderMessages.RunOnceAsync`, run from `CalendarDiscordService`'s loop (so only while the bot is
 connected), in a `try` of its own so neither it nor the calendar's pass holds the other up.
 
-1. Deletes `sent`, `stopped`, `skipped` and `failed` rows 30 days after they last changed. This runs whether or not
-   the command is on.
+1. Deletes rows that are over, so no Discord id is kept without an end: `sent`, `stopped`, `skipped` and `failed`
+   rows 30 days after they last changed, a row stuck `sending` (the process ended in the middle) after a day, and a
+   `waiting` row 30 days after it was due (nobody handled it: the command was off). This runs whether or not the
+   command is on.
 2. Does nothing more while `/remindme` is switched off: the operator's switch stops the messages as well as the
    command. **Stop** always works.
 3. Looks at the waiting reminders due within the next 2 days (at most 500), because a date moved earlier brings
    its reminder forward. For each, the date is worked out as it stands now (`CalendarRepeat.ForDate`):
-   - event gone, deleted, or not scheduled or open, or the date cancelled: `skipped`;
+   - the event is no longer one `/events` would show, or the date was cancelled: `skipped`. The listing rule is the
+     one query `EventsCommand.Listed`, asked again here, so a message never names (or links) an event that was taken
+     off Discord, cancelled, unpublished or deleted after the member asked;
    - the time is worked out again from where the date is: a moved date is followed, and a reminder not due yet is
      left waiting with its new time;
    - the date has started, or the reminder is more than **15 minutes late** (a bot that was off): `skipped`.
@@ -452,7 +459,7 @@ or is not theirs. The reminder message itself carries no Stop: for a repeating e
 ### Privacy
 
 Stored: the member's Discord id, the event, the date, when it is due and its state. No name, no message text. Kept
-until 30 days after it finishes; a person purge deletes every row for the Discord account, and for a VRChat account
+until it is over (30 days after it finishes, a day if stuck sending, 30 days after it was due if never handled); a person purge deletes every row for the Discord account, and for a VRChat account
 the rows of the Discord account linked to it, counted in the purge fact as `eventReminders`. Leaves the server:
 two direct messages through Discord to that member. Nothing goes to Modbot Cloud. Documented in `bot-setup.mdx` and
 `privacy.mdx`.

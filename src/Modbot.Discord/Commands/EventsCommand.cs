@@ -85,6 +85,15 @@ public sealed class EventsCommand
     /// cancelled or finished event, or one that was never posted.
     /// </summary>
     public static Task<List<CalendarEvent>> ListedAsync(ModbotContext db, CancellationToken ct)
+        => Listed(db).ToListAsync(ct);
+
+    /// <summary>
+    /// The one rule for which events may be shown, as a query to narrow further. <c>/events</c> and
+    /// <c>/remindme</c> sign-up read it through <see cref="ListedAsync"/>, and the reminder pass asks
+    /// it again before it sends, so an event taken off Discord after a member asked is never named
+    /// in a message.
+    /// </summary>
+    public static IQueryable<CalendarEvent> Listed(ModbotContext db)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -94,8 +103,7 @@ public sealed class EventsCommand
                         && db.CalendarEventPlaces.Any(p => p.EventId == e.Id
                             && p.State == CalendarPlaceStates.Published
                             && ((p.Place == CalendarPlaces.DiscordEvent && e.PublishToDiscord)
-                                || (p.Place == CalendarPlaces.ChannelPost && e.PostToChannel))))
-            .ToListAsync(ct);
+                                || (p.Place == CalendarPlaces.ChannelPost && e.PostToChannel))));
     }
 
     /// <summary>The answer: the next dates, and a Join button under each one that can be joined now.</summary>

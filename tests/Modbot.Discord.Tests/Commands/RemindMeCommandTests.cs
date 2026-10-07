@@ -248,12 +248,14 @@ public class RemindMeCommandTests
 
         var reply = await AskAsync(services, gateway, "999", Event(e.Id));
 
-        // The private reply, and one direct message: "I'll remind you about **Title** <t:f>."
+        // The private reply, and one direct message that names both times.
         Assert.Equal($"I'll remind you <t:{Unix(remindAt)}:f>.", reply?.Text);
 
         var message = Assert.Single(gateway.ActionMessages);
         Assert.Equal("999", message.UserId);
-        Assert.Equal($"I'll remind you about **Movie night** <t:{Unix(remindAt)}:f>.", message.Text);
+        Assert.Equal(
+            $"I'll remind you about **Movie night** at <t:{Unix(remindAt)}:f>. It starts <t:{Unix(e.StartsAt)}:f>.",
+            message.Text);
 
         var stop = Assert.Single(message.Actions);
         var reminder = Assert.Single(await RemindersAsync(services));
@@ -485,6 +487,28 @@ public class RemindMeCommandTests
         var first = (await RemindersAsync(services, "999")).First(r => r.State == EventReminderStates.Waiting);
         await PressAsync(services, "999", RemindMeCommand.StopFor(first.Id, Guild).Id);
         Assert.StartsWith("I'll remind you", (await AskAsync(services, gateway, "999", Event(events[10].Id)))?.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TwoRunsAtOnceFromOneMember_CannotBothTakeTheTenthPlace()
+    {
+        await using var services = await SetUpAsync(_db);
+
+        var events = new List<CalendarEvent>();
+        for (var i = 0; i < 11; i++)
+            events.Add(await AddEventAsync(services, "Event " + i, TimeSpan.FromDays(3 + i)));
+
+        for (var i = 0; i < EventReminder.MostWaiting - 1; i++)
+            await AddReminderAsync(services, events[i], "999");
+
+        // Nine waiting; two different events asked for at the same moment.
+        var replies = await Task.WhenAll(
+            AskAsync(services, new FakeGateway(), "999", Event(events[9].Id)),
+            AskAsync(services, new FakeGateway(), "999", Event(events[10].Id)));
+
+        Assert.Single(replies, r => r!.Text!.StartsWith("I'll remind you", StringComparison.Ordinal));
+        Assert.Single(replies, r => r!.Text == "You already have 10 reminders.");
+        Assert.Equal(EventReminder.MostWaiting, (await RemindersAsync(services, "999")).Count);
     }
 
     // ── Event invites stay separate ─────────────────────────────────────────────────────────

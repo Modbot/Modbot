@@ -219,8 +219,10 @@ keep following their default if a later version changes it. Nothing can be saved
 `/remindme` is off until you turn it on. Each reminder is one row in Modbot's database: the member's Discord
 id, the event, the date it is about, how long before it was asked for, when it is due and its state
 (waiting, sending, sent, stopped, skipped or failed), with the times they changed. No name and no message text.
-Sent, stopped, skipped and failed reminders are deleted 30 days after they last changed, and
-[purging a person](/moderation/purge) deletes all of theirs. What leaves your server is two direct messages
+Every reminder is deleted in the end: sent, stopped, skipped and failed ones 30 days after they last changed,
+one stuck while sending after a day, and one nobody handled (the command was off) 30 days after it was due.
+Just before it sends, Modbot checks again that the event is still one `/events` would show, and skips the reminder
+if it is not, so a message never names an event taken off Discord after you asked. [Purging a person](/moderation/purge) deletes all of theirs. What leaves your server is two direct messages
 through Discord to that member: the confirmation, and the reminder. Turning `/remindme` off stops the
 reminders being sent too; **Stop** keeps working. Reminders are separate from
 [event invites](/moderation/calendar#inviting-people): asking for one signs nobody up for the other, and
