@@ -743,8 +743,10 @@ function Shell({
         actions={sheet === 'page'}
       />
 
-      {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the
-          palette, Now and the page's own keys. Not drawn at all from `lg` up. */}
+      {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it. On a phone
+          the bar is the pinned pages and More, and Search and the page's own keys are in the sheet;
+          on a tablet or in a headset it is Menu, Search, Now and the page's own keys. Not drawn at
+          all from `lg` up. */}
       <NavSheet
         open={navOpen}
         onOpenChange={setNavOpen}
@@ -752,17 +754,22 @@ function Shell({
         appearance={prefs}
         pins={pins}
         onTogglePin={togglePin}
+        onActions={() => setSheet('page')}
         username={me.username}
         onAccount={() => navigate(PATHS.account)}
         onSignOut={signOut}
       />
       <BottomBar
+        me={me}
         page={page}
+        place={prefs.place}
+        pins={pins}
         waiting={waiting}
         onMenu={() => setNavOpen(true)}
         onSearch={() => setPaletteOpen(true)}
         onNow={() => navigate(PATHS.now)}
         onActions={() => setSheet('page')}
+        onNavigate={nav.onNavigate}
       />
     </div>
   )

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import {
+  BAR_PAGES,
   DEFAULT_PINS,
   NAV,
+  barPages,
   menuPages,
   menuTiles,
   pinList,
@@ -112,4 +115,85 @@ test('every default pin is a page the app has', () => {
   const known = new Set<string>(NAV.map((n) => n.id))
 
   assert.ok(DEFAULT_PINS.every((id) => known.has(id)))
+})
+
+test('the phone bar shows four pinned pages', () => {
+  assert.equal(BAR_PAGES, 4)
+})
+
+test('the bar takes the first four pins, and the rest are only in the sheet', () => {
+  const saved = ['live', 'bans', 'now', 'calendar', 'people', 'audit']
+
+  assert.deepEqual(ids(barPages(everything, saved)), ['live', 'bans', 'now', 'calendar'])
+  assert.deepEqual(ids(pinnedPages(everything, saved)), saved)
+})
+
+test('before anything is pinned the bar is the four default pins', () => {
+  assert.deepEqual(ids(barPages(everything, null)), ['now', 'people', 'live', 'calendar'])
+})
+
+test('a pin this person cannot open leaves room for the next pin on the bar, not a gap', () => {
+  const saved = ['bans', 'now', 'live', 'calendar', 'people']
+
+  assert.deepEqual(ids(barPages(person('ViewLiveInstances', 'ViewCalendar', 'ViewMembers'), saved)), [
+    'now',
+    'live',
+    'calendar',
+    'people',
+  ])
+})
+
+test('with fewer than four pins the bar has fewer pages, and nothing pinned leaves only More', () => {
+  assert.deepEqual(ids(barPages(everything, ['live'])), ['live'])
+  assert.deepEqual(ids(barPages(everything, [])), [])
+  assert.deepEqual(ids(barPages(person(), null)), ['now'])
+})
+
+// The components are not rendered here (the suites run in Node, with no document), so what the
+// phone's bar and sheet carry is read from their source, as sheet.test.ts reads the stylesheet.
+const chrome = readFileSync(new URL('../src/components/Chrome.tsx', import.meta.url), 'utf8')
+
+function body(start: string, end: string): string {
+  const from = chrome.indexOf(start)
+  const to = chrome.indexOf(end, from + start.length)
+  assert.ok(from >= 0 && to > from, `${start} .. ${end} is in Chrome.tsx`)
+  return chrome.slice(from, to)
+}
+
+test('Search and Actions are in the Menu sheet, where the phone bar no longer has them', () => {
+  const sheet = body('function PageGrid(', 'function HealthButton(')
+
+  assert.match(sheet, /onClick=\{closeThen\(nav\.onSearch\)\}\s+aria-label="Search"/)
+  assert.match(sheet, /actions && \(\s*<Button[^>]*onClick=\{closeThen\(onActions\)\}\s+aria-label="Actions"/)
+  // Actions only where the page has some, as on the bar it replaces.
+  assert.match(sheet, /const actions = hasPageActions\(useShortcutList\(\)\)/)
+
+  const bar = body('function PinnedBar(', 'function MenuBar(')
+  assert.ok(!/label="Search"|label="Actions"/.test(bar))
+})
+
+test('the phone bar is the first four pins and More, which opens the sheet', () => {
+  const bar = body('function PinnedBar(', 'function MenuBar(')
+
+  assert.match(bar, /barPages\(me, pins\)/)
+  assert.match(bar, /label="More" onClick=\{onMore\}/)
+})
+
+test('the bar and the sheet ask the same question for what a phone is', () => {
+  assert.match(body('export function BottomBar(', 'function PinnedBar('), /usePhoneMenu\(place\)/)
+  assert.match(body('export function NavSheet(', 'const PAGE_ICONS'), /usePhoneMenu\(appearance\.place\)/)
+  assert.match(
+    body('function usePhoneMenu(', 'export function NavSheet('),
+    /useMedia\(SHEET\)[\s\S]*usePhoneLayout\(\)[\s\S]*place !== 'headset'/,
+  )
+})
+
+test('the phone bar leaves the safe area clear and marks the current page', () => {
+  const bar = body('function PinnedBar(', 'function MenuBar(')
+
+  assert.match(bar, /pb-\[env\(safe-area-inset-bottom\)\]/)
+  assert.match(bar, /current=\{lit === item\.id\}/)
+  // The page's own scroll box reserves the bar's height and the safe area under it.
+  const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  assert.match(app, /pb-\[calc\(3\.25rem\+env\(safe-area-inset-bottom\)\)\]/)
 })

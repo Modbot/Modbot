@@ -398,6 +398,18 @@ export function pinnedPages(me: CurrentUser, saved: readonly string[] | null | u
   return pinned
 }
 
+/** How many pinned pages the bar at the foot of a phone shows, before More. */
+export const BAR_PAGES = 4
+
+/**
+ * The pages on the phone's bottom bar: the first `BAR_PAGES` of the pinned pages this person has a
+ * tile for, so a pin they cannot open leaves room for the next one rather than a gap. The rest of
+ * their pins are in the Menu sheet, behind More.
+ */
+export function barPages(me: CurrentUser, saved: readonly string[] | null | undefined): NavItem[] {
+  return pinnedPages(me, saved).slice(0, BAR_PAGES)
+}
+
 /**
  * The tiles of the phone's Menu sheet for this person: the pinned pages first, in the order they
  * were pinned, then every other page in the order `menuPages` gives.

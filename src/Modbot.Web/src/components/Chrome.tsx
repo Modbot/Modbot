@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, GO_TO_KEYS, menuTiles, sidebarEntry, sidebarRows, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, barPages, menuTiles, sidebarEntry, sidebarRows, type PageId } from '@/lib/nav'
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { DOT, TONE, statusLine, type StatusRowId } from '@/lib/status'
@@ -19,7 +19,7 @@ import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import {
-  Ban, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Flag, Gift, Globe, Hash, Headset,
+  Ban, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Ellipsis, Flag, Gift, Globe, Hash, Headset,
   House, Logs, LogOut, Megaphone, Menu, MessageSquare, Monitor, Moon, Plug, Radio, ScrollText, Search, Settings, Shuffle, Sun,
   Star, UserPlus, UserRound, Users, X, Zap, type LucideIcon,
 } from 'lucide-react'
@@ -341,6 +341,20 @@ function AppearanceControls({
 }
 
 /**
+ * Whether this is a phone, upright or on its side, and not a headset: where Menu is a grid of
+ * tiles (`PageGrid`) and the bar at the foot is the pinned pages with More (`BottomBar`). One
+ * question for both, so the bar's More always opens the grid and never the tablet's drawer.
+ *
+ * A phone is where a dialog is a sheet from the bottom, and too small for a popup's two columns.
+ * Both halves are tests the app already makes, so this adds no third idea of what a phone is.
+ */
+function usePhoneMenu(place: Place): boolean {
+  const sheet = useMedia(SHEET)
+  const small = usePhoneLayout()
+  return sheet && small && place !== 'headset'
+}
+
+/**
  * The sidebar as a sheet, for a screen too narrow to give it a column of its own.
  *
  * The same component, not a second navigation: one list of pages, one set of permission checks,
@@ -359,6 +373,7 @@ export function NavSheet({
   appearance,
   pins,
   onTogglePin,
+  onActions,
   username,
   onAccount,
   onSignOut,
@@ -370,16 +385,14 @@ export function NavSheet({
   /** The pages this person pinned, or null before they have (`usePinnedPages`). */
   pins: string[] | null
   onTogglePin: (id: PageId) => void
+  /** Opens what the page on screen can do (the shortcut sheet in its Actions form). */
+  onActions: () => void
   username?: string
   onAccount?: () => void
   onSignOut?: () => void
 }) {
   const close = () => onOpenChange(false)
-  // A phone: where a dialog is a sheet from the bottom, and too small for a popup's two columns.
-  // Both halves are tests the app already makes, so this adds no third idea of what a phone is.
-  const sheet = useMedia(SHEET)
-  const small = usePhoneLayout()
-  const grid = sheet && small && appearance.place !== 'headset'
+  const grid = usePhoneMenu(appearance.place)
 
   // One Root for both, so crossing from one to the other with Menu open (a window resized past a
   // tablet's width) swaps what is drawn rather than taking the dialog down and building it again.
@@ -391,6 +404,7 @@ export function NavSheet({
           appearance={appearance}
           pins={pins}
           onTogglePin={onTogglePin}
+          onActions={onActions}
           username={username}
           onAccount={onAccount}
           onSignOut={onSignOut}
@@ -486,20 +500,23 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
 
 /**
  * Menu on a phone: every page as a tile in one grid, on the app's sheet from the bottom, with
- * Modbot's health, the theme, bugs and feedback, the account and Sign out in one row under it.
+ * Modbot's health, Search, Actions on a page that has them, the theme, bugs and feedback, the
+ * account and Sign out in one row under it. The pinned pages come first, each tile with a star
+ * that pins or unpins it; the first four are the bar's (`PinnedBar`).
  *
  * It fits one screen: three tiles across held upright and as many as fit on its side, so nothing
  * is out of a thumb's reach and nothing scrolls. What the drawer carried and this leaves out:
- * Search, which is on the bottom bar under it; the headings, since the pages keep their order and
- * so their groups, except Integrations, which is a page and so a tile; the four status rows, said in
- * the one line Now says them in; and Desk or Headset, which a phone has no use for. The group is named in the sheet's header, by its icon and
- * name, and its banner is left out.
+ * the headings, since the pages keep their order and so their groups, except Integrations, which
+ * is a page and so a tile; the four status rows, said in the one line Now says them in; and Desk
+ * or Headset, which a phone has no use for. The group is named in the sheet's header, by its icon
+ * and name, and its banner is left out.
  */
 function PageGrid({
   nav,
   appearance,
   pins,
   onTogglePin,
+  onActions,
   username,
   onAccount,
   onSignOut,
@@ -509,6 +526,7 @@ function PageGrid({
   appearance: React.ComponentProps<typeof AppearanceControls>
   pins: string[] | null
   onTogglePin: (id: PageId) => void
+  onActions: () => void
   username?: string
   onAccount?: () => void
   onSignOut?: () => void
@@ -517,6 +535,8 @@ function PageGrid({
   const { me, group, badges, alarms, more } = nav
   const lit = sidebarEntry(nav.page)
   const tiles = menuTiles(me, pins)
+  // Only a page that registered keys of its own has actions (see BottomBar).
+  const actions = hasPageActions(useShortcutList())
   const { theme, setTheme } = appearance
   const closeThen = (run: () => void) => () => {
     close()
@@ -545,6 +565,15 @@ function PageGrid({
             />
           ) : (
             <span className="flex-1" />
+          )}
+          {/* Search and Actions were on the phone's bar before the pinned pages took it. */}
+          <Button variant="ghost" size="icon" onClick={closeThen(nav.onSearch)} aria-label="Search">
+            <Search className="size-5" />
+          </Button>
+          {actions && (
+            <Button variant="ghost" size="icon" onClick={closeThen(onActions)} aria-label="Actions">
+              <Zap className="size-5" />
+            </Button>
           )}
           <Button
             variant="ghost"
@@ -665,8 +694,91 @@ function HealthButton({ onOpen }: { onOpen: (section: StatusRowId | null) => voi
  * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out the app's own keys,
  * which Menu and Search already are, and so is drawn only on a page that registered keys of its
  * own: on the rest it opened a sheet of keyboard help (review 2026-09-27, finding 8).
+ *
+ * On a phone (`usePhoneMenu`) it is the person's first four pinned pages and More instead, which
+ * opens the Menu grid (`PinnedBar`). Search and Actions are in that grid's bottom row then. A
+ * tablet and a headset keep the bar above.
  */
 export function BottomBar({
+  me,
+  page,
+  place,
+  pins,
+  waiting,
+  onMenu,
+  onSearch,
+  onNow,
+  onActions,
+  onNavigate,
+}: {
+  me: CurrentUser
+  page: PageId
+  place: Place
+  /** The pages this person pinned, or null before they have (`usePinnedPages`). */
+  pins: string[] | null
+  waiting: number
+  onMenu: () => void
+  onSearch: () => void
+  onNow: () => void
+  onActions: () => void
+  onNavigate: (p: PageId) => void
+}) {
+  const phone = usePhoneMenu(place)
+
+  return phone ? (
+    <PinnedBar me={me} page={page} pins={pins} waiting={waiting} onMore={onMenu} onNavigate={onNavigate} />
+  ) : (
+    <MenuBar page={page} waiting={waiting} onMenu={onMenu} onSearch={onSearch} onNow={onNow} onActions={onActions} />
+  )
+}
+
+/**
+ * The phone's bar: the first four pages this person pinned, each as its picture and name, and More,
+ * which opens the Menu grid with every page and the rest of the pins. The page on screen is marked.
+ *
+ * Fixed to the foot, so the page scrolls above it: the shell's `main` reserves the bar's height and
+ * the safe area under it (App.tsx), and the bar leaves the safe area clear itself.
+ */
+function PinnedBar({
+  me,
+  page,
+  pins,
+  waiting,
+  onMore,
+  onNavigate,
+}: {
+  me: CurrentUser
+  page: PageId
+  pins: string[] | null
+  waiting: number
+  onMore: () => void
+  onNavigate: (p: PageId) => void
+}) {
+  const lit = sidebarEntry(page)
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) divide-border border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)]">
+      {barPages(me, pins).map((item) => {
+        const Icon = PAGE_ICONS[item.id] ?? Circle
+        return (
+          <BottomButton
+            key={item.id}
+            icon={<Icon className="size-5" />}
+            label={item.label}
+            count={item.id === 'now' ? waiting : undefined}
+            current={lit === item.id}
+            marked
+            onClick={() => onNavigate(item.id)}
+          />
+        )
+      })}
+      <BottomButton icon={<Ellipsis className="size-5" />} label="More" onClick={onMore} />
+    </nav>
+  )
+}
+
+/** The bar of a tablet and a headset: Menu, Search, Now and, on a page that has them, Actions. */
+function MenuBar({
   page,
   waiting,
   onMenu,
@@ -706,12 +818,15 @@ function BottomButton({
   label,
   count,
   current,
+  marked,
   onClick,
 }: {
   icon: React.ReactNode
   label: string
   count?: number
   current?: boolean
+  /** Draws the current page with a line along its top and a heavier name, not by colour alone. */
+  marked?: boolean
   onClick: () => void
 }) {
   return (
@@ -720,14 +835,17 @@ function BottomButton({
       onClick={onClick}
       aria-current={current ? 'page' : undefined}
       className={cn(
-        'flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 active:bg-muted',
+        // `min-w-0` so five buttons share a phone's width and a long name is cut short, not the row wider.
+        'relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 active:bg-muted',
         current ? 'text-foreground' : 'text-muted-foreground',
+        marked && current && 'font-medium',
       )}
       style={{ minHeight: 'var(--control-h)' }}
     >
+      {marked && current && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}
       {icon}
-      <span className="flex items-center gap-1" style={{ fontSize: 'var(--text-tiny)' }}>
-        {label}
+      <span className="flex max-w-full items-center gap-1" style={{ fontSize: 'var(--text-tiny)' }}>
+        <span className="truncate">{label}</span>
         {/* The same mark as the sidebar's, so the number reads the same in both places. */}
         {count ? (
           <span
