@@ -15,7 +15,7 @@ namespace Modbot.Discord.Tests.Commands;
 [Collection(nameof(PostgresCollection))]
 public class CommandSwitchMigrationTests
 {
-    private const string Moved = "20261007072640_MoveMeIntoCommandSwitches";
+    private const string Moved = "20261007073547_MoveMeIntoCommandSwitches";
 
     private readonly PostgresFixture _db;
 

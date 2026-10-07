@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261007072640_MoveMeIntoCommandSwitches")]
+    [Migration("20261007073547_MoveMeIntoCommandSwitches")]
     partial class MoveMeIntoCommandSwitches
     {
         /// <inheritdoc />
@@ -7283,6 +7283,18 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("BlueskyHandle")
                         .HasColumnType("text")
                         .HasColumnName("bluesky_handle");
+
+                    b.Property<string>("BlueskyOAuthKeyEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_oauth_key_encrypted");
+
+                    b.Property<string>("BlueskyOAuthPendingEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_oauth_pending_encrypted");
+
+                    b.Property<bool>("BlueskyOAuthSignedIn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bluesky_oauth_signed_in");
 
                     b.Property<bool>("BlueskyPostingOn")
                         .HasColumnType("boolean")
