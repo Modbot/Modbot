@@ -58,6 +58,7 @@ public sealed class DiscordCommandHandler
     private readonly RemindMeCommand? _remind;
     private readonly EventCommand? _event;
     private readonly PostCommand? _post;
+    private readonly ReportCommand? _report;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -73,7 +74,8 @@ public sealed class DiscordCommandHandler
         GateCommand? gate = null,
         RemindMeCommand? remind = null,
         EventCommand? eventCommand = null,
-        PostCommand? post = null)
+        PostCommand? post = null,
+        ReportCommand? report = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -95,6 +97,7 @@ public sealed class DiscordCommandHandler
         _remind = remind;
         _event = eventCommand;
         _post = post;
+        _report = report;
     }
 
     /// <summary>
@@ -117,7 +120,10 @@ public sealed class DiscordCommandHandler
             && DiscordCommandSwitches.Find(call.CommandName) is not null
             && !await CommandSwitchSetting.IsOnAsync(_db, call.CommandName, ct).ConfigureAwait(false))
         {
-            await RecordAsync(call, null, "off", null, ct).ConfigureAwait(false);
+            // /report leaves no command fact of any kind: its subject would be the reporter.
+            if (call.CommandName != DiscordCommands.Report)
+                await RecordAsync(call, null, "off", null, ct).ConfigureAwait(false);
+
             return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: false));
         }
 
@@ -146,6 +152,15 @@ public sealed class DiscordCommandHandler
         // For every member too, and private: the confirmation message goes through the session.
         if (call.CommandName == DiscordCommands.RemindMe)
             return await RemindMeAsync(call, gateway, ct).ConfigureAwait(false);
+
+        // For every member too, private, and recorded nowhere as a command: no
+        // modbot.discord.command fact, because its subject would be the reporter (design §3.4).
+        if (call.CommandName == DiscordCommands.Report)
+        {
+            return _report is null
+                ? DiscordReply.Say("Modbot does not know that command.")
+                : await _report.RunAsync(call, gateway, ct).ConfigureAwait(false);
+        }
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);

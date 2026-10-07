@@ -390,6 +390,48 @@ public class SettingsAreRecordedTests
 
     // ── Who may see the entries ─────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// How long a closed report keeps its words (Discord commands design §3.4, decision 10): saved
+    /// when sent and recorded, left as it was when an older client leaves it out, and never negative.
+    /// </summary>
+    [Fact]
+    public async Task TheClosedReportRetention_IsSavedWhenSent_LeftAloneWhenLeftOut_AndRefusedWhenNegative()
+    {
+        var (host, _, cookie) = await StartAsync(ModbotPermissions.ManageSettings);
+        await using var running = host;
+
+        object Body(int? reports) => reports is { } days
+            ? new { moderationFactRetentionDays = 0, presenceFactRetentionDays = 0, discordMessageRetentionDays = 0, memberReportRetentionDays = days }
+            : new { moderationFactRetentionDays = 0, presenceFactRetentionDays = 0, discordMessageRetentionDays = 0, memberReportRetentionDays = (int?)null };
+
+        await PutAsync(host, "/api/settings/retention", Body(60), cookie);
+        await PutAsync(host, "/api/settings/retention", Body(30), cookie);
+
+        var newest = (await EntriesAsync(host, "retention"))[0];
+        Assert.Equal(60, Field(newest, "memberReportRetentionDays").GetProperty("old").GetInt32());
+        Assert.Equal(30, Field(newest, "memberReportRetentionDays").GetProperty("new").GetInt32());
+
+        // Left out: the answer says what it still is, and nothing about it is recorded.
+        var before = (await EntriesAsync(host, "retention")).Count;
+        var older = await host.SendJsonAsync(
+            HttpMethod.Put,
+            "/api/settings/retention",
+            new { moderationFactRetentionDays = 0, presenceFactRetentionDays = 0, discordMessageRetentionDays = 0 },
+            cookie,
+            Ct);
+        Assert.Equal(HttpStatusCode.OK, older.StatusCode);
+        Assert.Equal(30, JsonDocument.Parse(await older.Content.ReadAsStringAsync(Ct)).RootElement.GetProperty("memberReportRetentionDays").GetInt32());
+        Assert.Equal(before, (await EntriesAsync(host, "retention")).Count);
+
+        var negative = await host.SendJsonAsync(
+            HttpMethod.Put,
+            "/api/settings/retention",
+            Body(-1),
+            cookie,
+            Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, negative.StatusCode);
+    }
+
     /// <summary>A save without Change settings is refused, and leaves no entry behind.</summary>
     [Fact]
     public async Task ARefusedSaveLeavesNoEntry()

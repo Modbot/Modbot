@@ -53,7 +53,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | Role | Holds | Can be changed |
 |---|---|---|
 | **Administrator** | **Administrator**: everything, including permissions added in future versions. | No. It always means everything. |
-| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**, **Pair a companion**. | Yes: its description and permissions. |
+| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**, **Pair a companion**, **See reports**, **Handle reports**. | Yes: its description and permissions. |
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
@@ -385,6 +385,22 @@ Name: `DiscordTimeOut`
 Time a member of the Discord server out for up to 28 days through the API
 (`POST /api/discord/members/{id}/timeout`). The bot needs Discord's **Timeout Members** and a role
 above the person's.
+
+### See reports
+
+Name: `ViewReports`
+
+Open the [**Reports**](/moderation/reports) page: what members told the mods with `/report` or
+**Report to mods** in Discord, **including who reported**, the message they quoted, and the count in
+the sidebar. Staff with it are also told when a report comes in. A report about a staff account is
+shown only to people who hold **Review tickets** as well. In the built-in Moderator role.
+
+### Handle reports
+
+Name: `HandleReports`
+
+**Close** a report on the [**Reports**](/moderation/reports) page, with a note that is required.
+Needs **See reports** as well, to open the page. In the built-in Moderator role.
 
 ### Manage the join gate
 

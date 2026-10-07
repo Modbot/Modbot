@@ -110,6 +110,8 @@ public static class BuiltInRoles
     /// <remarks>
     /// <see cref="ModbotPermissions.PairCompanion"/> was added by a data migration
     /// (<c>LetModeratorsPairACompanion</c>) rather than by the seed, which ran before it existed.
+    /// The same is true of <see cref="ModbotPermissions.ViewReports"/> and
+    /// <see cref="ModbotPermissions.HandleReports"/> (<c>LetMembersReportToTheMods</c>).
     /// </remarks>
     public const ModbotPermissions ModeratorPermissions =
         ModbotPermissions.ViewMembers
@@ -122,7 +124,9 @@ public static class BuiltInRoles
         | ModbotPermissions.Warn
         | ModbotPermissions.ViewEvidence
         | ModbotPermissions.UploadEvidence
-        | ModbotPermissions.PairCompanion;
+        | ModbotPermissions.PairCompanion
+        | ModbotPermissions.ViewReports
+        | ModbotPermissions.HandleReports;
 
     /// <summary>Read-only: the same views a moderator has, and nothing that changes anything.</summary>
     public const ModbotPermissions ViewerPermissions =

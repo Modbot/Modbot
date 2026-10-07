@@ -972,6 +972,16 @@ public sealed class DiscordBotService : BackgroundService
             // design §2); a null reply means it did.
             if (call.Kind != DiscordCommandKind.Slash)
             {
+                // The one menu for every member: Report to mods. It records no command fact.
+                if (call.Kind == DiscordCommandKind.Message && call.CommandName == DiscordCommands.ReportMenu)
+                {
+                    var report = scope.ServiceProvider.GetRequiredService<ReportCommand>();
+                    if (await report.HandleMenuAsync(call, ReadyGateway, CancellationToken.None).ConfigureAwait(false) is { } said)
+                        await call.ReplyAsync(said, CancellationToken.None).ConfigureAwait(false);
+
+                    return;
+                }
+
                 var staff = scope.ServiceProvider.GetRequiredService<StaffInteractionHandler>();
                 if (await staff.HandleMenuAsync(call, ReadyGateway, CancellationToken.None).ConfigureAwait(false) is { } answer)
                     await call.ReplyAsync(answer, CancellationToken.None).ConfigureAwait(false);
@@ -1133,6 +1143,15 @@ public sealed class DiscordBotService : BackgroundService
                 var written = await scope.ServiceProvider.GetRequiredService<PostCommand>()
                     .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
                 await submit.ReplyAsync(written, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            // A report form is a member's, not a moderator's: it has its own handler and no account.
+            if (ReportCommand.IsReportForm(submit.FormId))
+            {
+                var said = await scope.ServiceProvider.GetRequiredService<ReportCommand>()
+                    .HandleFormAsync(submit, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+                await submit.ReplyAsync(said, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 

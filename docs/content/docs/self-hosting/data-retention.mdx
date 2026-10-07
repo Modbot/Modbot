@@ -62,11 +62,13 @@ longer than any question anybody asks of them. `0` keeps them forever. See
 
 Open **Settings**, then the **Server** tab. You need the **Change settings** permission.
 
-The **Keep for (days)** panel has three record fields, alongside Modbot's own log:
+The **Keep for (days)** panel has four record fields, alongside Modbot's own log:
 
 - **Moderation**
 - **Who was where**
 - **Discord messages**
+- **Closed reports**: how long a closed [member report](/moderation/reports) keeps what the member
+  wrote and the copy of the message they reported. **365** days out of the box.
 
 Type a number of days, or **0** to keep forever, and press **Save**. Shortening any of the windows
 asks you to confirm with a red **Delete older records** button, because the save also removes
@@ -92,6 +94,10 @@ a window. See [PostgreSQL](/self-hosting/postgres).
 - Discord messages work the same way: a month of messages is removed once its last day is past the
   window. When Modbot catches up on messages it missed, it does not store messages that are already
   older than the window.
+- Closed reports are not months of anything: the same daily check finds each report closed more than
+  the window ago and empties its text and message copy, one report at a time. The bare record stays:
+  who, about whom, when, and the close note. A report that is still open is never touched. How many
+  were emptied is written to Modbot's log, not to the **Retention pruned** entry.
 - Every run that removes something is recorded as a **Retention pruned** entry in the operational
   log.
 

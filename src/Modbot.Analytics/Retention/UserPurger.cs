@@ -64,6 +64,7 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// </param>
 /// <param name="EventInvitesDeleted">Rows on events' invite queues (calendar auto-invite design §8).</param>
 /// <param name="EventRemindersDeleted">Reminders they asked for with <c>/remindme</c>, whatever their state (Discord commands design §3.5).</param>
+/// <param name="MemberReportsDeleted">Member reports they made and reports made about them, whatever their state (Discord commands design §3.4).</param>
 public sealed record PurgeResult(
     int FactsDeleted,
     int CountedDailyTotalsDeleted,
@@ -72,7 +73,8 @@ public sealed record PurgeResult(
     int GiveawayEntriesDeleted = 0,
     int GiveawayEntrantsBlanked = 0,
     int EventInvitesDeleted = 0,
-    int EventRemindersDeleted = 0);
+    int EventRemindersDeleted = 0,
+    int MemberReportsDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -267,6 +269,27 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // The member reports they made and the ones made about them (Discord commands design
+            // §3.4): the row is the only place the reporter is named, and it also holds the
+            // reported person's name and the quoted message, so it goes whichever way round they
+            // are in it. For a VRChat account: the reports about it by its linked Discord account,
+            // and those made by or about the Discord account linked to it now.
+            var reportsDeleted = await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM member_report WHERE reporter_discord_id = @subject OR reported_discord_id = @subject"
+                    : """
+                      DELETE FROM member_report
+                      WHERE reported_vrchat_user_id = @subject
+                         OR reporter_discord_id IN (
+                             SELECT discord_user_id FROM discord_account_link
+                             WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                         OR reported_discord_id IN (
+                             SELECT discord_user_id FROM discord_account_link
+                             WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // Which Discord roles a list gave them names them too (roles from lists design §8).
             // Without the row Modbot no longer knows it gave the role, so it never takes it away:
             // the role stays in Discord until somebody removes it there.
@@ -290,7 +313,7 @@ public sealed class UserPurger : IUserPurger
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
             var result = new PurgeResult(
-                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted);
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted, reportsDeleted);
 
             await RecordAsync(platform, actor, result, ct);
 
@@ -418,6 +441,7 @@ public sealed class UserPurger : IUserPurger
             ["giveawayPlaces"] = result.GiveawayEntrantsBlanked,
             ["eventInvites"] = result.EventInvitesDeleted,
             ["eventReminders"] = result.EventRemindersDeleted,
+            ["memberReports"] = result.MemberReportsDeleted,
         };
 
         if (actor is not null)

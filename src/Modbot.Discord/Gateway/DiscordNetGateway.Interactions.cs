@@ -238,7 +238,8 @@ public sealed partial class DiscordNetGateway
                 target.Author.IsBot || target.Author.IsWebhook || target.Source == MessageSource.Webhook,
                 target.Content ?? string.Empty,
                 target.Timestamp,
-                target.GetJumpUrl());
+                target.GetJumpUrl(),
+                [.. target.Attachments.Select(a => a.Filename)]);
         }
 
         var call = new DiscordCommandCall(

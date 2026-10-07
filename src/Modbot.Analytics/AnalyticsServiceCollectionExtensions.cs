@@ -56,6 +56,11 @@ public static class AnalyticsServiceCollectionExtensions
         // its Discord loop, which sends the direct messages (calendar auto-invite design).
         services.AddScoped<Calendar.CalendarInvites>();
 
+        // Member reports from Discord's /report and Report to mods: here because the bot makes them
+        // and the Reports page closes them, and the two must agree on the limits and the facts
+        // (Discord commands design §3.4).
+        services.AddScoped<Reports.MemberReports>();
+
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
         services.AddScoped<PurgePreviewer>();

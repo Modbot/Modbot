@@ -59,6 +59,7 @@ internal static class OpenApiReference
         ("Evidence", "Screenshots and video attached to case files."),
         ("Files", "Pictures and video from VRChat, fetched through Modbot because a browser cannot fetch them itself."),
         ("Reviews", "Reviews that open when a moderator's actions look unusual."),
+        ("Reports", "What members told the mods about someone, and closing a report."),
         ("Repeat offenders", "People acted on more than once."),
         ("Moderation", "Flags raised by moderation rules."),
         ("Discord", "The Discord server's channels, roles and members, and where events are posted."),

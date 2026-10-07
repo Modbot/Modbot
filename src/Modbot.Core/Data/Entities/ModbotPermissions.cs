@@ -481,6 +481,28 @@ public enum ModbotPermissions : long
     /// </remarks>
     ViewAvailability = 1L << 56,
 
+    // --- Member reports (Discord commands design §3.4). Bits 57 and 58. ---
+
+    /// <summary>
+    /// See the Reports page: what members told the mods with <c>/report</c> or Report to mods, who
+    /// reported, and the message they quoted.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ReviewTickets"/>, which moderators deliberately do
+    /// not hold: a report is a member's question to the mods, and moderators are the ones who answer
+    /// it. A report about a staff account is the exception and is shown only to people who also hold
+    /// <see cref="ReviewTickets"/> (M4 design §8.3). In the built-in Moderator role; Administrator
+    /// holds it.
+    /// </remarks>
+    ViewReports = 1L << 57,
+
+    /// <summary>Close a report, with a note saying what was done.</summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewReports"/> for the reason the calendar's pair is separate. In the
+    /// built-in Moderator role; Administrator holds it.
+    /// </remarks>
+    HandleReports = 1L << 58,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

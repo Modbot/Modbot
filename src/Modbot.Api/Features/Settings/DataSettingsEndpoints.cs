@@ -16,10 +16,15 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="ModerationFactRetentionDays">0 means keep forever.</param>
 /// <param name="PresenceFactRetentionDays">0 means keep forever.</param>
 /// <param name="DiscordMessageRetentionDays">Stored Discord messages. 0 means keep forever.</param>
+/// <param name="MemberReportRetentionDays">
+/// How long a closed member report keeps what was written and the message copy. 0 means keep
+/// forever. Left out of a save, it is left as it was.
+/// </param>
 public sealed record RetentionSettings(
     int ModerationFactRetentionDays,
     int PresenceFactRetentionDays,
-    int DiscordMessageRetentionDays = 0);
+    int DiscordMessageRetentionDays = 0,
+    int? MemberReportRetentionDays = null);
 
 /// <param name="Version">Calendar release, so a bug report can name it.</param>
 /// <param name="Commit">The full git commit id the running build was made from, or null when unknown.</param>
@@ -123,7 +128,8 @@ public static class DataSettingsEndpoints
                     new RetentionSettings(
                         settings.ModerationFactRetentionDays,
                         settings.PresenceFactRetentionDays,
-                        settings.DiscordMessageRetentionDays),
+                        settings.DiscordMessageRetentionDays,
+                        settings.MemberReportRetentionDays),
                     new StorageSummary(
                         m.TotalBytes,
                         m.FactCount,
@@ -161,7 +167,7 @@ public static class DataSettingsEndpoints
             {
                 if (Forbidden(http)) return Results.Forbid();
 
-                if (body.ModerationFactRetentionDays < 0 || body.PresenceFactRetentionDays < 0 || body.DiscordMessageRetentionDays < 0)
+                if (body.ModerationFactRetentionDays < 0 || body.PresenceFactRetentionDays < 0 || body.DiscordMessageRetentionDays < 0 || body.MemberReportRetentionDays < 0)
                     return Results.BadRequest(new { error = "Retention cannot be negative. Use 0 to keep forever." });
 
                 var settings = await db.GetSettingsAsync(ct);
@@ -171,19 +177,21 @@ public static class DataSettingsEndpoints
                 var change = new SettingsChange("retention")
                     .Field("moderationFactRetentionDays", settings.ModerationFactRetentionDays, body.ModerationFactRetentionDays)
                     .Field("presenceFactRetentionDays", settings.PresenceFactRetentionDays, body.PresenceFactRetentionDays)
-                    .Field("discordMessageRetentionDays", settings.DiscordMessageRetentionDays, body.DiscordMessageRetentionDays);
+                    .Field("discordMessageRetentionDays", settings.DiscordMessageRetentionDays, body.DiscordMessageRetentionDays)
+                    .Field("memberReportRetentionDays", settings.MemberReportRetentionDays, body.MemberReportRetentionDays ?? settings.MemberReportRetentionDays);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 settings.ModerationFactRetentionDays = body.ModerationFactRetentionDays;
                 settings.PresenceFactRetentionDays = body.PresenceFactRetentionDays;
                 settings.DiscordMessageRetentionDays = body.DiscordMessageRetentionDays;
+                settings.MemberReportRetentionDays = body.MemberReportRetentionDays ?? settings.MemberReportRetentionDays;
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(body);
+                return Results.Ok(body with { MemberReportRetentionDays = settings.MemberReportRetentionDays });
             })
             .WithName("SetRetention")
             .WithSummary("Set retention")

@@ -66,6 +66,23 @@ public class PermissionCatalogTests
     }
 
     [Fact]
+    public void TheReportPermissionsAreDescribedUnderModeration_AndParse()
+    {
+        var view = Assert.Single(PermissionCatalog.All, p => p.Name == nameof(ModbotPermissions.ViewReports));
+        var handle = Assert.Single(PermissionCatalog.All, p => p.Name == nameof(ModbotPermissions.HandleReports));
+
+        Assert.Equal("See reports", view.Label);
+        Assert.Equal("Handle reports", handle.Label);
+        Assert.Equal("Moderation", view.Group);
+        Assert.Equal("Moderation", handle.Group);
+
+        var parsed = PermissionCatalog.Parse(["ViewReports", "HandleReports"], out var error);
+
+        Assert.Null(error);
+        Assert.Equal(ModbotPermissions.ViewReports | ModbotPermissions.HandleReports, parsed);
+    }
+
+    [Fact]
     public void NamesRoundTripThroughParse()
     {
         var held = ModbotPermissions.Ban | ModbotPermissions.EditAgeVerification | ModbotPermissions.ViewProfile;

@@ -348,6 +348,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Members' reminders for one date of an event, from <c>/remindme</c> (Discord commands design §3.5).</summary>
     public DbSet<EventReminder> EventReminders => Set<EventReminder>();
 
+    /// <summary>What members told the mods with <c>/report</c> and Report to mods (Discord commands design §3.4).</summary>
+    public DbSet<MemberReport> MemberReports => Set<MemberReport>();
+
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
@@ -2745,6 +2748,56 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .WithMany()
                 .HasForeignKey(e => e.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<MemberReport>(entity =>
+        {
+            entity.ToTable("member_report");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.ReporterDiscordId).HasColumnType("text");
+            entity.Property(e => e.ReporterName).HasColumnType("text");
+            entity.Property(e => e.ReportedDiscordId).HasColumnType("text");
+            entity.Property(e => e.ReportedName).HasColumnType("text");
+            entity.Property(e => e.ReportedVRChatUserId).HasColumnName("reported_vrchat_user_id").HasColumnType("text");
+            entity.Property(e => e.Text).HasColumnType("text");
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.MessageChannelId).HasColumnType("text");
+            entity.Property(e => e.MessageChannelName).HasColumnType("text");
+            entity.Property(e => e.MessageText).HasColumnType("text");
+            entity.Property(e => e.MessageAttachments).HasColumnType("jsonb");
+            entity.Property(e => e.MessageUrl).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.ClosedByUsername).HasMaxLength(64);
+            entity.Property(e => e.CloseNote).HasMaxLength(MemberReport.MaxCloseNoteLength);
+
+            // "You already reported this": one report per reporter per message, in the database so
+            // two presses at once cannot make two. The message id goes when retention removes the
+            // copy, which ends the promise with it.
+            entity.HasIndex(e => new { e.ReporterDiscordId, e.MessageId })
+                .IsUnique()
+                .HasFilter("message_id IS NOT NULL")
+                .HasDatabaseName("ux_member_report_message");
+
+            // "The mods already have your report": at most one open report per reporter per person.
+            entity.HasIndex(e => new { e.ReporterDiscordId, e.ReportedDiscordId })
+                .IsUnique()
+                .HasFilter("state = 'open'")
+                .HasDatabaseName("ux_member_report_open");
+
+            // The limits count a reporter's recent rows; the page lists by state and age.
+            entity.HasIndex(e => new { e.ReporterDiscordId, e.CreatedAt })
+                .HasDatabaseName("ix_member_report_reporter");
+            entity.HasIndex(e => new { e.State, e.CreatedAt })
+                .HasDatabaseName("ix_member_report_state");
+            entity.HasIndex(e => e.ReportedDiscordId)
+                .HasDatabaseName("ix_member_report_reported");
+
+            // The clean-up asks for closed rows that still hold their words.
+            entity.HasIndex(e => e.ClosedAt)
+                .HasFilter("state = 'closed' AND text_removed_at IS NULL")
+                .HasDatabaseName("ix_member_report_removable");
         });
 
         builder.Entity<VRChatFriend>(entity =>

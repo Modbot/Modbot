@@ -1,0 +1,103 @@
+---
+title: Reports
+description: What members tell the mods with /report or the Report to mods menu in Discord, the Reports page where staff read and close them, who sees who reported, and how long the words are kept.
+---
+
+A member who sees something wrong in your Discord server can tell the mods without telling anyone
+else. They run `/report`, or right-click a message and pick **Report to mods**. Their report lands
+on the **Reports** page in Modbot, under **Community**, for the staff who handle it.
+
+Both are off until you turn them on: **Settings → Discord → Commands**, **report** and **Report to
+mods**. See [the bot's commands](/discord/bot-setup#slash-commands).
+
+## What a member sees
+
+- `/report member: what:` takes a member picked from Discord's list and what happened, 1 to 1,000
+  characters.
+- **Report to mods**, under **Apps** on a message, opens a form asking **What's wrong?**, 1 to 1,000
+  characters. The report is about the message's author, and Modbot keeps a copy of the message.
+
+Every reply is visible only to them. A report is accepted with "Sent to the mods." and is refused,
+in plain words, when:
+
+| Why | What they are told |
+|---|---|
+| It is about themselves | You can't report yourself. |
+| It is about Modbot, or about one of Modbot's own messages | You can't report Modbot. |
+| They already reported this message | You already reported this. |
+| They already have an open report on this person | The mods already have your report. |
+| They made 3 reports in the last 10 minutes, or 10 in the last day | Slow down. Try again in a few minutes. |
+
+The limits are per person, counted from the reports Modbot has kept, so restarting Modbot does not
+reset them. Nothing is limited for the server as a whole. The person reported is never told, and
+nobody in the server can see that a report was made or by whom.
+
+## The Reports page
+
+**Open** and **Closed** tabs; the **Open** tab carries how many are waiting, and so does the
+**Reports** entry in the sidebar. Each report shows:
+
+- when it was made;
+- who it is about, as a link to their profile;
+- what the member wrote;
+- the message they reported, with its channel, when it was sent, its words and the names of any
+  files attached (Discord's links to the files expire, so only the names are kept);
+- **Reported by**, with the member's Discord name and id;
+- **Open in Discord**, which opens the message there;
+- **Add note**, **Watch** and **Profile**, which open the person's popup, for the people who hold
+  those permissions;
+- **Close**, with a **Close note** that is required. The note is kept on the report, with who closed it
+  and when.
+
+Closing is recorded in the [audit log](/moderation/audit-log) as **Member report closed**, naming the
+person reported and the staff account that closed it. The note is not in the entry.
+
+### Who sees who reported
+
+**Everyone who can open the page sees who reported**: moderators need to ask follow-up questions and to
+spot somebody reporting out of spite. Nobody else does:
+
+- Not Discord: no reply, card or message names the reporter.
+- Not a notification: **Modbot: new report** says "Somebody reported a member." with a link to the
+  page, and no names. It goes by email, Discord direct message or push, as each person set up their own
+  notifications, to people who hold **See reports**, and at most one every 15 minutes.
+- Not the audit log: **Member report made** names the person reported and the report's id, and nothing
+  the member wrote or quoted. Running `/report` or the menu is not recorded as **Discord command used**,
+  because that entry would name the member.
+
+### Reports about staff
+
+A report about somebody whose Discord account is connected to a Modbot staff account is shown only to
+people who also hold **Review tickets**, the permission the people being reviewed are not meant to hold.
+For everyone else it is not in the list, not in the count beside **Open**, and not in the sidebar's
+number, and the notification for it goes only to people who hold both permissions. It follows the same
+rule as [Reviews](/moderation/reviews).
+
+## Permissions
+
+| Permission | Allows |
+|---|---|
+| **See reports** | Open the page, read the reports, see who reported, and the count in the sidebar. |
+| **Handle reports** | **Close** a report. Needs **See reports** as well. |
+
+Both are in the built-in Moderator role. See [Roles and permissions](/accounts/roles-and-permissions).
+
+## What Modbot keeps
+
+Each report is one row in Modbot's database:
+
+- the reporter's Discord id and name when they reported;
+- the reported person's Discord id and name, and the VRChat account linked to them then;
+- what the reporter wrote;
+- for the menu: the message's id, the channel's id and name, when it was sent, its words, the names of
+  its files, and its link;
+- open or closed, who closed it, when, and the close note.
+
+**Closed reports keep the words for a year.** After the number of days in **Settings → Server → Keep
+for (days) → Closed reports** (365 unless you change it; 0 keeps them forever) from the day a report
+was closed, Modbot removes what the member wrote and the copy of the message. The record stays: who
+reported, who it was about, when, who closed it, and the close note. The page then shows **Removed.**
+where the words were. An open report is never removed.
+
+A [purge](/moderation/purge) of a person deletes every report they made and every report made about
+them. Nothing about a report is sent to Modbot Cloud or to an AI chat tool in this version.

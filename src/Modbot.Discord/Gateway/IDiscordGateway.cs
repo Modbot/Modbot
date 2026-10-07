@@ -418,6 +418,10 @@ public sealed record DiscordTargetUser(string Id, string Username, bool IsBot);
 /// the Message Content intent.
 /// </param>
 /// <param name="Url">The message's own link, which opens it in Discord.</param>
+/// <param name="AttachmentNames">
+/// The names of the files attached, and nothing else about them: their links expire. Null or empty
+/// for none.
+/// </param>
 public sealed record DiscordTargetMessage(
     string Id,
     string ChannelId,
@@ -427,7 +431,8 @@ public sealed record DiscordTargetMessage(
     bool AuthorIsBot,
     string Text,
     DateTimeOffset SentAt,
-    string Url);
+    string Url,
+    IReadOnlyList<string>? AttachmentNames = null);
 
 /// <summary>
 /// What the bot says back to a command. Visible only to the person who asked, unless the command

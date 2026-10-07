@@ -134,6 +134,20 @@ wherever you choose to store them. These pages describe what is kept and how it 
   after a day, and one nobody handled (while the command was off) 30 days after it was due. A
   [purge](/moderation/purge) deletes all of a person's, and nothing is sent to Modbot Cloud. A member whose direct messages are closed is told so and
   nothing is kept.
+- [Member reports](/moderation/reports): off until you turn on **/report** and **Report to mods** on the
+  **Commands** card. A member who reports someone sends Modbot what they wrote (up to 1,000 characters)
+  and, from the message menu, the message they reported. Modbot keeps the reporter's Discord id and name,
+  the reported person's Discord id, name and linked VRChat account, what was written, and for a message:
+  its id, channel, time, words, the names (never the files) of its attachments, and its link. Staff who hold
+  **See reports** read all of it on the **Reports** page, **including who reported**; nobody else sees the
+  reporter, and no Discord reply, notification or audit log entry names them or carries their words. Closed
+  reports keep the words for **365 days** after they were closed (**Closed reports**, in **Settings → Server →
+  Keep for (days)**; 0 keeps them forever), and then the text and the message copy are removed and the bare
+  record stays: who, about whom, when, and the close note. A [purge](/moderation/purge) deletes every report
+  a person made and every report about them. A report about a staff account is shown only to people who also
+  hold **Review tickets**. What leaves your server: staff are told "Modbot: new report" with no names and no
+  words, by email, Discord direct message or push as each set up, and nothing goes to Modbot Cloud or to an
+  AI chat tool.
 - [Posts](/moderation/marketing): a post written on the **Marketing** page goes only to the sites
   ticked on it, and every site starts unticked. For **Discord**, Modbot's bot sends the post's
   title, text and picture to the channel picked, mentions the role picked if any, and publishes it

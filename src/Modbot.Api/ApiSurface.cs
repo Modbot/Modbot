@@ -655,6 +655,10 @@ public static class ApiSurface
         // only; nothing here reaches VRChat or Discord.
         Features.Availability.AvailabilityEndpoints.MapAvailability(app);
 
+        // What members told the mods with /report and Report to mods, and closing it with a note
+        // (Discord commands design §3.4). Reports about a staff account need Review tickets too.
+        Features.Reports.ReportEndpoints.MapReports(app);
+
         // Posts on the Marketing tab, and its Settings topic (posts design). Sending happens in each
         // site's own loop; these store what a person decides, and edit or delete a post on a site.
         Features.Posts.PostEndpoints.MapPosts(app);

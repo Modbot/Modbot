@@ -29393,6 +29393,226 @@
         ]
       }
     },
+    "/api/reports": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "List member reports",
+        "description": "What members told the mods with /report or Report to mods: open by default, or closed. Each report names who reported, who it is about, what was written and the message quoted. A report about a staff account is left out unless the caller holds Review tickets. Returns at most 500: the oldest open ones, or the most recently closed.\n\nNeeds the `ViewReports` permission.",
+        "operationId": "ListReports",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberReportList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/reports/open-count": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Count open member reports",
+        "description": "How many reports the caller may see are waiting -- the number on the nav badge.\n\nNeeds the `ViewReports` permission.",
+        "operationId": "CountOpenReports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenReportCount"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/reports/{id}/close": {
+      "post": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Close a member report",
+        "description": "The note is required and is kept with the report. Closing is recorded as a fact against your account that names the report and not the note or the reporter.\n\nNeeds the `ViewReports` and `HandleReports` permissions.",
+        "operationId": "CloseReport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberReportView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/posts": {
       "get": {
         "tags": [
@@ -37556,6 +37776,17 @@
           "messageId": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "CloseReportRequest": {
+        "required": [
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string"
           }
         }
       },
@@ -47494,6 +47725,107 @@
           }
         }
       },
+      "MemberReportList": {
+        "required": [
+          "reports",
+          "openCount",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "reports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberReportView"
+            }
+          },
+          "openCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MemberReportView": {
+        "required": [
+          "id",
+          "state",
+          "createdAt",
+          "reporter",
+          "about",
+          "text",
+          "message",
+          "textRemovedAt",
+          "closedAt",
+          "closedByUsername",
+          "closeNote"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reporter": {
+            "$ref": "#/components/schemas/ReportPerson"
+          },
+          "about": {
+            "$ref": "#/components/schemas/ReportPerson"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReportMessageView"
+              }
+            ]
+          },
+          "textRemovedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "closedByUsername": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "closeNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "MemberRow": {
         "required": [
           "userId",
@@ -48603,6 +48935,18 @@
         }
       },
       "OpenFlagCount": {
+        "required": [
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "OpenReportCount": {
         "required": [
           "open"
         ],
@@ -51354,6 +51698,80 @@
           }
         }
       },
+      "ReportMessageView": {
+        "required": [
+          "channelId",
+          "channelName",
+          "sentAt",
+          "text",
+          "attachments",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ReportPerson": {
+        "required": [
+          "discordId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "discordId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RepresentedGroupView": {
         "required": [
           "groupId",
@@ -51441,6 +51859,13 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          },
+          "memberReportRetentionDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -56867,6 +57292,11 @@
       "name": "Reviews",
       "description": "Reviews that open when a moderator's actions look unusual.",
       "x-displayName": "Reviews"
+    },
+    {
+      "name": "Reports",
+      "description": "What members told the mods about someone, and closing a report.",
+      "x-displayName": "Reports"
     },
     {
       "name": "Repeat offenders",

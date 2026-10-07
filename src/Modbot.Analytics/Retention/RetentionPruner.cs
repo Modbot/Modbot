@@ -100,12 +100,16 @@ public sealed partial class RetentionPruner
 
         var memberCountsDeleted = await PruneMemberCountsAsync(cutoffs[RetentionClass.Presence], ct);
 
+        // Not a fact class and not a partition: the words of closed member reports, which have a
+        // setting of their own (Discord commands design §3.4, decision 10).
+        var reportsReduced = await Reports.MemberReports.RemoveOldTextAsync(_db, _clock.UtcNow, ct);
+
         // Nothing expires: every class is set to keep forever. Not an error -- it is the default
         // for moderation facts, and a deployment may well choose it for everything.
         if (cutoffs.Values.All(c => c is null))
         {
             await RecordAsync([], [], messagesDropped, ct);
-            return new RetentionResult([], [], messagesDropped, memberCountsDeleted);
+            return new RetentionResult([], [], messagesDropped, memberCountsDeleted, reportsReduced);
         }
 
         var dropped = new List<string>();
@@ -149,7 +153,7 @@ public sealed partial class RetentionPruner
 
         await RecordAsync(dropped, movedOut, messagesDropped, ct);
 
-        return new RetentionResult(dropped, movedOut, messagesDropped, memberCountsDeleted);
+        return new RetentionResult(dropped, movedOut, messagesDropped, memberCountsDeleted, reportsReduced);
     }
 
     /// <summary>
@@ -466,8 +470,13 @@ public sealed partial class RetentionPruner
 /// </param>
 /// <param name="MessagesDropped">Months of Discord messages and their earlier texts destroyed.</param>
 /// <param name="MemberCountsDeleted">Group member count readings deleted as older than the presence window.</param>
+/// <param name="MemberReportsReduced">
+/// Closed member reports whose text and message copy were removed as older than the report
+/// retention setting. The records stay.
+/// </param>
 public sealed record RetentionResult(
     IReadOnlyList<string> Dropped,
     IReadOnlyList<string> MovedOut,
     IReadOnlyList<string> MessagesDropped,
-    int MemberCountsDeleted = 0);
+    int MemberCountsDeleted = 0,
+    int MemberReportsReduced = 0);

@@ -243,6 +243,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.Reviews.ExecuteDeleteAsync(ct);
         await context.RepeatOffenders.ExecuteDeleteAsync(ct);
         await context.PersonWatches.ExecuteDeleteAsync(ct);
+        await context.MemberReports.ExecuteDeleteAsync(ct);
         await context.ModeratorBaselines.ExecuteDeleteAsync(ct);
         await context.ReviewRunState.ExecuteDeleteAsync(ct);
         await context.CaseFiles.ExecuteDeleteAsync(ct);

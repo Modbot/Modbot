@@ -46,6 +46,12 @@ public static class NotificationKinds
 
     /// <summary>The day to check back on a watched person has come (watching a person design §5).</summary>
     public const string WatchFollowUpDue = "modbot.watch.follow-up-due";
+
+    /// <summary>
+    /// A member told the mods about someone with <c>/report</c> or Report to mods (Discord commands
+    /// design §3.4). Carries no names and no words from the report, and points at the Reports page.
+    /// </summary>
+    public const string MemberReportNew = "modbot.report.new";
 }
 
 /// <summary>Who a notification is for.</summary>

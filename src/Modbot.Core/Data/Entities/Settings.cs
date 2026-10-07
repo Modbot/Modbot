@@ -957,6 +957,18 @@ public class Settings
     public int DiscordMessageRetentionDays { get; set; }
 
     /// <summary>
+    /// How long a closed member report keeps what was written and the copy of the message, in days
+    /// (Discord commands design §3.4, decision 10). 0 keeps them forever.
+    /// </summary>
+    /// <remarks>
+    /// Its own setting: a report is a member's words to the mods, which is neither moderation
+    /// history nor presence. After this many days from the report being closed, the text and the
+    /// message copy are removed and the bare record stays. An open report is never touched: nobody
+    /// has answered it yet.
+    /// </remarks>
+    public int MemberReportRetentionDays { get; set; } = MemberReport.DefaultRetentionDays;
+
+    /// <summary>
     /// How long Modbot's own log lines are kept in the database, in days. 0 keeps them forever.
     /// </summary>
     /// <remarks>

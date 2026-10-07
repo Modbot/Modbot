@@ -148,6 +148,17 @@ test('Reviews sits beside Flags, under the same heading', () => {
   assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
 })
 
+test('Reports follows Reviews, opens with See reports, and has no g letter', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden)).map((n) => n.id)
+
+  assert.equal(shown.indexOf('reports'), shown.indexOf('reviews') + 1)
+  assert.equal(mayOpen(person('ViewReports'), 'reports'), true)
+  assert.equal(mayOpen(person('HandleReports'), 'reports'), false)
+  assert.equal(mayOpen(person('ReviewTickets'), 'reports'), false)
+  assert.equal(mayOpen(person('Administrator'), 'reports'), true)
+  assert.equal(GO_TO_KEYS.reports, '')
+})
+
 test('Community heads the pages from Requests to Availability, each of which names it', () => {
   const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
   const community = shown.filter((n) => 'group' in n && n.group === 'Community')
@@ -155,7 +166,7 @@ test('Community heads the pages from Requests to Availability, each of which nam
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -273,9 +284,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord', () => {
+test('every page in the sidebar has a go-to chord, but Reports: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
+    if (item.id === 'reports') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })

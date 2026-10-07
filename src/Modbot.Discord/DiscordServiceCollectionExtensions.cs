@@ -159,6 +159,11 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<Interactions.PendingConfirmations<PendingPost, Modbot.Core.Posts.PostNowAnswer>>();
         services.AddScoped<EventCommand>();
         services.AddScoped<PostCommand>();
+
+        // /report and Report to mods. The forms waiting to be sent are held in memory, per process;
+        // the limits and everything else it keeps are in the database (Discord commands design §3.4).
+        services.TryAddSingleton<Interactions.PendingReports>();
+        services.AddScoped<ReportCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

@@ -78,6 +78,11 @@ export const NAV = [
   // not be closing them. It used to sit under a "Team" heading of its own, which named a different
   // thing from the Analytics page called Team.
   { id: 'reviews', label: 'Reviews', group: 'Community', needs: 'ReviewTickets' },
+  // What members told the mods with /report and Report to mods in Discord (Discord commands
+  // design §3.4), after Reviews because it is one more thing for somebody to look at and answer.
+  // Its own permission, which moderators hold; a report about a staff account is left out by the
+  // server unless the person also holds Review tickets. No `g` letter: all twenty-six are taken.
+  { id: 'reports', label: 'Reports', group: 'Community', needs: 'ViewReports', words: ['reported', 'report member', 'member reports'] },
   { id: 'audit', label: 'Audit log', group: 'Community', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
   // Planned events, where each is published, and the calendar feed (calendar design).
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
@@ -231,6 +236,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'group-gallery': '',
   'group-invites': '',
   reviews: 'r',
+  reports: '',
   health: 'h',
   logs: 'o',
   settings: 's',

@@ -385,6 +385,27 @@ public static class FactType
     /// </summary>
     public const string DiscordLogPosted = "modbot.discord.posted";
 
+    // ── Member reports (Discord commands design §3.4) ──────────────────────────────────────
+    //
+    // A member told the mods about someone with /report or Report to mods. The subject is the
+    // reported person on Discord. **Neither fact names the reporter or carries a word they wrote**:
+    // the audit log is read by more people than the Reports page, and a purge of the reporter
+    // leaves these standing (they are facts about the person reported, who is erased by their own
+    // purge). `modbot.discord.command` is not written for these commands either, because its
+    // subject would be the reporter.
+
+    /// <summary>
+    /// A member report was made. Subject is the reported Discord account; no actor. Payload: the
+    /// report's id, and the channel id when it was made from a message. Nothing else.
+    /// </summary>
+    public const string MemberReportOpened = "modbot.report.open";
+
+    /// <summary>
+    /// A moderator closed a member report. Subject is the reported Discord account; the actor is
+    /// the Modbot account. Payload: the report's id and the outcome. The close note is not here.
+    /// </summary>
+    public const string MemberReportClosed = "modbot.report.close";
+
     // ── Modbot's own audit entries (spec 5.9.2) ────────────────────────────────────────────
 
     // Staff accounts (accounts and access design §6). Every one is the "Auth" row of spec

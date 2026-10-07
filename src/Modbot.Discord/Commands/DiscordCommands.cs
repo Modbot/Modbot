@@ -23,6 +23,10 @@ namespace Modbot.Discord.Commands;
 /// <see cref="RemindMe"/> is for every member too and answers in private; it is off until the operator
 /// turns it on, sends the member one direct message before an event they pick, and offers only the
 /// events <see cref="Events"/> would show (Discord commands design §3.5).
+/// <see cref="Report"/> and the <see cref="ReportMenu"/> message menu are for every member too and
+/// answer in private; they are off until the operator turns them on, need no Modbot account, and
+/// leave no <c>modbot.discord.command</c> fact, because its subject would be the reporter (Discord
+/// commands design §3.4).
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Event"/> and <see cref="Post"/> are for event hosts: Discord shows them to members who
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
@@ -72,6 +76,15 @@ public static class DiscordCommands
     public const string RemindMe = "remindme";
     public const string Event = "event";
     public const string Post = "post";
+    public const string Report = "report";
+
+    /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
+    public const string ReportMenu = "Report to mods";
+
+    /// <summary>What <c>/report</c> says went wrong: 1 to <see cref="ReportWhatMax"/> characters.</summary>
+    public const string ReportWhatOption = "what";
+
+    public const int ReportWhatMax = 1000;
 
     /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
     public const string VerifyCodeOption = "code";
@@ -348,6 +361,13 @@ public static class DiscordCommands
                     ]),
             ]),
         new(
+            Report,
+            "Tell the mods about someone, privately",
+            [
+                new DiscordCommandOption(MemberOption, "Who", DiscordOptionKind.Member, Required: true),
+                new DiscordCommandOption(ReportWhatOption, "What happened", DiscordOptionKind.Text, Required: true, Min: 1, Max: ReportWhatMax),
+            ]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -367,6 +387,9 @@ public static class DiscordCommands
         // The right-click menus staff act from (acting from Discord design §2). Registered beside
         // the slash commands because Discord replaces the whole set in one call.
         .. Interactions.StaffMenus.All,
+
+        // The one message menu everyone sees (Discord commands design §3.4, decision 3).
+        new(ReportMenu, string.Empty, [], DiscordCommandKind.Message),
     ];
 
     /// <summary>
@@ -387,7 +410,7 @@ public static class DiscordCommands
         => For(switches).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Report;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

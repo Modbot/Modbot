@@ -52,6 +52,8 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.BulkAction, "Act on many at once", "Does nothing.", "Moderation"),
         Describe(ModbotPermissions.ReviewTickets, "Review tickets", "Close the reviews that open when a moderator's pattern looks unusual, and dismiss moderation flags.", "Moderation"),
         Describe(ModbotPermissions.EditClassifications, "Edit the reason list", "Change the reasons moderators pick from when they act.", "Moderation"),
+        Describe(ModbotPermissions.ViewReports, "See reports", "What members reported to the mods, who reported, and the message they quoted.", "Moderation"),
+        Describe(ModbotPermissions.HandleReports, "Handle reports", "Close a member's report with a note.", "Moderation"),
         Describe(ModbotPermissions.WriteNotes, "Write notes", "Write a note about somebody, and take one back. Reading notes needs the audit log.", "Moderation"),
         Describe(ModbotPermissions.ManageDiscordLinks, "Manage Discord links", "Unlink a member's Discord and VRChat accounts. Removes the roles Modbot gave them.", "Moderation"),
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),

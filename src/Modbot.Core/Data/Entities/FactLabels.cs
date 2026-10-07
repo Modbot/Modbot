@@ -277,6 +277,8 @@ public static class FactLabels
         [FactType.DiscordCommandRun] = "Discord command used",
         [FactType.DataDeletionAsked] = "Asked to delete their data",
         [FactType.DiscordLogPosted] = "Posted to the Discord log channel",
+        [FactType.MemberReportOpened] = "Member report made",
+        [FactType.MemberReportClosed] = "Member report closed",
 
         // AutoMod (AutoMod design §7).
         [FactType.AutoModFlag] = "Flagged by a moderation rule",

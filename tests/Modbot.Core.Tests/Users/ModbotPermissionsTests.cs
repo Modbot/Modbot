@@ -46,6 +46,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 54, (long)ModbotPermissions.AnnounceInInstances);
         Assert.Equal(1L << 55, (long)ModbotPermissions.EnterAvailability);
         Assert.Equal(1L << 56, (long)ModbotPermissions.ViewAvailability);
+        Assert.Equal(1L << 57, (long)ModbotPermissions.ViewReports);
+        Assert.Equal(1L << 58, (long)ModbotPermissions.HandleReports);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -180,5 +182,23 @@ public class ModbotPermissionsTests
         Assert.True(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.PairCompanion));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.PairCompanion));
         Assert.False(ModbotPermissions.ManageUsers.HasFlag(ModbotPermissions.PairCompanion));
+    }
+
+    /// <summary>
+    /// Reading reports and closing them are two permissions, both in the built-in Moderator role and
+    /// neither in the Viewer's, and neither implies Review tickets, which a report about a staff
+    /// account also needs (Discord commands design §3.4).
+    /// </summary>
+    [Fact]
+    public void TheReportPermissionsAreAModeratorsAndNotAViewers_AndDoNotImplyReviewTickets()
+    {
+        Assert.True(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ViewReports));
+        Assert.True(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.HandleReports));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewReports));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.HandleReports));
+        Assert.False(ModbotPermissions.ViewReports.HasFlag(ModbotPermissions.HandleReports));
+        Assert.False(ModbotPermissions.HandleReports.HasFlag(ModbotPermissions.ViewReports));
+        Assert.False((ModbotPermissions.ViewReports | ModbotPermissions.HandleReports).HasFlag(ModbotPermissions.ReviewTickets));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReviewTickets));
     }
 }

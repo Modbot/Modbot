@@ -87,6 +87,7 @@ import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
 import { Reviews } from '@/pages/Reviews'
+import { Reports } from '@/pages/Reports'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
@@ -131,6 +132,7 @@ const TITLES: Record<PageId, string> = {
   'group-gallery': 'VRChat',
   'group-invites': 'VRChat',
   reviews: 'Reviews',
+  reports: 'Reports',
   health: 'Health',
   logs: "Modbot's log",
   settings: 'Settings',
@@ -182,6 +184,7 @@ const PATHS: Record<PageId, string> = {
   'group-gallery': '/analytics/group/gallery',
   'group-invites': '/analytics/group/invites',
   reviews: '/reviews',
+  reports: '/reports',
   health: '/health',
   logs: '/logs',
   settings: '/settings',
@@ -454,6 +457,21 @@ function Shell({
     refreshReviewCount()
   }, [refreshReviewCount, page])
 
+  // The number beside "Reports": how many open member reports this person may see. Read the same
+  // way, when the shell mounts and whenever the page changes; the Reports page hands up the
+  // count it reads and closing one reads it again. It is a badge of its own and not part of the
+  // total beside Now, which adds up only the queues Now lists.
+  const seesReports = mayOpen(me, 'reports')
+  const [openReports, setOpenReports] = useState(0)
+  const refreshReportCount = useCallback(() => {
+    if (!seesReports) return
+    api.openReportCount().then((c) => setOpenReports(c.open)).catch(() => undefined)
+  }, [seesReports])
+
+  useEffect(() => {
+    refreshReportCount()
+  }, [refreshReportCount, page])
+
   // The number beside "Flags": how many are open. Read the same way as the reviews count, from a
   // count-only endpoint, except on the Flags page itself, which reads the list anyway and hands
   // the same number up.
@@ -520,6 +538,7 @@ function Shell({
   const badges: Partial<Record<PageId, number>> = {
     ...queues,
     now: waiting,
+    ...(seesReports ? { reports: openReports } : {}),
     ...(seesLive ? { live: flaggedHere } : {}),
   }
   const alarms: Partial<Record<PageId, boolean>> = { live: true }
@@ -714,6 +733,7 @@ function Shell({
             <GroupInvites me={me} pathOf={(id) => PATHS[id]} onJoinRequestCount={setJoinRequests} />
           )}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
+          {page === 'reports' && <Reports me={me} onChanged={refreshReportCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}
           {page === 'settings' && <Settings me={me} />}

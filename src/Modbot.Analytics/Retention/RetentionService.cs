@@ -65,13 +65,14 @@ public sealed class RetentionService : BackgroundService
 
             // Logged at information because it is irreversible. When someone asks in six months
             // where a partition went, this line is the answer.
-            if (result.Dropped.Count > 0 || result.MovedOut.Count > 0 || result.MessagesDropped.Count > 0 || result.MemberCountsDeleted > 0)
+            if (result.Dropped.Count > 0 || result.MovedOut.Count > 0 || result.MessagesDropped.Count > 0 || result.MemberCountsDeleted > 0 || result.MemberReportsReduced > 0)
                 _log.LogInformation(
-                    "Retention dropped {Dropped}, rebuilt {MovedOut} without expired facts, dropped Discord message months {MessagesDropped}, and deleted {MemberCountsDeleted} group member count readings.",
+                    "Retention dropped {Dropped}, rebuilt {MovedOut} without expired facts, dropped Discord message months {MessagesDropped}, deleted {MemberCountsDeleted} group member count readings, and removed the words of {MemberReportsReduced} closed member reports.",
                     result.Dropped,
                     result.MovedOut,
                     result.MessagesDropped,
-                    result.MemberCountsDeleted);
+                    result.MemberCountsDeleted,
+                    result.MemberReportsReduced);
 
             return true;
         }

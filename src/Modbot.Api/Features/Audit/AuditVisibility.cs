@@ -286,6 +286,14 @@ public static class AuditVisibility
         [FactType.DiscordCommandRun] = AuditCategory.Operational,
         [FactType.DiscordLogPosted] = AuditCategory.Operational,
 
+        // A member's report names the reported person and, on the Reports page, shows who reported.
+        // The facts carry only the report's id, but "somebody reported this person" is still not
+        // something the moderation timeline of a person, who may be a staff account, should say to
+        // everyone who reads it: it is the operator's log, and the Reports page is where a report
+        // is read under its own permissions (Discord commands design §3.4).
+        [FactType.MemberReportOpened] = AuditCategory.Operational,
+        [FactType.MemberReportClosed] = AuditCategory.Operational,
+
         // A member asking for their data to be deleted is about them and is something the team
         // answers, so it sits in the log the team reads, beside the review it opens.
         [FactType.DataDeletionAsked] = AuditCategory.Moderation,

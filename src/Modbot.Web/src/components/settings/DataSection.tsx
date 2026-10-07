@@ -200,6 +200,7 @@ function KeepForCard({
   const [moderation, setModeration] = useState(String(current.moderationFactRetentionDays))
   const [presence, setPresence] = useState(String(current.presenceFactRetentionDays))
   const [messages, setMessages] = useState(String(current.discordMessageRetentionDays))
+  const [reports, setReports] = useState(String(current.memberReportRetentionDays))
   const [logs, setLogs] = useState<LogSettings | null>(null)
   const [logDays, setLogDays] = useState('')
   const [sendToCloud, setSendToCloud] = useState(true)
@@ -227,7 +228,8 @@ function KeepForCard({
   const recordsDirty =
     moderation !== String(current.moderationFactRetentionDays) ||
     presence !== String(current.presenceFactRetentionDays) ||
-    messages !== String(current.discordMessageRetentionDays)
+    messages !== String(current.discordMessageRetentionDays) ||
+    reports !== String(current.memberReportRetentionDays)
 
   const logsDirty =
     logs !== null && (logDays !== String(logs.keepDays) || sendToCloud !== logs.sendToCloud)
@@ -239,9 +241,16 @@ function KeepForCard({
       current.moderationFactRetentionDays,
       current.presenceFactRetentionDays,
       current.discordMessageRetentionDays,
+      current.memberReportRetentionDays,
       logs?.keepDays ?? 0,
     ],
-    [Number(moderation) || 0, Number(presence) || 0, Number(messages) || 0, logs ? Number(logDays) || 0 : 0],
+    [
+      Number(moderation) || 0,
+      Number(presence) || 0,
+      Number(messages) || 0,
+      Number(reports) || 0,
+      logs ? Number(logDays) || 0 : 0,
+    ],
   )
 
   const save = () => {
@@ -257,6 +266,7 @@ function KeepForCard({
             moderationFactRetentionDays: Number(moderation) || 0,
             presenceFactRetentionDays: Number(presence) || 0,
             discordMessageRetentionDays: Number(messages) || 0,
+            memberReportRetentionDays: Number(reports) || 0,
           })
           .then(onSaved),
       )
@@ -298,6 +308,7 @@ function KeepForCard({
         <Field label="Moderation" placeholder="0" value={moderation} onChange={setModeration} />
         <Field label="Who was where" placeholder="0" value={presence} onChange={setPresence} />
         <Field label="Discord messages" placeholder="0" value={messages} onChange={setMessages} />
+        <Field label="Closed reports" placeholder="365" value={reports} onChange={setReports} />
         <Field label="Modbot's log" placeholder="180" value={logDays} onChange={setLogDays} />
       </div>
       <Hint>0 keeps forever.</Hint>

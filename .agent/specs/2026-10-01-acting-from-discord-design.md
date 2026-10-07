@@ -546,3 +546,74 @@ For both: `modbot.discord.command` with `outcome` `answered`, `asked` (the quest
 `done`, `repeat`, `refused`, `invalid`, `error`, `off`, `no-permission`, `no-vrchat`, `not-linked` or `disabled`.
 `/event` also leaves the calendar's facts (`modbot.calendar.date.cancel` or `modbot.calendar.event.cancel`, and the opener's own)
 under the Modbot account; `/post new` leaves `modbot.post.create`. A form being opened is not recorded.
+
+## 17. `/report` and Report to mods (added 2026-10-07)
+
+Step 9 of the Discord commands design (`§3.4`, decisions 1, 2, 3, 6 and 10). A member tells the mods about someone,
+privately, and the mods answer on a Reports page. Both entry points are for every member, need no Modbot account,
+answer in private, and are **off until the operator turns them on** (`report`, and the menu `Report to mods`).
+
+### Entry points
+
+- `/report member: what:`: `member` from Discord's list, `what` 1 to 1,000 characters. Reply "Sent to the mods."
+- The message menu **Report to mods** (038's staff "Report this message" was already removed, decision 3) opens a
+  form, "What's wrong?", 1 to 1,000. The form id is `modbot:form:report:<token>`; the message waits in
+  `PendingReports` (memory, 15 minutes, 1,000), because a form id holds 100 characters. Whatever would refuse the
+  report is said **before** the form (`MemberReports.CheckAsync`). The form is sent to `ReportCommand`, not to the
+  staff handler, by `DiscordBotService.OnFormSubmittedAsync`.
+- Refused: yourself, the bot, the bot's own messages; "You already reported this." (same message, same reporter,
+  any state); "The mods already have your report." (a second **open** report on the same person); "Slow down. Try
+  again in a few minutes." (3 in 10 minutes, 10 in a day, per reporter, counted from the reporter's own
+  `member_report` rows, so a restart forgets nothing; nothing server-wide; a refusal is not counted). The first two
+  promises are also unique indexes (`ux_member_report_message`, `ux_member_report_open`), so two presses at once
+  keep one.
+
+### Where it lives
+
+`MemberReports` is in **Modbot.Analytics**, not Core as the design said: it writes facts through `IFactWriter`, which
+Core cannot see. Discord (bot side) and Api (page side) both reference Analytics. The bot's command is
+`ReportCommand`; the page's endpoints are `/api/reports` (`ReportEndpoints`).
+
+### The table
+
+`member_report`: reporter id and name; reported id, name and linked VRChat id then; `text`; the message copy
+(`message_id`, `message_channel_id`, `message_channel_name`, `message_sent_at`, `message_text` cut at 4,000,
+`message_attachments` names only as jsonb, `message_url`); `state` (`open`, `closed`); `created_at`, `closed_at`,
+`closed_by_user_id`, `closed_by_username`, `close_note` (required, 2,000); `text_removed_at`.
+
+### Permissions
+
+`ViewReports` (bit 57, "See reports") and `HandleReports` (bit 58, "Handle reports"), both in the built-in Moderator
+role (the migration adds them to the stored row). Reading and counting need the first; closing needs both. **A report
+about a staff account** (the reported Discord id is a staff account's counted id, `StaffDiscord.CountedIdsAsync`,
+worked out when read) is shown, counted and closable only with **Review tickets** too (M4 §8.3); for anyone else it
+is as if it did not exist (404 on close). Everyone who can see reports sees who reported (decision 2).
+
+### Facts and the notification
+
+- `modbot.report.open`: subject the reported Discord account, data `reportId` and `channelId` only. No actor, **no
+  reporter, no text**.
+- `modbot.report.close`: subject the same, actor the Modbot account, data `reportId`, `outcome` (`closed`) and the
+  actor's name. **Not the close note**, which may name the reporter.
+- Both are in the **operational** audit category, not the moderation timeline: "somebody reported this person" is
+  not something a staff account's timeline should say to everyone who reads it.
+- **No `modbot.discord.command` fact** for a run, a refusal or a switched-off run: its subject would be the reporter.
+- `INotifier` kind `modbot.report.new`, "Modbot: new report" / "Somebody reported a member.", link `/reports`,
+  audience holders of See reports (for a staff subject, See reports and Review tickets), `SameAs` the kind (the kind
+  and `:staff` for the second audience), quiet time 15 minutes, severity Warning.
+
+### Retention and purge
+
+`Settings.MemberReportRetentionDays`, default 365 (the migration sets the existing row to 365), 0 forever. The daily
+retention job (`RetentionPruner`) empties `text` and every `message_*` column of a closed report closed that many days
+ago and sets `text_removed_at`. The bare record stays, **including the close note** (the staff's own account of what
+was done, as Reviews keep theirs). An open report is never emptied. A person purge deletes the reports **by and about**
+the Discord account, and for a VRChat account those about it and by or about the Discord account linked to it
+(`memberReports` in the purge fact).
+
+### The page
+
+Reports, under Community after Reviews: **Open** (with the count) and **Closed** tabs; each report shows when, about
+(a link to the person's popup), what was written, the quoted message, **Open in Discord**, **Reported by**, **Add
+note**, **Watch**, **Profile** and **Close** with a required **Close note**. No explanatory text. The sidebar entry has
+the open count and no `g` letter, because all twenty-six are taken.

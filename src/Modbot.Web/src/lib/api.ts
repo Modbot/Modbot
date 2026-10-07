@@ -838,6 +838,8 @@ export type DataSettings = {
     moderationFactRetentionDays: number
     presenceFactRetentionDays: number
     discordMessageRetentionDays: number
+    /** Closed member reports keep their words this long; 0 keeps them. */
+    memberReportRetentionDays: number
   }
   storage: {
     bytes: number
@@ -3175,6 +3177,47 @@ export type ReviewList = {
   now: string
 }
 
+/** A Discord account named on a member report, as it was when the report was made. */
+export type ReportPerson = {
+  discordId: string
+  name: string | null
+  /** For the reported person: the VRChat account linked to them then. */
+  vrchatUserId?: string | null
+}
+
+/** The message a report was made from. Null for a report made with the slash command, or once retention removed it. */
+export type ReportMessage = {
+  channelId: string | null
+  channelName: string | null
+  sentAt: string | null
+  text: string | null
+  attachments: string[]
+  /** The message's own link, which opens it in Discord. */
+  url: string | null
+}
+
+export type MemberReportView = {
+  id: string
+  state: 'open' | 'closed'
+  createdAt: string
+  reporter: ReportPerson
+  about: ReportPerson
+  /** What the reporter wrote. Null once retention removed it. */
+  text: string | null
+  message: ReportMessage | null
+  textRemovedAt: string | null
+  closedAt: string | null
+  closedByUsername: string | null
+  closeNote: string | null
+}
+
+export type MemberReportList = {
+  reports: MemberReportView[]
+  /** Every open report this person may see, whatever tab the page is on. */
+  openCount: number
+  now: string
+}
+
 /** One person's count of being acted on. `status` is decided by the `rule` that travels with it. */
 export type RepeatOffenderView = {
   who: Person
@@ -5114,6 +5157,7 @@ export const api = {
     moderationFactRetentionDays: number
     presenceFactRetentionDays: number
     discordMessageRetentionDays: number
+    memberReportRetentionDays: number
   }) => request<typeof body>('/api/settings/retention', {
     method: 'PUT',
     body: JSON.stringify(body),
@@ -5583,6 +5627,17 @@ export const api = {
   /** The note is required: it is kept with the review and recorded as a fact against your account. */
   closeReview: (id: string, note: string, outcome?: 'right' | 'wrong') =>
     post<ReviewView>(`/api/reviews/${encodeURIComponent(id)}/close`, { note, outcome }),
+
+  // ── Member reports (Discord commands design §3.4) ───────────────────────────────────────
+
+  /** What members told the mods. Needs See reports; reports about staff also need Review tickets. */
+  memberReports: (state: 'open' | 'closed' = 'open') => request<MemberReportList>(`/api/reports?state=${state}`),
+
+  openReportCount: () => request<{ open: number }>('/api/reports/open-count'),
+
+  /** The note is required. Needs Handle reports. */
+  closeMemberReport: (id: string, note: string) =>
+    post<MemberReportView>(`/api/reports/${encodeURIComponent(id)}/close`, { note }),
 
   /** People acted on more than once, most recent action first. Needs ViewProfile. */
   repeatOffenders: (query: { status?: 'all' | 'repeat' | 'more-than-once'; offset?: number; limit?: number } = {}) => {

@@ -102,6 +102,16 @@ public sealed class TestServices : IAsyncDisposable
         services.AddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
         services.AddScoped<RemindMeCommand>();
         services.AddScoped<Modbot.Discord.Calendar.EventReminderMessages>();
+
+        // /report and Report to mods, with the real notification pipeline (no channels): the tests
+        // read what it wrote.
+        services.AddScoped<Modbot.Core.Notifications.INotifier>(p => new Modbot.Core.Notifications.Notifier(
+            p.GetRequiredService<ModbotContext>(),
+            p.GetRequiredService<IModbotClock>(),
+            []));
+        services.AddScoped<Modbot.Analytics.Reports.MemberReports>();
+        services.AddSingleton<Modbot.Discord.Interactions.PendingReports>();
+        services.AddScoped<ReportCommand>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();

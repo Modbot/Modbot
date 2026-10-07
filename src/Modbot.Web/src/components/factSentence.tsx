@@ -1054,6 +1054,14 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Member reports ──────────────────────────────────────────────────────────────────────────
+  //
+  // Said without the reporter, who is on the Reports page and nowhere else, and without the words
+  // that were written or the close note.
+  'modbot.report.open': (p) => <>A member reported {p.subject}.</>,
+
+  'modbot.report.close': (p) => <>{p.actor} closed a member report about {p.subject}.</>,
+
   // ── Case files ──────────────────────────────────────────────────────────────────────────────
   'modbot.report.created': (p) => (
     <>
