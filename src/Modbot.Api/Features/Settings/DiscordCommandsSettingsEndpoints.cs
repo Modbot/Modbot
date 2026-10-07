@@ -12,11 +12,10 @@ namespace Modbot.Api.Features.Settings;
 
 /// <summary>One of the bot's commands and whether it is on.</summary>
 /// <param name="Name">The command's name: <c>lookup</c>, or a right-click menu's own words.</param>
-/// <param name="Description">One line saying what it does.</param>
 /// <param name="Menu">A right-click menu rather than a slash command.</param>
-/// <param name="On">Whether the bot registers it. Always false in a demo.</param>
+/// <param name="On">Whether the bot registers it.</param>
 /// <param name="OnByDefault">What it does until somebody chooses.</param>
-public sealed record DiscordCommandSwitchView(string Name, string Description, bool Menu, bool On, bool OnByDefault);
+public sealed record DiscordCommandSwitchView(string Name, bool Menu, bool On, bool OnByDefault);
 
 /// <summary>Every command with a switch, in the order the Commands card lists them.</summary>
 public sealed record DiscordCommandsSettingsResponse(IReadOnlyList<DiscordCommandSwitchView> Commands);
@@ -39,7 +38,8 @@ public sealed record DiscordCommandsSettingsUpdate(IReadOnlyDictionary<string, b
 /// <para>
 /// Only what differs from a command's default is stored (<see cref="DiscordCommandSwitches.Write"/>),
 /// so a command that has never been touched keeps following its default. A demo serves everyone as an
-/// administrator and never runs the bot, so nothing can be turned on there (Discord /me design §5).
+/// administrator and never runs the bot, so nothing can be saved there (Discord /me design §5): the
+/// card shows what is stored, and a save is refused.
 /// </para>
 /// </remarks>
 public static class DiscordCommandsSettingsEndpoints
@@ -52,10 +52,7 @@ public static class DiscordCommandsSettingsEndpoints
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,
-                [FromServices] DemoMode? demo,
-                CancellationToken ct) => Results.Ok(View(
-                    (await db.GetSettingsAsync(ct)).DiscordCommands,
-                    DemoAuthentication.MayServeEveryoneAsAdministrator(demo))))
+                CancellationToken ct) => Results.Ok(View((await db.GetSettingsAsync(ct)).DiscordCommands)))
             .WithName("GetDiscordCommandsSettings")
             .WithSummary("Get the command switches")
             .WithDescription("Every Discord command with whether it is on, and what it does until chosen.")
@@ -72,14 +69,13 @@ public static class DiscordCommandsSettingsEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                var inDemo = DemoAuthentication.MayServeEveryoneAsAdministrator(demo);
+                if (DemoAuthentication.MayServeEveryoneAsAdministrator(demo))
+                    return Results.BadRequest(new { error = "Commands cannot be changed in the demo." });
+
                 var asked = body.Commands ?? new Dictionary<string, bool>();
 
                 if (asked.Keys.FirstOrDefault(name => DiscordCommandSwitches.Find(name) is null) is { } unknown)
                     return Results.BadRequest(new { error = $"\"{unknown}\" is not one of the bot's commands." });
-
-                if (inDemo && asked.Values.Any(on => on))
-                    return Results.BadRequest(new { error = "Commands cannot be turned on in the demo." });
 
                 var settings = await db.GetSettingsAsync(ct);
                 var before = DiscordCommandSwitches.Current(settings.DiscordCommands);
@@ -100,11 +96,11 @@ public static class DiscordCommandsSettingsEndpoints
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(View(settings.DiscordCommands, inDemo));
+                return Results.Ok(View(settings.DiscordCommands));
             })
             .WithName("SetDiscordCommandsSettings")
             .WithSummary("Update the command switches")
-            .WithDescription("Switch Discord commands on or off. A command that is off is not registered on the server.")
+            .WithDescription("Switch Discord commands on or off. A command that is off is not registered on the server. Refused in the demo.")
             .Produces<DiscordCommandsSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -113,11 +109,11 @@ public static class DiscordCommandsSettingsEndpoints
         return app;
     }
 
-    private static DiscordCommandsSettingsResponse View(string stored, bool demo)
+    private static DiscordCommandsSettingsResponse View(string stored)
     {
         var effective = DiscordCommandSwitches.Current(stored);
 
         return new DiscordCommandsSettingsResponse([.. DiscordCommandSwitches.All.Select(c => new DiscordCommandSwitchView(
-            c.Name, c.Description, c.Menu, effective[c.Name] && !demo, c.OnByDefault))]);
+            c.Name, c.Menu, effective[c.Name], c.OnByDefault))]);
     }
 }

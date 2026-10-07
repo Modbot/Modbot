@@ -166,6 +166,26 @@ public class CommandSwitchRegistrationTests
         Assert.Equal("off", JsonDocument.Parse(fact.Data).RootElement.GetProperty("outcome").GetString());
     }
 
+    /// <summary>The switch holds for every command through <c>RunAsync</c>, not only <c>/me</c>, which keeps its own wording.</summary>
+    [Theory]
+    [InlineData("lookup", "/lookup is turned off on this server.")]
+    [InlineData("modbot", "/modbot is turned off on this server.")]
+    [InlineData("help", "/help is turned off on this server.")]
+    [InlineData("verify", "/verify is turned off on this server.")]
+    [InlineData("me", MeCommand.OffMessage)]
+    public async Task EveryCommandThatIsSwitchedOff_IsRefusedThroughRunAsync(string command, string expected)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.ConfigureAsync(s => s.SwitchCommand(command, false), ct);
+
+        using var scope = services.Scope();
+        var reply = await scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>()
+            .RunAsync(Call("999", command), ct);
+
+        Assert.Equal(expected, reply?.Text);
+    }
+
     [Fact]
     public async Task ACommandThatIsOn_RunsAsBefore()
     {

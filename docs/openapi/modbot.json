@@ -12109,7 +12109,7 @@
           "Settings"
         ],
         "summary": "Update the command switches",
-        "description": "Switch Discord commands on or off. A command that is off is not registered on the server.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Switch Discord commands on or off. A command that is off is not registered on the server. Refused in the demo.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordCommandsSettings",
         "requestBody": {
           "content": {
@@ -38339,7 +38339,6 @@
       "DiscordCommandSwitchView": {
         "required": [
           "name",
-          "description",
           "menu",
           "on",
           "onByDefault"
@@ -38347,9 +38346,6 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
-          },
-          "description": {
             "type": "string"
           },
           "menu": {

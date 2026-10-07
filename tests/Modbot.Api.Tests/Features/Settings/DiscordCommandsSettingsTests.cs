@@ -120,7 +120,7 @@ public class DiscordCommandsSettingsTests
     }
 
     [Fact]
-    public async Task InADemo_NothingCanBeTurnedOn_AndEverythingReadsAsOff()
+    public async Task InADemo_ASaveIsRefused_AndTheCardShowsWhatIsStored()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         var demo = new DemoMode { Requested = true };
@@ -129,13 +129,20 @@ public class DiscordCommandsSettingsTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: services => services.AddSingleton(demo));
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
-        var response = await host.SendJsonAsync(HttpMethod.Put, Path, Choose(("me", true)), cookie, Ct);
+        // Even a save that changes nothing: the card sends every switch, and must not store a demo's view.
+        var all = DiscordCommandSwitches.All.Select(c => (c.Name, c.OnByDefault)).ToArray();
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("demo", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
-        Assert.Equal("{}", await StoredAsync(host));
+        foreach (var save in new[] { Choose(("me", true)), Choose(all) })
+        {
+            var response = await host.SendJsonAsync(HttpMethod.Put, Path, save, cookie, Ct);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("demo", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+            Assert.Equal("{}", await StoredAsync(host));
+        }
 
         var body = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
-        Assert.All(body.GetProperty("commands").EnumerateArray(), c => Assert.False(c.GetProperty("on").GetBoolean()));
+        Assert.True(IsOn(body, "lookup"));
+        Assert.False(IsOn(body, "me"));
     }
 }

@@ -7,7 +7,7 @@ import { SettingsCard } from '../SettingsCard'
 
 /**
  * Settings → Discord → Commands (Discord commands design §3.8): one switch for each command and
- * right-click menu the bot has, with its name and what it does. A command that is off is not
+ * right-click menu the bot has, labelled with its name only. A command that is off is not
  * registered on the server.
  *
  * Its own card with its own Save, because it saves to its own endpoint.
@@ -95,14 +95,13 @@ function CommandsForm({
     >
       <div className="flex max-w-lg flex-col gap-3">
         {settings.commands.map((command) => (
-          <div key={command.name} className="flex flex-col gap-0.5">
-            <Switch checked={on[command.name] ?? false} onChange={(next) => setOn({ ...on, [command.name]: next })}>
-              {nameOf(command)}
-            </Switch>
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {command.description}
-            </span>
-          </div>
+          <Switch
+            key={command.name}
+            checked={on[command.name] ?? false}
+            onChange={(next) => setOn({ ...on, [command.name]: next })}
+          >
+            {nameOf(command)}
+          </Switch>
         ))}
       </div>
     </SettingsCard>

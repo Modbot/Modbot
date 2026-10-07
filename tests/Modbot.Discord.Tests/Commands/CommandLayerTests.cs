@@ -24,16 +24,13 @@ public class CommandLayerTests
     }
 
     [Fact]
-    public void ASlashCommandsSwitchSaysWhatTheCommandSays_AndMenusAreMarkedAsMenus()
+    public void MenusAreMarkedAsMenus_InTheSwitchList()
     {
         foreach (var command in DiscordCommands.All)
         {
             var found = DiscordCommandSwitches.Find(command.Name);
             Assert.NotNull(found);
             Assert.Equal(command.Kind != DiscordCommandKind.Slash, found.Menu);
-
-            if (command.Kind == DiscordCommandKind.Slash)
-                Assert.Equal(command.Description, found.Description);
         }
     }
 

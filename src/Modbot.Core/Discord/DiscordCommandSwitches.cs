@@ -8,10 +8,9 @@ namespace Modbot.Core.Discord;
 /// The command's name as Discord shows it: <c>lookup</c> for a slash command, the menu's own words
 /// for a right-click menu. The key in the <c>discord_commands</c> setting.
 /// </param>
-/// <param name="Description">One line for the Commands card.</param>
 /// <param name="OnByDefault">What a command with no stored choice does.</param>
 /// <param name="Menu">A right-click menu rather than a slash command.</param>
-public sealed record DiscordCommandSwitch(string Name, string Description, bool OnByDefault, bool Menu = false);
+public sealed record DiscordCommandSwitch(string Name, bool OnByDefault, bool Menu = false);
 
 /// <summary>
 /// Which of the bot's commands are switched on, from the <c>discord_commands</c> setting: a JSON
@@ -46,15 +45,15 @@ public static class DiscordCommandSwitches
     /// </summary>
     public static IReadOnlyList<DiscordCommandSwitch> All { get; } =
     [
-        new("lookup", "Look up a person in Modbot's records", OnByDefault: true),
-        new("recent", "The latest moderation events", OnByDefault: true),
-        new("modbot", "Whether the bot is working, and where the Modbot web app is", OnByDefault: true),
-        new("link", "Link your VRChat account", OnByDefault: true),
-        new("me", "What Modbot holds about you", OnByDefault: false),
-        new("help", "What the bot's commands do", OnByDefault: true),
-        new("verify", "Connect your Discord account to your Modbot account", OnByDefault: true),
-        new("Look up in Modbot", "Right-click a member to see their card", OnByDefault: true, Menu: true),
-        new("Add a note", "Right-click a member to write a note about them", OnByDefault: true, Menu: true),
+        new("lookup", OnByDefault: true),
+        new("recent", OnByDefault: true),
+        new("modbot", OnByDefault: true),
+        new("link", OnByDefault: true),
+        new("me", OnByDefault: false),
+        new("help", OnByDefault: true),
+        new("verify", OnByDefault: true),
+        new("Look up in Modbot", OnByDefault: true, Menu: true),
+        new("Add a note", OnByDefault: true, Menu: true),
     ];
 
     /// <summary>The switch for a command, or null when the name is not one of ours.</summary>

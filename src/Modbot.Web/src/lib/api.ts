@@ -323,10 +323,8 @@ export type DiscordLinkingSettings = {
 export type DiscordCommandSwitch = {
   /** `lookup`, or a right-click menu's own words. */
   name: string
-  description: string
   /** A right-click menu rather than a slash command. */
   menu: boolean
-  /** Always false in a demo. */
   on: boolean
   onByDefault: boolean
 }
