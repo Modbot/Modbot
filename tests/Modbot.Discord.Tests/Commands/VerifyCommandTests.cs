@@ -6,6 +6,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Users;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Core.Discord;
 using Modbot.TestSupport;
 
 namespace Modbot.Discord.Tests.Commands;
@@ -323,7 +324,7 @@ public class VerifyCommandTests
 
         Assert.False(verify.StaffOnly);
         Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.Verify));
-        Assert.Contains(DiscordCommands.For(meCommand: false), c => c.Name == DiscordCommands.Verify);
+        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.Verify);
 
         var option = Assert.Single(verify.Options);
         Assert.Equal(DiscordCommands.VerifyCodeOption, option.Name);

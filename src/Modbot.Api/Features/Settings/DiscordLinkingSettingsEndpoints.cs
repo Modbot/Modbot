@@ -16,7 +16,6 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="ClientSecretStored">Whether a client secret is stored. The secret itself is never returned.</param>
 /// <param name="RedirectUrl">What to add under OAuth2 → Redirects in the Developer Portal. Null without a public address.</param>
 /// <param name="InviteUrl">The bot invite link. Null without a client id.</param>
-/// <param name="MeCommand">Members can use <c>/me</c>. Always false in a demo.</param>
 /// <param name="Available">The client id, the secret and the public address are all set.</param>
 public sealed record DiscordLinkingSettingsResponse(
     string? ClientId,
@@ -27,7 +26,6 @@ public sealed record DiscordLinkingSettingsResponse(
     string? BackupChannelId,
     string? LinkedRoleId,
     string? EighteenPlusRoleId,
-    bool MeCommand,
     bool Available);
 
 /// <param name="ClientSecret">A new secret. Null or empty keeps the stored one, unless the client id changed.</param>
@@ -35,7 +33,6 @@ public sealed record DiscordLinkingSettingsResponse(
 /// <param name="BackupChannelId">Null or empty for none.</param>
 /// <param name="LinkedRoleId">Null or empty for none.</param>
 /// <param name="EighteenPlusRoleId">Null or empty for none.</param>
-/// <param name="MeCommand">Members can use <c>/me</c>. Null keeps what is stored.</param>
 public sealed record DiscordLinkingSettingsUpdate(
     string? ClientId,
     string? ClientSecret,
@@ -43,8 +40,7 @@ public sealed record DiscordLinkingSettingsUpdate(
     bool PromptNewMembers,
     string? BackupChannelId,
     string? LinkedRoleId,
-    string? EighteenPlusRoleId,
-    bool? MeCommand = null);
+    string? EighteenPlusRoleId);
 
 /// <summary>
 /// Settings → Discord → Account linking (Discord account linking design §4).
@@ -61,9 +57,8 @@ public sealed record DiscordLinkingSettingsUpdate(
 /// connected can still be set up.
 /// </para>
 /// <para>
-/// <c>/me</c> is switched here because it rests on the link: it answers from the member's link and
-/// offers the link page to a member who has none. It cannot be switched on in a demo, which serves
-/// everyone as an administrator and never runs the bot (Discord /me design §5).
+/// <c>/me</c> used to be switched here. It is one of the bot's commands now, switched with the others
+/// on the Commands card (<see cref="DiscordCommandsSettingsEndpoints"/>).
 /// </para>
 /// </remarks>
 public static class DiscordLinkingSettingsEndpoints
@@ -76,10 +71,7 @@ public static class DiscordLinkingSettingsEndpoints
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,
-                [FromServices] DemoMode? demo,
-                CancellationToken ct) => Results.Ok(View(
-                    await db.GetSettingsAsync(ct),
-                    DemoAuthentication.MayServeEveryoneAsAdministrator(demo))))
+                CancellationToken ct) => Results.Ok(View(await db.GetSettingsAsync(ct))))
             .WithName("GetDiscordLinkingSettings")
             .WithSummary("Get linking settings")
             .WithDescription("Account linking settings. The client secret is never returned.")
@@ -92,13 +84,9 @@ public static class DiscordLinkingSettingsEndpoints
                 [FromBody] DiscordLinkingSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] ISecretProtector protector,
-                [FromServices] DemoMode? demo,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
-
-                if (body.MeCommand == true && DemoAuthentication.MayServeEveryoneAsAdministrator(demo))
-                    return Results.BadRequest(new { error = "/me cannot be turned on in the demo." });
 
                 var settings = await db.GetSettingsAsync(ct);
 
@@ -132,7 +120,6 @@ public static class DiscordLinkingSettingsEndpoints
                     settings.DiscordOAuthClientSecretEncrypted = null;
 
                 var backupChannel = Blank(body.BackupChannelId);
-                var meCommand = body.MeCommand ?? settings.DiscordMeCommand;
 
                 // The client secret is a secret: the entry says it changed and never what it was.
                 var change = new SettingsChange("discordLinking")
@@ -141,8 +128,7 @@ public static class DiscordLinkingSettingsEndpoints
                     .Field("promptNewMembers", settings.DiscordLinkPromptNewMembers, body.PromptNewMembers)
                     .Field("backupChannelId", settings.DiscordLinkBackupChannelId, backupChannel)
                     .Field("linkedRoleId", settings.DiscordLinkedRoleId, linkedRole)
-                    .Field("eighteenPlusRoleId", settings.DiscordEighteenPlusRoleId, eighteenPlusRole)
-                    .Field("meCommand", settings.DiscordMeCommand, meCommand);
+                    .Field("eighteenPlusRoleId", settings.DiscordEighteenPlusRoleId, eighteenPlusRole);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -151,13 +137,12 @@ public static class DiscordLinkingSettingsEndpoints
                 settings.DiscordLinkBackupChannelId = backupChannel;
                 settings.DiscordLinkedRoleId = linkedRole;
                 settings.DiscordEighteenPlusRoleId = eighteenPlusRole;
-                settings.DiscordMeCommand = meCommand;
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(View(settings, DemoAuthentication.MayServeEveryoneAsAdministrator(demo)));
+                return Results.Ok(View(settings));
             })
             .WithName("SetDiscordLinkingSettings")
             .WithSummary("Update linking settings")
@@ -170,8 +155,7 @@ public static class DiscordLinkingSettingsEndpoints
         return app;
     }
 
-    /// <param name="demo">This is a demo, where <c>/me</c> is always off whatever is stored.</param>
-    private static DiscordLinkingSettingsResponse View(Core.Data.Entities.Settings settings, bool demo) => new(
+    private static DiscordLinkingSettingsResponse View(Core.Data.Entities.Settings settings) => new(
         settings.DiscordOAuthClientId,
         settings.DiscordOAuthClientSecretEncrypted is not null,
         DiscordInvite.RedirectUrlFor(settings.PublicAddress),
@@ -180,7 +164,6 @@ public static class DiscordLinkingSettingsEndpoints
         settings.DiscordLinkBackupChannelId,
         settings.DiscordLinkedRoleId,
         settings.DiscordEighteenPlusRoleId,
-        settings.DiscordMeCommand && !demo,
         !string.IsNullOrWhiteSpace(settings.DiscordOAuthClientId)
             && settings.DiscordOAuthClientSecretEncrypted is not null
             && DiscordInvite.RedirectUrlFor(settings.PublicAddress) is not null);

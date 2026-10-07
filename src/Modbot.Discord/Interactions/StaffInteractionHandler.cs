@@ -122,6 +122,14 @@ public sealed class StaffInteractionHandler
         var target = call.TargetUser?.Id;
         var writes = call.CommandName != StaffMenus.LookUp;
 
+        // A menu the operator switched off is no longer registered; this is for a run that came
+        // before Discord dropped it (Discord commands design §3.8).
+        if (!await CommandSwitchSetting.IsOnAsync(_db, call.CommandName, ct).ConfigureAwait(false))
+        {
+            await RecordAsync(call.DiscordUserId, null, call.CommandName, "off", target, ct).ConfigureAwait(false);
+            return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: true));
+        }
+
         var (user, refusal, outcome) = await StaffAsync(call.DiscordUserId, required, writes, ct).ConfigureAwait(false);
         if (refusal is not null)
         {

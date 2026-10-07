@@ -773,6 +773,6 @@ public class StaffInteractionHandlerTests
         Assert.Equal(new[] { StaffMenus.LookUp, StaffMenus.AddNote }, menus.Select(m => m.Name));
         Assert.All(menus, m => Assert.True(m.StaffOnly));
         Assert.All(menus, m => Assert.Equal(DiscordCommandKind.User, m.Kind));
-        Assert.Contains(DiscordCommands.For(meCommand: false), c => c.Name == StaffMenus.LookUp);
+        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == StaffMenus.LookUp);
     }
 }

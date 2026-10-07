@@ -201,8 +201,14 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         var properties = commands.Select(ToProperties).ToArray();
 
         var registered = await guild.BulkOverwriteApplicationCommandAsync(properties).ConfigureAwait(false);
+
+        // Kept so a command's reply can be read off its definition before it is acknowledged.
+        _registered = commands;
         return registered.Count;
     }
+
+    /// <summary>The commands last registered, which say who sees each one's answer.</summary>
+    private volatile IReadOnlyList<DiscordCommandDefinition> _registered = [];
 
     public Task<DiscordPostOutcome> PostAsync(
         string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct) =>
@@ -2288,38 +2294,6 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             && ourGuildId is { } ours
             && string.Equals(ours, Text(from), StringComparison.Ordinal);
 
-    private async Task DispatchAsync(SocketSlashCommand command)
-    {
-        // Discord gives three seconds to acknowledge. Deferring first, only to the person who
-        // asked, buys the database round trips; the answer then arrives as a follow-up.
-        await command.DeferAsync(ephemeral: true).ConfigureAwait(false);
-
-        var options = command.Data.Options
-            .ToDictionary(o => o.Name, OptionText, StringComparer.Ordinal);
-
-        var call = new DiscordCommandCall(
-            command.User.Id.ToString(CultureInfo.InvariantCulture),
-            command.User.Username,
-            command.Data.Name,
-            options,
-            (reply, _) => AnswerAsync(command, reply));
-
-        var handler = CommandReceived;
-        if (handler is not null)
-            await handler(call).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// One option's value as the text a <see cref="DiscordCommandCall"/> carries. A member picked
-    /// from Discord's list arrives as the account itself, and is carried by its id: the name it
-    /// shows is the person's to change, the id is not.
-    /// </summary>
-    private static string OptionText(SocketSlashCommandDataOption option) => option.Value switch
-    {
-        IUser user => Text(user.Id),
-        var value => Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty,
-    };
-
     private Task OnSuggestionAsked(SocketAutocompleteInteraction ask)
     {
         if (!IsForThisServer(_guildId, ask.GuildId))
@@ -2339,6 +2313,10 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (handler is null)
             return;
 
+        // What is already filled in beside the option being typed, so one option's suggestions can
+        // depend on another's (the dates under the event picked).
+        var (subcommand, others) = OtherOptions(ask.Data.Options);
+
         var call = new DiscordSuggestionAsk(
             ask.User.Id.ToString(CultureInfo.InvariantCulture),
             ask.Data.CommandName,
@@ -2348,7 +2326,9 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                 .Where(s => s.Name.Length is > 0 and <= DiscordSuggestion.Longest
                             && s.Value.Length is > 0 and <= DiscordSuggestion.Longest)
                 .Take(DiscordSuggestion.Most)
-                .Select(s => new AutocompleteResult(s.Name, s.Value))));
+                .Select(s => new AutocompleteResult(s.Name, s.Value))),
+            subcommand,
+            others);
 
         await handler(call).ConfigureAwait(false);
     }
@@ -2389,45 +2369,6 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                 || (fromGuildId is null
                     && ourGuildId is { Length: > 0 } ours
                     && id.EndsWith(DiscordActionButton.ServerMark + ours, StringComparison.Ordinal)));
-
-    /// <summary>One answer to a slash command, with the pictures its cards point at.</summary>
-    private static async Task AnswerAsync(SocketInteraction command, DiscordReply reply)
-    {
-        var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
-        var buttons = Buttons(reply.Links, reply.Actions) is { Components.Count: > 0 } b ? b : null;
-        var files = Files(reply.Pictures);
-
-        try
-        {
-            if (files.Count > 0)
-            {
-                await command.FollowupWithFilesAsync(
-                        attachments: files,
-                        text: reply.Text,
-                        embeds: embeds,
-                        ephemeral: true,
-                        allowedMentions: AllowedMentions.None,
-                        components: buttons)
-                    .ConfigureAwait(false);
-
-                return;
-            }
-
-            await command.FollowupAsync(
-                    text: reply.Text,
-                    embeds: embeds,
-                    ephemeral: true,
-                    allowedMentions: AllowedMentions.None,
-                    components: buttons)
-                .ConfigureAwait(false);
-        }
-        finally
-        {
-            foreach (var file in files)
-                file.Dispose();
-        }
-    }
-
 
     private async Task Guard(Task work, string what)
     {
@@ -2587,7 +2528,12 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     {
         // Who sees it in Discord's menus until a server admin says otherwise. Only that: Modbot's
         // own permission check is what decides (acting from Discord design §10).
-        GuildPermission? shownTo = command.StaffOnly ? GuildPermission.ModerateMembers : null;
+        GuildPermission? shownTo = command.ShownTo switch
+        {
+            DiscordShownTo.Moderators => GuildPermission.ModerateMembers,
+            DiscordShownTo.EventHosts => GuildPermission.ManageEvents,
+            _ => null,
+        };
 
         switch (command.Kind)
         {
@@ -2612,25 +2558,58 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             builder.WithDefaultMemberPermissions(shownTo);
 
         foreach (var option in command.Options)
-        {
-            var type = option.Kind switch
-            {
-                DiscordOptionKind.WholeNumber => ApplicationCommandOptionType.Integer,
-                DiscordOptionKind.Member => ApplicationCommandOptionType.User,
-                _ => ApplicationCommandOptionType.String,
-            };
+            builder.AddOption(ToOption(option));
 
-            builder.AddOption(
-                option.Name,
-                type,
-                option.Description,
-                isRequired: option.Required,
-                isAutocomplete: option.Suggests && type == ApplicationCommandOptionType.String,
-                minValue: option.Min,
-                maxValue: option.Max);
+        // A step under the command, typed as /gate waiting. Discord takes either options or
+        // steps on a command, never both.
+        foreach (var step in command.Subcommands ?? [])
+        {
+            var sub = new SlashCommandOptionBuilder()
+                .WithName(step.Name)
+                .WithDescription(step.Description)
+                .WithType(ApplicationCommandOptionType.SubCommand);
+
+            foreach (var option in step.Options)
+                sub.AddOption(ToOption(option));
+
+            builder.AddOption(sub);
         }
 
         return builder.Build();
+    }
+
+    /// <summary>One option as Discord's builder wants it.</summary>
+    private static SlashCommandOptionBuilder ToOption(DiscordCommandOption option)
+    {
+        var type = option.Kind switch
+        {
+            DiscordOptionKind.WholeNumber => ApplicationCommandOptionType.Integer,
+            DiscordOptionKind.Member => ApplicationCommandOptionType.User,
+            DiscordOptionKind.Channel => ApplicationCommandOptionType.Channel,
+            DiscordOptionKind.YesNo => ApplicationCommandOptionType.Boolean,
+            _ => ApplicationCommandOptionType.String,
+        };
+
+        var built = new SlashCommandOptionBuilder()
+            .WithName(option.Name)
+            .WithDescription(option.Description)
+            .WithType(type)
+            .WithRequired(option.Required)
+            .WithAutocomplete(option.Suggests && type == ApplicationCommandOptionType.String);
+
+        if (option.Min is { } min)
+            built.WithMinValue(min);
+
+        if (option.Max is { } max)
+            built.WithMaxValue(max);
+
+        if (option.Kind == DiscordOptionKind.Choice)
+        {
+            foreach (var choice in (option.Choices ?? []).Take(DiscordOptionChoice.Most))
+                built.AddChoice(choice.Name, choice.Value);
+        }
+
+        return built;
     }
 
     /// <summary>Link buttons on one row. An address that is not plain https is left off.</summary>

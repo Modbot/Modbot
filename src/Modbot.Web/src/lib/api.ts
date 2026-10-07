@@ -316,10 +316,22 @@ export type DiscordLinkingSettings = {
   backupChannelId: string | null
   linkedRoleId: string | null
   eighteenPlusRoleId: string | null
-  /** Members can use /me. Always false in a demo. */
-  meCommand: boolean
   available: boolean
 }
+
+/** One of the bot's commands on Settings → Discord → Commands. */
+export type DiscordCommandSwitch = {
+  /** `lookup`, or a right-click menu's own words. */
+  name: string
+  description: string
+  /** A right-click menu rather than a slash command. */
+  menu: boolean
+  /** Always false in a demo. */
+  on: boolean
+  onByDefault: boolean
+}
+
+export type DiscordCommandsSettings = { commands: DiscordCommandSwitch[] }
 
 export type DiscordLinkingSettingsInput = {
   clientId: string
@@ -330,7 +342,6 @@ export type DiscordLinkingSettingsInput = {
   backupChannelId: string
   linkedRoleId: string
   eighteenPlusRoleId: string
-  meCommand: boolean
 }
 
 export type DiscordGateMode = 'off' | 'watch' | 'on'
@@ -4716,6 +4727,12 @@ export const api = {
 
   setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
     put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
+
+  discordCommandsSettings: () => request<DiscordCommandsSettings>('/api/settings/discord-commands'),
+
+  /** Each command's name with whether it is on. A command left out keeps what it has. */
+  setDiscordCommandsSettings: (commands: Record<string, boolean>) =>
+    put<DiscordCommandsSettings>('/api/settings/discord-commands', { commands }),
 
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 

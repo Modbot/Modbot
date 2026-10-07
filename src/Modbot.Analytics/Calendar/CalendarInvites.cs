@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 
 namespace Modbot.Analytics.Calendar;
 
@@ -165,12 +166,12 @@ public sealed class CalendarInvites
 
         // While /me is off, a member has no way to stop invites they asked for earlier, so no
         // member counts as having asked: an invite list then reaches its staff only.
-        var meOn = await _db.Settings.AsNoTracking()
+        var commands = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => s.DiscordMeCommand)
+            .Select(s => s.DiscordCommands)
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
-        if (!meOn)
+        if (!DiscordCommandSwitches.IsOn(commands, "me"))
             return ([], []);
 
         var byDiscord = await _db.EventInviteChoices.AsNoTracking()

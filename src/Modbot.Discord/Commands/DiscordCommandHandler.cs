@@ -79,6 +79,32 @@ public sealed class DiscordCommandHandler
         _verify = verify;
     }
 
+    /// <summary>
+    /// Runs a slash command as the bot does: refuses one the operator has switched off, then
+    /// answers it. A null answer means the command answered for itself, by showing a form with
+    /// <see cref="DiscordCommandCall.ShowFormAsync"/> (a command can open a form as its first
+    /// answer: none is acknowledged before it answers), and nothing more is said.
+    /// </summary>
+    /// <remarks>
+    /// The switch is already kept out of Discord's list (<see cref="DiscordCommands.For"/>); this is
+    /// for a run that was typed before Discord dropped the command, or from a client that had the
+    /// old list. <c>/me</c> keeps its own wording and its demo rule inside <see cref="HandleAsync"/>.
+    /// </remarks>
+    public async Task<DiscordReply?> RunAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+
+        if (call.CommandName != DiscordCommands.Me
+            && DiscordCommandSwitches.Find(call.CommandName) is not null
+            && !await CommandSwitchSetting.IsOnAsync(_db, call.CommandName, ct).ConfigureAwait(false))
+        {
+            await RecordAsync(call, null, "off", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say(CommandSwitchSetting.OffMessage(call.CommandName, menu: false));
+        }
+
+        return await HandleAsync(call, ct).ConfigureAwait(false);
+    }
+
     public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(call);
@@ -162,29 +188,50 @@ public sealed class DiscordCommandHandler
     private async Task<DiscordReply> HelpAsync(DiscordCommandCall call, CancellationToken ct)
     {
         var meOn = _me is not null && await _me.IsOnAsync(ct).ConfigureAwait(false);
+        var switches = await CommandSwitchSetting.ReadAsync(_db, ct).ConfigureAwait(false);
         var user = await AccountAsync(call.DiscordUserId, ct).ConfigureAwait(false);
         var held = user is { IsDisabled: false } ? user.EffectivePermissions : (ModbotPermissions?)null;
 
-        var lines = DiscordCommands.For(meOn)
+        // Whatever is registered on the server, so the list never names a command Discord does not
+        // show: the ones the operator switched off are not in it.
+        var lines = DiscordCommands.For(switches)
+            .Where(c => c.Kind == DiscordCommandKind.Slash && (c.Name != DiscordCommands.Me || meOn))
             .Where(c => DiscordCommands.IsForEveryone(c.Name)
                         || (held is { } permissions
                             && DiscordCommands.Requires(c.Name) is { } required
                             && DiscordCommands.Allows(permissions, required)))
-            .Select(HelpLine);
+            .SelectMany(HelpLines);
 
         await RecordAsync(call, user, "answered", null, ct).ConfigureAwait(false);
         return DiscordReply.Say(string.Join('\n', lines));
     }
 
-    /// <summary><c>/lookup user: discord:</c> — Look up a person in Modbot's records.</summary>
-    private static string HelpLine(DiscordCommandDefinition command)
+    /// <summary>
+    /// One line for a command, or one for each of its subcommands:
+    /// <c>/lookup user: discord:</c> — Look up a person in Modbot's records.
+    /// </summary>
+    public static IEnumerable<string> HelpLines(DiscordCommandDefinition command)
     {
-        var usage = new StringBuilder("`/").Append(command.Name);
+        ArgumentNullException.ThrowIfNull(command);
 
-        foreach (var option in command.Options)
+        if (command.Subcommands is not { Count: > 0 } steps)
+        {
+            yield return HelpLine(command.Name, command.Options, command.Description);
+            yield break;
+        }
+
+        foreach (var step in steps)
+            yield return HelpLine(command.Name + " " + step.Name, step.Options, step.Description);
+    }
+
+    private static string HelpLine(string name, IReadOnlyList<DiscordCommandOption> options, string description)
+    {
+        var usage = new StringBuilder("`/").Append(name);
+
+        foreach (var option in options)
             usage.Append(' ').Append(option.Name).Append(':');
 
-        return usage.Append("` — ").Append(command.Description).ToString();
+        return usage.Append("` — ").Append(description).ToString();
     }
 
     /// <summary>

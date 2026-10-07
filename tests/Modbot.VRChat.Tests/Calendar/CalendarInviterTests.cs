@@ -105,7 +105,7 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
         await using (var context = Database.NewContext())
         {
             var settings = await context.GetSettingsAsync(Ct);
-            settings.DiscordMeCommand = false;
+            settings.SwitchCommand("me", false);
             await context.SaveChangesAsync(Ct);
         }
 

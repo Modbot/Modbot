@@ -7,6 +7,7 @@ import { StaffRolesCard } from '@/components/staffRoles/StaffRoles'
 import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
+import { CommandsCard } from './CommandsCard'
 import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
 import { ListRolesCard } from './ListRolesCard'
@@ -47,6 +48,7 @@ export function DiscordSection({
           <InstanceCard status={status} refresh={refresh} />
           <ChannelsCard />
           <LinkingCard />
+          <CommandsCard />
           <JoinGateCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}

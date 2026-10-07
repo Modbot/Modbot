@@ -11,6 +11,7 @@ using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.ModerationLog;
 using Modbot.Discord.Tests.Fakes;
+using Modbot.Core.Discord;
 using Modbot.TestSupport;
 
 namespace Modbot.Discord.Tests.Commands;
@@ -62,7 +63,7 @@ public class MeCommandTests
         var services = await TestServices.CreateAsync(_db, Ct);
         await services.ConfigureAsync(s =>
         {
-            s.DiscordMeCommand = on;
+            s.SwitchCommand("me", on);
             s.DiscordGuildId = Guild;
             s.ManagedGroupId = Group;
             s.ManagedGroupName = "Kiri's Group";
@@ -170,9 +171,9 @@ public class MeCommandTests
     [Fact]
     public void MeIsRegisteredOnlyWhileSwitchedOn()
     {
-        Assert.DoesNotContain(DiscordCommands.For(meCommand: false), c => c.Name == DiscordCommands.Me);
-        Assert.Contains(DiscordCommands.For(meCommand: true), c => c.Name == DiscordCommands.Me);
-        Assert.Equal(DiscordCommands.All.Count - 1, DiscordCommands.For(meCommand: false).Count);
+        Assert.DoesNotContain(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.Me);
+        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.With(null, DiscordCommands.Me, true)), c => c.Name == DiscordCommands.Me);
+        Assert.Equal(DiscordCommands.All.Count - 1, DiscordCommands.For(DiscordCommandSwitches.Empty).Count);
         Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.Me));
         Assert.Null(DiscordCommands.Requires(DiscordCommands.Me));
     }
@@ -738,7 +739,7 @@ public class MeCommandTests
         await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton));
 
         // The operator switches /me off; the member still has the old reply's button.
-        await services.ConfigureAsync(s => s.DiscordMeCommand = false, Ct);
+        await services.ConfigureAsync(s => s.SwitchCommand("me", false), Ct);
 
         Assert.Equal(MeCommand.InvitesOffMessage, (await PressAsync(services, Press(Caller, MeCommand.InvitesOffButton))).Text);
 

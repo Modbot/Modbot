@@ -1,4 +1,5 @@
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Users;
 using Modbot.Discord.Gateway;
 
@@ -28,6 +29,18 @@ namespace Modbot.Discord.Commands;
 /// Discord shows only to members who may time others out. That only hides them: the Modbot
 /// account and permission are checked on every run as before, so an owner who shows them to
 /// everybody under Server Settings → Integrations has given nobody anything.
+/// </para>
+/// <para>
+/// <strong>Every command has a switch</strong> (Discord commands design §3.8): the operator's
+/// Commands card on Settings → Discord writes the <c>discord_commands</c> setting, and a command
+/// that is off is not registered. The names and defaults are in
+/// <see cref="DiscordCommandSwitches"/>, which the web app reads too; a test holds that list to
+/// <see cref="All"/>, so a command added here without a switch fails the build's tests.
+/// </para>
+/// <para>
+/// A command that replies in public, takes subcommands, or takes a channel, a choice or a yes/no is
+/// described with the same <see cref="DiscordCommandDefinition"/>: see its <c>Reply</c>,
+/// <c>Subcommands</c> and the <see cref="DiscordOptionKind"/>s.
 /// </para>
 /// </remarks>
 public static class DiscordCommands
@@ -62,17 +75,17 @@ public static class DiscordCommands
                 new DiscordCommandOption(LookupUserOption, "VRChat user id or display name", DiscordOptionKind.Text, Required: false, Suggests: true),
                 new DiscordCommandOption(LookupDiscordOption, "Discord member", DiscordOptionKind.Member, Required: false),
             ],
-            StaffOnly: true),
+            ShownTo: DiscordShownTo.Moderators),
         new(
             Recent,
             "The latest moderation events",
             [new DiscordCommandOption(RecentCountOption, $"How many, 1 to {RecentMax} (default {RecentDefault})", DiscordOptionKind.WholeNumber, Required: false, Min: 1, Max: RecentMax)],
-            StaffOnly: true),
+            ShownTo: DiscordShownTo.Moderators),
         new(
             Modbot,
             "Whether the bot is working, and where the Modbot web app is",
             [],
-            StaffOnly: true),
+            ShownTo: DiscordShownTo.Moderators),
         new(
             Link,
             "Link your VRChat account",
@@ -96,12 +109,21 @@ public static class DiscordCommands
     ];
 
     /// <summary>
-    /// The commands to register on the server: all of them, less <see cref="Me"/> while the
-    /// operator has it switched off. Not registered is cleaner than registered and refusing: a
-    /// member never sees a command that would only tell them it is off.
+    /// The commands to register on the server: the ones switched on in the <c>discord_commands</c>
+    /// setting (<see cref="DiscordCommandSwitches"/>), a missing name taking its default. Not
+    /// registered is cleaner than registered and refusing: a member never sees a command that would
+    /// only tell them it is off.
     /// </summary>
-    public static IReadOnlyList<DiscordCommandDefinition> For(bool meCommand)
-        => meCommand ? All : [.. All.Where(c => c.Name != Me)];
+    /// <param name="switches">The setting as stored. Null or empty means every default.</param>
+    public static IReadOnlyList<DiscordCommandDefinition> For(string? switches)
+        => [.. All.Where(c => DiscordCommandSwitches.IsOn(switches, c.Name))];
+
+    /// <summary>
+    /// The names registered for these switches. Two lists with the same names are the same
+    /// registration: the bot registers again only when this changes (Discord commands design §3.8).
+    /// </summary>
+    public static IReadOnlySet<string> NamesFor(string? switches)
+        => For(switches).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
     public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify;

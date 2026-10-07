@@ -474,6 +474,9 @@ public static class ApiSurface
         app.MapDiscordLinkModeration();
         app.MapDiscordLinkingSettings();
 
+        // Which of the bot's commands are on (Discord commands design §3.8).
+        app.MapDiscordCommandsSettings();
+
         // The join gate: its settings, who is waiting, and what staff do there (join gate design).
         app.MapDiscordGateSettings();
         app.MapDiscordGate();

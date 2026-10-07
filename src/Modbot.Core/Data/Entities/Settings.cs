@@ -584,11 +584,14 @@ public class Settings
     public string? DiscordEighteenPlusRoleId { get; set; }
 
     /// <summary>
-    /// "Members can use /me": the private command that shows a member what Modbot holds about them
-    /// and lets them ask the staff to delete it (Discord /me design, 2026-09-30). Off by default;
-    /// while off the command is not registered on the server at all.
+    /// Which of the bot's commands are on, as a JSON object mapping a command's name to true or
+    /// false (Discord commands design §3.8). A name that is not in it takes its default from
+    /// <see cref="Modbot.Core.Discord.DiscordCommandSwitches"/>, and a command that is off is not
+    /// registered on the server at all. This holds what the "Members can use /me" switch used to
+    /// (Discord /me design, 2026-09-30): the migration copied it under the name <c>me</c>.
     /// </summary>
-    public bool DiscordMeCommand { get; set; }
+    [Column(TypeName = "jsonb")]
+    public string DiscordCommands { get; set; } = "{}";
 
     // --- The join gate (join gate design §3) ---
 

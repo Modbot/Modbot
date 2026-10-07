@@ -78,10 +78,10 @@ public class DiscordBotServiceTests
         await gateway.RaiseReadyAsync();
 
         Assert.Equal("424242", gateway.RegisteredGuildId);
-        Assert.Equal(DiscordCommands.For(meCommand: false).Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
+        Assert.Equal(DiscordCommands.For(DiscordCommandSwitches.Empty).Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(DiscordCommands.For(meCommand: false).Count, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.For(DiscordCommandSwitches.Empty).Count, snapshot.CommandsRegistered);
         Assert.Equal(services.Clock.UtcNow, snapshot.ConnectedSince);
         Assert.Same(gateway, bot.ReadyGateway);
 
@@ -143,7 +143,7 @@ public class DiscordBotServiceTests
         await bot.TickAsync(ct);
         Assert.Equal(1, gateway.RegisterCalls);
 
-        await services.ConfigureAsync(s => s.DiscordMeCommand = true, ct);
+        await services.ConfigureAsync(s => s.SwitchCommand("me", true), ct);
         await bot.TickAsync(ct);
 
         Assert.Equal(2, gateway.RegisterCalls);
@@ -151,7 +151,7 @@ public class DiscordBotServiceTests
         Assert.Equal(DiscordCommands.All.Count, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
-        await services.ConfigureAsync(s => s.DiscordMeCommand = false, ct);
+        await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);
         await bot.TickAsync(ct);
 
         Assert.Equal(3, gateway.RegisterCalls);
@@ -169,7 +169,7 @@ public class DiscordBotServiceTests
         var bot = Service(services, gateways);
 
         await ConfigureBotAsync(services, "token", "424242", ct);
-        await services.ConfigureAsync(s => s.DiscordMeCommand = true, ct);
+        await services.ConfigureAsync(s => s.SwitchCommand("me", true), ct);
         await bot.TickAsync(ct);
         await gateway.RaiseReadyAsync();
 
@@ -458,7 +458,7 @@ public class DiscordBotServiceTests
 
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(DiscordCommands.For(meCommand: false).Count, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.For(DiscordCommandSwitches.Empty).Count, snapshot.CommandsRegistered);
         Assert.Null(snapshot.LastError);
         Assert.Same(gateway, bot.ReadyGateway);
         Assert.Equal(1, gateway.RegisterCalls);

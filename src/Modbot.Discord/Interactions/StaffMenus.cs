@@ -30,8 +30,8 @@ public static class StaffMenus
     /// <summary>The two menus, both hidden from members without Timeout Members until an admin says otherwise.</summary>
     public static IReadOnlyList<DiscordCommandDefinition> All { get; } =
     [
-        new(LookUp, string.Empty, [], DiscordCommandKind.User, StaffOnly: true),
-        new(AddNote, string.Empty, [], DiscordCommandKind.User, StaffOnly: true),
+        new(LookUp, string.Empty, [], DiscordCommandKind.User, ShownTo: DiscordShownTo.Moderators),
+        new(AddNote, string.Empty, [], DiscordCommandKind.User, ShownTo: DiscordShownTo.Moderators),
     ];
 
     /// <summary>The permission each menu needs, as the web app's own page or button asks for it.</summary>

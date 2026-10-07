@@ -193,9 +193,17 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 | `/recent count:` | The latest moderation events, in the group and on Discord, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone who connected Discord to their Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
-| `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **Members can use /me** is on; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
+| `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 | `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
 | `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+
+### Switching commands on and off
+
+**Settings → Discord → Commands** has one switch for every command and right-click menu, with its
+name and what it does. A command that is off is not registered: nobody sees it in Discord. Press
+**Save commands**; the bot registers the new list within a few seconds, without reconnecting.
+Everything is on except `/me`, which stays off until you turn it on. The commands you never touched
+keep following their default if a later version changes it. Nothing can be turned on in the demo.
 
 ### Who sees the commands in Discord
 

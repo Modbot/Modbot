@@ -81,11 +81,12 @@ public sealed class DiscordBotService : BackgroundService
     private int _commandsRegistered;
 
     /// <summary>
-    /// Whether the commands registered on the server include <c>/me</c>, or null when nothing was
-    /// registered this session. Compared with the switch on every pass, so turning it on or off
-    /// registers the commands again without a reconnect (Discord /me design §5).
+    /// The names of the commands registered on the server, or null when nothing was registered
+    /// this session. Compared with the names the switches ask for on every pass, so turning a
+    /// command on or off registers the commands again without a reconnect (Discord /me design §5,
+    /// Discord commands design §3.8).
     /// </summary>
-    private bool? _registeredMe;
+    private IReadOnlySet<string>? _registeredNames;
 
     /// <summary>
     /// One write to the channel and role lists at a time. The gateway raises its events on the
@@ -259,15 +260,16 @@ public sealed class DiscordBotService : BackgroundService
 
         }
 
-        // "Members can use /me" changed since the commands were registered: register them again.
+        // A command was switched on or off since the commands were registered: register them again.
+        // Compared by the set of names, so saving the switches without changing one does nothing.
         // Discord limits how often a server's commands may be replaced, but an operator flipping
         // a switch is nowhere near it.
         if (_gateway is { State: DiscordGatewayState.Ready } registering
             && _guildId is { } registerGuild
-            && _registeredMe is { } registered
-            && registered != config.MeCommand)
+            && _registeredNames is { } registered
+            && !registered.SetEquals(DiscordCommands.NamesFor(config.Commands)))
         {
-            await RegisterCommandsAsync(registering, registerGuild, config.MeCommand).ConfigureAwait(false);
+            await RegisterCommandsAsync(registering, registerGuild, config.Commands).ConfigureAwait(false);
         }
 
         // An event can be missed. If the gateway can post but the status says otherwise, the
@@ -396,12 +398,12 @@ public sealed class DiscordBotService : BackgroundService
         if (_sessionOptions is { MemberEvents: true, MessageContent: true })
             _status.IntentsAllowed();
 
-        var meCommand = await ReadMeCommandAsync().ConfigureAwait(false);
+        var switches = await ReadCommandSwitchesAsync().ConfigureAwait(false);
 
         // A refusal leaves the bot connected but useless. It says so and stays signed in: the
         // channel poster still works, and a fixed guild id is picked up by the settings poll
         // without a restart.
-        if (await RegisterCommandsAsync(gateway, guildId, meCommand).ConfigureAwait(false))
+        if (await RegisterCommandsAsync(gateway, guildId, switches).ConfigureAwait(false))
             _log.Information("Discord bot connected; {Count} commands registered on the guild", _commandsRegistered);
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
@@ -409,21 +411,22 @@ public sealed class DiscordBotService : BackgroundService
     }
 
     /// <summary>
-    /// Replaces the server's slash commands with the ones for the current <c>/me</c> switch.
-    /// Returns whether Discord took them.
+    /// Replaces the server's commands with the ones the switches leave on. Returns whether Discord
+    /// took them.
     /// </summary>
     /// <remarks>
     /// A refusal is remembered as done, so the settings poll does not ask again every few seconds;
     /// the Health page says what went wrong, and the next sign-in or switch change tries again.
     /// </remarks>
-    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, bool meCommand)
+    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, string switches)
     {
-        _registeredMe = meCommand;
+        var commands = DiscordCommands.For(switches);
+        _registeredNames = commands.Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
         try
         {
             var count = await gateway
-                .RegisterGuildCommandsAsync(guildId, DiscordCommands.For(meCommand), CancellationToken.None)
+                .RegisterGuildCommandsAsync(guildId, commands, CancellationToken.None)
                 .ConfigureAwait(false);
 
             _commandsRegistered = count;
@@ -442,17 +445,13 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
-    /// <summary>Whether "Members can use /me" is on.</summary>
-    private async Task<bool> ReadMeCommandAsync()
+    /// <summary>The <c>discord_commands</c> setting: which commands are switched on or off.</summary>
+    private async Task<string> ReadCommandSwitchesAsync()
     {
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
-        return await db.Settings.AsNoTracking()
-            .Where(s => s.Id == 1)
-            .Select(s => s.DiscordMeCommand)
-            .FirstOrDefaultAsync(CancellationToken.None)
-            .ConfigureAwait(false);
+        return await CommandSwitchSetting.ReadAsync(db, CancellationToken.None).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -980,9 +979,11 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // A slash command may answer with a form as its first answer too; a null reply means
+            // it did.
             var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
-            var reply = await handler.HandleAsync(call, CancellationToken.None).ConfigureAwait(false);
-            await call.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
+            if (await handler.RunAsync(call, CancellationToken.None).ConfigureAwait(false) is { } reply)
+                await call.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -1131,7 +1132,7 @@ public sealed class DiscordBotService : BackgroundService
         var gateway = _gateway;
         _gateway = null;
         _guildId = null;
-        _registeredMe = null;
+        _registeredNames = null;
         _disconnectedAt = null;
 
         StopReading();
@@ -1183,12 +1184,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordMeCommand })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordCommands })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
         if (settings is null)
-            return new BotConfig(null, null, false, false, false);
+            return new BotConfig(null, null, false, false, DiscordCommandSwitches.Empty);
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
@@ -1201,7 +1202,7 @@ public sealed class DiscordBotService : BackgroundService
             string.IsNullOrWhiteSpace(settings.DiscordGuildId) ? null : settings.DiscordGuildId.Trim(),
             sendsEvents,
             settings.DiscordLinkPromptNewMembers,
-            settings.DiscordMeCommand);
+            settings.DiscordCommands);
 
     }
 
@@ -1211,6 +1212,6 @@ public sealed class DiscordBotService : BackgroundService
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
-    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, bool MeCommand);
+    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, string Commands);
 
 }

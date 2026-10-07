@@ -13,7 +13,7 @@ const MENTION_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages'
 /**
  * Settings → Discord → Account linking (Discord account linking design §4): the OAuth client that
  * "Sign in with Discord" uses, the two links built from it, the prompt for new joiners, the
- * roles a linked member is given, and whether members can use /me (Discord /me design).
+ * roles a linked member is given. (/me's switch is on the Commands card with the other commands.)
  *
  * Its own card with its own Save, because it saves to its own endpoint. The secret is write-only:
  * a blank field keeps the stored one.
@@ -64,7 +64,6 @@ function LinkingForm({
   const [backupChannelId, setBackupChannelId] = useState(settings.backupChannelId ?? '')
   const [linkedRoleId, setLinkedRoleId] = useState(settings.linkedRoleId ?? '')
   const [eighteenPlusRoleId, setEighteenPlusRoleId] = useState(settings.eighteenPlusRoleId ?? '')
-  const [meCommand, setMeCommand] = useState(settings.meCommand)
 
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -84,7 +83,6 @@ function LinkingForm({
         backupChannelId,
         linkedRoleId,
         eighteenPlusRoleId,
-        meCommand,
       })
       .then((next) => {
         onSaved(next)
@@ -132,9 +130,6 @@ function LinkingForm({
         />
         <RolePicker label="Linked role" value={linkedRoleId} onChange={setLinkedRoleId} needsAssign />
         <RolePicker label="18+ role" value={eighteenPlusRoleId} onChange={setEighteenPlusRoleId} needsAssign />
-        <Switch checked={meCommand} onChange={setMeCommand}>
-          Members can use /me
-        </Switch>
       </div>
     </SettingsCard>
   )

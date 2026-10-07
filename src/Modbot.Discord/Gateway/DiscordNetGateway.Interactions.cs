@@ -5,18 +5,11 @@ using Discord.WebSocket;
 namespace Modbot.Discord.Gateway;
 
 /// <summary>
-/// Right-click menus, buttons and forms: the interactions that can be answered with a form, and so
-/// are not acknowledged before the handler runs (acting from Discord design §11).
+/// Slash commands, right-click menus, buttons and forms: the interactions that can be answered with
+/// a form, and so are not acknowledged before the handler runs (acting from Discord design §11).
 /// </summary>
 public sealed partial class DiscordNetGateway
 {
-    /// <summary>
-    /// How long a handler has to show a form, reply or rewrite the message before the gateway
-    /// acknowledges the interaction on its behalf. Discord allows three seconds in all, and the
-    /// interaction has already spent some of them reaching Modbot.
-    /// </summary>
-    private static readonly TimeSpan AnswerWithin = TimeSpan.FromSeconds(2);
-
     /// <summary>The line above a card that says who dealt with it.</summary>
     private const int HandledTextLength = 2000;
 
@@ -60,9 +53,140 @@ public sealed partial class DiscordNetGateway
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// A slash command. Not acknowledged first, so it can answer with a form; acknowledged after two
+    /// seconds if it has said nothing, and then as public or private by its definition. That is read
+    /// here, <em>before</em> anything is acknowledged: Discord fixes a reply's audience when the
+    /// interaction is acknowledged.
+    /// </summary>
+    private async Task DispatchAsync(SocketSlashCommand command)
+    {
+        var (subcommand, options) = ReadOptions(command.Data.Options);
+
+        var answer = new DiscordInteractionAnswer(
+            new SocketSender(command),
+            _log,
+            inPublic: RepliesInPublic(_registered, command.Data.Name, options));
+        answer.AcknowledgeIfSilent();
+
+        var call = new DiscordCommandCall(
+            Text(command.User.Id),
+            command.User.Username,
+            command.Data.Name,
+            options,
+            (reply, _) => answer.ReplyAsync(reply),
+            (form, _) => answer.ShowFormAsync(form))
+        {
+            Subcommand = subcommand,
+        };
+
+        var handler = CommandReceived;
+        if (handler is not null)
+            await handler(call).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Whether the answer to this run of a command is for the whole channel, from the commands
+    /// registered and the options as typed. A command that is not registered, or not known, answers
+    /// in private: nothing is made public by accident.
+    /// </summary>
+    public static bool RepliesInPublic(
+        IReadOnlyList<DiscordCommandDefinition> registered, string commandName, IReadOnlyDictionary<string, string> options)
+    {
+        ArgumentNullException.ThrowIfNull(registered);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var definition = registered.FirstOrDefault(c =>
+            c.Kind == DiscordCommandKind.Slash && string.Equals(c.Name, commandName, StringComparison.Ordinal));
+
+        return definition?.RepliesInPublic(options) ?? false;
+    }
+
+    /// <summary>
+    /// What was typed after the command's name: the subcommand, when there is one, and every option
+    /// by name. The options of a subcommand sit beside each other, not under it.
+    /// </summary>
+    private static (string? Subcommand, Dictionary<string, string> Options) ReadOptions(
+        IEnumerable<SocketSlashCommandDataOption> typed)
+    {
+        var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        string? subcommand = null;
+
+        void Walk(IEnumerable<SocketSlashCommandDataOption> level)
+        {
+            foreach (var option in level)
+            {
+                if (option.Type is ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup)
+                {
+                    subcommand = subcommand is null ? option.Name : subcommand + " " + option.Name;
+                    Walk(option.Options);
+                    continue;
+                }
+
+                options[option.Name] = OptionText(option.Value);
+            }
+        }
+
+        Walk(typed);
+        return (subcommand, options);
+    }
+
+    /// <summary>
+    /// One option's value as the text a <see cref="DiscordCommandCall"/> carries. A member or a
+    /// channel picked from Discord's list arrives as the thing itself, and is carried by its id: the
+    /// name it shows is somebody's to change, the id is not. A yes/no is <c>true</c> or <c>false</c>.
+    /// </summary>
+    public static string OptionText(object? value) => value switch
+    {
+        IUser user => Text(user.Id),
+        IChannel channel => Text(channel.Id),
+        IRole role => Text(role.Id),
+        bool yes => yes ? "true" : "false",
+        var other => Convert.ToString(other, CultureInfo.InvariantCulture) ?? string.Empty,
+    };
+
+    /// <summary>
+    /// What the person has already filled in while typing into another option: the subcommand, and
+    /// every option but the one being typed and the ones left empty.
+    /// </summary>
+    public static (string? Subcommand, Dictionary<string, string> Options) OtherOptions(
+        IEnumerable<(string Name, bool IsSubcommand, object? Value, bool Focused)> typed)
+    {
+        ArgumentNullException.ThrowIfNull(typed);
+
+        var options = new Dictionary<string, string>(StringComparer.Ordinal);
+        string? subcommand = null;
+
+        foreach (var (name, isSubcommand, value, focused) in typed)
+        {
+            if (isSubcommand)
+            {
+                subcommand = subcommand is null ? name : subcommand + " " + name;
+                continue;
+            }
+
+            if (focused)
+                continue;
+
+            var text = OptionText(value);
+            if (text.Length > 0)
+                options[name] = text;
+        }
+
+        return (subcommand, options);
+    }
+
+    /// <summary>The options of an autocomplete request in the shape <see cref="OtherOptions"/> reads.</summary>
+    private static (string? Subcommand, Dictionary<string, string> Options) OtherOptions(IEnumerable<AutocompleteOption> typed)
+        => OtherOptions(typed.Select(o => (
+            o.Name,
+            o.Type is ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup,
+            (object?)o.Value,
+            o.Focused)));
+
     private async Task DispatchMenuAsync(SocketCommandBase command, DiscordCommandKind kind)
     {
-        var answer = new InteractionAnswer(command, _log);
+        var answer = new DiscordInteractionAnswer(new SocketSender(command), _log);
         answer.AcknowledgeIfSilent();
 
         DiscordTargetUser? user = null;
@@ -120,7 +244,7 @@ public sealed partial class DiscordNetGateway
 
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {
-        var answer = new InteractionAnswer(press, _log);
+        var answer = new DiscordInteractionAnswer(new SocketSender(press), _log);
 
         // A staff button may open a form, which has to be the first answer, so it is not
         // acknowledged first; everything else is, straight away.
@@ -155,7 +279,7 @@ public sealed partial class DiscordNetGateway
 
     private async Task DispatchFormAsync(SocketModal form)
     {
-        var answer = new InteractionAnswer(form, _log);
+        var answer = new DiscordInteractionAnswer(new SocketSender(form), _log);
         answer.AcknowledgeIfSilent();
 
         var values = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
@@ -268,231 +392,107 @@ public sealed partial class DiscordNetGateway
     private static string Cut(string text, int length) => Interactions.StaffInteractionHandler.Cut(text, length);
 
     /// <summary>
-    /// The one answer an interaction gets, in whichever form the handler chooses: a form, a reply,
-    /// or a rewrite of the message a button sits on. Acknowledges on the handler's behalf when it
-    /// has said nothing within <see cref="AnswerWithin"/>, so a slow database is a late answer
-    /// rather than Discord's "This interaction failed".
+    /// A Discord.Net interaction as <see cref="DiscordInteractionAnswer"/> talks to it. A button
+    /// press is acknowledged as "thinking…" in place of a plain defer, and is the one kind whose
+    /// message can be rewritten.
     /// </summary>
-    private sealed class InteractionAnswer(SocketInteraction interaction, Serilog.ILogger log)
+    private sealed class SocketSender(SocketInteraction interaction) : IInteractionSender
     {
-        private readonly SemaphoreSlim _gate = new(1, 1);
+        private SocketMessageComponent? Press => interaction as SocketMessageComponent;
 
-        /// <summary>Discord has had its first answer: a reply, a form, a rewrite or a defer.</summary>
-        private bool _answered;
+        public bool CanRewrite => Press is not null;
 
-        /// <summary>The first answer was a form; nothing can follow it.</summary>
-        private bool _formShown;
+        public Task DeferAsync(bool privately)
+            => Press is { } press
+                ? press.DeferLoadingAsync(privately)
+                : interaction.DeferAsync(privately);
 
-        /// <summary>The first answer rewrote the button's message, so later rewrites edit it again.</summary>
-        private bool _rewriting;
+        public Task ShowFormAsync(DiscordForm form)
+            => interaction.RespondWithModalAsync(ToModal(form));
 
-        public void AcknowledgeIfSilent()
-            => _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(AnswerWithin).ConfigureAwait(false);
-                    await _gate.WaitAsync().ConfigureAwait(false);
+        public Task RespondAsync(DiscordReply reply, bool privately)
+            => SendAsync(reply, privately, first: true);
 
-                    try
-                    {
-                        if (_answered)
-                            return;
+        public Task FollowupAsync(DiscordReply reply, bool privately)
+            => SendAsync(reply, privately, first: false);
 
-                        if (interaction is SocketMessageComponent press)
-                            await press.DeferLoadingAsync(ephemeral: true).ConfigureAwait(false);
-                        else
-                            await interaction.DeferAsync(ephemeral: true).ConfigureAwait(false);
-
-                        _answered = true;
-                    }
-                    finally
-                    {
-                        _gate.Release();
-                    }
-                }
-                catch (Exception e)
-                {
-                    log.Debug(e, "Could not acknowledge a slow interaction");
-                }
-            });
-
-        /// <summary>
-        /// Acknowledges now, before the handler runs: the answer then arrives as a new private
-        /// message, after Discord's "thinking…". For a press that never shows a form.
-        /// </summary>
-        public async Task AcknowledgeNowAsync()
+        private async Task SendAsync(DiscordReply reply, bool privately, bool first)
         {
-            await _gate.WaitAsync().ConfigureAwait(false);
+            var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
+            var buttons = Buttons(reply.Links, reply.Actions) is { Components.Count: > 0 } b ? b : null;
+            var files = Files(reply.Pictures);
 
             try
             {
-                if (_answered)
-                    return;
-
-                if (interaction is SocketMessageComponent press)
-                    await press.DeferLoadingAsync(ephemeral: true).ConfigureAwait(false);
-                else
-                    await interaction.DeferAsync(ephemeral: true).ConfigureAwait(false);
-
-                _answered = true;
-            }
-            finally
-            {
-                _gate.Release();
-            }
-        }
-
-        public async Task ShowFormAsync(DiscordForm form)
-        {
-            await _gate.WaitAsync().ConfigureAwait(false);
-
-            try
-            {
-                if (_answered)
-                    throw new InvalidOperationException("Too late to show a form: Discord's three seconds are up.");
-
-                await interaction.RespondWithModalAsync(ToModal(form)).ConfigureAwait(false);
-                _answered = true;
-                _formShown = true;
-            }
-            finally
-            {
-                _gate.Release();
-            }
-        }
-
-        public async Task ReplyAsync(DiscordReply reply)
-        {
-            await _gate.WaitAsync().ConfigureAwait(false);
-
-            try
-            {
-                if (_formShown)
+                if (files.Count > 0)
                 {
-                    log.Debug("A reply after a form was dropped: Discord takes nothing after a form");
-                    return;
-                }
-
-                var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
-                var buttons = Buttons(reply.Links, reply.Actions) is { Components.Count: > 0 } b ? b : null;
-                var files = Files(reply.Pictures);
-
-                try
-                {
-                    if (!_answered)
+                    if (first)
                     {
-                        if (files.Count > 0)
-                        {
-                            await interaction.RespondWithFilesAsync(
-                                    attachments: files,
-                                    text: reply.Text,
-                                    embeds: embeds,
-                                    ephemeral: true,
-                                    allowedMentions: AllowedMentions.None,
-                                    components: buttons)
-                                .ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            await interaction.RespondAsync(
-                                    text: reply.Text,
-                                    embeds: embeds,
-                                    ephemeral: true,
-                                    allowedMentions: AllowedMentions.None,
-                                    components: buttons)
-                                .ConfigureAwait(false);
-                        }
-
-                        _answered = true;
-                        return;
-                    }
-
-                    if (files.Count > 0)
-                    {
-                        await interaction.FollowupWithFilesAsync(
+                        await interaction.RespondWithFilesAsync(
                                 attachments: files,
                                 text: reply.Text,
                                 embeds: embeds,
-                                ephemeral: true,
+                                ephemeral: privately,
                                 allowedMentions: AllowedMentions.None,
                                 components: buttons)
                             .ConfigureAwait(false);
                     }
                     else
                     {
-                        await interaction.FollowupAsync(
+                        await interaction.FollowupWithFilesAsync(
+                                attachments: files,
                                 text: reply.Text,
                                 embeds: embeds,
-                                ephemeral: true,
+                                ephemeral: privately,
                                 allowedMentions: AllowedMentions.None,
                                 components: buttons)
                             .ConfigureAwait(false);
                     }
+
+                    return;
                 }
-                finally
+
+                if (first)
                 {
-                    foreach (var file in files)
-                        file.Dispose();
+                    await interaction.RespondAsync(
+                            text: reply.Text,
+                            embeds: embeds,
+                            ephemeral: privately,
+                            allowedMentions: AllowedMentions.None,
+                            components: buttons)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await interaction.FollowupAsync(
+                            text: reply.Text,
+                            embeds: embeds,
+                            ephemeral: privately,
+                            allowedMentions: AllowedMentions.None,
+                            components: buttons)
+                        .ConfigureAwait(false);
                 }
             }
             finally
             {
-                _gate.Release();
+                foreach (var file in files)
+                    file.Dispose();
             }
         }
 
-        /// <summary>
-        /// Rewrites the message the button sits on: text, cards and buttons, with no buttons when the
-        /// reply has none. Pictures are not sent; nothing that rewrites a message today has one.
-        /// </summary>
-        public async Task UpdateAsync(DiscordReply reply)
+        /// <summary>Text, cards and buttons, with no buttons when the reply has none. Pictures are not sent.</summary>
+        private static void Fill(MessageProperties m, DiscordReply reply)
         {
-            if (interaction is not SocketMessageComponent press)
-            {
-                await ReplyAsync(reply).ConfigureAwait(false);
-                return;
-            }
-
-            await _gate.WaitAsync().ConfigureAwait(false);
-
-            var deferredAsLoading = false;
-
-            try
-            {
-                void Fill(MessageProperties m)
-                {
-                    m.Content = reply.Text ?? string.Empty;
-                    m.Embeds = reply.Embeds.Select(ToEmbed).ToArray();
-                    m.Components = Buttons(reply.Links, reply.Actions);
-                    m.AllowedMentions = AllowedMentions.None;
-                }
-
-                if (!_answered)
-                {
-                    await press.UpdateAsync(Fill).ConfigureAwait(false);
-                    _answered = true;
-                    _rewriting = true;
-                    return;
-                }
-
-                if (_rewriting)
-                {
-                    await press.ModifyOriginalResponseAsync(Fill).ConfigureAwait(false);
-                    return;
-                }
-
-                // Acknowledged as "thinking…" because the handler was slow: the answer becomes a
-                // new private message instead.
-                deferredAsLoading = true;
-            }
-            finally
-            {
-                _gate.Release();
-            }
-
-            if (deferredAsLoading)
-                await ReplyAsync(reply).ConfigureAwait(false);
+            m.Content = reply.Text ?? string.Empty;
+            m.Embeds = reply.Embeds.Select(ToEmbed).ToArray();
+            m.Components = Buttons(reply.Links, reply.Actions);
+            m.AllowedMentions = AllowedMentions.None;
         }
+
+        public Task RewriteAsync(DiscordReply reply)
+            => Press!.UpdateAsync(m => Fill(m, reply));
+
+        public Task RewriteAgainAsync(DiscordReply reply)
+            => Press!.ModifyOriginalResponseAsync(m => Fill(m, reply));
     }
 }

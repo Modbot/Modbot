@@ -97,7 +97,7 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
 
         // /me on: while it is off, nobody's choice counts.
         var settings = await context.GetSettingsAsync(Ct);
-        settings.DiscordMeCommand = true;
+        settings.SwitchCommand("me", true);
 
         foreach (var id in vrchatUserIds)
         {

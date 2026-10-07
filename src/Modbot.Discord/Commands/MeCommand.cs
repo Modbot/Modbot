@@ -7,6 +7,7 @@ using Modbot.Analytics.Reviews;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Cards;
@@ -133,11 +134,13 @@ public sealed class MeCommand
         if (_demo is { Decided: true, IsOn: true })
             return false;
 
-        return await _db.Settings.AsNoTracking()
+        var commands = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => s.DiscordMeCommand)
+            .Select(s => s.DiscordCommands)
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
+
+        return DiscordCommandSwitches.IsOn(commands, DiscordCommands.Me);
     }
 
     /// <summary>Counts one use by this account, and says whether it is allowed.</summary>

@@ -173,8 +173,12 @@ Discord wants an answer within three seconds, and a form must be that first answ
 a "thinking…" reply. So right-click menus, the staff buttons (§7's, and a confirmation's) and form
 submissions are no longer deferred before the handler runs. The handler shows a form, replies, or
 changes the message the button sits on; if it has done none of these after two seconds, the gateway
-defers on its behalf and the answer arrives as a follow-up. Slash commands still defer first, as
-before.
+defers on its behalf and the answer arrives as a follow-up. Slash commands went the same way
+(changed 2026-10-07, Discord commands design §3.2): they used to defer first, and now answer through
+the same machinery (`DiscordInteractionAnswer`), so a slash command can open a form as its first
+answer. The two-second acknowledgement is as public or private as the command's definition says
+(`DiscordCommandDefinition.Reply`), read before anything is acknowledged, because Discord fixes a
+reply's audience when the interaction is acknowledged.
 
 **Every other button is still acknowledged the moment it arrives** (added 2026-10-03, when this was
 brought onto staging beside the join gate). The join gate's buttons -- a member's Get in, I agree and

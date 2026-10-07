@@ -18,6 +18,30 @@ public enum DiscordOptionKind
     /// Discord user id as text, never a name typed by hand.
     /// </summary>
     Member = 3,
+
+    /// <summary>
+    /// A channel of the server, picked from Discord's own list. The command receives the channel's
+    /// id as text.
+    /// </summary>
+    Channel = 4,
+
+    /// <summary>
+    /// One of a short list the command names up front (<see cref="DiscordCommandOption.Choices"/>).
+    /// The command receives the picked choice's value as text.
+    /// </summary>
+    Choice = 5,
+
+    /// <summary>Yes or no. The command receives <c>true</c> or <c>false</c> as text.</summary>
+    YesNo = 6,
+}
+
+/// <summary>One thing a <see cref="DiscordOptionKind.Choice"/> option offers.</summary>
+/// <param name="Name">What the person sees. Discord allows 100 characters.</param>
+/// <param name="Value">What the command receives. Discord allows 100 characters.</param>
+public sealed record DiscordOptionChoice(string Name, string Value)
+{
+    /// <summary>The most choices Discord shows under one option.</summary>
+    public const int Most = 25;
 }
 
 /// <summary>One argument of a slash command, as Discord needs it described up front.</summary>
@@ -25,6 +49,7 @@ public enum DiscordOptionKind
 /// Discord asks the bot for suggestions while the option is being typed
 /// (<see cref="DiscordSuggestionAsk"/>). Text options only.
 /// </param>
+/// <param name="Choices">The list a <see cref="DiscordOptionKind.Choice"/> option offers, at most 25.</param>
 public sealed record DiscordCommandOption(
     string Name,
     string Description,
@@ -32,7 +57,43 @@ public sealed record DiscordCommandOption(
     bool Required,
     long? Min = null,
     long? Max = null,
-    bool Suggests = false);
+    bool Suggests = false,
+    IReadOnlyList<DiscordOptionChoice>? Choices = null);
+
+/// <summary>
+/// One step under a slash command that has subcommands, typed as <c>/gate waiting</c>. A command
+/// has either options of its own or subcommands, never both: Discord refuses the mix.
+/// </summary>
+public sealed record DiscordSubcommand(string Name, string Description, IReadOnlyList<DiscordCommandOption> Options);
+
+/// <summary>Who sees a command's answer.</summary>
+public enum DiscordReplyKind
+{
+    /// <summary>Only the person who ran it. What every command did until now.</summary>
+    Private = 0,
+
+    /// <summary>Everybody in the channel.</summary>
+    Public = 1,
+
+    /// <summary>
+    /// Everybody in the channel, unless the person says otherwise with a yes/no option named by
+    /// <see cref="DiscordCommandDefinition.PrivateOption"/>.
+    /// </summary>
+    Chosen = 2,
+}
+
+/// <summary>Who Discord shows a command to, until a server admin changes it under Integrations.</summary>
+public enum DiscordShownTo
+{
+    /// <summary>Everybody.</summary>
+    Everyone = 0,
+
+    /// <summary>Members who may time others out (Timeout Members). The moderation commands.</summary>
+    Moderators = 1,
+
+    /// <summary>Members who may manage events (Manage Events). The calendar and post commands.</summary>
+    EventHosts = 2,
+}
 
 /// <summary>Where a command is run from.</summary>
 public enum DiscordCommandKind
@@ -53,18 +114,54 @@ public enum DiscordCommandKind
 /// shows, so it is ordinary words.
 /// </param>
 /// <param name="Description">A slash command's one line. Discord takes none for a right-click menu.</param>
-/// <param name="StaffOnly">
-/// Discord shows it only to members who may time others out (Timeout Members), until a server admin
-/// changes who sees it under Server Settings → Integrations (<c>default_member_permissions</c>).
-/// Hiding is all it does: Modbot still checks the caller's Modbot account and permission on every
-/// run.
+/// <param name="ShownTo">
+/// Who Discord shows it to, until a server admin changes that under Server Settings → Integrations
+/// (<c>default_member_permissions</c>). Hiding is all it does: Modbot still checks the caller's
+/// Modbot account and permission on every run.
+/// </param>
+/// <param name="Reply">
+/// Who sees the answer. The gateway reads it <em>before</em> it acknowledges the command, because
+/// Discord fixes a reply's audience when it is acknowledged: a public answer has to be acknowledged
+/// as public.
+/// </param>
+/// <param name="PrivateOption">
+/// For <see cref="DiscordReplyKind.Chosen"/>: the name of the yes/no option that makes the answer
+/// private.
+/// </param>
+/// <param name="Subcommands">
+/// The steps under the command, or null for none. Then <paramref name="Options"/> must be empty.
 /// </param>
 public sealed record DiscordCommandDefinition(
     string Name,
     string Description,
     IReadOnlyList<DiscordCommandOption> Options,
     DiscordCommandKind Kind = DiscordCommandKind.Slash,
-    bool StaffOnly = false);
+    DiscordShownTo ShownTo = DiscordShownTo.Everyone,
+    DiscordReplyKind Reply = DiscordReplyKind.Private,
+    string? PrivateOption = null,
+    IReadOnlyList<DiscordSubcommand>? Subcommands = null)
+{
+    /// <summary>Hidden from members who lack the Discord permission for <see cref="ShownTo"/>.</summary>
+    public bool StaffOnly => ShownTo != DiscordShownTo.Everyone;
+
+    /// <summary>
+    /// Whether the answer to a run with these options is for the whole channel. Decided before the
+    /// command is acknowledged, from the options alone.
+    /// </summary>
+    public bool RepliesInPublic(IReadOnlyDictionary<string, string> options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return Reply switch
+        {
+            DiscordReplyKind.Public => true,
+            DiscordReplyKind.Chosen => !(PrivateOption is { } name
+                && options.TryGetValue(name, out var asked)
+                && string.Equals(asked, "true", StringComparison.OrdinalIgnoreCase)),
+            _ => false,
+        };
+    }
+}
 
 /// <summary>One suggestion offered under an option while it is being typed.</summary>
 /// <param name="Name">What the person sees in the list. Discord allows 100 characters.</param>
@@ -85,14 +182,24 @@ public sealed record DiscordSuggestion(string Name, string Value)
 /// </summary>
 public sealed class DiscordSuggestionAsk
 {
+    private static readonly IReadOnlyDictionary<string, string> EmptyOptions = new Dictionary<string, string>();
+
     private readonly Func<IReadOnlyList<DiscordSuggestion>, CancellationToken, Task> _answer;
 
+    /// <param name="subcommand">The subcommand being typed, or null when the command has none.</param>
+    /// <param name="options">
+    /// The other options already filled in, by name, so one option's suggestions can depend on
+    /// another's: the dates to suggest depend on the event picked. The option being typed is not in
+    /// it, and neither is an option left empty.
+    /// </param>
     public DiscordSuggestionAsk(
         string discordUserId,
         string commandName,
         string optionName,
         string typed,
-        Func<IReadOnlyList<DiscordSuggestion>, CancellationToken, Task> answer)
+        Func<IReadOnlyList<DiscordSuggestion>, CancellationToken, Task> answer,
+        string? subcommand = null,
+        IReadOnlyDictionary<string, string>? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
@@ -104,7 +211,19 @@ public sealed class DiscordSuggestionAsk
         OptionName = optionName;
         Typed = typed ?? string.Empty;
         _answer = answer;
+        Subcommand = subcommand;
+        Options = options ?? EmptyOptions;
     }
+
+    /// <summary>The subcommand being typed, or null.</summary>
+    public string? Subcommand { get; }
+
+    /// <summary>The other options already filled in, by name. See the constructor.</summary>
+    public IReadOnlyDictionary<string, string> Options { get; }
+
+    /// <summary>One of the other options as filled in, or null when it is empty.</summary>
+    public string? Option(string name)
+        => Options.TryGetValue(name, out var value) ? value : null;
 
     public string DiscordUserId { get; }
 
@@ -301,7 +420,10 @@ public sealed record DiscordTargetMessage(
     DateTimeOffset SentAt,
     string Url);
 
-/// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
+/// <summary>
+/// What the bot says back to a command. Visible only to the person who asked, unless the command
+/// replies in public (<see cref="DiscordCommandDefinition.Reply"/>).
+/// </summary>
 /// <param name="Links">Buttons under the reply that open a web address, or null for none.</param>
 /// <param name="Pictures">Files the reply's cards point at by <c>attachment://name</c>.</param>
 /// <param name="Actions">Buttons under the reply that the bot answers when pressed, after the links.</param>
@@ -330,8 +452,8 @@ public sealed class DiscordCommandCall
     private readonly Func<DiscordForm, CancellationToken, Task>? _showForm;
 
     /// <param name="showForm">
-    /// Shows a form as the answer. Null where none can be shown: a slash command has already been
-    /// acknowledged before it is raised.
+    /// Shows a form as the answer. Null where none can be shown. Every command can show one as its
+    /// first answer: none is acknowledged until it has answered or two seconds have passed.
     /// </param>
     public DiscordCommandCall(
         string discordUserId,
@@ -362,6 +484,9 @@ public sealed class DiscordCommandCall
 
     public IReadOnlyDictionary<string, string> Options { get; }
 
+    /// <summary>The subcommand that was run, or null for a command with none.</summary>
+    public string? Subcommand { get; init; }
+
     /// <summary>A slash command, or one of the right-click menus.</summary>
     public DiscordCommandKind Kind { get; init; } = DiscordCommandKind.Slash;
 
@@ -373,6 +498,10 @@ public sealed class DiscordCommandCall
 
     public string? Option(string name)
         => Options.TryGetValue(name, out var value) ? value : null;
+
+    /// <summary>A yes/no option: true only when it was answered yes.</summary>
+    public bool Flag(string name)
+        => string.Equals(Option(name), "true", StringComparison.OrdinalIgnoreCase);
 
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
 
@@ -786,8 +915,10 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <summary>
     /// Somebody ran one of the bot's slash commands or right-click menus in the session's own server
     /// (<see cref="DiscordGatewayOptions.GuildId"/>). Commands from anywhere else are never raised.
-    /// A slash command arrives already acknowledged; a right-click menu does not, so it can be
-    /// answered with a form (acting from Discord design §11).
+    /// Neither is acknowledged first: the handler answers, or shows a form, and the gateway
+    /// acknowledges on its behalf after two seconds, as private or as public by the command's
+    /// <see cref="DiscordCommandDefinition.Reply"/> (acting from Discord design §11, Discord commands
+    /// design §3.2).
     /// </summary>
     event Func<DiscordCommandCall, Task>? CommandReceived;
 

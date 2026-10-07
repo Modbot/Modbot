@@ -78,10 +78,12 @@ The staff answer with the purge tool and close the review with a note. Nothing h
 
 ## 5. The switch
 
-**Members can use /me**, on the Account linking card under Settings → Discord, because `/me` rests on
-the link. **Off by default**, for new and existing deployments alike: a command every member can run
-is the operator's choice. Saving writes the usual "settings changed" entry (`discordLinking`,
-field `meCommand`).
+**/me**, on the Commands card under Settings → Discord (changed 2026-10-07: it was the **Members can
+use /me** switch on the Account linking card, field `meCommand` of `discordLinking`; the Discord
+commands design §3.8 made it one switch among the bot's commands, and a migration copied the value
+into the `discord_commands` setting under the name `me`). **Off by default**, for new and existing
+deployments alike: a command every member can run is the operator's choice. Saving writes the
+usual "settings changed" entry (`discordCommands`, field `me`).
 
 While off, `/me` is **not registered** on the server. That was chosen over "registered and
 answering that it is off": a member should not see a command that would only refuse them. The bot
