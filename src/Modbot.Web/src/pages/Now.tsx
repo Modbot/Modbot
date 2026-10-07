@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { EmptyRow } from '@/components/PanelGrid'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
+import { TwitchLiveCard } from '@/components/twitch/TwitchLiveCard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
@@ -154,6 +155,8 @@ export function Now({
           onGo={onGo}
         />
       )}
+
+      {seesLive && <TwitchLiveCard />}
 
       {seesLive && <Instances live={live} onOpenSubject={onOpenSubject} />}
 

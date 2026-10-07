@@ -3,6 +3,7 @@ import { DiscordPersonLink, SourceBadge, SubjectLink } from '@/components/facts'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { InstanceHeader, InstanceTile } from '@/components/InstanceCards'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
+import { TwitchLiveCard } from '@/components/twitch/TwitchLiveCard'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
@@ -173,6 +174,8 @@ export function Live({ me }: { me: CurrentUser | null }) {
           {error}
         </p>
       )}
+
+      {can(me, 'ViewLiveInstances') && <TwitchLiveCard />}
 
       <Section title="VRChat">
         {data.instances.length === 0 ? (

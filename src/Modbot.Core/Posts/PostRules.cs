@@ -110,6 +110,20 @@ public static class PostRules
     /// <summary>A post due longer ago than this is not sent: it turns Failed, with Post now (decision 5).</summary>
     public static readonly TimeSpan LateLimit = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// A "We're live on Twitch" post due longer ago than this is not sent: it turns Failed. A live
+    /// post an hour late is wrong, not just late (Twitch design, decision 5).
+    /// </summary>
+    public static readonly TimeSpan TwitchLiveLateLimit = TimeSpan.FromMinutes(15);
+
+    /// <summary>How late <paramref name="post"/> may go: <see cref="LateLimit"/>, or less for a kind that goes stale.</summary>
+    public static TimeSpan LateLimitFor(Post post)
+    {
+        ArgumentNullException.ThrowIfNull(post);
+
+        return post.Kind == PostKinds.TwitchLive ? TwitchLiveLateLimit : LateLimit;
+    }
+
     /// <summary>The most posts one site sends in an hour, to stop a runaway. A real group posts far less.</summary>
     public const int PerSitePerHour = 10;
 
@@ -162,9 +176,9 @@ public static class PostRules
             && destination.State == PostDestinationStates.Waiting;
     }
 
-    /// <summary>Due, and more than <see cref="LateLimit"/> ago: it is not sent, and turns Failed.</summary>
+    /// <summary>Due, and more than <see cref="LateLimitFor"/> ago: it is not sent, and turns Failed.</summary>
     public static bool IsLate(Post post, PostDestination destination, DateTimeOffset now) =>
-        IsDue(post, destination, now) && now - DueSince(post, destination) > LateLimit;
+        IsDue(post, destination, now) && now - DueSince(post, destination) > LateLimitFor(post);
 
     /// <summary>Whether one more post may go to a site that sent <paramref name="sentInLastHour"/> in the last hour.</summary>
     public static bool UnderHourlyCap(int sentInLastHour) => sentInLastHour < PerSitePerHour;

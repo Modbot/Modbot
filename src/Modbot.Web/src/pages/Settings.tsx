@@ -7,6 +7,7 @@ import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { GoogleCalendarSection } from '@/components/settings/google/GoogleCalendarSection'
 import { BlueskySection } from '@/components/settings/bluesky/BlueskySection'
+import { TwitchSection } from '@/components/settings/twitch/TwitchSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { AutoModSection } from '@/components/settings/automod/AutoModSection'
 import { AutoInvitesSection } from '@/components/settings/AutoInvitesSection'
@@ -48,6 +49,7 @@ const TABS = [
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'google', label: 'Google Calendar', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'bluesky', label: 'Bluesky', group: 'Connections', needs: ['ManageSettings'] },
+  { value: 'twitch', label: 'Twitch', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'posts', label: 'Posts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'integrations', label: 'Email and alerts', group: 'Connections', needs: ['ManageSettings'] },
   { value: 'ai', label: 'AI', group: 'Connections', needs: ['ManageSettings'] },
@@ -270,6 +272,8 @@ function Panel({
       return <GoogleCalendarSection />
     case 'bluesky':
       return <BlueskySection />
+    case 'twitch':
+      return <TwitchSection />
     case 'posts':
       return <PostsSection />
     case 'moderation':

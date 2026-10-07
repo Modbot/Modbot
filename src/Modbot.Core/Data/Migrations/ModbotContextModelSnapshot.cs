@@ -6729,6 +6729,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
+                    b.Property<string>("ExternalKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("external_key");
+
                     b.Property<string>("Kind")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
@@ -6784,6 +6789,11 @@ namespace Modbot.Core.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_post_event_kind")
                         .HasFilter("kind IS NOT NULL AND date_starts_at IS NULL");
+
+                    b.HasIndex("Kind", "ExternalKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_post_kind_external_key")
+                        .HasFilter("external_key IS NOT NULL");
 
                     b.HasIndex("Status", "SendAt")
                         .HasDatabaseName("ix_post_status_send_at");
@@ -8105,6 +8115,77 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("sync_pacing");
 
+                    b.Property<string>("TwitchChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_channel_id");
+
+                    b.Property<string>("TwitchChannelLogin")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_channel_login");
+
+                    b.Property<string>("TwitchChannelName")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_channel_name");
+
+                    b.Property<DateTimeOffset?>("TwitchCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("twitch_checked_at");
+
+                    b.Property<string>("TwitchClientId")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_client_id");
+
+                    b.Property<string>("TwitchClientSecretEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_client_secret_encrypted");
+
+                    b.Property<bool>("TwitchLiveOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("twitch_live_on");
+
+                    b.Property<string>("TwitchPollProblem")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_poll_problem");
+
+                    b.Property<DateTimeOffset?>("TwitchPolledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("twitch_polled_at");
+
+                    b.Property<int>("TwitchPostAfterMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("twitch_post_after_minutes");
+
+                    b.Property<int>("TwitchPostEveryHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(6)
+                        .HasColumnName("twitch_post_every_hours");
+
+                    b.Property<string>("TwitchPostPlaces")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("twitch_post_places");
+
+                    b.Property<string>("TwitchPostText")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_post_text");
+
+                    b.Property<string>("TwitchPostTitle")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_post_title");
+
+                    b.Property<string>("TwitchProblem")
+                        .HasColumnType("text")
+                        .HasColumnName("twitch_problem");
+
+                    b.Property<DateTimeOffset?>("TwitchStoppedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("twitch_stopped_until");
+
                     b.Property<string>("UpdateCheckProblem")
                         .HasColumnType("text")
                         .HasColumnName("update_check_problem");
@@ -8316,6 +8397,85 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_modbot_storage_day");
 
                     b.ToTable("modbot_storage_day", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.TwitchStream", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<bool>("EventSetByStaff")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_set_by_staff");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<int>("PeakViewers")
+                        .HasColumnType("integer")
+                        .HasColumnName("peak_viewers");
+
+                    b.Property<DateTimeOffset?>("PostDecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("post_decided_at");
+
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset?>("UpdateSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("update_sent_at");
+
+                    b.Property<int>("Viewers")
+                        .HasColumnType("integer")
+                        .HasColumnName("viewers");
+
+                    b.HasKey("Id")
+                        .HasName("pk_twitch_stream");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("ix_twitch_stream_event_id");
+
+                    b.HasIndex("StartedAt")
+                        .HasDatabaseName("ix_twitch_stream_started_at");
+
+                    b.ToTable("twitch_stream", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatAnnouncement", b =>
@@ -9615,6 +9775,15 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_staff_discord_code_modbot_user_user_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.TwitchStream", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_twitch_stream_calendar_events_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.WebhookDelivery", b =>

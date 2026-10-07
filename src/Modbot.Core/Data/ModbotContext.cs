@@ -316,6 +316,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Posts Modbot sends to Discord and other sites at a time (posts design §2.2).</summary>
     public DbSet<Post> Posts => Set<Post>();
 
+    /// <summary>Each time the channel was live on Twitch, as the poll saw it (Twitch design).</summary>
+    public DbSet<TwitchStream> TwitchStreams => Set<TwitchStream>();
+
     /// <summary>Each site a post goes to, and how it went there.</summary>
     public DbSet<PostDestination> PostDestinations => Set<PostDestination>();
 
@@ -1798,6 +1801,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.Property(e => e.GroupAutoInviteAgainAfterDays).HasDefaultValue(30);
 
+            // Twitch's "live" post: the built-in minimum time and the time between two, for the row
+            // that exists already.
+            entity.Property(e => e.TwitchPostAfterMinutes).HasDefaultValue(3);
+            entity.Property(e => e.TwitchPostEveryHours).HasDefaultValue(6);
+            entity.Property(e => e.TwitchPostPlaces).HasDefaultValue("{}");
+
             // "automod" is one word on this screen and in its tables, so the columns say so too
             // rather than the "auto_mod" the naming convention would make of the property.
             entity.Property(e => e.AutoModEnabled).HasColumnName("automod_enabled");
@@ -2389,6 +2398,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Status).HasMaxLength(16);
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.ExternalKey).HasMaxLength(64);
 
             // Raised by every write, the sender's claim included (§3.4).
             entity.Property(e => e.Version).IsConcurrencyToken();
@@ -2416,6 +2426,33 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .IsUnique()
                 .HasFilter("kind IS NOT NULL")
                 .HasDatabaseName("ux_post_event_kind_date");
+
+            // One post per outside thing a kind is about: one "live" post per Twitch stream id, kept
+            // by the database whatever the code does (Twitch design, decision 2).
+            entity.HasIndex(e => new { e.Kind, e.ExternalKey })
+                .IsUnique()
+                .HasFilter("external_key IS NOT NULL")
+                .HasDatabaseName("ux_post_kind_external_key");
+        });
+
+        // Each time the channel was live on Twitch (Twitch design). An event deleted for good leaves
+        // the stream with none; events are only ever soft-deleted, so this is the safety.
+        builder.Entity<TwitchStream>(entity =>
+        {
+            entity.ToTable("twitch_stream");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(64).ValueGeneratedNever();
+            entity.Property(e => e.Type).HasMaxLength(32);
+            entity.Property(e => e.Title).HasMaxLength(TwitchStream.MaxTitleLength);
+            entity.Property(e => e.Category).HasMaxLength(TwitchStream.MaxTitleLength);
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.StartedAt).HasDatabaseName("ix_twitch_stream_started_at");
+            entity.HasIndex(e => e.EventId).HasDatabaseName("ix_twitch_stream_event_id");
         });
 
         builder.Entity<PostDestination>(entity =>

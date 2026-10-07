@@ -3827,6 +3827,100 @@ export type BlueskySettings = {
   signedInWithBluesky: boolean
 }
 
+/** What the last Twitch Check found (Twitch design). */
+export type TwitchCheck = {
+  at: string
+  /** The channel's name on Twitch. */
+  channelName: string | null
+  /** What went wrong, in a sentence. Null when Check passed. */
+  problem: string | null
+}
+
+/** The Discord channel a "live" post goes to, and its own choices. Present means Discord is ticked. */
+export type TwitchDiscordPlace = { channelId: string | null; roleId: string | null; publish: boolean }
+
+/** The VRChat group a "live" post goes to, and its own choices. Present means VRChat is ticked. */
+export type TwitchVRChatPlace = { visibility: 'group' | 'public'; roleIds: string[] | null; notify: boolean }
+
+/** Where a "live" post goes. Nothing is ticked to start. */
+export type TwitchPostPlaces = {
+  discord: TwitchDiscordPlace | null
+  vrChat: TwitchVRChatPlace | null
+  bluesky: boolean
+}
+
+/** Settings → Twitch as stored. The client secret is never sent to the browser. */
+export type TwitchSettings = {
+  clientId: string | null
+  secretStored: boolean
+  /** The channel's login name. */
+  channel: string | null
+  /** Null when Check has not run since the client id, the secret or the channel changed. */
+  check: TwitchCheck | null
+  /** Nothing goes to Twitch before this, Check included. In the past once it has passed. */
+  limitedUntil: string | null
+  /** Modbot asks Twitch once a minute if the channel is live. */
+  live: boolean
+  /** The last Check passed: Live may be turned on. */
+  canGoLive: boolean
+  polledAt: string | null
+  pollProblem: string | null
+  postAfterMinutes: number
+  postEveryHours: number
+  postTitle: string
+  postText: string
+  places: TwitchPostPlaces
+  /** The VRChat group's roles, for choosing who a VRChat post is for. */
+  vrChatRoles: { id: string; name: string }[]
+}
+
+/** What a save of Settings → Twitch may carry. A field left out keeps what is stored. */
+export type TwitchSettingsInput = {
+  clientId?: string
+  clientSecret?: string
+  channel?: string
+  live?: boolean
+  postAfterMinutes?: number
+  postEveryHours?: number
+  postTitle?: string
+  postText?: string
+  places?: TwitchPostPlaces
+}
+
+/** One time the channel was live on Twitch. */
+export type TwitchStream = {
+  id: string
+  title: string | null
+  category: string | null
+  viewers: number
+  peakViewers: number
+  startedAt: string
+  endedAt: string | null
+  eventId: string | null
+  eventTitle: string | null
+  /** The channel's page on Twitch. */
+  link: string | null
+}
+
+/** What the Live and Now pages' Live on Twitch card shows. */
+export type TwitchLive = {
+  /** False when the poll is off or Twitch is not set up: the card is not drawn. */
+  on: boolean
+  channelName: string | null
+  /** Null when the channel is not live. */
+  stream: TwitchStream | null
+}
+
+/** What the Health page's Twitch card shows. */
+export type TwitchHealth = {
+  on: boolean
+  silent: boolean
+  checkProblem: string | null
+  pollProblem: string | null
+  polledAt: string | null
+  limitedUntil: string | null
+}
+
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
 export type AiProviderOption = { id: string; label: string; endpoint: string; recommended: boolean }
 
@@ -4979,6 +5073,29 @@ export const api = {
    */
   startBlueskySignIn: (handle?: string) =>
     post<{ url: string }>('/api/settings/bluesky/sign-in', handle ? { handle } : {}),
+
+  // ── Twitch ──────────────────────────────────────────────────────────────────────────────
+
+  twitchSettings: () => request<TwitchSettings>('/api/settings/twitch'),
+
+  /** A field left out keeps what is stored. An empty `channel` removes it; an empty title or text goes back to the built-in one. */
+  setTwitchSettings: (body: TwitchSettingsInput) => put<TwitchSettings>('/api/settings/twitch', body),
+
+  /** Forgets the client id, the secret and the channel, and turns the poll off. */
+  forgetTwitchSettings: () => del<TwitchSettings>('/api/settings/twitch'),
+
+  /** Asks for a token and reads the channel. A 200 either way; `check.problem` says what went wrong. */
+  checkTwitch: () => post<TwitchSettings>('/api/settings/twitch/check'),
+
+  twitchLive: () => request<TwitchLive>('/api/twitch/live'),
+
+  twitchStreams: () => request<TwitchStream[]>('/api/twitch/streams'),
+
+  /** Links a stream to a calendar event, or clears the link with a null event. */
+  linkTwitchStream: (streamId: string, eventId: string | null) =>
+    put<TwitchStream>(`/api/twitch/streams/${encodeURIComponent(streamId)}/event`, { eventId }),
+
+  twitchHealth: () => request<TwitchHealth>('/api/twitch/health'),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

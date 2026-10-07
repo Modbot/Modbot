@@ -70,6 +70,9 @@ public static class PostKinds
     public const string Reminder = "reminder";
     public const string Live = "live";
     public const string Cancelled = "cancelled";
+
+    /// <summary>"We're live on Twitch": made by the Twitch poll, one per Twitch stream (<see cref="Post.ExternalKey"/>).</summary>
+    public const string TwitchLive = "twitch_live";
 }
 
 /// <summary>
@@ -121,6 +124,13 @@ public class Post
 
     /// <summary>One of <see cref="PostKinds"/> for a post the calendar made; null for one a person wrote.</summary>
     public string? Kind { get; set; }
+
+    /// <summary>
+    /// What a post of this <see cref="Kind"/> is about, outside Modbot: for <see cref="PostKinds.TwitchLive"/>,
+    /// the Twitch stream id. A partial unique index on <c>(kind, external_key)</c> keeps a second post
+    /// from being made for one. Null on every other post.
+    /// </summary>
+    public string? ExternalKey { get; set; }
 
     /// <summary>The planned start of the date a calendar post is about, for its reminder, live and one-date cancel posts.</summary>
     public DateTimeOffset? DateStartsAt { get; set; }

@@ -1,4 +1,4 @@
-import { Children, Fragment, useEffect, useState } from 'react'
+import { Children, Fragment, useEffect, useState, type ReactNode } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Ago } from '@/components/Freshness'
@@ -24,6 +24,7 @@ import {
   type LogHealth,
   type PausedRule,
   type SyncHealth,
+  type TwitchHealth,
   type VRChatGroupPermissionsHealth,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -207,6 +208,8 @@ export function Health() {
       )}
 
       <PostsCard now={health.now} />
+
+      <TwitchCard now={health.now} />
 
       {health.pausedRules && health.pausedRules.length > 0 && (
         <PausedRules rules={health.pausedRules} now={health.now} />
@@ -781,6 +784,58 @@ function PostsCard({ now }: { now: string }) {
               <Ago iso={p.at} now={now} />)
             </>
           )}
+        </p>
+      ))}
+    </Part>
+  )
+}
+
+/**
+ * Twitch (Twitch design): what Check found wrong, what the last poll found wrong, a limit from
+ * Twitch with the time it ends, and Twitch not having answered for a while. Read with See Modbot's
+ * log, on its own; nothing is drawn when Twitch is not in use or all is well.
+ */
+function TwitchCard({ now }: { now: string }) {
+  const [health, setHealth] = useState<TwitchHealth | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .twitchHealth()
+      .then((next) => !cancelled && setHealth(next))
+      .catch(() => !cancelled && setHealth(null))
+    return () => {
+      cancelled = true
+    }
+  }, [now])
+
+  if (!health) return null
+
+  const lines: ReactNode[] = []
+  if (health.checkProblem) lines.push(<>Check · {health.checkProblem}</>)
+  if (health.pollProblem) lines.push(<>Live · {health.pollProblem}</>)
+  if (health.limitedUntil) lines.push(<>Twitch is limiting Modbot · until {timeOfDay(health.limitedUntil)}</>)
+  if (health.silent) {
+    lines.push(
+      <>
+        Live · No answer from Twitch
+        {health.polledAt && (
+          <>
+            {' since '}
+            <Ago iso={health.polledAt} now={now} />
+          </>
+        )}
+      </>,
+    )
+  }
+
+  if (lines.length === 0) return null
+
+  return (
+    <Part id="twitch" title="Twitch">
+      {lines.map((line, i) => (
+        <p key={i} className="max-w-3xl text-warn">
+          {line}
         </p>
       ))}
     </Part>

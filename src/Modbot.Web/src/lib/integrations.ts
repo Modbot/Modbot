@@ -1,5 +1,5 @@
 // Relative, with the extension, so the Node test runner loads it as it is (see lib/nav.ts).
-import type { BlueskySettings, DiscordBotHealth, GoogleCalendarSettings } from './api.ts'
+import type { BlueskySettings, DiscordBotHealth, GoogleCalendarSettings, TwitchSettings } from './api.ts'
 import { discordState, vrchatState, type State } from './status.ts'
 
 /** The bot's one word, as the bot state read and the Health read both say it. */
@@ -14,7 +14,7 @@ export type DiscordBotState = DiscordBotHealth['state']
  */
 
 /** A Settings topic, as `/settings#<topic>` names it (pages/Settings.tsx). */
-export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy' | 'google' | 'bluesky'
+export type SettingsTopic = 'vrchat' | 'discord' | 'integrations' | 'proxy' | 'google' | 'bluesky' | 'twitch'
 
 /** The address that opens a Settings topic. */
 export function settingsPath(topic: SettingsTopic): string {
@@ -27,7 +27,7 @@ export function settingsPath(topic: SettingsTopic): string {
  */
 export type Part = { name: string; topic?: SettingsTopic }
 
-export type IntegrationId = 'vrchat' | 'discord' | 'email' | 'google' | 'bluesky'
+export type IntegrationId = 'vrchat' | 'discord' | 'email' | 'google' | 'bluesky' | 'twitch'
 
 export type Integration = {
   id: IntegrationId
@@ -68,6 +68,12 @@ export type IntegrationReading = {
    * came is still one.
    */
   bluesky?: Pick<BlueskySettings, 'handle' | 'appPasswordStored' | 'signedInWithBluesky' | 'check' | 'posting'> | undefined
+  /**
+   * Settings → Twitch, from its own read (it needs Change settings, as the page does). Undefined
+   * when that read was not made or has not answered. Optional, so a reading made before Twitch
+   * came is still one.
+   */
+  twitch?: Pick<TwitchSettings, 'clientId' | 'secretStored' | 'channel' | 'check' | 'live'> | undefined
 }
 
 /**
@@ -114,7 +120,27 @@ export function integrations(reading: IntegrationReading): Integration[] {
       topic: 'bluesky',
       state: blueskyStatus(reading.bluesky),
     },
+    {
+      id: 'twitch',
+      name: 'Twitch',
+      parts: [{ name: 'App' }, { name: 'Channel' }, { name: 'Live' }, { name: 'Post' }],
+      topic: 'twitch',
+      state: twitchStatus(reading.twitch),
+    },
   ]
+}
+
+/**
+ * Needs setup until a client id, a secret and a channel are saved and Check has run on them; then
+ * Failed when Check found a problem (a refused secret, a channel Twitch does not have), Set up while
+ * the live poll is off, and Live while Modbot is asking Twitch if the channel is live.
+ */
+function twitchStatus(twitch: IntegrationReading['twitch']): State {
+  if (twitch === undefined) return UNKNOWN
+  if (!twitch.clientId || !twitch.secretStored || !twitch.channel || !twitch.check) return NEEDS_SETUP
+  if (twitch.check.problem) return { label: 'Failed', tone: 'bad' }
+  if (!twitch.live) return { label: 'Set up', tone: 'muted' }
+  return { label: 'Live', tone: 'ok' }
 }
 
 /**

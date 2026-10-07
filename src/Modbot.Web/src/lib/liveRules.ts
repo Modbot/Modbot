@@ -60,6 +60,10 @@ export const changesReviews = (e: LiveEvent) => startsWithAny(e.type, REVIEW_TYP
 export const POST_TYPES = ['modbot.post.'] as const
 
 export const changesCalendar = (e: LiveEvent) => startsWithAny(e.type, CALENDAR_TYPES)
+
+/** The channel went live, offline, or its title, category or viewer count moved (Twitch design). */
+export const TWITCH_TYPES = ['modbot.twitch.'] as const
+export const changesTwitch = (e: LiveEvent) => startsWithAny(e.type, TWITCH_TYPES)
 export const changesPosts = (e: LiveEvent) => startsWithAny(e.type, POST_TYPES)
 export const isAlert = (e: LiveEvent) => e.kind === 'alert'
 

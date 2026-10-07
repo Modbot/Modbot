@@ -307,7 +307,18 @@ public sealed record CalendarEventView(
     bool Featured = false,
     Guid? CoverPictureId = null,
     bool PublishToGoogle = false,
-    IReadOnlyList<string>? VRChatRoleIds = null);
+    IReadOnlyList<string>? VRChatRoleIds = null,
+    IReadOnlyList<CalendarTwitchStreamView>? TwitchStreams = null);
+
+/// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
+/// <param name="Id">Twitch's stream id. Opaque.</param>
+/// <param name="Link">The channel's page on Twitch, or null when no channel is set.</param>
+public sealed record CalendarTwitchStreamView(
+    string Id,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? EndedAt,
+    string? Title,
+    string? Link);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>

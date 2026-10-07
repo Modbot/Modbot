@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { CalendarDays, Cloud, Globe, Hash, Mail, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Cloud, Globe, Hash, Mail, Radio, type LucideIcon } from 'lucide-react'
 import { Empty } from '@/components/ListParts'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ const ICONS: Record<IntegrationId, LucideIcon> = {
   email: Mail,
   google: CalendarDays,
   bluesky: Cloud,
+  twitch: Radio,
 }
 
 const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
@@ -36,7 +37,7 @@ const BADGE: Record<Tone, 'ok' | 'warn' | 'destructive' | 'outline'> = {
  * shell's copy, so coming back from Settings shows what was just saved. VRChat's live status is the
  * gate read the sidebar already makes, shared rather than made again; Discord's is the bot state
  * read, because the sidebar's Health read needs See Modbot's log and this page only Change settings.
- * Google Calendar's and Bluesky's are their own settings reads, which need Change settings too.
+ * Google Calendar's, Bluesky's and Twitch's are their own settings reads, which need Change settings too.
  */
 export function Integrations({ me }: { me: CurrentUser }) {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
@@ -83,6 +84,7 @@ function WithBotState({ status }: { status: OnboardingStatus }) {
   const [bot, setBot] = useState<IntegrationReading['discordBot']>(undefined)
   const [google, setGoogle] = useState<IntegrationReading['googleCalendar']>(undefined)
   const [bluesky, setBluesky] = useState<IntegrationReading['bluesky']>(undefined)
+  const [twitch, setTwitch] = useState<IntegrationReading['twitch']>(undefined)
 
   // Read once: each changes only when somebody saves or checks it in Settings.
   useEffect(() => {
@@ -95,6 +97,10 @@ function WithBotState({ status }: { status: OnboardingStatus }) {
       .blueskySettings()
       .then((view) => !cancelled && setBluesky(view))
       .catch(() => !cancelled && setBluesky(undefined))
+    api
+      .twitchSettings()
+      .then((view) => !cancelled && setTwitch(view))
+      .catch(() => !cancelled && setTwitch(undefined))
     return () => {
       cancelled = true
     }
@@ -116,7 +122,7 @@ function WithBotState({ status }: { status: OnboardingStatus }) {
     }
   }, [])
 
-  return <Cards status={status} discordBot={bot} googleCalendar={google} bluesky={bluesky} />
+  return <Cards status={status} discordBot={bot} googleCalendar={google} bluesky={bluesky} twitch={twitch} />
 }
 
 function Cards({
@@ -124,11 +130,13 @@ function Cards({
   discordBot,
   googleCalendar,
   bluesky,
+  twitch,
 }: {
   status: OnboardingStatus
   discordBot?: IntegrationReading['discordBot']
   googleCalendar?: IntegrationReading['googleCalendar']
   bluesky?: IntegrationReading['bluesky']
+  twitch?: IntegrationReading['twitch']
 }) {
   const { gate, failed } = useGateHealth()
 
@@ -139,6 +147,7 @@ function Cards({
     smtpConfigured: status.integrations.smtpConfigured,
     googleCalendar,
     bluesky,
+    twitch,
   })
 
   return (

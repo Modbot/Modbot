@@ -1,0 +1,170 @@
+---
+title: Twitch
+description: Letting Modbot see when your group's Twitch channel is live, show it to your team, link each stream to the event it was for, and post "We're live on Twitch".
+---
+
+Modbot can watch your group's Twitch channel. Once a minute it asks Twitch whether the channel is
+live. While it is, the **Live** and **Now** pages show a **Live on Twitch** card, each stream is
+linked to the [calendar event](/moderation/calendar) that was on at the time, and Modbot can post
+**We're live on Twitch** to Discord, your VRChat group and Bluesky.
+
+It is free and **nobody signs in to Twitch**: you make a small Twitch app of your own and give its
+client id and secret to Modbot. Modbot uses them only to read the channel's public live status.
+Your Modbot does not need a public address for this.
+
+Everything here is in **Settings**, **Twitch**, and needs
+[**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+## Make the Twitch app
+
+You make it once, on Twitch's developer site, signed in as any Twitch account. It does not have to
+be the channel's account.
+
+1. Turn on two-factor authentication for that Twitch account. Twitch will not let you register an
+   app without it.
+2. Go to the [Twitch developer console](https://dev.twitch.tv/console) and click **Register Your
+   Application**.
+3. Give it a **Name**. It must be different from every other Twitch app's, so use something of your
+   group's, such as `OurGroup Modbot`.
+4. For **OAuth Redirect URLs** enter `http://localhost`. Twitch asks for one, but Modbot never signs
+   anyone in, so it is never used.
+5. Pick a **Category**, tick the box that says you are not a robot, and click **Create**.
+6. Click **Manage** on your new app. Copy the **Client ID**.
+7. Click **New Secret** and copy it. Twitch shows the secret once. Treat it like a password.
+
+## Set it up in Modbot
+
+In Modbot, go to **Settings**, **Twitch**:
+
+1. Paste the **Client id** and the **Client secret**.
+2. Type the **Channel**: its name, such as `ourgroup`, or its address, such as
+   `https://www.twitch.tv/ourgroup`.
+3. Click **Save**. The page shows **Client secret: Saved**, and never shows it again.
+4. Click **Check**.
+5. When Check passes, the **Live** switch appears. Turn it on.
+
+### What Check shows
+
+Check asks Twitch for an app token with the client id and secret, finds the channel by its name, and
+asks whether the token may read the channel's stream. **It never changes anything on Twitch.**
+
+| Line | What it means |
+|---|---|
+| **Channel** | The channel's name as Twitch shows it. |
+
+When something is wrong, Check says what:
+
+| What it says | What to do |
+|---|---|
+| Twitch did not accept the client id and secret. | Copy them again from the developer console. If you made a new secret, the old one stops working. |
+| Twitch has no channel with that name. | Check the spelling of the channel. |
+| Twitch did not accept the sign-in. | Press **Check** again. |
+| Twitch did not answer. | Twitch, or the connection to it, failed. Try again later. |
+| Twitch is limiting Modbot. Try again after … | Twitch asked Modbot to slow down. Nothing is sent to Twitch until then, **Check** included. |
+
+What Check found stays on the page until you change the client id, the secret or the channel. Change
+any of them and Check again; the live checks wait until it passes.
+
+## Live on Twitch
+
+With **Live** on, the **Live** and **Now** pages show a **Live on Twitch** card while the channel is
+streaming, for people who have
+[**See live instances**](/accounts/roles-and-permissions#see-live-instances). It shows:
+
+- the stream's title and category,
+- how long it has been live,
+- the viewer count (Twitch's own public number),
+- the event it is linked to, if any,
+- **Open**, which opens the channel on Twitch.
+
+The card is not there while the channel is not live. It changes by itself when the title or category
+changes, and the viewer count moves on about every five minutes.
+
+Modbot sees a stream start within about a minute. Twitch can take a little longer to say so.
+
+**Live** is also what the **Integrations** page and **Health** read: **Integrations** shows Twitch as
+**Needs setup**, **Set up** (Check passed, **Live** off) or **Live**. **Health** has a **Twitch** card
+when Check or the live checks found a problem, when Twitch is limiting Modbot, or when it has not
+answered for over five minutes.
+
+## Events
+
+When a stream starts, Modbot links it to the one [calendar event](/moderation/calendar) that was on:
+from an hour before the event starts to its end. A repeating event is checked by its dates, and a
+date cancelled on its own does not count. **When two events overlap, Modbot does not guess: the
+stream is left unlinked.** An event made after the stream began is picked up while the stream is
+still live.
+
+The event shows **Streamed on Twitch**, with the time and **Open** for the channel. Somebody with
+**Manage calendar** can click **Remove** to take a stream off the event, or **Link a Twitch stream**
+to pick another from the channel's recent streams. What a person chose, Modbot never changes.
+
+## The live post
+
+Under **Live post** you decide what **We're live on Twitch** says and where it goes.
+
+**Nothing is ticked to start.** Until you tick **Discord**, **VRChat** or **Bluesky**, no post is made.
+Each site has the same choices as on the [**Marketing**](/moderation/marketing) page: a Discord
+channel, role and **Publish to followers**; who sees a VRChat post, its roles and **Notify members**.
+
+### The words
+
+Write a **Title** and some **Text**. The buttons **Stream title**, **Category** and **Link** put a
+word in that Modbot swaps for the real one when it makes the post:
+
+| Word | Becomes |
+|---|---|
+| `{title}` | The stream's title |
+| `{category}` | The stream's category |
+| `{link}` | The channel's address on Twitch |
+
+Clear a field and **Save** to go back to the built-in words: the title **We're live on Twitch**, and
+the stream's title and link as the text. VRChat needs a title; Bluesky shows the title and text as
+one post of up to 300 characters.
+
+### When it posts
+
+- Only a stream Twitch calls **live** posts. Reruns, premieres, playlists and watch parties never do.
+- One post for each Twitch stream, however many times Modbot looks. A stream that drops offline and
+  comes back under the same Twitch id is still one stream.
+- A stream Modbot first sees more than 15 minutes after it started does not post: "we're live" would
+  be old news.
+
+| Setting | Built-in | What it does |
+|---|---|---|
+| **Minutes live** | 3 | The stream must have been live this long first, so a test stream or a dropout does not post. 1 to 60. |
+| **Hours between posts** | 6 | No second post inside this many hours of the last one, whatever the stream. 1 to 168. |
+
+The post is made when the stream has been live long enough, and then it is an ordinary post: it
+shows on the **Marketing** page, the same sending puts it on each site, at most once, and **Try
+again** and **Pause all posting** work as they do for any post. Posts hold while **Pause all
+posting** is on, and **a "live" post more than 15 minutes late is not sent**: it shows **Failed**
+with **Not sent on time.**, because a live post an hour late is wrong. It is not edited or removed
+when the stream ends: it stays as the record.
+
+## Forget
+
+**Forget** asks first, then removes the client id, the secret, the channel and what Check found, and
+turns **Live** off. The live post's words, times and ticked sites stay. Streams Modbot already
+recorded stay too. To stop the app working at Twitch's end as well, delete it in the developer
+console or make a new secret.
+
+## What leaves your server
+
+| Sent | To | When |
+|---|---|---|
+| The client id and secret | `id.twitch.tv`, to get an app token | **Check**, and about once every two months |
+| The app token, the client id and the channel's name or id | `api.twitch.tv` | **Check**, and once a minute while **Live** is on |
+| A post's title and text, with the stream's title, category and the channel's link filled in | The sites you ticked, and from there to their readers | Only when the live post is made |
+
+Twitch sees that your server asks about the channel, which is public. **Nothing about your members**
+goes to Twitch or into the post. Nothing is sent to Modbot Cloud. See
+[Privacy](/privacy#what-leaves-your-server) and [Security](/security#secrets-stored-in-the-database).
+
+When Twitch rate limits Modbot, Modbot stops every request to Twitch until the time Twitch says, and
+never sends the request again before then.
+
+## Not built yet
+
+Putting your events on the channel's Twitch schedule, and hearing about a stream the moment it
+starts rather than within a minute, are not built. See [Not built yet](/not-built-yet#twitch).

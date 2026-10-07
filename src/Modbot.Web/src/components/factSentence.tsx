@@ -1738,6 +1738,32 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.post.picture.upload': (p) => <>{p.actor} uploaded a post picture to VRChat.</>,
 
+  // ── Twitch (Twitch design) ──────────────────────────────────────────────────────────────────
+  'modbot.twitch.online': (p) => (
+    <>
+      The channel went live on Twitch<Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.twitch.update': (p) => (
+    <>
+      The Twitch stream<Quoted value={p.text('title')} /> changed.
+    </>
+  ),
+
+  'modbot.twitch.offline': (p) => (
+    <>
+      The channel went offline on Twitch<Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.twitch.link': (p) => (
+    <>
+      {p.actor} {p.text('eventId') ? 'linked' : 'unlinked'} the Twitch stream<Quoted value={p.text('title')} />{' '}
+      {p.text('eventId') ? 'to an event' : 'from its event'}.
+    </>
+  ),
+
   // ── Saved lists ─────────────────────────────────────────────────────────────────────────────
   'modbot.list.create': (p) => (
     <>

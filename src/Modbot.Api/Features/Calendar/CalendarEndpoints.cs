@@ -1944,6 +1944,18 @@ public static class CalendarEndpoints
             .Where(w => worldIds.Contains(w.WorldId))
             .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
 
+        // The Twitch streams linked to these events, newest first, with the channel's address.
+        var twitchStreams = await db.TwitchStreams.AsNoTracking()
+            .Where(s => s.EventId != null && ids.Contains(s.EventId.Value))
+            .OrderByDescending(s => s.StartedAt)
+            .ToListAsync(ct);
+
+        var twitchLink = twitchStreams.Count == 0
+            ? null
+            : (await db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.TwitchChannelLogin).FirstOrDefaultAsync(ct)) is { Length: > 0 } login
+                ? Modbot.Core.Twitch.TwitchRules.ChannelLink(login)
+                : null;
+
         var listIds = events.Where(e => e.WorldListId != null).Select(e => e.WorldListId!.Value).Distinct().ToList();
         var listNames = listIds.Count == 0
             ? []
@@ -2097,7 +2109,10 @@ public static class CalendarEndpoints
                 e.Featured,
                 e.CoverPictureId,
                 e.PublishToGoogle,
-                e.VRChatRoleIds is { Count: > 0 } roles ? roles : null);
+                e.VRChatRoleIds is { Count: > 0 } roles ? roles : null,
+                [.. twitchStreams
+                    .Where(s => s.EventId == e.Id)
+                    .Select(s => new CalendarTwitchStreamView(s.Id, s.StartedAt, s.EndedAt, s.Title, twitchLink))]);
         })];
     }
 

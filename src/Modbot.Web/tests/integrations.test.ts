@@ -32,6 +32,16 @@ const BLUESKY: BlueskyReading = {
   posting: true,
 }
 
+type TwitchReading = NonNullable<IntegrationReading['twitch']>
+
+const TWITCH: TwitchReading = {
+  clientId: 'abcdefghij0123456789klmnopqrst',
+  secretStored: true,
+  channel: 'ourgroup',
+  check: { at: '2026-10-07T12:00:00Z', channelName: 'OurGroup', problem: null },
+  live: true,
+}
+
 function reading(over: Partial<IntegrationReading> = {}): IntegrationReading {
   return {
     gate: 'Working',
@@ -40,6 +50,7 @@ function reading(over: Partial<IntegrationReading> = {}): IntegrationReading {
     smtpConfigured: true,
     googleCalendar: CHECKED,
     bluesky: BLUESKY,
+    twitch: TWITCH,
     ...over,
   }
 }
@@ -48,15 +59,16 @@ function stateOf(id: string, over: Partial<IntegrationReading> = {}) {
   return integrations(reading(over)).find((i) => i.id === id)?.state
 }
 
-test('VRChat, Discord, Email, Google Calendar and Bluesky, in that order', () => {
+test('VRChat, Discord, Email, Google Calendar, Bluesky and Twitch, in that order', () => {
   assert.deepEqual(
     integrations(reading()).map((i) => i.name),
-    ['VRChat', 'Discord', 'Email', 'Google Calendar', 'Bluesky'],
+    ['VRChat', 'Discord', 'Email', 'Google Calendar', 'Bluesky', 'Twitch'],
   )
 })
 
-test('everything set up and running says Working', () => {
-  for (const item of integrations(reading())) assert.deepEqual(item.state, { label: 'Working', tone: 'ok' })
+test('everything set up and running says Working, and Twitch says Live', () => {
+  for (const item of integrations(reading()))
+    assert.deepEqual(item.state, item.id === 'twitch' ? { label: 'Live', tone: 'ok' } : { label: 'Working', tone: 'ok' })
 })
 
 test('nothing set up says Needs setup on every card', () => {
@@ -67,6 +79,7 @@ test('nothing set up says Needs setup on every card', () => {
     smtpConfigured: false,
     googleCalendar: { keyStored: false, calendarId: null, check: null },
     bluesky: { handle: null, appPasswordStored: false, signedInWithBluesky: false, check: null, posting: false },
+    twitch: { clientId: null, secretStored: false, channel: null, check: null, live: false },
   })
   for (const item of integrations(none)) assert.equal(item.state.label, 'Needs setup')
 })
@@ -98,6 +111,7 @@ test('each Set up leads to the Settings topic where it is set up', () => {
     email: '/settings#integrations',
     google: '/settings#google',
     bluesky: '/settings#bluesky',
+    twitch: '/settings#twitch',
   })
 })
 
@@ -164,4 +178,29 @@ test('Bluesky says Failed when Check found a problem, Off while Posting is off, 
 
 test('Bluesky says Unknown when its settings could not be read', () => {
   assert.equal(stateOf('bluesky', { bluesky: undefined })?.label, 'Unknown')
+})
+
+test('Twitch needs setup until a client id, a secret and a channel are saved and Check has run on them', () => {
+  assert.equal(stateOf('twitch', { twitch: { ...TWITCH, clientId: null } })?.label, 'Needs setup')
+  assert.equal(stateOf('twitch', { twitch: { ...TWITCH, secretStored: false } })?.label, 'Needs setup')
+  assert.equal(stateOf('twitch', { twitch: { ...TWITCH, channel: null } })?.label, 'Needs setup')
+  assert.equal(stateOf('twitch', { twitch: { ...TWITCH, check: null } })?.label, 'Needs setup')
+})
+
+test('Twitch says Failed when Check found a problem, and Unknown when it could not be read', () => {
+  const refused = { ...TWITCH, check: { ...TWITCH.check!, problem: 'Twitch did not accept the client id and secret.' } }
+
+  assert.deepEqual(stateOf('twitch', { twitch: refused }), { label: 'Failed', tone: 'bad' })
+  assert.equal(stateOf('twitch', { twitch: undefined })?.label, 'Unknown')
+})
+
+test('Twitch says Set up while the live poll is off, and Live while it asks', () => {
+  assert.deepEqual(stateOf('twitch', { twitch: { ...TWITCH, live: false } }), { label: 'Set up', tone: 'muted' })
+  assert.deepEqual(stateOf('twitch', { twitch: { ...TWITCH, live: true } }), { label: 'Live', tone: 'ok' })
+})
+
+test('the Twitch card names its app, channel, live poll and post', () => {
+  const twitch = integrations(reading()).find((i) => i.id === 'twitch')
+
+  assert.deepEqual(twitch?.parts.map((p) => p.name), ['App', 'Channel', 'Live', 'Post'])
 })

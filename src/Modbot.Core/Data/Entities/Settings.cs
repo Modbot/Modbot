@@ -301,6 +301,74 @@ public class Settings
     /// </summary>
     public bool GoogleRemovingEvents { get; set; }
 
+    // --- Twitch (Twitch design, 2026-10-07) ---
+
+    /// <summary>
+    /// The Twitch app's client id (dev.twitch.tv). Shown, not secret: Twitch prints it on the app's page.
+    /// </summary>
+    public string? TwitchClientId { get; set; }
+
+    /// <summary>
+    /// The Twitch app's client secret, encrypted like every other secret (see <c>ISecretProtector</c>).
+    /// Never returned by the API.
+    /// </summary>
+    public string? TwitchClientSecretEncrypted { get; set; }
+
+    /// <summary>The channel's login name as the operator typed it, lower case: <c>ourgroup</c>.</summary>
+    public string? TwitchChannelLogin { get; set; }
+
+    /// <summary>The channel's Twitch user id, as Check found it. Cleared with the credentials and the login.</summary>
+    public string? TwitchChannelId { get; set; }
+
+    /// <summary>The channel's display name, as Check found it.</summary>
+    public string? TwitchChannelName { get; set; }
+
+    /// <summary>
+    /// When Check last ran. Null when it never has, or since the client id, the secret or the login
+    /// changed: the Check fields describe the ones they were found with.
+    /// </summary>
+    public DateTimeOffset? TwitchCheckedAt { get; set; }
+
+    /// <summary>What went wrong at the last Check, as the sentence the operator reads. Null when nothing did.</summary>
+    public string? TwitchProblem { get; set; }
+
+    /// <summary>
+    /// No call of any kind goes to Twitch before this: set when Twitch answers with a rate limit, from
+    /// its <c>Ratelimit-Reset</c>, and kept here so a restart cannot cut the wait short. Never retried early.
+    /// </summary>
+    public DateTimeOffset? TwitchStoppedUntil { get; set; }
+
+    /// <summary>
+    /// Whether Modbot asks Twitch once a minute if the channel is live. The one place that stops every
+    /// poll. Off until turned on after a Check that passed.
+    /// </summary>
+    public bool TwitchLiveOn { get; set; }
+
+    /// <summary>When the poll last got an answer from Twitch.</summary>
+    public DateTimeOffset? TwitchPolledAt { get; set; }
+
+    /// <summary>What went wrong at the last poll, as a sentence. Null when it worked.</summary>
+    public string? TwitchPollProblem { get; set; }
+
+    /// <summary>How many minutes the channel must have been live before a "live" post is made.</summary>
+    public int TwitchPostAfterMinutes { get; set; } = 3;
+
+    /// <summary>The most often a "live" post is made: no second one inside this many hours of the last.</summary>
+    public int TwitchPostEveryHours { get; set; } = 6;
+
+    /// <summary>The "live" post's title, with <c>{title}</c>, <c>{category}</c> and <c>{link}</c>. Null for the built-in one.</summary>
+    public string? TwitchPostTitle { get; set; }
+
+    /// <summary>The "live" post's text, with <c>{title}</c>, <c>{category}</c> and <c>{link}</c>. Null for the built-in one.</summary>
+    public string? TwitchPostText { get; set; }
+
+    /// <summary>
+    /// Where a "live" post goes, as JSON (<c>TwitchPostPlaces</c>): the sites ticked and their own
+    /// choices. Nothing is ticked to start, so nothing is posted until an operator ticks a site.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string TwitchPostPlaces { get; set; } = "{}";
+
     // --- Bluesky (Bluesky design §3.1, posts design §4.2c) ---
 
     /// <summary>

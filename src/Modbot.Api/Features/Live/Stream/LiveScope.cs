@@ -67,6 +67,9 @@ public sealed class LiveScope
     /// <summary>The posts' facts, which the Marketing tab redraws on (posts design §4.2).</summary>
     public const string PostTypes = "modbot.post.";
 
+    /// <summary>The Twitch poll's facts, which the Live and Now pages' "Live on Twitch" card redraws on (Twitch design).</summary>
+    public const string TwitchTypes = "modbot.twitch.";
+
     /// <summary>
     /// Whether an event of this kind and fact type may be sent. A named kind is seen by the
     /// permission of the screen that shows it, or by the audit log's rules for the fact behind
@@ -97,6 +100,11 @@ public sealed class LiveScope
         // without the operational log they sit in.
         if (type.StartsWith(PostTypes, StringComparison.Ordinal))
             return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewPosts);
+
+        // The Twitch card is under the Live page's own rule, See live instances, without the
+        // operational log the facts sit in.
+        if (type.StartsWith(TwitchTypes, StringComparison.Ordinal))
+            return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveInstances);
 
         return false;
     }

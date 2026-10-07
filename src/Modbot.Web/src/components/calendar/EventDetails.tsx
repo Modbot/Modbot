@@ -30,6 +30,7 @@ import { dateAt, type Spot } from './entry'
 import { EventResults } from './EventResults'
 import { NextGame } from './NextGame'
 import { NotSetUp } from './NotSetUp'
+import { TwitchLines } from './TwitchLines'
 import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -177,6 +178,8 @@ function EventBody({
       )}
 
       {event.invites && <InviteCounts invites={event.invites} />}
+
+      <TwitchLines event={event} onChanged={manage} />
 
       {(lines.length > 0 || missing.length > 0 || occurrence?.vrChatError || occurrence?.googleError) && (
         <div className="flex flex-col gap-1">

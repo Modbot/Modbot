@@ -7124,6 +7124,475 @@
         ]
       }
     },
+    "/api/settings/twitch": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get Twitch settings",
+        "description": "The Twitch connection: the app's client id, the channel, what the last Check found, whether the poll is on, and the \"We're live on Twitch\" post: its template, timings and where it goes. The client secret is never returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetTwitchSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update Twitch settings",
+        "description": "Save the Twitch app's client id and secret, the channel, whether the poll is on, or the \"We're live on Twitch\" post's template, timings and sites, or any of them. The secret is kept encrypted. Saving the app or the channel clears what the last Check found. The poll on needs a Check that passed. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetTwitchSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwitchSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Forget Twitch settings",
+        "description": "Remove the client id, the secret, the channel and what Check found, and turn the poll off. The post's template, timings and sites are kept.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ForgetTwitchSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/twitch/check": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Check the Twitch connection",
+        "description": "Ask Twitch for an app token with the stored client id and secret, find the channel by its login, and ask whether the token may read its stream. Writes nothing to Twitch. Answers 200 with what it found, a refusal included. While Twitch is limiting Modbot nothing is sent and the stored result is returned.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CheckTwitch",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/twitch/live": {
+      "get": {
+        "tags": [
+          "Twitch"
+        ],
+        "summary": "Get whether the channel is live on Twitch",
+        "description": "What the Live and Now pages' Live on Twitch card shows: `on` is false when the poll is off or Twitch is not set up, and `stream` is null when the channel is not live. The card redraws on the live stream's `modbot.twitch.` facts.\n\nNeeds the `ViewLiveInstances` permission.",
+        "operationId": "GetTwitchLive",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchLiveView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/twitch/streams": {
+      "get": {
+        "tags": [
+          "Twitch"
+        ],
+        "summary": "List recent Twitch streams",
+        "description": "The channel's most recent streams as the poll saw them, newest first, each with the calendar event it is linked to. For choosing a stream to link to an event.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "ListTwitchStreams",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TwitchStreamView"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/twitch/streams/{id}/event": {
+      "put": {
+        "tags": [
+          "Twitch"
+        ],
+        "summary": "Link a Twitch stream to a calendar event",
+        "description": "Sets the calendar event a stream is shown under, or clears it with a null `eventId`. Modbot links a stream to the one event on when it started and leaves it unlinked when events overlap; a person's choice here is never changed by the poll.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "LinkTwitchStreamToEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwitchStreamEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchStreamView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/twitch/health": {
+      "get": {
+        "tags": [
+          "Twitch"
+        ],
+        "summary": "Get Twitch health",
+        "description": "What the Health page's Twitch card shows: the last Check's problem, the last poll's problem, when Twitch last answered, and until when Twitch is limiting Modbot.\n\nNeeds the `ViewOperationalLog` permission.",
+        "operationId": "GetTwitchHealth",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwitchHealth"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/ai/chat": {
       "get": {
         "tags": [
@@ -35870,6 +36339,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "twitchStreams": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarTwitchStreamView"
+            }
           }
         }
       },
@@ -36603,6 +37081,44 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "CalendarTwitchStreamView": {
+        "required": [
+          "id",
+          "startedAt",
+          "endedAt",
+          "title",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -55439,6 +55955,424 @@
           }
         }
       },
+      "TwitchCheckView": {
+        "required": [
+          "at",
+          "channelName",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "channelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TwitchDiscordPlace": {
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publish": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "TwitchHealth": {
+        "required": [
+          "on",
+          "silent",
+          "checkProblem",
+          "pollProblem",
+          "polledAt",
+          "limitedUntil"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "silent": {
+            "type": "boolean"
+          },
+          "checkProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pollProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "polledAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "limitedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "TwitchLiveView": {
+        "required": [
+          "on",
+          "channelName",
+          "stream"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "channelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stream": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchStreamView"
+              }
+            ]
+          }
+        }
+      },
+      "TwitchPostPlaces": {
+        "type": "object",
+        "properties": {
+          "discord": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchDiscordPlace"
+              }
+            ]
+          },
+          "vrChat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchVRChatPlace"
+              }
+            ]
+          },
+          "bluesky": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "TwitchSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "clientSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "channel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "live": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "postAfterMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "postEveryHours": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "postTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "places": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchPostPlaces"
+              }
+            ]
+          }
+        }
+      },
+      "TwitchSettingsView": {
+        "required": [
+          "clientId",
+          "secretStored",
+          "channel",
+          "check",
+          "limitedUntil",
+          "live",
+          "canGoLive",
+          "polledAt",
+          "pollProblem",
+          "postAfterMinutes",
+          "postEveryHours",
+          "postTitle",
+          "postText",
+          "places",
+          "vrChatRoles"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "secretStored": {
+            "type": "boolean"
+          },
+          "channel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "check": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchCheckView"
+              }
+            ]
+          },
+          "limitedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "live": {
+            "type": "boolean"
+          },
+          "canGoLive": {
+            "type": "boolean"
+          },
+          "polledAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "pollProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postAfterMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "postEveryHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "postTitle": {
+            "type": "string"
+          },
+          "postText": {
+            "type": "string"
+          },
+          "places": {
+            "$ref": "#/components/schemas/TwitchPostPlaces"
+          },
+          "vrChatRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostRoleChoice"
+            }
+          }
+        }
+      },
+      "TwitchStreamEventRequest": {
+        "required": [
+          "eventId"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "TwitchStreamView": {
+        "required": [
+          "id",
+          "title",
+          "category",
+          "viewers",
+          "peakViewers",
+          "startedAt",
+          "endedAt",
+          "eventId",
+          "eventTitle",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "viewers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "peakViewers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "eventTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TwitchVRChatPlace": {
+        "type": "object",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "default": "group"
+          },
+          "roleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "UnwrittenBan": {
         "required": [
           "userId",
@@ -57432,6 +58366,10 @@
     {
       "name": "Posts",
       "x-displayName": "Posts"
+    },
+    {
+      "name": "Twitch",
+      "x-displayName": "Twitch"
     },
     {
       "name": "Watches",

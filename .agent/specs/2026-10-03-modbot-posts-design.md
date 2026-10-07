@@ -47,6 +47,7 @@ channel card edited in place are not posts, because they are rewritten whenever 
 | `time_zone` text | The zone the time was picked in: the browser's, or the event's for event posts (decision 13). |
 | `event_id` uuid null | Set for event posts, and for a post linked to an event. |
 | `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); null for hand-written posts. |
+| `external_key` text null | What a post of a kind is about outside Modbot: for `twitch_live`, the Twitch stream id. Null on every other post (added 2026-10-07, Twitch design). |
 | `date_starts_at` timestamptz null | The date a reminder, live or one-date cancel post is about (step 4). |
 | `version` int | Raised by every write a person makes, and by the sender's claim. The EF concurrency token (§4.3). |
 | `created_by_user_id`, `created_at`, `updated_at`, `cancelled_at` | |
@@ -54,6 +55,9 @@ channel card edited in place are not posts, because they are rewritten whenever 
 Two partial unique indexes keep the calendar from making a second post of one kind, without
 `NULLS NOT DISTINCT`, which older PostgreSQL lacks: `(event_id, kind) WHERE kind IS NOT NULL AND
 date_starts_at IS NULL`, and `(event_id, kind, date_starts_at) WHERE kind IS NOT NULL`.
+
+A third keeps a second post from being made for one outside thing: `(kind, external_key) WHERE
+external_key IS NOT NULL` (one "We're live on Twitch" post per Twitch stream id).
 
 ### 2.2 `post_destination`
 
@@ -110,6 +114,8 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   pass, at most 10 an hour per site. **Late** (decision 5): due more than an hour ago means not
   sent, Failed with "Not sent on time." and Post now. Due is the later of `send_at` and the moment
   the destination started waiting, so Try again and Post now start the hour again.
+  A post of kind `twitch_live` goes stale sooner: its limit is **15 minutes**, not an hour
+  (`PostRules.LateLimitFor`, Twitch design decision 3). Every sender asks it through `IsLate`.
 - **`PostTexts`**: the text each site gets, the counters and Discord's mention line and bold title.
   Tidied the way Discord keeps it (`\n` line ends, trimmed), so the look compares like with like.
   The senders, the preview and the counters all use it, so the preview is what goes out.

@@ -117,6 +117,8 @@ Modbot stores several secrets for you so it can do its job:
 - your [Bluesky](/moderation/bluesky) app password, or the sign-in with Bluesky that replaces it,
   with the access and refresh tokens Modbot keeps for that account, and Modbot's own Bluesky signing
   keys (see [Sign in with Bluesky](#sign-in-with-bluesky-modbots-signing-key-and-the-tokens)).
+- your [Twitch](/integrations/twitch) app's client secret. It only asks Twitch for an app token, with no
+  sign-in and no account behind it, and the secret is never shown again once saved.
 
 These are encrypted with **AES-256-GCM** before they are written to the database.
 

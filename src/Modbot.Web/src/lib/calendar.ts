@@ -172,6 +172,18 @@ export type CalendarEvent = {
   publishToGoogle?: boolean
   /** The group roles VRChat shows the event to; null for everyone it is visible to. */
   vrChatRoleIds?: string[] | null
+  /** Times the channel streamed on Twitch while the event was on, newest first (Twitch design). */
+  twitchStreams?: CalendarTwitchStream[] | null
+}
+
+/** A time the channel streamed on Twitch while an event was on. */
+export type CalendarTwitchStream = {
+  id: string
+  startedAt: string
+  endedAt: string | null
+  title: string | null
+  /** The channel's page on Twitch. */
+  link: string | null
 }
 
 /**

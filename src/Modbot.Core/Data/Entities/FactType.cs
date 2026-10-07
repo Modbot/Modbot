@@ -810,6 +810,25 @@ public static class FactType
     /// </summary>
     public const string PostPictureUploaded = "modbot.post.picture.upload";
 
+    // ── Twitch (Twitch design) ─────────────────────────────────────────────────────────────
+    //
+    // The subject is the Twitch stream's id on the Modbot platform. The poll writes the first three,
+    // with no actor; a person who links a stream to an event writes the last. Nothing about a viewer
+    // is in any of them: the count is Twitch's public one. Operational retention. The Live and Now
+    // pages redraw on these (`modbot.twitch.`), for whoever may see live instances.
+
+    /// <summary>The poll found the channel live. Payload: title, category, <c>startedAt</c>, viewers, <c>eventId</c>.</summary>
+    public const string TwitchOnline = "modbot.twitch.online";
+
+    /// <summary>The channel is still live and its title, category or viewer count moved. Payload: title, category, viewers.</summary>
+    public const string TwitchUpdated = "modbot.twitch.update";
+
+    /// <summary>The poll found the channel no longer live. Payload: title, <c>startedAt</c>, <c>peakViewers</c>.</summary>
+    public const string TwitchOffline = "modbot.twitch.offline";
+
+    /// <summary>A person linked a stream to a calendar event, or cleared the link. Payload: <c>eventId</c> before and after.</summary>
+    public const string TwitchLinked = "modbot.twitch.link";
+
     // ── Discord roles from saved lists (roles from lists design §7) ────────────────────────
     //
     // Modbot gave or took a Discord role because somebody joined or left a list paired with it.

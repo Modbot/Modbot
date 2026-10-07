@@ -230,7 +230,7 @@ public sealed class PostBlueskySender
             // Not on Bluesky: sent again under the same key, which can never make a second post.
             // A person's Try again starts the hour again; otherwise the hour counts from the attempt,
             // and one past it is not sent late.
-            if (destination.SendIfMissing || pass.Now - attempt <= PostRules.LateLimit)
+            if (destination.SendIfMissing || pass.Now - attempt <= PostRules.LateLimitFor(post))
             {
                 destination.State = PostDestinationStates.Waiting;
                 destination.MayBeSent = false;

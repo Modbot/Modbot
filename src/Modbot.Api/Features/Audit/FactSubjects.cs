@@ -162,6 +162,12 @@ public static class FactSubjects
         [FactType.PostRemoved] = SubjectKind.Other,
         [FactType.PostPictureUploaded] = SubjectKind.Other,
 
+        // The subject is the Twitch stream's id: the channel's own, public, about nobody.
+        [FactType.TwitchOnline] = SubjectKind.Other,
+        [FactType.TwitchUpdated] = SubjectKind.Other,
+        [FactType.TwitchOffline] = SubjectKind.Other,
+        [FactType.TwitchLinked] = SubjectKind.Other,
+
         // The pairing's id. A role given or taken is about the person on Discord, so those two
         // keep the default.
         [FactType.ListRoleStopped] = SubjectKind.Other,

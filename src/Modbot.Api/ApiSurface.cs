@@ -46,6 +46,7 @@ using Modbot.Api.Features.Now;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Search;
+using Modbot.Api.Features.Twitch;
 using Modbot.Api.Features.Server;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -126,6 +127,12 @@ public static class ApiSurface
         services.TryAddScoped<Core.Posts.PostClaim>();
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
         services.TryAddScoped<Core.Posts.IBlueskyPostActions, Core.Bluesky.BlueskyPostActions>();
+
+        // Twitch (Twitch design): the client and the app token keeper, on the named client "twitch"
+        // with no redirects or proxy. The poll's pass is scoped; its timer is the host's, with
+        // AddTwitchLive, so a test host runs the pass itself.
+        Core.Twitch.TwitchServices.AddTwitch(services);
+        services.TryAddScoped<Features.Twitch.TwitchLivePass>();
 
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
@@ -275,6 +282,17 @@ public static class ApiSurface
     public static IServiceCollection AddBlueskyPosting(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.Posts.PostBlueskyService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Asks Twitch once a minute whether the channel is live (Twitch design). Needs the fact writer
+    /// the analytics services register.
+    /// </summary>
+    public static IServiceCollection AddTwitchLive(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Twitch.TwitchLiveService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }
@@ -442,6 +460,8 @@ public static class ApiSurface
         app.MapGoogleCalendarSettings();
         app.MapBlueskySettings();
         app.MapBlueskyOAuth();
+        app.MapTwitchSettings();
+        app.MapTwitch();
         app.MapAiChatSettings();
         app.MapAutoModSettings();
         app.MapModerationFlags();

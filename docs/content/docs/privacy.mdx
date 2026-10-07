@@ -178,6 +178,24 @@ wherever you choose to store them. These pages describe what is kept and how it 
   server names for a sign-in, with the handle and Modbot's public address, and sends you to Bluesky's
   page to allow it. That server reads Modbot's client document on your public address (Modbot's
   name, its address and the public half of its signing key), and Modbot renews the sign-in with it.
+- [Twitch](/integrations/twitch): nothing until someone with **Change settings** saves a client id, a
+  client secret and a channel in **Settings**, **Twitch**. Then each **Check** sends the client id and
+  secret to `id.twitch.tv` to get an app token, and asks `api.twitch.tv` for the channel by its name
+  and whether it is live. It never changes anything on Twitch, and nobody signs in to Twitch. Once
+  someone turns **Live** on, Modbot asks `api.twitch.tv` about once a minute whether the channel is
+  live, sending the app token, the client id and the channel's id. Twitch sees your server asking
+  about that public channel, and nothing else. What comes back (the stream's title, category and
+  viewer count) is Twitch's own public information. It is shown to people with **See live
+  instances**, and Modbot keeps a row for each stream in its database: its Twitch id, title,
+  category, start, end, most viewers, and the event it was linked to. Nothing is sent to Modbot
+  Cloud. A **We're live on Twitch** post goes nowhere until someone ticks a site under **Settings**,
+  **Twitch**, **Live post**; every site starts unticked. A ticked site gets an ordinary
+  [post](/moderation/marketing) through the same sending as the **Marketing** page, with the
+  words you wrote and the stream's title, category and the channel's link filled in, so the readers
+  of that Discord channel, VRChat group or Bluesky account (which is public) see them. Nothing
+  about your members goes in it. **Live**, each site's tick, **Pause all posting** and **Forget**
+  stop it; **Forget** also deletes the client secret. If Twitch limits Modbot, nothing more is
+  sent to Twitch until the time Twitch names.
 - [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
   to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops

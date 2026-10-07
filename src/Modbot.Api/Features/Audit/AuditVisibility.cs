@@ -408,6 +408,13 @@ public static class AuditVisibility
         [FactType.PostEdited] = AuditCategory.Operational,
         [FactType.PostRemoved] = AuditCategory.Operational,
         [FactType.PostPictureUploaded] = AuditCategory.Operational,
+
+        // Twitch: the poll's own records. Live updates reach somebody with See live instances
+        // through LiveScope.
+        [FactType.TwitchOnline] = AuditCategory.Operational,
+        [FactType.TwitchUpdated] = AuditCategory.Operational,
+        [FactType.TwitchOffline] = AuditCategory.Operational,
+        [FactType.TwitchLinked] = AuditCategory.Operational,
     };
 
     /// <summary>

@@ -435,6 +435,10 @@ try
     // is on.
     builder.Services.AddBlueskyPosting();
 
+    // Asks Twitch once a minute whether the channel is live (Twitch design). Reads the settings row
+    // and does nothing more until Twitch is set up and the poll is on.
+    builder.Services.AddTwitchLive();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();
