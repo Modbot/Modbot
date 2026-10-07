@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261007074312_LetStaffPinPages")]
+    partial class LetStaffPinPages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -7414,11 +7417,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_bot_token_encrypted");
 
-                    b.Property<string>("DiscordCommands")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("discord_commands");
-
                     b.Property<string>("DiscordEighteenPlusRoleId")
                         .HasColumnType("text")
                         .HasColumnName("discord_eighteen_plus_role_id");
@@ -7518,6 +7516,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordListRolesOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_list_roles_on");
+
+                    b.Property<bool>("DiscordMeCommand")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_me_command");
 
                     b.Property<int>("DiscordMessageRetentionDays")
                         .HasColumnType("integer")

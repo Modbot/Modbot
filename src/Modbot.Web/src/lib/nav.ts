@@ -362,6 +362,73 @@ export function menuPages(me: CurrentUser): NavItem[] {
 }
 
 /**
+ * The pages pinned before a person has pinned or unpinned anything: the four a moderator opens
+ * most. A page they may not open is left out of their pins, as any pinned page is
+ * (`pinnedPages`), so somebody without See profiles starts with fewer than four.
+ */
+export const DEFAULT_PINS: readonly PageId[] = ['now', 'people', 'live', 'calendar']
+
+/**
+ * The list a person's pins are read from and changed: what they saved, or the defaults until they
+ * have saved one. An empty saved list is a person who unpinned everything, not one who has not
+ * chosen yet, so it is not the defaults.
+ */
+export function pinList(saved: readonly string[] | null | undefined): readonly string[] {
+  return saved ?? DEFAULT_PINS
+}
+
+/**
+ * The pinned pages this person has a tile for, first pinned first, each once. A pin of a page
+ * they may no longer open, that is switched off for them, or that the app no longer has is
+ * skipped here and kept in the saved list, so it comes back if they are given the page again.
+ */
+export function pinnedPages(me: CurrentUser, saved: readonly string[] | null | undefined): NavItem[] {
+  const tiles = menuPages(me)
+  const seen = new Set<string>()
+  const pinned: NavItem[] = []
+
+  for (const id of pinList(saved)) {
+    if (seen.has(id)) continue
+    seen.add(id)
+
+    const tile = tiles.find((t) => t.id === id)
+    if (tile) pinned.push(tile)
+  }
+
+  return pinned
+}
+
+/**
+ * The tiles of the phone's Menu sheet for this person: the pinned pages first, in the order they
+ * were pinned, then every other page in the order `menuPages` gives.
+ */
+export function menuTiles(me: CurrentUser, saved: readonly string[] | null | undefined): { item: NavItem; pinned: boolean }[] {
+  const pinned = pinnedPages(me, saved)
+  const first = new Set<string>(pinned.map((p) => p.id))
+
+  return [
+    ...pinned.map((item) => ({ item, pinned: true })),
+    ...menuPages(me)
+      .filter((item) => !first.has(item.id))
+      .map((item) => ({ item, pinned: false })),
+  ]
+}
+
+/**
+ * The list to save after a tap on a page's pin: the page added at the end of the pins, or taken
+ * out of them. Built from the list as it stands, defaults included, so the first tap on a page
+ * keeps the other pins the person was already seeing. Pins this person cannot see are kept, as
+ * `pinnedPages` explains; names the app does not have at all are dropped, so the list cannot grow
+ * with pages that no longer exist.
+ */
+export function withPinToggled(saved: readonly string[] | null | undefined, id: PageId): string[] {
+  const known = new Set<string>(NAV.map((n) => n.id))
+  const list = [...new Set(pinList(saved))].filter((p) => known.has(p))
+
+  return list.includes(id) ? list.filter((p) => p !== id) : [...list, id]
+}
+
+/**
  * The pages in the page list for this person, in order: the pages among the sidebar's rows and
  * the phone's Menu tiles (`sidebarRows`, which adds the headings), and the page the shell falls
  * back to. One list for all of them, so a page added or hidden here is added or hidden in each.

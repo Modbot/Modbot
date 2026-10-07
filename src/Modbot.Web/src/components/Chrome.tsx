@@ -1,8 +1,9 @@
+import { Fragment } from 'react'
 import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, GO_TO_KEYS, menuPages, sidebarEntry, sidebarRows, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, menuTiles, sidebarEntry, sidebarRows, type PageId } from '@/lib/nav'
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { DOT, TONE, statusLine, type StatusRowId } from '@/lib/status'
@@ -20,7 +21,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 import {
   Ban, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Flag, Gift, Globe, Hash, Headset,
   House, Logs, LogOut, Megaphone, Menu, MessageSquare, Monitor, Moon, Plug, Radio, ScrollText, Search, Settings, Shuffle, Sun,
-  UserPlus, UserRound, Users, X, Zap, type LucideIcon,
+  Star, UserPlus, UserRound, Users, X, Zap, type LucideIcon,
 } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
@@ -356,6 +357,8 @@ export function NavSheet({
   onOpenChange,
   nav,
   appearance,
+  pins,
+  onTogglePin,
   username,
   onAccount,
   onSignOut,
@@ -364,6 +367,9 @@ export function NavSheet({
   onOpenChange: (open: boolean) => void
   nav: Omit<React.ComponentProps<typeof Sidebar>, 'className' | 'footer'>
   appearance: React.ComponentProps<typeof AppearanceControls>
+  /** The pages this person pinned, or null before they have (`usePinnedPages`). */
+  pins: string[] | null
+  onTogglePin: (id: PageId) => void
   username?: string
   onAccount?: () => void
   onSignOut?: () => void
@@ -383,6 +389,8 @@ export function NavSheet({
         <PageGrid
           nav={nav}
           appearance={appearance}
+          pins={pins}
+          onTogglePin={onTogglePin}
           username={username}
           onAccount={onAccount}
           onSignOut={onSignOut}
@@ -490,6 +498,8 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
 function PageGrid({
   nav,
   appearance,
+  pins,
+  onTogglePin,
   username,
   onAccount,
   onSignOut,
@@ -497,6 +507,8 @@ function PageGrid({
 }: {
   nav: Omit<React.ComponentProps<typeof Sidebar>, 'className' | 'footer'>
   appearance: React.ComponentProps<typeof AppearanceControls>
+  pins: string[] | null
+  onTogglePin: (id: PageId) => void
   username?: string
   onAccount?: () => void
   onSignOut?: () => void
@@ -504,6 +516,7 @@ function PageGrid({
 }) {
   const { me, group, badges, alarms, more } = nav
   const lit = sidebarEntry(nav.page)
+  const tiles = menuTiles(me, pins)
   const { theme, setTheme } = appearance
   const closeThen = (run: () => void) => () => {
     close()
@@ -562,38 +575,56 @@ function PageGrid({
       {/* A phone on its side is under 400px tall. The tiles lose their padding there, so three rows
           of them still fit on one screen, six or more across from a 667px-wide phone up. */}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
-        {menuPages(me).map((item) => {
+        {tiles.map(({ item, pinned }, i) => {
           const Icon = PAGE_ICONS[item.id] ?? Circle
           const here = lit === item.id
           return (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={closeThen(() => nav.onNavigate(item.id))}
-                aria-current={here ? 'page' : undefined}
-                className={cn(
-                  'relative flex min-h-[calc(var(--control-h)+0.75rem)] w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
-                  'short:min-h-(--control-h) short:gap-0 short:py-1',
-                  'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
-                  here ? 'bg-background font-medium text-foreground' : 'text-muted-foreground active:bg-muted',
-                )}
-              >
-                {/* At the foot, clear of the count on the icon's corner. */}
-                {here && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
-                <span className="relative shrink-0">
-                  <Icon className="size-5" />
-                  <CountMark
-                    count={badges?.[item.id]}
-                    alarm={alarms?.[item.id]}
-                    more={more?.[item.id]}
-                    className="absolute -top-2 left-[calc(100%-0.25rem)] short:-top-1"
-                  />
-                </span>
-                <span className="w-full truncate text-center" style={{ fontSize: 'var(--text-small)' }}>
-                  {item.label}
-                </span>
-              </button>
-            </li>
+            <Fragment key={item.id}>
+              {/* A hairline where the pinned pages end, so they read as the group they are. */}
+              {!pinned && i > 0 && tiles[i - 1].pinned && <li aria-hidden className="col-span-full h-px bg-border" />}
+              <li className="relative">
+                <button
+                  type="button"
+                  onClick={closeThen(() => nav.onNavigate(item.id))}
+                  aria-current={here ? 'page' : undefined}
+                  className={cn(
+                    'relative flex min-h-[calc(var(--control-h)+0.75rem)] w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
+                    'short:min-h-(--control-h) short:gap-0 short:py-1',
+                    'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                    here ? 'bg-background font-medium text-foreground' : 'text-muted-foreground active:bg-muted',
+                  )}
+                >
+                  {/* At the foot, clear of the count on the icon's corner. */}
+                  {here && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
+                  <span className="relative shrink-0">
+                    <Icon className="size-5" />
+                    <CountMark
+                      count={badges?.[item.id]}
+                      alarm={alarms?.[item.id]}
+                      more={more?.[item.id]}
+                      className="absolute -top-2 left-[calc(100%-0.25rem)] short:-top-1"
+                    />
+                  </span>
+                  <span className="w-full truncate text-center" style={{ fontSize: 'var(--text-small)' }}>
+                    {item.label}
+                  </span>
+                </button>
+                {/* Its own button beside the tile's, not inside it, and in the top left corner: the
+                    count sits on the icon's right. The sheet stays open, so several can be pinned. */}
+                <button
+                  type="button"
+                  onClick={() => onTogglePin(item.id)}
+                  aria-label={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
+                  className={cn(
+                    'absolute top-0 left-0 grid size-9 place-items-center rounded-sm short:size-8',
+                    'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                    pinned ? 'text-primary' : 'text-muted-foreground/60 active:text-foreground',
+                  )}
+                >
+                  <Star className={cn('size-4', pinned && 'fill-current')} aria-hidden />
+                </button>
+              </li>
+            </Fragment>
           )
         })}
       </ul>

@@ -42,6 +42,11 @@ namespace Modbot.Api.Features.Auth;
 /// other way to learn its own permissions over REST.
 /// </param>
 /// <param name="GetsEventInvites">Whether events that name this account as host or staff invite it.</param>
+/// <param name="PinnedPages">
+/// The pages this person pinned in the menu, first pinned first; null until they pin or unpin
+/// something, when the SPA shows its own default pins. Page ids as the SPA names them: the server
+/// keeps them as sent and the SPA skips any it does not know or the person may not open.
+/// </param>
 public sealed record SessionUser(
     Guid Id,
     string Username,
@@ -60,7 +65,8 @@ public sealed record SessionUser(
     int? Rank = null,
     bool BriefsOn = false,
     KeyInUse? ApiKey = null,
-    bool GetsEventInvites = true)
+    bool GetsEventInvites = true,
+    IReadOnlyList<string>? PinnedPages = null)
 {
     public static SessionUser From(ModbotUser user, Features.Chat.AiSwitches on)
     {
@@ -86,7 +92,8 @@ public sealed record SessionUser(
             on.ChatOn,
             user.Roles.Count == 0 ? null : RoleRank.Of(user),
             on.BriefsOn,
-            GetsEventInvites: user.GetsEventInvites);
+            GetsEventInvites: user.GetsEventInvites,
+            PinnedPages: user.PinnedPages);
     }
 }
 

@@ -1779,6 +1779,63 @@
         ]
       }
     },
+    "/api/auth/pinned-pages": {
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Set your pinned pages",
+        "description": "The pages pinned in your menu, first pinned first. Page names are the app's own; one it does not know, or one you may not open, is skipped when they are shown. Until you set them, the menu shows its default pins.",
+        "operationId": "SetOwnPinnedPages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinnedPagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/auth/sign-out-everywhere": {
       "post": {
         "tags": [
@@ -49414,6 +49471,23 @@
           }
         }
       },
+      "PinnedPagesRequest": {
+        "required": [
+          "pages"
+        ],
+        "type": "object",
+        "properties": {
+          "pages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "PlaceCounts": {
         "required": [
           "minutesSeen",
@@ -52801,6 +52875,15 @@
           "getsEventInvites": {
             "type": "boolean",
             "default": true
+          },
+          "pinnedPages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

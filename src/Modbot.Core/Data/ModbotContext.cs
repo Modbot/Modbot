@@ -546,6 +546,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // one; those count for nobody once typed ids stop counting (StaffDiscord).
             entity.Property(e => e.DiscordUserId).HasColumnType("text");
             entity.Property(e => e.DiscordUsername).HasMaxLength(64);
+
+            // A short list of page names; read whole and written whole, never searched.
+            entity.Property(e => e.PinnedPages).HasColumnType("jsonb");
             entity.HasIndex(e => e.DiscordUserId).IsUnique().HasFilter("discord_verified_at IS NOT NULL");
         });
 

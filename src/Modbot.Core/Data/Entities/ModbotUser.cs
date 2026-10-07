@@ -89,6 +89,18 @@ public class ModbotUser
     /// </summary>
     public bool GetsEventInvites { get; set; } = true;
 
+    /// <summary>
+    /// The pages this person pinned in the menu, first pinned first. Null until they pin or unpin
+    /// something, which is how the app knows to show its default pins instead.
+    /// </summary>
+    /// <remarks>
+    /// The names are the web app's page ids, kept as they were sent: the app owns what a page is
+    /// called, and a name it no longer knows, or a page this person can no longer open, is skipped
+    /// when the pins are read. Kept on the account rather than in the browser so the pins follow
+    /// the person from their phone to their desk.
+    /// </remarks>
+    public List<string>? PinnedPages { get; set; }
+
     /// <summary>The code this person has been asked to put in their bio, while a link is pending.</summary>
     public string? VRChatLinkCode { get; set; }
 

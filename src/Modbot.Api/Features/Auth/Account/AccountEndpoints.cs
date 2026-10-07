@@ -21,6 +21,9 @@ public sealed record ChangeUsernameRequest(string Username, string CurrentPasswo
 /// <param name="GetsEventInvites">Whether events that name you as host or staff invite you.</param>
 public sealed record EventInvitesRequest(bool GetsEventInvites);
 
+/// <param name="Pages">The pages you pinned in the menu, first pinned first. Empty for none.</param>
+public sealed record PinnedPagesRequest(IReadOnlyList<string>? Pages);
+
 /// <summary>
 /// The signed-in person's own account (accounts and access design §4): password, username,
 /// contact details, and ending every session.
@@ -215,6 +218,40 @@ public static class AccountEndpoints
                 "Whether an event that names you as its host or staff invites you when its instance opens. "
                 + "On for a new account.")
             .Produces<SessionUser>()
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/pinned-pages", async (
+                [FromBody] PinnedPagesRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var pages = PinnedPages.Clean(body.Pages);
+                if (pages is null)
+                    return Results.BadRequest(new { error = "Send the page names to pin." });
+
+                var user = await accounts.FindAsync(ModbotAuth.UserIdOf(http.User)!.Value, ct);
+                if (user is null)
+                    return Results.Unauthorized();
+
+                // Not a fact: which pages somebody keeps within reach is not something the audit log
+                // is for, and the list changes with every tap on a star.
+                user.PinnedPages = pages;
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
+            })
+            .WithName("SetOwnPinnedPages")
+            .WithSummary("Set your pinned pages")
+            .WithDescription(
+                "The pages pinned in your menu, first pinned first. "
+                + "Page names are the app's own; one it does not know, or one you may not open, is skipped when "
+                + "they are shown. Until you set them, the menu shows its default pins.")
+            .Produces<SessionUser>()
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/sign-out-everywhere", async (

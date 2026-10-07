@@ -183,6 +183,12 @@ export type CurrentUser = {
   rank: number | null
   /** Whether events that name this account as host or staff invite it. On for a new account. */
   getsEventInvites?: boolean
+  /**
+   * The pages this person pinned in the menu, first pinned first. Null or absent until they pin or
+   * unpin something, when the default pins show (`pinnedPages` in lib/nav.ts). Kept on the account,
+   * so the pins follow the person between devices.
+   */
+  pinnedPages?: string[] | null
 }
 
 export type PermissionInfo = {
@@ -4687,6 +4693,9 @@ export const api = {
 
   /** Whether events that name you as host or staff invite you. */
   setEventInvites: (getsEventInvites: boolean) => put<CurrentUser>('/api/auth/event-invites', { getsEventInvites }),
+
+  /** The pages pinned in the menu, first pinned first. An empty list is none pinned, not the defaults. */
+  setPinnedPages: (pages: string[]) => put<CurrentUser>('/api/auth/pinned-pages', { pages }),
 
   vrchatLink: () => request<VRChatLinkStatus>('/api/auth/vrchat-link'),
 

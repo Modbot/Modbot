@@ -37,6 +37,7 @@ import { serverTabFrom } from '@/lib/serverOverview'
 import type { WaitingCount } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
+import { usePinnedPages } from '@/lib/usePinnedPages'
 import { go, useLocation, useRoute } from '@/lib/router'
 import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
@@ -546,6 +547,8 @@ function Shell({
   // a phone asks for what this page can do: its own actions, with a key or without.
   const [sheet, setSheet] = useState<'keys' | 'page' | null>(null)
   const [navOpen, setNavOpen] = useState(false)
+  // The pages pinned in the menu, kept on the account.
+  const { pins, toggle: togglePin } = usePinnedPages(me)
 
   const signOut = demo ? undefined : () => void api.logout().finally(() => window.location.assign('/'))
 
@@ -747,6 +750,8 @@ function Shell({
         onOpenChange={setNavOpen}
         nav={nav}
         appearance={prefs}
+        pins={pins}
+        onTogglePin={togglePin}
         username={me.username}
         onAccount={() => navigate(PATHS.account)}
         onSignOut={signOut}

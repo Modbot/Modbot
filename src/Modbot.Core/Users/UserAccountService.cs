@@ -179,6 +179,8 @@ public sealed class UserAccountService
         user.VRChatLinkChecks = 0;
         user.VRChatLinkLastCheckAt = null;
 
+        user.PinnedPages = null;
+
         user.Roles.Clear();
 
         user.IsDisabled = true;
