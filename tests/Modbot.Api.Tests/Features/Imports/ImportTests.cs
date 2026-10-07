@@ -416,7 +416,7 @@ public class ImportTests
         var done = await FinishedAsync(host, cookie, id);
         Assert.Equal("Done", done.GetProperty("status").GetString());
 
-        var entry = Assert.Single(await host.FactsAsync(FactType.ImportDone, id, Ct));
+        var entry = Assert.Single(await DoneEntriesAsync(host, id));
         Assert.Equal(FactSource.Modbot, entry.Source);
         Assert.Equal(FactPlatform.Modbot, entry.SubjectPlatform);
         Assert.Equal(user.Id.ToString(), entry.ActorId);
@@ -1195,10 +1195,26 @@ public class ImportTests
             if (waited.Elapsed > TimeSpan.FromSeconds(30))
                 throw new TimeoutException($"Import {id} is still {status}.");
 
-            // 100 ms, not shorter: the runner marks an import Done and writes its ImportDone audit
-            // entry in a second step a few milliseconds later, and tests that read that entry right
-            // after this returns would sometimes find it missing if this looked every 20 ms.
             await Task.Delay(100, Ct);
+        }
+    }
+
+    /// <summary>
+    /// The import's ImportDone audit entries, once there is one. The runner marks an import Done
+    /// and writes this entry in a second step just after, so a test that reads it as soon as the
+    /// status says Done can land in between; under CI's parallel load it did, twice.
+    /// </summary>
+    private static async Task<List<ModbotEvent>> DoneEntriesAsync(ApiTestHost host, string id)
+    {
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+
+        while (true)
+        {
+            var entries = await host.FactsAsync(FactType.ImportDone, id, Ct);
+            if (entries.Count > 0 || waited.Elapsed > TimeSpan.FromSeconds(10))
+                return entries;
+
+            await Task.Delay(50, Ct);
         }
     }
 }
