@@ -329,6 +329,91 @@ public class MemberReportsTests : AnalyticsTestBase
         Assert.Equal(MemberReportResult.Sent, (await NewReports(later).OpenAsync(new NewMemberReport(Reporter, "r", Person(10), null, "x"), Ct)).Result);
     }
 
+    /// <summary>
+    /// The limits are hard caps: reports made at the very same moment are counted one reporter at a
+    /// time, so six at once keep exactly three, and two with one place left keep exactly one.
+    /// </summary>
+    [Fact]
+    public async Task ReportsMadeAtTheSameMoment_KeepExactlyTheLimit()
+    {
+        string Person(int n) => "6000000000000000" + n.ToString("D2");
+
+        async Task<MemberReportResult> OpenAsync(string reporter, string person)
+        {
+            await using var context = Database.NewContext();
+            return (await NewReports(context).OpenAsync(new NewMemberReport(reporter, "r", person, null, "x"), Ct)).Result;
+        }
+
+        var six = await Task.WhenAll(Enumerable.Range(0, 6).Select(n => OpenAsync(Reporter, Person(n))));
+
+        Assert.Equal(3, six.Count(r => r == MemberReportResult.Sent));
+        Assert.Equal(3, six.Count(r => r == MemberReportResult.TooMany));
+
+        await using (var read = Database.NewContext())
+            Assert.Equal(3, await read.MemberReports.CountAsync(r => r.ReporterDiscordId == Reporter, Ct));
+
+        // One place left in the ten minutes: two at once keep one.
+        await using (var clean = Database.NewContext())
+            await clean.MemberReports.Where(r => r.ReporterDiscordId == Other).ExecuteDeleteAsync(Ct);
+
+        Assert.Equal(MemberReportResult.Sent, await OpenAsync(Other, Person(10)));
+        Assert.Equal(MemberReportResult.Sent, await OpenAsync(Other, Person(11)));
+
+        var two = await Task.WhenAll(OpenAsync(Other, Person(12)), OpenAsync(Other, Person(13)));
+
+        Assert.Equal(1, two.Count(r => r == MemberReportResult.Sent));
+        Assert.Equal(1, two.Count(r => r == MemberReportResult.TooMany));
+
+        await using var after = Database.NewContext();
+        Assert.Equal(3, await after.MemberReports.CountAsync(r => r.ReporterDiscordId == Other, Ct));
+    }
+
+    /// <summary>Two presses at once on the same report keep one report, and no extra fact.</summary>
+    [Fact]
+    public async Task TwoPressesAtOnceOnTheSameReport_KeepOne_AndTheSecondIsTold()
+    {
+        async Task<MemberReportResult> OpenAsync()
+        {
+            await using var context = Database.NewContext();
+            return (await NewReports(context).OpenAsync(new NewMemberReport(Reporter, "r", Reported, null, "x"), Ct)).Result;
+        }
+
+        var results = await Task.WhenAll(OpenAsync(), OpenAsync());
+
+        Assert.Equal(1, results.Count(r => r == MemberReportResult.Sent));
+        Assert.Equal(1, results.Count(r => r == MemberReportResult.AlreadyOpen));
+
+        await using var read = Database.NewContext();
+        Assert.Equal(1, await read.MemberReports.CountAsync(Ct));
+        Assert.Single(await read.Events.AsNoTracking().Where(e => e.Type == FactType.MemberReportOpened).ToListAsync(Ct));
+    }
+
+    /// <summary>The close is one statement that only works on an open report, so two at once cannot both win.</summary>
+    [Fact]
+    public async Task TwoClosesAtOnce_OneWins_TheOtherIsToldAlreadyClosed_AndOnlyOneFactIsWritten()
+    {
+        var report = await AddAsync(Reporter, Reported);
+
+        async Task<MemberReportCloseResult> CloseAsync(string who)
+        {
+            await using var context = Database.NewContext();
+            return await NewReports(context).CloseAsync(report.Id, "note from " + who, Guid.NewGuid(), who, Ct);
+        }
+
+        var results = await Task.WhenAll(CloseAsync("alice"), CloseAsync("bob"));
+
+        Assert.Equal(1, results.Count(r => r == MemberReportCloseResult.Closed));
+        Assert.Equal(1, results.Count(r => r == MemberReportCloseResult.AlreadyClosed));
+
+        await using var read = Database.NewContext();
+        Assert.Single(await read.Events.AsNoTracking().Where(e => e.Type == FactType.MemberReportClosed).ToListAsync(Ct));
+
+        var closed = await ReadAsync(report.Id);
+        Assert.Equal(MemberReportStates.Closed, closed.State);
+        Assert.StartsWith("note from ", closed.CloseNote, StringComparison.Ordinal);
+        Assert.Equal(closed.CloseNote!["note from ".Length..], closed.ClosedByUsername);
+    }
+
     [Fact]
     public async Task ARefusedReport_DoesNotCountTowardsTheLimits()
     {

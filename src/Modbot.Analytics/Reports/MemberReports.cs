@@ -157,40 +157,50 @@ public sealed class MemberReports
         if (text.Length > MemberReport.MaxTextLength)
             return new MemberReportOutcome(MemberReportResult.TooLong);
 
-        var refusal = await CheckAsync(input.ReporterDiscordId, input.ReportedDiscordId, input.Message?.Id, ct).ConfigureAwait(false);
-        if (refusal is not null)
-            return new MemberReportOutcome(refusal.Value);
-
         var now = _clock.UtcNow;
 
-        var report = new MemberReport
-        {
-            ReporterDiscordId = input.ReporterDiscordId,
-            ReporterName = input.ReporterName ?? string.Empty,
-            ReportedDiscordId = input.ReportedDiscordId,
-            ReportedName = input.ReportedName is { Length: > 0 } given ? given : await NameOfAsync(input.ReportedDiscordId, ct).ConfigureAwait(false),
-            ReportedVRChatUserId = await LinkedVRChatAsync(input.ReportedDiscordId, ct).ConfigureAwait(false),
-            Text = text,
-            State = MemberReportStates.Open,
-            CreatedAt = now,
-        };
-
-        if (input.Message is { } message)
-        {
-            report.MessageId = message.Id;
-            report.MessageChannelId = message.ChannelId;
-            report.MessageChannelName = message.ChannelName;
-            report.MessageSentAt = message.SentAt;
-            report.MessageText = Cut(message.Text, MemberReport.MaxMessageLength);
-            report.MessageAttachments = [.. message.AttachmentNames];
-            report.MessageUrl = message.Url;
-        }
-
         await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
+
+        MemberReport report;
 
         try
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+            // One reporter at a time, so the refusals and the limits are checked and acted on as a
+            // single step: two runs at once cannot both count two in ten minutes and both add a
+            // third. The lock is on the reporter and is let go when the transaction ends, the same
+            // way /remindme guards its ten. The unique indexes back up the two repeat rules.
+            await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT pg_advisory_xact_lock(hashtextextended({"member_report:" + input.ReporterDiscordId}, 0))", ct)
+                .ConfigureAwait(false);
+
+            var refusal = await CheckAsync(input.ReporterDiscordId, input.ReportedDiscordId, input.Message?.Id, ct).ConfigureAwait(false);
+            if (refusal is not null)
+                return new MemberReportOutcome(refusal.Value);
+
+            report = new MemberReport
+            {
+                ReporterDiscordId = input.ReporterDiscordId,
+                ReporterName = input.ReporterName ?? string.Empty,
+                ReportedDiscordId = input.ReportedDiscordId,
+                ReportedName = input.ReportedName is { Length: > 0 } given ? given : await NameOfAsync(input.ReportedDiscordId, ct).ConfigureAwait(false),
+                ReportedVRChatUserId = await LinkedVRChatAsync(input.ReportedDiscordId, ct).ConfigureAwait(false),
+                Text = text,
+                State = MemberReportStates.Open,
+                CreatedAt = now,
+            };
+
+            if (input.Message is { } message)
+            {
+                report.MessageId = message.Id;
+                report.MessageChannelId = message.ChannelId;
+                report.MessageChannelName = message.ChannelName;
+                report.MessageSentAt = message.SentAt;
+                report.MessageText = Cut(message.Text, MemberReport.MaxMessageLength);
+                report.MessageAttachments = [.. message.AttachmentNames];
+                report.MessageUrl = message.Url;
+            }
 
             _db.MemberReports.Add(report);
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -201,7 +211,8 @@ public sealed class MemberReports
         catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } violation)
         {
             // Two presses at once: the other one won. The promise in the index is the answer.
-            _db.Entry(report).State = EntityState.Detached;
+            foreach (var entry in _db.ChangeTracker.Entries<MemberReport>().ToList())
+                entry.State = EntityState.Detached;
 
             return new MemberReportOutcome(
                 violation.ConstraintName == "ux_member_report_message"
@@ -382,13 +393,27 @@ public sealed class MemberReports
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        report.State = MemberReportStates.Closed;
-        report.ClosedAt = now;
-        report.ClosedByUserId = closedByUserId;
-        report.ClosedByUsername = closedByUsername;
-        report.CloseNote = written;
+        // One statement that only succeeds while the report is still open, and we go on only when it
+        // changed exactly one row: two closes at once cannot both win, so only one fact is written
+        // and the loser is told it is already closed.
+        var id = report.Id;
+        var changed = await _db.MemberReports
+            .Where(r => r.Id == id && r.State == MemberReportStates.Open)
+            .ExecuteUpdateAsync(
+                set => set
+                    .SetProperty(r => r.State, MemberReportStates.Closed)
+                    .SetProperty(r => r.ClosedAt, (DateTimeOffset?)now)
+                    .SetProperty(r => r.ClosedByUserId, (Guid?)closedByUserId)
+                    .SetProperty(r => r.ClosedByUsername, closedByUsername)
+                    .SetProperty(r => r.CloseNote, written),
+                ct)
+            .ConfigureAwait(false);
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        if (changed != 1)
+            return MemberReportCloseResult.AlreadyClosed;
+
+        // What the caller holds is what was just written.
+        await _db.Entry(report).ReloadAsync(ct).ConfigureAwait(false);
 
         await _facts.WriteAsync(
             new FactRecord

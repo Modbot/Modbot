@@ -120,7 +120,7 @@ public static class ReportEndpoints
                     MemberReportCloseResult.Closed => Results.Ok(View(report!)),
                     MemberReportCloseResult.NoNote => Results.BadRequest(new { error = "A note is required: say what was done." }),
                     MemberReportCloseResult.NoteTooLong => Results.BadRequest(new { error = $"The note is too long (at most {MemberReport.MaxCloseNoteLength} characters)." }),
-                    MemberReportCloseResult.AlreadyClosed => Results.Conflict(new { error = "This report is already closed." }),
+                    MemberReportCloseResult.AlreadyClosed => Results.Conflict(new { error = "Already closed." }),
                     _ => Results.NotFound(new { error = "No such report." }),
                 };
             })
