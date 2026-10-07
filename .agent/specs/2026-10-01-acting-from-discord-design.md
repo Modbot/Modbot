@@ -105,6 +105,13 @@ disabled, VRChat link, permission) and write the `modbot.discord.command` fact w
 under `target` (VRChat) or `targetDiscord` (Discord) and an outcome of `answered`, `refused` (the
 service said no) or `invalid` (no person, two people, an empty note).
 
+**A VRChat name is a profile's** (review, 2026-10-07). The web app shows a stored VRChat name only
+with See profiles (`PersonSight.VRChatName`), and Write notes does not include it. So for a caller
+without See profiles `/note` and `/watch` suggest nothing, search no name, and name nobody in a
+reply: `vrchat` takes an exact id Modbot already holds, and anything else (a name, a typo, an id
+Modbot has never seen) gets one sentence that quotes nothing back. Callers with See profiles keep
+the name search, the list of several matches and the name in the reply.
+
 On top of those, every interaction writes a `modbot.discord.command` fact like a slash command does
 (`command`: the menu or the action, `outcome`, `target`), so the audit log says the ban came through
 Discord.

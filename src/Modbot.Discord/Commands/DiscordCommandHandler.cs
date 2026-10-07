@@ -279,6 +279,12 @@ public sealed class DiscordCommandHandler
             _ => null,
         };
 
+        // A VRChat name is a profile's: the web app shows it only with See profiles, so a caller
+        // who may write notes but not see profiles is suggested nothing, not even their own matches.
+        var alsoNeeds = ask.OptionName == DiscordCommands.VRChatOption && ask.CommandName != DiscordCommands.Lookup
+            ? ModbotPermissions.ViewProfile
+            : ModbotPermissions.None;
+
         if (required is not { } permission)
             return [];
 
@@ -289,7 +295,8 @@ public sealed class DiscordCommandHandler
         if (user is null
             || user.IsDisabled
             || (DiscordCommands.Writes(ask.CommandName) && !user.IsVRChatLinked)
-            || !DiscordCommands.Allows(user.EffectivePermissions, permission))
+            || !DiscordCommands.Allows(user.EffectivePermissions, permission)
+            || !DiscordCommands.Allows(user.EffectivePermissions, alsoNeeds))
         {
             return [];
         }

@@ -312,7 +312,7 @@ public class StaffCommandsTests
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
-        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes, ct: ct);
+        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes | ModbotPermissions.ViewProfile, ct: ct);
         await services.AddProfileAsync("usr_a", "Sam", ct: ct);
         await services.AddProfileAsync("usr_b", "Sam", ct: ct);
 
@@ -371,7 +371,7 @@ public class StaffCommandsTests
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
-        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes, ct: ct);
+        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes | ModbotPermissions.ViewProfile, ct: ct);
         await services.AddProfileAsync(Vrchat, "jessie", ct: ct);
         await services.ConfigureAsync(s => s.PublicAddress = Address, ct);
 
@@ -433,7 +433,7 @@ public class StaffCommandsTests
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
-        var account = await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes, ct: ct);
+        var account = await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes | ModbotPermissions.ViewProfile, ct: ct);
         await services.AddProfileAsync(Vrchat, "jessie", ct: ct);
         await services.ConfigureAsync(s => s.PublicAddress = Address, ct);
         var now = services.Clock.UtcNow;
@@ -795,6 +795,86 @@ public class StaffCommandsTests
         Assert.Equal("80?/80", card.Fields.Single(f => f.Name == "People").Value);
     }
 
+    // ── A caller who may write notes but not see profiles ──────────────────────────────────
+    //
+    // A VRChat name is a profile's: the web app shows it only with See profiles
+    // (PersonSight.VRChatName). So /note and /watch must not become a way to search names.
+
+    [Theory]
+    [InlineData(DiscordCommands.Note)]
+    [InlineData(DiscordCommands.Watch)]
+    public async Task WithoutSeeProfiles_ANameANoMatchAndSeveralMatches_AreRefusedAlike_AndNameNobody(string command)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes, ct: ct);
+        await services.AddProfileAsync("usr_one", "Unique Jessie", ct: ct);
+        await services.AddProfileAsync("usr_a", "Sam", ct: ct);
+        await services.AddProfileAsync("usr_b", "Sam", ct: ct);
+
+        var replies = new List<DiscordReply>();
+
+        foreach (var query in new[] { "Unique Jessie", "Sam", "Nobody Here", "usr_unknown", "jessie" })
+        {
+            replies.Add(await HandleAsync(
+                services, Call(Caller, command, ("text", "x"), ("reason", "x"), ("for", "7d"), ("vrchat", query)), ct));
+        }
+
+        // One sentence for all of them, and it quotes nothing back.
+        Assert.All(replies, r => Assert.Equal(StaffCommands.NeedsAnIdMessage, r.Text));
+        Assert.All(replies, r => Assert.Null(r.Links));
+        Assert.Empty(services.Staff.Notes);
+        Assert.Empty(services.Staff.Watches);
+
+        var facts = await services.FactsOfTypeAsync(FactType.DiscordCommandRun, ct);
+        Assert.All(facts, f => Assert.Equal("invalid", JsonDocument.Parse(f.Data).RootElement.GetProperty("outcome").GetString()));
+    }
+
+    [Theory]
+    [InlineData(DiscordCommands.Note)]
+    [InlineData(DiscordCommands.Watch)]
+    public async Task WithoutSeeProfiles_AnExactId_IsAccepted_AndNoReplyNamesThem(string command)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes, ct: ct);
+        await services.AddProfileAsync(Vrchat, "Secret Display Name", ct: ct);
+        await services.ConfigureAsync(s => s.PublicAddress = Address, ct);
+
+        var reply = await HandleAsync(
+            services, Call(Caller, command, ("text", "Hello."), ("reason", "Why."), ("for", "7d"), ("vrchat", Vrchat)), ct);
+
+        Assert.Empty(reply.Embeds);
+        Assert.DoesNotContain("Secret Display Name", reply.Text, StringComparison.Ordinal);
+        Assert.Equal(CardLink.UrlFor(CardSubject.Person, Vrchat, Address), Assert.Single(reply.Links!).Url);
+
+        if (command == DiscordCommands.Note)
+            Assert.Equal(Vrchat, Assert.Single(services.Staff.Notes).UserId);
+        else
+            Assert.Equal(Vrchat, Assert.Single(services.Staff.Watches).UserId);
+    }
+
+    [Fact]
+    public async Task WithSeeProfiles_ANameStillFindsThePerson_AndTheReplyNamesThem()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        await services.LinkedAccountAsync(Caller, ModbotPermissions.WriteNotes | ModbotPermissions.ViewProfile, ct: ct);
+        await services.AddProfileAsync(Vrchat, "Jessie Pug", ct: ct);
+        await services.AddProfileAsync("usr_a", "Sam", ct: ct);
+        await services.AddProfileAsync("usr_b", "Sam", ct: ct);
+
+        var watch = await HandleAsync(
+            services, Call(Caller, DiscordCommands.Watch, ("reason", "Why."), ("for", "7d"), ("vrchat", "Jessie Pug")), ct);
+        Assert.Contains("Jessie Pug", watch.Text, StringComparison.Ordinal);
+
+        var several = await HandleAsync(services, Call(Caller, DiscordCommands.Note, ("text", "x"), ("vrchat", "Sam")), ct);
+        Assert.StartsWith("Several people match \"Sam\".", several.Text, StringComparison.Ordinal);
+
+        var none = await HandleAsync(services, Call(Caller, DiscordCommands.Note, ("text", "x"), ("vrchat", "Nobody Here")), ct);
+        Assert.StartsWith("Nobody in Modbot's records matches", none.Text, StringComparison.Ordinal);
+    }
+
     // ── Suggestions ─────────────────────────────────────────────────────────────────────────
 
     [Theory]
@@ -810,7 +890,11 @@ public class StaffCommandsTests
         await services.LinkedAccountAsync("200", ModbotPermissions.ViewProfile | ModbotPermissions.ViewAuditLog, ct: ct);
         await services.LinkedAccountAsync("300", ModbotPermissions.WriteNotes, disabled: true, ct: ct);
         await LinkedWithoutVRChatAsync(services, "400", ModbotPermissions.WriteNotes, ct);
-        await services.LinkedAccountAsync("500", ModbotPermissions.WriteNotes, ct: ct);
+        await services.LinkedAccountAsync("500", ModbotPermissions.WriteNotes | ModbotPermissions.ViewProfile, ct: ct);
+
+        // Write notes without See profiles: a name is a profile's, so nothing.
+        await services.LinkedAccountAsync("600", ModbotPermissions.WriteNotes, ct: ct);
+        Assert.Empty(await SuggestAsync(services, command, DiscordCommands.VRChatOption, "600", "sam", ct));
 
         // Not linked at all, no permission, disabled, no VRChat link: nothing.
         Assert.Empty(await SuggestAsync(services, command, DiscordCommands.VRChatOption, "999", "sam", ct));

@@ -64,6 +64,13 @@ public sealed class StaffCommands
     public const string PickOnlyOneMessage = "Pick a VRChat name or a Discord member, not both.";
     public const string NoGroupMessage = "No group is set up in Modbot yet.";
     public const string NoInstancesMessage = "No instances are open right now.";
+    /// <summary>
+    /// What a caller without See profiles is told for anything but an id Modbot has: the same
+    /// sentence for a name, a typo and an id Modbot has never seen, so it says nothing about who is
+    /// in the records.
+    /// </summary>
+    public const string NeedsAnIdMessage = "Use the person's VRChat id. A name needs the \"See profiles\" permission in Modbot.";
+
     public const string OpenModbotLabel = "Open in Modbot";
     public const string OpenLiveLabel = "Open Live";
 
@@ -103,7 +110,13 @@ public sealed class StaffCommands
     /// The person named by exactly one of <c>member</c> and <c>vrchat</c>, or the reply that says
     /// why not.
     /// </summary>
-    private async Task<(Person? Person, StaffCommandAnswer? Problem)> PersonAsync(DiscordCommandCall call, CancellationToken ct)
+    /// <param name="seesNames">
+    /// Whether the caller may see profiles. A VRChat name is a profile's: the web app shows it only
+    /// with See profiles (<c>PersonSight.VRChatName</c>). Without it the <c>vrchat</c> option takes an
+    /// exact id only, no name is searched or shown, and every refusal is one sentence.
+    /// </param>
+    private async Task<(Person? Person, StaffCommandAnswer? Problem)> PersonAsync(
+        DiscordCommandCall call, bool seesNames, CancellationToken ct)
     {
         var member = call.Option(DiscordCommands.MemberOption)?.Trim() ?? string.Empty;
         var query = call.Option(DiscordCommands.VRChatOption)?.Trim() ?? string.Empty;
@@ -116,6 +129,17 @@ public sealed class StaffCommands
 
         if (member.Length > 0)
             return (new Person(FactPlatform.Discord, member, null), null);
+
+        if (!seesNames)
+        {
+            // An exact id or nothing. A name, a typo and an unknown id all get the same sentence,
+            // and the person is never named back: the reply shows the id and the profile link only.
+            var known = await _lookup.KnownIdAsync(query, ct).ConfigureAwait(false);
+
+            return known
+                ? (new Person(FactPlatform.VRChat, query, null), null)
+                : (null, Invalid(NeedsAnIdMessage));
+        }
 
         var matches = await _lookup.FindAsync(query, ct).ConfigureAwait(false);
 
@@ -160,6 +184,9 @@ public sealed class StaffCommands
     private static (string? Target, string? DiscordTarget) Targets(Person person)
         => person.Platform == FactPlatform.VRChat ? (person.Id, null) : (null, person.Id);
 
+    private static bool SeesNames(ModbotUser user)
+        => DiscordCommands.Allows(user.EffectivePermissions, ModbotPermissions.ViewProfile);
+
     private static StaffMember Member(ModbotUser user) => new(user.Id, user.Username, user.EffectivePermissions);
 
     // ── /note ────────────────────────────────────────────────────────────────────────────────
@@ -169,7 +196,7 @@ public sealed class StaffCommands
         ArgumentNullException.ThrowIfNull(call);
         ArgumentNullException.ThrowIfNull(user);
 
-        var (person, problem) = await PersonAsync(call, ct).ConfigureAwait(false);
+        var (person, problem) = await PersonAsync(call, SeesNames(user), ct).ConfigureAwait(false);
         if (problem is not null)
             return problem;
 
@@ -209,7 +236,7 @@ public sealed class StaffCommands
         ArgumentNullException.ThrowIfNull(call);
         ArgumentNullException.ThrowIfNull(user);
 
-        var (person, problem) = await PersonAsync(call, ct).ConfigureAwait(false);
+        var (person, problem) = await PersonAsync(call, SeesNames(user), ct).ConfigureAwait(false);
         if (problem is not null)
             return problem;
 

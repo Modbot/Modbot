@@ -186,6 +186,22 @@ public sealed class LookupQuery
     }
 
     /// <summary>
+    /// Whether Modbot has this exact VRChat id: a stored profile, or any fact about it. No name is
+    /// searched and none is returned, for callers who may not see profiles.
+    /// </summary>
+    public async Task<bool> KnownIdAsync(string id, CancellationToken ct)
+    {
+        var q = (id ?? string.Empty).Trim();
+        if (q.Length == 0)
+            return false;
+
+        return await _db.VRChatUsers.AsNoTracking().AnyAsync(u => u.UserId == q, ct).ConfigureAwait(false)
+            || await _db.Events.AsNoTracking()
+                .AnyAsync(e => e.SubjectPlatform == FactPlatform.VRChat && e.SubjectId == q, ct)
+                .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// People whose stored name holds what has been typed so far, for the list Discord shows under
     /// the option: the name to read, the id to fill the option with.
     /// </summary>
