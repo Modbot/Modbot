@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,7 +6,7 @@ import { Card, CardFooter, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { EntryDetail } from '@/components/audit/EntryDetail'
-import { mergeSameFacts, type FactRow } from '@/lib/factRows'
+import { groupRuns, groupSources, mergeSameFacts, rowSources, type FactGroup, type FactRow } from '@/lib/factRows'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
@@ -199,6 +199,10 @@ export function AuditLogList({
   // One thing two sources both recorded is one row with both badges (lib/factRows). Merged after
   // the pages are joined, so a pair split across "Load more" comes together once both are loaded.
   const rows = useMemo(() => mergeSameFacts(entries), [entries])
+  // Rows next to each other that are the same kind of thing about the same person in the same
+  // minute are one group, drawn as one row that opens to them. Grouped after the pages are joined
+  // for the same reason: a group cut in two by "Load more" joins up once the rest is loaded.
+  const groups = useMemo(() => groupRuns(rows), [rows])
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
 
@@ -264,21 +268,35 @@ export function AuditLogList({
 
   // Rows open on click into everything the entry holds. The entry the address names opens too,
   // because whoever followed that link came for that one.
+  //
+  // A group is open when any entry inside it is marked open, so it stays open when newer entries
+  // join it at the top or older ones at the bottom. Its events open on their own, one by one.
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
-  const isOpen = (row: FactRow) => expanded.has(row.entry.id) || isNamed(row, factId)
-  const toggle = (row: FactRow) =>
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(() => new Set())
+  const idsOf = (group: FactGroup) => group.rows.flatMap((row) => [row.entry, ...row.also].map((seen) => seen.id))
+  const isOpen = (group: FactGroup) =>
+    group.rows.some((row) => isNamed(row, factId)) || idsOf(group).some((id) => expanded.has(id))
+  const toggle = (group: FactGroup) =>
     setExpanded((current) => {
       const next = new Set(current)
-      if (isOpen(row)) next.delete(row.entry.id)
+      if (isOpen(group)) idsOf(group).forEach((id) => next.delete(id))
+      else next.add(group.rows[0].entry.id)
+      return next
+    })
+  const isEventOpen = (row: FactRow) => expandedEvents.has(row.entry.id) || isNamed(row, factId)
+  const toggleEvent = (row: FactRow) =>
+    setExpandedEvents((current) => {
+      const next = new Set(current)
+      if (isEventOpen(row)) next.delete(row.entry.id)
       else next.add(row.entry.id)
       return next
     })
 
   // `j`/`k` move down and up the rows; `Enter` opens the selected row; `o` opens what it is about.
   // Page keys, so inside a popup they wait like the page's own.
-  const { rowProps, selected } = useListSelection(rows.length, (i) => {
-    const row = rows[i]
-    if (row) toggle(row)
+  const { rowProps, selected } = useListSelection(groups.length, (i) => {
+    const group = groups[i]
+    if (group) toggle(group)
   })
 
   useShortcuts([
@@ -289,7 +307,7 @@ export function AuditLogList({
       page: true,
       keyboardOnly: true,
       run: () => {
-        const entry = selected === null ? undefined : rows[selected]?.entry
+        const entry = selected === null ? undefined : groups[selected]?.rows[0].entry
         if (!entry) return
         if (entry.subjectKind === 'Person')
           (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
@@ -437,16 +455,38 @@ export function AuditLogList({
           nameColumn={3}
           narrow={
             <NarrowRows>
-              {rows.map((row) => (
-                <NarrowFact
-                  key={row.entry.id}
-                  row={row}
-                  from={foundUnder?.(row.entry)}
-                  marked={isNamed(row, factId)}
-                  open={isOpen(row)}
-                  onToggle={() => toggle(row)}
-                />
-              ))}
+              {groups.map((group) => {
+                const [first] = group.rows
+                const grouped = group.rows.length > 1
+                const open = isOpen(group)
+                return (
+                  <Fragment key={group.id}>
+                    <NarrowFact
+                      row={first}
+                      sources={groupSources(group)}
+                      count={grouped ? group.rows.length : undefined}
+                      from={foundUnder?.(first.entry)}
+                      marked={!grouped && isNamed(first, factId)}
+                      open={open}
+                      onToggle={() => toggle(group)}
+                    />
+                    {grouped &&
+                      open &&
+                      group.rows.map((row) => (
+                        <NarrowFact
+                          key={row.entry.id}
+                          nested
+                          row={row}
+                          sources={rowSources(row)}
+                          from={foundUnder?.(row.entry)}
+                          marked={isNamed(row, factId)}
+                          open={isEventOpen(row)}
+                          onToggle={() => toggleEvent(row)}
+                        />
+                      ))}
+                  </Fragment>
+                )
+              })}
             </NarrowRows>
           }
           head={
@@ -458,17 +498,39 @@ export function AuditLogList({
             </>
           }
         >
-          {rows.map((row, i) => (
-            <Row
-              key={row.entry.id}
-              row={row}
-              from={foundUnder?.(row.entry)}
-              marked={isNamed(row, factId)}
-              open={isOpen(row)}
-              onToggle={() => toggle(row)}
-              {...rowProps(i)}
-            />
-          ))}
+          {groups.map((group, i) => {
+            const [first] = group.rows
+            const grouped = group.rows.length > 1
+            const open = isOpen(group)
+            return (
+              <Fragment key={group.id}>
+                <Row
+                  row={first}
+                  sources={groupSources(group)}
+                  count={grouped ? group.rows.length : undefined}
+                  from={foundUnder?.(first.entry)}
+                  marked={!grouped && isNamed(first, factId)}
+                  open={open}
+                  onToggle={() => toggle(group)}
+                  {...rowProps(i)}
+                />
+                {grouped &&
+                  open &&
+                  group.rows.map((row) => (
+                    <Row
+                      key={row.entry.id}
+                      nested
+                      row={row}
+                      sources={rowSources(row)}
+                      from={foundUnder?.(row.entry)}
+                      marked={isNamed(row, factId)}
+                      open={isEventOpen(row)}
+                      onToggle={() => toggleEvent(row)}
+                    />
+                  ))}
+              </Fragment>
+            )
+          })}
         </Table>
       )}
 
@@ -559,13 +621,21 @@ function useBroughtIntoView<T extends HTMLElement>(marked: boolean) {
   return row
 }
 
-/** What happened, as a sentence, and how many facts it stands for when it is one decision of several. */
-function Sentence({ entry }: { entry: AuditEntry }) {
+/**
+ * What happened, as a sentence, how many events a group of them stands for, and how many facts it
+ * stands for when it is one decision of several.
+ */
+function Sentence({ entry, count }: { entry: AuditEntry; count?: number }) {
   return (
     <>
       {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
           markup. */}
       <FactSentence entry={entry} />
+      {count !== undefined && (
+        <Badge variant="secondary" className="ml-2 align-middle">
+          <span className="font-mono">×{count}</span>
+        </Badge>
+      )}
       {/* One decision, several facts. The row is the decision; opening it shows every fact. */}
       {entry.linked && entry.linked.length > 0 && (
         <Badge variant="secondary" className="ml-2 align-middle">
@@ -582,12 +652,21 @@ function Sentence({ entry }: { entry: AuditEntry }) {
  */
 function NarrowFact({
   row: { entry, also },
+  sources,
+  count,
+  nested = false,
   from,
   marked,
   open,
   onToggle,
 }: {
   row: FactRow
+  /** The sources to badge: the row's own, or every source in a group. */
+  sources: string[]
+  /** How many events the row stands for, when it is a group of them: opening it lists them. */
+  count?: number
+  /** One event inside an opened group. */
+  nested?: boolean
   /** The person's account the row was found under, in a person's list. */
   from?: string
   marked: boolean
@@ -599,22 +678,22 @@ function NarrowFact({
   return (
     <NarrowRow
       ref={row}
-      main={<Sentence entry={entry} />}
+      main={<Sentence entry={entry} count={count} />}
       facts={[
         <span key="sources" className="inline-flex gap-1">
-          {[entry, ...also].map((seen) => (
-            <SourceBadge key={seen.id} source={seen.source} />
+          {sources.map((source) => (
+            <SourceBadge key={source} source={source} />
           ))}
         </span>,
         ...(from ? [<span key="from">{from}</span>] : []),
-        <FactTime key="when" entry={entry} withDay />,
+        <FactTime key="when" entry={entry} withDay={!nested} />,
       ]}
       onOpen={onToggle}
       open={open}
       hasLinks
-      className={cn(marked && 'bg-accent')}
+      className={cn(nested && 'bg-muted/30 pl-8', marked && 'bg-accent')}
     >
-      {open && (
+      {open && count === undefined && (
         <div>
           <EntryDetail entry={entry} />
           {also.map((seen) => (
@@ -637,9 +716,15 @@ function NarrowFact({
  *
  * A fact two sources both recorded is one row with both badges, and opening it shows each
  * source's own entry, one under the other, so neither record is hidden by the merge.
+ *
+ * A run of the same thing to the same person in one minute is one row with a count (lib/factRows,
+ * `groupRuns`). Opening it lists its events as rows of their own, each opening to its details.
  */
 function Row({
   row: { entry, also },
+  sources,
+  count,
+  nested = false,
   from,
   marked,
   open,
@@ -647,14 +732,20 @@ function Row({
   ...rowAttributes
 }: {
   row: FactRow
+  /** The sources to badge: the row's own, or every source in a group. */
+  sources: string[]
+  /** How many events the row stands for, when it is a group of them: opening it lists them. */
+  count?: number
+  /** One event inside an opened group. */
+  nested?: boolean
   /** The person's account the row was found under, in a person's list. */
   from?: string
   marked: boolean
   open: boolean
   onToggle: () => void
-  'data-row-index': number
-  'data-selected': boolean | undefined
-  'aria-selected': boolean
+  'data-row-index'?: number
+  'data-selected'?: boolean | undefined
+  'aria-selected'?: boolean
 }) {
   const row = useBroughtIntoView<HTMLTableRowElement>(marked)
 
@@ -669,9 +760,13 @@ function Row({
           onToggle()
         }}
         aria-expanded={open}
-        className={cn('cursor-pointer hover:bg-muted/40 data-[selected]:bg-accent/60', marked && 'bg-accent')}
+        className={cn(
+          'cursor-pointer hover:bg-muted/40 data-[selected]:bg-accent/60',
+          nested && 'bg-muted/30',
+          marked && 'bg-accent',
+        )}
       >
-        <Td className="pr-0" data-only-desk>
+        <Td className={cn('pr-0', nested && 'pl-8')} data-only-desk>
           <ChevronRight
             className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-90')}
             aria-hidden
@@ -679,13 +774,13 @@ function Row({
         </Td>
         <Td>
           <div className="leading-tight">
-            <FactTime entry={entry} withDay />
+            <FactTime entry={entry} withDay={!nested} />
           </div>
         </Td>
         <Td>
           <div className={cn('flex flex-wrap gap-1', from && 'items-center')}>
-            {[entry, ...also].map((seen) => (
-              <SourceBadge key={seen.id} source={seen.source} />
+            {sources.map((source) => (
+              <SourceBadge key={source} source={source} />
             ))}
             {from && (
               <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -695,12 +790,12 @@ function Row({
           </div>
         </Td>
         <Td className="max-w-3xl min-w-[20rem] whitespace-normal" title={entry.type}>
-          <Sentence entry={entry} />
+          <Sentence entry={entry} count={count} />
         </Td>
       </Tr>
       {/* No line of its own above: the detail belongs to the row over it. The next row's line
-          closes it off. */}
-      {open && (
+          closes it off. A group lists its events below instead (the caller draws them). */}
+      {open && count === undefined && (
         <tr>
           <td colSpan={4} className="p-0">
             <EntryDetail entry={entry} />

@@ -123,3 +123,66 @@ export function groupByDay(rows: FactRow[], now: string): FactDay[] {
 
 /** A list of facts laid out for reading: merged, then under their days. */
 export const factDays = (entries: AuditEntry[], now: string): FactDay[] => groupByDay(mergeSameFacts(entries), now)
+
+/**
+ * Rows that are one run: the same kind of thing, about the same person, in the same minute.
+ *
+ * A person joining a Discord server is given a handful of roles in the same second, and the list
+ * read as nine near-identical rows. A group is shown as one row that opens to the events inside.
+ * `id` is the oldest event's id, which stays put when newer events arrive at the top of the list;
+ * `rows` are in the order given, so the first is the one whose sentence stands for the group.
+ */
+export type FactGroup = { id: number; rows: FactRow[] }
+
+/**
+ * What puts rows in one group, or null for a row that is never grouped.
+ *
+ * Only people: a group is "the same thing done again to the same person", and for an instance, a
+ * role or a group the same words can be different things. Only exact times: a sync that knows
+ * "between these two polls" cannot say two things happened in the same minute. Who did it is left
+ * out on purpose, because a sync never knows, so a run mixing sources still joins. The minute is
+ * the viewer's own, as the list shows it.
+ */
+function groupKey({ entry }: FactRow): string | null {
+  if (entry.subjectKind !== 'Person' || entry.precision !== 'Exact' || entry.occurredBefore !== null) return null
+
+  const minute = new Date(entry.occurredAt).setSeconds(0, 0)
+  return [entry.type, entry.subjectPlatform, entry.subjectId, minute].join('\u0000')
+}
+
+/**
+ * The rows with each run of next-door rows that share a {@link groupKey} made into one group.
+ *
+ * Next to each other, not "anywhere in the same minute": the list is a timeline, and something
+ * else that happened in between is part of the story. A row with nothing to join is a group of one.
+ */
+export function groupRuns(rows: FactRow[]): FactGroup[] {
+  const groups: FactGroup[] = []
+  let previous: string | null = null
+
+  for (const row of rows) {
+    const key = groupKey(row)
+    const last = groups[groups.length - 1]
+
+    if (last && key !== null && key === previous) {
+      last.rows.push(row)
+      last.id = row.entry.id
+    } else {
+      groups.push({ id: row.entry.id, rows: [row] })
+    }
+    previous = key
+  }
+
+  return groups
+}
+
+/** The sources that recorded a row's fact: the one shown first, then the others. */
+export const rowSources = ({ entry, also }: FactRow): string[] => [entry, ...also].map((seen) => seen.source)
+
+/** The sources a group's rows were recorded by, each once, in the order they first appear. */
+export function groupSources(group: FactGroup): string[] {
+  const seen: string[] = []
+  for (const row of group.rows)
+    for (const source of rowSources(row)) if (!seen.includes(source)) seen.push(source)
+  return seen
+}

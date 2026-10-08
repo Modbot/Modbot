@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { factDays, groupByDay, mergeSameFacts, sameFact } from '../src/lib/factRows.ts'
+import { factDays, groupByDay, groupRuns, groupSources, mergeSameFacts, rowSources, sameFact } from '../src/lib/factRows.ts'
 import { formatDay } from '../src/lib/format.ts'
 import type { AuditEntry } from '../src/lib/api.ts'
 
@@ -183,4 +183,125 @@ test('a merged pair sits under the day of the row that is shown', () => {
 
 test('an empty list has no days', () => {
   assert.deepEqual(factDays([], NOW), [])
+})
+
+// A person joining Discord is given several roles in the same minute.
+const roleGiven = (second: number, extra: Partial<AuditEntry> = {}) =>
+  fact({
+    type: 'discord.role.assign',
+    source: 'Discord',
+    subjectPlatform: 'Discord',
+    subjectId: 'dsc_fenya',
+    occurredAt: at(9, 27, 7, 52, second),
+    ...extra,
+  })
+
+test('next-door rows of one kind about one person in one minute are one group', () => {
+  const newest = roleGiven(9)
+  const middle = roleGiven(8)
+  const oldest = roleGiven(7)
+
+  const groups = groupRuns(mergeSameFacts([newest, middle, oldest]))
+
+  assert.equal(groups.length, 1)
+  assert.deepEqual(
+    groups[0].rows.map((r) => r.entry),
+    [newest, middle, oldest],
+  )
+  assert.equal(groups[0].id, oldest.id)
+})
+
+test('a row with nothing to join is a group of one, in the order given', () => {
+  const a = roleGiven(9)
+  const b = fact({ type: 'vrchat.group.member.leave', occurredAt: at(9, 27, 7, 52, 5) })
+
+  const groups = groupRuns(mergeSameFacts([a, b]))
+
+  assert.deepEqual(
+    groups.map((g) => g.rows.map((r) => r.entry)),
+    [[a], [b]],
+  )
+  assert.equal(groups[0].id, a.id)
+})
+
+test('another minute, kind or person starts another group', () => {
+  const base = roleGiven(30)
+
+  assert.equal(groupRuns(mergeSameFacts([base, roleGiven(30, { occurredAt: at(9, 27, 7, 51, 59) })])).length, 2)
+  assert.equal(groupRuns(mergeSameFacts([base, roleGiven(30, { type: 'discord.role.remove' })])).length, 2)
+  assert.equal(groupRuns(mergeSameFacts([base, roleGiven(30, { subjectId: 'dsc_other' })])).length, 2)
+  assert.equal(groupRuns(mergeSameFacts([base, roleGiven(30, { subjectPlatform: 'VRChat' })])).length, 2)
+})
+
+test('the first and last second of a minute are in one group', () => {
+  const groups = groupRuns(mergeSameFacts([roleGiven(59, { occurredAt: at(9, 27, 7, 52, 59, 999) }), roleGiven(0)]))
+
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].rows.length, 2)
+})
+
+test('something else between two rows keeps them apart', () => {
+  const rows = mergeSameFacts([
+    roleGiven(9),
+    fact({ type: 'discord.nickname.change', source: 'Discord', occurredAt: at(9, 27, 7, 52, 8) }),
+    roleGiven(7),
+  ])
+
+  assert.deepEqual(
+    groupRuns(rows).map((g) => g.rows.length),
+    [1, 1, 1],
+  )
+})
+
+test("who did it does not count, because a sync never knows", () => {
+  const byModerator = roleGiven(9, { actorPlatform: 'Discord', actorId: 'dsc_mod' })
+  const byNobodyKnown = roleGiven(8)
+  const byOther = roleGiven(7, { actorPlatform: 'Discord', actorId: 'dsc_other' })
+
+  assert.equal(groupRuns(mergeSameFacts([byModerator, byNobodyKnown, byOther])).length, 1)
+})
+
+test('a time known only to a window is never grouped', () => {
+  const windowed = (hour: number) =>
+    roleGiven(0, {
+      source: 'SyncDiff',
+      precision: 'Window',
+      occurredAt: at(9, 27, hour, 50),
+      occurredBefore: at(9, 27, hour, 55),
+    })
+
+  assert.deepEqual(
+    groupRuns([windowed(7), windowed(7)].map((entry) => ({ entry, also: [] }))).map((g) => g.rows.length),
+    [1, 1],
+  )
+})
+
+test('only people are grouped', () => {
+  const instance = (second: number) =>
+    fact({ type: 'vrchat.instance.close', subjectKind: 'Instance', subjectId: 'wrld_a:1', occurredAt: at(9, 27, 7, 52, second) })
+
+  assert.equal(groupRuns(mergeSameFacts([instance(9), instance(8)])).length, 2)
+})
+
+test('a group lists each source once, in the order they first appear', () => {
+  const vrchat = fact({ type: 'discord.role.assign', occurredAt: at(9, 27, 7, 52, 9) })
+  const sync = fact({ type: 'discord.role.assign', source: 'SyncDiff', occurredAt: at(9, 27, 7, 52, 8) })
+  const again = fact({ type: 'discord.role.assign', occurredAt: at(9, 27, 7, 52, 7) })
+
+  const [group] = groupRuns(mergeSameFacts([vrchat, again, sync]))
+
+  assert.deepEqual(groupSources(group), ['AuditLog', 'SyncDiff'])
+})
+
+test('two sources of one thing are still one event inside a group', () => {
+  // A merged pair is one row, so the group counts it once.
+  const rows = mergeSameFacts([vrchatJoin(), syncJoin(), fact({ occurredAt: at(9, 27, 7, 52, 1) })])
+  const [group] = groupRuns(rows)
+
+  assert.equal(group.rows.length, 2)
+  assert.deepEqual(rowSources(group.rows[0]), ['AuditLog', 'SyncDiff'])
+})
+
+test('no rows, no groups', () => {
+  assert.deepEqual(groupRuns([]), [])
 })
