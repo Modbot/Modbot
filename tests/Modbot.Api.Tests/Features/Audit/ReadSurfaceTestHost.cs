@@ -142,6 +142,9 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         builder.Services.AddScoped<ReviewFacts>();
         builder.Services.AddScoped<ReviewJob>();
 
+        // The Reports page closes a member report through the same code the bot opens one with.
+        builder.Services.AddScoped<Modbot.Analytics.Reports.MemberReports>();
+
         // Settings → Purge a person, which counts through one of these and erases through the
         // other. Registered here for the same reason as the rest: the hosted retention service
         // would be pruning partitions underneath a test that is asserting on them.
