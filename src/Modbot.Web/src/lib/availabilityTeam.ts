@@ -5,7 +5,7 @@
 // The hours here are the VIEWER's: every person's week has already been moved into the viewer's
 // zone (`inViewersWeek` in availabilityZones.ts), so a person is a list of 168 states, one for each
 // hour of the viewer's week, day by day from Monday.
-import { DAY_NAMES, hourText, type AvailabilityCell, type AvailabilityState } from './availabilityZones.ts'
+import { DAY_NAMES, DAY_ORDER, hourText, type AvailabilityCell, type AvailabilityState, type ClockFormat } from './availabilityZones.ts'
 
 /** One person on the team, as the server sends them. */
 export type TeamPerson = {
@@ -44,11 +44,11 @@ export const HOUR_RANGES: Record<HoursShown, readonly [number, number]> = {
   evening: [18, 23],
 }
 
-/** The days each choice shows, 0 for Monday. */
-export const DAY_RANGES: Record<DaysShown, readonly [number, number]> = {
-  every: [0, 6],
-  weekdays: [0, 4],
-  weekend: [5, 6],
+/** The days each choice shows, 0 for Monday, in the order they are drawn: the weekend is Sunday, then Saturday. */
+export const DAYS_SHOWN: Record<DaysShown, readonly number[]> = {
+  every: DAY_ORDER,
+  weekdays: [0, 1, 2, 3, 4],
+  weekend: [6, 5],
 }
 
 function span(range: readonly [number, number]): number[] {
@@ -57,7 +57,7 @@ function span(range: readonly [number, number]): number[] {
 }
 
 export function shownDays(filters: TeamFilters): number[] {
-  return span(DAY_RANGES[filters.days])
+  return [...DAYS_SHOWN[filters.days]]
 }
 
 export function shownHours(filters: TeamFilters): number[] {
@@ -120,7 +120,7 @@ export type BestTime = { day: number; from: number; to: number; count: number }
 /**
  * The best stretch of each day: the longest run of hours in a row, among those with the most people
  * free that day, the earliest first. A day where nobody, or fewer than `least`, is free has none.
- * The days come best first, then longest, then in the order of the week.
+ * The days come best first, then longest, then in the order of the week as it is drawn, Sunday first.
  */
 export function bestTimes(slots: readonly Slot[], days: readonly number[], hours: readonly number[], least: number): BestTime[] {
   const found: BestTime[] = []
@@ -150,10 +150,10 @@ export function bestTimes(slots: readonly Slot[], days: readonly number[], hours
     if (best) found.push({ ...best })
   }
 
-  return found.sort((a, b) => b.count - a.count || b.to - b.from - (a.to - a.from) || a.day - b.day)
+  return found.sort((a, b) => b.count - a.count || b.to - b.from - (a.to - a.from) || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day))
 }
 
-/** `Tue 18:00-22:00 · 5 of 8 free`. */
-export function bestTimeText(time: BestTime, shown: number): string {
-  return `${DAY_NAMES[time.day]} ${hourText(time.from)}-${hourText(time.to % 24)} · ${time.count} of ${shown} free`
+/** `Tue 18:00-22:00 · 5 of 8 free`, or `Tue 6 PM-10 PM · 5 of 8 free` on a 12 hour clock. */
+export function bestTimeText(time: BestTime, shown: number, clock: ClockFormat = '24h'): string {
+  return `${DAY_NAMES[time.day]} ${hourText(time.from, clock)}-${hourText(time.to % 24, clock)} · ${time.count} of ${shown} free`
 }

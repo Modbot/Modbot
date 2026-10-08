@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Select } from '@/components/ui/select'
-import { zoneChoices } from '@/lib/availabilityZones'
+import { SwitchBank } from '@/components/ui/switch-bank'
+import { zoneChoices, type ClockFormat } from '@/lib/availabilityZones'
 
 /** A control with its name above it. */
 export function Labelled({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
@@ -12,6 +13,16 @@ export function Labelled({ label, children, className }: { label: string; childr
       {children}
     </div>
   )
+}
+
+const CLOCK_CHOICES: { value: ClockFormat; label: string }[] = [
+  { value: '24h', label: '24h' },
+  { value: '12h', label: '12h' },
+]
+
+/** Whether hours are written 17:00 or 5 PM. The choice is shared by both tabs (`useClock`). */
+export function ClockSwitch({ clock, onChange }: { clock: ClockFormat; onChange: (clock: ClockFormat) => void }) {
+  return <SwitchBank label="Clock" value={clock} onChange={onChange} options={CLOCK_CHOICES} />
 }
 
 /** Every time zone the browser knows, and the one in use if the list leaves it out. */

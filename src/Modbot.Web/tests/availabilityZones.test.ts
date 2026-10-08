@@ -2,6 +2,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   addDays,
+  browserClock,
+  DAY_NAMES,
+  DAY_ORDER,
+  hourHeading,
+  hourText,
   inViewersWeek,
   instantsOf,
   isKnownZone,
@@ -179,4 +184,38 @@ test('the zone list holds the browser zones, UTC and a saved zone the list leave
 test('a zone the browser does not know is said not to be known', () => {
   assert.equal(isKnownZone('Europe/London'), true)
   assert.equal(isKnownZone('Not/AZone'), false)
+})
+
+test('hours are written 09:00 on a 24 hour clock and 9 AM on a 12 hour one, noon and midnight included', () => {
+  assert.equal(hourText(9), '09:00')
+  assert.equal(hourText(17, '24h'), '17:00')
+  assert.equal(hourText(0, '12h'), '12 AM')
+  assert.equal(hourText(1, '12h'), '1 AM')
+  assert.equal(hourText(11, '12h'), '11 AM')
+  assert.equal(hourText(12, '12h'), '12 PM')
+  assert.equal(hourText(13, '12h'), '1 PM')
+  assert.equal(hourText(17, '12h'), '5 PM')
+  assert.equal(hourText(23, '12h'), '11 PM')
+})
+
+test('an hour that ends a stretch at midnight reads as midnight', () => {
+  assert.equal(hourText(24), '00:00')
+  assert.equal(hourText(24, '12h'), '12 AM')
+})
+
+test('an hour along the top of a grid is two digits on a 24 hour clock and written out on a 12 hour one', () => {
+  assert.equal(hourHeading(9), '09')
+  assert.equal(hourHeading(18, '24h'), '18')
+  assert.equal(hourHeading(18, '12h'), '6 PM')
+})
+
+test('a browser whose language has AM and PM starts on 12 hours, and one that runs to 23 on 24', () => {
+  assert.equal(browserClock('en-US'), '12h')
+  assert.equal(browserClock('en-GB'), '24h')
+  assert.equal(browserClock('de-DE'), '24h')
+})
+
+test('the days are drawn from Sunday to Saturday and still name the stored day numbers', () => {
+  assert.deepEqual(DAY_ORDER.map((day) => DAY_NAMES[day]), ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+  assert.deepEqual([...DAY_ORDER].sort(), [0, 1, 2, 3, 4, 5, 6])
 })

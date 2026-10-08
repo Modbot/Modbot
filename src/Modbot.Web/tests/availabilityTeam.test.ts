@@ -34,6 +34,8 @@ const slotsWith = (...counts: [day: number, hour: number, count: number][]): Slo
 }
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
+/** The days as the grid draws them: Sunday, then Monday to Saturday. */
+const SUNDAY_FIRST = [6, 0, 1, 2, 3, 4, 5]
 const ALL_HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 const filters = (change: Partial<TeamFilters> = {}): TeamFilters => ({ ...NO_FILTERS, ...change })
 
@@ -41,7 +43,7 @@ test('with no filters everybody is shown, every day and every hour', () => {
   const people = [person('a'), person('b')]
 
   assert.deepEqual(shownPeople(people, NO_FILTERS), people)
-  assert.deepEqual(shownDays(NO_FILTERS), ALL_DAYS)
+  assert.deepEqual(shownDays(NO_FILTERS), SUNDAY_FIRST)
   assert.deepEqual(shownHours(NO_FILTERS), ALL_HOURS)
   assert.equal(NO_FILTERS.ifNeeded, true)
 })
@@ -59,9 +61,9 @@ test('the roles to pick from are the ones somebody holds, once each and sorted',
   assert.deepEqual(rolesOf([person('a', ['Moderator', 'Host']), person('b', ['Host']), person('c')]), ['Host', 'Moderator'])
 })
 
-test('weekdays are Monday to Friday and the weekend is the two days after', () => {
+test('weekdays are Monday to Friday and the weekend is Sunday, which the grid draws first, and Saturday', () => {
   assert.deepEqual(shownDays(filters({ days: 'weekdays' })), [0, 1, 2, 3, 4])
-  assert.deepEqual(shownDays(filters({ days: 'weekend' })), [5, 6])
+  assert.deepEqual(shownDays(filters({ days: 'weekend' })), [6, 5])
 })
 
 test('night, daytime and evening share no hour between them and leave none out', () => {
@@ -172,6 +174,15 @@ test('the best times come most people first, then longest, then in the order of 
   )
 })
 
+test('of two days that tie, the one the grid draws first comes first, so Sunday is ahead of Monday', () => {
+  const slots = slotsWith([0, 9, 2], [6, 9, 2], [5, 9, 2])
+
+  assert.deepEqual(
+    bestTimes(slots, shownDays(NO_FILTERS), ALL_HOURS, 1).map((t) => t.day),
+    [6, 0, 5],
+  )
+})
+
 test('a day with nobody free, or fewer than the minimum, has no best time', () => {
   const slots = slotsWith([0, 9, 1], [1, 9, 3])
 
@@ -194,4 +205,9 @@ test('the day and hour filters narrow which hours can be a best time', () => {
 test('a best time reads day, hours and how many of those shown are free', () => {
   assert.equal(bestTimeText({ day: 1, from: 19, to: 21, count: 2 }, 3), 'Tue 19:00-21:00 · 2 of 3 free')
   assert.equal(bestTimeText({ day: 6, from: 22, to: 24, count: 5 }, 8), 'Sun 22:00-00:00 · 5 of 8 free')
+})
+
+test('on a 12 hour clock a best time reads Tue 7 PM-9 PM, and a stretch to midnight ends at 12 AM', () => {
+  assert.equal(bestTimeText({ day: 1, from: 19, to: 21, count: 2 }, 3, '12h'), 'Tue 7 PM-9 PM · 2 of 3 free')
+  assert.equal(bestTimeText({ day: 6, from: 22, to: 24, count: 5 }, 8, '12h'), 'Sun 10 PM-12 AM · 5 of 8 free')
 })

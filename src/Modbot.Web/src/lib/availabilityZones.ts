@@ -23,7 +23,14 @@ export type AvailabilityCell = { day: number; hour: number; state: AvailabilityS
 /** A date on the calendar, with no time and no zone. `month` is 1 to 12. */
 export type LocalDate = { year: number; month: number; day: number }
 
+/** Names by the stored day number: 0 is Monday. For the order they are shown in, see `DAY_ORDER`. */
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+
+/**
+ * The days in the order a grid shows them, as stored day numbers: Sunday first, Saturday last. Only
+ * the display runs this way; a saved week and the viewer's week stay Monday-indexed.
+ */
+export const DAY_ORDER: readonly number[] = [6, 0, 1, 2, 3, 4, 5]
 
 export const HOURS_IN_WEEK = 7 * 24
 
@@ -206,7 +213,29 @@ export function inViewersWeek(
   })
 }
 
-/** `09:00`. */
-export function hourText(hour: number): string {
-  return `${String(hour).padStart(2, '0')}:00`
+// ── The clock ───────────────────────────────────────────────────────────────────────────────
+
+/** How hours are written: `17:00` on a 24 hour clock, `5 PM` on a 12 hour one. */
+export type ClockFormat = '24h' | '12h'
+
+/** The clock the browser's own language uses, for a viewer who has not picked one. */
+export function browserClock(locale?: string): ClockFormat {
+  try {
+    const cycle = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hourCycle
+    return cycle === 'h11' || cycle === 'h12' ? '12h' : '24h'
+  } catch {
+    return '24h'
+  }
+}
+
+/** `09:00`, or `9 AM` on a 12 hour clock. 24 reads as midnight, which is how a stretch ending at midnight is written. */
+export function hourText(hour: number, clock: ClockFormat = '24h'): string {
+  const of = ((hour % 24) + 24) % 24
+  if (clock === '12h') return `${of % 12 === 0 ? 12 : of % 12} ${of < 12 ? 'AM' : 'PM'}`
+  return `${String(of).padStart(2, '0')}:00`
+}
+
+/** An hour along the top of a grid: `09`, or `9 AM` on a 12 hour clock. */
+export function hourHeading(hour: number, clock: ClockFormat = '24h'): string {
+  return clock === '12h' ? hourText(hour, clock) : String(hour).padStart(2, '0')
 }

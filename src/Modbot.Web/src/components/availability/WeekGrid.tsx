@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { GridCell } from '@/components/availability/cells'
-import { DAY_NAMES, hourText } from '@/lib/availabilityZones'
+import { DAY_NAMES, hourHeading, hourText, type ClockFormat } from '@/lib/availabilityZones'
 import { cn } from '@/lib/utils'
 
 /**
@@ -17,6 +17,7 @@ export function WeekGrid({
   days,
   hours,
   flipped,
+  clock,
   cellClass,
   cellStyle,
   cellContent,
@@ -31,6 +32,8 @@ export function WeekGrid({
   days: readonly number[]
   hours: readonly number[]
   flipped: boolean
+  /** How the hours are written. */
+  clock: ClockFormat
   cellClass: (cell: GridCell) => string
   cellStyle?: (cell: GridCell) => CSSProperties | undefined
   cellContent?: (cell: GridCell) => ReactNode
@@ -112,7 +115,7 @@ export function WeekGrid({
               className="pb-1 text-center font-mono text-muted-foreground"
               style={{ fontSize: 'var(--text-tiny)' }}
             >
-              {flipped ? DAY_NAMES[column] : String(column).padStart(2, '0')}
+              {flipped ? DAY_NAMES[column] : hourHeading(column, clock)}
             </span>
           ))}
         </div>
@@ -124,7 +127,7 @@ export function WeekGrid({
               className="flex items-center pr-1 font-mono text-muted-foreground"
               style={{ fontSize: 'var(--text-tiny)' }}
             >
-              {flipped ? hourText(row) : DAY_NAMES[row]}
+              {flipped ? hourText(row, clock) : DAY_NAMES[row]}
             </span>
             {columns.map((column) => {
               const cell: GridCell = flipped ? { day: column, hour: row } : { day: row, hour: column }

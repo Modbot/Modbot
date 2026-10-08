@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Labelled, ZoneSelect } from '@/components/availability/Parts'
+import { ClockSwitch, Labelled, ZoneSelect } from '@/components/availability/Parts'
 import { cellAt, type GridCell } from '@/components/availability/cells'
 import { beginPaintStroke } from '@/components/availability/paintStroke'
 import { cellsBetween, PAINT_HOLD_MS, strokeAction, type Tool } from '@/components/availability/strokes'
@@ -11,9 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
 import { availabilityApi, type MyAvailability } from '@/lib/availability'
+import { useClock } from '@/lib/availabilityClock'
 import {
   browserZone,
   DAY_NAMES,
+  DAY_ORDER,
   HOURS_IN_WEEK,
   hourText,
   type AvailabilityCell,
@@ -24,7 +26,7 @@ import { usePhoneLayout } from '@/lib/phoneLayout'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
 
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
+const ALL_DAYS = DAY_ORDER
 const ALL_HOURS = Array.from({ length: 24 }, (_, hour) => hour)
 
 /** Free is solid; if needed is striped, so the two differ by more than a colour. */
@@ -68,6 +70,7 @@ export function MineTab() {
   const [saving, setSaving] = useState(false)
   const [outcome, setOutcome] = useState<{ tone: 'ok' | 'problem'; text: string } | null>(null)
   const flipped = usePhoneLayout()
+  const [clock, setClock] = useClock()
   const touch = useTouchInput()
   const [finger, setFinger] = useState<FingerMode>(firstFingerMode)
   const [lifted, setLifted] = useState<GridCell | null>(null)
@@ -136,7 +139,7 @@ export function MineTab() {
     const paintTo = (at: PointerPoint) => {
       const cell = cellAt(at)
       if (!cell) return
-      for (const between of cellsBetween(last, cell, flipped)) apply(between, action)
+      for (const between of cellsBetween(last, cell, flipped, ALL_DAYS)) apply(between, action)
       last = cell
     }
 
@@ -195,6 +198,10 @@ export function MineTab() {
             />
           </Labelled>
 
+          <Labelled label="Clock">
+            <ClockSwitch clock={clock} onChange={setClock} />
+          </Labelled>
+
           <Labelled label="Paint">
             <SwitchBank
               label="Paint"
@@ -231,6 +238,7 @@ export function MineTab() {
           days={ALL_DAYS}
           hours={ALL_HOURS}
           flipped={flipped}
+          clock={clock}
           lockTouch={fingerPaints}
           cellClass={(cell) =>
             cn(
@@ -241,7 +249,7 @@ export function MineTab() {
           cellStyle={(cell) => (stateAt(cell) === 'ifNeeded' ? { backgroundImage: IF_NEEDED_STRIPES } : undefined)}
           cellLabel={(cell) => {
             const state = stateAt(cell)
-            return `${DAY_NAMES[cell.day]} ${hourText(cell.hour)}, ${state === 'free' ? 'free' : state === 'ifNeeded' ? 'free if needed' : 'not free'}`
+            return `${DAY_NAMES[cell.day]} ${hourText(cell.hour, clock)}, ${state === 'free' ? 'free' : state === 'ifNeeded' ? 'free if needed' : 'not free'}`
           }}
           onPress={press}
           onKey={(cell) => apply(cell, actionAt(cell))}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Labelled, ZoneSelect } from '@/components/availability/Parts'
+import { ClockSwitch, Labelled, ZoneSelect } from '@/components/availability/Parts'
 import type { GridCell } from '@/components/availability/cells'
 import { WeekGrid } from '@/components/availability/WeekGrid'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
 import { availabilityApi, type TeamAvailability } from '@/lib/availability'
+import { useClock } from '@/lib/availabilityClock'
 import {
   bestTimes,
   bestTimeText,
@@ -69,6 +70,7 @@ export function TeamTab() {
   const [picked, setPicked] = useState<GridCell | null>(null)
   const [hovered, setHovered] = useState<GridCell | null>(null)
   const flipped = usePhoneLayout()
+  const [clock, setClock] = useClock()
 
   // The moment the week is worked out for: when the tab opened. A week that changes while it is open is not worth a timer.
   const [opened] = useState(() => Date.now())
@@ -125,6 +127,10 @@ export function TeamTab() {
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Labelled label="Time zone">
             <ZoneSelect value={zone} onChange={setZone} />
+          </Labelled>
+
+          <Labelled label="Clock">
+            <ClockSwitch clock={clock} onChange={setClock} />
           </Labelled>
 
           <Labelled label="Role">
@@ -196,16 +202,17 @@ export function TeamTab() {
             days={days}
             hours={hours}
             flipped={flipped}
+            clock={clock}
             selected={picked}
             cellClass={(cell) => SHADES[shadeOf(slotOf(cell).count, shown.length, filters.least)]}
             cellContent={(cell) => (shadeOf(slotOf(cell).count, shown.length, filters.least) > 0 ? slotOf(cell).count : null)}
-            cellLabel={(cell) => `${DAY_NAMES[cell.day]} ${hourText(cell.hour)}, ${slotOf(cell).count} free`}
+            cellLabel={(cell) => `${DAY_NAMES[cell.day]} ${hourText(cell.hour, clock)}, ${slotOf(cell).count} free`}
             onChoose={(cell) => setPicked((now) => (now?.day === cell.day && now.hour === cell.hour ? null : cell))}
             onHover={setHovered}
           />
 
           <div className="flex flex-col gap-1" aria-live="polite">
-            <div className="font-label">{open ? `${DAY_NAMES[open.day]} ${hourText(open.hour)}` : 'Hour'}</div>
+            <div className="font-label">{open ? `${DAY_NAMES[open.day]} ${hourText(open.hour, clock)}` : 'Hour'}</div>
             {!openSlot ? (
               <span className="text-muted-foreground">No hour picked.</span>
             ) : openSlot.people.length === 0 ? (
@@ -236,7 +243,7 @@ export function TeamTab() {
           ) : (
             <ul className="flex flex-col gap-1">
               {best.map((time) => (
-                <li key={time.day}>{bestTimeText(time, shown.length)}</li>
+                <li key={time.day}>{bestTimeText(time, shown.length, clock)}</li>
               ))}
             </ul>
           )}

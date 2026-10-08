@@ -40,6 +40,26 @@ test('the same cell twice is one cell', () => {
   assert.deepEqual(keys(cellsBetween({ day: 6, hour: 23 }, { day: 6, hour: 23 }, true)), ['6:23'])
 })
 
+// The grid draws Sunday first, so Sunday (6) sits next to Monday (0) and Saturday (5) is last.
+const SUNDAY_FIRST = [6, 0, 1, 2, 3, 4, 5]
+
+test('with Sunday drawn first, a move from Sunday to Monday is two cells and does not fill in the week', () => {
+  assert.deepEqual(keys(cellsBetween({ day: 6, hour: 9 }, { day: 0, hour: 9 }, false, SUNDAY_FIRST)), ['6:9', '0:9'])
+  assert.deepEqual(keys(cellsBetween({ day: 0, hour: 9 }, { day: 6, hour: 9 }, true, SUNDAY_FIRST)), ['0:9', '6:9'])
+})
+
+test('with Sunday drawn first, a move from Friday to Saturday is two cells', () => {
+  assert.deepEqual(keys(cellsBetween({ day: 4, hour: 20 }, { day: 5, hour: 20 }, false, SUNDAY_FIRST)), ['4:20', '5:20'])
+})
+
+test('with Sunday drawn first, a fast move from Sunday to Wednesday passes Monday and Tuesday in drawn order', () => {
+  assert.deepEqual(keys(cellsBetween({ day: 6, hour: 12 }, { day: 2, hour: 12 }, true, SUNDAY_FIRST)), ['6:12', '0:12', '1:12', '2:12'])
+})
+
+test('with Sunday drawn first, a move down a column on a phone is the same as before', () => {
+  assert.deepEqual(keys(cellsBetween({ day: 6, hour: 5 }, { day: 6, hour: 8 }, true, SUNDAY_FIRST)), ['6:5', '6:6', '6:7', '6:8'])
+})
+
 test('pressing an empty cell paints the chosen state', () => {
   assert.equal(strokeAction('free', null), 'free')
   assert.equal(strokeAction('ifNeeded', null), 'ifNeeded')
