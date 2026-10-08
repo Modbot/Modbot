@@ -4,9 +4,6 @@ import type { GridCell } from './cells.ts'
 /** What the Paint switch has picked: a state to paint, or erasing. */
 export type Tool = AvailabilityState | 'erase'
 
-/** How long a finger is held in Scroll before it starts painting. */
-export const PAINT_HOLD_MS = 300
-
 /**
  * What a stroke does to every cell it passes, fixed by the cell it starts on: paint the chosen
  * state, or clear when that first cell already holds it, and the rest of the stroke clears too.

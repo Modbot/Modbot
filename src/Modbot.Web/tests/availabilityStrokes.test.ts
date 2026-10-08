@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { cellsBetween, PAINT_HOLD_MS, strokeAction } from '../src/components/availability/strokes.ts'
+import { cellsBetween, strokeAction } from '../src/components/availability/strokes.ts'
 
 const keys = (cells: { day: number; hour: number }[]) => cells.map((cell) => `${cell.day}:${cell.hour}`)
 
@@ -83,8 +83,4 @@ test('Erase always clears, whatever the first cell holds', () => {
   assert.equal(strokeAction('erase', null), null)
   assert.equal(strokeAction('erase', 'free'), null)
   assert.equal(strokeAction('erase', 'ifNeeded'), null)
-})
-
-test('a hold in Scroll waits about 300 ms', () => {
-  assert.equal(PAINT_HOLD_MS, 300)
 })

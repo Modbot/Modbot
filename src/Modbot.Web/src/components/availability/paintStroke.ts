@@ -3,11 +3,11 @@ import type { PointerPoint } from '@/components/calendar/pointer'
 
 /**
  * A finger painting at once: from the moment it touches to the moment it lets go, every move is
- * reported, and nothing under it scrolls. For Paint on a touch screen, where `beginPress` would make
- * the finger hold first.
+ * reported, and nothing under it scrolls. For a finger on a cell, where `beginPress` would make the
+ * finger hold first.
  *
- * The grid is `touch-action: none` while this is on, so the browser never takes the finger for a
- * scroll. The pointer is captured as well, and moves are listened for on the window, so a stroke
+ * The cells are `touch-action: none`, so the browser never takes a finger that went down on one for
+ * a scroll; the labels around them are not, and still scroll the page. The pointer is captured as well, and moves are listened for on the window, so a stroke
  * that leaves the first cell, or the grid, keeps going. The pointer events themselves stay on the
  * cell the finger went down on, which is why the caller looks up the cell under each point.
  */

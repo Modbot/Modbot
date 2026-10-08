@@ -47,7 +47,7 @@ export function WeekGrid({
   onKey?: (cell: GridCell) => void
   /** The mouse over a cell, and null when it leaves the grid. */
   onHover?: (cell: GridCell | null) => void
-  /** A finger on the grid does not scroll the page, so a press can paint as it moves. */
+  /** A finger on a cell does not scroll the page, so a press can paint as it moves. The labels still scroll it. */
   lockTouch?: boolean
 }) {
   const grid = useRef<HTMLDivElement>(null)
@@ -102,7 +102,6 @@ export function WeekGrid({
         className={cn('grid w-full gap-0.5 select-none', !flipped && 'min-w-[34rem]')}
         style={{
           gridTemplateColumns: `${flipped ? '2.75rem' : '2.5rem'} repeat(${columnCount}, minmax(0, 1fr))`,
-          touchAction: lockTouch ? 'none' : undefined,
         }}
         onMouseLeave={() => onHover?.(null)}
       >
@@ -152,6 +151,7 @@ export function WeekGrid({
                   className={cn(
                     'flex items-center justify-center font-mono outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring',
                     flipped ? 'h-8' : 'h-9',
+                    lockTouch && 'touch-none',
                     chosen && 'outline-2 outline-foreground z-10',
                     cellClass(cell),
                   )}

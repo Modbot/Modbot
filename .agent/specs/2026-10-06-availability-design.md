@@ -90,8 +90,11 @@ checked against the zone database the Calendar already uses.
 
 **Mine.** Time zone, a choice of **Free**, **If needed** or **Erase**, the week, and **Save**. No
 automatic save: **Not saved** and **Saved** say where it stands. A mouse paints by dragging. A finger
-taps a cell, or holds for a moment and then drags, the calendar's press handling, so a quick swipe
-still scrolls the page. Pressing a cell that already holds the chosen paint clears it, and so does the
+on a cell always paints, from the moment it touches and as it moves (there is no switch; the cells
+alone are `touch-action: none`), and the page scrolls from anything that is not a cell: the hour
+labels, the day headers, the gaps and the rest of the page. This reverses the Paint or Scroll switch
+(commit `edf56e97`) and the hold-then-drag press before it, which made a finger that moved at once
+scroll the grid. Pressing a cell that already holds the chosen paint clears it, and so does the
 rest of the stroke. Under a phone's width the grid is turned, hours down and days across, so seven
 columns are each wide enough to hit and the page never scrolls sideways. The keyboard works: arrow
 keys and Enter or Space.
