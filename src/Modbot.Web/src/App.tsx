@@ -38,7 +38,7 @@ import type { WaitingCount } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { usePinnedPages } from '@/lib/usePinnedPages'
-import { go, useLocation, useRoute } from '@/lib/router'
+import { go, useLocation } from '@/lib/router'
 import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
@@ -238,7 +238,12 @@ function tokenRoute(path: string): { kind: 'join' | 'reset'; token: string } | n
 }
 
 export default function App() {
-  const [route, navigate] = useRoute()
+  // The one copy of the address, path and query alike, handed down to the shell. Every `useLocation`
+  // keeps its own copy and a `navigate` updates only the copy it came from, so a second call in the
+  // shell held on to the last page's `?f=` after a nav click: Now (`/`) with that stale `?f=` was taken
+  // for the old member list and sent on to People.
+  const [location, navigate] = useLocation()
+  const route = location.path
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [me, setMe] = useState<CurrentUser | null>(null)
 
@@ -365,7 +370,7 @@ export default function App() {
           status={status}
           me={me}
           prefs={prefs}
-          route={route}
+          location={location}
           navigate={navigate}
           refresh={refresh}
           demo={demo}
@@ -379,7 +384,7 @@ function Shell({
   status,
   me,
   prefs,
-  route,
+  location,
   navigate,
   refresh,
   demo,
@@ -387,11 +392,12 @@ function Shell({
   status: OnboardingStatus
   me: CurrentUser
   prefs: ReturnType<typeof usePreferences>
-  route: string
+  location: ReturnType<typeof useLocation>[0]
   navigate: (to: string, options?: { replace?: boolean }) => void
   refresh: () => Promise<OnboardingStatus>
   demo: boolean
 }) {
+  const route = location.path
   const requested = pageFor(route)
 
   // An address that moved still opens its page, and the bar quietly becomes the new address -- so
@@ -404,7 +410,6 @@ function Shell({
   // The member list lived at `/`, then at `/members`, and is now People narrowed to members. A
   // `/members` link, and a `/` carrying the list's own filters or page, is sent on to that view;
   // until it has gone, neither Now nor People is drawn for the old address.
-  const [location] = useLocation()
   const search = location.search.toString()
   const movingToMembers = membersAddress(route, search)
   useEffect(() => {
