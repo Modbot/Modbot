@@ -772,16 +772,18 @@ function InviteFields({
         </div>
       )}
 
-      <Checkbox
-        checked={input.announceFirstJoinInDiscord && canAnnounce}
-        disabled={!canAnnounce}
-        onChange={(v) => set('announceFirstJoinInDiscord', v)}
-      >
-        Announce in Discord when the first person joins
-      </Checkbox>
-      <Checkbox checked={input.announceFirstJoinInVRChat} onChange={(v) => set('announceFirstJoinInVRChat', v)}>
-        Announce in VRChat when the first person joins
-      </Checkbox>
+      <div className="flex flex-wrap gap-3">
+        <Checkbox
+          checked={input.announceFirstJoinInDiscord && canAnnounce}
+          disabled={!canAnnounce}
+          onChange={(v) => set('announceFirstJoinInDiscord', v)}
+        >
+          Announce in Discord when the first person joins
+        </Checkbox>
+        <Checkbox checked={input.announceFirstJoinInVRChat} onChange={(v) => set('announceFirstJoinInVRChat', v)}>
+          Announce in VRChat when the first person joins
+        </Checkbox>
+      </div>
     </>
   )
 }
