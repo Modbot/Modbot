@@ -51,10 +51,9 @@ public sealed class DiscordServerIndex
 
         var row = await ServerRowAsync(server.GuildId, create: true, ct).ConfigureAwait(false);
 
-        // Read before the row takes the new picture: what the last refresh saw decides which old
-        // refusals the new one answers.
+        // Read before the row takes the new picture. A server never read before has none, which
+        // reads as without it.
         var couldManageEvents = row!.BotCanManageEvents;
-        var lastRefreshedAt = row.RefreshedAt;
 
         row.Name = server.Name;
         row.BotCanViewAuditLog = server.BotCanViewAuditLog;
@@ -128,25 +127,24 @@ public sealed class DiscordServerIndex
             }
         }
 
-        if (server.BotCanManageEvents)
-            await ClearManageEventsRefusalsAsync(couldManageEvents, lastRefreshedAt, now, ct).ConfigureAwait(false);
+        if (server.BotCanManageEvents && !couldManageEvents)
+            await ClearManageEventsRefusalsAsync(now, ct).ConfigureAwait(false);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// The bot holds Manage Events: a Discord place the calendar gave up on for the lack of it is
-    /// sent again on the next pass (calendar design §17.4). Tied to the refresh rather than to a
-    /// moderator's press because the role is fixed in Discord, where Modbot is not told which
+    /// The bot has just gained Manage Events: a Discord place the calendar gave up on for the lack
+    /// of it is sent again on the next pass (calendar design §17.4). Tied to the refresh rather than
+    /// to a moderator's press because the role is fixed in Discord, where Modbot is not told which
     /// events were waiting for it.
     /// </summary>
     /// <remarks>
-    /// When the last refresh already saw the permission, only a refusal from before that refresh is
-    /// cleared: it was left behind by the old picture. A refusal since then came with the
-    /// permission held, so another refresh does not send it again every time.
+    /// Only on the refresh where the permission went from missing (or never read) to held. A
+    /// refusal while it is held is not about the lack of it, and clearing it on later refreshes
+    /// would send it again and again; a moderator's Try again sends it when they want.
     /// </remarks>
-    private async Task ClearManageEventsRefusalsAsync(
-        bool couldManageEvents, DateTimeOffset lastRefreshedAt, DateTimeOffset now, CancellationToken ct)
+    private async Task ClearManageEventsRefusalsAsync(DateTimeOffset now, CancellationToken ct)
     {
         var refused = await _db.CalendarEventPlaces
             .Where(p => p.State == CalendarPlaceStates.Failed
@@ -156,12 +154,7 @@ public sealed class DiscordServerIndex
             .ConfigureAwait(false);
 
         foreach (var place in refused)
-        {
-            if (couldManageEvents && place.ErrorAt > lastRefreshedAt)
-                continue;
-
             CalendarDiscordRetry.ClearAfterManageEventsGranted(place, now);
-        }
     }
 
     /// <summary>Saves one channel that was created or changed.</summary>

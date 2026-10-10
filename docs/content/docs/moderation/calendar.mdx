@@ -401,7 +401,7 @@ Shown while the **VRChat calendar** chip is on.
 | **VRChat picture** | Optional. The picture on VRChat's calendar. See [The VRChat picture](#the-vrchat-picture). |
 | **PC**, **Android**, **iOS** | The platforms the event is for. |
 | **Notify group members** | Asks VRChat to tell your group members about the event. VRChat is only asked this when the event is first put on its calendar, not when you edit it later. |
-| **Featured** | Asks VRChat to show the event as featured. Off for a new event. If VRChat refuses an event with it on, the event's **VRChat calendar** status shows VRChat's words followed by **(sent with Featured on)**; turn it off and save to send the event without it. |
+| **Featured** | Asks VRChat to show the event as featured. Off for a new event. Not every VRChat account may feature events. If VRChat refuses Featured, Modbot sends the event again straight away without it, so the event still goes onto VRChat's calendar, and leaves Featured out of everything it sends for the next 7 days; after that the next change asks again. The box stays ticked in Modbot while VRChat's copy is not featured. |
 
 Some of VRChat's own event settings are not in the form: how early hosts and guests may join, closing
 the instance after the end, instance overflow and which group roles see the event. For an event
@@ -613,8 +613,9 @@ first time Modbot sees it, and again after it is changed on VRChat, to read how 
 ordinary Modbot event: with **Manage calendar** you can open, edit, drag, cancel and delete it, and
 your change is sent to that same event on VRChat, never as a second copy. It arrives with
 **VRChat calendar** and **Discord event** on, and **Discord channel post** and **Open the
-instance** off; turn them on if you want them. **Featured** is copied in with the rest. VRChat
-settings the Modbot form does not have, such as how early hosts may join, are kept as they are when
+instance** off; turn them on if you want them. **Featured** is copied in with the rest. While you leave it as it
+came, Modbot does not send Featured back to VRChat, so an event VRChat features is not refused when
+you edit it; changing the box sends it. VRChat settings the Modbot form does not have, such as how early hosts may join, are kept as they are when
 you edit it.
 
 **Changed on VRChat.** The newest change wins. Modbot copies in a change made on VRChat, for any

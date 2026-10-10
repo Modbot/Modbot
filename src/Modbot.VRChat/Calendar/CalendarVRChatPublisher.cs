@@ -945,6 +945,8 @@ public sealed class CalendarVRChatPublisher
             return result;
         }
 
+        // Saved with the rest of the pass: the settings row is tracked by the same context, and
+        // the pass saves after every write (create, update and one date alike).
         settings.VRChatFeaturedRefusedAt = now;
 
         _log.Warning(

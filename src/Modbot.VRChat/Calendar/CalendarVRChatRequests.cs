@@ -86,7 +86,8 @@ public static class CalendarVRChatRequests
     /// </summary>
     public static bool IsFeaturedRefusal(int status, string? body, string? error)
     {
-        if (status is < 400 or >= 500)
+        // Never a 429: a rate limit is not a refusal of Featured, and is never sent again here.
+        if (status is < 400 or >= 500 or 429)
             return false;
 
         var said = VRChatRefusal.MessageOf(body) ?? error ?? body;

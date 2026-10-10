@@ -106,6 +106,7 @@ public class CalendarVRChatFeaturedTests(PostgresFixture fixture) : CalendarTest
         Assert.True(CalendarVRChatRequests.IsFeaturedRefusal(403, null, Refusal));
         Assert.False(CalendarVRChatRequests.IsFeaturedRefusal(403, "{\"error\":{\"message\":\"You do not have permission to manage the calendar\"}}", null));
         Assert.False(CalendarVRChatRequests.IsFeaturedRefusal(500, body, null));
+        Assert.False(CalendarVRChatRequests.IsFeaturedRefusal(429, body, "Too many featured requests"));
         Assert.False(CalendarVRChatRequests.IsFeaturedRefusal(0, null, "featured"));
     }
 

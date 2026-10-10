@@ -538,7 +538,7 @@ public class DiscordServerIndexTests
     }
 
     [Fact]
-    public async Task AFailureAfterTheLastReadSawManageEvents_IsNotSentAgainByEveryRead()
+    public async Task AFailureWhileManageEventsIsHeld_IsNotSentAgainByLaterReads()
     {
         await using var services = await TestServices.CreateAsync(_db, Ct);
         var (_, gateway) = await ReadyBotAsync(services);
@@ -548,14 +548,17 @@ public class DiscordServerIndexTests
         await gateway.RaiseResumedAsync();
         var readAt = services.Clock.UtcNow;
 
-        // One that failed before that read (left behind by the old picture), one since.
+        // One that failed before that read, one since: neither is about the lack of it any more.
         var before = await AddFailedServerEventAsync(services, Core.Calendar.CalendarDiscordRetry.NeedsManageEvents, readAt - TimeSpan.FromSeconds(30));
         var since = await AddFailedServerEventAsync(services, Core.Calendar.CalendarDiscordRetry.NeedsManageEvents, readAt + TimeSpan.FromSeconds(30));
 
-        services.Clock.Advance(TimeSpan.FromMinutes(1));
-        await gateway.RaiseResumedAsync();
+        for (var read = 0; read < 3; read++)
+        {
+            services.Clock.Advance(TimeSpan.FromMinutes(1));
+            await gateway.RaiseResumedAsync();
+        }
 
-        Assert.Equal(CalendarPlaceStates.Waiting, (await ServerEventPlaceAsync(services, before)).State);
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, before)).State);
         Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, since)).State);
     }
 }
