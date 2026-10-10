@@ -626,12 +626,14 @@ export function CalendarEventForm({
                         </Checkbox>
                       ))}
                     </div>
-                    <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
-                      Notify group members
-                    </Checkbox>
-                    <Checkbox checked={input.featured} onChange={(v) => set('featured', v)}>
-                      Featured
-                    </Checkbox>
+                    <div className="flex flex-wrap gap-3">
+                      <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
+                        Notify group members
+                      </Checkbox>
+                      <Checkbox checked={input.featured} onChange={(v) => set('featured', v)}>
+                        Featured
+                      </Checkbox>
+                    </div>
                   </Section>
                 )}
 

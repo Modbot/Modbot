@@ -46,7 +46,54 @@ public static class CalendarVRChatRequests
         return CalendarFingerprint.Of([.. parts]);
     }
 
-    public static CreateCalendarEventRequest Create(CalendarEvent e)
+    /// <summary>
+    /// How long after VRChat refuses Featured the calendar leaves it out of what it sends, before
+    /// asking once more in case the account may feature by then.
+    /// </summary>
+    public static readonly TimeSpan FeaturedRefusalMemory = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Whether Modbot's account is thought able to feature an event: VRChat has not refused it for
+    /// that lately (calendar repeats and VRChat settings design §4).
+    /// </summary>
+    public static bool CanFeature(Settings? settings, DateTimeOffset now) =>
+        settings?.VRChatFeaturedRefusedAt is not { } refused || now - refused >= FeaturedRefusalMemory;
+
+    /// <summary>
+    /// What an event says about Featured in a create or an update: true or false, or null to leave
+    /// the field out.
+    /// </summary>
+    /// <remarks>
+    /// Left out for an event made on VRChat whose Featured is still what VRChat reported: a moderator
+    /// has not changed it, and sending it back refused an event VRChat itself holds as featured
+    /// ("18+ Hangout", 2026-10-09). Left out too when Featured is wanted but the account was refused
+    /// for it lately, so the rest of the edit goes through.
+    /// </remarks>
+    public static bool? FeaturedToSend(CalendarEvent e, bool canFeature = true)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+
+        if (e.MadeOnVRChat && e.VRChatFeatured == e.Featured)
+            return null;
+
+        return e.Featured && !canFeature ? null : e.Featured;
+    }
+
+    /// <summary>
+    /// Whether VRChat's answer to a write refuses Featured itself ("You do not have permission to
+    /// make a featured event", seen 2026-10-09 as a 403), as opposed to anything else about the
+    /// write.
+    /// </summary>
+    public static bool IsFeaturedRefusal(int status, string? body, string? error)
+    {
+        if (status is < 400 or >= 500)
+            return false;
+
+        var said = VRChatRefusal.MessageOf(body) ?? error ?? body;
+        return said?.Contains("featured", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    public static CreateCalendarEventRequest Create(CalendarEvent e, bool canFeature = true)
     {
         ArgumentNullException.ThrowIfNull(e);
         var (starts, ends) = Times(e);
@@ -57,7 +104,7 @@ public static class CalendarVRChatRequests
             closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             description: e.Description ?? string.Empty,
             endsAt: ends,
-            featured: e.Featured,
+            featured: FeaturedToSend(e, canFeature) ?? false,
             guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
             hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
             imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
@@ -78,9 +125,9 @@ public static class CalendarVRChatRequests
     /// (checked 2026-09-27), and leaves out the minutes when they are 0 and the roles when null. So
     /// what VRChat said for an event read from its calendar is sent back as it was, and an edit made
     /// in Modbot does not switch those settings off. Featured is the form's own since 2026-10-02,
-    /// and is always sent as the form has it.
+    /// and is sent as the form has it, except where <see cref="FeaturedToSend"/> leaves it out.
     /// </remarks>
-    public static CalendarUpdateBody Update(CalendarEvent e)
+    public static CalendarUpdateBody Update(CalendarEvent e, bool canFeature = true)
     {
         ArgumentNullException.ThrowIfNull(e);
         var (starts, ends) = Times(e);
@@ -97,7 +144,7 @@ public static class CalendarVRChatRequests
             CloseInstanceAfterEndMinutes = e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             Description = e.Description ?? string.Empty,
             EndsAt = ends,
-            Featured = e.Featured,
+            Featured = FeaturedToSend(e, canFeature),
             GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
             HostEarlyJoinMinutes = e.VRChatHostEarlyJoinMinutes ?? 0,
             ImageId = string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
@@ -144,13 +191,13 @@ public static class CalendarVRChatRequests
     /// The update for one date of the series, sent to that date's own id: the series' settings with
     /// the date's times and words, and no repeat, since it is one date.
     /// </summary>
-    public static CalendarUpdateBody UpdateDate(CalendarEvent e, CalendarDateChange change)
+    public static CalendarUpdateBody UpdateDate(CalendarEvent e, CalendarDateChange change, bool canFeature = true)
     {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(change);
 
         var date = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e));
-        var request = Update(e);
+        var request = Update(e, canFeature);
 
         request.StartsAt = date.StartsAt.UtcDateTime;
         request.EndsAt = date.EndsAt.UtcDateTime;

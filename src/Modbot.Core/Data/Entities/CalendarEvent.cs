@@ -153,6 +153,15 @@ public class CalendarEvent
     /// </summary>
     public bool Featured { get; set; }
 
+    /// <summary>
+    /// Whether VRChat itself said the event is featured, the last time it was read from VRChat's
+    /// calendar. Null for an event never read back. An event made on VRChat whose
+    /// <see cref="Featured"/> still matches it has not been changed by a moderator, and is
+    /// written back without a Featured of its own: an account that may not feature is refused
+    /// when it says "featured" at all, even to repeat what VRChat already holds (added 2026-10-09).
+    /// </summary>
+    public bool? VRChatFeatured { get; set; }
+
     // ── VRChat's settings Modbot's form does not have ────────────────────────────────────
     //
     // Kept as VRChat said them, for an event read from VRChat's calendar, and sent back unchanged

@@ -324,7 +324,7 @@ public sealed class CalendarVRChatPublisher
             // The series are as they should be: a date changed on its own is next (§2.2).
             if (DueDate(events, places, now) is { } date)
             {
-                var dateOutcome = await WriteDateAsync(date.Event, date.Place, date.Change, date.Fingerprint, groupId, now, ct)
+                var dateOutcome = await WriteDateAsync(date.Event, date.Place, date.Change, date.Fingerprint, groupId, settings, now, ct)
                     .ConfigureAwait(false);
 
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -522,6 +522,7 @@ public sealed class CalendarVRChatPublisher
         CalendarDateChange change,
         string fingerprint,
         string groupId,
+        Settings settings,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -603,12 +604,22 @@ public sealed class CalendarVRChatPublisher
         }
         else
         {
-            var request = CalendarVRChatRequests.UpdateDate(calendarEvent, change);
+            var request = CalendarVRChatRequests.UpdateDate(calendarEvent, change, CalendarVRChatRequests.CanFeature(settings, now));
+            var dateEndpoint = new VRChatEndpoint(VRChatEndpointClass.CalendarWrite, groupId, "UpdateGroupCalendarEvent");
             var result = await _gate.ExecuteAsync(
-                new VRChatEndpoint(VRChatEndpointClass.CalendarWrite, groupId, "UpdateGroupCalendarEvent"),
+                dateEndpoint,
                 (client, token) => client.Calendar.UpdateGroupCalendarEventWithHttpInfoAsync(groupId, dateId, request, token),
                 VRChatCallPriority.Background,
                 ct).ConfigureAwait(false);
+
+            result = await WithoutFeaturedIfRefusedAsync(
+                result, request.Featured, settings, calendarEvent, now,
+                () => _gate.ExecuteAsync(
+                    dateEndpoint,
+                    (client, token) => client.Calendar.UpdateGroupCalendarEventWithHttpInfoAsync(
+                        groupId, dateId, CalendarVRChatRequests.UpdateDate(calendarEvent, change, canFeature: false), token),
+                    VRChatCallPriority.Background,
+                    ct)).ConfigureAwait(false);
 
             (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
             answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
@@ -912,6 +923,37 @@ public sealed class CalendarVRChatPublisher
             && now - at < RetryUnansweredAfter;
     }
 
+    /// <summary>
+    /// A write VRChat refused for Featured and nothing else is sent again without it, and the
+    /// refusal is remembered (<see cref="Settings.VRChatFeaturedRefusedAt"/>): an account that may
+    /// not feature should not fail every event that has the box ticked (calendar repeats and VRChat
+    /// settings design §4, 2026-10-09). The answer is returned as it is when nothing about it is
+    /// Featured, or when Featured was not sent.
+    /// </summary>
+    private async Task<VRChatResult<T>> WithoutFeaturedIfRefusedAsync<T>(
+        VRChatResult<T> result,
+        bool? sentFeatured,
+        Settings settings,
+        CalendarEvent calendarEvent,
+        DateTimeOffset now,
+        Func<Task<VRChatResult<T>>> again)
+    {
+        if (result.Success
+            || sentFeatured != true
+            || !CalendarVRChatRequests.IsFeaturedRefusal(result.StatusCode, result.RawResponse, result.ErrorMessage))
+        {
+            return result;
+        }
+
+        settings.VRChatFeaturedRefusedAt = now;
+
+        _log.Warning(
+            "VRChat refused Featured for the event {EventId}: {Status}; sending it again without Featured",
+            calendarEvent.Id, result.StatusCode);
+
+        return await again().ConfigureAwait(false);
+    }
+
     private async Task<CalendarPublishOutcome> WriteAsync(
         CalendarEvent calendarEvent,
         CalendarEventPlace place,
@@ -1042,12 +1084,22 @@ public sealed class CalendarVRChatPublisher
         {
             case "create":
             {
-                var request = CalendarVRChatRequests.Create(calendarEvent);
+                var request = CalendarVRChatRequests.Create(calendarEvent, CalendarVRChatRequests.CanFeature(settings, now));
                 var result = await _gate.ExecuteAsync(
                     endpoint,
                     (client, token) => client.Calendar.CreateGroupCalendarEventWithHttpInfoAsync(groupId, request, token),
                     VRChatCallPriority.Background,
                     ct).ConfigureAwait(false);
+
+                // Refused for Featured alone: the same event goes again without it.
+                result = await WithoutFeaturedIfRefusedAsync(
+                    result, request.Featured, settings, calendarEvent, now,
+                    () => _gate.ExecuteAsync(
+                        endpoint,
+                        (client, token) => client.Calendar.CreateGroupCalendarEventWithHttpInfoAsync(
+                            groupId, CalendarVRChatRequests.Create(calendarEvent, canFeature: false), token),
+                        VRChatCallPriority.Background,
+                        ct)).ConfigureAwait(false);
 
                 (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
                 createdId = result.Value?.Id;
@@ -1064,13 +1116,22 @@ public sealed class CalendarVRChatPublisher
 
             case "update":
             {
-                var request = CalendarVRChatRequests.Update(calendarEvent);
+                var request = CalendarVRChatRequests.Update(calendarEvent, CalendarVRChatRequests.CanFeature(settings, now));
                 var id = place.ExternalId!;
                 var result = await _gate.ExecuteAsync(
                     endpoint,
                     (client, token) => client.Calendar.UpdateGroupCalendarEventWithHttpInfoAsync(groupId, id, request, token),
                     VRChatCallPriority.Background,
                     ct).ConfigureAwait(false);
+
+                result = await WithoutFeaturedIfRefusedAsync(
+                    result, request.Featured, settings, calendarEvent, now,
+                    () => _gate.ExecuteAsync(
+                        endpoint,
+                        (client, token) => client.Calendar.UpdateGroupCalendarEventWithHttpInfoAsync(
+                            groupId, id, CalendarVRChatRequests.Update(calendarEvent, canFeature: false), token),
+                        VRChatCallPriority.Background,
+                        ct)).ConfigureAwait(false);
 
                 (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
                 answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
@@ -1223,7 +1284,8 @@ public sealed class CalendarVRChatPublisher
         // Featuring an event may be more than the group or Modbot's account is allowed, and what
         // VRChat answers then is not known (calendar repeats and VRChat settings design §6).
         // Saying it was on names the one switch to try without.
-        if (calendarEvent.Featured && action != "delete" && place.MissingGroupPermission is null && status is >= 400 and < 500)
+        if (action != "delete" && CalendarVRChatRequests.FeaturedToSend(calendarEvent, CalendarVRChatRequests.CanFeature(settings, now)) == true
+            && place.MissingGroupPermission is null && status is >= 400 and < 500)
             place.Error = Trim($"{place.Error} (sent with Featured on)");
 
         // Nothing came back, or VRChat's own trouble: try again later. Anything else is a refusal of

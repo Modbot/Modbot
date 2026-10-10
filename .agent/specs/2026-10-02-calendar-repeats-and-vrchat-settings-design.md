@@ -128,6 +128,26 @@ deploy, with what VRChat already has.
   and that is not the Manage Group Calendar refusal Modbot already names, shows VRChat's own words
   followed by **(sent with Featured on)** in the event's VRChat status. The place stays failed until
   the event changes, as every refusal does, so unticking Featured and saving sends it again.
+- **A refusal, seen (2026-10-09, changes the paragraph above).** On live Modbot VRChat answered a
+  create with 403, "You do not have permission to make a featured event", for an event with the
+  box ticked, and the whole event failed on it. Now:
+  - A 4xx whose words speak of "featured", for a write that sent `featured: true`, is sent again at
+    once without Featured. The event is published; Featured is the only thing missing. The
+    refusal is kept in `settings.vrchat_featured_refused_at`, and for 7 days after it every create
+    and update leaves a wanted Featured out, so no event is refused for it twice. After the 7 days
+    the next write asks again, in case the account may now.
+  - Nothing tells the moderator that Featured was left out: the box stays ticked, and VRChat's
+    copy, once read back, shows what VRChat has. This was left alone on purpose (no new text on
+    the form); see the open question in §8.
+- **An event made on VRChat is not refused for Featured it did not change (2026-10-09).** "18+
+  Hangout", read in from VRChat's calendar and pushed back, was refused with the same words: the
+  account may not feature, and VRChat refuses a `featured: true` even when it already holds the
+  event as featured. `calendar_event.vrchat_featured` keeps what VRChat itself last said
+  (set with the rest of VRChat's copy, filled from `featured` for events already read in). While
+  an event made on VRChat still has `featured` equal to it, the body leaves `featured` out: the
+  SDK's update model always writes it, so `CalendarUpdateBody` hides it behind a nullable of its
+  own, and the create (which has to say something) says false. A moderator changing the box makes
+  the two differ, and then it is sent as any event's.
 
 ## 5. The feed
 
@@ -179,8 +199,14 @@ Thursday, 6 times". No other text was added.
   every-2-weeks series in a different week from Modbot's.
 - Whether VRChat's count takes a date deleted from a series (a date cancelled on its own) off the
   count or leaves it in, as Modbot does.
-- What VRChat answers to Featured from an account or group not allowed to feature, and whether it
-  keeps `featured` on an update that sends it.
+- What VRChat answers to Featured from an account or group not allowed to feature. **Seen
+  2026-10-09:** a 403 with "You do not have permission to make a featured event", on a create with
+  Featured on and on a write-back of an event VRChat holds as featured (§4). Still open: whether
+  the permission is the account's, the group's or VRChat's own (a VRChat+ or partner matter), so
+  when "may now" is true is not known and the 7-day retry is a guess; whether VRChat keeps
+  `featured` on an update that leaves the field out (assumed, as for every other field left out of
+  an update); and whether a moderator should be told when Featured was left out (no text was added
+  for it).
 - VRChat's own limits on `interval` and `count`.
 
 ## 9. Follow-ups

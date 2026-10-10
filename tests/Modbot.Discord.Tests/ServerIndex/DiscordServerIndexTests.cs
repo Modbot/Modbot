@@ -465,4 +465,97 @@ public class DiscordServerIndexTests
         await gateway.RaiseResumedAsync();
         Assert.Equal(0x2_0000_0006, (await RoleRowAsync(services, "201")).Permissions);
     }
+
+    private static async Task<Guid> AddFailedServerEventAsync(TestServices services, string error, DateTimeOffset errorAt)
+    {
+        var now = services.Clock.UtcNow;
+        var e = new CalendarEvent
+        {
+            Id = Guid.CreateVersion7(),
+            Title = "Movie night",
+            StartsAt = now + TimeSpan.FromDays(1),
+            EndsAt = now + TimeSpan.FromDays(1) + TimeSpan.FromHours(2),
+            TimeZone = "UTC",
+            State = CalendarEventStates.Scheduled,
+            PublishToDiscord = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+
+        await using var db = services.Database.NewContext();
+        db.CalendarEvents.Add(e);
+        db.CalendarEventPlaces.Add(new CalendarEventPlace
+        {
+            EventId = e.Id,
+            Place = CalendarPlaces.DiscordEvent,
+            State = CalendarPlaceStates.Failed,
+            Error = error,
+            ErrorAt = errorAt,
+            FailedFingerprint = "fingerprint",
+            UpdatedAt = errorAt,
+        });
+        await db.SaveChangesAsync(Ct);
+        return e.Id;
+    }
+
+    private static async Task<CalendarEventPlace> ServerEventPlaceAsync(TestServices services, Guid eventId)
+    {
+        await using var db = services.Database.NewContext();
+        return await db.CalendarEventPlaces.AsNoTracking()
+            .SingleAsync(p => p.EventId == eventId && p.Place == CalendarPlaces.DiscordEvent, Ct);
+    }
+
+    /// <summary>
+    /// 2026-10-09: a tester gave the bot's role Manage Events and the event still said the bot
+    /// might not manage server events, because a refusal is not sent again until something changes.
+    /// Reading the bot's new permission is what changes it.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheBotGainsManageEvents_APlaceThatFailedForItsLackIsSentAgain()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        var refused = await AddFailedServerEventAsync(services, Core.Calendar.CalendarDiscordRetry.NeedsManageEvents, services.Clock.UtcNow);
+        var other = await AddFailedServerEventAsync(services, "The bot is not in that server.", services.Clock.UtcNow);
+
+        // Still without it: nothing changes.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, refused)).State);
+
+        gateway.Server = Server() with { BotCanManageEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+
+        var waiting = await ServerEventPlaceAsync(services, refused);
+        Assert.Equal(CalendarPlaceStates.Waiting, waiting.State);
+        Assert.Null(waiting.Error);
+        Assert.Null(waiting.FailedFingerprint);
+
+        // A failure that was not about the permission stays as it was.
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, other)).State);
+    }
+
+    [Fact]
+    public async Task AFailureAfterTheLastReadSawManageEvents_IsNotSentAgainByEveryRead()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        gateway.Server = Server() with { BotCanManageEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+        var readAt = services.Clock.UtcNow;
+
+        // One that failed before that read (left behind by the old picture), one since.
+        var before = await AddFailedServerEventAsync(services, Core.Calendar.CalendarDiscordRetry.NeedsManageEvents, readAt - TimeSpan.FromSeconds(30));
+        var since = await AddFailedServerEventAsync(services, Core.Calendar.CalendarDiscordRetry.NeedsManageEvents, readAt + TimeSpan.FromSeconds(30));
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+
+        Assert.Equal(CalendarPlaceStates.Waiting, (await ServerEventPlaceAsync(services, before)).State);
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, since)).State);
+    }
 }

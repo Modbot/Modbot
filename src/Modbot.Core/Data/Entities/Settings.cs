@@ -160,6 +160,15 @@ public class Settings
     public List<string>? VRChatAccountPermissions { get; set; }
 
     /// <summary>
+    /// When VRChat last refused Modbot's account for asking for a featured event ("You do not have
+    /// permission to make a featured event"), or null if it never has. For a while after it the
+    /// calendar leaves Featured out of what it sends, so an event is not refused again and again for
+    /// the one setting; it asks once more when the time has passed, in case the account may now
+    /// (calendar repeats and VRChat settings design §4).
+    /// </summary>
+    public DateTimeOffset? VRChatFeaturedRefusedAt { get; set; }
+
+    /// <summary>
     /// Modbot's own VRChat user id, from <c>myMember</c> in the group-info poll. Null until read.
     /// </summary>
     /// <remarks>

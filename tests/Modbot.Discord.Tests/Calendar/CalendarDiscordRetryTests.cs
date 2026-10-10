@@ -28,7 +28,7 @@ public class CalendarDiscordRetryTests(PostgresFixture db)
         await scope.ServiceProvider.GetRequiredService<CalendarDiscordPublisher>().RunOnceAsync(gateway, Ct);
     }
 
-    private static async Task<CalendarEvent> AddEventAsync(TestServices services)
+    private static async Task<CalendarEvent> AddEventAsync(TestServices services, Action<CalendarEvent>? shape = null)
     {
         var now = services.Clock.UtcNow;
         var e = new CalendarEvent
@@ -48,6 +48,7 @@ public class CalendarDiscordRetryTests(PostgresFixture db)
         };
 
         CalendarTimeline.Advance(e, now);
+        shape?.Invoke(e);
 
         await using var context = services.Database.NewContext();
         context.CalendarEvents.Add(e);
@@ -141,5 +142,92 @@ public class CalendarDiscordRetryTests(PostgresFixture db)
         Assert.Null(serverEvent.FailedFingerprint);
         Assert.Null(serverEvent.Error);
         Assert.Null(serverEvent.ErrorAt);
+    }
+
+    private static async Task<CalendarEventPlace> ServerEventPlaceAsync(TestServices services, Guid id)
+    {
+        await using var context = services.Database.NewContext();
+        return await context.CalendarEventPlaces.AsNoTracking()
+            .SingleAsync(p => p.EventId == id && p.Place == CalendarPlaces.DiscordEvent, Ct);
+    }
+
+    private static async Task TryServerEventAgainAsync(TestServices services, Guid id)
+    {
+        await using var context = services.Database.NewContext();
+        var place = await context.CalendarEventPlaces.SingleAsync(p => p.EventId == id && p.Place == CalendarPlaces.DiscordEvent, Ct);
+        Assert.True(CalendarDiscordRetry.TryAgain(place, services.Clock.UtcNow));
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>
+    /// 2026-10-09: a tester pressed Try again on a Discord event that said the bot may not manage
+    /// server events. The press has to put the event back to waiting and the next pass has to ask
+    /// Discord again; only Discord's answer then decides whether it still complains.
+    /// </summary>
+    [Fact]
+    public async Task ARefusedServerEvent_IsAskedOfDiscordAgainByTryAgain_AndPublishesOnceTheRoleIsFixed()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway { ServerEventError = CalendarDiscordRetry.NeedsManageEvents };
+
+        var e = await AddEventAsync(services, x =>
+        {
+            x.PublishToDiscord = true;
+            x.PostToChannel = false;
+        });
+
+        await RunAsync(services, gateway);
+        var refused = await ServerEventPlaceAsync(services, e.Id);
+        Assert.Equal(CalendarPlaceStates.Failed, refused.State);
+        Assert.Equal(CalendarDiscordRetry.NeedsManageEvents, refused.Error);
+        Assert.Empty(gateway.ServerEventCalls);
+
+        // Still refused: Try again asks, is refused again, and says so.
+        await TryServerEventAgainAsync(services, e.Id);
+        Assert.Equal(CalendarPlaceStates.Waiting, (await ServerEventPlaceAsync(services, e.Id)).State);
+        await RunAsync(services, gateway);
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, e.Id)).State);
+
+        // The role is fixed; Try again once more.
+        gateway.ServerEventError = null;
+        await TryServerEventAgainAsync(services, e.Id);
+        await RunAsync(services, gateway);
+
+        var published = await ServerEventPlaceAsync(services, e.Id);
+        Assert.Equal(CalendarPlaceStates.Published, published.State);
+        Assert.Null(published.Error);
+        Assert.Contains(gateway.ServerEventCalls, c => c.Action == "create");
+    }
+
+    [Fact]
+    public void OnlyAPlaceThatFailedForManageEvents_IsClearedWhenTheBotGainsIt()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+
+        var refused = new CalendarEventPlace
+        {
+            Place = CalendarPlaces.DiscordEvent,
+            State = CalendarPlaceStates.Failed,
+            FailedFingerprint = "f",
+            // Discord's own words may follow the sentence.
+            Error = CalendarDiscordRetry.NeedsManageEvents + " (Discord said: Missing Permissions, code 50013)",
+            ErrorAt = now,
+        };
+
+        Assert.True(CalendarDiscordRetry.ClearAfterManageEventsGranted(refused, now));
+        Assert.Equal(CalendarPlaceStates.Waiting, refused.State);
+        Assert.Null(refused.FailedFingerprint);
+        Assert.Null(refused.Error);
+        Assert.Null(refused.ErrorAt);
+
+        Assert.False(CalendarDiscordRetry.ClearAfterManageEventsGranted(refused, now));
+
+        Assert.False(CalendarDiscordRetry.ClearAfterManageEventsGranted(
+            new CalendarEventPlace { Place = CalendarPlaces.DiscordEvent, State = CalendarPlaceStates.Failed, Error = "Discord refused (403, code 160002): nope" }, now));
+        Assert.False(CalendarDiscordRetry.ClearAfterManageEventsGranted(
+            new CalendarEventPlace { Place = CalendarPlaces.VRChat, State = CalendarPlaceStates.Failed, Error = CalendarDiscordRetry.NeedsManageEvents }, now));
+        Assert.False(CalendarDiscordRetry.ClearAfterManageEventsGranted(
+            new CalendarEventPlace { Place = CalendarPlaces.DiscordEvent, State = CalendarPlaceStates.Published, Error = CalendarDiscordRetry.NeedsManageEvents }, now));
     }
 }

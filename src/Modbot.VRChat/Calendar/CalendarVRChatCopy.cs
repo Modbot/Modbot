@@ -119,6 +119,7 @@ public static class CalendarVRChatCopy
             target.ImageUrl = IsWebPicture(source.ImageUrl) ? source.ImageUrl : null;
 
         target.Featured = source.Featured;
+        target.VRChatFeatured = source.Featured;
         target.VRChatHostEarlyJoinMinutes = source.HostEarlyJoinMinutes;
         target.VRChatGuestEarlyJoinMinutes = source.GuestEarlyJoinMinutes;
         target.VRChatCloseInstanceAfterEndMinutes = source.CloseInstanceAfterEndMinutes;

@@ -33,4 +33,16 @@ public sealed class CalendarUpdateBody : UpdateCalendarEventRequest
     [DataMember(Name = "accessType", EmitDefaultValue = false)]
     [JsonProperty("accessType", NullValueHandling = NullValueHandling.Ignore)]
     public string? AccessType { get; set; }
+
+    /// <summary>
+    /// Featured, or nothing at all. The SDK's own <c>featured</c> is a plain <c>bool</c> that is
+    /// always written, as false when never set, and VRChat refuses an account that may not feature
+    /// as soon as it says "featured" with true -- even to repeat what VRChat already holds, as for
+    /// an event made there (seen 2026-10-09). This hides it, so null leaves the field out of the
+    /// body and VRChat keeps what it has. Checked by printing the body: null is left out, and true
+    /// and false are written once.
+    /// </summary>
+    [DataMember(Name = "featured", EmitDefaultValue = false)]
+    [JsonProperty("featured", NullValueHandling = NullValueHandling.Ignore)]
+    public new bool? Featured { get; set; }
 }

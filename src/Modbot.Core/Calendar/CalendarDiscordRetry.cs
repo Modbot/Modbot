@@ -22,6 +22,13 @@ namespace Modbot.Core.Calendar;
 public static class CalendarDiscordRetry
 {
     /// <summary>
+    /// What a place says when Discord refused for a missing permission. The gateway writes it, and
+    /// <see cref="ClearAfterManageEventsGranted"/> finds the places it is on; Discord's own answer
+    /// may follow it.
+    /// </summary>
+    public const string NeedsManageEvents = "The bot may not manage server events; it needs Manage Events.";
+
+    /// <summary>
     /// A moderator's Try again on a failed Discord place. False, changing nothing, for a place
     /// that has not failed, which is also what a second press finds.
     /// </summary>
@@ -47,6 +54,28 @@ public static class CalendarDiscordRetry
 
         if (place.Place is not (CalendarPlaces.DiscordEvent or CalendarPlaces.ChannelPost)
             || place.State != CalendarPlaceStates.Failed)
+        {
+            return false;
+        }
+
+        Clear(place, now);
+        return true;
+    }
+
+    /// <summary>
+    /// The bot's role got Manage Events after a place failed for the lack of it. Fixing a role
+    /// changes nothing about the event, so without this the refusal stayed until someone edited the
+    /// event or pressed Try again (added 2026-10-09, after a tester granted the permission and the
+    /// event still said it was missing). False, changing nothing, for any other place or failure.
+    /// </summary>
+    public static bool ClearAfterManageEventsGranted(CalendarEventPlace place, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(place);
+
+        if (!IsDiscord(place.Place)
+            || place.State != CalendarPlaceStates.Failed
+            || place.Error is not { } error
+            || !error.StartsWith(NeedsManageEvents, StringComparison.Ordinal))
         {
             return false;
         }

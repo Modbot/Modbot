@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -49,7 +50,13 @@ public sealed class DiscordServerIndex
         var now = _clock.UtcNow;
 
         var row = await ServerRowAsync(server.GuildId, create: true, ct).ConfigureAwait(false);
-        row!.Name = server.Name;
+
+        // Read before the row takes the new picture: what the last refresh saw decides which old
+        // refusals the new one answers.
+        var couldManageEvents = row!.BotCanManageEvents;
+        var lastRefreshedAt = row.RefreshedAt;
+
+        row.Name = server.Name;
         row.BotCanViewAuditLog = server.BotCanViewAuditLog;
         row.BotCanManageRoles = server.BotCanManageRoles;
         row.BotCanManageEvents = server.BotCanManageEvents;
@@ -121,7 +128,40 @@ public sealed class DiscordServerIndex
             }
         }
 
+        if (server.BotCanManageEvents)
+            await ClearManageEventsRefusalsAsync(couldManageEvents, lastRefreshedAt, now, ct).ConfigureAwait(false);
+
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The bot holds Manage Events: a Discord place the calendar gave up on for the lack of it is
+    /// sent again on the next pass (calendar design §17.4). Tied to the refresh rather than to a
+    /// moderator's press because the role is fixed in Discord, where Modbot is not told which
+    /// events were waiting for it.
+    /// </summary>
+    /// <remarks>
+    /// When the last refresh already saw the permission, only a refusal from before that refresh is
+    /// cleared: it was left behind by the old picture. A refusal since then came with the
+    /// permission held, so another refresh does not send it again every time.
+    /// </remarks>
+    private async Task ClearManageEventsRefusalsAsync(
+        bool couldManageEvents, DateTimeOffset lastRefreshedAt, DateTimeOffset now, CancellationToken ct)
+    {
+        var refused = await _db.CalendarEventPlaces
+            .Where(p => p.State == CalendarPlaceStates.Failed
+                && p.Error != null
+                && p.Error.StartsWith(CalendarDiscordRetry.NeedsManageEvents))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var place in refused)
+        {
+            if (couldManageEvents && place.ErrorAt > lastRefreshedAt)
+                continue;
+
+            CalendarDiscordRetry.ClearAfterManageEventsGranted(place, now);
+        }
     }
 
     /// <summary>Saves one channel that was created or changed.</summary>

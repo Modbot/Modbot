@@ -1133,7 +1133,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
             return DiscordPostOutcome.Failed(
                 e.HttpCode == HttpStatusCode.Forbidden
-                    ? "The bot may not manage server events; it needs Manage Events."
+                    ? ForbiddenEventSentence(e)
                     : e.HttpCode == HttpStatusCode.NotFound
                         ? DiscordScheduledEventDetails.Gone
                         : $"Discord answered {(int)e.HttpCode}: {e.Reason ?? e.Message}",
@@ -1147,6 +1147,30 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         {
             return DiscordPostOutcome.Failed($"Could not change the server event: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// What a refused server-event change says. Only Discord's "Missing Permissions" is the lack of
+    /// Manage Events, and it carries Discord's own words, so a bot that does hold the permission
+    /// shows what Discord really said. Any other refusal says what it was: until 2026-10-09 every
+    /// 403 was reported as the missing permission.
+    /// </summary>
+    private static string ForbiddenEventSentence(HttpException e)
+    {
+        var reason = string.IsNullOrWhiteSpace(e.Reason) ? null : e.Reason.Trim();
+        var code = e.DiscordCode is { } known ? (int)known : (int?)null;
+
+        if (e.DiscordCode == DiscordErrorCode.MissingPermissions)
+        {
+            return reason is null
+                ? $"{Core.Calendar.CalendarDiscordRetry.NeedsManageEvents} (Discord code {code})"
+                : $"{Core.Calendar.CalendarDiscordRetry.NeedsManageEvents} (Discord said: {reason}, code {code})";
+        }
+
+        var answer = reason ?? e.Message;
+        return code is { } number
+            ? $"Discord refused ({(int)e.HttpCode}, code {number}): {answer}"
+            : $"Discord refused ({(int)e.HttpCode}): {answer}";
     }
 
     private async Task<DiscordPostOutcome> InChannelAsync(
