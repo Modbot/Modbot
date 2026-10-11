@@ -361,6 +361,18 @@ internal sealed partial class CompanionHost : IOverlayListener
     private readonly DispatcherTimer _panelRetry = new() { Interval = TimeSpan.FromSeconds(10) };
     private bool _panelRetryWired;
 
+    /// <summary>
+    /// The headset panel's look: a look at VRChat's selected palette every two seconds, like the one
+    /// the window over VRChat takes. <c>_headsetColours</c> is the last palette read and
+    /// <c>_headsetShown</c> the colours the panel is drawn in now, so a repeat changes nothing.
+    /// </summary>
+    private readonly DispatcherTimer _headsetPaletteWatch = new() { Interval = TimeSpan.FromSeconds(2) };
+    private bool _headsetPaletteWired;
+    private bool _headsetLooking;
+    private bool _headsetPaletteFailing;
+    private OverlayColours? _headsetColours;
+    private OverlayColours? _headsetShown;
+
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
     private EscapeBubbleWindow? _escapeBubble;
@@ -571,7 +583,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         };
 
         // What the window over VRChat is showing, so the pictures it asks for are kept while it does.
-        Window.OverlayPictures = () => _desktopOverlay?.PictureAddresses ?? [];
+        Window.OverlayPictures = () => (_desktopOverlay?.PictureAddresses ?? []).Concat(_overlayHost?.PictureAddresses ?? []).ToList();
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
         _transport = new HttpIngestTransport(_http);
 
@@ -2084,6 +2096,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.KeepLastFrame = _state?.DebugMode is true;
             _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+            StartHeadsetPaletteWatch();
             AttachOverlay();
         }
         catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
@@ -2142,6 +2155,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             Log.Warning("The headset panel is not tried again until it is switched off and on, or Modbot restarts");
 
         _preview?.Close();
+        _headsetPaletteWatch.Stop();
         _overlayHost?.Dispose();
         _overlayHost = null;
         _overlayAttachedAt = null;
@@ -2211,6 +2225,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _inputLoop.Stop();
 
         _placementSave.Stop();
+        _headsetPaletteWatch.Stop();
 
         _preview?.Close();
         _pinnedSample = null;
@@ -2496,6 +2511,116 @@ internal sealed partial class CompanionHost : IOverlayListener
     /// <summary>The Push speed slider's 1 to 10 as metres per poll: a centimetre a step.</summary>
     private static float PushStep(int? speed)
         => CompanionSettings.ClampPushSpeed(speed ?? CompanionSettings.DefaultPushSpeed) * 0.01f;
+
+    /// <summary>
+    /// The SteamVR page's <strong>Look</strong> choice: VRChat's colours or Modbot's own on the headset
+    /// panel. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayVRChatLook(bool on)
+    {
+        if (_state is null || _state.Settings.OverlayVRChatLook == on)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayVRChatLook = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayVRChatLookField, on))
+            Log.Warning("Could not save the look choice to {Path}", _settingsPath);
+
+        UseHeadsetLook();
+        Render();
+    }
+
+    /// <summary>
+    /// Starts the two-second look at VRChat's palette for the headset panel, with one look on the
+    /// spot so the panel never first draws in the wrong colours.
+    /// </summary>
+    private void StartHeadsetPaletteWatch()
+    {
+        if (!_headsetPaletteWired)
+        {
+            _headsetPaletteWired = true;
+            _headsetPaletteWatch.Tick += (_, _) => CrashGuard.Run("looking at VRChat's palette for the headset panel", () => _ = WatchHeadsetPaletteAsync());
+        }
+
+        // A new panel starts in the Modbot look, whatever the last one was drawn in.
+        _headsetShown = null;
+
+        try
+        {
+            UseHeadsetPalette(ReadHeadsetPalette(_engine?.ModeratorId));
+        }
+        catch (Exception ex)
+        {
+            NoteFailedHeadsetLook(ex.GetType().Name);
+        }
+
+        _headsetPaletteWatch.Start();
+    }
+
+    private async Task WatchHeadsetPaletteAsync()
+    {
+        if (_headsetLooking || _overlayHost is null)
+            return;
+
+        _headsetLooking = true;
+
+        try
+        {
+            var user = _engine?.ModeratorId;
+            var read = await Task.Run(() => ReadHeadsetPalette(user));
+            UseHeadsetPalette(read);
+        }
+        catch (Exception ex)
+        {
+            NoteFailedHeadsetLook(ex.GetType().Name);
+        }
+        finally
+        {
+            _headsetLooking = false;
+        }
+    }
+
+    private static PaletteRead ReadHeadsetPalette(string? user)
+        => OperatingSystem.IsWindows() ? VRChatPaletteRegistry.Read(user) : new PaletteRead(null);
+
+    /// <summary>A failed read leaves the look as it is.</summary>
+    private void UseHeadsetPalette(PaletteRead read)
+    {
+        if (read.Problem is { } problem)
+        {
+            NoteFailedHeadsetLook(problem);
+            return;
+        }
+
+        _headsetPaletteFailing = false;
+        _headsetColours = OverlayColours.From(read.Palette);
+        UseHeadsetLook();
+    }
+
+    private void NoteFailedHeadsetLook(string reason)
+    {
+        if (!_headsetPaletteFailing)
+            Log.Warning("The headset panel could not read VRChat's selected colour palette ({Reason}); it keeps the look it has", reason);
+
+        _headsetPaletteFailing = true;
+    }
+
+    /// <summary>
+    /// Gives the headset panel VRChat's colours when the Look choice is on and the palette could be
+    /// read, and the Modbot look otherwise. Draws only when the colours changed.
+    /// </summary>
+    private void UseHeadsetLook()
+    {
+        if (_overlayHost is null)
+            return;
+
+        var colours = _state?.Settings.OverlayVRChatLook is false ? null : _headsetColours;
+        if (colours == _headsetShown)
+            return;
+
+        _headsetShown = colours;
+        _overlayHost.Look = colours is null ? OverlayLook.Headset : OverlayLook.FromColours(colours);
+    }
 
     /// <summary>
     /// The SteamVR page's <strong>Edit mode</strong> switch: whether the lock and the hand show
@@ -3505,6 +3630,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SendTestRun = SendTestRun,
                 SetOverlayOn = SetOverlayOn,
                 SetOverlayEditMode = SetOverlayEditMode,
+                SetOverlayVRChatLook = SetOverlayVRChatLook,
                 PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
