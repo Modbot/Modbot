@@ -1,8 +1,8 @@
 # overlay-shot
 
-A scratch tool, not part of Modbot: draws the overlay's panel and notification in both looks (the
-headset's plain look and the desktop's VRChat look) from the same made-up data, so the two can be
-compared side by side with no VRChat, SteamVR, server or sign-in. Nothing is read from the network.
+A scratch tool, not part of Modbot: draws the overlay's panel and notification in every look (the
+headset in its Modbot look and in VRChat's look, and the desktop window's VRChat look) from the same
+made-up data, so they can be compared side by side with no VRChat, SteamVR, server or sign-in. Nothing is read from the network.
 
 ```
 dotnet run --project tools/overlay-shot -c Release
@@ -14,10 +14,10 @@ It writes into `tools/overlay-shot/out/` (gitignored):
 
 | File | What |
 |---|---|
-| `instance-headset.png`, `instance-desktop.png` | The Instance list: seven people of mixed rank, 18+ marks, one flagged, the moderator themself, one who just left |
-| `auditlog-headset.png`, `auditlog-desktop.png` | The Audit Log: Joined, Left and here-before rows |
+| `instance-headset.png`, `instance-headset-vrchat.png`, `instance-desktop.png` | The Instance list: seven people of mixed rank, 18+ marks, one flagged, the moderator themself, one who just left |
+| `auditlog-headset.png`, `auditlog-headset-vrchat.png`, `auditlog-desktop.png` | The Audit Log: Joined, Left and here-before rows |
 | `notification-headset.png`, `notification-desktop.png` | A flagged join; the desktop one drawn as `DesktopNotifyWindow` does (`DesignTokens.Desktop`) |
-| `compare.png` | Each headset/desktop pair on a row, labelled with its size |
+| `compare.png` | Each set on a row (headset in the Modbot look, headset in VRChat's look, desktop), labelled with its size |
 
 All names are made up. Pictures sit on a flat dark grey, standing in for the world or the game behind
 a panel, so a see-through background shows as grey rather than as nothing.

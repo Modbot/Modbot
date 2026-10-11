@@ -108,7 +108,10 @@ public sealed partial class OverlayView
         return new Border
         {
             Width = HeadsetDesignWidth,
-            VerticalAlignment = VerticalAlignment.Top,
+            // Fills the room the panel has, like the window does, so a long list is cut at a rounded
+            // bottom edge rather than running out of the frame.
+            VerticalAlignment = VerticalAlignment.Stretch,
+            ClipToBounds = true,
             Background = v.Panel(),
             BorderBrush = v.Edge,
             BorderThickness = new Thickness(VRChatLook.EdgeWidth),

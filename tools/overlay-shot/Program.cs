@@ -77,7 +77,7 @@ internal static class Program
         var fit = VRChatHudLayout.For(ClientWidth, ClientHeight)?.Overlay()
             ?? throw new InvalidOperationException("The desktop panel has no room at the chosen window size.");
 
-        var pairs = new List<(string Name, string Title, Bitmap Headset, Bitmap Desktop)>();
+        var pairs = new List<(string Name, string Title, Bitmap Headset, Bitmap? HeadsetVRChat, Bitmap Desktop)>();
 
         foreach (var (name, title, screen) in new[]
         {
@@ -86,8 +86,9 @@ internal static class Program
         })
         {
             var h = Draw(HeadsetPanel(screen, headset), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution);
+            var hv = Draw(HeadsetPanel(screen, desktop), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution);
             var d = Draw(DesktopPanel(screen, desktop, fit.Scale), fit.Width, fit.Height);
-            pairs.Add((name, title, Save(h, folder, name + "-headset.png"), Save(d, folder, name + "-desktop.png")));
+            pairs.Add((name, title, Save(h, folder, name + "-headset.png"), Save(hv, folder, name + "-headset-vrchat.png"), Save(d, folder, name + "-desktop.png")));
         }
 
         // The notification: the headset panel at its own texture size, and the desktop window the
@@ -98,7 +99,7 @@ internal static class Program
             OverlayHost.DefaultNotificationResolution,
             OverlayHost.DefaultNotificationResolution);
         var nd = DrawToContent(NotificationView.Build(cards, DesignTokens.Desktop), DesktopNotifyWidth);
-        pairs.Add(("notification", "Notification", Save(nh, folder, "notification-headset.png"), Save(nd, folder, "notification-desktop.png")));
+        pairs.Add(("notification", "Notification", Save(nh, folder, "notification-headset.png"), null, Save(nd, folder, "notification-desktop.png")));
 
         Save(Compare(pairs), folder, "compare.png");
 
@@ -125,7 +126,7 @@ internal static class Program
     /// <summary>The headset panel: what OverlayHost hands the renderer, with the bar drawn but not showing.</summary>
     private static Control HeadsetPanel(OverlayScreen screen, OverlayLook look)
         => PanelFrame.Main(
-            OverlayView.Build(screen, null, look),
+            OverlayView.BuildForHeadset(screen, null, look, OverlayHost.DefaultResolution),
             PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false),
             null,
             OverlayHost.DefaultResolution);
@@ -211,15 +212,19 @@ internal static class Program
         return picture;
     }
 
-    /// <summary>Each pair on a row: the headset's picture at the left, the desktop's at the right, a label above each.</summary>
-    private static RenderTargetBitmap Compare(List<(string Name, string Title, Bitmap Headset, Bitmap Desktop)> pairs)
+    /// <summary>Each set on a row: the headset in the Modbot look, then in VRChat's look (where it has one), then the desktop, a label above each.</summary>
+    private static RenderTargetBitmap Compare(List<(string Name, string Title, Bitmap Headset, Bitmap? HeadsetVRChat, Bitmap Desktop)> pairs)
     {
         var rows = new StackPanel { Spacing = 28, Margin = new Thickness(24) };
 
-        foreach (var (_, title, headset, desktop) in pairs)
+        foreach (var (_, title, headset, headsetVRChat, desktop) in pairs)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24 };
-            row.Children.Add(Labelled($"{title} - headset ({headset.PixelSize.Width}x{headset.PixelSize.Height})", headset));
+            row.Children.Add(Labelled($"{title} - headset, Modbot look ({headset.PixelSize.Width}x{headset.PixelSize.Height})", headset));
+
+            if (headsetVRChat is not null)
+                row.Children.Add(Labelled($"{title} - headset, VRChat look ({headsetVRChat.PixelSize.Width}x{headsetVRChat.PixelSize.Height})", headsetVRChat));
+
             row.Children.Add(Labelled($"{title} - desktop ({desktop.PixelSize.Width}x{desktop.PixelSize.Height})", desktop));
             rows.Children.Add(row);
         }
