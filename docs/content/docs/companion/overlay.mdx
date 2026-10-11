@@ -282,7 +282,8 @@ For when you cannot find the panel. It is on the window's **SteamVR** page, in t
 palette, and on the **Overlay** card of the [Modbot tab](#the-modbot-tab-in-the-steamvr-dashboard)
 in the SteamVR dashboard, so you can reach it from inside the headset. Pressing it:
 
-- switches the main panel on if it was off, and shows it again if you had said "hide overlay";
+- switches the main panel on if it was off, and shows it again if you had said "hide overlay" or pressed **Hide** on the
+  [button](#the-show-and-hide-button);
 - fixes it to your head, straight ahead at 0.8 m and a little below your eyes;
 - sets the width back to 0.45 m, opacity to 100% and curve to 0%, and turns the lock and
   click-through off;
@@ -332,6 +333,28 @@ On WiVRn and Monado the same works through OpenXR. The Valve Index, Oculus and M
 HTC Vive controllers are bound: grip holds, trigger taps, and the thumbstick or trackpad scrolls
 and resizes. Any other controller gets OpenXR's simple controller bindings, where the select
 button taps and the menu button holds, and there is no scrolling.
+
+## The show and hide button
+
+A small button of its own, always in your headset while **Overlay on** is on. It reads **Hide** with
+a struck-through eye while the panel is up, and **Show** with an open eye while the panel is down.
+Point at it and pull the trigger, and the panel goes away or comes back.
+
+**Hide only hides the panel.** The button stays, and so does Modbot's connection to SteamVR (or to
+WiVRn or Monado), which is what lets the button bring the panel back. Saying **hide overlay** with
+[Listening](/companion/listening) switched on does the same thing and changes the button's words
+too. The panel is shown again every time the client starts: whether it is hidden is not saved.
+
+The **SteamVR** page's **Button place** choice puts it in one of two places:
+
+| Button place | Where it is |
+|---|---|
+| **Corner** | Low and to the left of your view, following your head. The default. |
+| **Wrist** | On your left wrist, like a watch. Point at it with your right hand. |
+
+The button cannot be picked up or resized. It goes when the main panel goes: turn **Overlay on** off
+and it is taken down with the panel. If it cannot start, the client carries on without it and logs
+a warning; switching **Overlay on** off and on again tries it again.
 
 ## How it follows you
 

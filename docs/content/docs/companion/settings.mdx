@@ -210,6 +210,7 @@ the file:
 | `startWithWindows` | `true` | The **Start Modbot Companion when my computer starts** switch. |
 | `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
 | `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the main headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
+| `overlayButtonPlace` | `corner` | Where the [show and hide button](/companion/overlay#the-show-and-hide-button) sits, the **Button place** choice on the **SteamVR** page: `corner` or `wrist`. Anything else is the corner. Whether the panel is hidden is not saved. |
 | `notifyOverlay.on` | `true` | Whether the notification overlay is drawn. See [Notification overlay](#notification-overlay). |
 | `notifyOverlay.spot` | `topright` | Where on the screen it sits: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `notifyOverlay.across` | `0` | Fine adjustment left or right, in metres, -1 to 1. |
@@ -359,6 +360,11 @@ A value outside its range is brought inside it when the file is read.
 Choosing a wrist moves the panel to the [wrist position](/companion/overlay#on-your-wrist) and sets
 `width` to 0.16, and leaving a wrist gives back 0.45 — unless you had chosen a width of your own,
 which is kept.
+
+The [show and hide button](/companion/overlay#the-show-and-hide-button) is placed by its own field,
+`overlayButtonPlace`, not by the `overlay` object, so moving the panel never moves the button.
+**Button place** on the **SteamVR** page, next to **Look**, chooses **Corner** (low and to the left
+of your view) or **Wrist** (your left wrist).
 
 ## Notification overlay
 
