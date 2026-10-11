@@ -1594,7 +1594,7 @@ public sealed partial class MainWindow : Window
         var top = new StackPanel
         {
             Spacing = 12,
-            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
+            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field("Shortcut", ShortcutChoices(_snapshot.OverlayButtonShortcut)), Ui.Field("Hold time", HoldChoices(_snapshot.OverlayButtonShortcut)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
         };
         Control header = pill;
 
@@ -1682,6 +1682,51 @@ public sealed partial class MainWindow : Window
             var button = Ui.Button(OverlayButton.Name(choice), primary: place == choice);
             var chosen = choice;
             button.Click += (_, _) => _actions.SetOverlayButtonPlace(chosen);
+            row.Children.Add(button);
+        }
+
+        return row;
+    }
+
+    /// <summary>
+    /// The button's stick shortcut: which stick, then which way it is held. The way is kept when the
+    /// stick is turned off, so turning it back on finds it as it was.
+    /// </summary>
+    private Control ShortcutChoices(ButtonShortcut shortcut)
+    {
+        var sticks = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        foreach (var choice in new[] { ShortcutStick.Off, ShortcutStick.Right, ShortcutStick.Left })
+        {
+            var button = Ui.Button(ButtonShortcut.Name(choice), primary: shortcut.Stick == choice);
+            var chosen = choice;
+            button.Click += (_, _) => _actions.SetOverlayButtonShortcut(shortcut with { Stick = chosen });
+            sticks.Children.Add(button);
+        }
+
+        var ways = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        foreach (var choice in new[] { StickDirection.Back, StickDirection.Forward, StickDirection.Left, StickDirection.Right })
+        {
+            var button = Ui.Button(ButtonShortcut.Name(choice), primary: shortcut.Direction == choice);
+            var chosen = choice;
+            button.Click += (_, _) => _actions.SetOverlayButtonShortcut(shortcut with { Direction = chosen });
+            ways.Children.Add(button);
+        }
+
+        return new StackPanel { Spacing = 8, Children = { sticks, ways } };
+    }
+
+    /// <summary>How long the shortcut stick is held, in seconds.</summary>
+    private Control HoldChoices(ButtonShortcut shortcut)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        foreach (var choice in ButtonShortcut.SecondsChoices)
+        {
+            var button = Ui.Button($"{choice} s", primary: shortcut.Seconds == choice);
+            var chosen = choice;
+            button.Click += (_, _) => _actions.SetOverlayButtonShortcut(shortcut with { Seconds = chosen });
             row.Children.Add(button);
         }
 
@@ -1950,6 +1995,9 @@ public sealed record MainWindowActions(
     public Action<bool> SetOverlayVRChatLook { get; init; } = _ => { };
 
     public Action<ButtonPlace> SetOverlayButtonPlace { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Shortcut and Hold time choices: the whole shortcut with the one thing that changed.</summary>
+    public Action<ButtonShortcut> SetOverlayButtonShortcut { get; init; } = _ => { };
 
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };

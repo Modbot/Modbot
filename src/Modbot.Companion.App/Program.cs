@@ -24,6 +24,7 @@ using Modbot.Core;
 using Modbot.Core.Time;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Views;
 using Serilog;
@@ -2108,7 +2109,9 @@ internal sealed partial class CompanionHost : IOverlayListener
             // The show and hide button comes up with the panel and goes with it; it draws nothing
             // and touches no graphics card until a headset is running.
             _buttonHost = ButtonHost.Create(_state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner);
+            _buttonHost.Shortcut = ButtonShortcutNow();
             _buttonHost.Pressed += TogglePanel;
+            _buttonHost.ShortcutHeld += TogglePanel;
 
             StartHeadsetPaletteWatch();
             AttachOverlay();
@@ -2500,7 +2503,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             {
                 var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
                 _notifyHost?.PollInput(now);
-                _buttonHost?.PollInput(now, _notifyHost?.Busy);
+                _buttonHost?.PollInput(now, _notifyHost?.Busy, StickInUse);
                 _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _notifyHost?.Busy);
             });
     }
@@ -2594,7 +2597,57 @@ internal sealed partial class CompanionHost : IOverlayListener
         if (_buttonHost is null || _overlayHost is null)
             return;
 
-        _buttonHost.Update(new ButtonScreen(!_overlayHost.Hidden, OverlayButton.DefaultShortcut));
+        _buttonHost.Update(new ButtonScreen(!_overlayHost.Hidden, ButtonShortcutNow().Text));
+    }
+
+    /// <summary>The button's stick shortcut as the settings have it.</summary>
+    private ButtonShortcut ButtonShortcutNow() => _state?.Settings.OverlayButtonShortcut ?? ButtonShortcut.Default;
+
+    /// <summary>
+    /// Whether a hand's thumbstick is steering one of the other panels, which keeps it out of the
+    /// button's shortcut: any hand while a panel is being carried (either stick pushes and pulls it),
+    /// and a hand pointing at a panel (its stick scrolls that panel).
+    /// </summary>
+    private bool StickInUse(Hand hand)
+        => _overlayHost?.Holding is not null
+            || _notifyHost?.Holding is not null
+            || _overlayHost?.Busy == hand
+            || _notifyHost?.Busy == hand;
+
+    /// <summary>
+    /// The SteamVR page's <strong>Shortcut</strong> and <strong>Hold time</strong> choices: which
+    /// stick, which way, and how many seconds. Saved, then acted on at once. Only what changed is
+    /// written to the settings file.
+    /// </summary>
+    private void SetOverlayButtonShortcut(ButtonShortcut shortcut)
+    {
+        shortcut = shortcut with { Seconds = ButtonShortcut.ClampSeconds(shortcut.Seconds) };
+        var was = ButtonShortcutNow();
+
+        if (_state is null || was == shortcut)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayButtonShortcut = shortcut };
+
+        var saved = true;
+
+        if (was.Stick != shortcut.Stick)
+            saved &= CompanionSettings.SaveText(_settingsPath, CompanionSettings.OverlayButtonStickField, ButtonShortcut.Written(shortcut.Stick));
+
+        if (was.Direction != shortcut.Direction)
+            saved &= CompanionSettings.SaveText(_settingsPath, CompanionSettings.OverlayButtonDirectionField, ButtonShortcut.Written(shortcut.Direction));
+
+        if (was.Seconds != shortcut.Seconds)
+            saved &= CompanionSettings.SaveNumber(_settingsPath, CompanionSettings.OverlayButtonHoldField, shortcut.Seconds);
+
+        if (!saved)
+            Log.Warning("Could not save the button's shortcut to {Path}", _settingsPath);
+
+        if (_buttonHost is not null)
+            _buttonHost.Shortcut = shortcut;
+
+        ShowButton();
+        Render();
     }
 
     /// <summary>Takes the show and hide button down; it goes with the panel it belongs to.</summary>
@@ -3786,6 +3839,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetOverlayEditMode = SetOverlayEditMode,
                 SetOverlayVRChatLook = SetOverlayVRChatLook,
                 SetOverlayButtonPlace = SetOverlayButtonPlace,
+                SetOverlayButtonShortcut = SetOverlayButtonShortcut,
                 PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
