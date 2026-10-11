@@ -222,6 +222,24 @@ public class CompanionSettingsTests : IDisposable
     }
 
     [Fact]
+    public void TheHeadsetLookIsVRChatsColoursUnlessTheFileSaysOtherwise()
+    {
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayVRChatLook);
+
+        Write("""{ "checkForUpdates": false }""");
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayVRChatLook);
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.OverlayVRChatLookField, false));
+
+        var loaded = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.False(loaded.OverlayVRChatLook);
+        Assert.False(loaded.CheckForUpdates);
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.OverlayVRChatLookField, true));
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayVRChatLook);
+    }
+
+    [Fact]
     public void MovingThePanelDoesNotTurnTheSwitchBackOn()
     {
         // Why the switch is its own field rather than a member of the overlay object: that object
