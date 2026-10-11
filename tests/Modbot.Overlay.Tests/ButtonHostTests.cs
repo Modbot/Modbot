@@ -181,4 +181,202 @@ public class ButtonHostTests
             Assert.False(host.Showing.PanelShown);
         });
     }
+
+    /// <summary>A ray that points away from every panel.</summary>
+    private static Pose AimedAway() => Hands.AimingAt(Vector3.Zero, new Vector3(0f, 5f, -1f));
+
+    private static OverlayTracking Sticks(Vector2 left, Vector2 right)
+        => Hands.Both(Hands.Hand(AimedAway(), scroll: left), Hands.Hand(AimedAway(), scroll: right));
+
+    private static readonly Vector2 PulledBack = new(0f, -1f);
+
+    private static TimeSpan At(double seconds) => TimeSpan.FromSeconds(seconds);
+
+    [Fact]
+    public void TheRightStickHeldBackForFiveSecondsRaisesTheShortcutOnceAndCountsDownOnTheFace()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+
+            host.PollInput(At(0));
+            Assert.Equal(5, host.Counting?.SecondsLeft);
+
+            host.PollInput(At(2.5));
+            Assert.Equal(3, host.Counting?.SecondsLeft);
+            Assert.Equal(0, held);
+
+            host.PollInput(At(5));
+            Assert.Equal(1, held);
+            Assert.Null(host.Counting);
+
+            host.PollInput(At(9));
+            Assert.Equal(1, held);
+
+            runtime.Tracking = Sticks(Vector2.Zero, Vector2.Zero);
+            host.PollInput(At(10));
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+            host.PollInput(At(11));
+            host.PollInput(At(16));
+            Assert.Equal(2, held);
+        });
+    }
+
+    [Fact]
+    public void TheFaceCountsWhileTheStickIsHeldAndGoesBackToTheShortcutWhenItIsLetGo()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var drawn = host.FramesDrawn;
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+
+            host.PollInput(At(0));
+            Assert.True(host.FramesDrawn > drawn, "The count is drawn.");
+
+            runtime.Tracking = Sticks(Vector2.Zero, Vector2.Zero);
+            host.PollInput(At(2));
+
+            Assert.Null(host.Counting);
+            Assert.Equal(OverlayButton.DefaultShortcut, host.Showing.Line);
+        });
+    }
+
+    [Fact]
+    public void TheOtherStickAndTheOtherWayDoNothing()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+
+            runtime.Tracking = Sticks(PulledBack, Vector2.Zero);
+            host.PollInput(At(0));
+            host.PollInput(At(6));
+
+            runtime.Tracking = Sticks(Vector2.Zero, new Vector2(0f, 1f));
+            host.PollInput(At(7));
+            host.PollInput(At(14));
+
+            Assert.Equal(0, held);
+            Assert.Null(host.Counting);
+        });
+    }
+
+    [Fact]
+    public void TheSettingsChooseTheStickTheWayAndTheTime()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+            host.Shortcut = new ButtonShortcut(ShortcutStick.Left, StickDirection.Forward, 2);
+
+            runtime.Tracking = Sticks(new Vector2(0f, 1f), PulledBack);
+            host.PollInput(At(0));
+            Assert.Equal(2, host.Counting?.SecondsLeft);
+
+            host.PollInput(At(2));
+            Assert.Equal(1, held);
+        });
+    }
+
+    [Fact]
+    public void WithTheShortcutOffNothingCountsAndNothingIsRaised()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+            host.Shortcut = ButtonShortcut.Default with { Stick = ShortcutStick.Off };
+
+            runtime.Tracking = Sticks(PulledBack, PulledBack);
+            host.PollInput(At(0));
+            host.PollInput(At(10));
+
+            Assert.Equal(0, held);
+            Assert.Null(host.Counting);
+        });
+    }
+
+    [Fact]
+    public void AStickThatIsCarryingOrScrollingAnotherPanelIsLeftOut()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+
+            host.PollInput(At(0), stickInUse: _ => true);
+            host.PollInput(At(6), stickInUse: _ => true);
+            Assert.Equal(0, held);
+            Assert.Null(host.Counting);
+
+            // Free again with the stick still back: it waits for the middle first.
+            host.PollInput(At(7));
+            host.PollInput(At(14));
+            Assert.Equal(0, held);
+
+            runtime.Tracking = Sticks(Vector2.Zero, Vector2.Zero);
+            host.PollInput(At(15));
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+            host.PollInput(At(16));
+            host.PollInput(At(21));
+            Assert.Equal(1, held);
+        });
+    }
+
+    [Fact]
+    public void AStickOnTheHandPointingAtTheButtonIsLeftOut()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            var held = 0;
+            host.ShortcutHeld += () => held++;
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Aim(host), scroll: PulledBack));
+            host.PollInput(At(0));
+            host.PollInput(At(6));
+
+            Assert.Equal(Hand.Right, host.Busy);
+            Assert.Equal(0, held);
+            Assert.Null(host.Counting);
+        });
+    }
+
+    [Fact]
+    public void ChangingTheShortcutDropsTheCountUntilTheStickHasBeenLetGo()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+            using var button = host;
+            runtime.Tracking = Sticks(Vector2.Zero, PulledBack);
+
+            host.PollInput(At(0));
+            Assert.NotNull(host.Counting);
+
+            host.Shortcut = host.Shortcut with { Seconds = 8 };
+            Assert.Null(host.Counting);
+
+            host.PollInput(At(1));
+            Assert.Null(host.Counting);
+        });
+    }
 }

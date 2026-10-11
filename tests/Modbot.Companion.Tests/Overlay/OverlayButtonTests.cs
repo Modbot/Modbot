@@ -73,5 +73,5 @@ public class OverlayButtonTests
 
     [Fact]
     public void TheShortcutTextIsTheDefaultOne()
-        => Assert.Equal("Stick back 5s", OverlayButton.DefaultShortcut);
+        => Assert.Equal("Right stick back 5s", OverlayButton.DefaultShortcut);
 }

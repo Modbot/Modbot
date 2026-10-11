@@ -136,6 +136,64 @@ public class ButtonViewTests
     {
         Assert.Equal(OverlayButton.DefaultShortcut, ButtonScreen.Shown.Shortcut);
         Assert.Equal(OverlayButton.DefaultShortcut, ButtonScreen.Hidden.Shortcut);
-        Assert.Equal("Stick back 5s", OverlayButton.DefaultShortcut);
+        Assert.Equal("Right stick back 5s", OverlayButton.DefaultShortcut);
+    }
+
+    [Fact]
+    public void TheLineUnderTheLabelIsTheShortcutAndWhileCountingItSaysWhatWillHappenAndWhen()
+    {
+        Assert.Equal(OverlayButton.DefaultShortcut, ButtonScreen.Shown.Line);
+
+        Assert.Equal("Hide in 3", (ButtonScreen.Shown with { Countdown = new ButtonCountdown(3, 0.4f) }).Line);
+        Assert.Equal("Show in 5", (ButtonScreen.Hidden with { Countdown = new ButtonCountdown(5, 0f) }).Line);
+    }
+
+    [Theory]
+    [MemberData(nameof(Looks))]
+    public void WhileCountingTheCountReplacesTheShortcutAndABarFills(bool headset)
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var look = headset ? OverlayLook.Headset : VRChatLook();
+            var screen = ButtonScreen.Shown with { Countdown = new ButtonCountdown(2, 0.5f) };
+            var root = Laid(screen, look);
+
+            Assert.NotNull(Words(root, "Hide in 2"));
+            Assert.DoesNotContain(root.GetLogicalDescendants().OfType<TextBlock>(), t => t.Text == OverlayButton.DefaultShortcut);
+
+            var idle = Laid(ButtonScreen.Shown, look);
+            Assert.DoesNotContain(idle.GetLogicalDescendants().OfType<TextBlock>(), t => t.Text == "Hide in 2");
+            Assert.True(
+                root.GetLogicalDescendants().OfType<Border>().Count() > idle.GetLogicalDescendants().OfType<Border>().Count(),
+                "The bar is drawn only while counting.");
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Looks))]
+    public void TheLongestShortcutWordsAreShrunkToFitTheCardNotCutOff(bool headset)
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var words = new ButtonShortcut(ShortcutStick.Left, StickDirection.Forward, 8).Text;
+            var root = Laid(ButtonScreen.Shown with { Shortcut = words }, headset ? OverlayLook.Headset : VRChatLook());
+
+            var box = root.GetLogicalDescendants().OfType<Viewbox>().Single(v => v.Child is TextBlock t && t.Text == words);
+            var left = box.TranslatePoint(new Point(0, 0), root)!.Value.X;
+            var right = left + box.Bounds.Width;
+
+            Assert.True(left >= 0 && right <= OverlayButton.PanelPixels, $"The words run from {left} to {right}.");
+        });
+    }
+
+    [Fact]
+    public void WithNoShortcutThereIsNothingUnderTheLabel()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var root = Laid(ButtonScreen.Shown with { Shortcut = "" }, OverlayLook.Headset);
+
+            Assert.Equal(["Hide"], root.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text).ToArray());
+        });
     }
 }
