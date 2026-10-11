@@ -22,6 +22,8 @@ It writes into `tools/overlay-shot/out/` (gitignored):
 | `notification-desktop.png`, `notification-desktop-vrchat.png` | The same pop-ups as `DesktopNotifyWindow` draws them: today's look (`DesignTokens.Desktop`), and VRChat's look at `NotificationView.DesktopScale` |
 | `button-shown-headset.png`, `button-shown-headset-vrchat.png` | The show and hide button while the panel is up (**Hide**, struck-through eye), in the Modbot look and in VRChat's |
 | `button-hidden-headset.png`, `button-hidden-headset-vrchat.png` | The same button while the panel is hidden (**Show**, open eye) |
+| `button-counting-shown-headset.png`, `button-counting-hidden-headset.png` (and `-vrchat`) | The button while the shortcut stick is held: the line under the label counts down (**Hide in 3**, **Show in 5**) and a bar along the foot fills |
+| `button-shortcut-long-headset.png`, `button-shortcut-off-headset.png` (and `-vrchat`) | The longest words the shortcut line can say, shrunk to fit; and the button with the shortcut off, with nothing under the label |
 | `compare.png` | Each set on a row (headset in the Modbot look, headset in VRChat's look, desktop), labelled with its size |
 
 All names are made up. Pictures sit on a flat dark grey, standing in for the world or the game behind

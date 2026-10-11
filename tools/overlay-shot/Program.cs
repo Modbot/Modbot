@@ -127,6 +127,25 @@ internal static class Program
         rows.Add(("Button, panel shown", buttonShots.GetRange(0, 2)));
         rows.Add(("Button, panel hidden", buttonShots.GetRange(2, 2)));
 
+        // The stick shortcut: the count part-way through, the longest words it can say, and none.
+        var longest = new ButtonShortcut(ShortcutStick.Left, StickDirection.Forward, 8).Text;
+        var shortcutShots = new (string Title, string Name, ButtonScreen Screen)[]
+        {
+            ("Button, stick held, panel shown (Hide in 3)", "button-counting-shown", ButtonScreen.Shown with { Countdown = new ButtonCountdown(3, 0.4f) }),
+            ("Button, stick held, panel hidden (Show in 5)", "button-counting-hidden", ButtonScreen.Hidden with { Countdown = new ButtonCountdown(5, 0.05f) }),
+            ("Button, longest shortcut words", "button-shortcut-long", ButtonScreen.Shown with { Shortcut = longest }),
+            ("Button, shortcut off", "button-shortcut-off", ButtonScreen.Shown with { Shortcut = "" }),
+        };
+
+        foreach (var (title, name, screen) in shortcutShots)
+        {
+            rows.Add((title,
+            [
+                ("headset, Modbot look", Save(Draw(ButtonView.Build(screen, headset), OverlayButton.PanelPixels, OverlayButton.PanelPixels), folder, name + "-headset.png")),
+                ("headset, VRChat look", Save(Draw(ButtonView.Build(screen, desktop), OverlayButton.PanelPixels, OverlayButton.PanelPixels), folder, name + "-headset-vrchat.png")),
+            ]));
+        }
+
         Save(Compare(rows), folder, "compare.png");
 
         Console.WriteLine($"Drawn into {folder}");
