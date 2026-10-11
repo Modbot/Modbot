@@ -19,14 +19,15 @@ public enum ButtonPlace
 /// stays, and so does Modbot's connection to SteamVR, which is what lets the button bring the panel
 /// back.</para>
 /// <para><strong>It is a fixture, not a workspace.</strong> It is always locked, so a grip cannot
-/// pick it up, and its place is the one setting, <see cref="ButtonPlace"/>. It is the button's own
+/// pick it up, and its place is one setting, <see cref="ButtonPlace"/>; the stick shortcut that does
+/// the same as a click is the other (<see cref="ButtonShortcut"/>). It is the button's own
 /// spot rather than the panel's, so the two cannot be set to cover each other by accident: the panel
 /// sits low and to the right by default, the button low and to the left.</para>
 /// </remarks>
 public static class OverlayButton
 {
-    /// <summary>The words under the label while the shortcut is not changed.</summary>
-    public const string DefaultShortcut = "Stick back 5s";
+    /// <summary>The words under the label while the shortcut is not changed: <see cref="ButtonShortcut.Default"/> in words.</summary>
+    public const string DefaultShortcut = "Right stick back 5s";
 
     /// <summary>The button's texture, in pixels. Square, like every panel.</summary>
     public const int PanelPixels = 256;

@@ -131,6 +131,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ButtonPlace OverlayButtonPlace { get; init; } = ButtonPlace.Corner;
 
     /// <summary>
+    /// The stick shortcut for the show and hide button, from the SteamVR page's <strong>Shortcut</strong>
+    /// and <strong>Hold time</strong> choices, written as <c>"overlayButtonStick"</c> (<c>"right"</c>,
+    /// <c>"left"</c> or <c>"off"</c>), <c>"overlayButtonDirection"</c> (<c>"back"</c>, <c>"forward"</c>,
+    /// <c>"left"</c> or <c>"right"</c>) and <c>"overlayButtonHold"</c> (seconds). The right stick,
+    /// pulled back, for five seconds unless the file says otherwise.
+    /// </summary>
+    public ButtonShortcut OverlayButtonShortcut { get; init; } = ButtonShortcut.Default;
+
+    /// <summary>
     /// How fast a carried panel's thumbstick pushes and pulls it, 1 to 10, from the SteamVR page's
     /// <strong>Push speed</strong> slider as <c>"overlayPushSpeed"</c>. Each step is a centimetre per
     /// poll at full push; the default of 3 is three times what it was before it could be set.
@@ -226,6 +235,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayButtonPlaceField = "overlayButtonPlace";
 
+    public const string OverlayButtonStickField = "overlayButtonStick";
+
+    public const string OverlayButtonDirectionField = "overlayButtonDirection";
+
+    public const string OverlayButtonHoldField = "overlayButtonHold";
+
     public const string OverlayField = "overlay";
 
     public const string NotifyOverlayField = "notifyOverlay";
@@ -290,6 +305,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
             OverlayVRChatLook = shape?.OverlayVRChatLook ?? true,
             OverlayButtonPlace = OverlayButton.Parse(shape?.OverlayButtonPlace),
+            OverlayButtonShortcut = new ButtonShortcut(
+                ButtonShortcut.ParseStick(shape?.OverlayButtonStick),
+                ButtonShortcut.ParseDirection(shape?.OverlayButtonDirection),
+                ButtonShortcut.ClampSeconds(shape?.OverlayButtonHold)),
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             NotifyOverlay = NotifyOverlaySettings.FromJson(shape?.NotifyOverlay),
             Voice = voice,
@@ -625,7 +644,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayEditMode")] bool? OverlayEditMode = null,
         [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null,
         [property: JsonPropertyName("overlayVRChatLook")] bool? OverlayVRChatLook = null,
-        [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null);
+        [property: JsonPropertyName("overlayButtonPlace")] string? OverlayButtonPlace = null,
+        [property: JsonPropertyName("overlayButtonStick")] string? OverlayButtonStick = null,
+        [property: JsonPropertyName("overlayButtonDirection")] string? OverlayButtonDirection = null,
+        [property: JsonPropertyName("overlayButtonHold")] int? OverlayButtonHold = null);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

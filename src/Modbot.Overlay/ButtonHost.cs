@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Modbot.Companion.Overlay;
+using System.Numerics;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
@@ -21,6 +22,10 @@ namespace Modbot.Overlay;
 /// <para><strong>It stays when the panel is hidden.</strong> It is an overlay of its own with a
 /// handle of its own, so hiding the headset panel takes down only that panel and Modbot's connection
 /// to the VR runtime stays up.</para>
+/// <para><strong>The same press from a stick.</strong> Holding the chosen thumbstick one way for the
+/// chosen time raises <see cref="ShortcutHeld"/>, once, and the button counts the seconds down on its
+/// face while it is held. A stick that is busy moving or scrolling a panel is never counted
+/// (<see cref="StickHold"/>).</para>
 /// <para><strong>Nothing here makes a network request.</strong> It draws one word and a picture.</para>
 /// <para><strong>And on a machine with no headset it costs nothing.</strong> Like the other panels,
 /// the renderer and the Direct3D texture are made when a runtime actually attaches, and let go when
@@ -36,6 +41,12 @@ public sealed class ButtonHost : IDisposable
 
     private ButtonScreen _drawn = ButtonScreen.Shown;
     private bool _everDrawn;
+
+    // The stick shortcut: the counter for the one stick it listens to, and the count as last drawn.
+    private readonly StickHold _hold = new();
+    private ButtonShortcut _shortcut = ButtonShortcut.Default;
+    private ButtonCountdown? _counting;
+    private ButtonCountdown? _drawnCounting;
 
     private readonly OverlayInteraction _interaction;
     private Control? _root;
@@ -169,6 +180,34 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Raised when a controller's trigger clicks the button's face. UI thread.</summary>
     public event Action? Pressed;
 
+    /// <summary>
+    /// Raised once when the shortcut stick has been held for the whole time. Holding on raises nothing
+    /// more until the stick has come back to the middle. UI thread.
+    /// </summary>
+    public event Action? ShortcutHeld;
+
+    /// <summary>
+    /// Which stick, which way and for how long, as the settings say. Changing it drops a hold under
+    /// way and waits for the stick to come back to the middle. UI thread only.
+    /// </summary>
+    public ButtonShortcut Shortcut
+    {
+        get => _shortcut;
+        set
+        {
+            if (_shortcut == value)
+                return;
+
+            _shortcut = value;
+            _hold.Reset();
+            _counting = null;
+            Redraw();
+        }
+    }
+
+    /// <summary>The count on the button's face right now, or null while no stick is held.</summary>
+    public ButtonCountdown? Counting => _counting;
+
     /// <summary>Puts the button where the settings say. UI thread only.</summary>
     public void Place(ButtonPlace place)
     {
@@ -182,21 +221,24 @@ public sealed class ButtonHost : IDisposable
     /// the button. Cheap when nothing is attached. UI thread only.
     /// </summary>
     /// <param name="elsewhere">A hand another panel over this one is using, left out here.</param>
-    public void PollInput(TimeSpan now, Hand? elsewhere = null)
+    /// <param name="stickInUse">
+    /// Whether a hand's thumbstick is being used for something on another panel (carrying it, or
+    /// scrolling it), which keeps that stick out of the shortcut. Null means no stick is.
+    /// </param>
+    public void PollInput(TimeSpan now, Hand? elsewhere = null, Func<Hand, bool>? stickInUse = null)
     {
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
-            if (_cursor is not null)
-            {
-                _cursor = null;
-                Redraw();
-            }
-
+            _hold.Reset();
+            _counting = null;
+            _cursor = null;
+            Redraw();
             return;
         }
 
-        var result = _interaction.Update(_runtime.ReadTracking(), now, elsewhere);
+        var tracking = _runtime.ReadTracking();
+        var result = _interaction.Update(tracking, now, elsewhere);
 
         Busy = result.Pointer?.Hand;
         _cursor = result.Pointer is { } p
@@ -206,10 +248,41 @@ public sealed class ButtonHost : IDisposable
         // Looked up before the redraw: a press lands on the face that was drawn when it was made.
         var pressed = result.Clicks.Any(click => TargetAt(click.Across, click.Down) is OverlayTarget.PanelButton);
 
+        var held = ReadShortcut(tracking, now, stickInUse);
+
         Redraw();
 
         if (pressed)
             Pressed?.Invoke();
+
+        if (held)
+            ShortcutHeld?.Invoke();
+    }
+
+    /// <summary>
+    /// Counts the shortcut stick, keeping the count on the button up to date. Answers whether the
+    /// hold ran out on this look.
+    /// </summary>
+    private bool ReadShortcut(OverlayTracking tracking, TimeSpan now, Func<Hand, bool>? stickInUse)
+    {
+        var shortcut = _shortcut;
+
+        if (!shortcut.IsOn)
+        {
+            _counting = null;
+            return false;
+        }
+
+        // The stick is free unless it is steering another panel, or this one is being pointed at: a
+        // stick pushed while pointing at the button is on its way to scrolling, not to a hold.
+        var hand = shortcut.Stick is ShortcutStick.Left ? Hand.Left : Hand.Right;
+        var state = tracking[hand];
+        var free = state.Tracked && Busy != hand && stickInUse?.Invoke(hand) != true;
+
+        var counted = _hold.Update(state.Scroll, shortcut.Direction, shortcut.Hold, free, now);
+
+        _counting = counted.SecondsLeft is { } left ? new ButtonCountdown(left, counted.Progress) : null;
+        return counted.Done;
     }
 
     /// <summary>What is drawn under a point on the button, from the tree that drew the current frame.</summary>
@@ -295,7 +368,7 @@ public sealed class ButtonHost : IDisposable
     /// <summary>Draws again if the cursor would change what is on the button.</summary>
     private void Redraw()
     {
-        if (_cursor != _drawnCursor)
+        if (_cursor != _drawnCursor || _counting != _drawnCounting)
             Draw();
     }
 
@@ -306,8 +379,9 @@ public sealed class ButtonHost : IDisposable
 
         _compositor.Invalidate();
 
-        var root = ButtonView.Build(_drawn, _look, _cursor);
+        var root = ButtonView.Build(_counting is null ? _drawn : _drawn with { Countdown = _counting }, _look, _cursor);
         _drawnCursor = _cursor;
+        _drawnCounting = _counting;
         _everDrawn = true;
 
         if (!_compositor.DrawIfChanged(root))

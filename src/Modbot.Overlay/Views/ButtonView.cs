@@ -18,13 +18,23 @@ namespace Modbot.Overlay.Views;
 /// <para><strong>The same card in both looks.</strong> The Modbot look draws it as the other
 /// headset cards are drawn; the VRChat look uses the button colour, the raised edge and the soft
 /// shadow its pop-ups use.</para>
-/// <para>The shortcut is text that was handed in, placed as text and kept to one line.</para>
+/// <para>The shortcut is text that was handed in, placed as text and kept to one line. A long one is
+/// shrunk to fit the card rather than cut off, because a stick and a direction are the words that
+/// matter in it. While the stick is held the line counts down ("Hide in 3") and a bar along the foot
+/// of the card fills.</para>
 /// </remarks>
 public static class ButtonView
 {
     private const double Margin = 8;
 
     private const double IconSize = 84;
+
+    private const double BarHeight = 6;
+
+    private const double BarWidth = 150;
+
+    /// <summary>How far above the card's foot the bar sits.</summary>
+    private const double BarLift = 10;
 
     /// <param name="cursor">Where a controller points, or null.</param>
     public static Control Build(ButtonScreen screen, OverlayLook look, PanelCursor? cursor = null)
@@ -58,9 +68,17 @@ public static class ButtonView
             {
                 Eye(screen.PanelShown, ink, fill),
                 Text(screen.Label, 36, words, FontWeight.Bold),
-                Text(screen.Shortcut, 22, dim, FontWeight.SemiBold),
             },
         };
+
+        // Nothing at all under the label while the shortcut is off, rather than a gap.
+        if (screen.Line.Length > 0)
+            lines.Children.Add(Shrunk(Text(screen.Line, 22, screen.Countdown is null ? dim : words, FontWeight.SemiBold)));
+
+        var face = new Grid { Children = { lines } };
+
+        if (screen.Countdown is { } count)
+            face.Children.Add(Bar(count.Progress, v?.Bright ?? t.AccentBrush, v?.Edge ?? t.Surface3Brush));
 
         return new Border
         {
@@ -72,9 +90,47 @@ public static class ButtonView
             CornerRadius = v is null ? t.CornerRadius : new CornerRadius(VRChatLook.CardRadius),
             BoxShadow = v?.CardShadow ?? default,
             Padding = new Thickness(6),
-            Child = lines,
+            Child = face,
         };
     }
+
+    /// <summary>
+    /// A bar along the foot of the card, filled from the left as far as <paramref name="progress"/>
+    /// of the way.
+    /// </summary>
+    private static Control Bar(float progress, IBrush fill, IBrush track)
+    {
+        var radius = new CornerRadius(BarHeight / 2);
+        var filled = Math.Clamp(progress, 0f, 1f) * BarWidth;
+
+        return new Border
+        {
+            Width = BarWidth,
+            Height = BarHeight,
+            Margin = new Thickness(0, 0, 0, BarLift),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Background = track,
+            CornerRadius = radius,
+            ClipToBounds = true,
+            Child = new Border
+            {
+                Width = filled,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = fill,
+                CornerRadius = radius,
+            },
+        };
+    }
+
+    /// <summary>A line of text that is made smaller, never cut off, when it is wider than the card.</summary>
+    private static Control Shrunk(Control text) => new Viewbox
+    {
+        Stretch = Stretch.Uniform,
+        StretchDirection = StretchDirection.DownOnly,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        Child = text,
+    };
 
     /// <summary>
     /// An eye on a 24-unit square: an almond outline with a pupil, struck through when
