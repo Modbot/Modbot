@@ -97,7 +97,7 @@ public class ControlHintsHostTests
         => Hands.Hand(Hands.AimingAt(Vector3.Zero, Centre), grab: grab);
 
     [Fact]
-    public void PointingShowsHowToTakeAndSizeIt()
+    public void PointingShowsOnlyHowToTakeIt()
     {
         AvaloniaTestHost.Run(() =>
         {
@@ -108,8 +108,65 @@ public class ControlHintsHostTests
             host.PollInput(TimeSpan.Zero);
 
             Assert.Equal(new ControlHint("Grip", "move"), host.Hints?.Move);
-            Assert.Equal(new ControlHint("Both grips", "larger / smaller"), host.Hints?.Resize);
+            Assert.Null(host.Hints?.Resize);
             Assert.Null(host.Hints?.Distance);
+        });
+    }
+
+    [Fact]
+    public void NothingIsLitWhileAHandHoldsItAtRest()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+
+            runtime.Tracking = Hands.RightOnly(Pointing(grab: true));
+            host.PollInput(TimeSpan.Zero);
+            runtime.Tracking = Hands.RightOnly(Pointing(grab: true));
+            host.PollInput(TimeSpan.FromMilliseconds(50));
+
+            Assert.False(host.Hints?.Resize?.Lit);
+            Assert.False(host.Hints?.Distance?.Lit);
+        });
+    }
+
+    [Fact]
+    public void TheOtherHandsGripLightsBothGripsWhileHolding()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+
+            runtime.Tracking = Hands.RightOnly(Pointing(grab: true));
+            host.PollInput(TimeSpan.Zero);
+            Assert.Equal(Hand.Right, host.Holding);
+
+            var elsewhere = Hands.Hand(new Pose(new Vector3(-0.4f, 0f, 0f), Quaternion.Identity), grab: true);
+            runtime.Tracking = Hands.Both(elsewhere, Pointing(grab: true));
+            host.PollInput(TimeSpan.FromMilliseconds(50));
+
+            Assert.True(host.Hints?.Resize?.Lit);
+            Assert.False(host.Hints?.Distance?.Lit);
+        });
+    }
+
+    [Fact]
+    public void AStickPastTheDeadZoneLightsTheStickPillAndOneInsideItDoesNot()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, runtime) = Build();
+
+            runtime.Tracking = Hands.RightOnly(Pointing(grab: true));
+            host.PollInput(TimeSpan.Zero);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Hands.AimingAt(Vector3.Zero, Centre), grab: true, scroll: new Vector2(0f, 0.1f)));
+            host.PollInput(TimeSpan.FromMilliseconds(50));
+            Assert.False(host.Hints?.Distance?.Lit);
+
+            runtime.Tracking = Hands.RightOnly(Hands.Hand(Hands.AimingAt(Vector3.Zero, Centre), grab: true, scroll: new Vector2(0f, 0.9f)));
+            host.PollInput(TimeSpan.FromMilliseconds(100));
+            Assert.True(host.Hints?.Distance?.Lit);
         });
     }
 

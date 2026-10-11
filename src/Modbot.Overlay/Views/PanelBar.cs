@@ -143,11 +143,14 @@ public static class PanelFrame
         return new Panel { ClipToBounds = true, Children = { stack } };
     }
 
-    /// <summary>One hint as a pill: the control in the text colour, what it does beside it in the dim one.</summary>
+    /// <summary>
+    /// One hint as a pill: the control in the text colour, what it does beside it in the dim one.
+    /// Lit, with the accent colours, while the control it names is held down.
+    /// </summary>
     private static Control Hint(ControlHint hint) => new Border
     {
-        Background = T.SurfaceBrush,
-        BorderBrush = T.Border2Brush,
+        Background = hint.Lit ? T.AccentDimBrush : T.SurfaceBrush,
+        BorderBrush = hint.Lit ? T.AccentBrush : T.Border2Brush,
         BorderThickness = new Thickness(T.Density.Hairline),
         CornerRadius = new CornerRadius(T.Density.Radius * 2),
         Padding = new Thickness(12, 4),

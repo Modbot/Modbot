@@ -138,7 +138,7 @@ public sealed partial class OverlayView
         if (screen.Alert is { } alert)
             stack.Children.Add(AlertCard(alert, screen.GroupLabel));
 
-        stack.Children.Add(Tabs(screen));
+        stack.Children.Add(Backed(Tabs(screen), fill: V is not null));
 
         // Under the tabs, above whichever screen is showing, so it is one press away from all
         // three rather than behind a page (clips design spec §11).
@@ -150,7 +150,7 @@ public sealed partial class OverlayView
         // filter, unless something is picked and has to be seen to be cleared.
         if (screen.ShownFilters is { } filters && (HasRows(screen) || filters.AnyPicked || filters.Open is not null))
         {
-            stack.Children.Add(FilterRow(screen, screen.Page, filters));
+            stack.Children.Add(Backed(FilterRow(screen, screen.Page, filters)));
 
             if (filters.Open is { } open)
                 stack.Children.Add(Choices(screen.Page, open, filters));
@@ -409,6 +409,30 @@ public sealed partial class OverlayView
 
         return row;
     }
+
+    /// <summary>
+    /// A row of header buttons on a slim backing of the panel's ground colour, as wide and tall as
+    /// the row and a little more: the cursor stays on it between the buttons, and a press there is
+    /// caught by the panel and not passed through to VRChat.
+    /// </summary>
+    /// <remarks>
+    /// The panel decides where it is being pointed at by what is drawn (<see cref="OverlayTargets.Drawn"/>),
+    /// and the gaps between buttons are clear ground, so the ray left the panel at every gap and the
+    /// cursor vanished. A backing makes the gaps drawn without a slab over the empty space beside the
+    /// row: it is shaped to the row (left-aligned and no wider than its buttons), one per row.
+    /// </remarks>
+    /// <param name="row">The buttons.</param>
+    /// <param name="fill">Whether the row spreads across the panel, as VRChat's tabs do, rather than being as wide as its buttons.</param>
+    private Control Backed(Control row, bool fill = false) => new Border
+    {
+        Background = T.BackgroundBrush,
+        Padding = new Thickness(BackingPadding),
+        CornerRadius = new CornerRadius(T.Density.Radius + BackingPadding),
+        HorizontalAlignment = fill ? HorizontalAlignment.Stretch : HorizontalAlignment.Left,
+        Child = row,
+    };
+
+    private const double BackingPadding = 6;
 
     /// <summary>
     /// The large heading at the top of the panel in VRChat's look, drawn only where the title strip

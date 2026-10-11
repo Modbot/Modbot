@@ -81,6 +81,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     // not on a locked, click-through or wrist panel.
     private ControlHints? _hints;
 
+    // What _hints was made from, so it is made again only when one of these changes.
+    private (ControllerProfile? Controller, bool Holding, HintLights Lit)? _hintsFrom;
+
     private bool _editMode;
 
     /// <summary>
@@ -467,16 +470,41 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>
     /// The hints for what a hand is doing to the panel, or none: a hand pointing at it shows how to
-    /// take it, a hand holding it shows how to size and push it. Not on a wrist, where the panel is
-    /// too small to read them and the worn hand is left out of all of it.
+    /// take it, a hand holding it shows how to size and push it, and a pill is lit while the
+    /// control it names is down. Not on a wrist, where the panel is too small to read them and the
+    /// worn hand is left out of all of it.
     /// </summary>
+    /// <remarks>
+    /// Polled thirty times a second, so the hints are made again only when what they are made from
+    /// changes, not on every poll.
+    /// </remarks>
     private ControlHints? HintsFor(InteractionResult result)
     {
         if (OnWrist || (result.Holding ?? result.Pointer?.Hand) is not { } hand)
+        {
+            _hintsFrom = null;
             return null;
+        }
+
+        var controller = (_runtime as IControllerKind)?.ControllerOf(hand);
+        var holding = result.Holding is not null;
+        var mine = _lastTracking[hand];
+        var other = _lastTracking[hand == Hand.Left ? Hand.Right : Hand.Left];
+        var lit = new HintLights(
+            mine.Grab,
+            other.Tracked && other.Grab,
+            OverlayInteraction.Stick(mine.Scroll) != Vector2.Zero
+                || (other.Tracked && OverlayInteraction.Stick(other.Scroll) != Vector2.Zero));
 
         // Whether the panel is locked or lets rays through is decided when it is drawn, in PanelBar.For.
-        return ControlHints.For((_runtime as IControllerKind)?.ControllerOf(hand), result.Holding is not null);
+        var from = (controller, holding, lit);
+        if (_hintsFrom != from || _hints is null)
+        {
+            _hintsFrom = from;
+            return ControlHints.For(controller, holding, lit);
+        }
+
+        return _hints;
     }
 
     /// <summary>

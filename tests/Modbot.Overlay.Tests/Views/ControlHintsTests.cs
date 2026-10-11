@@ -10,13 +10,44 @@ namespace Modbot.Overlay.Tests.Views;
 public class ControlHintsTests
 {
     [Fact]
-    public void PointingSaysHowToTakeAndSizeItAndNothingAboutTheStick()
+    public void PointingSaysOnlyHowToTakeIt()
     {
         var hints = ControlHints.For(null, holding: false);
 
         Assert.Equal(new ControlHint("Grip", "move"), hints.Move);
-        Assert.Equal(new ControlHint("Both grips", "larger / smaller"), hints.Resize);
+        Assert.Null(hints.Resize);
         Assert.Null(hints.Distance);
+    }
+
+    [Fact]
+    public void NothingIsLitWhileNothingIsDown()
+    {
+        foreach (var holding in new[] { false, true })
+        {
+            var hints = ControlHints.For(null, holding);
+
+            Assert.DoesNotContain(true, new[] { hints.Move?.Lit, hints.Resize?.Lit, hints.Distance?.Lit });
+        }
+    }
+
+    [Fact]
+    public void PointingLightsTheGripPillWhileTheGripIsDown()
+    {
+        var hints = ControlHints.For(null, holding: false, new HintLights(Grip: true, OtherGrip: true, Stick: true));
+
+        Assert.True(hints.Move?.Lit);
+    }
+
+    [Fact]
+    public void HoldingLightsEachPillOnlyForTheControlItNames()
+    {
+        var other = ControlHints.For(null, holding: true, new HintLights(Grip: true, OtherGrip: true, Stick: false));
+        var stick = ControlHints.For(null, holding: true, new HintLights(Grip: true, OtherGrip: false, Stick: true));
+
+        Assert.True(other.Resize?.Lit);
+        Assert.False(other.Distance?.Lit);
+        Assert.False(stick.Resize?.Lit);
+        Assert.True(stick.Distance?.Lit);
     }
 
     [Fact]
