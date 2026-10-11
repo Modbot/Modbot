@@ -356,6 +356,31 @@ The button cannot be picked up or resized. It goes when the main panel goes: tur
 and it is taken down with the panel. If it cannot start, the client carries on without it and logs
 a warning; switching **Overlay on** off and on again tries it again.
 
+### The stick shortcut
+
+Under the label the button says its shortcut, **Right stick back 5s** by default: hold the right
+stick pulled back for five seconds and the panel is hidden, or shown again if it was hidden. It works
+the same whether Modbot is connected to SteamVR or to WiVRn or Monado.
+
+While you hold the stick, the line under the label counts down (**Hide in 5**, **Hide in 4**, and so on, or
+**Show in 5** while the panel is hidden) and a bar along the foot of the button fills. Let go early and
+the shortcut words come back and nothing happens. When the time is up the panel hides or shows once;
+keep holding and nothing more happens until the stick has come back to the middle.
+
+A stick that is busy with a panel is left out, so pushing or pulling a panel you are carrying, or
+scrolling a panel you are pointing at, never counts. The stick has to be held the way it is set: a
+stick pushed off to the side, or only part of the way, does not start the count.
+
+The **SteamVR** page has two choices for it, beside **Button place**:
+
+| Choice | Options |
+|---|---|
+| **Shortcut** | Which stick: **Off**, **Right stick** or **Left stick**; and which way: **Back**, **Forward**, **Left** or **Right**. Right stick and Back by default. The way is kept while the stick is off. |
+| **Hold time** | **2 s**, **3 s**, **5 s** or **8 s**. 5 s by default. |
+
+With **Off** the button says nothing under its label, and the click is the only way to show and hide the panel.
+A controller with no thumbstick or trackpad has no shortcut either; the click still works.
+
 ## How it follows you
 
 The overlay uses the same reading of VRChat's log as the rest of the client, so it knows which
