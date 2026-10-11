@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -15,11 +16,17 @@ namespace Modbot.Overlay.Views;
 /// <param name="Showing">Up while a controller's ray is on the panel; drawn as nothing otherwise.</param>
 /// <param name="Locked">The panel cannot be picked up, moved or resized.</param>
 /// <param name="ClickThrough">The panel lets rays through to VRChat; only the bar still answers.</param>
-public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough)
+/// <param name="Hints">
+/// The controller hints drawn beside the bar, or null for none. Only the main panel draws them.
+/// </param>
+public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough, ControlHints? Hints = null)
 {
-    /// <summary>The bar for a placement, up or not.</summary>
-    public static PanelBar For(OverlayPlacement placement, bool showing)
-        => new(showing, placement.Locked, placement.ClickThrough);
+    /// <summary>
+    /// The bar for a placement, up or not. A locked panel cannot be moved and one letting rays
+    /// through is not pointed at, so neither gets hints.
+    /// </summary>
+    public static PanelBar For(OverlayPlacement placement, bool showing, ControlHints? hints = null)
+        => new(showing, placement.Locked, placement.ClickThrough, placement.Locked || placement.ClickThrough ? null : hints);
 }
 
 /// <summary>
@@ -83,11 +90,80 @@ public static class PanelFrame
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
-            Children = { above, Bar(bar, size) },
+            Children = { above, BarRow(bar, size) },
         };
 
         return WithCursor(column, cursor);
     }
+
+    /// <summary>
+    /// The bar, and beside it the controller hints while there are any. The bar stays in the
+    /// middle and the hints fill the row's two sides, so the row is as tall as it was and nothing
+    /// above it moves.
+    /// </summary>
+    private static Control BarRow(PanelBar bar, BarSize size)
+    {
+        var strip = Bar(bar, size);
+        if (bar.Hints is not { } hints)
+            return strip;
+
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,*") };
+        Grid.SetColumn(strip, 1);
+        row.Children.Add(strip);
+
+        var left = HintColumn([hints.Move, hints.Resize], HorizontalAlignment.Right, size);
+        Grid.SetColumn(left, 0);
+        row.Children.Add(left);
+
+        var right = HintColumn([hints.Distance], HorizontalAlignment.Left, size);
+        Grid.SetColumn(right, 2);
+        row.Children.Add(right);
+
+        return row;
+    }
+
+    /// <summary>Hints stacked beside the bar, against it; clipped to their side so they never run under the bar.</summary>
+    private static Control HintColumn(ControlHint?[] hints, HorizontalAlignment against, BarSize size)
+    {
+        var stack = new StackPanel
+        {
+            Spacing = 4,
+            HorizontalAlignment = against,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(
+                against == HorizontalAlignment.Left ? size.Padding * 2 : 0,
+                size.Above,
+                against == HorizontalAlignment.Right ? size.Padding * 2 : 0,
+                0),
+        };
+
+        foreach (var hint in hints.OfType<ControlHint>())
+            stack.Children.Add(Hint(hint));
+
+        return new Panel { ClipToBounds = true, Children = { stack } };
+    }
+
+    /// <summary>One hint as a pill: the control in the text colour, what it does beside it in the dim one.</summary>
+    private static Control Hint(ControlHint hint) => new Border
+    {
+        Background = T.SurfaceBrush,
+        BorderBrush = T.Border2Brush,
+        BorderThickness = new Thickness(T.Density.Hairline),
+        CornerRadius = new CornerRadius(T.Density.Radius * 2),
+        Padding = new Thickness(12, 4),
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Child = new TextBlock
+        {
+            FontSize = T.Density.TextSmall,
+            FontFamily = new FontFamily(DesignTokens.FontFamily),
+            TextWrapping = TextWrapping.NoWrap,
+            Inlines = new InlineCollection
+            {
+                new Run($"{hint.Control}:") { FontWeight = FontWeight.SemiBold, Foreground = T.TextBrush },
+                new Run($" {hint.Action}") { Foreground = T.TextDimBrush },
+            },
+        },
+    };
 
     /// <summary>
     /// The notification panel: a fixed box the pop-ups stack in, outlined while it can still be

@@ -45,6 +45,10 @@ internal sealed unsafe class OpenXrInput : IDisposable
     private readonly Space[] _deviceSpaces = new Space[2];
     private bool _unfocusedLogged;
 
+    // Which controller the runtime settled on for each hand, written when it says it changed and
+    // read from the UI thread to name the buttons.
+    private readonly ControllerProfile?[] _profiles = new ControllerProfile?[2];
+
     private OpenXrInput(XR xr, Instance instance, Session session, string runtimeName, ILogger log)
     {
         _xr = xr;
@@ -69,6 +73,9 @@ internal sealed unsafe class OpenXrInput : IDisposable
             throw;
         }
     }
+
+    /// <summary>The controller the runtime has settled on for this hand; null before it says, or when it is not one bindings were suggested for.</summary>
+    public ControllerProfile? ProfileOf(Hand hand) => Volatile.Read(ref _profiles[hand == Hand.Left ? 0 : 1]);
 
     /// <summary>The hand's aim action space: where it points.</summary>
     public Space AimSpace(Hand hand) => _aimSpaces[hand == Hand.Left ? 0 : 1];
@@ -321,7 +328,9 @@ internal sealed unsafe class OpenXrInput : IDisposable
             }
 
             var hand = i == 0 ? "left" : "right";
-            _log.Debug("The {Hand} hand's controller is now {Profile}", hand, state.InteractionProfile == 0 ? "nothing" : PathText(state.InteractionProfile));
+            var text = state.InteractionProfile == 0 ? null : PathText(state.InteractionProfile);
+            Volatile.Write(ref _profiles[i], ControllerBindings.Profiles.FirstOrDefault(p => p.Path == text));
+            _log.Debug("The {Hand} hand's controller is now {Profile}", hand, text ?? "nothing");
         }
     }
 

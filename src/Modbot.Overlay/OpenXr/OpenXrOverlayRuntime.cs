@@ -46,7 +46,7 @@ namespace Modbot.Overlay.OpenXr;
 /// Vulkan come from the machine; a missing loader is a state, not a crash, and starting never
 /// starts a runtime. Absence is reported, and the companion looks again in ten seconds.</para>
 /// </remarks>
-public sealed class OpenXrOverlayRuntime : IOverlayRuntime
+public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
 {
     public const string OverlayExtension = "XR_EXTX_overlay";
 
@@ -240,6 +240,9 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
 
     /// <summary>What the frame thread last read, synced once a frame; none before the first frame or after the session is gone.</summary>
     public OverlayTracking ReadTracking() => _tracking.Read();
+
+    /// <summary>The controller the runtime settled on for this hand; null before it says, or with no session.</summary>
+    public ControllerProfile? ControllerOf(Hand hand) => _attachment?.Input?.ProfileOf(hand);
 
     /// <summary>
     /// Stored for the frame thread, which picks the space (VIEW for the head, a hand's aim space,
@@ -1230,8 +1233,10 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     /// Starting it attaches the session if it is not up; disposing it lets the session go only if
     /// it was the last panel wanting it. Everything else is that panel's own.
     /// </remarks>
-    private sealed class PanelRuntime(OpenXrOverlayRuntime owner, int panel) : IOverlayRuntime
+    private sealed class PanelRuntime(OpenXrOverlayRuntime owner, int panel) : IOverlayRuntime, IControllerKind
     {
+        public ControllerProfile? ControllerOf(Hand hand) => owner.ControllerOf(hand);
+
         public OverlayRuntimeStatus Status => owner._status;
 
         public OverlayRuntimeStatus Start() => owner.StartPanel(panel);

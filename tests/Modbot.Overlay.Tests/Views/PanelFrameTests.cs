@@ -106,6 +106,47 @@ public class PanelFrameTests
     }
 
     [Fact]
+    public void TheHintsSitBesideTheBarAndMoveNothing()
+    {
+        var hints = ControlHints.For(null, holding: false);
+        var (plain, without) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false), null, Main), Main);
+        var (drawn, with) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(true, false, false, hints), null, Main), Main);
+
+        // The cards and the bar are exactly where they were, and the hints add no target.
+        Assert.Equal(Bounds<OverlayTarget.Roster>(without), Bounds<OverlayTarget.Roster>(with));
+        Assert.Equal(Bounds<OverlayTarget.Bar>(without), Bounds<OverlayTarget.Bar>(with));
+        Assert.Equal(without.Count, with.Count);
+
+        // Something is drawn left of the bar in its row that was not before. Two hints stack there,
+        // so aim above the middle, where they leave a gap.
+        var bar = Bounds<OverlayTarget.Bar>(with);
+        var beside = new Point(bar.Left - 40, bar.Center.Y - 10);
+        Assert.Equal(0, Alpha(plain, Main, beside));
+        Assert.Equal(255, Alpha(drawn, Main, beside));
+    }
+
+    [Fact]
+    public void HintsOnAHiddenBarStillDrawBecauseTheyAreNotTheBar()
+    {
+        var hints = ControlHints.For(null, holding: true);
+        var (pixels, targets) = Draw(() => PanelFrame.Main(OverlayView.Build(Roster(3)), new PanelBar(false, false, false, hints), null, Main), Main);
+
+        var bar = Bounds<OverlayTarget.Bar>(targets);
+        Assert.Equal(0, Alpha(pixels, Main, bar.Center));
+        Assert.Equal(255, Alpha(pixels, Main, new Point(bar.Right + 40, bar.Center.Y)));
+    }
+
+    [Fact]
+    public void ALockedOrClickThroughPanelGetsNoHints()
+    {
+        var hints = ControlHints.For(null, holding: false);
+
+        Assert.Equal(hints, PanelBar.For(OverlayPlacement.Default, true, hints).Hints);
+        Assert.Null(PanelBar.For(OverlayPlacement.Default with { Locked = true }, true, hints).Hints);
+        Assert.Null(PanelBar.For(OverlayPlacement.Default with { ClickThrough = true }, true, hints).Hints);
+    }
+
+    [Fact]
     public void AnEmptyUnlockedPopUpPanelShowsItsBox()
     {
         var (pixels, _) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(false, false, false), null, PopUps), PopUps);

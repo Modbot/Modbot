@@ -7,6 +7,7 @@ using Modbot.Companion.Overlay;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
+using Modbot.Overlay.OpenXr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 
@@ -75,6 +76,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     // Whether a ray is on the panel, which is what puts the bar up under it.
     private bool _rayOnPanel;
+
+    // The controller hints beside the bar: up while a hand points at the panel or holds it, and
+    // not on a locked, click-through or wrist panel.
+    private ControlHints? _hints;
 
     private bool _editMode;
 
@@ -370,8 +375,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
-            var barWasShowing = _rayOnPanel;
+            var barWasShowing = _rayOnPanel || _hints is not null;
             _rayOnPanel = false;
+            _hints = null;
             if (_cursor is not null || barWasShowing)
             {
                 _cursor = null;
@@ -396,6 +402,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         var barWasUp = _rayOnPanel;
         _rayOnPanel = result.RayOnPanel;
 
+        var hintsWere = _hints;
+        _hints = HintsFor(result);
+
         if (result.PlacementChanged)
         {
             _runtime.Place(result.Placement);
@@ -409,7 +418,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         // Picking the panel up and putting it down change which screen is drawn without changing
         // the screen itself, and so does the bar coming up or going, so nothing else would redraw
         // it. One frame for all of it, however many changed at once.
-        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || cursor != _cursor)
+        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || hintsWere != _hints || cursor != _cursor)
         {
             _cursor = cursor;
             Draw();
@@ -454,6 +463,20 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         {
             _scroll = 0f;
         }
+    }
+
+    /// <summary>
+    /// The hints for what a hand is doing to the panel, or none: a hand pointing at it shows how to
+    /// take it, a hand holding it shows how to size and push it. Not on a wrist, where the panel is
+    /// too small to read them and the worn hand is left out of all of it.
+    /// </summary>
+    private ControlHints? HintsFor(InteractionResult result)
+    {
+        if (OnWrist || (result.Holding ?? result.Pointer?.Hand) is not { } hand)
+            return null;
+
+        // Whether the panel is locked or lets rays through is decided when it is drawn, in PanelBar.For.
+        return ControlHints.For((_runtime as IControllerKind)?.ControllerOf(hand), result.Holding is not null);
     }
 
     /// <summary>
@@ -659,6 +682,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>What the overlay shows right now: the pinned screen, else the live one, else idle.</summary>
     public OverlayScreen Showing => _drawn ?? OverlayScreen.Idle;
 
+    /// <summary>The controller hints in the frame drawn right now; null when there are none.</summary>
+    public ControlHints? Hints => _drawnBar.Hints;
+
     /// <summary>
     /// Whether a copy of each drawn frame is kept for <see cref="LastFrame"/>. Off unless a
     /// window is showing the frame, because the copy is four megabytes a draw.
@@ -719,7 +745,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             next = next with { Page = OverlayPage.Wrist };
 
         // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
-        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode);
+        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints);
 
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;
