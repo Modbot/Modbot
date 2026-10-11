@@ -6,6 +6,7 @@ using Avalonia.Media.Imaging;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
+using Modbot.Overlay.OpenXr;
 using Modbot.Overlay.Views;
 
 namespace Modbot.OverlayShot;
@@ -115,6 +116,27 @@ internal static class Program
             ("desktop, VRChat look", ndv),
         ]));
 
+        // The notification panel with a hand on it: pointing shows how to take it, holding shows how to
+        // size and push it. The bar is up, as it is in Edit mode.
+        var pointing = PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, true, ControlHints.For(null, holding: false));
+        var holding = PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, true, ControlHints.For(null, holding: true, new HintLights(Grip: true, OtherGrip: true, Stick: false)));
+        var simple = PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, true, ControlHints.For(ControllerBindings.Simple, holding: true));
+
+        foreach (var (name, title, bar, popUps) in new[]
+        {
+            ("notification-pointing", "Notification, pointing at it", pointing, cards),
+            ("notification-pointing-empty", "Notification, pointing at it, no pop-ups", pointing, NotificationScreen.Empty),
+            ("notification-holding", "Notification, holding it", holding, cards),
+            ("notification-holding-simple", "Notification, holding it, simple controller", simple, cards),
+        })
+        {
+            rows.Add((title,
+            [
+                ("headset, Modbot look", Save(Draw(HeadsetNotification(popUps, headset, bar), OverlayHost.DefaultNotificationResolution, OverlayHost.DefaultNotificationResolution), folder, name + "-headset.png")),
+                ("headset, VRChat look", Save(Draw(HeadsetNotification(popUps, desktop, bar), OverlayHost.DefaultNotificationResolution, OverlayHost.DefaultNotificationResolution), folder, name + "-headset-vrchat.png")),
+            ]));
+        }
+
         // The show and hide button: its own small overlay, drawn at its texture size in both looks.
         var buttonShots = new List<(string Label, Bitmap Picture)>();
 
@@ -176,11 +198,11 @@ internal static class Program
             null,
             OverlayHost.DefaultResolution);
 
-    /// <summary>The headset notification panel: what NotificationHost hands the renderer, with the bar drawn but not showing.</summary>
-    private static Control HeadsetNotification(NotificationScreen cards, OverlayLook look)
+    /// <summary>The headset notification panel: what NotificationHost hands the renderer, with the bar drawn but not showing unless one is given.</summary>
+    private static Control HeadsetNotification(NotificationScreen cards, OverlayLook look, PanelBar? bar = null)
         => PanelFrame.Notification(
             NotificationView.Build(cards, look),
-            PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false),
+            bar ?? PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false),
             null,
             OverlayHost.DefaultNotificationResolution);
 

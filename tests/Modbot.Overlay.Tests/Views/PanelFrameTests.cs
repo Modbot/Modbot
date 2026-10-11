@@ -155,6 +155,41 @@ public class PanelFrameTests
     }
 
     [Fact]
+    public void AnUnlockedPopUpPanelsBoxIsOneTargetAndALockedOnesIsNone()
+    {
+        var (_, unlocked) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(false, false, false), null, PopUps), PopUps);
+        var (_, locked) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(false, true, false), null, PopUps), PopUps);
+
+        // The whole box, top to bottom, and the bar is outside it.
+        var box = Bounds<OverlayTarget.PopUpBox>(unlocked);
+        Assert.Equal(NotifyOverlaySettings.BoxPixels, box.Width);
+        Assert.Equal(NotifyOverlaySettings.BoxPixels, box.Height);
+        Assert.Equal(0, box.Top);
+        Assert.True(Bounds<OverlayTarget.Bar>(unlocked).Top >= box.Bottom);
+        Assert.DoesNotContain(locked, t => t.Target is OverlayTarget.PopUpBox);
+    }
+
+    [Fact]
+    public void ThePopUpHintsAreDrawnInsideTheBoxAndAddNoTarget()
+    {
+        PopUp Card(string id) => new(id, "Flagged user joined · Cat Lounge", "Somebody", "kicked before", PopUpTone.Flagged);
+        var screen = new NotificationScreen([Card("a")]);
+        var hints = ControlHints.For(null, holding: true);
+
+        var (plain, without) = Draw(() => PanelFrame.Notification(NotificationView.Build(screen), new PanelBar(true, false, false), null, PopUps), PopUps);
+        var (drawn, with) = Draw(() => PanelFrame.Notification(NotificationView.Build(screen), new PanelBar(true, false, false, hints), null, PopUps), PopUps);
+
+        Assert.Equal(without.Count, with.Count);
+        Assert.Equal(Bounds<OverlayTarget.PopUpBox>(without), Bounds<OverlayTarget.PopUpBox>(with));
+        Assert.Equal(Bounds<OverlayTarget.Bar>(without), Bounds<OverlayTarget.Bar>(with));
+
+        // Near the foot of the box, where the clear ground was before, a pill is now.
+        var foot = new Point(PopUps / 2, NotifyOverlaySettings.BoxPixels - 20);
+        Assert.Equal(0, Alpha(plain, PopUps, foot));
+        Assert.Equal(255, Alpha(drawn, PopUps, foot));
+    }
+
+    [Fact]
     public void AnEmptyLockedPopUpPanelWithNoRayOnItDrawsNothing()
     {
         var (pixels, _) = Draw(() => PanelFrame.Notification(NotificationView.Build(NotificationScreen.Empty), new PanelBar(false, true, false), null, PopUps), PopUps);

@@ -1,8 +1,10 @@
+using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
+using Modbot.Overlay.OpenXr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 
@@ -22,7 +24,11 @@ namespace Modbot.Overlay;
 /// <para><strong>A box to take hold of.</strong> It used to draw nothing at all while there were
 /// no pop-ups, which left nothing to grab. It now draws a dashed outline of itself while it can be
 /// moved; locked, the outline goes and an empty panel draws nothing again until a ray lands on it
-/// and the bar comes up.</para>
+/// and the bar comes up. While it can be moved the whole box is the panel as far as a ray is
+/// concerned, so it can be taken anywhere on it, between the cards or with none up.</para>
+/// <para><strong>Hints for the hands.</strong> A hand pointing at the box, or holding it, shows
+/// the same grip hints as the main panel, drawn over the foot of the box because the bar's row has
+/// no room for them.</para>
 /// <para><strong>Nothing here makes a network request</strong>, and nothing here can be told what
 /// to do by a server: it draws pop-ups the client made out of what it already holds.</para>
 /// <para><strong>It works without a headset.</strong> With no SteamVR, and no WiVRn or Monado
@@ -49,6 +55,12 @@ public sealed class NotificationHost : IDisposable
     private Control? _root;
     private PanelCursor? _cursor;
     private bool _rayOnPanel;
+
+    // What the hands are doing to the panel, for the hints. The hints are made again only when
+    // what they are made from changes, not on every poll.
+    private OverlayTracking _lastTracking = OverlayTracking.None;
+    private ControlHints? _hints;
+    private (ControllerProfile? Controller, bool Holding, HintLights Lit)? _hintsFrom;
 
     private bool _editMode;
 
@@ -151,10 +163,11 @@ public sealed class NotificationHost : IDisposable
     {
         IsOnBar = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
 
-        // A ray on the clear ground around the cards is looking past them; the bar still counts
-        // while it can be used.
+        // A ray on the clear ground around the box is looking past the panel; the box counts whole
+        // while it can be moved, and the bar while it can be used.
         IsDrawnAt = (across, down) =>
             (EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough)
+            || TargetAt(across, down) is OverlayTarget.PopUpBox
             || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height))),
     };
 
@@ -217,6 +230,9 @@ public sealed class NotificationHost : IDisposable
     /// <summary>The hand holding the panel, or null.</summary>
     public Hand? Holding { get; private set; }
 
+    /// <summary>The controller hints drawn on the panel right now, or null for none.</summary>
+    public ControlHints? Hints => _drawnBar.Hints;
+
     /// <summary>The hand this panel is using right now, pointing at it or carrying it, or null.</summary>
     public Hand? Busy { get; private set; }
 
@@ -255,16 +271,20 @@ public sealed class NotificationHost : IDisposable
             Busy = null;
             Holding = null;
             _rayOnPanel = false;
+            _hints = null;
+            _hintsFrom = null;
             _cursor = null;
             Redraw();
             return;
         }
 
-        var result = _interaction.Update(_runtime.ReadTracking(), now);
+        _lastTracking = _runtime.ReadTracking();
+        var result = _interaction.Update(_lastTracking, now);
 
         Holding = result.Holding;
         Busy = result.Holding ?? result.Pointer?.Hand;
         _rayOnPanel = result.RayOnPanel;
+        _hints = HintsFor(result);
         _cursor = result.Pointer is { } p
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : null;
@@ -275,7 +295,7 @@ public sealed class NotificationHost : IDisposable
             PlacementChanged?.Invoke(result.Placement);
         }
 
-        // The bar is the only thing on this panel a click can land on.
+        // The bar's switches are the only things on this panel a click can land on.
         foreach (var click in result.Clicks)
         {
             switch (TargetAt(click.Across, click.Down))
@@ -290,6 +310,41 @@ public sealed class NotificationHost : IDisposable
         }
 
         Redraw();
+    }
+
+    /// <summary>
+    /// The hints for what a hand is doing to the panel, or none: a hand pointing at it shows how to
+    /// take it, a hand holding it shows how to size and push it, and a pill is lit while the
+    /// control it names is down. The same as the main panel's (<c>OverlayHost.HintsFor</c>), minus
+    /// the wrist, which this panel never goes on.
+    /// </summary>
+    private ControlHints? HintsFor(InteractionResult result)
+    {
+        if ((result.Holding ?? result.Pointer?.Hand) is not { } hand)
+        {
+            _hintsFrom = null;
+            return null;
+        }
+
+        var controller = (_runtime as IControllerKind)?.ControllerOf(hand);
+        var holding = result.Holding is not null;
+        var mine = _lastTracking[hand];
+        var other = _lastTracking[hand == Hand.Left ? Hand.Right : Hand.Left];
+        var lit = new HintLights(
+            mine.Grab,
+            other.Tracked && other.Grab,
+            OverlayInteraction.Stick(mine.Scroll) != Vector2.Zero
+                || (other.Tracked && OverlayInteraction.Stick(other.Scroll) != Vector2.Zero));
+
+        // Whether the panel is locked or lets rays through is decided when it is drawn, in PanelBar.For.
+        var from = (controller, holding, lit);
+        if (_hintsFrom != from || _hints is null)
+        {
+            _hintsFrom = from;
+            return ControlHints.For(controller, holding, lit);
+        }
+
+        return _hints;
     }
 
     /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
@@ -392,7 +447,7 @@ public sealed class NotificationHost : IDisposable
             Draw();
     }
 
-    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode);
+    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode, _hints);
 
     /// <summary>
     /// Draws the pop-ups as they stand and hands them over. Does nothing while there is no

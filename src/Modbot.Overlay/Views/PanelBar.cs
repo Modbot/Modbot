@@ -17,7 +17,8 @@ namespace Modbot.Overlay.Views;
 /// <param name="Locked">The panel cannot be picked up, moved or resized.</param>
 /// <param name="ClickThrough">The panel lets rays through to VRChat; only the bar still answers.</param>
 /// <param name="Hints">
-/// The controller hints drawn beside the bar, or null for none. Only the main panel draws them.
+/// The controller hints, or null for none. The main panel draws them beside the bar; the
+/// notification panel, which has no room beside its bar, draws them over the foot of its box.
 /// </param>
 public readonly record struct PanelBar(bool Showing, bool Locked, bool ClickThrough, ControlHints? Hints = null)
 {
@@ -138,7 +139,7 @@ public static class PanelFrame
         };
 
         foreach (var hint in hints.OfType<ControlHint>())
-            stack.Children.Add(Hint(hint));
+            stack.Children.Add(Hint(hint, T.Density.TextSmall, new Thickness(12, 4)));
 
         return new Panel { ClipToBounds = true, Children = { stack } };
     }
@@ -147,19 +148,24 @@ public static class PanelFrame
     /// One hint as a pill: the control in the text colour, what it does beside it in the dim one.
     /// Lit, with the accent colours, while the control it names is held down.
     /// </summary>
-    private static Control Hint(ControlHint hint) => new Border
+    /// <param name="maxWidth">
+    /// The widest the pill may be; its words wrap onto a second line rather than run past it.
+    /// Unlimited keeps them on one line.
+    /// </param>
+    private static Control Hint(ControlHint hint, double fontSize, Thickness padding, double maxWidth = double.PositiveInfinity) => new Border
     {
         Background = hint.Lit ? T.AccentDimBrush : T.SurfaceBrush,
         BorderBrush = hint.Lit ? T.AccentBrush : T.Border2Brush,
         BorderThickness = new Thickness(T.Density.Hairline),
         CornerRadius = new CornerRadius(T.Density.Radius * 2),
-        Padding = new Thickness(12, 4),
+        Padding = padding,
+        MaxWidth = maxWidth,
         HorizontalAlignment = HorizontalAlignment.Left,
         Child = new TextBlock
         {
-            FontSize = T.Density.TextSmall,
+            FontSize = fontSize,
             FontFamily = new FontFamily(DesignTokens.FontFamily),
-            TextWrapping = TextWrapping.NoWrap,
+            TextWrapping = double.IsFinite(maxWidth) ? TextWrapping.Wrap : TextWrapping.NoWrap,
             Inlines = new InlineCollection
             {
                 new Run($"{hint.Control}:") { FontWeight = FontWeight.SemiBold, Foreground = T.TextBrush },
@@ -176,6 +182,8 @@ public static class PanelFrame
     /// The box is there even with nothing in it, because an empty panel is still a thing that can
     /// be picked up. Outlined while unlocked, so it can be found and placed; once locked the
     /// outline goes and an empty panel draws nothing again, apart from the bar while a ray is on it.
+    /// While unlocked the whole box is one target, so a ray finds the panel anywhere on it, in the
+    /// gaps between the cards and when there are none, and not only on a card or the bar.
     /// </remarks>
     /// <param name="cards">What <see cref="NotificationView.Build"/> made.</param>
     /// <param name="side">The texture's size in pixels; the box is the same share of it at any size.</param>
@@ -194,6 +202,7 @@ public static class PanelFrame
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,
             ClipToBounds = true,
+            Tag = bar.Locked ? null : new OverlayTarget.PopUpBox(),
         };
         if (!bar.Locked)
         {
@@ -214,6 +223,9 @@ public static class PanelFrame
             Child = cards,
         });
 
+        if (bar.Hints is { } hints)
+            box.Children.Add(BoxHints(hints, boxSide));
+
         var column = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Top,
@@ -221,6 +233,32 @@ public static class PanelFrame
         };
 
         return WithCursor(column, cursor);
+    }
+
+    /// <summary>
+    /// The hints over the foot of the notification box, one pill under another. The bar's row has
+    /// no room for them: it is about two thirds the width of the box, and the longest hint is not
+    /// much narrower than the box. Smaller type than the main panel's, and a pill that would run
+    /// past the box wraps instead.
+    /// </summary>
+    private static Control BoxHints(ControlHints hints, double boxSide)
+    {
+        var stack = new StackPanel
+        {
+            Spacing = 4,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+
+        foreach (var hint in new[] { hints.Move, hints.Resize, hints.Distance }.OfType<ControlHint>())
+        {
+            var pill = Hint(hint, T.Density.TextTiny, new Thickness(8, 3), boxSide - 16);
+            pill.HorizontalAlignment = HorizontalAlignment.Center;
+            stack.Children.Add(pill);
+        }
+
+        return stack;
     }
 
     private static Control WithCursor(Control frame, PanelCursor? cursor)

@@ -55,6 +55,13 @@ public abstract record OverlayTarget
     /// </remarks>
     public sealed record Bar : OverlayTarget;
 
+    /// <summary>The notification panel's box, while the panel can be moved. A tap here does nothing.</summary>
+    /// <remarks>
+    /// A target so that the whole box counts as the panel: its cards leave gaps, and with no
+    /// pop-ups up it holds none, yet a ray anywhere on it has to find the panel to pick it up.
+    /// </remarks>
+    public sealed record PopUpBox : OverlayTarget;
+
     /// <summary>The bar's lock: the panel cannot be picked up, moved or resized while it is on.</summary>
     /// <remarks>
     /// Handled by the panel's own host, never by the drive loop: it changes where the panel may
