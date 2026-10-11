@@ -2,7 +2,8 @@
 
 A scratch tool, not part of Modbot: draws the overlay's panel and notification in every look (the
 headset in its Modbot look and in VRChat's look, and the desktop window's VRChat look) from the same
-made-up data, so they can be compared side by side with no VRChat, SteamVR, server or sign-in. Nothing is read from the network.
+made-up data, so they can be compared side by side with no VRChat, SteamVR, server or sign-in.
+Nothing is read from the network.
 
 ```
 dotnet run --project tools/overlay-shot -c Release

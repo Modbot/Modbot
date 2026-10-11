@@ -110,8 +110,8 @@ is shown instead.
 ### The roster
 
 A list of who is in the instance right now, as your group's server knows it. At the top it says how
-many people are here and how fresh the list is. (In the desktop overlay's VRChat look that is the
-**Users** heading, [below](#in-the-desktop-overlay).)
+many people are here and how fresh the list is. (In VRChat's look that is the
+**Users** heading, [below](#in-vrchats-look).)
 
 People are sorted so the rows that matter come first:
 
@@ -131,22 +131,24 @@ When somebody leaves, their row stays on the list for 60 seconds, greyed and tag
 the seconds still to go where their join time was. Tapping it still opens their card. They are not
 counted in how many are here, and if they come back the row goes back to normal.
 
-#### In the desktop overlay
+#### In VRChat's look
 
-When the desktop overlay is drawn in VRChat's own look, the list reads like VRChat's **Users** list:
+When the desktop overlay or the headset panel is drawn in VRChat's own look, the list reads like
+VRChat's **Users** list:
 
 - A heading, **Users (12)**, with the number of people here and, at its far end, how fresh the list
   is. Somebody who has just left is not counted, and a filter shows **Users (3 of 12)**.
 - Your own row comes first, in a banner in your palette's highlight colour, with **Other users (11)**
   under it. It has no **+**. If Modbot does not know who you are yet, or your row is filtered out,
-  there is no banner and no label.
+  there is no banner and no label. Your own row never says `(here before you)`: when your log has
+  no record of when you arrived, it shows no time at all.
 - Every person is a card: a rounded square picture on the left, their name in bold, their rank,
   18+ mark, flags and heads-up at the end of the name's line, and a small line under it saying when
   they came (or `(here before you) ~5m+`, or **Left** and the seconds). The **+** that starts a
   [heads-up](/companion/heads-ups) is a square button at the right end. Tapping the card still
   opens the person's card, and scrolling still moves the rows under the banner.
 - The Audit Log tab uses the same cards: who, then what happened, with the time at the right.
-- The panel is always the same width, whichever tab it is on, however long a name is, and whatever
+- The desktop panel is always the same width, whichever tab it is on, however long a name is, and whatever
   is filtered; long names are cut with an ellipsis. The group's name at the top is in a light
   version of the palette's highlight colour, as VRChat's own title is.
 
@@ -157,8 +159,17 @@ has had that face shown in the web app; the overlay never makes the server fetch
 nobody has looked at on the web yet shows the outline until somebody has. The roster names a path on
 the same server for each saved picture, and the companion fetches it from there, with its token, and
 never from VRChat. Until a picture has arrived, and for anybody in an [instance outside any
-group](#outside-group-instances), the outline is shown. The headset panel is drawn as it always was,
-without pictures.
+group](#outside-group-instances), the outline is shown. The headset panel draws these pictures in
+VRChat's look and none in the Modbot look.
+
+The headset panel is drawn in this look when Modbot can read the colour palette you picked in
+VRChat's settings. The **SteamVR** page has a **Look** choice for it, **VRChat colours** (the
+default) or **Modbot**, the plain look the headset panel had before. It changes the headset panel
+only; the desktop overlay follows VRChat's palette whichever is chosen. In VRChat's colours the
+headset panel is laid out as the desktop one is but drawn bigger, so the words are easier to read
+in a headset, in a rounded frame with your group's icon and name across the top. The bar under the
+panel and its control hints are the headset's own and are unchanged. When Modbot cannot read a
+palette, the headset panel is drawn in the Modbot look.
 
 ### The Audit Log tab
 
@@ -170,7 +181,8 @@ Somebody who was already in the instance when you arrived reads `(here before yo
 Instance list, the Audit Log and the wrist panel: they have been there at least as long as you have,
 so the time is how long you have been in the instance, in whole minutes (`~1hr 4m+` from an hour on).
 If your log has no record of when you arrived, for example because the overlay was switched on after
-you got there, it says `(here before you)` alone rather than guessing.
+you got there, it says `(here before you)` alone rather than guessing. Your own row never says it,
+in either look: with no record of your arrival it shows no time under your name.
 
 ### Flagged user card
 
