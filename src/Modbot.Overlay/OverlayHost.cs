@@ -302,7 +302,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         _puttingBackSince = null;
 
         // "Hide overlay", said out loud, hides it until "show overlay" is; this is the other way back.
-        _runtime.Show();
+        Show();
 
         // Place draws, and the drawing sees the flag above.
         Place(placement);
@@ -375,7 +375,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         EndPutBack(now);
 
-        if (_runtime.Status.State is not OverlayRuntimeState.Running)
+        // A hidden panel is not there to be pointed at, so it is read like one with no headset.
+        if (Hidden || _runtime.Status.State is not OverlayRuntimeState.Running)
         {
             Busy = null;
             var barWasShowing = _rayOnPanel || _hints is not null;
@@ -614,6 +615,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
             if (!Draw() && _compositor is { FramesDrawn: > 0 } compositor)
                 _runtime.Submit(compositor.Surface);
+
+            // A fresh attachment shows its overlay; a panel that was hidden stays hidden.
+            if (Hidden)
+                _runtime.Hide();
         }
 
         return status;
@@ -849,9 +854,25 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         public void Dispose() => inner.Dispose();
     }
 
-    public void Show() => _runtime.Show();
+    /// <summary>
+    /// Whether the panel has been hidden and not shown since: by the show and hide button, or by
+    /// "hide overlay" said out loud. Kept here, not just in the runtime, so a reattach (which shows
+    /// the overlay again) puts the curtain back, and so the panel takes no pointing while it is down.
+    /// Hidden takes down only the panel: the connection to the VR runtime stays.
+    /// </summary>
+    public bool Hidden { get; private set; }
 
-    public void Hide() => _runtime.Hide();
+    public void Show()
+    {
+        Hidden = false;
+        _runtime.Show();
+    }
+
+    public void Hide()
+    {
+        Hidden = true;
+        _runtime.Hide();
+    }
 
     public void Dispose()
     {

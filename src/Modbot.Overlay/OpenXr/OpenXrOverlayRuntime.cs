@@ -21,14 +21,14 @@ namespace Modbot.Overlay.OpenXr;
 /// aim space, or left in the room in <c>LOCAL</c>. The controllers are read through one action set
 /// (<see cref="OpenXrInput"/>) so the main panel can be pointed at and held; that is the entire
 /// interaction: no other session is inspected, and nothing is sent anywhere.</para>
-/// <para><strong>Both panels ride one session.</strong> Modbot draws two panels, the main one and
-/// the notification one, and on OpenXR they are two layers on the same frame rather than two
-/// sessions. A second session would mean a second <c>XrInstance</c>, a second Vulkan device and a
-/// second frame thread on a machine that is also running VRChat, for two quads the runtime is
+/// <para><strong>All the panels ride one session.</strong> Modbot draws three panels, the main one,
+/// the notification one and the show and hide button, and on OpenXR they are layers on the same
+/// frame rather than separate sessions. A second session would mean a second <c>XrInstance</c>, a second Vulkan device and a
+/// second frame thread on a machine that is also running VRChat, for quads the runtime is
 /// perfectly happy to take together. So this type is the main panel's runtime, and
-/// <see cref="NotificationPanel"/> is a second one onto the same session; the session is attached
-/// when the first of them starts and let go when the last is disposed, so either panel can be
-/// switched off without taking the other down (two overlay modes design §4.2).</para>
+/// <see cref="NotificationPanel"/> and <see cref="ButtonPanel"/> are two more onto the same
+/// session; the session is attached when the first of them starts and let go when the last is
+/// disposed, so any panel can be switched off without taking the others down (two overlay modes design §4.2).</para>
 /// <para><strong>Opacity and curve</strong> are two optional extensions. Opacity goes through
 /// <c>XR_KHR_composition_layer_color_scale_bias</c> and curve through
 /// <c>XR_KHR_composition_layer_cylinder</c>; each is asked for only when the runtime lists it,
@@ -67,12 +67,14 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     private static XR? _xrApi;
     private static Vulkan.Vk? _vkApi;
 
-    /// <summary>The main panel and the notification panel, in that order.</summary>
-    internal const int PanelCount = 2;
+    /// <summary>The main panel, the notification panel and the show and hide button, in that order.</summary>
+    internal const int PanelCount = 3;
 
     private const int MainPanel = 0;
 
     private const int NotifyPanel = 1;
+
+    private const int ButtonPanelIndex = 2;
 
     private readonly float _widthInMetres;
     private readonly ILogger _log;
@@ -93,22 +95,31 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// The notification panel's texture. Null makes it the same as the main panel's; the client
     /// gives it a smaller one, because a pop-up is three lines.
     /// </param>
+    /// <param name="buttonResolution">The show and hide button's texture. Null takes <see cref="OverlayButton.PanelPixels"/>.</param>
     public OpenXrOverlayRuntime(
         int resolution = OverlayHost.DefaultResolution,
         float widthInMetres = OpenVrOverlayRuntime.DefaultWidthInMetres,
         ILogger? log = null,
-        int? notificationResolution = null)
+        int? notificationResolution = null,
+        int? buttonResolution = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(notificationResolution ?? 1, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(buttonResolution ?? 1, 1);
 
         _widthInMetres = widthInMetres;
         _log = log ?? Log.ForContext<OpenXrOverlayRuntime>();
 
         // Each panel keeps its own size: the swapchains are made once, at these, and the sub-image
         // rectangle a layer names has to match the swapchain it came from.
-        _panels = [new PanelState(resolution), new PanelState(notificationResolution ?? resolution)];
+        _panels =
+        [
+            new PanelState(resolution),
+            new PanelState(notificationResolution ?? resolution),
+            new PanelState(buttonResolution ?? OverlayButton.PanelPixels),
+        ];
         NotificationPanel = new PanelRuntime(this, NotifyPanel);
+        ButtonPanel = new PanelRuntime(this, ButtonPanelIndex);
     }
 
     /// <summary>
@@ -116,6 +127,12 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// placement and its own on and off.
     /// </summary>
     public IOverlayRuntime NotificationPanel { get; }
+
+    /// <summary>
+    /// The show and hide button, as a runtime of its own: the same session, its own layer, its own
+    /// placement and its own on and off.
+    /// </summary>
+    public IOverlayRuntime ButtonPanel { get; }
 
     private static readonly Lock SharedGate = new();
 
@@ -134,10 +151,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime, IControllerKind
     /// </remarks>
     public static OpenXrOverlayRuntime Shared(
         int resolution = OverlayHost.DefaultResolution,
-        int notificationResolution = OverlayHost.DefaultNotificationResolution)
+        int notificationResolution = OverlayHost.DefaultNotificationResolution,
+        int buttonResolution = OverlayButton.PanelPixels)
     {
         lock (SharedGate)
-            return _shared ??= new OpenXrOverlayRuntime(resolution, notificationResolution: notificationResolution);
+            return _shared ??= new OpenXrOverlayRuntime(resolution, notificationResolution: notificationResolution, buttonResolution: buttonResolution);
     }
 
     public OverlayRuntimeStatus Status => _status;

@@ -125,6 +125,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     /// <summary>The notification panel's own key, for the same reason and with the same promise.</summary>
     public const string NotificationOverlayKey = "moe.bin.modbot.notifications";
 
+    /// <summary>The show and hide button's own key, for the same reason and with the same promise.</summary>
+    public const string ButtonOverlayKey = "moe.bin.modbot.button";
+
     /// <summary>
     /// Where the panel sits relative to the headset, in metres: right of centre, below the eye
     /// line, and an arm's length forward. Out of the middle of the view, where the instance is,
@@ -140,6 +143,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     /// roster would be a pop-up nobody sees.
     /// </summary>
     private const uint NotificationSortOrder = 100;
+
+    /// <summary>Above the main panel too, so the button is never hidden behind it; below the pop-ups.</summary>
+    private const uint ButtonSortOrder = 50;
 
     private readonly OverlayKind _kind;
     private readonly OpenVrSession _session;
@@ -173,7 +179,12 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     {
         _kind = kind;
         _session = session ?? OpenVrSession.Shared;
-        _overlayName = overlayName ?? (kind is OverlayKind.Notification ? "Modbot notifications" : "Modbot");
+        _overlayName = overlayName ?? kind switch
+        {
+            OverlayKind.Notification => "Modbot notifications",
+            OverlayKind.Button => "Modbot button",
+            _ => "Modbot",
+        };
         _widthInMetres = widthInMetres;
         _placement = OverlayPlacement.Default with { Width = widthInMetres };
     }
@@ -182,7 +193,12 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
     public OverlayKind Kind => _kind;
 
     /// <summary>The key SteamVR knows this overlay by.</summary>
-    public string Key => _kind is OverlayKind.Notification ? NotificationOverlayKey : OverlayKey;
+    public string Key => _kind switch
+    {
+        OverlayKind.Notification => NotificationOverlayKey,
+        OverlayKind.Button => ButtonOverlayKey,
+        _ => OverlayKey,
+    };
 
     /// <summary>The width this overlay was built with, before any placement moved it.</summary>
     public float StartingWidth => _widthInMetres;
@@ -489,6 +505,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
 
         if (_kind is OverlayKind.Notification)
             ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, NotificationSortOrder);
+        else if (_kind is OverlayKind.Button)
+            ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, ButtonSortOrder);
 
         // Shown from the start. The idle screen is drawn when there is nothing to say, so the
         // panel is a fixture of the headset rather than something that appears and vanishes.

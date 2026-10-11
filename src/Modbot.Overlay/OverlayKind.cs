@@ -1,7 +1,7 @@
 namespace Modbot.Overlay;
 
 /// <summary>
-/// Which of the two headset panels this is.
+/// Which of the headset panels this is.
 /// </summary>
 /// <remarks>
 /// They are separate overlays, not two states of one: separate settings, separate on/off
@@ -21,4 +21,10 @@ public enum OverlayKind
     /// panel is switched off.
     /// </summary>
     Notification,
+
+    /// <summary>
+    /// The small show and hide button, fixed to a corner of the view or a wrist. Pointed at and
+    /// clicked, never grabbed, and shown even when the main panel is hidden.
+    /// </summary>
+    Button,
 }

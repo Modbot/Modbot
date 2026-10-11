@@ -128,6 +128,13 @@ public abstract record OverlayTarget
 
     /// <summary>Clear a standing heads-up, for everybody in the instance.</summary>
     public sealed record ClearHeadsUp(string Id) : OverlayTarget;
+
+    /// <summary>The show and hide button's face. Tapping it shows or hides the headset panel.</summary>
+    /// <remarks>
+    /// Handled by the button's own host, never by the drive loop: it changes whether the panel is
+    /// there, not what it shows, and it is not an action on a person.
+    /// </remarks>
+    public sealed record PanelButton : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>
