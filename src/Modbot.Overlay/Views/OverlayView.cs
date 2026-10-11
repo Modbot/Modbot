@@ -921,6 +921,9 @@ public sealed partial class OverlayView
             line.Children.Add(mark);
         }
 
+        if (@event.Person?.EighteenPlus == true)
+            line.Children.Add(EighteenPlusChip());
+
         // The clock the event arrived with, in the moderator's own time. It is the server's
         // stamp, not this machine's.
         var when = Text(@event.At.ToLocalTime().ToString("HH:mm"), T.Density.TextSmall, T.TextDimBrush);

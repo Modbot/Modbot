@@ -259,6 +259,60 @@ public static class ListFiltering
         };
     }
 
+    /// <summary>
+    /// The Audit Log without the "(here before you)" rows that say nothing new, newest first as it came.
+    /// </summary>
+    /// <remarks>
+    /// <para>The companion restates everybody in the instance as "already here" when its log catches up or
+    /// starts growing again, including people it already saw join and the moderator. A repeat is dropped for
+    /// somebody who already has a Joined or "here before you" row for this visit (one with no Left after it),
+    /// and the moderator never has one: nobody was here before themself.</para>
+    /// <para>Somebody who left and is stated as here again keeps the row, because that is a new visit.</para>
+    /// </remarks>
+    /// <param name="events">Newest first.</param>
+    /// <param name="moderatorId">The moderator's own VRChat id, or null when it is not known.</param>
+    public static IReadOnlyList<LiveEvent> WithoutRepeatedHere(IReadOnlyList<LiveEvent> events, string? moderatorId)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        if (!events.Any(e => e.Kind == LiveEventKinds.PersonHere))
+            return events;
+
+        var here = new HashSet<string>(StringComparer.Ordinal);
+        var dropped = new HashSet<int>();
+
+        // Oldest first, so each row is compared with what came before it.
+        for (var i = events.Count - 1; i >= 0; i--)
+        {
+            var @event = events[i];
+
+            if (@event.Person is not { } person)
+                continue;
+
+            switch (@event.Kind)
+            {
+                case LiveEventKinds.PersonLeft:
+                    here.Remove(person.SubjectId);
+                    break;
+
+                case LiveEventKinds.PersonHere:
+                    if ((moderatorId is { Length: > 0 } own && string.Equals(person.SubjectId, own, StringComparison.Ordinal))
+                        || !here.Add(person.SubjectId))
+                    {
+                        dropped.Add(i);
+                    }
+
+                    break;
+
+                case LiveEventKinds.PersonJoined or LiveEventKinds.FlaggedJoin:
+                    here.Add(person.SubjectId);
+                    break;
+            }
+        }
+
+        return dropped.Count == 0 ? events : [.. events.Where((_, index) => !dropped.Contains(index))];
+    }
+
     /// <summary>The Audit Log as the filters leave it, newest first as it came.</summary>
     public static IReadOnlyList<LiveEvent> Events(IReadOnlyList<LiveEvent> events, ListFilters filters, DateTimeOffset now)
     {

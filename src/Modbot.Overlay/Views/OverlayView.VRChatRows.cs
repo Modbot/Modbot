@@ -240,6 +240,10 @@ public sealed partial class OverlayView
         if (person is not null && ListFiltering.RankOf(person) is { } rank)
             marks.Add(RankPill(rank, T.Density.TextSmall));
 
+        // Modbot's 18+ mark, as on the Instance list. Only on those the server says carry it.
+        if (person?.EighteenPlus == true)
+            marks.Add(EighteenPlusChip());
+
         var top = NameLine(person?.DisplayName ?? person?.SubjectId ?? "—", v.Text, marks);
 
         var what = Text(

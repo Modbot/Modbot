@@ -1343,7 +1343,7 @@ public sealed class OverlayDriver : IDisposable
             Person: _person,
             RosterSkip: _rosterSkip,
             Page: _page,
-            Events: [.. _localEvents.Where(e => IsHere(e.InstanceId, e.WorldId))],
+            Events: [.. ListFiltering.WithoutRepeatedHere([.. _localEvents.Where(e => IsHere(e.InstanceId, e.WorldId))], ModeratorId)],
             Clips: Clips,
             RosterFilters: _rosterFilters,
             EventFilters: _eventFilters,
@@ -1384,7 +1384,7 @@ public sealed class OverlayDriver : IDisposable
 
             // A copy, not the list itself. The screen is a snapshot, and one that kept changing
             // under the compositor would compare equal to itself and never redraw.
-            Events: [.. _events],
+            Events: [.. ListFiltering.WithoutRepeatedHere(_events, ModeratorId)],
             Clips: Clips,
 
             // The address the server gave at pairing. The panel draws the picture the companion
