@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Views;
@@ -24,7 +25,8 @@ internal static class Program
     private const string Usage = """
         overlay-shot [--out <folder>] [--palette-user <VRChat user id>]
 
-        Draws Modbot's overlay panel (Instance list and Audit Log) and notification in the headset's
+        Draws Modbot's overlay panel (Instance list and Audit Log), notification and show and hide
+        button in the headset's
         look and in the desktop's VRChat look, from made-up data, into <folder> (default
         tools/overlay-shot/out), plus compare.png with each pair side by side.
 
@@ -112,6 +114,18 @@ internal static class Program
             ("desktop, Modbot look", nd),
             ("desktop, VRChat look", ndv),
         ]));
+
+        // The show and hide button: its own small overlay, drawn at its texture size in both looks.
+        var buttonShots = new List<(string Label, Bitmap Picture)>();
+
+        foreach (var (name, screen) in new[] { ("button-shown", ButtonScreen.Shown), ("button-hidden", ButtonScreen.Hidden) })
+        {
+            buttonShots.Add(("headset, Modbot look", Save(Draw(ButtonView.Build(screen, headset), OverlayButton.PanelPixels, OverlayButton.PanelPixels), folder, name + "-headset.png")));
+            buttonShots.Add(("headset, VRChat look", Save(Draw(ButtonView.Build(screen, desktop), OverlayButton.PanelPixels, OverlayButton.PanelPixels), folder, name + "-headset-vrchat.png")));
+        }
+
+        rows.Add(("Button, panel shown", buttonShots.GetRange(0, 2)));
+        rows.Add(("Button, panel hidden", buttonShots.GetRange(2, 2)));
 
         Save(Compare(rows), folder, "compare.png");
 

@@ -1,6 +1,6 @@
 # overlay-shot
 
-A scratch tool, not part of Modbot: draws the overlay's panel and notification in every look (the
+A scratch tool, not part of Modbot: draws the overlay's panel, notification and button in every look (the
 headset in its Modbot look and in VRChat's look, and the desktop window's VRChat look) from the same
 made-up data, so they can be compared side by side with no VRChat, SteamVR, server or sign-in.
 Nothing is read from the network.
@@ -20,6 +20,8 @@ It writes into `tools/overlay-shot/out/` (gitignored):
 | `choices-headset.png`, `choices-headset-vrchat.png`, `choices-desktop.png` | The Instance list with the Rank filter's choices open and one rank picked |
 | `notification-headset.png`, `notification-headset-vrchat.png` | Three pop-ups (a flagged join, a fault, a plain one) on the headset's notification panel, in the Modbot look and in VRChat's |
 | `notification-desktop.png`, `notification-desktop-vrchat.png` | The same pop-ups as `DesktopNotifyWindow` draws them: today's look (`DesignTokens.Desktop`), and VRChat's look at `NotificationView.DesktopScale` |
+| `button-shown-headset.png`, `button-shown-headset-vrchat.png` | The show and hide button while the panel is up (**Hide**, struck-through eye), in the Modbot look and in VRChat's |
+| `button-hidden-headset.png`, `button-hidden-headset-vrchat.png` | The same button while the panel is hidden (**Show**, open eye) |
 | `compare.png` | Each set on a row (headset in the Modbot look, headset in VRChat's look, desktop), labelled with its size |
 
 All names are made up. Pictures sit on a flat dark grey, standing in for the world or the game behind
@@ -27,7 +29,7 @@ a panel, so a see-through background shows as grey rather than as nothing.
 
 ## Sizes
 
-- Headset main panel: 1024x1024, the overlay's texture. Notification: 300x300.
+- Headset main panel: 1024x1024, the overlay's texture. Notification: 300x300. Button: 256x256.
 - Desktop panel: the size `VRChatHudLayout` gives the overlay for a 1920x1080 VRChat window
   (407x563 today), drawn from the window's 520x720 layout at that scale. Notification: 340 wide, as
   tall as its cards (in VRChat's look the cards are laid out wider and drawn at 0.78).
