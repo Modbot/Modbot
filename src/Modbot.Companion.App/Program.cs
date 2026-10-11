@@ -3646,7 +3646,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.FramesDrawn,
             _overlayLastDrewAt,
             screen.GroupLabel ?? "Not in a group instance",
-            roster.Value?.Members.Count ?? 0,
+            screen.HereCount,
             roster.Describe(),
             screen.Alert is { } alert ? alert.DisplayName ?? alert.SubjectId : null,
             screen.Health,

@@ -707,6 +707,36 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         }
     }
 
+    /// <summary>
+    /// How the panel is drawn: the Modbot look it has always had, or VRChat's colours and cards. Drawn
+    /// again at once when it changes. UI thread only, like <see cref="Update"/>.
+    /// </summary>
+    public OverlayLook Look
+    {
+        get => _look;
+        set
+        {
+            value ??= OverlayLook.Headset;
+            if (ReferenceEquals(_look, value))
+                return;
+
+            _look = value;
+
+            // The screen is the same one, so it would be taken for already drawn.
+            _drawn = null;
+            Draw();
+        }
+    }
+
+    private OverlayLook _look = OverlayLook.Headset;
+
+    /// <summary>
+    /// The picture addresses the screen showing may ask the picture store for, so the store keeps
+    /// those pictures while they are on the panel. Empty in the Modbot look, which draws none.
+    /// </summary>
+    public IReadOnlyCollection<string> PictureAddresses
+        => _drawn is { } drawn && _look.VRChat is not null ? drawn.PictureAddresses() : [];
+
     /// <summary>What the overlay shows right now: the pinned screen, else the live one, else idle.</summary>
     public OverlayScreen Showing => _drawn ?? OverlayScreen.Idle;
 
@@ -784,7 +814,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         // The cursor is drawn over the bar as well as the cards, so the frame draws it rather
         // than the view.
-        var root = PanelFrame.Main(OverlayView.Build(next with { Cursor = null }, GroupIcon), bar, next.Cursor, Height);
+        var root = PanelFrame.Main(OverlayView.BuildForHeadset(next with { Cursor = null }, GroupIcon, _look, Width), bar, next.Cursor, Height);
         if (!_compositor.DrawIfChanged(root))
             return false;
 

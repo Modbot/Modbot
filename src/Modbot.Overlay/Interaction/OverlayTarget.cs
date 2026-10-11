@@ -139,8 +139,9 @@ public readonly record struct PlacedTarget(OverlayTarget Target, Rect Bounds);
 /// </summary>
 /// <remarks>
 /// Each control's <c>Bounds</c> is relative to its parent, so the walk keeps a running offset.
-/// The panel uses no render transforms, so that is the whole of the geometry. The deepest target
-/// under the point wins, which is how a row inside the roster beats the roster itself.
+/// The panel uses no render transforms except one: the headset's VRChat look is drawn bigger than it
+/// is laid out (<see cref="Views.Zoom"/>), and the walk multiplies by its scale on the way in. The
+/// deepest target under the point wins, which is how a row inside the roster beats the roster itself.
 /// </remarks>
 public static class OverlayTargets
 {
@@ -150,7 +151,7 @@ public static class OverlayTargets
         ArgumentNullException.ThrowIfNull(root);
 
         var found = new List<PlacedTarget>();
-        Walk(root, new Point(0, 0), found);
+        Walk(root, new Point(0, 0), 1.0, found);
         return found;
     }
 
@@ -182,10 +183,10 @@ public static class OverlayTargets
     public static bool Drawn(Visual root, Point point)
     {
         ArgumentNullException.ThrowIfNull(root);
-        return DrawnAt(root, new Point(0, 0), 1.0, point);
+        return DrawnAt(root, new Point(0, 0), 1.0, 1.0, point);
     }
 
-    private static bool DrawnAt(Visual visual, Point offset, double opacity, Point point)
+    private static bool DrawnAt(Visual visual, Point offset, double scale, double opacity, Point point)
     {
         if (!visual.IsVisible)
             return false;
@@ -195,8 +196,8 @@ public static class OverlayTargets
             return false;
 
         var bounds = visual.Bounds;
-        var origin = new Point(offset.X + bounds.X, offset.Y + bounds.Y);
-        var box = new Rect(origin, bounds.Size);
+        var origin = new Point(offset.X + (bounds.X * scale), offset.Y + (bounds.Y * scale));
+        var box = new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale));
 
         var seen = visual switch
         {
@@ -209,24 +210,26 @@ public static class OverlayTargets
         if (seen && box.Contains(point))
             return true;
 
+        var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
         {
-            if (DrawnAt(child, origin, opacity, point))
+            if (DrawnAt(child, origin, inside, opacity, point))
                 return true;
         }
 
         return false;
     }
 
-    private static void Walk(Visual visual, Point offset, List<PlacedTarget> found)
+    private static void Walk(Visual visual, Point offset, double scale, List<PlacedTarget> found)
     {
         var bounds = visual.Bounds;
-        var origin = new Point(offset.X + bounds.X, offset.Y + bounds.Y);
+        var origin = new Point(offset.X + (bounds.X * scale), offset.Y + (bounds.Y * scale));
 
         if (visual is Control { Tag: OverlayTarget target })
-            found.Add(new PlacedTarget(target, new Rect(origin, bounds.Size)));
+            found.Add(new PlacedTarget(target, new Rect(origin, new Size(bounds.Width * scale, bounds.Height * scale))));
 
+        var inside = visual is Views.Zoom zoom ? scale * zoom.Scale : scale;
         foreach (var child in visual.GetVisualChildren())
-            Walk(child, origin, found);
+            Walk(child, origin, inside, found);
     }
 }

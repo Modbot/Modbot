@@ -1594,7 +1594,7 @@ public sealed partial class MainWindow : Window
         var top = new StackPanel
         {
             Spacing = 12,
-            Children = { _overlayOnBox, _editModeBox, Ui.Field(_pushSpeedLabel, _pushSpeed) },
+            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
         };
         Control header = pill;
 
@@ -1654,6 +1654,22 @@ public sealed partial class MainWindow : Window
         _body.Children.Add(Ui.Card(PlacementControls(overlay.PlacementOrDefault, overlay.Holding), "Placement"));
 
         RenderNotificationOverlay();
+    }
+
+    /// <summary>The headset panel's Look: VRChat's colours, or Modbot's own.</summary>
+    private Control LookChoices(bool vrchat)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        foreach (var (choice, caption) in new[] { (true, "VRChat colours"), (false, "Modbot") })
+        {
+            var button = Ui.Button(caption, primary: vrchat == choice);
+            var chosen = choice;
+            button.Click += (_, _) => _actions.SetOverlayVRChatLook(chosen);
+            row.Children.Add(button);
+        }
+
+        return row;
     }
 
     /// <summary>
@@ -1913,6 +1929,9 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's Push speed slider, 1 to 10.</summary>
     public Action<int> SetOverlayPushSpeed { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Look choice: true for VRChat's colours, false for Modbot's own.</summary>
+    public Action<bool> SetOverlayVRChatLook { get; init; } = _ => { };
 
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };

@@ -261,7 +261,7 @@ public sealed partial class OverlayView
         if (screen.NotSynced)
             lines.Children.Add(NotSyncedNote(T.Density.TextBase * 1.2));
 
-        var here = screen.Roster.Value?.Members.Count ?? 0;
+        var here = screen.HereCount;
         lines.Children.Add(Text(
             here == 1 ? "1 here" : here + " here",
             T.Density.TextBase * 1.4,
@@ -1107,7 +1107,7 @@ public sealed partial class OverlayView
         // Who is here: only the people present. The rows of people who just left are drawn among
         // them, greyed, and are never part of the count.
         var present = screen.Roster.Value?.Members ?? [];
-        var here = present.Count;
+        var here = screen.HereCount;
         var filters = screen.RosterFiltersOrNone;
         var arrivals = screen.ArrivalsOrNone;
         var everyone = ListFiltering.Everyone(present, screen.LeftOrNone);
@@ -1182,9 +1182,7 @@ public sealed partial class OverlayView
             // never mentioned them, rather than a guess.
             foreach (var member in shown.Skip(skip))
             {
-                var joined = arrivals.TryGetValue(member.SubjectId, out var at) && screen.Now != default
-                    ? ListFiltering.JoinedWords(at, screen.Now, screen.ModeratorArrived)
-                    : null;
+                var joined = JoinedWordsFor(screen, arrivals, member);
 
                 // Somebody who just left: a greyed row with the seconds it has left instead of how
                 // long they were here, and no "+", because a heads-up is placed on somebody present.
@@ -1211,6 +1209,22 @@ public sealed partial class OverlayView
             Padding = new Thickness(18, 14),
             Child = rows,
         };
+    }
+
+    /// <summary>
+    /// How long somebody has been here, from this PC's own log, in words; null when the log never
+    /// mentioned them, rather than a guess. Also null for the moderator themself when they were here
+    /// before the log began: "(here before you)" is not a thing to say to the person it is about.
+    /// </summary>
+    private static string? JoinedWordsFor(OverlayScreen screen, IReadOnlyDictionary<string, DateTimeOffset?> arrivals, RosterMember member)
+    {
+        if (!arrivals.TryGetValue(member.SubjectId, out var at) || screen.Now == default)
+            return null;
+
+        if (at is null && screen.ModeratorId is { Length: > 0 } me && string.Equals(member.SubjectId, me, StringComparison.Ordinal))
+            return null;
+
+        return ListFiltering.JoinedWords(at, screen.Now, screen.ModeratorArrived);
     }
 
     /// <summary>

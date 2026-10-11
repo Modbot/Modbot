@@ -116,6 +116,14 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public bool OverlayEditMode { get; init; }
 
     /// <summary>
+    /// Whether the headset panel is drawn in the colours of the palette selected in VRChat, which is
+    /// what the SteamVR page's <strong>Look</strong> choice writes as <c>"overlayVRChatLook"</c>. On
+    /// unless the file says <c>false</c>; when VRChat's palette cannot be read the panel is drawn in
+    /// Modbot's own colours whichever way this is set.
+    /// </summary>
+    public bool OverlayVRChatLook { get; init; } = true;
+
+    /// <summary>
     /// How fast a carried panel's thumbstick pushes and pulls it, 1 to 10, from the SteamVR page's
     /// <strong>Push speed</strong> slider as <c>"overlayPushSpeed"</c>. Each step is a centimetre per
     /// poll at full push; the default of 3 is three times what it was before it could be set.
@@ -207,6 +215,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayPushSpeedField = "overlayPushSpeed";
 
+    public const string OverlayVRChatLookField = "overlayVRChatLook";
+
     public const string OverlayField = "overlay";
 
     public const string NotifyOverlayField = "notifyOverlay";
@@ -269,6 +279,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayOn = shape?.OverlayOn ?? true,
             OverlayEditMode = shape?.OverlayEditMode ?? false,
             OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
+            OverlayVRChatLook = shape?.OverlayVRChatLook ?? true,
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             NotifyOverlay = NotifyOverlaySettings.FromJson(shape?.NotifyOverlay),
             Voice = voice,
@@ -602,7 +613,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("desktopNotifyOverlay")] JsonObject? DesktopNotifyOverlay,
         [property: JsonPropertyName("listenForPhrase")] ListeningShape? Listening,
         [property: JsonPropertyName("overlayEditMode")] bool? OverlayEditMode = null,
-        [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null);
+        [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null,
+        [property: JsonPropertyName("overlayVRChatLook")] bool? OverlayVRChatLook = null);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

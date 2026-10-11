@@ -242,6 +242,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>Whether the lock and the hand show on the panels, for the SteamVR page's Edit mode switch.</summary>
     public bool OverlayEditMode { get; init; }
 
+    /// <summary>Whether the headset panel takes its colours from VRChat's palette, for the SteamVR page's Look choice.</summary>
+    public bool OverlayVRChatLook { get; init; } = true;
+
     /// <summary>The Push speed slider's value, 1 to 10.</summary>
     public int OverlayPushSpeed { get; init; } = CompanionSettings.DefaultPushSpeed;
 
@@ -540,6 +543,7 @@ public sealed class CompanionAppState
             CanCheckForUpdates = CanCheckForUpdates,
             OverlayEditMode = Settings.OverlayEditMode,
             OverlayPushSpeed = Settings.OverlayPushSpeed,
+            OverlayVRChatLook = Settings.OverlayVRChatLook,
         };
     }
 

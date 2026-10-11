@@ -137,6 +137,13 @@ public sealed record OverlayScreen(
     /// <summary>What the live link has heard, never null.</summary>
     public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
 
+    /// <summary>
+    /// How many people are here: the one count every surface says, in "Users (15)", "15 here" and the
+    /// SteamVR page's People. Only the people present; somebody who has just left is a row and is not
+    /// counted (<see cref="Left"/>).
+    /// </summary>
+    public int HereCount => Roster.Value?.Members.Count ?? 0;
+
     /// <summary>The Instance list's filters, never null.</summary>
     public ListFilters RosterFiltersOrNone => RosterFilters ?? ListFilters.None;
 

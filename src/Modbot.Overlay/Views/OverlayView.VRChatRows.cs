@@ -143,9 +143,7 @@ public sealed partial class OverlayView
         {
             // How long each person has been here, from this PC's own log. Nothing when the log never
             // mentioned them, rather than a guess.
-            var joined = arrivals.TryGetValue(member.SubjectId, out var at) && screen.Now != default
-                ? ListFiltering.JoinedWords(at, screen.Now, screen.ModeratorArrived)
-                : null;
+            var joined = JoinedWordsFor(screen, arrivals, member);
 
             // Somebody who just left: a faded card with the seconds it has left, and no "+", because
             // a heads-up is placed on somebody present. Nor is the moderator's own card given one.
