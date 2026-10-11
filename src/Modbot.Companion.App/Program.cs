@@ -338,6 +338,7 @@ internal sealed partial class CompanionHost : IOverlayListener
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
     private NotificationHost? _notifyHost;
+    private ButtonHost? _buttonHost;
     private OverlayPreviewWindow? _preview;
 
     /// <summary>Modbot's tab in the SteamVR dashboard; null where it could not be set up.</summary>
@@ -1629,6 +1630,8 @@ internal sealed partial class CompanionHost : IOverlayListener
         else
             _overlayHost.Hide();
 
+        ShowButton();
+
         _journal?.RecordNote(
             "this PC",
             $"Heard “{said}” and {(show ? "showed" : "hid")} the overlay. "
@@ -2101,6 +2104,12 @@ internal sealed partial class CompanionHost : IOverlayListener
             _overlayHost.KeepLastFrame = _state?.DebugMode is true;
             _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+
+            // The show and hide button comes up with the panel and goes with it; it draws nothing
+            // and touches no graphics card until a headset is running.
+            _buttonHost = ButtonHost.Create(_state?.Settings.OverlayButtonPlace ?? ButtonPlace.Corner);
+            _buttonHost.Pressed += TogglePanel;
+
             StartHeadsetPaletteWatch();
             AttachOverlay();
         }
@@ -2162,6 +2171,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _preview?.Close();
         _overlayHost?.Dispose();
         _overlayHost = null;
+        DisposeButton();
         _overlayAttachedAt = null;
         StopHeadsetPaletteWatchIfUnused();
 
@@ -2237,6 +2247,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _overlayHost?.Dispose();
         _overlayHost = null;
+        DisposeButton();
         StopHeadsetPaletteWatchIfUnused();
 
         _overlayAttachedAt = null;
@@ -2480,15 +2491,17 @@ internal sealed partial class CompanionHost : IOverlayListener
                 Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
         };
 
-        // The notification panel first: it is drawn over the main one, so a hand it is using is
-        // left out of the main panel's turn and one press does not land on both.
+        // The notification panel first, then the button: both are drawn over the main one, so a
+        // hand either is using is left out of the main panel's turn and one press does not land on
+        // both. The pop-ups are over the button too.
         _inputLoop.Tick += (_, _) => CrashGuard.Run(
             "reading the controllers",
             () =>
             {
                 var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
                 _notifyHost?.PollInput(now);
-                _overlayHost?.PollInput(now, _notifyHost?.Busy);
+                _buttonHost?.PollInput(now, _notifyHost?.Busy);
+                _overlayHost?.PollInput(now, _buttonHost?.Busy ?? _notifyHost?.Busy);
             });
     }
 
@@ -2536,6 +2549,83 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         UseHeadsetLook();
         Render();
+    }
+
+    /// <summary>
+    /// The SteamVR page's <strong>Button place</strong> choice: the corner of the view or the left
+    /// wrist. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayButtonPlace(ButtonPlace place)
+    {
+        if (_state is null || _state.Settings.OverlayButtonPlace == place)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayButtonPlace = place };
+
+        if (!CompanionSettings.SaveText(_settingsPath, CompanionSettings.OverlayButtonPlaceField, OverlayButton.Written(place)))
+            Log.Warning("Could not save the button place to {Path}", _settingsPath);
+
+        _buttonHost?.Place(place);
+        Render();
+    }
+
+    /// <summary>
+    /// What the show and hide button does when it is clicked: hides the headset panel while it is
+    /// up and shows it while it is hidden. Only the panel; the button and the connection to the VR
+    /// runtime stay.
+    /// </summary>
+    private void TogglePanel()
+    {
+        if (_overlayHost is null)
+            return;
+
+        if (_overlayHost.Hidden)
+            _overlayHost.Show();
+        else
+            _overlayHost.Hide();
+
+        ShowButton();
+        Render();
+    }
+
+    /// <summary>Hands the button what it should say: Hide while the panel is up, Show while it is down.</summary>
+    private void ShowButton()
+    {
+        if (_buttonHost is null || _overlayHost is null)
+            return;
+
+        _buttonHost.Update(new ButtonScreen(!_overlayHost.Hidden, OverlayButton.DefaultShortcut));
+    }
+
+    /// <summary>Takes the show and hide button down; it goes with the panel it belongs to.</summary>
+    private void DisposeButton()
+    {
+        _buttonHost?.Dispose();
+        _buttonHost = null;
+        _buttonAttachTriedAt = DateTimeOffset.MinValue;
+    }
+
+    /// <summary>
+    /// Attaches the show and hide button once the headset panel is up, and again after a VR runtime
+    /// that closed is back. Its own attach, because it is an overlay of its own; a failure puts only
+    /// the button away.
+    /// </summary>
+    private void AttachButton()
+    {
+        if (_buttonHost is null)
+            return;
+
+        _buttonAttachTriedAt = _clock.UtcNow;
+
+        try
+        {
+            _buttonHost.Start();
+        }
+        catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
+        {
+            Log.Warning(ex, "The show and hide button could not start ({Reason}); the panel carries on without it", PanelRetries.ShortReason(ex));
+            DisposeButton();
+        }
     }
 
     /// <summary>
@@ -2656,6 +2746,9 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         if (_notifyHost is not null)
             _notifyHost.Look = _headsetLook;
+
+        if (_buttonHost is not null)
+            _buttonHost.Look = _headsetLook;
 
         if (_desktopNotify is not null)
             _desktopNotify.Look = _popUpLook;
@@ -3022,6 +3115,8 @@ internal sealed partial class CompanionHost : IOverlayListener
 
     private DateTimeOffset _notifyAttachTriedAt = DateTimeOffset.MinValue;
 
+    private DateTimeOffset _buttonAttachTriedAt = DateTimeOffset.MinValue;
+
     /// <summary>
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
     /// starts with the computer must not start SteamVR too.
@@ -3275,6 +3370,22 @@ internal sealed partial class CompanionHost : IOverlayListener
                 }
             }
 
+            // The button follows the panel it belongs to: attached once that one is, and again
+            // after a runtime that closed is back. What it says follows whether the panel is up.
+            if (_buttonHost is not null)
+            {
+                _buttonHost.Poll();
+
+                if (_overlayHost?.Status.State is OverlayRuntimeState.Running
+                    && _buttonHost.Status.State is not OverlayRuntimeState.Running
+                    && _clock.UtcNow - _buttonAttachTriedAt >= OverlayAttachInterval)
+                {
+                    AttachButton();
+                }
+
+                ShowButton();
+            }
+
             if (_notifyHost is not null)
             {
                 var wasRunning = _notifyHost.Status.State is OverlayRuntimeState.Running;
@@ -3441,6 +3552,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _testRemoteStop.Cancel();
         _overlay?.Dispose();
         _overlayHost?.Dispose();
+        _buttonHost?.Dispose();
         _notifyHost?.Dispose();
         _dashboardLoop.Stop();
         _dashboard?.Dispose();
@@ -3673,6 +3785,7 @@ internal sealed partial class CompanionHost : IOverlayListener
                 SetOverlayOn = SetOverlayOn,
                 SetOverlayEditMode = SetOverlayEditMode,
                 SetOverlayVRChatLook = SetOverlayVRChatLook,
+                SetOverlayButtonPlace = SetOverlayButtonPlace,
                 PutOverlayBack = PutOverlayBack,
                 SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
@@ -3882,6 +3995,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         }
 
         _overlayHost.PutBack(placement);
+        ShowButton();
         Log.Debug(
             "Put the panel back in front: {Placement}; runtime {State}, head tracked {HeadTracked}, frames drawn {Frames} since it attached at {AttachedAt}",
             _overlayHost.Placement,

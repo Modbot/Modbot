@@ -245,6 +245,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>Whether the headset panel takes its colours from VRChat's palette, for the SteamVR page's Look choice.</summary>
     public bool OverlayVRChatLook { get; init; } = true;
 
+    /// <summary>Where the show and hide button sits, for the SteamVR page's Button place choice.</summary>
+    public ButtonPlace OverlayButtonPlace { get; init; }
+
     /// <summary>The Push speed slider's value, 1 to 10.</summary>
     public int OverlayPushSpeed { get; init; } = CompanionSettings.DefaultPushSpeed;
 
@@ -544,6 +547,7 @@ public sealed class CompanionAppState
             OverlayEditMode = Settings.OverlayEditMode,
             OverlayPushSpeed = Settings.OverlayPushSpeed,
             OverlayVRChatLook = Settings.OverlayVRChatLook,
+            OverlayButtonPlace = Settings.OverlayButtonPlace,
         };
     }
 

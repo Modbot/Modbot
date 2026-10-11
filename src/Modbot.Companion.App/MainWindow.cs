@@ -1594,7 +1594,7 @@ public sealed partial class MainWindow : Window
         var top = new StackPanel
         {
             Spacing = 12,
-            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
+            Children = { _overlayOnBox, _editModeBox, Ui.Field("Look", LookChoices(_snapshot.OverlayVRChatLook)), Ui.Field("Button place", ButtonPlaceChoices(_snapshot.OverlayButtonPlace)), Ui.Field(_pushSpeedLabel, _pushSpeed) },
         };
         Control header = pill;
 
@@ -1666,6 +1666,22 @@ public sealed partial class MainWindow : Window
             var button = Ui.Button(caption, primary: vrchat == choice);
             var chosen = choice;
             button.Click += (_, _) => _actions.SetOverlayVRChatLook(chosen);
+            row.Children.Add(button);
+        }
+
+        return row;
+    }
+
+    /// <summary>Where the show and hide button sits: the corner of the view, or the left wrist.</summary>
+    private Control ButtonPlaceChoices(ButtonPlace place)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        foreach (var choice in new[] { ButtonPlace.Corner, ButtonPlace.Wrist })
+        {
+            var button = Ui.Button(OverlayButton.Name(choice), primary: place == choice);
+            var chosen = choice;
+            button.Click += (_, _) => _actions.SetOverlayButtonPlace(chosen);
             row.Children.Add(button);
         }
 
@@ -1932,6 +1948,8 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's Look choice: true for VRChat's colours, false for Modbot's own.</summary>
     public Action<bool> SetOverlayVRChatLook { get; init; } = _ => { };
+
+    public Action<ButtonPlace> SetOverlayButtonPlace { get; init; } = _ => { };
 
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };
