@@ -321,7 +321,7 @@ public class CompanionSourceGuardTests
     /// </remarks>
     private static readonly Regex AsksAboutAnotherWindow = new(
         @"\b(FindWindowW|FindWindowExW|EnumWindows|EnumChildWindows|GetForegroundWindow|GetClientRect"
-        + @"|GetWindowRect|ClientToScreen|IsIconic|GetWindowThreadProcessId|WindowFromPoint)\b",
+        + @"|GetWindowRect|ClientToScreen|IsIconic|GetWindowThreadProcessId|WindowFromPoint|GetClassNameW)\b",
         RegexOptions.Compiled);
 
     /// <summary>The one file allowed to record a picture of a screen.</summary>
@@ -559,6 +559,15 @@ public class CompanionSourceGuardTests
         Assert.Contains("\"VRChat\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("EnumWindows", source, StringComparison.Ordinal);
         Assert.DoesNotContain("EnumChildWindows", source, StringComparison.Ordinal);
+
+        // By name *and* class, never by name alone. On 2026-10-10 the fallback to the title alone
+        // let the bubble and the overlay panel attach to Steam's launch-options dialog for VRChat,
+        // which is also titled "VRChat". Only a Unity game's window has the class, so the class
+        // is what tells VRChat from a dialog that borrows its name, without ever looking at what
+        // else is running.
+        Assert.DoesNotMatch(new Regex(@"FindWindowW\s*\(\s*null\b"), source);
+        Assert.Contains("FindWindowW(UnityWindowClass, Title)", source, StringComparison.Ordinal);
+        Assert.Contains("GetClassNameW(", source, StringComparison.Ordinal);
 
         // It reads no key and watches no event: no keyboard hook, no key-state call, no event hook.
         foreach (var forbidden in new[] { "SetWindowsHookEx", "GetAsyncKeyState", "GetKeyState", "SetWinEventHook" })

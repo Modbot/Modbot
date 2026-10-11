@@ -92,6 +92,12 @@ is `VRChatWindow.cs`, that it names VRChat and enumerates nothing, and that it h
 hook, no key-state call and no event hook. The desktop overlay's placement (§3.6) is its second
 caller, so the rule is still "one file", not two.
 
+**Changed 2026-10-10.** The lookup no longer falls back to the title alone: it asks for the Unity
+window class and the title together, and a window it already holds is dropped when it is not of
+that class. Steam's launch-options dialog for VRChat is titled "VRChat" too, and the bubble and the
+overlay panel attached to it. Telling the two apart by class keeps the guard as it was: nothing asks
+which program owns a window, and no process is looked at.
+
 ---
 
 ## 3. Modbot's Escape Menu

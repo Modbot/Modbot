@@ -56,7 +56,7 @@ internal static class VRChatWindow
         if (!OperatingSystem.IsWindows())
             return new GameWindowLook(0, GameWindow.Missing, 0, 0);
 
-        var handle = known != 0 && IsWindow(known) ? known : Find();
+        var handle = known != 0 && IsWindow(known) && IsUnityWindow(known) ? known : Find();
 
         if (handle == 0)
             return new GameWindowLook(0, GameWindow.Missing, 0, 0);
@@ -87,13 +87,23 @@ internal static class VRChatWindow
     }
 
     /// <summary>
-    /// VRChat's window, by class and title, and then by title alone. Two named asks, never a
-    /// walk over what else is open.
+    /// VRChat's window, by class and title together. One named ask, never a walk over what else is
+    /// open. The title alone is not enough: Steam's launch-options dialog for VRChat is also
+    /// titled "VRChat", and the bubble and the overlay panel attached to it. Only a Unity game's
+    /// window has that class, and that is how VRChat's is told from a dialog that borrows its name.
     /// </summary>
-    private static nint Find()
+    private static nint Find() => FindWindowW(UnityWindowClass, Title);
+
+    /// <summary>
+    /// Whether a window already held is still a Unity game's window, so a handle that once
+    /// belonged to some other window is not kept for as long as it lives.
+    /// </summary>
+    private static bool IsUnityWindow(nint handle)
     {
-        var handle = FindWindowW(UnityWindowClass, Title);
-        return handle != 0 ? handle : FindWindowW(null, Title);
+        var name = new char[UnityWindowClass.Length + 1];
+        var length = GetClassNameW(handle, name, name.Length);
+        return length == UnityWindowClass.Length
+            && string.Equals(new string(name, 0, length), UnityWindowClass, StringComparison.Ordinal);
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -114,6 +124,9 @@ internal static class VRChatWindow
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint FindWindowW(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassNameW(nint hWnd, [Out] char[] lpClassName, int nMaxCount);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
