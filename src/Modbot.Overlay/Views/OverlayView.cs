@@ -150,10 +150,14 @@ public sealed partial class OverlayView
         // filter, unless something is picked and has to be seen to be cleared.
         if (screen.ShownFilters is { } filters && (HasRows(screen) || filters.AnyPicked || filters.Open is not null))
         {
-            stack.Children.Add(Backed(FilterRow(screen, screen.Page, filters)));
+            var row = FilterRow(screen, screen.Page, filters);
 
+            // The row and the open filter's choices stand on one backing, so they read as one block
+            // over the list and the cursor stays on the panel in the space between them.
             if (filters.Open is { } open)
-                stack.Children.Add(Choices(screen.Page, open, filters));
+                stack.Children.Add(Backed(new StackPanel { Spacing = 8, Children = { row, Choices(screen.Page, open, filters) } }, fill: true, shown: true));
+            else
+                stack.Children.Add(Backed(row));
         }
 
         // A heads-up being written takes the place of a filter's choices, over the roster it was
@@ -423,9 +427,13 @@ public sealed partial class OverlayView
     /// </remarks>
     /// <param name="row">The buttons.</param>
     /// <param name="fill">Whether the row spreads across the panel, as VRChat's tabs do, rather than being as wide as its buttons.</param>
-    private Control Backed(Control row, bool fill = false) => new Border
+    /// <param name="shown">
+    /// Whether the backing is a panel to look at and not only ground to stand on: in VRChat's look the
+    /// title strip's colour, where the ground colour is the panel's own and cannot be told from it.
+    /// </param>
+    private Control Backed(Control row, bool fill = false, bool shown = false) => new Border
     {
-        Background = T.BackgroundBrush,
+        Background = shown && V is { } v ? v.Bar() : T.BackgroundBrush,
         Padding = new Thickness(BackingPadding),
         CornerRadius = new CornerRadius(T.Density.Radius + BackingPadding),
         HorizontalAlignment = fill ? HorizontalAlignment.Stretch : HorizontalAlignment.Left,

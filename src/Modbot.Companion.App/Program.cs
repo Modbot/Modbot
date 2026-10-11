@@ -362,9 +362,11 @@ internal sealed partial class CompanionHost : IOverlayListener
     private bool _panelRetryWired;
 
     /// <summary>
-    /// The headset panel's look: a look at VRChat's selected palette every two seconds, like the one
-    /// the window over VRChat takes. <c>_headsetColours</c> is the last palette read and
-    /// <c>_headsetShown</c> the colours the panel is drawn in now, so a repeat changes nothing.
+    /// The headset panels' look: a look at VRChat's selected palette every two seconds, like the one
+    /// the window over VRChat takes, kept going while a headset panel or the pop-ups on a monitor are
+    /// up. <c>_headsetColours</c> is the last palette read, <c>_headsetShown</c> the colours the
+    /// headset panels are drawn in now (none while the Look choice is off) and <c>_popUpShown</c> the
+    /// ones the pop-ups on a monitor are, so a repeat changes nothing.
     /// </summary>
     private readonly DispatcherTimer _headsetPaletteWatch = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _headsetPaletteWired;
@@ -372,6 +374,9 @@ internal sealed partial class CompanionHost : IOverlayListener
     private bool _headsetPaletteFailing;
     private OverlayColours? _headsetColours;
     private OverlayColours? _headsetShown;
+    private OverlayLook _headsetLook = OverlayLook.Headset;
+    private OverlayColours? _popUpShown;
+    private OverlayLook _popUpLook = OverlayLook.Headset;
 
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
     private DesktopOverlayWindow? _desktopOverlay;
@@ -2155,10 +2160,10 @@ internal sealed partial class CompanionHost : IOverlayListener
             Log.Warning("The headset panel is not tried again until it is switched off and on, or Modbot restarts");
 
         _preview?.Close();
-        _headsetPaletteWatch.Stop();
         _overlayHost?.Dispose();
         _overlayHost = null;
         _overlayAttachedAt = null;
+        StopHeadsetPaletteWatchIfUnused();
 
         if (again)
             StartPanelRetry();
@@ -2225,7 +2230,6 @@ internal sealed partial class CompanionHost : IOverlayListener
             _inputLoop.Stop();
 
         _placementSave.Stop();
-        _headsetPaletteWatch.Stop();
 
         _preview?.Close();
         _pinnedSample = null;
@@ -2233,6 +2237,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _overlayHost?.Dispose();
         _overlayHost = null;
+        StopHeadsetPaletteWatchIfUnused();
 
         _overlayAttachedAt = null;
         _overlayLastDrewAt = null;
@@ -2282,6 +2287,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _notifyHost.EditMode = _state?.Settings.OverlayEditMode is true;
             _notifyHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
             _notifyHost.PlacementChanged += NotifyPlacementChanged;
+            StartHeadsetPaletteWatch();
             AttachNotifyOverlay();
         }
         catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
@@ -2308,6 +2314,7 @@ internal sealed partial class CompanionHost : IOverlayListener
         _notifyHost?.Dispose();
         _notifyHost = null;
         _notifyAttachedAt = null;
+        StopHeadsetPaletteWatchIfUnused();
 
         if (again)
             StartPanelRetry();
@@ -2363,6 +2370,7 @@ internal sealed partial class CompanionHost : IOverlayListener
 
         _notifyHost?.Dispose();
         _notifyHost = null;
+        StopHeadsetPaletteWatchIfUnused();
 
         _notifyAttachedAt = null;
         _notifyLastDrewAt = null;
@@ -2542,8 +2550,18 @@ internal sealed partial class CompanionHost : IOverlayListener
             _headsetPaletteWatch.Tick += (_, _) => CrashGuard.Run("looking at VRChat's palette for the headset panel", () => _ = WatchHeadsetPaletteAsync());
         }
 
-        // A new panel starts in the Modbot look, whatever the last one was drawn in.
+        // Another panel coming up while the watch is going is given the look it has found, on the spot.
+        if (_headsetPaletteWatch.IsEnabled)
+        {
+            UseHeadsetLook();
+            return;
+        }
+
+        // The first one up starts from the Modbot look, whatever the last was drawn in.
         _headsetShown = null;
+        _headsetLook = OverlayLook.Headset;
+        _popUpShown = null;
+        _popUpLook = OverlayLook.Headset;
 
         try
         {
@@ -2557,9 +2575,16 @@ internal sealed partial class CompanionHost : IOverlayListener
         _headsetPaletteWatch.Start();
     }
 
+    /// <summary>Stops the look at the palette once no headset panel and no pop-up on a monitor is left to draw.</summary>
+    private void StopHeadsetPaletteWatchIfUnused()
+    {
+        if (_overlayHost is null && _notifyHost is null && _desktopNotify is null)
+            _headsetPaletteWatch.Stop();
+    }
+
     private async Task WatchHeadsetPaletteAsync()
     {
-        if (_headsetLooking || _overlayHost is null)
+        if (_headsetLooking || (_overlayHost is null && _notifyHost is null && _desktopNotify is null))
             return;
 
         _headsetLooking = true;
@@ -2606,20 +2631,34 @@ internal sealed partial class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// Gives the headset panel VRChat's colours when the Look choice is on and the palette could be
-    /// read, and the Modbot look otherwise. Draws only when the colours changed.
+    /// Gives each headset panel (the main one and the pop-ups) VRChat's colours when the Look choice is
+    /// on and the palette could be read, and the Modbot look otherwise; gives the pop-ups on a monitor
+    /// VRChat's colours whenever the palette could be read, since the Look choice is the headset's
+    /// alone. Draws only what changed.
     /// </summary>
     private void UseHeadsetLook()
     {
-        if (_overlayHost is null)
-            return;
-
         var colours = _state?.Settings.OverlayVRChatLook is false ? null : _headsetColours;
-        if (colours == _headsetShown)
-            return;
+        if (colours != _headsetShown)
+        {
+            _headsetShown = colours;
+            _headsetLook = colours is null ? OverlayLook.Headset : OverlayLook.FromColours(colours);
+        }
 
-        _headsetShown = colours;
-        _overlayHost.Look = colours is null ? OverlayLook.Headset : OverlayLook.FromColours(colours);
+        if (_headsetColours != _popUpShown)
+        {
+            _popUpShown = _headsetColours;
+            _popUpLook = _headsetColours is null ? OverlayLook.Headset : OverlayLook.FromColours(_headsetColours);
+        }
+
+        if (_overlayHost is not null)
+            _overlayHost.Look = _headsetLook;
+
+        if (_notifyHost is not null)
+            _notifyHost.Look = _headsetLook;
+
+        if (_desktopNotify is not null)
+            _desktopNotify.Look = _popUpLook;
     }
 
     /// <summary>
@@ -2806,12 +2845,14 @@ internal sealed partial class CompanionHost : IOverlayListener
         {
             _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
             _desktopNotify.Apply(settings);
+            StartHeadsetPaletteWatch();
         }
         catch (Exception ex) when (PanelRetries.IsPanelFailure(ex))
         {
             Log.Warning(ex, "The notification overlay on the monitor could not start ({Reason}); the companion carries on without it", PanelRetries.ShortReason(ex));
             _desktopNotify?.Close();
             _desktopNotify = null;
+            StopHeadsetPaletteWatchIfUnused();
             return;
         }
 
@@ -2830,6 +2871,7 @@ internal sealed partial class CompanionHost : IOverlayListener
             _desktopNotify.Clear();
             _desktopNotify.Close();
             _desktopNotify = null;
+            StopHeadsetPaletteWatchIfUnused();
         }
 
         // The same rule as the headset's notification overlay, which is the twin of this one: the

@@ -51,6 +51,12 @@ internal static class Samples
     /// <summary>The Instance list: seven people here, one just left.</summary>
     public static OverlayScreen Roster() => Screen(OverlayPage.Instance);
 
+    /// <summary>The Instance list with the Rank filter's choices open and one rank picked.</summary>
+    public static OverlayScreen RosterWithChoices() => Roster() with
+    {
+        RosterFilters = new ListFilters(Ranks: new RankPick(0).Toggle(TrustRank.KnownUser), Open: FilterPart.Rank),
+    };
+
     /// <summary>The Audit Log: joins, leaves and the people who were here before the moderator.</summary>
     public static OverlayScreen AuditLog() => Screen(OverlayPage.Events);
 
@@ -97,7 +103,7 @@ internal static class Samples
             CanPlaceHeadsUps: true);
     }
 
-    /// <summary>A flagged person walking in, as the notification overlay shows it.</summary>
+    /// <summary>A flagged person walking in, then a problem and an ordinary arrival, as the notification overlay shows them.</summary>
     public static NotificationScreen Notification() => new(
     [
         new PopUp(
@@ -109,5 +115,17 @@ internal static class Samples
             Elowen.TrustRank,
             true,
             Elowen.SubjectId),
+        new PopUp(
+            "problem:sample",
+            "Could not reach the group",
+            "Cat Lounge",
+            null,
+            PopUpTone.Problem),
+        new PopUp(
+            "action:sample",
+            "Heads-up placed · " + Group,
+            Fennick.DisplayName!,
+            null,
+            PopUpTone.Plain),
     ]);
 }

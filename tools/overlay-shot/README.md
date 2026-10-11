@@ -17,7 +17,9 @@ It writes into `tools/overlay-shot/out/` (gitignored):
 |---|---|
 | `instance-headset.png`, `instance-headset-vrchat.png`, `instance-desktop.png` | The Instance list: seven people of mixed rank, 18+ marks, one flagged, the moderator themself, one who just left |
 | `auditlog-headset.png`, `auditlog-headset-vrchat.png`, `auditlog-desktop.png` | The Audit Log: Joined, Left and here-before rows |
-| `notification-headset.png`, `notification-desktop.png` | A flagged join; the desktop one drawn as `DesktopNotifyWindow` does (`DesignTokens.Desktop`) |
+| `choices-headset.png`, `choices-headset-vrchat.png`, `choices-desktop.png` | The Instance list with the Rank filter's choices open and one rank picked |
+| `notification-headset.png`, `notification-headset-vrchat.png` | Three pop-ups (a flagged join, a fault, a plain one) on the headset's notification panel, in the Modbot look and in VRChat's |
+| `notification-desktop.png`, `notification-desktop-vrchat.png` | The same pop-ups as `DesktopNotifyWindow` draws them: today's look (`DesignTokens.Desktop`), and VRChat's look at `NotificationView.DesktopScale` |
 | `compare.png` | Each set on a row (headset in the Modbot look, headset in VRChat's look, desktop), labelled with its size |
 
 All names are made up. Pictures sit on a flat dark grey, standing in for the world or the game behind
@@ -28,7 +30,7 @@ a panel, so a see-through background shows as grey rather than as nothing.
 - Headset main panel: 1024x1024, the overlay's texture. Notification: 300x300.
 - Desktop panel: the size `VRChatHudLayout` gives the overlay for a 1920x1080 VRChat window
   (407x563 today), drawn from the window's 520x720 layout at that scale. Notification: 340 wide, as
-  tall as its cards.
+  tall as its cards (in VRChat's look the cards are laid out wider and drawn at 0.78).
 
 ## Palette
 

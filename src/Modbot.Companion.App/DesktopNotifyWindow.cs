@@ -51,6 +51,7 @@ internal sealed class DesktopNotifyWindow : Window
 
     private NotificationScreen _drawn = NotificationScreen.Empty;
     private DesktopNotifySettings _settings = DesktopNotifySettings.Default;
+    private OverlayLook? _look;
     private bool _styled;
 
     public DesktopNotifyWindow()
@@ -91,6 +92,35 @@ internal sealed class DesktopNotifyWindow : Window
     /// </summary>
     public Visual? PlaceNear { get; set; }
 
+    /// <summary>
+    /// How the pop-ups are drawn: VRChat's colours and cards when it is given its look, and the
+    /// desktop's own look as it has always been when it is given none or the plain one. Drawn again
+    /// at once while something is up.
+    /// </summary>
+    public OverlayLook? Look
+    {
+        get => _look;
+        set
+        {
+            if (ReferenceEquals(_look, value))
+                return;
+
+            _look = value;
+
+            if (!_drawn.IsEmpty)
+            {
+                _cards.Content = Cards(_drawn);
+                Place();
+            }
+        }
+    }
+
+    /// <summary>The cards in the look in use. The desktop's palette and density: the headset's is sized for a panel a metre away, and a card that size on a monitor would cover a corner of the game.</summary>
+    private Control Cards(NotificationScreen screen)
+        => _look is { VRChat: not null } look
+            ? NotificationView.Build(screen, look, NotificationView.DesktopScale)
+            : NotificationView.Build(screen, DesignTokens.Desktop);
+
     /// <summary>The corner, the seconds, and whether it may be up at all.</summary>
     public void Apply(DesktopNotifySettings settings)
     {
@@ -129,9 +159,7 @@ internal sealed class DesktopNotifyWindow : Window
             return true;
         }
 
-        // The desktop's own palette and density. The headset's is sized for a panel a metre away,
-        // and a card that size on a monitor would cover a corner of the game.
-        _cards.Content = NotificationView.Build(screen, DesignTokens.Desktop);
+        _cards.Content = Cards(screen);
 
         if (!IsVisible)
             Show();

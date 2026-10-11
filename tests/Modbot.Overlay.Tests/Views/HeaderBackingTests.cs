@@ -103,4 +103,40 @@ public class HeaderBackingTests
         Assert.True(on);
         Assert.False(beside);
     }
+
+    /// <summary>The Instance list with its Rank choices open.</summary>
+    private static OverlayScreen WithChoices(OverlayPage page) => Screen(page) with
+    {
+        RosterFilters = page is OverlayPage.Instance ? new ListFilters(Open: FilterPart.Rank) : null,
+        EventFilters = page is OverlayPage.Events ? new ListFilters(Open: FilterPart.Kind) : null,
+    };
+
+    [Theory]
+    [InlineData(OverlayPage.Instance, false)]
+    [InlineData(OverlayPage.Instance, true)]
+    [InlineData(OverlayPage.Events, false)]
+    [InlineData(OverlayPage.Events, true)]
+    public void TheCursorStaysBetweenTheFilterRowAndItsOpenChoices(OverlayPage page, bool inVRChatLook)
+    {
+        var drawn = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            var root = OverlayView.Build(WithChoices(page), null, inVRChatLook ? VRChatLook() : OverlayLook.Headset);
+            renderer.Render(root);
+
+            var targets = OverlayTargets.Find(root);
+            var filters = targets.Where(t => t.Target is OverlayTarget.Filter).Select(t => t.Bounds).ToList();
+            var picks = targets.Where(t => t.Target is OverlayTarget.Pick).Select(t => t.Bounds).ToList();
+
+            // Halfway between the lowest filter button and the choices' first button: the space the
+            // cursor used to fall through.
+            var above = filters.MaxBy(b => b.Bottom);
+            var below = picks.MinBy(b => b.Top);
+            Assert.True(below.Top - above.Bottom > 1, "the filters and their choices have a gap between them");
+
+            return OverlayTargets.Drawn(root, new Point(above.Center.X, (above.Bottom + below.Top) / 2));
+        });
+
+        Assert.True(drawn);
+    }
 }

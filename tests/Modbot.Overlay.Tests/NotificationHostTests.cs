@@ -102,4 +102,35 @@ public class NotificationHostTests
             Assert.Equal(runtime.Placement, host.Placement);
         });
     }
+
+    [Fact]
+    public void ChangingTheLookDrawsAgainAndTheSameLookDrawsNothing()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new HeadlessOverlayRuntime();
+            using var host = new NotificationHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size));
+            host.Update(Screen("a1"));
+            var drawn = host.FramesDrawn;
+
+            var look = OverlayLook.FromColours(new Modbot.Companion.Presentation.OverlayColours(
+                Panel: new(0x18, 0x12, 0x24),
+                Bar: new(0x10, 0x0C, 0x1A),
+                Button: new(0x2A, 0x20, 0x44),
+                Border: new(0x38, 0x2C, 0x5A),
+                Hover: new(0x30, 0x26, 0x4E),
+                Selected: new(0x50, 0x3A, 0x90),
+                SelectedBorder: new(0x80, 0x60, 0xE0),
+                SelectedText: new(0xF5, 0xF5, 0xF5),
+                Icon: new(0xA0, 0x90, 0xD0),
+                Text: new(0xF0, 0xF0, 0xF8),
+                Subtext: new(0xB0, 0xA8, 0xC8)));
+
+            host.Look = look;
+            Assert.Equal(drawn + 1, host.FramesDrawn);
+
+            host.Look = look;
+            Assert.Equal(drawn + 1, host.FramesDrawn);
+        });
+    }
 }

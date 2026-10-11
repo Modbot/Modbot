@@ -193,6 +193,27 @@ public sealed class NotificationHost : IDisposable
     /// <summary>What the panel shows right now.</summary>
     public NotificationScreen Showing => _drawn;
 
+    /// <summary>
+    /// How the pop-ups are drawn: the Modbot look they have always had, or VRChat's colours and
+    /// cards, the same choice the main panel makes. Drawn again at once when it changes. UI thread
+    /// only, like <see cref="Update"/>.
+    /// </summary>
+    public OverlayLook Look
+    {
+        get => _look;
+        set
+        {
+            value ??= OverlayLook.Headset;
+            if (ReferenceEquals(_look, value))
+                return;
+
+            _look = value;
+            Draw();
+        }
+    }
+
+    private OverlayLook _look = OverlayLook.Headset;
+
     /// <summary>The hand holding the panel, or null.</summary>
     public Hand? Holding { get; private set; }
 
@@ -386,7 +407,7 @@ public sealed class NotificationHost : IDisposable
         _compositor.Invalidate();
 
         var bar = Bar();
-        var root = PanelFrame.Notification(NotificationView.Build(_drawn), bar, _cursor, Height);
+        var root = PanelFrame.Notification(NotificationView.Build(_drawn, _look), bar, _cursor, Height);
         _drawnBar = bar;
         _drawnCursor = _cursor;
         _everDrawn = true;

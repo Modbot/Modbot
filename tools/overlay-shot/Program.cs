@@ -77,31 +77,43 @@ internal static class Program
         var fit = VRChatHudLayout.For(ClientWidth, ClientHeight)?.Overlay()
             ?? throw new InvalidOperationException("The desktop panel has no room at the chosen window size.");
 
-        var pairs = new List<(string Name, string Title, Bitmap Headset, Bitmap? HeadsetVRChat, Bitmap Desktop)>();
+        // Each row of the comparison picture: a title and its pictures left to right, each with a label.
+        var rows = new List<(string Title, List<(string Label, Bitmap Picture)> Shots)>();
 
         foreach (var (name, title, screen) in new[]
         {
             ("instance", "Instance list", Samples.Roster()),
             ("auditlog", "Audit Log", Samples.AuditLog()),
+            ("choices", "Instance list, Rank choices open", Samples.RosterWithChoices()),
         })
         {
-            var h = Draw(HeadsetPanel(screen, headset), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution);
-            var hv = Draw(HeadsetPanel(screen, desktop), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution);
-            var d = Draw(DesktopPanel(screen, desktop, fit.Scale), fit.Width, fit.Height);
-            pairs.Add((name, title, Save(h, folder, name + "-headset.png"), Save(hv, folder, name + "-headset-vrchat.png"), Save(d, folder, name + "-desktop.png")));
+            var h = Save(Draw(HeadsetPanel(screen, headset), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution), folder, name + "-headset.png");
+            var hv = Save(Draw(HeadsetPanel(screen, desktop), OverlayHost.DefaultResolution, OverlayHost.DefaultResolution), folder, name + "-headset-vrchat.png");
+            var d = Save(Draw(DesktopPanel(screen, desktop, fit.Scale), fit.Width, fit.Height), folder, name + "-desktop.png");
+            rows.Add((title,
+            [
+                ("headset, Modbot look", h),
+                ("headset, VRChat look", hv),
+                ("desktop", d),
+            ]));
         }
 
-        // The notification: the headset panel at its own texture size, and the desktop window the
-        // way DesktopNotifyWindow draws it, at the desktop's tokens and its fixed width.
+        // The notification: the headset panel at its own texture size in both looks, and the desktop
+        // window the way DesktopNotifyWindow draws it, at today's look and in VRChat's, at its fixed width.
         var cards = Samples.Notification();
-        var nh = Draw(
-            PanelFrame.Notification(NotificationView.Build(cards), PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false), null, OverlayHost.DefaultNotificationResolution),
-            OverlayHost.DefaultNotificationResolution,
-            OverlayHost.DefaultNotificationResolution);
-        var nd = DrawToContent(NotificationView.Build(cards, DesignTokens.Desktop), DesktopNotifyWidth);
-        pairs.Add(("notification", "Notification", Save(nh, folder, "notification-headset.png"), null, Save(nd, folder, "notification-desktop.png")));
+        var nh = Save(Draw(HeadsetNotification(cards, headset), OverlayHost.DefaultNotificationResolution, OverlayHost.DefaultNotificationResolution), folder, "notification-headset.png");
+        var nhv = Save(Draw(HeadsetNotification(cards, desktop), OverlayHost.DefaultNotificationResolution, OverlayHost.DefaultNotificationResolution), folder, "notification-headset-vrchat.png");
+        var nd = Save(DrawToContent(NotificationView.Build(cards, DesignTokens.Desktop), DesktopNotifyWidth), folder, "notification-desktop.png");
+        var ndv = Save(DrawToContent(NotificationView.Build(cards, desktop, NotificationView.DesktopScale), DesktopNotifyWidth), folder, "notification-desktop-vrchat.png");
+        rows.Add(("Notification",
+        [
+            ("headset, Modbot look", nh),
+            ("headset, VRChat look", nhv),
+            ("desktop, Modbot look", nd),
+            ("desktop, VRChat look", ndv),
+        ]));
 
-        Save(Compare(pairs), folder, "compare.png");
+        Save(Compare(rows), folder, "compare.png");
 
         Console.WriteLine($"Drawn into {folder}");
         Console.WriteLine($"  palette: {(paletteUser is null ? "sample" : "read from this PC")}; desktop panel {fit.Width}x{fit.Height} for a {ClientWidth}x{ClientHeight} window");
@@ -130,6 +142,14 @@ internal static class Program
             PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false),
             null,
             OverlayHost.DefaultResolution);
+
+    /// <summary>The headset notification panel: what NotificationHost hands the renderer, with the bar drawn but not showing.</summary>
+    private static Control HeadsetNotification(NotificationScreen cards, OverlayLook look)
+        => PanelFrame.Notification(
+            NotificationView.Build(cards, look),
+            PanelBar.For(Modbot.Companion.Overlay.OverlayPlacement.Default, false),
+            null,
+            OverlayHost.DefaultNotificationResolution);
 
     /// <summary>
     /// The desktop window's panel: the title strip and the screen in a rounded frame, laid out at the
@@ -204,7 +224,7 @@ internal static class Program
         return Draw(root, width, Math.Ceiling(root.DesiredSize.Height));
     }
 
-    private static Bitmap Save(RenderTargetBitmap picture, string folder, string file)
+    private static RenderTargetBitmap Save(RenderTargetBitmap picture, string folder, string file)
     {
         var path = Path.Combine(folder, file);
         picture.Save(path);
@@ -212,20 +232,18 @@ internal static class Program
         return picture;
     }
 
-    /// <summary>Each set on a row: the headset in the Modbot look, then in VRChat's look (where it has one), then the desktop, a label above each.</summary>
-    private static RenderTargetBitmap Compare(List<(string Name, string Title, Bitmap Headset, Bitmap? HeadsetVRChat, Bitmap Desktop)> pairs)
+    /// <summary>Each set on a row, a label above each picture.</summary>
+    private static RenderTargetBitmap Compare(List<(string Title, List<(string Label, Bitmap Picture)> Shots)> sets)
     {
         var rows = new StackPanel { Spacing = 28, Margin = new Thickness(24) };
 
-        foreach (var (_, title, headset, headsetVRChat, desktop) in pairs)
+        foreach (var (title, shots) in sets)
         {
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24 };
-            row.Children.Add(Labelled($"{title} - headset, Modbot look ({headset.PixelSize.Width}x{headset.PixelSize.Height})", headset));
 
-            if (headsetVRChat is not null)
-                row.Children.Add(Labelled($"{title} - headset, VRChat look ({headsetVRChat.PixelSize.Width}x{headsetVRChat.PixelSize.Height})", headsetVRChat));
+            foreach (var (label, picture) in shots)
+                row.Children.Add(Labelled($"{title} - {label} ({picture.PixelSize.Width}x{picture.PixelSize.Height})", picture));
 
-            row.Children.Add(Labelled($"{title} - desktop ({desktop.PixelSize.Width}x{desktop.PixelSize.Height})", desktop));
             rows.Children.Add(row);
         }
 
