@@ -1576,33 +1576,9 @@ public sealed partial class OverlayView
             if (headsUp.KindOrNull is not { } kind)
                 continue;
 
-            var what = Text(HeadsUpRules.Name(kind), T.Density.TextSmall, T.AccentForegroundBrush, FontWeight.SemiBold);
-            what.VerticalAlignment = VerticalAlignment.Center;
-
-            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { what } };
-
-            if (headsUp.About is { } about)
-            {
-                var whom = Text(about, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
-                whom.VerticalAlignment = VerticalAlignment.Center;
-                whom.MaxWidth = 200;
-                line.Children.Add(whom);
-            }
-
-            if (headsUp.Text is { } words)
-            {
-                var said = Text(words, T.Density.TextBase, T.TextBrush);
-                said.VerticalAlignment = VerticalAlignment.Center;
-                said.MaxWidth = 360;
-                line.Children.Add(said);
-            }
-
-            var by = Text("· " + headsUp.PlacedBy, T.Density.TextSmall, T.TextDimBrush);
-            by.VerticalAlignment = VerticalAlignment.Center;
-            by.MaxWidth = 160;
-            line.Children.Add(by);
-
-            var row = new DockPanel { LastChildFill = true, Height = RowBoxHeight };
+            // Clear stays on the right with who placed it beside it, and the words fill what is
+            // left and wrap, so a long note grows the row instead of running under the button.
+            var row = new DockPanel { LastChildFill = true, MinHeight = RowBoxHeight };
 
             if (canClear)
             {
@@ -1614,8 +1590,43 @@ public sealed partial class OverlayView
                 row.Children.Add(clear);
             }
 
-            line.VerticalAlignment = VerticalAlignment.Center;
-            row.Children.Add(line);
+            var by = Text("· " + headsUp.PlacedBy, T.Density.TextSmall, T.TextDimBrush);
+            by.VerticalAlignment = VerticalAlignment.Center;
+            by.MaxWidth = 160;
+            by.Margin = new Thickness(10, 0, 0, 0);
+            DockPanel.SetDock(by, Avalonia.Controls.Dock.Right);
+            row.Children.Add(by);
+
+            var what = Text(HeadsUpRules.Name(kind), T.Density.TextSmall, T.AccentForegroundBrush, FontWeight.SemiBold);
+            what.VerticalAlignment = VerticalAlignment.Center;
+            what.Margin = new Thickness(0, 0, 10, 0);
+            DockPanel.SetDock(what, Avalonia.Controls.Dock.Left);
+            row.Children.Add(what);
+
+            if (headsUp.About is { } about)
+            {
+                var whom = Text(about, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
+                whom.VerticalAlignment = VerticalAlignment.Center;
+                whom.MaxWidth = 200;
+                whom.Margin = new Thickness(0, 0, 10, 0);
+                DockPanel.SetDock(whom, Avalonia.Controls.Dock.Left);
+                row.Children.Add(whom);
+            }
+
+            if (headsUp.Text is { } words)
+            {
+                // Another moderator's words: wrapped, but still cut to a few lines, never a wall.
+                var said = Text(words, T.Density.TextBase, T.TextBrush);
+                said.VerticalAlignment = VerticalAlignment.Center;
+                said.TextWrapping = TextWrapping.Wrap;
+                said.MaxLines = 4;
+                row.Children.Add(said);
+            }
+            else
+            {
+                row.Children.Add(new Panel());
+            }
+
             rows.Children.Add(row);
         }
 
