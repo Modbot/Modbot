@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261012205147_ReadVRChatPlusAtSignIn")]
+    [Migration("20261012211123_ReadVRChatPlusAtSignIn")]
     partial class ReadVRChatPlusAtSignIn
     {
         /// <inheritdoc />
@@ -1087,6 +1087,16 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("description");
 
+                    b.Property<string>("DiscordDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("discord_description");
+
+                    b.Property<string>("DiscordTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("discord_title");
+
                     b.Property<DateTimeOffset>("EndsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ends_at");
@@ -1094,6 +1104,16 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("Featured")
                         .HasColumnType("boolean")
                         .HasColumnName("featured");
+
+                    b.Property<string>("GoogleDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("google_description");
+
+                    b.Property<string>("GoogleTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("google_title");
 
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(2048)
@@ -1225,6 +1245,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("vrchat_close_instance_after_end_minutes");
 
+                    b.Property<string>("VRChatDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("vr_chat_description");
+
                     b.Property<bool?>("VRChatFeatured")
                         .HasColumnType("boolean")
                         .HasColumnName("vrchat_featured");
@@ -1244,6 +1269,11 @@ namespace Modbot.Core.Data.Migrations
                     b.PrimitiveCollection<string>("VRChatRoleIds")
                         .HasColumnType("jsonb")
                         .HasColumnName("vrchat_role_ids");
+
+                    b.Property<string>("VRChatTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("vr_chat_title");
 
                     b.Property<bool?>("VRChatUsesInstanceOverflow")
                         .HasColumnType("boolean")
