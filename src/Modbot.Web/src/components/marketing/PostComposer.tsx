@@ -573,7 +573,7 @@ export function PostComposer({
                       </span>
                     )}
                     {vrchatPictureError && <Outcome tone="problem">{vrchatPictureError}</Outcome>}
-                    {sites.vrChatPictures && noVRChatPlus && vrchatPictureWanted(input, true) && <VRChatPlusWarning />}
+                    {sites.vrChatPictures && noVRChatPlus && <VRChatPlusWarning />}
                   </Section>
                 )}
 
