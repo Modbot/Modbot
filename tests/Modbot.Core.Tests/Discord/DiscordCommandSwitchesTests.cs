@@ -20,7 +20,7 @@ public class DiscordCommandSwitchesTests
         }
 
         Assert.Equal(
-            ["me", "events", "remindme", "report", "Report to mods"],
+            ["me", "events", "remindme", "report", "profile", "Report to mods"],
             DiscordCommandSwitches.All.Where(c => !c.OnByDefault).Select(c => c.Name));
     }
 

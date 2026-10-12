@@ -1087,6 +1087,18 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /profile's Edit and Who sees what: they open a form, or ask which page of fields.
+            if (ProfileCommand.IsButton(press.ButtonId))
+            {
+                var profileAnswer = await scope.ServiceProvider.GetRequiredService<ProfileCommand>()
+                    .HandleButtonAsync(press, CancellationToken.None).ConfigureAwait(false);
+
+                if (profileAnswer is not null)
+                    await press.ReplyAsync(profileAnswer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             if (PostCommand.IsButton(press.ButtonId))
             {
                 var postAnswer = await scope.ServiceProvider.GetRequiredService<PostCommand>()
@@ -1176,6 +1188,15 @@ public sealed class DiscordBotService : BackgroundService
                 var written = await scope.ServiceProvider.GetRequiredService<PostCommand>()
                     .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
                 await submit.ReplyAsync(written, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            // A profile form is the member's own: it has its own handler and no account.
+            if (ProfileCommand.IsForm(submit.FormId))
+            {
+                var profileAnswer = await scope.ServiceProvider.GetRequiredService<ProfileCommand>()
+                    .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
+                await submit.ReplyAsync(profileAnswer, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 

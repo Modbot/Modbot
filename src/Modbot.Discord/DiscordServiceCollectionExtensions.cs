@@ -168,6 +168,9 @@ public static class DiscordServiceCollectionExtensions
         // the limits and everything else it keeps are in the database (Discord commands design §3.4).
         services.TryAddSingleton<Interactions.PendingReports>();
         services.AddScoped<ReportCommand>();
+
+        // /profile: its buttons and forms are answered by the same class (member profiles design §4).
+        services.AddScoped<ProfileCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

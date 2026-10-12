@@ -276,7 +276,8 @@ public sealed partial class DiscordNetGateway
         => buttonId is { Length: > 0 }
             && (Interactions.StaffMenus.IsStaffButton(buttonId)
                 || Commands.EventCommand.IsButton(buttonId)
-                || Commands.PostCommand.IsButton(buttonId));
+                || Commands.PostCommand.IsButton(buttonId)
+                || Commands.ProfileCommand.IsButton(buttonId));
 
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {
@@ -410,12 +411,14 @@ public sealed partial class DiscordNetGateway
                     .WithOptions([.. (field.Choices ?? []).Take(25).Select(c => new SelectMenuOptionBuilder(
                         Cut(c.Label, 100),
                         c.Value,
-                        c.Description is { Length: > 0 } d ? Cut(d, 100) : null))])
+                        c.Description is { Length: > 0 } d ? Cut(d, 100) : null,
+                        isDefault: c.IsDefault))])
                 : new TextInputBuilder()
                     .WithCustomId(field.Id)
                     .WithStyle(field.Kind == DiscordFormFieldKind.LongText ? TextInputStyle.Paragraph : TextInputStyle.Short)
                     .WithRequired(field.Required)
                     .WithMaxLength(Math.Clamp(field.MaxLength ?? 4000, 1, 4000))
+                    .WithValue(field.Value is { Length: > 0 } words ? words : null)
                     .WithPlaceholder(field.Placeholder is { Length: > 0 } hint2 ? Cut(hint2, 100) : null);
 
             builder.AddLabel(new LabelBuilder(Cut(field.Label, 45), input));

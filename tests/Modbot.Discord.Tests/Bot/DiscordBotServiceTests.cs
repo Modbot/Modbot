@@ -148,8 +148,8 @@ public class DiscordBotServiceTests
 
         Assert.Equal(2, gateway.RegisterCalls);
         Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
-        // Events, reminders, /report and Report to mods are off by default too.
-        Assert.Equal(DiscordCommands.All.Count - 4, services.Status.Snapshot().CommandsRegistered);
+        // Events, reminders, /report, /profile and Report to mods are off by default too.
+        Assert.Equal(DiscordCommands.All.Count - 5, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
         await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);

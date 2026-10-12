@@ -41,8 +41,8 @@ public static class DiscordCommandSwitches
     /// <summary>
     /// Every command with a switch. Staff commands are on by default, and so are the commands every
     /// member already had before the switches existed; <c>/me</c> was always opt-in and stays so.
-    /// Commands for members that come later (<c>/events</c>, <c>/remindme</c>, <c>/report</c> and the
-    /// Report to mods menu so far) are off until the operator turns them on.
+    /// Commands for members that come later (<c>/events</c>, <c>/remindme</c>, <c>/report</c>, <c>/profile</c>
+    /// and the Report to mods menu so far) are off until the operator turns them on.
     /// </summary>
     public static IReadOnlyList<DiscordCommandSwitch> All { get; } =
     [
@@ -64,6 +64,7 @@ public static class DiscordCommandSwitches
         new("events", OnByDefault: false),
         new("remindme", OnByDefault: false),
         new("report", OnByDefault: false),
+        new("profile", OnByDefault: false),
         new("Look up in Modbot", OnByDefault: true, Menu: true),
         new("Add a note", OnByDefault: true, Menu: true),
         new("Report to mods", OnByDefault: false, Menu: true),

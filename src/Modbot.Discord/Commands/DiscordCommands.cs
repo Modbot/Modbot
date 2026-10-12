@@ -27,6 +27,9 @@ namespace Modbot.Discord.Commands;
 /// answer in private; they are off until the operator turns them on, need no Modbot account, and
 /// leave no <c>modbot.discord.command</c> fact, because its subject would be the reporter (Discord
 /// commands design §3.4).
+/// <see cref="Profile"/> is for every member too and answers in private; it is off until the operator
+/// turns it on, needs no Modbot account, and shows a member only the profile fields their owner lets
+/// that viewer read (member profiles design §4).
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Event"/> and <see cref="Post"/> are for event hosts: Discord shows them to members who
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
@@ -77,6 +80,7 @@ public static class DiscordCommands
     public const string Event = "event";
     public const string Post = "post";
     public const string Report = "report";
+    public const string Profile = "profile";
 
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
@@ -368,6 +372,10 @@ public static class DiscordCommands
                 new DiscordCommandOption(ReportWhatOption, "What happened", DiscordOptionKind.Text, Required: true, Min: 1, Max: ReportWhatMax),
             ]),
         new(
+            Profile,
+            "Your profile, or a member's",
+            [new DiscordCommandOption(MemberOption, "Whose profile", DiscordOptionKind.Member, Required: false)]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -410,7 +418,7 @@ public static class DiscordCommands
         => For(switches).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Report;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Report or Profile;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

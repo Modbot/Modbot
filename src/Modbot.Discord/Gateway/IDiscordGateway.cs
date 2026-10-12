@@ -383,13 +383,15 @@ public enum DiscordFormFieldKind
 /// <summary>One thing a <see cref="DiscordFormFieldKind.Choice"/> field offers.</summary>
 /// <param name="Value">What comes back when it is picked. Discord allows 100 characters.</param>
 /// <param name="Description">A line under the label, or null.</param>
-public sealed record DiscordChoice(string Label, string Value, string? Description = null);
+/// <param name="IsDefault">Shown as already picked when the form opens.</param>
+public sealed record DiscordChoice(string Label, string Value, string? Description = null, bool IsDefault = false);
 
 /// <summary>One field of a <see cref="DiscordForm"/>.</summary>
 /// <param name="Id">What the field's answer comes back under in <see cref="DiscordFormSubmit.Values"/>.</param>
 /// <param name="MaxLength">For text: the most characters. Discord allows 4,000.</param>
 /// <param name="Choices">For a list: what it offers. Discord allows 25.</param>
 /// <param name="MaxChoices">For a list: how many may be picked.</param>
+/// <param name="Value">For text: the words already in the box when the form opens, or null for an empty box.</param>
 public sealed record DiscordFormField(
     string Id,
     string Label,
@@ -398,7 +400,8 @@ public sealed record DiscordFormField(
     string? Placeholder = null,
     int? MaxLength = null,
     IReadOnlyList<DiscordChoice>? Choices = null,
-    int MaxChoices = 1);
+    int MaxChoices = 1,
+    string? Value = null);
 
 /// <summary>
 /// A form Discord shows over the app (Discord calls it a modal). Sending it arrives as a

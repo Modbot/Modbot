@@ -59,6 +59,7 @@ public sealed class DiscordCommandHandler
     private readonly EventCommand? _event;
     private readonly PostCommand? _post;
     private readonly ReportCommand? _report;
+    private readonly ProfileCommand? _profile;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -75,7 +76,8 @@ public sealed class DiscordCommandHandler
         RemindMeCommand? remind = null,
         EventCommand? eventCommand = null,
         PostCommand? post = null,
-        ReportCommand? report = null)
+        ReportCommand? report = null,
+        ProfileCommand? profile = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -98,6 +100,7 @@ public sealed class DiscordCommandHandler
         _event = eventCommand;
         _post = post;
         _report = report;
+        _profile = profile;
     }
 
     /// <summary>
@@ -160,6 +163,15 @@ public sealed class DiscordCommandHandler
             return _report is null
                 ? DiscordReply.Say("Modbot does not know that command.")
                 : await _report.RunAsync(call, gateway, ct).ConfigureAwait(false);
+        }
+
+        // For every member too, and private: whose fields it shows is decided by the profile's own
+        // levels, not by a Modbot account (member profiles design §4).
+        if (call.CommandName == DiscordCommands.Profile)
+        {
+            return _profile is null
+                ? DiscordReply.Say("Modbot does not know that command.")
+                : await _profile.RunAsync(call, ct).ConfigureAwait(false);
         }
 
         if (call.CommandName == DiscordCommands.Help)
