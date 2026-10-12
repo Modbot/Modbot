@@ -168,6 +168,45 @@ public class ProfileFieldEndpointsTests
         Assert.Equal("text", (await ApiTestHost.BodyOf(saved, Ct)).GetProperty("kind").GetString());
     }
 
+    [Theory]
+    [InlineData("staff", "members")]
+    [InlineData("staff", "only-me")]
+    [InlineData("members", "staff")]
+    public async Task WhoSeesAFieldCannotBeChangedAfterTheFieldIsAdded(string added, string tried)
+    {
+        await ClearAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var made = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, Fields, new { name = "Hobby", kind = "text", defaultVisibility = added }, cookie, Ct), Ct);
+        var fieldId = made.GetProperty("id").GetGuid();
+
+        var refused = await host.SendJsonAsync(HttpMethod.Put, $"{Fields}/{fieldId}", new { name = "Hobbies", defaultVisibility = tried }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        await using var read = _db.NewContext();
+        var stored = await read.ProfileFields.AsNoTracking().SingleAsync(f => f.Id == fieldId, Ct);
+        Assert.Equal("Hobby", stored.Name);
+        Assert.Equal(added, ProfileFieldEndpoints.Visibility(stored.DefaultVisibility));
+    }
+
+    [Fact]
+    public async Task ASaveThatSendsTheSameLevelOrNoneIsAccepted()
+    {
+        await ClearAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var made = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, Fields, new { name = "Hobby", kind = "text", defaultVisibility = "members" }, cookie, Ct), Ct);
+        var url = $"{Fields}/{made.GetProperty("id").GetGuid()}";
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, url, new { name = "Hobbies", defaultVisibility = "members" }, cookie, Ct)).StatusCode);
+
+        var withoutLevel = await host.SendJsonAsync(HttpMethod.Put, url, new { name = "Pastimes" }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, withoutLevel.StatusCode);
+        Assert.Equal("members", (await ApiTestHost.BodyOf(withoutLevel, Ct)).GetProperty("defaultVisibility").GetString());
+    }
+
     [Fact]
     public async Task FieldsAreListedInTheOrderTheAdminSetAndRemovingOneDeletesItsAnswers()
     {

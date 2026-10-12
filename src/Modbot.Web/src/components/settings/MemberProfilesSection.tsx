@@ -141,21 +141,9 @@ function ProfileFieldsCard() {
                     {field.kind === 'text' ? 'Text' : `Pick-list, ${field.options.length}`}
                   </span>
 
-                  <Select
-                    size="sm"
-                    aria-label={`Who sees ${field.name}`}
-                    value={field.defaultVisibility}
-                    disabled={busy}
-                    onChange={(v) =>
-                      void run(api.updateProfileField(field.id, { name: field.name, defaultVisibility: v as ProfileVisibility }))
-                    }
-                  >
-                    {LEVELS.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </Select>
+                  <span className="text-muted-foreground">
+                    {LEVELS.find((l) => l.value === field.defaultVisibility)?.label}
+                  </span>
 
                   <div className="flex items-center gap-1 max-sm:ml-auto">
                     <Button

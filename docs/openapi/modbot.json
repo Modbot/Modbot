@@ -21539,7 +21539,7 @@
           "Settings"
         ],
         "summary": "Update profile field",
-        "description": "Rename a field, change who sees it by default, and for a pick-list replace its options. An option sent with its id keeps the members who picked it; one left out is removed and clears their answer. The kind does not change.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Rename a field and, for a pick-list, replace its options. An option sent with its id keeps the members who picked it; one left out is removed and clears their answer. The kind and who sees the field by default do not change; sending a different default is refused.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "UpdateProfileField",
         "parameters": [
           {

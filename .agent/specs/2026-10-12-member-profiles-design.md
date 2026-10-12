@@ -29,7 +29,7 @@ An admin makes the fields on **Settings → Member profiles**. Each field has:
 | Name | 1 to 40 characters, not the same as another field's (letters compared without case). Discord's form label allows 45. |
 | Kind | **Pick-list** (the admin sets the options) or **Free text** (up to 300 characters). Chosen when the field is added and not changed afterwards: a value of one kind means nothing in the other. To change it, remove the field and add a new one. |
 | Options | Pick-list only. 1 to 25, each 1 to 60 characters, not repeating. 25 is what Discord shows in one select menu. |
-| Who sees it by default | **Only me**, **Staff** or **Members**. A new field starts at **Staff**. |
+| Who sees it by default | **Only me**, **Staff** or **Members**. A new field starts at **Staff**. Chosen when the field is added and not changed afterwards (see below). |
 | Position | The order members see them in. Moved up and down; a new field goes last. |
 
 At most 25 fields. Admins can add, rename, reorder and remove. **Remove** deletes the field and
@@ -37,8 +37,13 @@ every member's answer to it; the settings screen asks first, and the audit log r
 one option clears that option from the members who picked it (their choice of who sees the field
 stays).
 
-Changing a field's default "who sees it" changes it for every member who has not chosen for
-themselves, because a member's own choice is stored only when they make one.
+A field's default "who sees it" is fixed once the field is added. A member's own choice is stored
+only when they make one, so until then their answer follows the field's default; if an admin could
+widen it later (Staff to Members), answers members never chose to share would become visible
+(user decision, 2026-10-12). Only the profile owner changes who sees an answer, in `/profile`. The
+settings screen shows the default on an existing field as plain text, and the update call refuses
+a different one with a 400 (the same level, or none, is accepted). To get a different default,
+remove the field and add a new one.
 
 All changes need **Manage settings** and are written to the audit log as a settings change (the
 same entry every other settings screen writes).
@@ -127,7 +132,7 @@ count.
 |---|---|---|
 | `GET /api/settings/profile-fields` | Manage settings | The fields with their options |
 | `POST /api/settings/profile-fields` | Manage settings | Add a field |
-| `PUT /api/settings/profile-fields/{id}` | Manage settings | Rename, set the default level, replace the option list (pick-list) |
+| `PUT /api/settings/profile-fields/{id}` | Manage settings | Rename, replace the option list (pick-list). A different default level is refused (400) |
 | `PUT /api/settings/profile-fields/order` | Manage settings | Put the fields in this order |
 | `DELETE /api/settings/profile-fields/{id}` | Manage settings | Remove the field and its answers |
 | `GET /api/discord/members/{id}/profile` | See members | One member's answers, with levels |

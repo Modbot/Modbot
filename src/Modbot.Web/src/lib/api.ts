@@ -5887,7 +5887,7 @@ export const api = {
 
   createProfileField: (body: ProfileFieldInput) => post<ProfileFieldView>('/api/settings/profile-fields', body),
 
-  updateProfileField: (id: string, body: ProfileFieldInput) =>
+  updateProfileField: (id: string, body: Omit<ProfileFieldInput, 'kind' | 'defaultVisibility'>) =>
     put<ProfileFieldView>(`/api/settings/profile-fields/${encodeURIComponent(id)}`, body),
 
   reorderProfileFields: (ids: string[]) => put<unknown>('/api/settings/profile-fields/order', { ids }),

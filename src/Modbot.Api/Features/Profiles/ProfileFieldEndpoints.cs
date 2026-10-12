@@ -32,7 +32,10 @@ public sealed record ProfileFieldListResponse(IReadOnlyList<ProfileFieldView> Fi
 public sealed record ProfileOptionRequest(Guid? Id, string Label);
 
 /// <param name="Kind">pick-list or text. Only read when adding: a field's kind does not change.</param>
-/// <param name="DefaultVisibility">only-me, staff or members. Left out, a new field is staff.</param>
+/// <param name="DefaultVisibility">
+/// only-me, staff or members. Left out, a new field is staff. Only read when adding: a field's default
+/// is fixed afterwards, and an update that sends a different one is refused.
+/// </param>
 /// <param name="Options">
 /// A pick-list's whole list in order. An option with an id keeps its id and its members' answers;
 /// one left out is removed.
@@ -208,9 +211,13 @@ public static class ProfileFieldEndpoints
                 if (field is null)
                     return Results.NotFound(new { error = "No such profile field." });
 
-                var visibility = field.DefaultVisibility;
-                if (body.DefaultVisibility is not null && !TryVisibility(body.DefaultVisibility, out visibility))
-                    return Results.BadRequest(new { error = "defaultVisibility must be only-me, staff or members." });
+                if (body.DefaultVisibility is not null)
+                {
+                    if (!TryVisibility(body.DefaultVisibility, out var sent))
+                        return Results.BadRequest(new { error = "defaultVisibility must be only-me, staff or members." });
+                    if (sent != field.DefaultVisibility)
+                        return Results.BadRequest(new { error = "Who sees a field is set when it is added and cannot be changed." });
+                }
 
                 var name = (body.Name ?? string.Empty).Trim();
                 if (NameProblem(name, all, id) is { } nameProblem)
@@ -220,10 +227,8 @@ public static class ProfileFieldEndpoints
                 var now = clock.UtcNow;
 
                 change.Field("fieldName", field.Name, name);
-                change.Field("fieldDefault", $"{name}: {Visibility(field.DefaultVisibility)}", $"{name}: {Visibility(visibility)}");
 
                 field.Name = name;
-                field.DefaultVisibility = visibility;
                 field.UpdatedAt = now;
 
                 if (field.Kind == ProfileFieldKind.PickList && body.Options is not null)
@@ -265,9 +270,9 @@ public static class ProfileFieldEndpoints
             .WithName("UpdateProfileField")
             .WithSummary("Update profile field")
             .WithDescription(
-                "Rename a field, change who sees it by default, and for a pick-list replace its options. "
+                "Rename a field and, for a pick-list, replace its options. "
                 + "An option sent with its id keeps the members who picked it; one left out is removed and "
-                + "clears their answer. The kind does not change.")
+                + "clears their answer. The kind and who sees the field by default do not change; sending a different default is refused.")
             .Produces<ProfileFieldView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
