@@ -30,6 +30,8 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | Turn the [public feed](#the-public-feed) on or off, and copy its address | **Manage calendar** and **See calendar** |
 | See [what each event did](#what-an-event-did) and **Past events** | **See calendar** and [**See analytics**](/accounts/roles-and-permissions#see-analytics) |
 | See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
+| See the [**Event categories**](#event-categories) page | **See calendar** |
+| Make, rename and delete event categories | **Manage calendar** and **See calendar** |
 | See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
@@ -364,6 +366,13 @@ title or description (see
 on every place, instead of the place's own text. Modbot's own pages, the calendar feed, reminders and invites always
 use the shared title.
 
+### Categories
+
+Shown once at least one [event category](#event-categories) exists. Tick any number of them, or none.
+They belong to Modbot: VRChat and Google never hear of them, and VRChat's own **VRChat category** stays
+as it was, under [VRChat calendar](#vrchat-calendar). They show on the Discord event and the channel
+post.
+
 ### When
 
 | Field | Notes |
@@ -410,7 +419,7 @@ Shown while the **VRChat calendar** chip is on.
 
 | Field | Notes |
 |---|---|
-| **Category** | One of VRChat's categories: **Arts**, **Avatars**, **Dance**, **Education**, **Exploration**, **Film & media**, **Gaming**, **Hangout** (the default), **Music**, **Other**, **Performance**, **Roleplaying** or **Wellness**. |
+| **VRChat category** | One of VRChat's categories: **Arts**, **Avatars**, **Dance**, **Education**, **Exploration**, **Film & media**, **Gaming**, **Hangout** (the default), **Music**, **Other**, **Performance**, **Roleplaying** or **Wellness**. |
 | **Languages** | Separate with commas, for example `eng, jpn`. At most 20, each up to 64 characters. |
 | **Tags** | Separate with commas. At most 20, each up to 64 characters. |
 | **VRChat picture** | Optional. The picture on VRChat's calendar. See [The VRChat picture](#the-vrchat-picture). |
@@ -742,7 +751,8 @@ When the **Discord event** chip is on, Modbot makes an event in the server set a
 (**Settings**, **Discord**, **Bot**). The bot needs the **Create Events** and **Manage Events** permissions in that server.
 
 - It has the title, description, start and end, and the picture link (or the world's picture) as its
-  cover. If the picture cannot be fetched, the event is made without a cover.
+  cover. When the event has [categories](#event-categories), its description starts with a line such as
+  **Categories: Karaoke, Movie night**. If the picture cannot be fetched, the event is made without a cover.
 - **Before the instance opens**, its location is the world's name.
 - **When the event opens**, Modbot starts the Discord event. If Modbot opened the instance for it,
   the join link goes in it until the instance closes. If it did not (**Open the instance**
@@ -776,6 +786,8 @@ as [instance announcements](/discord/instance-announcements).
 - The card shows your group's name, the title, the description, **When** and **Ends** (as Discord
   times, so everyone sees their own time zone), **World**, **Who can join**, **Region**, and the
   picture link or the world's picture.
+- With [categories](#event-categories), a **Category** or **Categories** field lists them, in
+  alphabetical order.
 - **World** opens the world's page on vrchat.com, which anyone can open. (Modbot's own world page
   needs a Modbot sign-in, which your members do not have.)
 - The line at the bottom says **Scheduled**, then **Open now** with a **Join** button once the
@@ -1156,6 +1168,22 @@ Each event says how it went on Google: **Google Calendar: Sending…**, **Publis
 which opens the event on Google, **Failed** with Google's own words and **Try again**, or
 **Removed**. A changed date Google refused shows under the date, with **Try again**.
 
+## Event categories
+
+VRChat gives an event one category from a fixed list. **Event categories**, under **Community** in
+the sidebar, are your own: **Karaoke**, **Open mic**, **Movie night**, whatever your events are. An
+event can carry any number of them.
+
+| To do this | Use |
+|---|---|
+| Make one | **New category**, a name of up to 40 characters. Two categories cannot have the same name, whatever the letter case. |
+| Rename one | **Rename**. Every event that carries it shows the new name, and Discord's posts follow on their next update. |
+| Delete one | **Delete**. Events that carried it keep everything else, and Discord's posts drop its name on their next update. |
+
+Each category shows how many events carry it. Making, renaming and deleting are in the
+[operational log](/moderation/audit-log). Categories are picked on the event form, under
+[Categories](#categories).
+
 ## Editing, cancelling and deleting
 
 ### Edit
@@ -1305,6 +1333,9 @@ entries (you need **See the operational log** to see them):
 | **Event picture uploaded to VRChat** | Someone uploaded a VRChat picture. Names the event when it was already saved; for a new event, the event's own **Event planned** entry carries the same picture. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 | **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
+| **Event category made** | Someone made an [event category](#event-categories). |
+| **Event category renamed** | Someone renamed one. Shows the name before. |
+| **Event category deleted** | Someone deleted one. Shows how many events carried it. |
 
 Each invite is recorded too, about the person who was invited, with the moderation entries (you need
 **See the audit log**):

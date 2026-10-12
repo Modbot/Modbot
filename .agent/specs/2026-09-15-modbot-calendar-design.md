@@ -12,7 +12,7 @@
   trying again (§17, added 2026-10-02); every few weeks, a number of times and Featured
   ([their own spec](2026-10-02-calendar-repeats-and-vrchat-settings-design.md), added 2026-10-02);
   picture links, the crop box and picture kinds (§15.1–§15.3, added 2026-10-02); the picture
-  cropped for Discord (§15.4, added 2026-10-02)
+  cropped for Discord (§15.4, added 2026-10-02); categories made in Modbot (§19, added 2026-10-12)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -544,7 +544,7 @@ calendar or want a form filled in, while Mobilizon, Gancio and Google's "From UR
 | Permission | Bit | Allows |
 |---|---|---|
 | `ViewCalendar` — "See calendar" | 25 | The calendar page and every event's places and states. |
-| `ManageCalendar` — "Manage calendar" | 26 | Create, edit, cancel and delete events; see and regenerate the feed link; turn the public feed on or off (§6.1). |
+| `ManageCalendar` — "Manage calendar" | 26 | Create, edit, cancel and delete events; see and regenerate the feed link; turn the public feed on or off (§6.1). Make, rename and delete the categories events carry (§19). |
 
 Neither is added to the built-in roles; Administrator holds both.
 
@@ -570,6 +570,7 @@ the operational log:
 | `modbot.calendar.publish.remove` | A place that held the event no longer does (added 2026-10-01, §14.1); carries which place and what it was before |
 | `modbot.calendar.picture.upload` | A VRChat picture was uploaded (added 2026-10-01, §15); carries the file id, the event's id and title when it was already saved, and the size and type |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
+| `modbot.calendar-category.create` / `.change` / `.delete` | A Modbot category was made, renamed or deleted (added 2026-10-12, §19.2); subject: the category's id |
 | `modbot.calendar.invite.send` | A person was invited to the instance (subject: the person; calendar auto-invite design §8) |
 | `modbot.calendar.invite.fail` | A person could not be invited (subject: the person) |
 
@@ -1275,3 +1276,62 @@ optional fields: a title and a description for each of VRChat, Discord and Googl
   shows its title and description, filled in from the shared words; unticking clears them. The ticked
   state is not stored: it is worked out from whether the fields have text, so a ticked site with both
   fields blank shows unticked after switching from Preview back to Details.
+
+## 19. Categories made in Modbot (added 2026-10-12)
+
+VRChat's category is a fixed list of its own (`category` on the event, labelled "VRChat category" on
+the form) and means something only to VRChat's calendar. It is too short for Discord events and
+other places, and it gives members nothing to ask to hear about. So admins make their own categories
+in Modbot, Karaoke or Open mic or Movie night, and an event carries any number of them next to its
+VRChat category. The maintainer approved this on 2026-10-12 as step 1 of 2; step 2 (alerts) is
+§19.4.
+
+### 19.1 What a category is
+
+- **A name and nothing else.** `CalendarCategory` (`calendar_category`): an id, a name up to 40
+  characters, who made it and when. Names are not repeated whatever the letter case; the endpoints
+  check that and answer 400. There is no unique index behind it, so two admins saving the same new
+  name at the same moment could both get through.
+- **The id is the identity.** A rename changes the name every event shows and nothing else.
+- **Any number on an event.** `CalendarEvent.Categories` is a many-to-many, joined in
+  `calendar_event_category`, which cascades both ways: deleting a category takes it off the events
+  that carried it, deleting an event takes its rows.
+- **Not sent to VRChat or Google.** They never hear of Modbot's categories; `Category` stays
+  VRChat's field and nothing about it changed.
+- **Nothing about a member**, so a purge has nothing to find.
+
+### 19.2 Making and picking them
+
+- **Page.** *Event categories*, in the Community group beside Calendar, under the calendar's
+  permissions (§7): See calendar to look, Manage calendar to make, rename and delete. It lists each
+  name with how many events carry it. No new permission, no `g` letter.
+- **API.** `GET/POST /api/calendar/categories`, `PUT/DELETE /api/calendar/categories/{id}`. Create,
+  rename and delete each write a fact with the category's id as subject (§8):
+  `modbot.calendar-category.create`, `.change` (carries the name before) and `.delete` (carries the
+  name and how many events carried it). A rename to the same name writes nothing.
+- **On the event.** `categoryIds` on the request: null keeps what the event has, a list replaces
+  it, an empty list takes them all off. An id that is gone is a 400 ("A category you picked is gone.
+  Choose again."). The event's view returns `categories` (id and name, alphabetical). The form shows a
+  Categories row of chips, only once at least one category exists.
+- **Templates.** Carry `categoryIds` where the template code is on this branch; see the build
+  notes in the commit that rebased onto it.
+
+### 19.3 Where they show
+
+- **Discord's channel post** has a *Category* / *Categories* field; **the Discord event** has a
+  first line *Category: …* in its description, first so the cut at the limit takes the end of a long
+  description, never it. Names are escaped like any name an admin typed.
+- A category that changes (rename, delete) changes the text a post is made from, so the publisher's
+  fingerprint (§17) changes and the post is updated on its next pass. The category line joins the
+  fingerprint only when there is one, so events without categories are not resent.
+- **Not yet shown:** the event details popup, the AI chat tool and the demo seeder. They show
+  VRChat's category only.
+
+### 19.4 Step 2: alerts (not built)
+
+Members will ask to hear about a category: `/notify` to sign up, a *Notify me* button on Discord
+event posts, by direct message or a channel ping, the alert types being these categories. The data
+is ready for it: a subscription holds a `CalendarCategory.Id` and nothing else about a category, so
+it survives a rename, and `calendar_event_category` says which events a new or starting event
+should tell whom. A subscription table should reference the category with a cascading delete, as
+the event join does.

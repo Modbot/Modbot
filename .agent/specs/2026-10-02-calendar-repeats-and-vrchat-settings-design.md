@@ -165,7 +165,7 @@ Every field of `CreateCalendarEventRequest` and `UpdateCalendarEventRequest`, an
 | `title` | **Title** | |
 | `description` | **Description** | VRChat refuses an empty one (calendar design §2). |
 | `startsAt`, `endsAt` | **Starts**, **Ends** | The read model's `durationInMs` is worked out from these. |
-| `category` | **Category** | |
+| `category` | **VRChat category** | Renamed on the form 2026-10-12; categories made in Modbot are separate (calendar design §19). |
 | `tags` | **Tags** | |
 | `languages` | **Languages** | |
 | `platforms` | **PC**, **Android**, **iOS** | |
