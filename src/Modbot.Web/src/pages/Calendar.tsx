@@ -531,6 +531,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
             platforms: data.view.platforms,
             ready: data.view.ready,
             pictureUploads: data.view.pictureUploads,
+            vrChatPlus: data.view.vrChatPlus,
           }}
         />
       )}

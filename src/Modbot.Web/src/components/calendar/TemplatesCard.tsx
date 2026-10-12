@@ -20,6 +20,7 @@ type FormSettings = {
   platforms: string[]
   ready?: CalendarReady | null
   pictureUploads?: boolean
+  vrChatPlus?: boolean | null
 }
 
 /**
@@ -100,6 +101,7 @@ export function TemplatesCard({ settings }: { settings: FormSettings }) {
           platforms={settings.platforms}
           ready={settings.ready}
           pictureUploads={settings.pictureUploads}
+          vrchatPlus={settings.vrChatPlus}
           template={{
             id: editing.template?.id ?? null,
             name: editing.template?.name ?? '',
