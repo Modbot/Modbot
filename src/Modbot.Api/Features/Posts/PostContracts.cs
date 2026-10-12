@@ -202,6 +202,7 @@ public sealed record PostRoleChoice(string Id, string Name);
 /// <param name="CanManage">The caller holds Manage posts.</param>
 /// <param name="Now">The server's clock.</param>
 /// <param name="VRChatRoles">The VRChat group's roles as the last group read found them, in VRChat's order.</param>
+/// <param name="CanAddEvents">The caller holds See calendar as well as Manage posts, so the composer may list events.</param>
 public sealed record PostList(
     string List,
     IReadOnlyList<PostView> Posts,
@@ -212,7 +213,8 @@ public sealed record PostList(
     bool CanManage,
     PostSitesView Sites,
     DateTimeOffset Now,
-    IReadOnlyList<PostRoleChoice> VRChatRoles);
+    IReadOnlyList<PostRoleChoice> VRChatRoles,
+    bool CanAddEvents = false);
 
 /// <summary>What the Discord message will be, built by the code that sends it.</summary>
 /// <param name="Content">The whole message, exactly as it is sent.</param>
@@ -307,6 +309,24 @@ public sealed record PostVRChatPictureView(string ImageId, Guid PictureId);
 
 /// <summary>A link to a picture somewhere else, to fetch for the crop box.</summary>
 public sealed record PostPictureLinkRequest(string? Url);
+
+/// <summary>A published event's next date, for "Add event" to offer (posts design §5.3).</summary>
+/// <param name="Id">The calendar event.</param>
+/// <param name="StartsAt">When its next date starts.</param>
+/// <param name="TimeZone">The event's own zone, an IANA name.</param>
+public sealed record PostEventChoice(Guid Id, string Title, DateTimeOffset StartsAt, string TimeZone);
+
+/// <summary>The event list to write into a post: one event, or every event in a range of days.</summary>
+/// <param name="EventId">One event, by its next date. Leave From and To out.</param>
+/// <param name="From">The first day of a range, <c>yyyy-MM-dd</c>, in <paramref name="TimeZone"/>.</param>
+/// <param name="To">The last day of the range, counted.</param>
+/// <param name="TimeZone">The zone the days are in: an IANA name.</param>
+public sealed record PostEventTextRequest(Guid? EventId, string? From, string? To, string? TimeZone);
+
+/// <summary>The words to put in the post's text.</summary>
+/// <param name="Text">The list, ready to insert.</param>
+/// <param name="Count">How many dates it lists.</param>
+public sealed record PostEventTextView(string Text, int Count);
 
 /// <summary>The posts switches in Settings (posts design §4.6).</summary>
 /// <param name="Paused">Pause all posting.</param>

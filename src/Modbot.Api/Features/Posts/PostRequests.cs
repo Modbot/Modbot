@@ -94,6 +94,46 @@ internal static class PostRequests
         string? OwnText,
         string Content);
 
+    /// <summary>
+    /// The text for Add event (an event id) or What's on (a range of days in a zone), or the one
+    /// sentence saying why not.
+    /// </summary>
+    public static async Task<(PostEventTextView? View, string? Error)> EventTextAsync(
+        ModbotContext db, PostEventTextRequest body, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+
+        if (body.EventId is { } id)
+        {
+            var line = await PostEventLists.NextOfAsync(db, id, now, ct);
+
+            return line is null
+                ? (null, "That event is not published, or has no date coming up.")
+                : (new PostEventTextView(PostEventText.EventList(line), 1), null);
+        }
+
+        var zone = CalendarRepeat.FindZone(body.TimeZone);
+        if (zone is null)
+            return (null, "Pick a time zone.");
+
+        var from = LocalDatePattern.Iso.Parse(body.From ?? string.Empty);
+        var to = LocalDatePattern.Iso.Parse(body.To ?? string.Empty);
+
+        if (!from.Success || !to.Success)
+            return (null, "Pick the first and last day.");
+
+        if (to.Value < from.Value)
+            return (null, "The last day is before the first.");
+
+        if (Period.Between(from.Value, to.Value, PeriodUnits.Days).Days + 1 > CalendarEndpoints.MaxRange.Days)
+            return (null, "Ask for at most 62 days at a time.");
+
+        var (start, end) = PostEventLists.Range(from.Value, to.Value, zone);
+        var lines = await PostEventLists.InRangeAsync(db, start, end, ct);
+
+        return (new PostEventTextView(PostEventText.WhatsOnList(from.Value, to.Value, zone.Id, lines), lines.Count), null);
+    }
+
     /// <summary>Checks a request. Every problem, one sentence each, in the composer's order.</summary>
     /// <param name="keptPicture">The picture already on the post, which may be gone from nowhere.</param>
     public static async Task<(Checked Request, List<string> Problems)> CheckAsync(
@@ -244,7 +284,9 @@ internal static class PostRequests
         if (ownText is { Length: > Post.MaxTextLength })
             problems.Add($"The Bluesky text is longer than {Post.MaxTextLength} characters.");
 
-        var sent = ownText ?? PostTexts.Bluesky(title, text);
+        var sent = ownText is not null
+            ? PostEventText.ForSite(PostNetworks.Bluesky, ownText)
+            : PostTexts.Bluesky(title, PostEventText.ForSite(PostNetworks.Bluesky, text));
 
         if (!BlueskyText.Fits(sent))
             problems.Add(BlueskyText.TooLong);
@@ -341,7 +383,7 @@ internal static class PostRequests
             ownTitle,
             ownText,
             sentTitle,
-            ownText ?? text,
+            PostEventText.ForSite(PostNetworks.VRChat, ownText ?? text),
             [.. options.RoleIds!.Select(id => roles.TryGetValue(id, out var name) ? name : id)],
             imageId is null || pictureId is not { } picture ? null : PostEndpoints.PicturePath + picture);
     }
@@ -440,7 +482,7 @@ internal static class PostRequests
         }
 
         var options = new DiscordPostOptions(roleId, section.Publish);
-        var content = PostTexts.Discord(title, ownText ?? text, roleId);
+        var content = PostTexts.Discord(title, PostEventText.ForSite(PostNetworks.Discord, ownText ?? text), roleId);
 
         if (!PostTexts.DiscordFits(content))
             problems.Add($"The Discord text is longer than {PostTexts.DiscordLimit} characters.");

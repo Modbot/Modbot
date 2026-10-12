@@ -44,12 +44,15 @@ public static class PostTexts
         return TidyTitle(destination.TitleOverride ?? post.Title);
     }
 
-    /// <summary>The text one destination sends: its own, or the post's.</summary>
+    /// <summary>
+    /// The text one destination sends: its own, or the post's, with the dates of any event list
+    /// written for that site (<see cref="PostEventText.ForSite"/>).
+    /// </summary>
     public static string TextFor(Post post, PostDestination destination)
     {
         ArgumentNullException.ThrowIfNull(post);
         ArgumentNullException.ThrowIfNull(destination);
-        return Tidy(destination.TextOverride ?? post.Text);
+        return PostEventText.ForSite(destination.Network, destination.TextOverride ?? post.Text);
     }
 
     /// <summary>
@@ -254,7 +257,9 @@ public static class PostTexts
         ArgumentNullException.ThrowIfNull(post);
         ArgumentNullException.ThrowIfNull(destination);
 
-        return destination.TextOverride is { } own ? Tidy(own) : Bluesky(post.Title, post.Text);
+        return destination.TextOverride is { } own
+            ? PostEventText.ForSite(PostNetworks.Bluesky, own)
+            : Bluesky(post.Title, PostEventText.ForSite(PostNetworks.Bluesky, post.Text));
     }
 
     /// <summary>A Bluesky destination's own choices. A row with none, or with words it cannot read, has the defaults.</summary>

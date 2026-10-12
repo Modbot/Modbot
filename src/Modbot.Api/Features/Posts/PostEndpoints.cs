@@ -98,7 +98,8 @@ public static class PostEndpoints
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManagePosts),
                     PostRequests.SitesView(sites, settings?.VRChatPictureUploads ?? false),
                     clock.UtcNow,
-                    PostRequests.VRChatRoles(settings)));
+                    PostRequests.VRChatRoles(settings),
+                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ViewCalendar | ModbotPermissions.ManagePosts)));
             })
             .RequiresFlag(ModbotPermissions.ViewPosts)
             .WithName("ListPosts")
@@ -667,7 +668,7 @@ public static class PostEndpoints
                     ? new DiscordPostPreview(
                         section.Content,
                         request.Title,
-                        section.OwnText ?? request.Text,
+                        PostEventText.ForSite(PostNetworks.Discord, section.OwnText ?? request.Text),
                         section.RoleName,
                         section.RoleColour,
                         section.ChannelName,
@@ -727,6 +728,51 @@ public static class PostEndpoints
                 "What each ticked site would be sent, built by the code that sends it, and what would "
                 + "stop the post being scheduled. Saves nothing and asks no site anything.")
             .Produces<PostPreview>()
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // The published events "Add event" offers (posts design §5.3): their next dates. Reading the
+        // calendar is See calendar's, so the composer needs it as well as Manage posts.
+        group.MapGet("/events", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                var lines = await PostEventLists.UpcomingAsync(db, clock.UtcNow, ct);
+                return Results.Ok(lines.Select(l => new PostEventChoice(l.EventId, l.Title, l.StartsAt, l.TimeZone)).ToList());
+            })
+            .RequiresFlag(ModbotPermissions.ManagePosts | ModbotPermissions.ViewCalendar)
+            .WithName("ListPostEvents")
+            .WithSummary("List events for a post")
+            .WithDescription(
+                "The next date of every published event that is not cancelled, soonest first, at most "
+                + "100: what Add event in the composer offers.")
+            .Produces<List<PostEventChoice>>()
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // The words for Add event and What's on (posts design §5.3). Saves nothing: the composer puts
+        // them in the text box, where they are ordinary text.
+        group.MapPost("/event-text", async (
+                [FromBody] PostEventTextRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var (view, error) = await PostRequests.EventTextAsync(db, body, clock.UtcNow, ct);
+                return view is null ? Results.BadRequest(new { error }) : Results.Ok(view);
+            })
+            .RequiresFlag(ModbotPermissions.ManagePosts | ModbotPermissions.ViewCalendar)
+            .WithName("WritePostEventText")
+            .WithSummary("Write an event list for a post")
+            .WithDescription(
+                "The text for one published event (eventId), or for every published, not cancelled event "
+                + "whose date starts in a range of days (from and to, yyyy-MM-dd, counted, in timeZone; at "
+                + "most 62 days). Dates are written so Discord shows each reader's own time and VRChat and "
+                + "Bluesky the event's own zone; the list is wrapped in marks no site shows, saying what it "
+                + "was built from. Saves nothing.")
+            .Produces<PostEventTextView>()
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
         // The picture cropped in the composer, kept with the calendar's pictures (posts design §2.2):
@@ -1005,7 +1051,8 @@ public static class PostEndpoints
         if (!string.IsNullOrWhiteSpace(title))
             return title.Trim();
 
-        var first = text.Split('\n', 2)[0].Trim();
+        // The words a reader sees, not the marks that wrap an event list.
+        var first = PostEventText.ForSite(PostNetworks.VRChat, text).Split('\n', 2)[0].Trim();
         return first.Length <= 80 ? first : first[..80] + "…";
     }
 
