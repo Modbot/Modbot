@@ -393,6 +393,7 @@ export function CalendarEventForm({
                 <Counted label="Description" count={description}>
                   <Textarea rows={3} value={input.description} onChange={(e) => set('description', e.target.value)} />
                 </Counted>
+                <OwnText input={input} set={set} />
 
                 <Section title="When">
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -680,6 +681,70 @@ export function CalendarEventForm({
 }
 
 /** A field with its count beside the label: "12 / 100", red once it is over. */
+/** The sites that may say their own title and description, and the input fields that hold them. */
+const OWN_TEXT_SITES = [
+  { label: 'VRChat', title: 'vrChatTitle', description: 'vrChatDescription' },
+  { label: 'Discord', title: 'discordTitle', description: 'discordDescription' },
+  { label: 'Google', title: 'googleTitle', description: 'googleDescription' },
+] as const
+
+/**
+ * A site's own title and description, under the shared ones. Ticked, a site's boxes start as the
+ * shared words; unticked, they are cleared and the site says the shared words again.
+ */
+function OwnText({
+  input,
+  set,
+}: {
+  input: CalendarEventInput
+  set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      OWN_TEXT_SITES.map((s) => [s.label, (input[s.title] ?? '').trim() !== '' || (input[s.description] ?? '').trim() !== '']),
+    ),
+  )
+
+  const tick = (site: (typeof OWN_TEXT_SITES)[number], on: boolean) => {
+    setOpen((current) => ({ ...current, [site.label]: on }))
+    set(site.title, on ? ((input[site.title] ?? '') || input.title) : '')
+    set(site.description, on ? ((input[site.description] ?? '') || input.description) : '')
+  }
+
+  return (
+    <fieldset className="flex flex-col gap-3">
+      <legend className="sr-only">Own text</legend>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="text-muted-foreground">Own text</span>
+        {OWN_TEXT_SITES.map((site) => (
+          <Checkbox key={site.label} checked={open[site.label]} onChange={(on) => tick(site, on)}>
+            {site.label}
+          </Checkbox>
+        ))}
+      </div>
+      {OWN_TEXT_SITES.filter((site) => open[site.label]).map((site) => (
+        <div key={site.label} className="flex flex-col gap-3 border-l-2 border-l-border pl-3">
+          <Counted label={`${site.label} title`} count={counted(input[site.title] ?? '', TITLE_LIMIT)}>
+            <Input
+              aria-label={`${site.label} title`}
+              value={input[site.title] ?? ''}
+              onChange={(e) => set(site.title, e.target.value)}
+            />
+          </Counted>
+          <Counted label={`${site.label} description`} count={counted(input[site.description] ?? '', DESCRIPTION_LIMIT)}>
+            <Textarea
+              rows={3}
+              aria-label={`${site.label} description`}
+              value={input[site.description] ?? ''}
+              onChange={(e) => set(site.description, e.target.value)}
+            />
+          </Counted>
+        </div>
+      ))}
+    </fieldset>
+  )
+}
+
 function Counted({
   label,
   count,

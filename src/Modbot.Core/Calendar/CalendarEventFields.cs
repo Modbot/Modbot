@@ -24,6 +24,12 @@ public static class CalendarEventFields
         {
             ["title"] = e.Title,
             ["description"] = e.Description,
+            ["vrchatTitle"] = e.VRChatTitle,
+            ["vrchatDescription"] = e.VRChatDescription,
+            ["discordTitle"] = e.DiscordTitle,
+            ["discordDescription"] = e.DiscordDescription,
+            ["googleTitle"] = e.GoogleTitle,
+            ["googleDescription"] = e.GoogleDescription,
             ["imageUrl"] = e.ImageUrl,
             ["vrchatImageId"] = e.VRChatImageId,
             ["coverPictureId"] = e.CoverPictureId?.ToString(),

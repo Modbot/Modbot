@@ -402,19 +402,22 @@ public sealed class CalendarVRChatReader
         var unplaced = await _db.CalendarEvents.AsNoTracking()
             .Where(e => e.PublishToVRChat && e.DeletedAt == null && !eventIds.Contains(e.Id)
                 && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open))
-            .Select(e => e.Title)
+            .Select(e => new { e.Title, e.VRChatTitle })
             .ToListAsync(ct).ConfigureAwait(false);
 
         // The title a create with no answer sent is held too: an edit since is not on VRChat's copy.
+        // Both the shared title and VRChat's own are held, as either may be what VRChat has.
         var sentTitles = places
             .Where(p => waitingIds.Contains(p.EventId) && p.CreateSent is not null && known.ContainsKey(p.EventId))
-            .Select(p => CalendarVRChatMatch.AsSent(p, known[p.EventId]).Title);
+            .Select(p => CalendarVRChatMatch.AsSent(p, known[p.EventId]))
+            .SelectMany(s => new[] { s.Title, s.VRChatTitle });
 
         var held = known.Values
             .Where(e => waitingIds.Contains(e.Id) || removedIds.Contains(e.Id))
-            .Select(e => e.Title)
-            .Concat(unplaced)
+            .SelectMany(e => new[] { e.Title, e.VRChatTitle })
+            .Concat(unplaced.SelectMany(e => new[] { e.Title, e.VRChatTitle }))
             .Concat(sentTitles)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
             .Select(CalendarVRChatMatch.PlainTitle)
             .ToHashSet(StringComparer.Ordinal);
 
@@ -722,6 +725,8 @@ public sealed class CalendarVRChatReader
         var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
         var title = calendarEvent.Title;
         var description = calendarEvent.Description;
+        var vrchatTitle = calendarEvent.VRChatTitle;
+        var vrchatDescription = calendarEvent.VRChatDescription;
 
         CalendarVRChatCopy.Onto(calendarEvent, source);
 
@@ -735,6 +740,8 @@ public sealed class CalendarVRChatReader
         {
             calendarEvent.Title = title;
             calendarEvent.Description = description;
+            calendarEvent.VRChatTitle = vrchatTitle;
+            calendarEvent.VRChatDescription = vrchatDescription;
         }
 
         var changed =CalendarVRChatRequests.Fingerprint(calendarEvent) != fingerprint || calendarEvent.ImageUrl != picture;

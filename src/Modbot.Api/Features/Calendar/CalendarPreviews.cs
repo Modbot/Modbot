@@ -152,7 +152,7 @@ public static class CalendarPreviews
         return new CalendarGooglePreviewView(
             calendarName,
             body.Summary,
-            body.Description is null ? null : WebUtility.HtmlDecode(body.Description),
+            body.Description is null ? null : CalendarGoogleLinks.Shown(body.Description),
             body.Location,
             body.StartsAt,
             body.EndsAt,

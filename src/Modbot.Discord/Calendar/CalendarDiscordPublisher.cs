@@ -343,8 +343,8 @@ public sealed class CalendarDiscordPublisher
         place ??= AddPlace(e, CalendarPlaces.DiscordEvent);
 
         var open = e.State == CalendarEventStates.Open;
-        var title = CalendarRepeat.TitleOf(e, occurrence);
-        var description = CalendarRepeat.DescriptionOf(e, occurrence);
+        var title = CalendarRepeat.TitleOf(e, occurrence, CalendarSite.Discord);
+        var description = CalendarRepeat.DescriptionOf(e, occurrence, CalendarSite.Discord);
         var world = pass.WorldOf(e);
 
         // Modbot's short address only leads somewhere while there is a join link behind it: an
@@ -459,8 +459,8 @@ public sealed class CalendarDiscordPublisher
             occurrence.EndsAt,
             Location(publicAddress, calendarEvent, link),
             link,
-            CalendarRepeat.TitleOf(calendarEvent, occurrence),
-            CalendarRepeat.DescriptionOf(calendarEvent, occurrence));
+            CalendarRepeat.TitleOf(calendarEvent, occurrence, CalendarSite.Discord),
+            CalendarRepeat.DescriptionOf(calendarEvent, occurrence, CalendarSite.Discord));
     }
 
     /// <summary>The picture a channel post's card shows, and where its file comes from.</summary>
@@ -911,7 +911,7 @@ public sealed class CalendarDiscordPublisher
                 continue;
             }
 
-            var notice = CalendarCard.CancelNotice(e, occurrence.StartsAt, CalendarRepeat.TitleOf(e, occurrence));
+            var notice = CalendarCard.CancelNotice(e, occurrence.StartsAt, CalendarRepeat.TitleOf(e, occurrence, CalendarSite.Discord));
             var outcome = await pass
                 .Call(g => g.PostAsync(channelId, notice, [], null, pass.Ct))
                 .ConfigureAwait(false);

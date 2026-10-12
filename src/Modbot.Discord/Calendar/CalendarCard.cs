@@ -81,10 +81,10 @@ public static class CalendarCard
         var link = state == CalendarCardState.Open ? joinLink : null;
 
         // A date with its own title or description says its own (calendar design §2.2).
-        var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence);
+        var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence, CalendarSite.Discord);
 
         return new DiscordEmbedContent(
-            Title: CardText.Plain(CalendarRepeat.TitleOf(calendarEvent, occurrence), 256),
+            Title: CardText.Plain(CalendarRepeat.TitleOf(calendarEvent, occurrence, CalendarSite.Discord), 256),
             Description: string.IsNullOrWhiteSpace(description) ? null : Cut(description, 4096),
             Color: state switch
             {
@@ -149,7 +149,7 @@ public static class CalendarCard
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        description = (description ?? calendarEvent.Description)?.Trim() ?? string.Empty;
+        description = (description ?? CalendarSiteText.Description(calendarEvent, CalendarSite.Discord)).Trim();
         string where;
 
         if (location is { Length: > 0 and <= DiscordEventLocationLimit })
@@ -168,7 +168,7 @@ public static class CalendarCard
         }
 
         return new DiscordScheduledEventDetails(
-            Cut(title ?? calendarEvent.Title, DiscordEventNameLimit),
+            Cut(title ?? CalendarSiteText.Title(calendarEvent, CalendarSite.Discord), DiscordEventNameLimit),
             description.Length == 0 ? null : Cut(description, DiscordEventDescriptionLimit),
             startsAt,
             endsAt > startsAt ? endsAt : startsAt.AddMinutes(1),
@@ -186,7 +186,7 @@ public static class CalendarCard
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
         // Escaped, because it sits inside the bold: a title with a star in it would end it early.
-        return $"**{CardText.EscapeName(title ?? calendarEvent.Title)}** · {Stamp(startsAt, "F")} · Cancelled";
+        return $"**{CardText.EscapeName(title ?? CalendarSiteText.Title(calendarEvent, CalendarSite.Discord))}** · {Stamp(startsAt, "F")} · Cancelled";
     }
 
     private static string? WorldName(CalendarEvent calendarEvent, VRChatWorld? world) =>

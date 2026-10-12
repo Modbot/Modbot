@@ -28,7 +28,7 @@ public static class CalendarVRChatRequests
 
         List<object?> parts =
         [
-            e.Title, e.Description, e.StartsAt, e.EndsAt, e.TimeZone, e.Repeat, e.RepeatDays, e.RepeatUntil?.ToString("O", CultureInfo.InvariantCulture),
+            CalendarSiteText.Title(e, CalendarSite.VRChat), CalendarSiteText.Description(e, CalendarSite.VRChat), e.StartsAt, e.EndsAt, e.TimeZone, e.Repeat, e.RepeatDays, e.RepeatUntil?.ToString("O", CultureInfo.InvariantCulture),
             e.Category, e.Languages, e.Platforms, e.Tags, e.Visibility, e.VRChatImageId, e.NotifyMembers,
         ];
 
@@ -103,7 +103,7 @@ public static class CalendarVRChatRequests
             accessType: e.Visibility == "public" ? CalendarEventAccess.Public : CalendarEventAccess.Group,
             category: Category(e.Category),
             closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
-            description: e.Description ?? string.Empty,
+            description: CalendarSiteText.Description(e, CalendarSite.VRChat),
             endsAt: ends,
             featured: FeaturedToSend(e, canFeature) ?? false,
             guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
@@ -117,7 +117,7 @@ public static class CalendarVRChatRequests
             sendCreationNotification: e.NotifyMembers,
             startsAt: starts,
             tags: e.Tags.Count > 0 ? [.. e.Tags] : null!,
-            title: e.Title,
+            title: CalendarSiteText.Title(e, CalendarSite.VRChat),
             usesInstanceOverflow: e.VRChatUsesInstanceOverflow ?? false);
     }
 
@@ -143,7 +143,7 @@ public static class CalendarVRChatRequests
             // already VRChat's own.
             Category = Categories.Contains(e.Category) ? e.Category : "hangout",
             CloseInstanceAfterEndMinutes = e.VRChatCloseInstanceAfterEndMinutes ?? 0,
-            Description = e.Description ?? string.Empty,
+            Description = CalendarSiteText.Description(e, CalendarSite.VRChat),
             EndsAt = ends,
             Featured = FeaturedToSend(e, canFeature),
             GuestEarlyJoinMinutes = e.VRChatGuestEarlyJoinMinutes ?? 0,
@@ -156,7 +156,7 @@ public static class CalendarVRChatRequests
             SendCreationNotification = false,
             StartsAt = starts,
             Tags = [.. e.Tags],
-            Title = e.Title,
+            Title = CalendarSiteText.Title(e, CalendarSite.VRChat),
             UsesInstanceOverflow = e.VRChatUsesInstanceOverflow ?? false,
         };
     }
@@ -185,7 +185,7 @@ public static class CalendarVRChatRequests
 
         return CalendarFingerprint.Of(
             "date", change.PlannedStartsAt, date.StartsAt, date.EndsAt,
-            CalendarRepeat.TitleOf(e, date), CalendarRepeat.DescriptionOf(e, date));
+            CalendarRepeat.TitleOf(e, date, CalendarSite.VRChat), CalendarRepeat.DescriptionOf(e, date, CalendarSite.VRChat));
     }
 
     /// <summary>
@@ -202,8 +202,8 @@ public static class CalendarVRChatRequests
 
         request.StartsAt = date.StartsAt.UtcDateTime;
         request.EndsAt = date.EndsAt.UtcDateTime;
-        request.Title = CalendarRepeat.TitleOf(e, date);
-        request.Description = CalendarRepeat.DescriptionOf(e, date) ?? string.Empty;
+        request.Title = CalendarRepeat.TitleOf(e, date, CalendarSite.VRChat);
+        request.Description = CalendarRepeat.DescriptionOf(e, date, CalendarSite.VRChat);
         request.Recurrence = null!;
 
         return request;

@@ -1658,9 +1658,17 @@ public static class CalendarEndpoints
         if (description.Length > CalendarEvent.MaxDescriptionLength)
             problems.Add($"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.");
 
+        // Each site's own words: blank is the shared words, null keeps what the event has.
+        var vrchatTitle = OwnText(body.VRChatTitle, target.VRChatTitle, "VRChat title", CalendarEvent.MaxTitleLength, problems);
+        var vrchatDescription = OwnText(body.VRChatDescription, target.VRChatDescription, "VRChat description", CalendarEvent.MaxDescriptionLength, problems);
+        var discordTitle = OwnText(body.DiscordTitle, target.DiscordTitle, "Discord title", CalendarEvent.MaxTitleLength, problems);
+        var discordDescription = OwnText(body.DiscordDescription, target.DiscordDescription, "Discord description", CalendarEvent.MaxDescriptionLength, problems);
+        var googleTitle = OwnText(body.GoogleTitle, target.GoogleTitle, "Google title", CalendarEvent.MaxTitleLength, problems);
+        var googleDescription = OwnText(body.GoogleDescription, target.GoogleDescription, "Google description", CalendarEvent.MaxDescriptionLength, problems);
+
         // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
-        // never sent, so it may stay empty until it is published.
-        if (body.PublishToVRChat && !body.Draft && description.Length == 0 && !preview)
+        // never sent, so it may stay empty until it is published. VRChat's own description counts.
+        if (body.PublishToVRChat && !body.Draft && description.Length == 0 && vrchatDescription is null && !preview)
             problems.Add(CalendarVRChatChecks.NoDescription);
 
         var zone = CalendarRepeat.FindZone(body.TimeZone);
@@ -1813,6 +1821,12 @@ public static class CalendarEndpoints
 
         target.Title = title;
         target.Description = description;
+        target.VRChatTitle = vrchatTitle;
+        target.VRChatDescription = vrchatDescription;
+        target.DiscordTitle = discordTitle;
+        target.DiscordDescription = discordDescription;
+        target.GoogleTitle = googleTitle;
+        target.GoogleDescription = googleDescription;
         target.StartsAt = starts;
         target.EndsAt = ends;
         target.TimeZone = zone!.Id;
@@ -1882,6 +1896,23 @@ public static class CalendarEndpoints
         }
 
         return problems;
+    }
+
+    /// <summary>
+    /// A site's own title or description: the trimmed text, null when it is blank (the site says the
+    /// shared words), <paramref name="kept"/> when none was sent. Too long is a problem.
+    /// </summary>
+    private static string? OwnText(string? sent, string? kept, string what, int max, List<string> problems)
+    {
+        if (sent is null)
+            return kept;
+
+        var text = sent.Trim();
+
+        if (text.Length > max)
+            problems.Add($"The {what} is longer than {max} characters.");
+
+        return text.Length == 0 ? null : text;
     }
 
     private static string? List(IReadOnlyList<string>? values, string what)
@@ -2112,7 +2143,13 @@ public static class CalendarEndpoints
                 e.VRChatRoleIds is { Count: > 0 } roles ? roles : null,
                 [.. twitchStreams
                     .Where(s => s.EventId == e.Id)
-                    .Select(s => new CalendarTwitchStreamView(s.Id, s.StartedAt, s.EndedAt, s.Title, twitchLink))]);
+                    .Select(s => new CalendarTwitchStreamView(s.Id, s.StartedAt, s.EndedAt, s.Title, twitchLink))],
+                e.VRChatTitle,
+                e.VRChatDescription,
+                e.DiscordTitle,
+                e.DiscordDescription,
+                e.GoogleTitle,
+                e.GoogleDescription);
         })];
     }
 

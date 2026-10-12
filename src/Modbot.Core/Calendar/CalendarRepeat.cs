@@ -285,6 +285,26 @@ public static class CalendarRepeat
         return occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description;
     }
 
+    /// <summary>
+    /// The title a date goes out with on one site: the date's own, else the site's own, else the
+    /// event's (<see cref="CalendarSiteText"/>).
+    /// </summary>
+    public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return occurrence.Change?.Title is { Length: > 0 } own ? own : CalendarSiteText.Title(calendarEvent, site);
+    }
+
+    /// <summary>
+    /// The description a date goes out with on one site: the date's own, else the site's own, else
+    /// the event's (<see cref="CalendarSiteText"/>).
+    /// </summary>
+    public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return occurrence.Change?.Description is { Length: > 0 } own ? own : CalendarSiteText.Description(calendarEvent, site);
+    }
+
     /// <summary>When an occurrence counts as open: its start, or earlier by the minutes its instance opens early.</summary>
     public static DateTimeOffset OpensAt(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
     {

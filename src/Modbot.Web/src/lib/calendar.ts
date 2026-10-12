@@ -174,6 +174,13 @@ export type CalendarEvent = {
   vrChatRoleIds?: string[] | null
   /** Times the channel streamed on Twitch while the event was on, newest first (Twitch design). */
   twitchStreams?: CalendarTwitchStream[] | null
+  /** Each site's own title and description; null says the shared one. Missing from an older server. */
+  vrChatTitle?: string | null
+  vrChatDescription?: string | null
+  discordTitle?: string | null
+  discordDescription?: string | null
+  googleTitle?: string | null
+  googleDescription?: string | null
 }
 
 /** A time the channel streamed on Twitch while an event was on. */
@@ -447,6 +454,17 @@ export type CalendarEventInput = {
    * server ticks it when Google Calendar is set up and everyone may see the event.
    */
   publishToGoogle?: boolean | null
+  /**
+   * Each site's own title and description; blank says the shared one. Left out keeps what the event
+   * has. VRChat's is plain text, Discord's takes `[words](https://address)` for a link, and
+   * Google's turns that and bare web addresses into links.
+   */
+  vrChatTitle?: string
+  vrChatDescription?: string
+  discordTitle?: string
+  discordDescription?: string
+  googleTitle?: string
+  googleDescription?: string
 }
 
 /** Who made a Discord server event. A person is never named. */
@@ -737,6 +755,12 @@ export function blankEvent(now: Date): CalendarEventInput {
     announceFirstJoinInVRChat: false,
     mentionRoleId: null,
     coverPictureId: null,
+    vrChatTitle: '',
+    vrChatDescription: '',
+    discordTitle: '',
+    discordDescription: '',
+    googleTitle: '',
+    googleDescription: '',
   }
 }
 
@@ -787,5 +811,11 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     coverPictureId: event.coverPictureId ?? null,
     // Left out by an older server, and then left as the event has it.
     publishToGoogle: event.publishToGoogle ?? null,
+    vrChatTitle: event.vrChatTitle ?? '',
+    vrChatDescription: event.vrChatDescription ?? '',
+    discordTitle: event.discordTitle ?? '',
+    discordDescription: event.discordDescription ?? '',
+    googleTitle: event.googleTitle ?? '',
+    googleDescription: event.googleDescription ?? '',
   }
 }

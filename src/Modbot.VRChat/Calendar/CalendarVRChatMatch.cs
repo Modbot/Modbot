@@ -80,7 +80,7 @@ public static class CalendarVRChatMatch
         if (row.CreatedAt != default && AsUtc(row.CreatedAt) < sentAt - ClockSlack)
             return false;
 
-        if (!SameTitle(row.Title, calendarEvent.Title))
+        if (!SameTitle(row.Title, CalendarSiteText.Title(calendarEvent, CalendarSite.VRChat)))
             return false;
 
         var starts = AsUtc(row.StartsAt);
@@ -117,7 +117,8 @@ public static class CalendarVRChatMatch
             [.. calendarEvent.RepeatDays],
             calendarEvent.RepeatUntil,
             calendarEvent.RepeatEvery,
-            calendarEvent.RepeatTimes));
+            calendarEvent.RepeatTimes,
+            calendarEvent.VRChatTitle));
     }
 
     /// <summary>
@@ -151,6 +152,7 @@ public static class CalendarVRChatMatch
         {
             Id = calendarEvent.Id,
             Title = sent.Title,
+            VRChatTitle = sent.VRChatTitle,
             StartsAt = sent.StartsAt,
             EndsAt = sent.EndsAt,
             OccurrenceStartsAt = sent.OccurrenceStartsAt,
@@ -206,7 +208,8 @@ public static class CalendarVRChatMatch
         List<string>? RepeatDays,
         DateOnly? RepeatUntil,
         int? RepeatEvery = null,
-        int? RepeatTimes = null);
+        int? RepeatTimes = null,
+        string? VRChatTitle = null);
 
     private static bool Far(DateTimeOffset a, DateTimeOffset b) => (a - b).Duration() >= SameTime;
 

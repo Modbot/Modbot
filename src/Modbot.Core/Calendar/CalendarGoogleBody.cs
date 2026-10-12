@@ -83,8 +83,8 @@ public sealed record CalendarGoogleBody(
 
         return new CalendarGoogleBody(
             calendarEvent.Id,
-            SummaryOf(calendarEvent, calendarEvent.Title),
-            DescriptionOf(calendarEvent.Description, worldName, page),
+            SummaryOf(calendarEvent, CalendarSiteText.Title(calendarEvent, CalendarSite.Google)),
+            DescriptionOf(TextOf(calendarEvent, null), worldName, page),
             worldName ?? "VRChat",
             calendarEvent.StartsAt,
             calendarEvent.EndsAt,
@@ -191,9 +191,9 @@ public sealed record CalendarGoogleBody(
 
         var kind = CalendarDates.IsPlain(change, length) ? CalendarGoogleDateKind.Planned : CalendarGoogleDateKind.Changed;
         var occurrence = CalendarRepeat.Changed(change, length);
-        var summary = SummaryOf(calendarEvent, CalendarRepeat.TitleOf(calendarEvent, occurrence));
+        var summary = SummaryOf(calendarEvent, CalendarRepeat.TitleOf(calendarEvent, occurrence, CalendarSite.Google));
         var description = DescriptionOf(
-            CalendarRepeat.DescriptionOf(calendarEvent, occurrence),
+            TextOf(calendarEvent, occurrence),
             WorldName(calendarEvent, worldNames),
             WorldPage(calendarEvent.WorldId));
 
@@ -231,15 +231,31 @@ public sealed record CalendarGoogleBody(
     }
 
     /// <summary>
-    /// The description, escaped (Google reads a description as HTML), with its line breaks, then a
-    /// blank line and the world's name and page.
+    /// The HTML of the description's own words, or null for none: a date's own description escaped,
+    /// else the one typed for Google with its links made, else the shared one escaped. A date's own
+    /// words win over the Google description, as they do on every site (<see cref="CalendarSiteText"/>).
     /// </summary>
-    private static string? DescriptionOf(string? text, string? worldName, string? worldPage)
+    private static string? TextOf(CalendarEvent calendarEvent, CalendarOccurrence? occurrence)
+    {
+        if (occurrence?.Change?.Description is { Length: > 0 } date && !string.IsNullOrWhiteSpace(date))
+            return Escape(date.Trim());
+
+        if (CalendarSiteText.OwnDescription(calendarEvent, CalendarSite.Google) is { } own)
+            return CalendarGoogleLinks.Html(own.Trim());
+
+        return string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Escape(calendarEvent.Description.Trim());
+    }
+
+    /// <summary>
+    /// The description's HTML (Google reads a description as HTML, so its words come escaped), with
+    /// its line breaks, then a blank line and the world's name and page.
+    /// </summary>
+    private static string? DescriptionOf(string? html, string? worldName, string? worldPage)
     {
         var parts = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(text))
-            parts.Add(Escape(text.Trim()));
+        if (!string.IsNullOrWhiteSpace(html))
+            parts.Add(html);
 
         if (worldPage is not null)
             parts.Add($"World: {Escape(worldName ?? string.Empty)}\n{worldPage}");

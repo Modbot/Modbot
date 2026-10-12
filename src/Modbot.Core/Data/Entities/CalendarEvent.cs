@@ -60,6 +60,29 @@ public class CalendarEvent
 
     public string Description { get; set; } = string.Empty;
 
+    // ── Each site's own words ────────────────────────────────────────────────────────────
+    // Null means the site says the shared title or description above. Written the way the site
+    // shows them (Discord's [text](link), links for Google, plain text for VRChat); see
+    // CalendarSiteText for which wins where, and for a date's own words.
+
+    /// <summary>The title VRChat shows, or null for <see cref="Title"/>.</summary>
+    public string? VRChatTitle { get; set; }
+
+    /// <summary>The description VRChat shows, or null for <see cref="Description"/>.</summary>
+    public string? VRChatDescription { get; set; }
+
+    /// <summary>The title Discord shows, in the server event and the channel post, or null for <see cref="Title"/>.</summary>
+    public string? DiscordTitle { get; set; }
+
+    /// <summary>The description Discord shows, or null for <see cref="Description"/>.</summary>
+    public string? DiscordDescription { get; set; }
+
+    /// <summary>The title Google Calendar shows, or null for <see cref="Title"/>.</summary>
+    public string? GoogleTitle { get; set; }
+
+    /// <summary>The description Google Calendar shows, or null for <see cref="Description"/>.</summary>
+    public string? GoogleDescription { get; set; }
+
     // ── When ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>When the first occurrence starts.</summary>

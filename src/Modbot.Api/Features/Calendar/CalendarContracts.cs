@@ -14,6 +14,18 @@ namespace Modbot.Api.Features.Calendar;
 /// answered it, or one an older event already has. Null for none.
 /// </param>
 /// <param name="Draft">Save without publishing anything or opening anything.</param>
+/// <param name="VRChatTitle">
+/// The title VRChat shows, in place of <paramref name="Title"/>. Empty for the shared title; null
+/// keeps what the event has. The same goes for the five fields after it, each for its own site.
+/// </param>
+/// <param name="VRChatDescription">VRChat's own description, plain text.</param>
+/// <param name="DiscordTitle">The title Discord shows, in the server event and the channel post.</param>
+/// <param name="DiscordDescription">Discord's own description, in Discord's markdown: <c>[words](https://address)</c> makes a link.</param>
+/// <param name="GoogleTitle">The title Google Calendar shows.</param>
+/// <param name="GoogleDescription">
+/// Google's own description. <c>[words](https://address)</c> and bare web addresses become links;
+/// nothing else typed is read as markup.
+/// </param>
 /// <param name="CoverPictureId">
 /// The picture for Discord, as <c>POST /api/calendar/cover</c> answered it: the Discord event's cover
 /// and the channel post's picture, in place of <paramref name="ImageUrl"/>. Null for none.
@@ -85,7 +97,13 @@ public sealed record CalendarEventRequest(
     int? RepeatTimes = null,
     bool? Featured = null,
     Guid? CoverPictureId = null,
-    bool? PublishToGoogle = null);
+    bool? PublishToGoogle = null,
+    string? VRChatTitle = null,
+    string? VRChatDescription = null,
+    string? DiscordTitle = null,
+    string? DiscordDescription = null,
+    string? GoogleTitle = null,
+    string? GoogleDescription = null);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -308,7 +326,13 @@ public sealed record CalendarEventView(
     Guid? CoverPictureId = null,
     bool PublishToGoogle = false,
     IReadOnlyList<string>? VRChatRoleIds = null,
-    IReadOnlyList<CalendarTwitchStreamView>? TwitchStreams = null);
+    IReadOnlyList<CalendarTwitchStreamView>? TwitchStreams = null,
+    string? VRChatTitle = null,
+    string? VRChatDescription = null,
+    string? DiscordTitle = null,
+    string? DiscordDescription = null,
+    string? GoogleTitle = null,
+    string? GoogleDescription = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>

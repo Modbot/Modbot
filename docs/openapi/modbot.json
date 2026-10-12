@@ -36111,6 +36111,42 @@
               "null",
               "boolean"
             ]
+          },
+          "vrChatTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -36471,6 +36507,42 @@
             "items": {
               "$ref": "#/components/schemas/CalendarTwitchStreamView"
             }
+          },
+          "vrChatTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

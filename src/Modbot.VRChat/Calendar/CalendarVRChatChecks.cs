@@ -1,3 +1,4 @@
+using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
 
 namespace Modbot.VRChat.Calendar;
@@ -66,10 +67,10 @@ public static class CalendarVRChatChecks
 
         var problems = new List<string>();
 
-        if (string.IsNullOrWhiteSpace(calendarEvent.Title))
+        if (string.IsNullOrWhiteSpace(CalendarSiteText.Title(calendarEvent, CalendarSite.VRChat)))
             problems.Add(NoTitle);
 
-        if (string.IsNullOrWhiteSpace(calendarEvent.Description))
+        if (string.IsNullOrWhiteSpace(CalendarSiteText.Description(calendarEvent, CalendarSite.VRChat)))
             problems.Add(NoDescription);
 
         if (PictureIdProblem(calendarEvent.VRChatImageId) is { } picture)

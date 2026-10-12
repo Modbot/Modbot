@@ -53,8 +53,20 @@ public static class CalendarVRChatCopy
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
 
-        target.Title = Cut((source.Title ?? string.Empty).Trim(), CalendarEvent.MaxTitleLength);
-        target.Description = Cut((source.Description ?? string.Empty).Trim(), CalendarEvent.MaxDescriptionLength);
+        // What VRChat says is VRChat's own text when the event has one, so a change read from
+        // VRChat never replaces the shared words Discord and Google are saying.
+        var title = Cut((source.Title ?? string.Empty).Trim(), CalendarEvent.MaxTitleLength);
+        var description = Cut((source.Description ?? string.Empty).Trim(), CalendarEvent.MaxDescriptionLength);
+
+        if (CalendarSiteText.OwnTitle(target, CalendarSite.VRChat) is not null)
+            target.VRChatTitle = title;
+        else
+            target.Title = title;
+
+        if (CalendarSiteText.OwnDescription(target, CalendarSite.VRChat) is not null)
+            target.VRChatDescription = description;
+        else
+            target.Description = description;
 
         var starts = AsUtc(source.StartsAt);
         var ends = AsUtc(source.EndsAt);
