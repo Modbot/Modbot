@@ -546,7 +546,8 @@ calendar or want a form filled in, while Mobilizon, Gancio and Google's "From UR
 | `ViewCalendar` — "See calendar" | 25 | The calendar page and every event's places and states. |
 | `ManageCalendar` — "Manage calendar" | 26 | Create, edit, cancel and delete events; see and regenerate the feed link; turn the public feed on or off (§6.1). Make, rename and delete the categories events carry (§19). |
 
-Neither is added to the built-in roles; Administrator holds both.
+Neither is added to the built-in roles; Administrator holds both. `ManageTemplates` (bit 59) is added
+in §19.
 
 ## 8. Facts
 
@@ -573,6 +574,7 @@ the operational log:
 | `modbot.calendar-category.create` / `.change` / `.delete` | A Modbot category was made, renamed or deleted (added 2026-10-12, §19.2); subject: the category's id |
 | `modbot.calendar.invite.send` | A person was invited to the instance (subject: the person; calendar auto-invite design §8) |
 | `modbot.calendar.invite.fail` | A person could not be invited (subject: the person) |
+| `modbot.calendar-template.create`, `.change`, `.delete` | A template was made, changed or deleted (added 2026-10-12, §20; subject: the template) |
 
 `modbot.calendar.event.cancel` carries `postInChannel` (added 2026-10-01, §14.4).
 
@@ -1346,3 +1348,39 @@ a `CalendarCategory.Id` and nothing else about a category, so it survives a rena
 `calendar_event_category` says which events a starting event should tell whom; the sign-up table
 references the category with a cascading delete, as the event join does. The whole of it is in
 [the event alerts design](2026-10-13-event-alerts-design.md).
+
+## 20. Templates (added 2026-10-12)
+
+A run of similar events starts from the same words, so a template keeps everything the event form
+holds except when the event happens. Step 2 of 4 of the templates plan: the list, the form and the
+permission. Making an event from a template (step 3) and links that fill themselves in (step 4) are
+not here.
+
+- **What a template is.** A name (1 to 100 characters) and the event's fields: titles and
+  descriptions (shared and each site's own, §18), places, category, languages, platforms, tags, world
+  or world list, who can join, picture, repeat pattern, channel post, role mention, instance and
+  invite settings. Dates are replaced by `lengthMinutes` (1 minute to 7 days, the event's own longest);
+  a repeat keeps its pattern (`repeat`, `repeatDays`, `repeatEvery`, `repeatTimes`) but no last date,
+  and there is no time zone. `featured` and `publishToGoogle` may be null, which leaves them to the
+  event.
+- **Stored.** Table `calendar_template`. The fields are one JSON column in the shape of the event
+  form, so a field the form gains later is one more property. The Discord picture and the world list
+  are real columns, set to nothing when deleted, as an event's are; the hourly picture clean-up (§15.4)
+  leaves a template's picture alone.
+- **Who.** `ManageTemplates` — "Manage templates" (bit 59): make, change and delete templates. It is
+  apart from Manage calendar on purpose: Manage calendar or Manage templates reads the list
+  (`canManage` says whether the caller may also change it), and only Manage templates writes. In no
+  built-in role; Administrator holds it.
+- **Checks.** A save runs the event's own checks (`ApplyAll`, preview mode) on a made-up first date
+  (a Monday in UTC) plus the world-list, role-mention, picture and invite checks, so a template holds
+  what an event would, spelled and trimmed the same way. What an event is refused for only when it is
+  saved for real -- no title, no channel, no world -- is allowed, as the form's preview allows it; the
+  event made from the template is refused for those instead. A refusal lists every problem at once,
+  as an event's does (§17.2).
+- **Facts.** `modbot.calendar-template.create`, `.change` (carries the new and the previous name) and
+  `.delete`, subject the template's id, operational.
+- **The page.** A Templates card under Drafts, shown with Manage calendar or Manage templates: name,
+  title and length, and New template, Edit and Delete for Manage templates. New template and Edit open
+  the event form in template mode: a Name above the title, a Length (hours and minutes) in place of
+  Starts, Ends and Time zone, no Preview, no Save draft or Schedule, and a repeat that ends never or
+  after a number of times.

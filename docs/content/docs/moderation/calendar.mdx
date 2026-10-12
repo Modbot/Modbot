@@ -27,6 +27,8 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | See the **Calendar** page, every event, where each one is published and any errors | [**See calendar**](/accounts/roles-and-permissions#see-calendar) |
 | Plan, edit, cancel and delete events | [**Manage calendar**](/accounts/roles-and-permissions#manage-calendar) and **See calendar** |
 | See, copy or replace the calendar feed link | **Manage calendar** and **See calendar** |
+| See the [templates](#templates) | **See calendar** and **Manage calendar** or [**Manage templates**](/accounts/roles-and-permissions#manage-templates) |
+| Make, edit and delete [templates](#templates) | **Manage templates** and **See calendar** |
 | Turn the [public feed](#the-public-feed) on or off, and copy its address | **Manage calendar** and **See calendar** |
 | See [what each event did](#what-an-event-did) and **Past events** | **See calendar** and [**See analytics**](/accounts/roles-and-permissions#see-analytics) |
 | See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
@@ -40,8 +42,8 @@ is not enough to open the page. Without **Manage calendar**, the page is read-on
 **New event** button, no feed link or **Public feed** switch, an event shows no **Edit**, **Duplicate**, **Cancel event** or
 **Delete** buttons, and nothing can be dragged or drawn on the calendar.
 
-Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
-both. Give them on purpose: an event can open an instance by itself, and it posts to VRChat and
+None of these permissions is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
+all of them. Give them on purpose: an event can open an instance by itself, and it posts to VRChat and
 Discord in your group's name.
 
 ## The page
@@ -1242,6 +1244,27 @@ happened: how many went by direct message, how many by ping, how many had direct
 how many failed and how many were skipped. Closed and failed are counted separately. It names no
 member. [Privacy](/privacy) says what is kept.
 
+## Templates
+
+A template is a name and everything the event form holds, except when the event happens: the
+title and description, the text each site says for itself, the places it goes, the category, tags,
+languages and platforms, the world or world list, who can join, the picture, the repeat pattern, the
+channel post, and the instance settings. In place of a start, an end and a time zone it has a
+**Length**, from 1 minute to 7 days. A repeat keeps its pattern but no last date.
+
+The **Templates** card sits under the calendar, below **Drafts**. It lists each template by name,
+with its title and length. Anyone with **Manage calendar** or **Manage templates** sees the list.
+Only **Manage templates** shows **New template**, **Edit** and **Delete**.
+
+**New template** and **Edit** open the event form with a **Name** above the title, **Length** under
+**When**, and **Save** and **Cancel** at the bottom. There is no **Preview**, no **Schedule** or
+**Save draft**, and a repeat can end **Never** or **After a number of times**. A template can be saved
+half filled in: the title, the channel and the world may stay empty, and an event made from it is
+refused for them instead. The rest is checked as it is for an event. Modbot asks **Delete “…”?** before
+it deletes a template. Events already made from a template do not change when it does.
+
+Each change is in the [audit log](#in-the-audit-log).
+
 ## Editing, cancelling and deleting
 
 ### Edit
@@ -1390,6 +1413,7 @@ entries (you need **See the operational log** to see them):
 | **Event taken down** | A place that had the event no longer has it, after a cancel, a delete or turning it off. Not written for a place the event never reached. |
 | **Event picture uploaded to VRChat** | Someone uploaded a VRChat picture. Names the event when it was already saved; for a new event, the event's own **Event planned** entry carries the same picture. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
+| **Event template made**, **Event template changed**, **Event template deleted** | Someone made, edited or deleted a [template](#templates). |
 | **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
 | **Event category made** | Someone made an [event category](#event-categories). |
 | **Event category renamed** | Someone renamed one. Shows the name before. |
