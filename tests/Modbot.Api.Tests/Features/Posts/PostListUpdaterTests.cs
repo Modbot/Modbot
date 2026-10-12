@@ -68,7 +68,7 @@ public sealed class PostListUpdaterTests
             => Task.FromResult(PostSiteOutcome.Ok);
     }
 
-    private async Task SetUpAsync(bool paused = false)
+    private async Task SetUpAsync(bool paused = false, bool discordPostsOn = true, bool vrchatPostsOn = true)
     {
         await using var context = _db.NewContext();
         await context.Posts.ExecuteDeleteAsync(Ct);
@@ -76,6 +76,8 @@ public sealed class PostListUpdaterTests
 
         var settings = await context.GetSettingsAsync(Ct);
         settings.PostsPaused = paused;
+        settings.DiscordPostsOn = discordPostsOn;
+        settings.VRChatPostsOn = vrchatPostsOn;
         settings.DiscordGuildId = null;
         settings.PublicAddress = null;
         await context.SaveChangesAsync(Ct);
@@ -294,6 +296,39 @@ public sealed class PostListUpdaterTests
         Assert.Equal(0, await PassAsync());
         Assert.Empty(_discord.Edits);
         Assert.Empty(_vrchat.Edits);
+    }
+
+    [Fact]
+    public async Task ASiteWhosePostingSwitchIsOffIsNotEdited_AndTheOtherSiteIs()
+    {
+        await SetUpAsync(discordPostsOn: false);
+        var movies = await AddEventAsync("Movie night", Friday);
+        var id = await AddSentPostAsync(October(Line(movies)));
+        var games = await AddEventAsync("Games night", Friday.AddDays(1));
+
+        Assert.Equal(1, await PassAsync());
+
+        Assert.Empty(_discord.Edits);
+        Assert.Contains("Games night", Assert.Single(_vrchat.Edits).Text, StringComparison.Ordinal);
+
+        // Discord still has the old list to find, so the post's own text keeps it until Discord takes the edit.
+        var post = await PostAsync(id);
+        Assert.Equal($"Come along!\n\n{October(Line(movies))}\n\nSee you there.", post.Text);
+        Assert.DoesNotContain("Games night", post.Destinations.Single(d => d.Network == PostNetworks.Discord).SentText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AVRChatSwitchThatIsOffLeavesVRChatAloneAndDiscordIsStillEdited()
+    {
+        await SetUpAsync(vrchatPostsOn: false);
+        var movies = await AddEventAsync("Movie night", Friday);
+        await AddSentPostAsync(October(Line(movies)));
+        await AddEventAsync("Games night", Friday.AddDays(1));
+
+        Assert.Equal(1, await PassAsync());
+
+        Assert.Empty(_vrchat.Edits);
+        Assert.Single(_discord.Edits);
     }
 
     [Fact]

@@ -31,7 +31,8 @@ namespace Modbot.Api.Features.Posts;
 /// included) gets no second try in the same pass, and none until the window is over. The edits go
 /// through <see cref="IDiscordPostActions"/> and <see cref="IVRChatPostActions"/>, which never ping
 /// or notify again, and VRChat's goes through the posts lane. Bluesky cannot edit, so its post keeps
-/// the first version. Nothing is edited while Pause all posting is on.
+/// the first version. Nothing is edited while Pause all posting is on, and a site whose own posting
+/// switch (Discord posts, VRChat posts) is off is not edited either.
 /// </para>
 /// <para>
 /// The post's own text is written with the new lists only once every site that needed the edit has
@@ -99,6 +100,14 @@ public sealed class PostListUpdater
 
         var edited = 0;
         var stopped = new HashSet<string>(StringComparer.Ordinal);
+
+        // A site whose posting switch is off is treated like a site that turned the edit away: left
+        // as it is, and tried again with the old list still to find once the switch is back on.
+        if (!settings.DiscordPostsOn)
+            stopped.Add(PostNetworks.Discord);
+
+        if (!settings.VRChatPostsOn)
+            stopped.Add(PostNetworks.VRChat);
 
         foreach (var id in ids)
         {

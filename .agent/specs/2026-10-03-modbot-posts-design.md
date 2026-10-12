@@ -543,10 +543,13 @@ uploads, removing the Bluesky account.
     `IDiscordPostActions.EditAsync` (Discord: text only, pings nobody) or `IVRChatPostActions.EditAsync`
     (the `groups.posts.write` lane, notifies nobody). A list a person changed by hand on a site is not
     found and stays as it is there; the other site is still updated.
-  - **When it stops.** Pause all posting stops every edit. A What's on list is left alone once its
+  - **When it stops.** Pause all posting stops every edit, and so does a site's own switch
+    (`discord_posts_on`, `vr_chat_posts_on`) being off (changed 2026-10-12: the user asked for the
+    per-site switches to be obeyed, so an edit is treated as a post on that site). A site that is
+    off is handled like one that turned the edit away: left as it is, the post's own text keeps the
+    old list, and it is edited once the switch is back on. A What's on list is left alone once its
     last day has passed; an Add event list once the date it shows has started; an event that is
-    cancelled, deleted or back to a draft turns its list into "Nothing is planned yet.". The per-site
-    switches are not consulted: an edit is not a send.
+    cancelled, deleted or back to a draft turns its list into "Nothing is planned yet.".
   - **Once a window.** A post in which a change was found is not looked at again for five minutes
     (`PostListUpdater.Window`, held in memory by `PostListWindow`; after a restart a post is looked at
     again at once, which edits it only if its lists read differently), so a burst of calendar edits
