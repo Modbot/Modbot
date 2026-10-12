@@ -11,13 +11,19 @@ import {
   discordCount,
   discordMessage,
   duplicateOf,
+  eventListShown,
+  eventRange,
+  eventTextFor,
   headline,
   listsOf,
   localInput,
   inputFrom,
+  joinEventLists,
   requestOf,
   shownHeadline,
   shownLabel,
+  splitEventLists,
+  todayIn,
   vrchatAudience,
   vrchatCount,
   vrchatImage,
@@ -405,4 +411,86 @@ test('a saved Bluesky destination comes back into the composer, and a duplicate 
   assert.equal(input.bluesky.cardPictureId, 'copy-1')
 
   assert.equal(duplicateOf(saved, now, 'UTC').bluesky.on, false)
+})
+
+const EVENT = '{{event 0b5e8c5e-1111-4222-8333-444455556666}}\nMovie night - {{time 1792350000 Sun 18 Oct, 20:00 BST}}\nhttps://discord.com/events/1/2\n{{/event}}'
+const WHATS_ON = '{{whats-on 2026-10-01 to 2026-10-31 Europe/London}}\nNothing is planned yet.\n{{/whats-on}}'
+
+test('an event list is written for each site: Discord gets a timestamp, the others the event\'s own time, and no mark shows', () => {
+  const text = `Join us\n\n${EVENT}\n\nSee you`
+
+  assert.equal(eventTextFor('discord', text), 'Join us\n\nMovie night - <t:1792350000:F>\nhttps://discord.com/events/1/2\n\nSee you')
+  assert.equal(eventTextFor('vrchat', text), 'Join us\n\nMovie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2\n\nSee you')
+  assert.equal(eventTextFor('bluesky', text), eventTextFor('vrchat', text))
+  assert.equal(eventTextFor('vrchat', text).includes('{{'), false)
+  assert.equal(eventTextFor('vrchat', 'plain words'), 'plain words')
+})
+
+test('the counters count what each site is sent, not the marks', () => {
+  const input = { ...blankPost(now, 'UTC'), title: '', text: EVENT }
+
+  assert.equal(vrchatCount(input).label, `VRChat ${'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2'.length}`)
+  assert.equal(discordCount(input).label, `Discord ${'Movie night - <t:1792350000:F>\nhttps://discord.com/events/1/2'.length} / 2000`)
+  assert.equal(blueskyText(input), 'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2')
+})
+
+test('the list names a post by its first line as a reader sees it', () => {
+  assert.equal(headline({ title: null, text: EVENT }), 'Movie night - Sun 18 Oct, 20:00 BST')
+})
+
+test('the stored text splits into the writer\'s words and the lists, and joins back the same', () => {
+  const text = `Join us\n\n${EVENT}\n\nSee you`
+  const parts = splitEventLists(text)
+
+  assert.deepEqual(parts.texts, ['Join us', 'See you'])
+  assert.deepEqual(parts.lists, [EVENT])
+  assert.equal(joinEventLists(parts), text)
+
+  assert.deepEqual(splitEventLists('just words'), { texts: ['just words'], lists: [] })
+  assert.deepEqual(splitEventLists(''), { texts: [''], lists: [] })
+})
+
+test('lists with nothing between them, or nothing around them, keep their place', () => {
+  const text = `${EVENT}\n\n${WHATS_ON}`
+  const parts = splitEventLists(text)
+
+  assert.deepEqual(parts.texts, ['', '', ''])
+  assert.equal(parts.lists.length, 2)
+  assert.equal(joinEventLists(parts), text)
+
+  // Words typed between them go between them, with a blank line each side.
+  const typed = joinEventLists({ texts: ['', 'and also', ''], lists: parts.lists })
+  assert.equal(typed, `${EVENT}\n\nand also\n\n${WHATS_ON}`)
+  assert.deepEqual(splitEventLists(typed).texts, ['', 'and also', ''])
+})
+
+test('a line end typed beside a list is kept when the text is split again', () => {
+  const parts = { texts: ['Join us\n', '\nSee you'], lists: [EVENT] }
+  assert.deepEqual(splitEventLists(joinEventLists(parts)).texts, parts.texts)
+})
+
+test('a card shows what the list is and the words a reader sees, with no mark', () => {
+  const one = eventListShown(EVENT)
+  assert.equal(one.kind, 'event')
+  assert.equal(one.words, 'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2')
+
+  const many = eventListShown(WHATS_ON)
+  assert.equal(many.kind, 'whats-on')
+  assert.equal(many.from, '2026-10-01')
+  assert.equal(many.to, '2026-10-31')
+  assert.equal(many.words, 'Nothing is planned yet.')
+})
+
+test('What\'s on offers this week, next month and the next 30 days from today in the post\'s zone', () => {
+  // 2026-10-14 is a Wednesday.
+  assert.deepEqual(eventRange('week', '2026-10-14'), { from: '2026-10-12', to: '2026-10-18' })
+  assert.deepEqual(eventRange('week', '2026-10-18'), { from: '2026-10-12', to: '2026-10-18' })
+  assert.deepEqual(eventRange('week', '2026-10-12'), { from: '2026-10-12', to: '2026-10-18' })
+  assert.deepEqual(eventRange('month', '2026-10-14'), { from: '2026-11-01', to: '2026-11-30' })
+  assert.deepEqual(eventRange('month', '2026-12-31'), { from: '2027-01-01', to: '2027-01-31' })
+  assert.deepEqual(eventRange('month', '2027-01-31'), { from: '2027-02-01', to: '2027-02-28' })
+  assert.deepEqual(eventRange('days', '2026-10-14'), { from: '2026-10-14', to: '2026-11-12' })
+
+  assert.equal(todayIn(new Date('2026-10-14T23:30:00Z'), 'Asia/Tokyo'), '2026-10-15')
+  assert.equal(todayIn(new Date('2026-10-14T23:30:00Z'), 'America/Los_Angeles'), '2026-10-14')
 })

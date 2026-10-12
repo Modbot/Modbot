@@ -21,6 +21,7 @@ import {
   canPostNow,
   discordMessage,
   duplicateOf,
+  eventTextFor,
   inputFrom,
   LIST_LABEL,
   listAfterSave,
@@ -225,6 +226,7 @@ export function Marketing({ list, onList }: { list: MarketingPage; onList: (page
           initial={composing.input}
           sites={data.sites}
           roles={data.vrChatRoles}
+          canAddEvents={data.canAddEvents}
           onClose={() => setComposing(null)}
           onSaved={(saved) => {
             setComposing(null)
@@ -435,7 +437,7 @@ function SiteEdit({
   onSaved: () => void
 }) {
   const [title, setTitle] = useState(destination.titleOverride ?? post.title ?? '')
-  const [text, setText] = useState(destination.textOverride ?? post.text)
+  const [text, setText] = useState(destination.textOverride ?? eventTextFor(destination.network, post.text))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

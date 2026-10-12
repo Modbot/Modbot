@@ -118,7 +118,15 @@ export type PostList = {
   sites: PostSites
   now: string
   vrChatRoles: PostRoleChoice[]
+  /** The caller holds See calendar as well as Manage posts: the composer may add events. */
+  canAddEvents: boolean
 }
+
+/** A published event "Add event" offers: its next date. */
+export type PostEventChoice = { id: string; title: string; startsAt: string; timeZone: string }
+
+/** The text for an event list, ready to put in the post, and how many dates it lists. */
+export type PostEventText = { text: string; count: number }
 
 export type DiscordPostPreview = {
   content: string
@@ -363,7 +371,7 @@ export function headline(post: Pick<Post, 'title' | 'text'>): string {
   const title = post.title?.trim()
   if (title) return title
 
-  const first = post.text.split('\n', 1)[0].trim()
+  const first = eventTextFor('vrchat', post.text).split('\n', 1)[0].trim()
   return first.length <= 80 ? first : `${first.slice(0, 80)}…`
 }
 
@@ -389,6 +397,135 @@ export function tidy(text: string | null | undefined): string {
   return (text ?? '').replace(/\r\n?/g, '\n').trim()
 }
 
+const TIME_MARK = /\{\{time (\d{1,12}) ([^}\n]*)\}\}/g
+const MARK_ON_ITS_OWN_LINE = /^[ \t]*\{\{\/?(?:event|whats-on)\b[^}\n]*\}\}[ \t]*(?:\n|$)/gm
+const MARK = /\{\{\/?(?:event|whats-on)\b[^}\n]*\}\}/g
+const WHOLE_LIST = /\{\{(event|whats-on) ([^}\n]*)\}\}[\s\S]*?\{\{\/\1\}\}/g
+
+/**
+ * The text one site is sent, the server's `PostEventText.ForSite` word for word: Discord gets each
+ * date as `<t:unix:F>`, which every reader sees in their own timezone; VRChat and Bluesky get the
+ * words after the number, the event's own time and zone; the marks that wrap an event list are
+ * left out. The counters count this, and so does the server.
+ */
+export function eventTextFor(network: PostNetwork, text: string | null | undefined): string {
+  let out = tidy(text)
+  if (!out.includes('{{')) return out
+
+  out = out.replace(MARK_ON_ITS_OWN_LINE, '').replace(MARK, '')
+  out = out.replace(TIME_MARK, (_all, unix: string, words: string) => (network === 'discord' ? `<t:${unix}:F>` : words.trim()))
+  return tidy(out)
+}
+
+/**
+ * A post's text as the composer holds it: the writer's own words (`texts`) and the event lists
+ * between them (`lists`, marks and all, one per gap), so there is always one more text than lists.
+ * The composer shows each list as a card and each text as a box, so the marks never reach the
+ * screen. A blank line sits between a text and a list and belongs to neither.
+ */
+export type PostTextParts = { texts: string[]; lists: string[] }
+
+const SEPARATOR = '\n\n'
+
+/** Takes one blank line, or one line end, off the start or the end of a text beside a list. */
+function withoutSeparator(value: string, atStart: boolean): string {
+  if (atStart) {
+    if (value.startsWith(SEPARATOR)) return value.slice(SEPARATOR.length)
+    return value.startsWith('\n') ? value.slice(1) : value
+  }
+
+  if (value.endsWith(SEPARATOR)) return value.slice(0, -SEPARATOR.length)
+  return value.endsWith('\n') ? value.slice(0, -1) : value
+}
+
+/** Splits a post's text into the writer's words and its event lists. */
+export function splitEventLists(text: string): PostTextParts {
+  const texts: string[] = []
+  const lists: string[] = []
+  let last = 0
+
+  for (const found of text.matchAll(WHOLE_LIST)) {
+    texts.push(text.slice(last, found.index))
+    lists.push(found[0])
+    last = found.index + found[0].length
+  }
+
+  texts.push(text.slice(last))
+
+  return {
+    texts: texts.map((value, i) => {
+      let shown = value
+      if (i > 0) shown = withoutSeparator(shown, true)
+      if (i < lists.length) shown = withoutSeparator(shown, false)
+      return shown
+    }),
+    lists,
+  }
+}
+
+/** The post's text for these parts, the inverse of `splitEventLists`; a text with nothing in it is left out. */
+export function joinEventLists({ texts, lists }: PostTextParts): string {
+  const pieces: string[] = []
+
+  texts.forEach((value, i) => {
+    if (value !== '') pieces.push(value)
+    if (i < lists.length) pieces.push(lists[i])
+  })
+
+  return pieces.join(SEPARATOR)
+}
+
+/** What a card shows for an event list: which kind, the days a What's on covers, and the words as a reader sees them. */
+export function eventListShown(list: string): { kind: 'event' | 'whats-on'; from: string | null; to: string | null; words: string } {
+  const head = /^\{\{(event|whats-on) ([^}\n]*)\}\}/.exec(list)
+  const kind = head?.[1] === 'whats-on' ? 'whats-on' : 'event'
+  const range = kind === 'whats-on' ? /^(\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})/.exec(head?.[2] ?? '') : null
+  return { kind, from: range?.[1] ?? null, to: range?.[2] ?? null, words: eventTextFor('vrchat', list) }
+}
+
+/** The ways "What's on" offers to pick days, besides picking two dates: this week, next month, the next 30 days. */
+export type EventRangeKind = 'week' | 'month' | 'days'
+
+function dayNumber(day: string): number {
+  const [y, m, d] = day.split('-').map(Number)
+  return Date.UTC(y, m - 1, d) / 86_400_000
+}
+
+function dayOf(number: number): string {
+  return new Date(number * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * The first and last day of a range, counted, as `yyyy-MM-dd`, from today in the post's zone: this
+ * week is Monday to Sunday, next month is the whole calendar month after this one, and the next 30
+ * days start today.
+ */
+export function eventRange(kind: EventRangeKind, today: string): { from: string; to: string } {
+  const [y, m] = today.split('-').map(Number)
+
+  if (kind === 'week') {
+    const now = dayNumber(today)
+    const monday = now - ((new Date(now * 86_400_000).getUTCDay() + 6) % 7)
+    return { from: dayOf(monday), to: dayOf(monday + 6) }
+  }
+
+  if (kind === 'month') {
+    return {
+      from: new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10),
+      to: new Date(Date.UTC(y, m + 1, 0)).toISOString().slice(0, 10),
+    }
+  }
+
+  return { from: today, to: dayOf(dayNumber(today) + 29) }
+}
+
+/** Today's date in a zone, as `yyyy-MM-dd`. */
+export function todayIn(now: Date, zone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
 /**
  * The Discord message, the server's `PostTexts.Discord` word for word: the role mention on its own
  * line, the title in bold, then the text. The counter counts this, so the mention and the title
@@ -406,7 +543,7 @@ export function discordMessage(title: string, text: string, roleId: string | nul
 
 /** The counter under the text for Discord: "Discord 212 / 2000", red once over. */
 export function discordCount(input: Pick<PostInput, 'title' | 'text' | 'discord'>): { label: string; over: boolean } {
-  const text = input.discord.ownText ? input.discord.text : input.text
+  const text = eventTextFor('discord', input.discord.ownText ? input.discord.text : input.text)
   const length = discordMessage(input.title, text, input.discord.roleId || null).length
   return { label: `Discord ${length} / ${DISCORD_LIMIT}`, over: length > DISCORD_LIMIT }
 }
@@ -424,7 +561,7 @@ export function vrchatNeedsTitle(input: Pick<PostInput, 'title' | 'vrChat'>): bo
 
 /** The counter under the text for VRChat: "VRChat 212". VRChat documents no limit, so it is never red. */
 export function vrchatCount(input: Pick<PostInput, 'text' | 'vrChat'>): { label: string; over: boolean } {
-  const text = input.vrChat.ownText ? input.vrChat.text : input.text
+  const text = eventTextFor('vrchat', input.vrChat.ownText ? input.vrChat.text : input.text)
   return { label: `VRChat ${tidy(text).length}`, over: false }
 }
 
@@ -466,11 +603,11 @@ export function graphemes(text: string): number {
  * "Own text" is ticked, otherwise the title on its own line and then the text.
  */
 export function blueskyText(input: Pick<PostInput, 'title' | 'text' | 'bluesky'>): string {
-  if (input.bluesky.ownText) return tidy(input.bluesky.text)
+  if (input.bluesky.ownText) return eventTextFor('bluesky', input.bluesky.text)
   const lines: string[] = []
   const heading = tidy(input.title).replace(/\n/g, ' ')
   if (heading) lines.push(heading)
-  const body = tidy(input.text)
+  const body = eventTextFor('bluesky', input.text)
   if (body) lines.push(body)
   return lines.join('\n')
 }

@@ -23,6 +23,7 @@ import {
   blueskyCount,
   blueskyText,
   discordCount,
+  eventTextFor,
   pictureAddress,
   POST_PICTURE_MAX_BYTES,
   postsApi,
@@ -39,6 +40,7 @@ import {
 } from '@/lib/posts'
 import { cn } from '@/lib/utils'
 import { PostPreviewPanel } from './PostPreview'
+import { PostTextField } from './PostTextField'
 
 type Tab = 'write' | 'preview'
 
@@ -72,6 +74,7 @@ export function PostComposer({
   initial,
   sites,
   roles,
+  canAddEvents,
   onClose,
   onSaved,
 }: {
@@ -81,6 +84,8 @@ export function PostComposer({
   sites: PostSites
   /** The VRChat group's roles, for choosing who a VRChat post is for. */
   roles: readonly PostRoleChoice[]
+  /** The caller may add calendar events to the text (See calendar as well as Manage posts). */
+  canAddEvents: boolean
   onClose: () => void
   onSaved: (saved: Post) => void
 }) {
@@ -389,9 +394,12 @@ export function PostComposer({
                   <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
                 </Labelled>
                 <div className="flex flex-col gap-1">
-                  <Labelled label="Text">
-                    <Textarea rows={6} value={input.text} onChange={(e) => set('text', e.target.value)} />
-                  </Labelled>
+                  <PostTextField
+                    value={input.text}
+                    onChange={(text) => set('text', text)}
+                    timeZone={input.timeZone}
+                    canAddEvents={canAddEvents}
+                  />
                   <div className="flex flex-wrap gap-x-3">
                     {input.discord.on && !input.discord.ownText && <Counter count={count} />}
                     {input.vrChat.on && !input.vrChat.ownText && <Counter count={vrchatCounter} />}
@@ -440,7 +448,7 @@ export function PostComposer({
                       onChange={(v) =>
                         setInput((current) => ({
                           ...current,
-                          discord: { ...current.discord, ownText: v, text: v && !current.discord.text ? current.text : current.discord.text },
+                          discord: { ...current.discord, ownText: v, text: v && !current.discord.text ? eventTextFor('discord', current.text) : current.discord.text },
                         }))
                       }
                     >
@@ -456,7 +464,7 @@ export function PostComposer({
                         />
                         <div className="flex items-center justify-between gap-2">
                           <Counter count={count} />
-                          <Button size="xs" variant="outline" onClick={() => setDiscord('text', input.text)}>
+                          <Button size="xs" variant="outline" onClick={() => setDiscord('text', eventTextFor('discord', input.text))}>
                             Reset
                           </Button>
                         </div>
@@ -526,7 +534,7 @@ export function PostComposer({
                       onChange={(v) =>
                         setInput((current) => ({
                           ...current,
-                          vrChat: { ...current.vrChat, ownText: v, text: v && !current.vrChat.text ? current.text : current.vrChat.text },
+                          vrChat: { ...current.vrChat, ownText: v, text: v && !current.vrChat.text ? eventTextFor('vrchat', current.text) : current.vrChat.text },
                         }))
                       }
                     >
@@ -542,7 +550,7 @@ export function PostComposer({
                         />
                         <div className="flex items-center justify-between gap-2">
                           <Counter count={vrchatCounter} />
-                          <Button size="xs" variant="outline" onClick={() => setVRChat({ text: input.text })}>
+                          <Button size="xs" variant="outline" onClick={() => setVRChat({ text: eventTextFor('vrchat', input.text) })}>
                             Reset
                           </Button>
                         </div>

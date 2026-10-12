@@ -1,6 +1,8 @@
 import { ApiError, http } from '@/lib/api'
 import type {
   Post,
+  PostEventChoice,
+  PostEventText,
   PostList,
   PostListName,
   PostPreview,
@@ -38,6 +40,11 @@ export const postsApi = {
     http.del<Post>(`${base}/${encodeURIComponent(id)}/destinations/${encodeURIComponent(destinationId)}`),
   /** What each ticked site would be sent, and what would stop it being scheduled. Saves nothing. */
   preview: (body: PostRequest) => http.post<PostPreview>(`${base}/preview`, body),
+  /** The published events "Add event" offers, soonest first. */
+  events: () => http.request<PostEventChoice[]>(`${base}/events`),
+  /** The words for one event (`eventId`), or for every event in a range of days, to put in the text. */
+  eventText: (body: { eventId: string } | { from: string; to: string; timeZone: string }) =>
+    http.post<PostEventText>(`${base}/event-text`, body),
   /** Keeps a cropped picture for a post and answers with its id, to save as `pictureId`. */
   uploadPicture: (picture: Blob) =>
     http.request<{ pictureId: string }>(`${base}/picture`, {
