@@ -333,7 +333,7 @@ be, and so does [Health](#on-health).
   the calendar's name and the notes.
 - **Google Calendar**: what goes on your Google calendar: the title, the time in the event's own
   time zone, the repeat in words, the location, the calendar's name and the description with the
-  world's name and page under it. A padlock beside the title means only the people the calendar is
+  world's name and page under it. Links typed in Google's own description show as plain words here. A padlock beside the title means only the people the calendar is
   shared with will see it, because **Check** found the calendar is not public, or shows the public
   only free or busy.
 
@@ -348,6 +348,21 @@ title that is too long.
 |---|---|
 | **Title** | Required. Up to 100 characters. The count beside it, such as **12 / 100**, turns red when it is too long. |
 | **Description** | Optional, except for the VRChat calendar. Up to 1,000 characters, counted the same way. Line breaks are kept. |
+| **Own text** | Optional. Under **Description**, tick **VRChat**, **Discord** or **Google** to give that place its own title and description. Ticking one shows the two fields, filled in from the shared words so you can change them; unticking clears them. A place with nothing of its own uses the shared **Title** and **Description**, as before. |
+
+Each place shows its own text the way that place reads it:
+
+- **Discord**: Discord's own markup, such as `[words](https://address)` for a link.
+- **Google**: `[words](https://address)` and bare `http://` or `https://` addresses become clickable
+  links. Nothing else typed there is treated as markup, and other kinds of address are left as text.
+  The shared description is still plain text.
+- **VRChat**: plain text.
+
+Own text counts against the same limits (100 and 1,000 characters). A date that was given its own
+title or description (see
+[Changing one date of a repeating event](#changing-one-date-of-a-repeating-event)) shows those words
+on every place, instead of the place's own text. Modbot's own pages, the calendar feed, reminders and invites always
+use the shared title.
 
 ### When
 
@@ -623,7 +638,8 @@ event, including ones planned in Modbot. If you changed the event in Modbot more
 has not sent it yet, your change wins and is sent to VRChat. One exception: for an event planned in
 Modbot, the title and description are always Modbot's. VRChat changes some characters in the text it
 is given (for example it drops an en dash), so its copy of the words is not taken as an edit; change
-them in Modbot.
+them in Modbot. For an event made on VRChat, a change to its words goes into VRChat's own text when
+the event has one, so the shared words Discord and Google show are not replaced.
 
 **Deleted on VRChat.** When an event is missing from a month Modbot read, Modbot asks VRChat about
 that one event. If VRChat says it is gone, Modbot deletes it too, which also ends its Discord event

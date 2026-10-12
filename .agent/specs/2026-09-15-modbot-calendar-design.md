@@ -710,13 +710,15 @@ in September, a weekly series, none from Modbot).
 - A change copied in touches only VRChat's fields (title, description, times, repeat and §2's VRChat
   calendar fields); the world, access, region and Discord places are Modbot's alone. The picture
   link is taken from VRChat only for an event made there.
-- **An event made in Modbot keeps its own title and description** (narrowed 2026-10-01). VRChat
+- **An event made in Modbot keeps its own title and description** (narrowed 2026-10-01; per-site
+  text added 2026-10-12, see "Per-site text"). VRChat
   rewrites the text it is sent -- an en dash dropped, "." turned into "․" -- so its copy of a Modbot
   event's words differed from Modbot's, and when anything else made the event look changed on VRChat
   (its dates rebuilt after a series write, say) the read copied VRChat's rewrite over the
   moderators' words with nobody having edited anything. A rewrite and an edit on vrchat.com cannot
   be told apart, so for an event made in Modbot the words are Modbot's alone; times, repeat and
-  VRChat's own settings are still copied in. An event made on VRChat still takes VRChat's words.
+  VRChat's own settings are still copied in. An event made on VRChat still takes VRChat's words;
+  when that event has its own VRChat text, the words go into that text and the shared words stay.
 - **Deleted on VRChat:** an event missing from a month read to its end, which Modbot expects well
   inside that month (VRChat's month is not exactly the UTC month), is looked up on its own. VRChat's
   404, or the event marked deleted, deletes it in Modbot as a delete on the page does (cancelled and
@@ -1228,3 +1230,33 @@ refuses a bad one at sending.
 **Not built:** a Discord refusal for a missing permission is still held until the event changes, a
 save or Try again; Modbot does not watch the bot's Discord permissions for it. The posts for the
 first person have no Try again.
+
+## 18. Own text for each site (added 2026-10-12)
+
+One shared title and description could not suit three places: Discord takes `[words](link)`,
+Google shows real links, VRChat shows plain text and may want a shorter name. So an event has six
+optional fields: a title and a description for each of VRChat, Discord and Google.
+
+- **Blank means shared.** `CalendarSiteText` (and `CalendarRepeat.TitleOf` / `DescriptionOf` with a
+  site) returns the site's own text if it has any non-blank text, else the shared one. The title is
+  capped at 100 and the description at 1,000 for every site; VRChat's real limits are not known, so
+  it uses the same numbers.
+- **A date's own words win everywhere.** A date changed on its own (§2.2) is typed once, on the date,
+  and replaces each site's own text for that date.
+- **Each site is sent its own text, and only that site is resent.** Each publisher's fingerprint is
+  built from the text it sends, so changing one site's text changes only that site's fingerprint.
+- **Copy-back from VRChat (§12).** When an event has its own VRChat title or description, a change
+  read from VRChat goes into that field and never replaces the shared words that Discord and Google
+  are saying. With none, it goes into the shared field as before.
+- **Finding a create that got no answer** matches on the title that was sent, which is VRChat's own
+  title when there is one.
+- **Links.** Only Google's own description makes links: everything is escaped, then
+  `[words](https://address)` and bare `http(s)` addresses become anchors; other schemes stay text. The
+  shared description sent to Google stays escaped text. The preview shows Google's links as plain
+  words.
+- **Not changed.** Modbot's own pages, the feed, reminders, invites, the first-person posts and the
+  `/event` commands still use the shared title.
+- **The form.** An "Own text" row under Description has a VRChat, Discord and Google box. Ticking one
+  shows its title and description, filled in from the shared words; unticking clears them. The ticked
+  state is not stored: it is worked out from whether the fields have text, so a ticked site with both
+  fields blank shows unticked after switching from Preview back to Details.

@@ -184,7 +184,7 @@ One pure function, `CalendarGoogle.Wants(event, settings)`, is used by the loop,
 |---|---|
 | `id` | §3.2 |
 | `summary` | Title (`Cancelled: ` in front under decision 3 B) |
-| `description` | The event's description, HTML-escaped (`&lt;`, `&gt;`, `&amp;`), line breaks kept. Then a blank line and `World: {name}` and the world page `https://vrchat.com/home/world/{id}` (decision 4). |
+| `description` | The event's description, HTML-escaped (`&lt;`, `&gt;`, `&amp;`), line breaks kept. The one exception (2026-10-12): an event's own Google description is escaped first, then `[words](https://address)` and bare `http(s)` addresses become `<a>` links; other schemes stay text. Then a blank line and `World: {name}` and the world page `https://vrchat.com/home/world/{id}` (decision 4). |
 | `location` | The world's name, or `VRChat` with none (same as `CalendarFeedWriter.Entry`) |
 | `start`/`end` | `dateTime` with offset, plus `timeZone` = the event's IANA zone |
 | `recurrence` | `RRULE:` + `CalendarFeedWriter.Rule(...)`, plus one `EXDATE;TZID=…:…` per cancelled date (the feed's §6 choice: a cancelled date is part of the repeat itself) |
