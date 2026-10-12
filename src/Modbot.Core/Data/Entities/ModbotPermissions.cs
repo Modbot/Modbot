@@ -503,6 +503,17 @@ public enum ModbotPermissions : long
     /// </remarks>
     HandleReports = 1L << 58,
 
+    // --- Calendar templates (calendar templates plan, step 2). Bit 59. ---
+
+    /// <summary>Make, change and delete calendar event templates.</summary>
+    /// <remarks>
+    /// Separate from <see cref="ManageCalendar"/>: anyone who holds that may read the templates and
+    /// make an event from one, but a template decides what a whole run of events will say, in the
+    /// group's name, so changing one is its own decision. Not in the built-in roles; Administrator
+    /// holds it.
+    /// </remarks>
+    ManageTemplates = 1L << 59,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

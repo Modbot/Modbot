@@ -268,6 +268,9 @@ public static class AuditVisibility
         [FactType.CalendarCategoryCreated] = AuditCategory.Operational,
         [FactType.CalendarCategoryChanged] = AuditCategory.Operational,
         [FactType.CalendarCategoryDeleted] = AuditCategory.Operational,
+        [FactType.CalendarTemplateCreated] = AuditCategory.Operational,
+        [FactType.CalendarTemplateChanged] = AuditCategory.Operational,
+        [FactType.CalendarTemplateDeleted] = AuditCategory.Operational,
 
         // System: operational noise, and the row spec 5.9.2 gives the short retention class.
         [FactType.SyncFailed] = AuditCategory.Operational,

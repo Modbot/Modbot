@@ -137,6 +137,9 @@ public static class FactSubjects
         [FactType.CalendarCategoryCreated] = SubjectKind.Other,
         [FactType.CalendarCategoryChanged] = SubjectKind.Other,
         [FactType.CalendarCategoryDeleted] = SubjectKind.Other,
+        [FactType.CalendarTemplateCreated] = SubjectKind.Other,
+        [FactType.CalendarTemplateChanged] = SubjectKind.Other,
+        [FactType.CalendarTemplateDeleted] = SubjectKind.Other,
 
         // The subject is the giveaway's id. Entering and withdrawing are about the person on
         // Discord, so those two keep the default.

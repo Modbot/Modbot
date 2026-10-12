@@ -331,6 +331,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
+    /// <summary>Saved sets of event fields to make an event from (calendar templates plan).</summary>
+    public DbSet<CalendarTemplate> CalendarTemplates => Set<CalendarTemplate>();
+
     public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
 
     /// <summary>Posts Modbot sends to Discord and other sites at a time (posts design §2.2).</summary>
@@ -2677,6 +2680,30 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The Live page's list for each instance.
             entity.HasIndex(e => new { e.InstanceId, e.CreatedAt }).HasDatabaseName("ix_vrchat_announcement_instance_created_at");
+        });
+
+        // A template (calendar templates plan). A picture or world list deleted under it leaves it
+        // with none, as an event's do.
+        builder.Entity<CalendarTemplate>(entity =>
+        {
+            entity.ToTable("calendar_template");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(CalendarTemplate.MaxNameLength);
+            entity.Property(e => e.Fields).HasColumnType("jsonb");
+
+            entity.HasOne<CalendarCoverPicture>()
+                .WithMany()
+                .HasForeignKey(e => e.CoverPictureId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne<WorldList>()
+                .WithMany()
+                .HasForeignKey(e => e.WorldListId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.Name).HasDatabaseName("ix_calendar_template_name");
         });
 
         builder.Entity<CalendarEvent>(entity =>

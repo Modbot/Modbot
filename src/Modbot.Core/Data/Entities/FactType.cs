@@ -746,6 +746,12 @@ public static class FactType
     public const string CalendarCategoryChanged = "modbot.calendar-category.change";
     public const string CalendarCategoryDeleted = "modbot.calendar-category.delete";
 
+    // ── Calendar templates (calendar templates plan). The subject is the template's id. ────────
+
+    public const string CalendarTemplateCreated = "modbot.calendar-template.create";
+    public const string CalendarTemplateChanged = "modbot.calendar-template.change";
+    public const string CalendarTemplateDeleted = "modbot.calendar-template.delete";
+
     // ── Giveaways (giveaways design §8) ────────────────────────────────────────────────────
     //
     // The subject is the giveaway's id on the Modbot platform, except for entering and

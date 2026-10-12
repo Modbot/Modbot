@@ -689,6 +689,8 @@ public static class ApiSurface
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
+        // Event templates: a name and the event form's fields without its dates (calendar templates plan).
+        Features.Calendar.CalendarTemplateEndpoints.MapCalendarTemplates(app);
         // The public feed: the events visible to everyone, behind a switch (calendar design §6.1).
         Features.Calendar.PublicCalendarFeedEndpoints.MapPublicCalendarFeed(app);
         // What each time an event ran did: its instance, who came and who joined the group.

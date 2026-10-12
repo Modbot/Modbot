@@ -182,6 +182,9 @@ public static class FactLabels
         [FactType.CalendarCategoryCreated] = "Event category made",
         [FactType.CalendarCategoryChanged] = "Event category renamed",
         [FactType.CalendarCategoryDeleted] = "Event category deleted",
+        [FactType.CalendarTemplateCreated] = "Event template made",
+        [FactType.CalendarTemplateChanged] = "Event template changed",
+        [FactType.CalendarTemplateDeleted] = "Event template deleted",
 
         [FactType.GiveawayCreated] = "Giveaway created",
         [FactType.GiveawayChanged] = "Giveaway changed",

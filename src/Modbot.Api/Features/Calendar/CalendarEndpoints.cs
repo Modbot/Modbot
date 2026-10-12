@@ -1390,7 +1390,7 @@ public static class CalendarEndpoints
     }
 
     /// <summary>What is wrong with the Discord picture an event names, or null (§15.4).</summary>
-    private static async Task<string?> CoverProblemAsync(
+    internal static async Task<string?> CoverProblemAsync(
         ModbotContext db, CalendarEventRequest body, Guid? kept, CancellationToken ct)
     {
         if (body.CoverPictureId is not { } id || id == kept)
@@ -1414,6 +1414,10 @@ public static class CalendarEndpoints
         if (await db.CalendarEvents.AnyAsync(e => e.CoverPictureId == id && e.DeletedAt == null, ct))
             return;
 
+        // So may a template.
+        if (await db.CalendarTemplates.AnyAsync(t => t.CoverPictureId == id, ct))
+            return;
+
         // A post may use the same picture (posts design §2.2): it stays while one does.
         if (await db.Posts.AnyAsync(p => p.PictureId == id, ct))
             return;
@@ -1422,7 +1426,7 @@ public static class CalendarEndpoints
     }
 
     /// <summary>What is wrong with the world list an event names, or null.</summary>
-    private static async Task<string?> ListProblemAsync(ModbotContext db, CalendarEventRequest body, CancellationToken ct)
+    internal static async Task<string?> ListProblemAsync(ModbotContext db, CalendarEventRequest body, CancellationToken ct)
     {
         if (body.WorldListId is not { } listId)
             return null;

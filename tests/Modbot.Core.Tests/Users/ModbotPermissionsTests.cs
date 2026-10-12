@@ -48,6 +48,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 56, (long)ModbotPermissions.ViewAvailability);
         Assert.Equal(1L << 57, (long)ModbotPermissions.ViewReports);
         Assert.Equal(1L << 58, (long)ModbotPermissions.HandleReports);
+        Assert.Equal(1L << 59, (long)ModbotPermissions.ManageTemplates);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -200,5 +201,18 @@ public class ModbotPermissionsTests
         Assert.False(ModbotPermissions.HandleReports.HasFlag(ModbotPermissions.ViewReports));
         Assert.False((ModbotPermissions.ViewReports | ModbotPermissions.HandleReports).HasFlag(ModbotPermissions.ReviewTickets));
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReviewTickets));
+    }
+
+    /// <summary>
+    /// Changing event templates is its own permission, apart from Manage calendar and in no built-in
+    /// role; Administrator still holds it.
+    /// </summary>
+    [Fact]
+    public void ManageTemplatesIsItsOwnPermission_InNoBuiltInRole()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ManageTemplates));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ManageTemplates));
+        Assert.False(ModbotPermissions.ManageCalendar.HasFlag(ModbotPermissions.ManageTemplates));
+        Assert.False(ModbotPermissions.ManageTemplates.HasFlag(ModbotPermissions.ManageCalendar));
     }
 }

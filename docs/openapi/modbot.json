@@ -27976,6 +27976,277 @@
         "security": [ ]
       }
     },
+    "/api/calendar/templates": {
+      "get": {
+        "tags": [
+          "Calendar templates"
+        ],
+        "summary": "List event templates",
+        "description": "Every template by name, with the event fields it fills in. Needs Manage calendar or Manage templates; canManage says whether the caller may also change them.",
+        "operationId": "ListCalendarTemplates",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTemplatesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Calendar templates"
+        ],
+        "summary": "Add event template",
+        "description": "Save a template: a name and the event fields, without dates. A refusal (400) lists everything wrong at once, in problems, and joins it in error. A title, a channel or a world may be left empty; the event made from it is refused for them instead.\n\nNeeds the `ManageTemplates` permission.",
+        "operationId": "CreateCalendarTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTemplateView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/templates/{id}": {
+      "put": {
+        "tags": [
+          "Calendar templates"
+        ],
+        "summary": "Update event template",
+        "description": "Replace a template's name and fields. Events already made from it do not change.\n\nNeeds the `ManageTemplates` permission.",
+        "operationId": "UpdateCalendarTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarTemplateView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Calendar templates"
+        ],
+        "summary": "Delete event template",
+        "description": "Delete a template. Events already made from it stay as they are.\n\nNeeds the `ManageTemplates` permission.",
+        "operationId": "DeleteCalendarTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/public-feed": {
       "get": {
         "tags": [
@@ -38703,6 +38974,360 @@
             "type": "boolean"
           },
           "hasDiscord": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarTemplateFields": {
+        "required": [
+          "title",
+          "description",
+          "lengthMinutes",
+          "repeat",
+          "repeatDays",
+          "repeatEvery",
+          "repeatTimes",
+          "worldId",
+          "worldListId",
+          "accessType",
+          "region",
+          "imageUrl",
+          "vrChatImageId",
+          "coverPictureId",
+          "category",
+          "languages",
+          "platforms",
+          "tags",
+          "visibility",
+          "notifyMembers",
+          "featured",
+          "publishToVRChat",
+          "publishToDiscord",
+          "publishToGoogle",
+          "postToChannel",
+          "channelId",
+          "mentionRoleId",
+          "autoOpen",
+          "openMinutesBefore",
+          "inviteHostUserId",
+          "inviteStaffUserIds",
+          "inviteListId",
+          "announceFirstJoinInDiscord",
+          "announceFirstJoinInVRChat",
+          "vrChatTitle",
+          "vrChatDescription",
+          "discordTitle",
+          "discordDescription",
+          "googleTitle",
+          "googleDescription"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lengthMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "repeat": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "repeatDays": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "repeatEvery": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "repeatTimes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "worldId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "accessType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatImageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "coverPictureId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "platforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notifyMembers": {
+            "type": "boolean"
+          },
+          "featured": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "publishToVRChat": {
+            "type": "boolean"
+          },
+          "publishToDiscord": {
+            "type": "boolean"
+          },
+          "publishToGoogle": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "postToChannel": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mentionRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoOpen": {
+            "type": "boolean"
+          },
+          "openMinutesBefore": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "inviteHostUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inviteStaffUserIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "inviteListId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "announceFirstJoinInDiscord": {
+            "type": "boolean"
+          },
+          "announceFirstJoinInVRChat": {
+            "type": "boolean"
+          },
+          "vrChatTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "googleDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarTemplateRequest": {
+        "required": [
+          "name",
+          "fields"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "fields": {
+            "$ref": "#/components/schemas/CalendarTemplateFields"
+          }
+        }
+      },
+      "CalendarTemplateView": {
+        "required": [
+          "id",
+          "name",
+          "fields",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fields": {
+            "$ref": "#/components/schemas/CalendarTemplateFields"
+          },
+          "createdBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarTemplatesView": {
+        "required": [
+          "templates",
+          "canManage"
+        ],
+        "type": "object",
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarTemplateView"
+            }
+          },
+          "canManage": {
             "type": "boolean"
           }
         }
@@ -60670,6 +61295,10 @@
     {
       "name": "Briefs",
       "x-displayName": "Briefs"
+    },
+    {
+      "name": "Calendar templates",
+      "x-displayName": "Calendar templates"
     },
     {
       "name": "Lists",

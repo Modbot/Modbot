@@ -1678,6 +1678,58 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("calendar_role_ping", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CoverPictureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cover_picture_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Fields")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("fields");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("WorldListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("world_list_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_template");
+
+                    b.HasIndex("CoverPictureId")
+                        .HasDatabaseName("ix_calendar_template_cover_picture_id");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_calendar_template_name");
+
+                    b.HasIndex("WorldListId")
+                        .HasDatabaseName("ix_calendar_template_world_list_id");
+
+                    b.ToTable("calendar_template", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CaseFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -10110,6 +10162,21 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_role_ping_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarTemplate", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarCoverPicture", null)
+                        .WithMany()
+                        .HasForeignKey("CoverPictureId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_calendar_template_calendar_cover_picture_cover_picture_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
+                        .WithMany()
+                        .HasForeignKey("WorldListId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_calendar_template_world_lists_world_list_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordListRole", b =>
