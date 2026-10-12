@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Features.Profiles;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
