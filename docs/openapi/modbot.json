@@ -13337,6 +13337,124 @@
         ]
       }
     },
+    "/api/settings/discord-welcome": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get welcome steps",
+        "description": "The steps a new Discord member is sent: whether it is on, where it goes, the rules that pick a step from a role, and the default steps.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordWelcomeSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordWelcomeSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update welcome steps",
+        "description": "Save the welcome steps. `via` is dm, channel or both; the channel is needed for the last two. Every step is replaced by the lists sent: at most 25 rules (a role, a text of at most 80 characters on one line, and an optional https link) and at most 3 default steps. A member who holds a rule's role is sent its step; defaults fill up to three. Switching on needs at least one step, and welcomes only members who join after that.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordWelcomeSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordWelcomeSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordWelcomeSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-sync": {
       "get": {
         "tags": [
@@ -41371,6 +41489,139 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "DiscordWelcomeDefault": {
+        "required": [
+          "text",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordWelcomeRule": {
+        "required": [
+          "roleId",
+          "text",
+          "link"
+        ],
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordWelcomeSettingsResponse": {
+        "required": [
+          "enabled",
+          "via",
+          "channelId",
+          "rules",
+          "defaults",
+          "mostRules",
+          "mostDefaults",
+          "mostTextLength"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "via": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordWelcomeRule"
+            }
+          },
+          "defaults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordWelcomeDefault"
+            }
+          },
+          "mostRules": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostDefaults": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostTextLength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DiscordWelcomeSettingsUpdate": {
+        "required": [
+          "enabled",
+          "via",
+          "channelId",
+          "rules",
+          "defaults"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "via": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rules": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DiscordWelcomeRule"
+            }
+          },
+          "defaults": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DiscordWelcomeDefault"
+            }
           }
         }
       },

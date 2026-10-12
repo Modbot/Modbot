@@ -271,6 +271,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>People's time at the join gate, open while they wait (join gate design §11).</summary>
     public DbSet<DiscordGateEntry> DiscordGateEntries => Set<DiscordGateEntry>();
 
+    /// <summary>The steps the smart welcome can send, rules and defaults (smart welcome design §7).</summary>
+    public DbSet<DiscordWelcomeStep> DiscordWelcomeSteps => Set<DiscordWelcomeStep>();
+
+    /// <summary>Who the smart welcome has seen, so each member is welcomed once (smart welcome design §5.1).</summary>
+    public DbSet<DiscordWelcome> DiscordWelcomes => Set<DiscordWelcome>();
+
     /// <summary>
     /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
     /// deletes change the row, and a deleted message keeps it.
@@ -509,6 +515,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // Off, for the row that exists already as much as for a new one.
             entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);
+
+            // Off, and sent as a direct message, for the row that exists already.
+            entity.Property(e => e.DiscordWelcomeVia).HasMaxLength(16).HasDefaultValue(DiscordWelcomeWhere.DirectMessage);
         });
 
         builder.Entity<ProtectorKey>(entity =>
@@ -2109,6 +2118,30 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.JoinedAt)
                 .HasFilter("closed_at IS NULL")
                 .HasDatabaseName("ix_discord_gate_entry_waiting");
+        });
+
+        builder.Entity<DiscordWelcomeStep>(entity =>
+        {
+            entity.ToTable("discord_welcome_step");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.Text).HasMaxLength(DiscordWelcomeLimits.MostTextLength);
+            entity.Property(e => e.Link).HasMaxLength(DiscordWelcomeLimits.MostLinkLength);
+
+            // Both lists are read in order.
+            entity.HasIndex(e => new { e.Kind, e.Position }).HasDatabaseName("ix_discord_welcome_step_order");
+        });
+
+        builder.Entity<DiscordWelcome>(entity =>
+        {
+            entity.ToTable("discord_welcome");
+
+            // One row per member: the key is what lets only one of two racing events send.
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
         });
 
         builder.Entity<DiscordLinkCode>(entity =>

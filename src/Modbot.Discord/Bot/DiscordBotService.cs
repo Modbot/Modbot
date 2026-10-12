@@ -348,6 +348,8 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MemberJoined += RecordMemberJoinedAsync;
         gateway.MemberLeft += OnMemberLeftAsync;
         gateway.MemberUpdated += OnMemberUpdatedAsync;
+        gateway.MemberUpdated += WelcomeWaitingMemberAsync;
+        gateway.MemberFinishedOnboarding += OnMemberFinishedOnboardingAsync;
         gateway.MemberBanned += OnMemberBannedAsync;
         gateway.MemberUnbanned += OnMemberUnbannedAsync;
         gateway.VoiceChanged += OnVoiceChangedAsync;
@@ -892,6 +894,37 @@ public sealed class DiscordBotService : BackgroundService
             _log.Warning(e, "Could not send the link prompt to a new Discord member");
             _status.Problem($"Could not send the link prompt to a new member: {e.Message}", _clock.UtcNow);
         }
+
+        await WelcomeAsync(
+            "welcome a new member",
+            (welcome, ct) => welcome.JoinedAsync(gateway, member, gateTookIt, ct),
+            member.GuildId).ConfigureAwait(false);
+    }
+
+    private Task WelcomeWaitingMemberAsync(string guildId, DiscordMemberSnapshot member)
+        => WelcomeAsync("welcome a member the join gate let in", (welcome, ct) =>
+            _gateway is { } gateway ? welcome.UpdatedAsync(gateway, guildId, member, ct) : Task.FromResult<string?>(null), guildId);
+
+    private Task OnMemberFinishedOnboardingAsync(string guildId, DiscordMemberSnapshot member)
+        => WelcomeAsync("welcome a member who finished onboarding", (welcome, ct) =>
+            _gateway is { } gateway ? welcome.FinishedOnboardingAsync(gateway, guildId, member, ct) : Task.FromResult<string?>(null), guildId);
+
+    /// <summary>The smart welcome never stops anything else: a failure is logged and shown as a problem.</summary>
+    private async Task WelcomeAsync(string what, Func<Welcome.SmartWelcome, CancellationToken, Task<string?>> work, string guildId)
+    {
+        if (!IsOurServer(guildId))
+            return;
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            await work(scope.ServiceProvider.GetRequiredService<Welcome.SmartWelcome>(), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
     }
 
     /// <summary>The bot may sit in more than one server; only the one in settings is kept.</summary>
@@ -1222,6 +1255,8 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MemberJoined -= RecordMemberJoinedAsync;
         gateway.MemberLeft -= OnMemberLeftAsync;
         gateway.MemberUpdated -= OnMemberUpdatedAsync;
+        gateway.MemberUpdated -= WelcomeWaitingMemberAsync;
+        gateway.MemberFinishedOnboarding -= OnMemberFinishedOnboardingAsync;
         gateway.MemberBanned -= OnMemberBannedAsync;
         gateway.MemberUnbanned -= OnMemberUnbannedAsync;
         gateway.VoiceChanged -= OnVoiceChangedAsync;

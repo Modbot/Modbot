@@ -1410,6 +1410,13 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <summary>A member's nickname, roles or timeout changed. Carries the member as they are now.</summary>
     event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
 
+    /// <summary>
+    /// A member's flags now say they finished the server's onboarding, and did not before (or the
+    /// session did not know what they were before). Carries the member as they are now. The smart
+    /// welcome reads it (smart welcome design §3).
+    /// </summary>
+    event Func<string, DiscordMemberSnapshot, Task>? MemberFinishedOnboarding;
+
     event Func<string, string, Task>? MemberBanned;
 
     event Func<string, string, Task>? MemberUnbanned;
@@ -1443,6 +1450,12 @@ public interface IDiscordGateway : IAsyncDisposable
 
     /// <summary>How many members the server has, as the session last heard. Null when not known.</summary>
     int? ReadMemberCount(string guildId);
+
+    /// <summary>
+    /// Whether the server has Discord's onboarding switched on: one REST request. Null when the bot
+    /// is not in the server or Discord did not answer.
+    /// </summary>
+    Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct);
 
     /// <summary>
     /// How many of the server's members Discord counts as online: one REST request for the server

@@ -83,6 +83,9 @@ public static class FactRetention
         // The prompt sent to a new Discord member. The link and its roles are history; this is not.
         "discord.link.prompt",
 
+        // The next steps sent to a new Discord member, for the same reason.
+        "discord.welcome.send",
+
         // The join gate's halfway warning, for the same reason. Getting in and being removed are
         // history; being reminded is not.
         "discord.gate.warn",

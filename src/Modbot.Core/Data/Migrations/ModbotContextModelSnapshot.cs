@@ -3317,6 +3317,72 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcome", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_discord_welcome");
+
+                    b.ToTable("discord_welcome", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcomeStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("link");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_welcome_step");
+
+                    b.HasIndex("Kind", "Position")
+                        .HasDatabaseName("ix_discord_welcome_step_order");
+
+                    b.ToTable("discord_welcome_step", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EmailQueueEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7825,6 +7891,26 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordStaffRolesOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_staff_roles_on");
+
+                    b.Property<string>("DiscordWelcomeChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_welcome_channel_id");
+
+                    b.Property<bool>("DiscordWelcomeEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_welcome_enabled");
+
+                    b.Property<DateTimeOffset?>("DiscordWelcomeStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_welcome_started_at");
+
+                    b.Property<string>("DiscordWelcomeVia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("dm")
+                        .HasColumnName("discord_welcome_via");
 
                     b.Property<int>("EmailLimitPer24Hours")
                         .HasColumnType("integer")

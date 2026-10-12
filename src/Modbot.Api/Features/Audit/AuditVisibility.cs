@@ -170,6 +170,7 @@ public static class AuditVisibility
         [FactType.DiscordLinkRoleGranted] = AuditCategory.Moderation,
         [FactType.DiscordLinkRoleRemoved] = AuditCategory.Moderation,
         [FactType.DiscordLinkPrompted] = AuditCategory.Operational,
+        [FactType.DiscordWelcomeSent] = AuditCategory.Operational,
 
         // Getting in, being let in and being removed at the join gate are member history; so are
         // holds and paused invites, which decide who gets in. The warning is plumbing, like the

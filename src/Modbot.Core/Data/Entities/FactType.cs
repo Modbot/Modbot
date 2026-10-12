@@ -278,6 +278,14 @@ public static class FactType
     /// </summary>
     public const string DiscordLinkPrompted = "discord.link.prompt";
 
+    /// <summary>
+    /// A new member was sent the smart welcome (smart welcome design §6). Subject is the Discord
+    /// account. Payload: <c>via</c> (<c>dm</c>, <c>channel</c>, <c>both</c> or <c>none</c> when nothing
+    /// could be delivered), <c>steps</c>, and <c>error</c> when something failed. Short retention:
+    /// plumbing.
+    /// </summary>
+    public const string DiscordWelcomeSent = "discord.welcome.send";
+
     // ── The join gate (join gate design §7) ────────────────────────────────────────────────
     //
     // Subject is the Discord account at the gate. A person who let somebody in, removed them, held

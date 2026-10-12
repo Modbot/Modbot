@@ -101,6 +101,9 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkedRoles>();
         services.AddScoped<LinkPrompt>();
 
+        // The next steps a new member is sent (smart welcome design).
+        services.AddScoped<Welcome.SmartWelcome>();
+
         // The join gate (join gate design). Its own loop as well; the state is shared by the loop,
         // the buttons and the API's actions, so one change to a person's row happens at a time.
         services.TryAddSingleton<Gate.JoinGateState>();

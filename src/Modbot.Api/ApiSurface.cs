@@ -525,6 +525,9 @@ public static class ApiSurface
         app.MapDiscordGateSettings();
         app.MapDiscordGate();
 
+        // The next steps a new member is sent, picked by rules on their roles (smart welcome design).
+        app.MapDiscordWelcomeSettings();
+
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).
         app.MapDiscordSync();

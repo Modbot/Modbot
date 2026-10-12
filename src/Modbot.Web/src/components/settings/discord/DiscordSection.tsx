@@ -12,6 +12,7 @@ import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
 import { ListRolesCard } from './ListRolesCard'
 import { SyncCard } from './SyncCard'
+import { WelcomeCard } from './WelcomeCard'
 
 /**
  * Instance cards are posted, then fetched by id and rewritten -- and fetching a message needs
@@ -50,6 +51,7 @@ export function DiscordSection({
           <LinkingCard />
           <CommandsCard />
           <JoinGateCard />
+          <WelcomeCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}
           <ListRolesCard />

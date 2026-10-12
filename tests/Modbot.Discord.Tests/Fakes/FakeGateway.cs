@@ -895,6 +895,8 @@ public sealed class FakeGateway : IDiscordGateway
 
     public event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
 
+    public event Func<string, DiscordMemberSnapshot, Task>? MemberFinishedOnboarding;
+
     public event Func<string, string, Task>? MemberBanned;
 
     public event Func<string, string, Task>? MemberUnbanned;
@@ -933,6 +935,11 @@ public sealed class FakeGateway : IDiscordGateway
 
     public int? ReadMemberCount(string guildId) => Members?.Count;
 
+    /// <summary>What the server's onboarding is, as the bot reads it. Null is a read that failed.</summary>
+    public bool? OnboardingOn { get; set; }
+
+    public Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct) => Task.FromResult(OnboardingOn);
+
     public int? Online { get; set; }
 
     public int OnlineReads { get; private set; }
@@ -968,6 +975,9 @@ public sealed class FakeGateway : IDiscordGateway
 
     public Task RaiseMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
         => MemberUpdated?.Invoke(guildId, member) ?? Task.CompletedTask;
+
+    public Task RaiseMemberFinishedOnboardingAsync(string guildId, DiscordMemberSnapshot member)
+        => MemberFinishedOnboarding?.Invoke(guildId, member) ?? Task.CompletedTask;
 
     public Task RaiseMemberBannedAsync(string guildId, string userId)
         => MemberBanned?.Invoke(guildId, userId) ?? Task.CompletedTask;

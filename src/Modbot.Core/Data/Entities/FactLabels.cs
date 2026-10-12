@@ -98,6 +98,7 @@ public static class FactLabels
         [FactType.DiscordLinkRoleGranted] = "Discord role given for a link",
         [FactType.DiscordLinkRoleRemoved] = "Discord role taken away for a link",
         [FactType.DiscordLinkPrompted] = "Asked to link on Discord",
+        [FactType.DiscordWelcomeSent] = "Sent next steps on Discord",
         [FactType.DiscordGatePassed] = "Passed the join gate",
         [FactType.DiscordGateLetIn] = "Let in at the join gate",
         [FactType.DiscordGateRemoved] = "Removed at the join gate",

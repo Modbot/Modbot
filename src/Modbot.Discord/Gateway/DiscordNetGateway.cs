@@ -1367,6 +1367,27 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         });
     }
 
+    public async Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return null;
+
+        try
+        {
+            var guild = await _client.Rest.GetGuildAsync(id).ConfigureAwait(false);
+            if (guild is null)
+                return null;
+
+            var onboarding = await guild.GetOnboardingAsync().ConfigureAwait(false);
+            return onboarding?.IsEnabled;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read whether the Discord server has onboarding");
+            return null;
+        }
+    }
+
     public async Task<DiscordPostOutcome> PauseInvitesAsync(string guildId, DateTimeOffset until, CancellationToken ct)
     {
         if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
@@ -1614,6 +1635,17 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             _ = Task.Run(() => Guard(handler(Text(after.Guild.Id), snapshot), "member updated"));
         }
 
+        // Raised for an update whose flags say onboarding is done, unless the session saw the member
+        // with that flag already. Without the member in memory, the update counts.
+        var finished = MemberFinishedOnboarding;
+        if (finished is not null
+            && after.Flags.HasFlag(GuildUserFlags.CompletedOnboarding)
+            && !(before.HasValue && before.Value.Flags.HasFlag(GuildUserFlags.CompletedOnboarding)))
+        {
+            var snapshot = Describe(after);
+            _ = Task.Run(() => Guard(finished(Text(after.Guild.Id), snapshot), "member finished onboarding"));
+        }
+
         // The bot's own roles move its permissions everywhere, so the whole server is read again.
         return after.Id == _client.CurrentUser?.Id
             ? ServerChangedIn(after.Guild.Id)
@@ -1625,6 +1657,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     public event Func<string, string, Task>? MemberLeft;
 
     public event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
+
+    public event Func<string, DiscordMemberSnapshot, Task>? MemberFinishedOnboarding;
 
     public event Func<string, string, Task>? MemberBanned;
 

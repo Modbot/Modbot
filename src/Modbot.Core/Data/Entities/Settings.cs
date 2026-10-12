@@ -734,6 +734,23 @@ public class Settings
     /// <summary>The newest "People joining Discord" alert the gate has looked at, so each is acted on once.</summary>
     public DateTimeOffset? DiscordGateSpikeSeenAt { get; set; }
 
+    // --- Smart welcome (smart welcome design §7) ---
+
+    /// <summary>Whether new members are sent next steps. Off by default.</summary>
+    public bool DiscordWelcomeEnabled { get; set; }
+
+    /// <summary>One of <see cref="DiscordWelcomeWhere"/>.</summary>
+    public string DiscordWelcomeVia { get; set; } = DiscordWelcomeWhere.DirectMessage;
+
+    /// <summary>Where the channel post goes. Needed when <see cref="DiscordWelcomeVia"/> includes a channel.</summary>
+    public string? DiscordWelcomeChannelId { get; set; }
+
+    /// <summary>
+    /// When the switch was last turned on, so only members who joined after it are welcomed. Null
+    /// while the switch is off.
+    /// </summary>
+    public DateTimeOffset? DiscordWelcomeStartedAt { get; set; }
+
     // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
     //
     // Three switches, all off, because each one is a different decision. Turning any of them on

@@ -382,6 +382,34 @@ export type DiscordGateSettingsInput = {
   pauseInvites: boolean
 }
 
+export type DiscordWelcomeVia = 'dm' | 'channel' | 'both'
+
+/** A member who holds `roleId` is sent this step. */
+export type DiscordWelcomeRule = { roleId: string; text: string; link: string | null }
+
+/** Sent when fewer than three rules matched. */
+export type DiscordWelcomeDefault = { text: string; link: string | null }
+
+/** Settings → Discord → Welcome steps (smart welcome design §7). */
+export type DiscordWelcomeSettings = {
+  enabled: boolean
+  via: DiscordWelcomeVia
+  channelId: string | null
+  rules: DiscordWelcomeRule[]
+  defaults: DiscordWelcomeDefault[]
+  mostRules: number
+  mostDefaults: number
+  mostTextLength: number
+}
+
+export type DiscordWelcomeSettingsInput = {
+  enabled: boolean
+  via: DiscordWelcomeVia
+  channelId: string
+  rules: DiscordWelcomeRule[]
+  defaults: DiscordWelcomeDefault[]
+}
+
 /** One person at the join gate. */
 export type DiscordGateRow = {
   discordUserId: string
@@ -4887,6 +4915,11 @@ export const api = {
 
   setDiscordGateSettings: (body: DiscordGateSettingsInput) =>
     put<DiscordGateSettings>('/api/settings/discord-gate', body),
+
+  discordWelcomeSettings: () => request<DiscordWelcomeSettings>('/api/settings/discord-welcome'),
+
+  setDiscordWelcomeSettings: (body: DiscordWelcomeSettingsInput) =>
+    put<DiscordWelcomeSettings>('/api/settings/discord-welcome', body),
 
   /** Who is waiting at the join gate, and whether new joiners are held. */
   discordGate: () => request<DiscordGate>('/api/discord/gate'),
