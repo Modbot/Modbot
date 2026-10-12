@@ -64,6 +64,7 @@ public static class CalendarTemplateEndpoints
 
                 return Results.Ok(new CalendarTemplatesView(await ViewsAsync(db, templates, ct), manage));
             })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("ListCalendarTemplates")
             .WithSummary("List event templates")
             .WithDescription(
@@ -109,7 +110,7 @@ public static class CalendarTemplateEndpoints
 
                 return Results.Ok((await ViewsAsync(db, [template], ct))[0]);
             })
-            .RequiresFlag(ModbotPermissions.ManageTemplates)
+            .RequiresFlag(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates)
             .WithName("CreateCalendarTemplate")
             .WithSummary("Add event template")
             .WithDescription(
@@ -139,18 +140,15 @@ public static class CalendarTemplateEndpoints
                 if (refused is not null)
                     return refused;
 
-                var before = new { template.Name, template.Fields, template.CoverPictureId, template.WorldListId };
+                // Compared as the fields an event form would load, written out the same way. Postgres hands
+                // jsonb back in its own key order and spacing, so the stored text itself is no basis.
+                var before = (template.Name, Fields: JsonSerializer.Serialize(FieldsOf(template), Json));
                 var previousName = template.Name;
 
                 Fill(template, name!, fields!);
 
-                if (before.Name == template.Name
-                    && before.Fields == template.Fields
-                    && before.CoverPictureId == template.CoverPictureId
-                    && before.WorldListId == template.WorldListId)
-                {
+                if (before == (template.Name, JsonSerializer.Serialize(FieldsOf(template), Json)))
                     return Results.Ok((await ViewsAsync(db, [template], ct))[0]);
-                }
 
                 template.UpdatedAt = clock.UtcNow;
 
@@ -169,7 +167,7 @@ public static class CalendarTemplateEndpoints
 
                 return Results.Ok((await ViewsAsync(db, [template], ct))[0]);
             })
-            .RequiresFlag(ModbotPermissions.ManageTemplates)
+            .RequiresFlag(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates)
             .WithName("UpdateCalendarTemplate")
             .WithSummary("Update event template")
             .WithDescription("Replace a template's name and fields. Events already made from it do not change.")
@@ -201,7 +199,7 @@ public static class CalendarTemplateEndpoints
 
                 return Results.NoContent();
             })
-            .RequiresFlag(ModbotPermissions.ManageTemplates)
+            .RequiresFlag(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates)
             .WithName("DeleteCalendarTemplate")
             .WithSummary("Delete event template")
             .WithDescription("Delete a template. Events already made from it stay as they are.")

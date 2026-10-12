@@ -160,6 +160,28 @@ public class CalendarTemplateEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ManageTemplatesWithoutSeeCalendarCannotReadOrChangeTemplates()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var id = await CreateAsync(host, manager);
+        var (_, templatesOnly) = await host.SignedInAsync(ModbotPermissions.ManageTemplates, Ct);
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Path, templatesOnly), Ct)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.SendJsonAsync(HttpMethod.Post, Path, Body("Another"), templatesOnly, Ct)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", Body("Another"), templatesOnly, Ct)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.SendJsonAsync(HttpMethod.Delete, $"{Path}/{id}", null, templatesOnly, Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task ManageTemplatesWithoutManageCalendarMakesATemplate()
     {
         await using var host = await StartAsync();

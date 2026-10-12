@@ -206,7 +206,8 @@ export function CalendarEventForm({
     }))
   }
 
-  const isNew = !event
+  // A saved template keeps the Google tick it has (null stays null), as a saved event does.
+  const isNew = !event && !template?.id
   // VRChat's roles are not in the form: an event shown only to some roles keeps them, and stays
   // members-only for Google Calendar.
   const roleIds = event?.vrChatRoleIds ?? null
