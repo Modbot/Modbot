@@ -67,7 +67,7 @@ connected, how many commands it registered, when it last posted, and the last pr
 
 On the **Channels** card, press **Add channel**:
 
-1. **Channel** — pick it by name. A channel where the bot is missing View Channel, Send Messages
+1. **Channel** — pick it by name. A channel where the bot is missing View Channels, Send Messages
    or Embed Links is marked with what is missing; fix that in Discord's channel settings.
 2. **Events** — tick the events to send, one by one or a whole group at a time.
 3. **Filters**, all optional. Leave them empty to send every event of the ticked kinds.
@@ -176,7 +176,7 @@ This needs the **Server Members Intent** from step 1. If it is off, the bot keep
 it, and **Settings → Health** says so.
 
 If somebody does not accept direct messages, the bot mentions them in the **Backup channel**
-instead. Leave it empty to skip that. The bot needs View Channel and Send Messages there.
+instead. Leave it empty to skip that. The bot needs View Channels and Send Messages there.
 
 ## If something is wrong
 
@@ -186,7 +186,7 @@ Check **Settings → Health** first; the bot's card says what it last ran into.
 |---|---|
 | Discord rejected the bot token | Reset the token in the Developer Portal and paste the new one. The bot stops trying until the settings change. |
 | The bot is not in that server | The guild id is wrong, or the invite was never completed. Check both. |
-| A channel with Missing … or a refusal beside it | Give the bot View Channel, Send Messages and Embed Links in that channel, or pick another. |
+| A channel with Missing … or a refusal beside it | Give the bot View Channels, Send Messages and Embed Links in that channel, or pick another. |
 | Commands do not appear in Discord | The invite link was missing the `applications.commands` scope. Re-invite with it; nothing else needs changing. |
 | Reconnecting | The connection dropped and is being retried. This usually clears by itself within a minute. |
 | Intents off in the Developer Portal | Switch the named intents on under **Bot → Privileged Gateway Intents**. Until then the bot connects without them; it asks for them again when Modbot restarts or the Discord settings change. |

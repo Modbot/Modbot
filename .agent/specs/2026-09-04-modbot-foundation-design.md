@@ -1596,6 +1596,11 @@ Three reasons, and the third is the one that settles it:
 The test for this path: *would anyone ever query an individual one of these?* If yes, it is a fact.
 Kicks, bans, joins, leaves and voice-channel sessions are all facts. Message counts are not.
 
+> **Changed 2026-09-15.** Discord messages are now stored in full, with their text, in their own table
+> and under their own retention setting, not counted and discarded. The privacy reasoning above lost
+> to the wish for message analytics and AI moderation that reads chat. See the M5 Discord sync design,
+> section 5.1, and `.agent/docs/data-retention.md`.
+
 ### 5.3 Fact schema
 
 ```sql

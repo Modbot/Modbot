@@ -5,8 +5,10 @@ aggregates derived from it. This page says what is kept, for how long, and how t
 
 ## Modbot does not delete anything by default
 
-There is no default retention period. A deployment nobody has configured keeps every fact forever,
-and that is the intended way to run it.
+There is no default retention period for the group's history. A deployment nobody has configured
+keeps every fact and every stored Discord message forever, and that is the intended way to run it.
+The only defaults that delete are for things that are not history: Modbot's own log lines (180 days)
+and what a member wrote in a closed report (365 days).
 
 This is not an oversight to be tidied up later. Group history cannot be filled in later: whatever
 Modbot did not record while it was happening is gone, and no amount of API access brings it back.
@@ -17,13 +19,17 @@ is most of what Modbot exists to be able to tell you.
 | | Examples | Default retention |
 |---|---|---|
 | **Moderation facts** | bans, kicks, role changes, membership changes, audit-log entries, Modbot's own logins and settings changes | forever |
-| **Presence facts** | instance joins and leaves, avatar changes, voice sessions, and Modbot's operational log | forever |
+| **Presence facts** | instance joins and leaves, avatar changes, voice sessions, and Modbot's routine notices (sync problems, rate limits, retention runs) | forever |
+| **Discord messages** | stored messages with their earlier versions, including deleted ones (see *Discord messages* below) | forever |
+| **Closed member reports** | what the member wrote and the copy of the message they reported, once the report is closed | 365 days |
+| **Modbot's log** | Modbot's log lines in the database (not facts: Modbot talking about itself) | 180 days |
 | **Case files** | the written rationale for a ban, the evidence attached to it, and the snapshot of the subject's profile at the time | forever — **and see the exception below** |
-| **Daily totals** | daily aggregates: member counts, join and leave rates, per-moderator action counts | forever |
+| **Daily totals** | daily aggregates: member counts, join and leave rates, per-moderator action counts, message counts | forever |
 
-Both fact retentions are configurable if you want a window. Daily totals are never aged out, so charts
-keep their full history even where the underlying events have been removed — the aggregate
-survives, the individual rows do not.
+Each window except case files and daily totals is set under Settings → Server → Keep for (days);
+`0` means forever. Closed reports and Modbot's log start at the numbers in the table, not at forever.
+Daily totals are never aged out, so charts keep their full history
+even where the underlying events have been removed — the aggregate survives, the individual rows do not.
 
 ## What keeping everything costs
 
@@ -54,8 +60,9 @@ decides your storage bill, not the history.
 
 They also grow differently, which matters more than the ratio. Facts arrive at a steady rate, so
 projecting them forward is meaningful. Evidence arrives per ban: nothing for a month, then four
-videos in a bad weekend. Modbot therefore measures and projects the two **separately** and shows them
-as separate lines, rather than fitting one trend through both and being wrong about each.
+videos in a bad weekend. Modbot therefore keeps the two **separate**: the Storage card's size and
+estimate cover facts and daily totals only, and evidence is counted and sized on its own, rather
+than fitting one trend through both and being wrong about each.
 
 Where those files live is your choice — an S3-compatible bucket (recommended), a mounted disk, or
 inside the database. Only the last one lands in the numbers above, and it is the option Modbot
@@ -63,22 +70,29 @@ recommends against, because it also lands in every `pg_dump` you take.
 
 ### The settings page shows your numbers, not these ones
 
-Under **Settings → Data**, Modbot reports what your own deployment is doing:
+Under **Settings → Server → Storage and machine usage**, the **Storage** card reports what your own
+deployment is doing:
 
-- **Current usage** — real bytes on disk, asked of the database directly, including indexes.
-- **Growth rate** — facts per day, measured from your own fact log.
-- **Projected size** at 6, 12 and 24 months if that rate continues.
-- **Evidence**, counted and sized on its own line, wherever you have chosen to keep it.
+- **Database** — real bytes on disk, asked of the database directly, including indexes. Facts and
+  daily totals only.
+- **Records** and **Per record** — how many facts are stored and the measured size of one.
+- **Arriving** — facts per day, measured from your own fact log.
+- A chart of the size recorded each day over the past year, and a straight-line estimate for the
+  next year if that rate continues.
 
-Enter either a **per-GB monthly price** (if you pay for hosting) or your **disk size** (if you host
-at home), and the estimate is restated as a monthly cost or as the date you would run out of
-room.
+Evidence is not in those numbers. Its count and size are under **Settings → Evidence**, as
+**Evidence held**, wherever you have chosen to keep it. Stored Discord messages are not in them
+either.
+
+Enter either a **cost per GB a month** (if you pay for hosting) or your **disk size** (if you host
+at home), and the estimate is restated as a monthly cost or as the date you would run out of room.
+Both are remembered by your browser only; Modbot does not store them.
 
 Two things are worth knowing about those estimates. They are a straight line, which real growth
 is not — a group that opens more instances generates more facts per member — so treat them as an
-order of magnitude rather than a forecast. And Modbot will not extrapolate at all from less than a
-day of history; a brand-new deployment shows its size and its rate, and no estimate, until it has
-watched for long enough to have something to say.
+order of magnitude rather than a forecast. And with less than a day of history **Arriving** says
+**Not measurable yet** and the estimate is drawn as a rough guess with a wide shaded band; the band
+narrows as Modbot watches for longer, and goes away after a month.
 
 ## Privacy
 
@@ -122,8 +136,17 @@ If you decide a particular piece of evidence should go, an administrator can del
 one file at a time, with the deletion itself recorded. That remains possible. It is simply not
 something a purge does on your behalf without telling you.
 
-Modbot never stores Discord message content. Message volume is counted per person per day and no
-record of an individual message is written.
+## Discord messages
+
+Modbot stores the Discord messages the bot can see: who sent each one, where and when, the text
+(only with the Message Content Intent turned on in the Discord Developer Portal), the names and
+sizes of attached files, every earlier version of an edited message, and deleted messages, which
+are kept and marked as deleted. This changed on 2026-09-15 (M5 design, section 5.1), after the first
+design said Modbot would never store message text.
+
+Stored messages have their own retention window and are not facts. A purge removes the messages
+the person wrote along with the rest of their record. The daily totals for message counts are kept
+after the messages themselves are gone.
 
 ## How deletion works
 
@@ -132,14 +155,17 @@ one at a time. A month is only destroyed once everything in it is past its reten
 still holds moderation facts, it is rebuilt containing only those.
 
 **Purge user** erases every fact about one person across all of history, together with any
-per-person counts held only as aggregates. Three things deliberately survive it:
+per-person counts held only as aggregates, the Discord messages they wrote, and the other
+per-person records Modbot holds (giveaway entries, event invites and reminders, member reports they
+made or that were made about them). Three things deliberately survive it:
 
 - Records of moderation actions that person *performed* on someone else. Those are records about
   the people they were applied to, and erasing them would delete someone else's moderation history.
 - **Case files written about them** — the rationale, the evidence, and the profile snapshot. See
   *The exception* above, which explains why at length, because it is the one place this page's
   promise about deletion does not hold.
-- The fact that a purge happened, and how much was removed. It does not record who was purged.
+- The fact that a purge happened, and how much was removed. It names the account that asked for it,
+  and does not record who was purged.
 
 Daily aggregates are recomputed as part of the purge, so nothing that was deleted is still being
 counted.
