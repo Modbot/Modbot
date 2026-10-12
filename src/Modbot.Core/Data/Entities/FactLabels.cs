@@ -177,6 +177,9 @@ public static class FactLabels
         [FactType.WorldListCreated] = "World list made",
         [FactType.WorldListChanged] = "World list changed",
         [FactType.WorldListDeleted] = "World list deleted",
+        [FactType.CalendarCategoryCreated] = "Event category made",
+        [FactType.CalendarCategoryChanged] = "Event category renamed",
+        [FactType.CalendarCategoryDeleted] = "Event category deleted",
 
         [FactType.GiveawayCreated] = "Giveaway created",
         [FactType.GiveawayChanged] = "Giveaway changed",

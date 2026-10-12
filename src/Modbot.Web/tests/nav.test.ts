@@ -166,7 +166,7 @@ test('Community heads the pages from Requests to Availability, each of which nam
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -284,10 +284,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports and Event categories: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports') continue
+    if (item.id === 'reports' || item.id === 'event-categories') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })

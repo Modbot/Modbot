@@ -54,6 +54,11 @@ namespace Modbot.Api.Features.Calendar;
 /// <paramref name="RepeatUntil"/>.
 /// </param>
 /// <param name="Featured">Ask VRChat to show the event as featured. Null keeps what the event has.</param>
+/// <param name="CategoryIds">
+/// The categories admins made in Modbot (<c>GET /api/calendar/categories</c>) that the event
+/// carries, any number. Null keeps what the event has; empty takes them all off. These are Modbot's
+/// own and VRChat never hears of them; <paramref name="Category"/> stays VRChat's.
+/// </param>
 /// <param name="PublishToGoogle">
 /// Send the event to the Google calendar in Settings. Null keeps what the event has; for a new event,
 /// null ticks it when Google Calendar is set up and the event is visible to everyone. An event only
@@ -103,7 +108,20 @@ public sealed record CalendarEventRequest(
     string? DiscordTitle = null,
     string? DiscordDescription = null,
     string? GoogleTitle = null,
-    string? GoogleDescription = null);
+    string? GoogleDescription = null,
+    IReadOnlyList<Guid>? CategoryIds = null);
+
+/// <summary>A category made in Modbot, by the id an event holds it by.</summary>
+public sealed record CalendarCategoryView(Guid Id, string Name);
+
+/// <summary>A category as a person saves it.</summary>
+public sealed record CalendarCategoryRequest(string Name);
+
+/// <param name="UsedBy">Events, not deleted, that carry it.</param>
+public sealed record CalendarCategoryDetailView(Guid Id, string Name, int UsedBy);
+
+/// <param name="CanManage">The account may make, rename and delete categories.</param>
+public sealed record CalendarCategoriesView(IReadOnlyList<CalendarCategoryDetailView> Categories, bool CanManage);
 
 /// <summary>How far the current time's invites have got (calendar auto-invite design §10).</summary>
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
@@ -260,6 +278,7 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="RepeatEvery">How many days, weeks or months apart the repeat falls; 1 for every one.</param>
 /// <param name="RepeatTimes">How many dates the repeat has before it stops, or null.</param>
 /// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
+/// <param name="Categories">The categories made in Modbot that the event carries, by name; none for an event with none.</param>
 /// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
 /// <param name="VRChatRoleIds">
 /// The group roles VRChat shows the event to, kept as VRChat said them for an event read in from
@@ -332,7 +351,8 @@ public sealed record CalendarEventView(
     string? DiscordTitle = null,
     string? DiscordDescription = null,
     string? GoogleTitle = null,
-    string? GoogleDescription = null);
+    string? GoogleDescription = null,
+    IReadOnlyList<CalendarCategoryView>? Categories = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>

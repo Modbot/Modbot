@@ -181,7 +181,12 @@ export type CalendarEvent = {
   discordDescription?: string | null
   googleTitle?: string | null
   googleDescription?: string | null
+  /** The categories made in Modbot that the event carries, by name. Missing from an older server. */
+  categories?: CalendarCategory[]
 }
+
+/** A category an admin made in Modbot for events, on top of VRChat's own list. */
+export type CalendarCategory = { id: string; name: string }
 
 /** A time the channel streamed on Twitch while an event was on. */
 export type CalendarTwitchStream = {
@@ -467,6 +472,8 @@ export type CalendarEventInput = {
   discordDescription?: string
   googleTitle?: string
   googleDescription?: string
+  /** The Modbot categories the event carries; an empty list takes them all off. */
+  categoryIds: string[]
 }
 
 /** Who made a Discord server event. A person is never named. */
@@ -766,6 +773,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     discordDescription: '',
     googleTitle: '',
     googleDescription: '',
+    categoryIds: [],
   }
 }
 
@@ -822,5 +830,6 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     discordDescription: event.discordDescription ?? '',
     googleTitle: event.googleTitle ?? '',
     googleDescription: event.googleDescription ?? '',
+    categoryIds: (event.categories ?? []).map((c) => c.id),
   }
 }

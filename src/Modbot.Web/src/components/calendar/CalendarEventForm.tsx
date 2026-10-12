@@ -43,6 +43,7 @@ import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
+import { calendarCategoryApi, type CalendarCategoryRow } from '@/lib/calendarCategories'
 import { DISCORD_COVER_ASPECT, pictureFollowingLink, VRCHAT_PICTURE_ASPECT } from '@/lib/eventPicture'
 import { CroppedPicture } from './PictureCrop'
 import { usePictureThumbnails } from './usePictureThumbnails'
@@ -109,6 +110,8 @@ export function CalendarEventForm({
   const [choices, setChoices] = useState<CalendarInviteChoices>({ staff: [], lists: null })
   const [typedWorld, setTypedWorld] = useState(false)
   const [lists, setLists] = useState<WorldList[]>([])
+  // The categories made in Modbot, which any number may be ticked on the event.
+  const [categoryChoices, setCategoryChoices] = useState<CalendarCategoryRow[]>([])
   const [pickingList, setPickingList] = useState(false)
   // Set once Save or Schedule was refused for a list not chosen, so the field says so.
   const [listMissed, setListMissed] = useState(false)
@@ -150,6 +153,10 @@ export function CalendarEventForm({
       .all()
       .then((answer) => setLists(answer.lists))
       .catch(() => setLists([]))
+    calendarCategoryApi
+      .all()
+      .then((answer) => setCategoryChoices(answer.categories))
+      .catch(() => setCategoryChoices([]))
     calendarApi
       .inviteChoices()
       .then(setChoices)
@@ -167,7 +174,7 @@ export function CalendarEventForm({
   const set = <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) =>
     setInput((current) => ({ ...current, [key]: value }))
 
-  const toggle = (key: 'repeatDays' | 'platforms', value: string) =>
+  const toggle = (key: 'repeatDays' | 'platforms' | 'categoryIds', value: string) =>
     setInput((current) => ({
       ...current,
       [key]: current[key].includes(value) ? current[key].filter((v) => v !== value) : [...current[key], value],
@@ -398,6 +405,19 @@ export function CalendarEventForm({
                 </Counted>
                 <OwnText input={input} set={set} />
 
+                {categoryChoices.length > 0 && (
+                  <Section title="Categories">
+                    <div role="group" aria-label="Categories" className="flex flex-wrap gap-2">
+                      {categoryChoices.map((c) => (
+                        <Chip key={c.id} on={input.categoryIds.includes(c.id)} onClick={() => toggle('categoryIds', c.id)}>
+                          {input.categoryIds.includes(c.id) && <Check className="size-3.5" />}
+                          {c.name}
+                        </Chip>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
                 <Section title="When">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Labelled label="Starts">
@@ -601,8 +621,8 @@ export function CalendarEventForm({
                 {input.publishToVRChat && (
                   <Section title={DESTINATION_LABEL.vrchat}>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Labelled label="Category">
-                        <Select value={input.category} onChange={(v) => set('category', v)} aria-label="Category">
+                      <Labelled label="VRChat category">
+                        <Select value={input.category} onChange={(v) => set('category', v)} aria-label="VRChat category">
                           {categories.map((c) => (
                             <option key={c} value={c}>
                               {CATEGORY_LABEL[c] ?? c}

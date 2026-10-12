@@ -57,6 +57,14 @@ public static class CalendarPreviews
         if (CalendarEndpoints.Apply(request.Event, calendarEvent, preview: true) is { } problem)
             return new CalendarPreviewResult(null, problem);
 
+        // The categories picked on the form, for the Discord card; none picked yet keeps the event's own.
+        if (request.Event.CategoryIds is { } categoryIds)
+        {
+            calendarEvent.Categories = await db.CalendarCategories.AsNoTracking()
+                .Where(c => categoryIds.Contains(c.Id))
+                .ToListAsync(ct);
+        }
+
         // As a save leaves it: a draft or a finished event starts again, and the current occurrence
         // is worked out from the rule as it is now.
         if (calendarEvent.State is CalendarEventStates.Draft or CalendarEventStates.Finished)

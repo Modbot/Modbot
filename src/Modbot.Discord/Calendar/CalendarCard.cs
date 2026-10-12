@@ -78,6 +78,9 @@ public static class CalendarCard
         fields.Add(new DiscordEmbedField("Who can join", Access(calendarEvent.AccessType), Inline: true));
         fields.Add(new DiscordEmbedField("Region", calendarEvent.Region.ToUpperInvariant(), Inline: true));
 
+        if (CategoryNames(calendarEvent) is { } categories)
+            fields.Add(new DiscordEmbedField(calendarEvent.Categories.Count == 1 ? "Category" : "Categories", categories, Inline: false));
+
         var link = state == CalendarCardState.Open ? joinLink : null;
 
         // A date with its own title or description says its own (calendar design §2.2).
@@ -167,6 +170,10 @@ public static class CalendarCard
             }
         }
 
+        // First, so the cut at the limit takes it from the end of a long description, never this.
+        if (CategoryLine(calendarEvent) is { } categoryLine)
+            description = description.Length == 0 ? categoryLine : categoryLine + "\n\n" + description;
+
         return new DiscordScheduledEventDetails(
             Cut(title ?? CalendarSiteText.Title(calendarEvent, CalendarSite.Discord), DiscordEventNameLimit),
             description.Length == 0 ? null : Cut(description, DiscordEventDescriptionLimit),
@@ -188,6 +195,28 @@ public static class CalendarCard
         // Escaped, because it sits inside the bold: a title with a star in it would end it early.
         return $"**{CardText.EscapeName(title ?? CalendarSiteText.Title(calendarEvent, CalendarSite.Discord))}** · {Stamp(startsAt, "F")} · Cancelled";
     }
+
+    /// <summary>
+    /// The names of the categories made in Modbot that the event carries, in alphabetical order and
+    /// escaped like any name an admin typed; null when it carries none.
+    /// </summary>
+    public static string? CategoryNames(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.Categories.Count == 0
+            ? null
+            : string.Join(", ", calendarEvent.Categories
+                .Select(c => c.Name)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(CardText.EscapeName));
+    }
+
+    /// <summary>The server event's description line for the categories, or null when there are none.</summary>
+    public static string? CategoryLine(CalendarEvent calendarEvent) =>
+        CategoryNames(calendarEvent) is { } names
+            ? (calendarEvent.Categories.Count == 1 ? "Category: " : "Categories: ") + names
+            : null;
 
     private static string? WorldName(CalendarEvent calendarEvent, VRChatWorld? world) =>
         world?.Name is { Length: > 0 } name ? name : calendarEvent.WorldId;

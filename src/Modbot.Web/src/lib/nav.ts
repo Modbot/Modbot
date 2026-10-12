@@ -86,6 +86,9 @@ export const NAV = [
   { id: 'audit', label: 'Audit log', group: 'Community', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
   // Planned events, where each is published, and the calendar feed (calendar design).
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
+  // The categories admins make in Modbot for events, on top of VRChat's fixed list. Beside
+  // Calendar, whose events carry them, and under its permission. No `g` letter, as for Reports.
+  { id: 'event-categories', label: 'Event categories', group: 'Community', needs: 'ViewCalendar', words: ['karaoke', 'open mic', 'movie night', 'labels', 'types'] },
   // Lists of worlds an event can pick its world from, each world with the players its game is for
   // (world lists design). Beside Calendar, whose events they are for, and under its permission.
   { id: 'world-lists', label: 'World lists', group: 'Community', needs: 'ViewCalendar', words: ['game night', 'worlds', 'shuffle', 'next game'] },
@@ -211,6 +214,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   people: 'n',
   live: 'l',
   calendar: 'e',
+  'event-categories': '',
   'world-lists': 'x',
   marketing: 'q',
   'marketing-sent': '',

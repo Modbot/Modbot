@@ -361,9 +361,14 @@ public sealed class CalendarDiscordPublisher
             location, joinLink, open, e.ImageUrl, world?.Name, world?.ImageUrl, e.WorldId,
         ];
 
-        // Added only with a cropped picture, so an event without one keeps the fingerprint it was
-        // sent under and is not updated again for nothing.
-        var fingerprint = CalendarFingerprint.Of(e.CoverPictureId is { } coverId ? [.. sent, coverId] : sent);
+        // Added only with a cropped picture or categories, so an event without them keeps the
+        // fingerprint it was sent under and is not updated again for nothing.
+        var fingerprint = CalendarFingerprint.Of(
+        [
+            .. sent,
+            .. e.CoverPictureId is { } coverId ? new object?[] { coverId } : [],
+            .. CalendarCard.CategoryLine(e) is { } categoryLine ? new object?[] { categoryLine } : [],
+        ]);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
         {

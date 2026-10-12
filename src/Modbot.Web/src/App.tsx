@@ -60,6 +60,7 @@ import { Calendar } from '@/pages/Calendar'
 import { Giveaways } from '@/pages/Giveaways'
 import { Marketing } from '@/pages/Marketing'
 import { Lists } from '@/pages/Lists'
+import { EventCategories } from '@/pages/EventCategories'
 import { WorldLists } from '@/pages/WorldLists'
 import { Availability } from '@/pages/Availability'
 import { Integrations } from '@/pages/Integrations'
@@ -104,6 +105,7 @@ const TITLES: Record<PageId, string> = {
   people: 'People',
   live: 'Live',
   calendar: 'Calendar',
+  'event-categories': 'Event categories',
   'world-lists': 'World lists',
   // The lists of the Marketing page, so they carry its name, as the sidebar does.
   marketing: 'Marketing',
@@ -159,6 +161,7 @@ const PATHS: Record<PageId, string> = {
   people: '/people',
   live: '/live',
   calendar: '/calendar',
+  'event-categories': '/event-categories',
   'world-lists': '/world-lists',
   marketing: '/marketing/scheduled',
   'marketing-sent': '/marketing/sent',
@@ -684,6 +687,7 @@ function Shell({
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live me={me} />}
           {page === 'calendar' && <Calendar />}
+          {page === 'event-categories' && <EventCategories />}
           {page === 'world-lists' && <WorldLists />}
           {/* One element for the four lists, so an open composer stays open when the list changes. */}
           {(page === 'marketing' || page === 'marketing-sent' || page === 'marketing-drafts' || page === 'marketing-failed') && (

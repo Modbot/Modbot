@@ -1579,6 +1579,34 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Event categories ────────────────────────────────────────────────────────────────────────
+  'modbot.calendar-category.create': (p) => (
+    <>
+      {p.actor} made the event category<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.calendar-category.change': (p) => {
+    const before = p.text('before')
+
+    return (
+      <>
+        {p.actor} renamed the event category<Quoted value={before} /> to<Quoted value={p.text('name')} />.
+      </>
+    )
+  },
+
+  'modbot.calendar-category.delete': (p) => {
+    const events = p.entry.data?.['events']
+
+    return (
+      <>
+        {p.actor} deleted the event category<Quoted value={p.text('name')} />
+        {typeof events === 'number' && events > 0 ? <>, which {events} {events === 1 ? 'event' : 'events'} carried</> : null}.
+      </>
+    )
+  },
+
   // ── Giveaways ───────────────────────────────────────────────────────────────────────────────
   'modbot.giveaway.create': (p) => (
     <>

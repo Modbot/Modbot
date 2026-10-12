@@ -722,6 +722,14 @@ public static class FactType
     public const string WorldListChanged = "modbot.world-list.change";
     public const string WorldListDeleted = "modbot.world-list.delete";
 
+    // ── Calendar categories (the ones admins make in Modbot). The subject is the category's id. ──
+    //
+    // A name and who made it: nothing about a member, so a purge has nothing to find in these.
+
+    public const string CalendarCategoryCreated = "modbot.calendar-category.create";
+    public const string CalendarCategoryChanged = "modbot.calendar-category.change";
+    public const string CalendarCategoryDeleted = "modbot.calendar-category.delete";
+
     // ── Giveaways (giveaways design §8) ────────────────────────────────────────────────────
     //
     // The subject is the giveaway's id on the Modbot platform, except for entering and

@@ -878,6 +878,36 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("ban_reason", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_category");
+
+                    b.ToTable("calendar_category", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCoverPicture", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9447,6 +9477,25 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("world_pick", (string)null);
                 });
 
+            modelBuilder.Entity("calendar_event_category", b =>
+                {
+                    b.Property<Guid>("event_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("category_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.HasKey("event_id", "category_id")
+                        .HasName("pk_calendar_event_category");
+
+                    b.HasIndex("category_id")
+                        .HasDatabaseName("ix_calendar_event_category_category_id");
+
+                    b.ToTable("calendar_event_category", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
@@ -9885,6 +9934,23 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_world_pick_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("calendar_event_category", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarCategory", null)
+                        .WithMany()
+                        .HasForeignKey("category_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_event_category_calendar_categories_category_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("event_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_event_category_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>

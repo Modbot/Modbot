@@ -366,6 +366,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each list's shuffle for each event: this round's order and what has been played.</summary>
     public DbSet<WorldListShuffle> WorldListShuffles => Set<WorldListShuffle>();
 
+    /// <summary>The categories admins made for events, on top of VRChat's own list.</summary>
+    public DbSet<CalendarCategory> CalendarCategories => Set<CalendarCategory>();
+
     /// <summary>Worlds picked from a list, for a date or as the next game.</summary>
     public DbSet<WorldPick> WorldPicks => Set<WorldPick>();
 
@@ -2584,6 +2587,31 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.Navigation(e => e.DateChanges).AutoInclude();
+
+            // Any number of Modbot's own categories. A category taken away leaves the events that
+            // used it without it; an event deleted for good lets go of its categories.
+            entity.HasMany(e => e.Categories)
+                .WithMany()
+                .UsingEntity(
+                    "calendar_event_category",
+                    toCategory => toCategory.HasOne(typeof(CalendarCategory)).WithMany().HasForeignKey("category_id").OnDelete(DeleteBehavior.Cascade),
+                    toEvent => toEvent.HasOne(typeof(CalendarEvent)).WithMany().HasForeignKey("event_id").OnDelete(DeleteBehavior.Cascade),
+                    join =>
+                    {
+                        join.ToTable("calendar_event_category");
+                        join.HasKey("event_id", "category_id");
+                        join.HasIndex("category_id").HasDatabaseName("ix_calendar_event_category_category_id");
+                    });
+
+            entity.Navigation(e => e.Categories).AutoInclude();
+        });
+
+        builder.Entity<CalendarCategory>(entity =>
+        {
+            entity.ToTable("calendar_category");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(CalendarCategory.MaxNameLength);
         });
 
         builder.Entity<CalendarDateChange>(entity =>

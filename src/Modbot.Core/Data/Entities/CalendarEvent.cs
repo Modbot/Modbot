@@ -164,6 +164,13 @@ public class CalendarEvent
 
     public List<string> Tags { get; set; } = [];
 
+    /// <summary>
+    /// The categories admins made in Modbot, any number of them, in addition to VRChat's own
+    /// <see cref="Category"/>. Loaded with the event every time, because every place that says the
+    /// event's categories has to say the current names.
+    /// </summary>
+    public List<CalendarCategory> Categories { get; set; } = [];
+
     /// <summary>Who sees it on VRChat's calendar: <c>group</c> or <c>public</c>.</summary>
     public string Visibility { get; set; } = "group";
 

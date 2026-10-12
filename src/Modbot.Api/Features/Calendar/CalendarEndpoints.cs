@@ -1319,8 +1319,19 @@ public static class CalendarEndpoints
         if (await CoverProblemAsync(db, body, keptCover, ct) is { } coverProblem)
             problems.Add(coverProblem);
 
+        var categories = await CategoriesAsync(db, body, problems, ct);
+
         if (problems.Count == 0)
+        {
+            // Null keeps the event's categories; a list, even an empty one, replaces them.
+            if (categories is not null)
+            {
+                target.Categories.Clear();
+                target.Categories.AddRange(categories);
+            }
+
             return null;
+        }
 
         if (body.PublishToVRChat && !body.Draft)
         {
@@ -1357,6 +1368,25 @@ public static class CalendarEndpoints
             else
                 CalendarDiscordRetry.ClearAfterEdit(place, now);
         }
+    }
+
+    /// <summary>
+    /// The categories made in Modbot that a request names, or null when it names none to change
+    /// (the event keeps its own). A category that is gone is a problem.
+    /// </summary>
+    public static async Task<List<CalendarCategory>?> CategoriesAsync(
+        ModbotContext db, CalendarEventRequest body, List<string> problems, CancellationToken ct)
+    {
+        if (body.CategoryIds is null)
+            return null;
+
+        var ids = body.CategoryIds.Distinct().ToList();
+        var found = await db.CalendarCategories.Where(c => ids.Contains(c.Id)).ToListAsync(ct);
+
+        if (found.Count != ids.Count)
+            problems.Add("A category you picked is gone. Choose again.");
+
+        return found;
     }
 
     /// <summary>What is wrong with the Discord picture an event names, or null (§15.4).</summary>
@@ -2160,7 +2190,8 @@ public static class CalendarEndpoints
                 e.DiscordTitle,
                 e.DiscordDescription,
                 e.GoogleTitle,
-                e.GoogleDescription);
+                e.GoogleDescription,
+                [.. e.Categories.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Select(c => new CalendarCategoryView(c.Id, c.Name))]);
         })];
     }
 

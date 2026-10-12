@@ -674,6 +674,8 @@ public static class ApiSurface
         // Lists of worlds, and an event's world picked from one: Pick again, and Next game during
         // the event (world lists design).
         Features.WorldLists.WorldListEndpoints.MapWorldLists(app);
+        // The categories admins make for events, on top of VRChat's own list.
+        Features.Calendar.CalendarCategoryEndpoints.MapCalendarCategories(app);
         Features.Calendar.WorldPickEndpoints.MapWorldPicks(app);
 
         // Giveaways: their rules, who entered, and the draws (giveaways design). Drawing happens

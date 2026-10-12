@@ -34,6 +34,7 @@ public static class CalendarEventFields
             ["vrchatImageId"] = e.VRChatImageId,
             ["coverPictureId"] = e.CoverPictureId?.ToString(),
             ["category"] = e.Category,
+            ["modbotCategories"] = string.Join(", ", e.Categories.Select(c => c.Name).Order(StringComparer.Ordinal)),
             ["languages"] = string.Join(", ", e.Languages),
             ["platforms"] = string.Join(", ", e.Platforms),
             ["tags"] = string.Join(", ", e.Tags),
