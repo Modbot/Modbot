@@ -491,10 +491,13 @@ Modbot also checks for itself. It reads whether its VRChat account has VRChat+ f
 own tags each time it signs in to VRChat, and **Settings**, **Modbot's VRChat login**, **Pictures**
 shows the answer as **VRChat+: Yes**, **No** or **Not checked**. **Check again** reads it again
 right away, with one request to VRChat; use it after you buy VRChat+ for that account. While the
-answer is **No**, the **Upload VRChat pictures** switch is greyed out, the VRChat picture box
-in the form is turned off, and the form says *Modbot's VRChat account needs VRChat+ to use
+answer is **No**, the **Upload VRChat pictures** switch can be turned off but not on, the VRChat
+picture box in the form is turned off, and the form says *Modbot's VRChat account needs VRChat+ to use
 pictures.* with a **Get VRChat+** link. The server answers the same sentence to anyone who asks it
-to upload. An event that already has a VRChat picture keeps it and still sends it. **Not checked**
+to upload, and refuses to turn the switch on. The moment Modbot learns the account has no VRChat+
+(when it signs in, or when you press **Check again**), it turns **Upload VRChat pictures** off by
+itself and writes a **Settings changed** entry in the audit log with nobody named and marked
+automatic. An event that already has a VRChat picture keeps it and still sends it. **Not checked**
 (an account Modbot has not signed in with since this check was added, or one VRChat sent no tags
 for) is treated as before: nothing is turned off.
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data;
 using Modbot.Core.Security;
+using Modbot.VRChat.Users;
 
 namespace Modbot.VRChat.Session;
 
@@ -84,12 +85,12 @@ public sealed class SettingsConnectionStore(IServiceScopeFactory scopes, ISecret
         settings.VRChatAuthCookieEncrypted = protector.Protect(StoredSession.Serialise(authCookie, twoFactorAuthCookie));
         settings.VRChatSessionAccount = account.Account;
         settings.VRChatSessionUserId = account.UserId;
-        settings.VRChatHasPlus = account.HasPlus;
 
         if (!string.IsNullOrWhiteSpace(account.DisplayName))
             settings.VRChatDisplayName = account.DisplayName;
 
-        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        // Saves the row, and turns Upload VRChat pictures off by itself when the account has no VRChat+.
+        await VRChatPlusStatus.SaveAsync(scope.ServiceProvider, db, settings, account.HasPlus, ct).ConfigureAwait(false);
     }
 
     /// <summary>

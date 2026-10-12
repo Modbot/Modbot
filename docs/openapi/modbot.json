@@ -5324,7 +5324,7 @@
           "Settings"
         ],
         "summary": "Set VRChat picture uploads",
-        "description": "Turn the calendar form's upload of a picture to VRChat on or off.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Turn the calendar form's upload of a picture to VRChat on or off. Turning it on is refused while the account is known to have no VRChat+.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetVRChatPictureUploads",
         "requestBody": {
           "content": {
@@ -5349,6 +5349,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5384,7 +5394,7 @@
           "Settings"
         ],
         "summary": "Check VRChat+",
-        "description": "Reads Modbot's own VRChat user again and keeps whether its tags say it has VRChat+. One request to VRChat (users.read, interactive), never retried.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Reads Modbot's own VRChat user again and keeps whether its tags say it has VRChat+. Without VRChat+, Upload VRChat pictures is turned off. One request to VRChat (users.read, interactive), never retried.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CheckVRChatPlus",
         "responses": {
           "200": {

@@ -932,6 +932,17 @@ upload.
   endpoints (`POST /api/calendar/vrchat-picture`, `POST /api/posts/vrchat-picture`) answer 409 with
   that sentence before reading the body. An event or post that already has a VRChat picture id keeps
   it and still sends it: nothing here rewrites a saved id.
+- **Known false turns the switch off by itself** (added 2026-10-12). Greyed out was not enough: a
+  switch left on for an account that lost VRChat+ would go on sending uploads VRChat refuses. Whenever
+  Modbot learns `vr_chat_has_plus` is false, at sign-in (`SettingsConnectionStore.SaveSignInAsync`) or
+  by Check again, `VRChatPlusStatus.SaveAsync` stores the answer and sets
+  `settings.vr_chat_picture_uploads` false in the same save, then writes a `modbot.settings.change`
+  fact (`setting: vrchatPictureUploads`, `before: true`, `after: false`, `automatic: true`) with no
+  actor, the way `modbot.post.edit` marks Keep updated's edits. Null (not read) changes nothing. The
+  switch can still be turned off while the answer is No, but `PUT /api/settings/vrchat-pictures`
+  answers 409 for `on: true`; the switch in Settings is disabled only when it is off and the answer is
+  No. A switch already on when this shipped is turned off at the next sign-in or Check again, not
+  at once.
 - **Large bodies** are refused before they are read: a `Content-Length` over the limit gets 413 with
   nothing read, and the endpoint sets its own request body limit to 10 MB plus one byte (as imports
   do), so a chunked body cannot be read past that either.

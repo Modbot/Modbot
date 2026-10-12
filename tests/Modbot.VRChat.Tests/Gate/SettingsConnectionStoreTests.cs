@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
+using Modbot.Core.Time;
 using Modbot.TestSupport;
 using Modbot.VRChat.Session;
 
@@ -118,6 +121,55 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
         Assert.Equal(hasPlus, (await context.GetSettingsAsync(Ct)).VRChatHasPlus);
     }
 
+    [Fact]
+    public async Task ASignInWithoutVRChatPlusTurnsThePictureSwitchOff_AndRecordsItAsAutomatic()
+    {
+        var (store, _) = await NewStoreAsync();
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.VRChatPictureUploads = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await store.SaveSignInAsync(
+            "authValue", null, new VRChatSignedInAccount("modbot@example.com", "usr_bot", "ModbotBot", false), Ct);
+
+        await using var read = db.NewContext();
+        Assert.False((await read.GetSettingsAsync(Ct)).VRChatPictureUploads);
+
+        var latest = await read.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.SettingsChanged && e.Data.Contains("\"vrchatPictureUploads\"") && e.Data.Contains("\"automatic\""))
+            .OrderByDescending(e => e.Id)
+            .FirstAsync(Ct);
+        Assert.Null(latest.ActorId);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(null)]
+    public async Task ASignInWithVRChatPlusOrNoAnswerLeavesThePictureSwitchAlone(bool? hasPlus)
+    {
+        var (store, _) = await NewStoreAsync();
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.VRChatPictureUploads = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await store.SaveSignInAsync(
+            "authValue", null, new VRChatSignedInAccount("modbot@example.com", "usr_bot", "ModbotBot", hasPlus), Ct);
+
+        await using var read = db.NewContext();
+        var after = await read.GetSettingsAsync(Ct);
+        Assert.True(after.VRChatPictureUploads);
+
+        // The shared settings row: put back what this test changed.
+        after.VRChatPictureUploads = false;
+        await read.SaveChangesAsync(Ct);
+    }
+
     /// <summary>
     /// A session issued to another username is not offered, so the gate can never present one
     /// account's session while holding another account's password.
@@ -155,6 +207,9 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
 
         var services = new ServiceCollection();
         services.AddDbContext<ModbotContext>(options => options.UseNpgsql(db.ConnectionString));
+        services.AddSingleton<IModbotClock>(new FakeClock());
+        services.AddScoped<EventPartitionMaintainer>();
+        services.AddScoped<IFactWriter, FactWriter>();
 
         return (new SettingsConnectionStore(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(), protector),

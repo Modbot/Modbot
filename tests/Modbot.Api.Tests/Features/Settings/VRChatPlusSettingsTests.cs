@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Tests.Fakes;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -33,6 +34,7 @@ public class VRChatPlusSettingsTests(PostgresFixture db) : IAsyncLifetime
         _accountUserId = settings.VRChatAccountUserId;
 
         settings.VRChatHasPlus = null;
+        settings.VRChatPictureUploads = false;
         settings.VRChatSessionUserId = "usr_modbot";
         await context.SaveChangesAsync(Ct);
     }
@@ -44,6 +46,7 @@ public class VRChatPlusSettingsTests(PostgresFixture db) : IAsyncLifetime
         var settings = await context.GetSettingsAsync(Ct);
 
         settings.VRChatHasPlus = null;
+        settings.VRChatPictureUploads = false;
         settings.VRChatSessionUserId = _sessionUserId;
         settings.VRChatAccountUserId = _accountUserId;
         await context.SaveChangesAsync(Ct);
@@ -130,6 +133,111 @@ public class VRChatPlusSettingsTests(PostgresFixture db) : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
         Assert.Null(await StoredAsync());
+    }
+
+    private async Task SetAsync(bool? hasPlus, bool pictureUploads)
+    {
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.VRChatHasPlus = hasPlus;
+        settings.VRChatPictureUploads = pictureUploads;
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private async Task<bool> UploadsAsync()
+    {
+        await using var context = db.NewContext();
+        return (await context.GetSettingsAsync(Ct)).VRChatPictureUploads;
+    }
+
+    private async Task<List<string>> AutomaticSwitchOffsAsync()
+    {
+        await using var context = db.NewContext();
+        var rows = await context.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.SettingsChanged && e.Data.Contains("\"vrchatPictureUploads\"") && e.Data.Contains("\"automatic\""))
+            .Select(e => e.Data)
+            .ToListAsync(Ct);
+
+        return rows;
+    }
+
+    [Fact]
+    public async Task CheckingAgainWithoutVRChatPlusTurnsThePictureSwitchOff_AndRecordsItAsAutomatic()
+    {
+        await SetAsync(hasPlus: true, pictureUploads: true);
+        var before = (await AutomaticSwitchOffsAsync()).Count;
+        var gate = new FakeVRChatGate().Returns(Operation, new VRChatUserModel { Id = "usr_modbot", Tags = ["system_trust_known"] });
+        await using var host = await ApiTestHost.StartAsync(db, gate);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, Check, null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await ApiTestHost.BodyOf(response, Ct);
+        Assert.False(body.GetProperty("on").GetBoolean());
+        Assert.False(await UploadsAsync());
+
+        var after = await AutomaticSwitchOffsAsync();
+        Assert.Equal(before + 1, after.Count);
+        Assert.Contains("\"before\":true", after[^1].Replace(" ", string.Empty), StringComparison.Ordinal);
+        Assert.Contains("\"after\":false", after[^1].Replace(" ", string.Empty), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckingAgainWithVRChatPlusLeavesThePictureSwitchOn_AndRecordsNothing()
+    {
+        await SetAsync(hasPlus: null, pictureUploads: true);
+        var before = (await AutomaticSwitchOffsAsync()).Count;
+        var gate = new FakeVRChatGate().Returns(Operation, new VRChatUserModel { Id = "usr_modbot", Tags = ["system_supporter"] });
+        await using var host = await ApiTestHost.StartAsync(db, gate);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, Check, null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(await UploadsAsync());
+        Assert.Equal(before, (await AutomaticSwitchOffsAsync()).Count);
+    }
+
+    [Fact]
+    public async Task ThePictureSwitchCannotBeTurnedOnWhileTheAccountHasNoVRChatPlus()
+    {
+        await SetAsync(hasPlus: false, pictureUploads: false);
+        await using var host = await ApiTestHost.StartAsync(db, new FakeVRChatGate());
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/vrchat-pictures", new { on = true }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.False(await UploadsAsync());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(null)]
+    public async Task ThePictureSwitchCanBeTurnedOnWhenTheAccountHasVRChatPlusOrItIsNotKnown(bool? hasPlus)
+    {
+        await SetAsync(hasPlus, pictureUploads: false);
+        await using var host = await ApiTestHost.StartAsync(db, new FakeVRChatGate());
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/vrchat-pictures", new { on = true }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(await UploadsAsync());
+    }
+
+    [Fact]
+    public async Task ThePictureSwitchCanStillBeTurnedOffWhileTheAccountHasNoVRChatPlus()
+    {
+        await SetAsync(hasPlus: false, pictureUploads: true);
+        await using var host = await ApiTestHost.StartAsync(db, new FakeVRChatGate());
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/vrchat-pictures", new { on = false }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(await UploadsAsync());
     }
 
     [Fact]

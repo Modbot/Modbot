@@ -30,7 +30,9 @@ public sealed record SetVRChatPictureUploadsRequest([property: JsonPropertyName(
 /// Off by default, on every install: VRChat answers the upload with a refusal unless the account
 /// Modbot signs in as has VRChat+. Off, <c>POST /api/calendar/vrchat-picture</c> answers "Picture
 /// uploads are off." and VRChat is never asked; events keep the picture ids they already have, and
-/// the form takes a <c>file_</c> id typed by hand, as it did before uploads existed.
+/// the form takes a <c>file_</c> id typed by hand, as it did before uploads existed. While Modbot's
+/// account is known to have no VRChat+ the switch can be turned off but not on, and Modbot turns it
+/// off itself (and records that) when it learns the account has none.
 /// </remarks>
 public static class VRChatPictureSettingsEndpoints
 {
@@ -70,6 +72,14 @@ public static class VRChatPictureSettingsEndpoints
                 if (before == body.On)
                     return Results.Ok(new VRChatPictureUploadsView(before, settings.VRChatHasPlus));
 
+                // Off is always allowed; on only when the account is not known to lack VRChat+.
+                if (body.On && settings.VRChatHasPlus == false)
+                {
+                    return Results.Json(
+                        new { error = "Picture uploads need VRChat+ on Modbot's VRChat account." },
+                        statusCode: StatusCodes.Status409Conflict);
+                }
+
                 settings.VRChatPictureUploads = body.On;
                 await db.SaveChangesAsync(ct);
 
@@ -89,9 +99,12 @@ public static class VRChatPictureSettingsEndpoints
             })
             .WithName("SetVRChatPictureUploads")
             .WithSummary("Set VRChat picture uploads")
-            .WithDescription("Turn the calendar form's upload of a picture to VRChat on or off.")
+            .WithDescription(
+                "Turn the calendar form's upload of a picture to VRChat on or off. "
+                + "Turning it on is refused while the account is known to have no VRChat+.")
             .Produces<VRChatPictureUploadsView>()
-            .Produces(StatusCodes.Status403Forbidden);
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict);
 
         // One read of Modbot's own VRChat user, for a person pressing Check again. The same
         // endpoint and lane as the session check and profile sync (users.read, interactive
@@ -100,6 +113,7 @@ public static class VRChatPictureSettingsEndpoints
                 [FromServices] ModbotContext db,
                 // Optional: the VRChat services are wired by the host, not by the API.
                 [FromServices] IVRChatGate? gate,
+                HttpContext http,
                 CancellationToken ct) =>
             {
                 if (gate is null)
@@ -139,8 +153,8 @@ public static class VRChatPictureSettingsEndpoints
                         statusCode: StatusCodes.Status502BadGateway);
                 }
 
-                settings.VRChatHasPlus = hasPlus;
-                await db.SaveChangesAsync(ct);
+                // Saves the answer; with no VRChat+ it also turns Upload VRChat pictures off and records that.
+                await VRChatPlusStatus.SaveAsync(http.RequestServices, db, settings, hasPlus, ct);
 
                 return Results.Ok(new VRChatPictureUploadsView(settings.VRChatPictureUploads, hasPlus));
             })
@@ -148,6 +162,7 @@ public static class VRChatPictureSettingsEndpoints
             .WithSummary("Check VRChat+")
             .WithDescription(
                 "Reads Modbot's own VRChat user again and keeps whether its tags say it has VRChat+. "
+                + "Without VRChat+, Upload VRChat pictures is turned off. "
                 + "One request to VRChat (users.read, interactive), never retried.")
             .Produces<VRChatPictureUploadsView>()
             .Produces(StatusCodes.Status403Forbidden)

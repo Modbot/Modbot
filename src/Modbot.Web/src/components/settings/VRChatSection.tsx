@@ -168,7 +168,8 @@ function CredentialsCard({
  * The one switch for uploading the calendar's VRChat pictures. Saves at once: it is one yes or no
  * with nothing to save beside it. Off by default, with the link to where VRChat+ is had beside it.
  * Beside it, whether Modbot's own VRChat account has VRChat+ (read at sign-in) and a button that
- * reads it again; known to have none, the switch is off and says why.
+ * reads it again; known to have none, Modbot turns the switch off itself and it can be turned off
+ * but not on, with the warning saying why.
  */
 function PicturesCard() {
   const [on, setOn] = useState<boolean | null>(null)
@@ -204,7 +205,11 @@ function PicturesCard() {
 
     api
       .checkVRChatPlus()
-      .then((view) => setPlus(view.hasPlus ?? null))
+      .then((view) => {
+        setPlus(view.hasPlus ?? null)
+        // Without VRChat+ Modbot has turned the switch off itself.
+        setOn(view.on)
+      })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'))
       .finally(() => setChecking(false))
   }
@@ -213,7 +218,7 @@ function PicturesCard() {
     <SettingsCard title="Pictures" footer={<Outcome tone="problem">{error}</Outcome>}>
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <Switch checked={on ?? false} disabled={busy || on === null || plus === false} onChange={change}>
+          <Switch checked={on ?? false} disabled={busy || on === null || (plus === false && !on)} onChange={change}>
             Upload VRChat pictures
           </Switch>
           {plus !== false && (
