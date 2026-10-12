@@ -840,6 +840,7 @@ public sealed record DiscordRoleSnapshot(
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>
+/// <param name="BotCanCreateEvents">Create Events, which Discord asks for to make an event and the calendar requires beside Manage Events.</param>
 /// <param name="BotCanBanMembers">Ban Members, which copying a VRChat ban into Discord needs (Discord sync design §6).</param>
 /// <param name="BotCanRemoveMembers">Kick Members, which removing somebody from the server needs.</param>
 /// <param name="IconUrl">The server's icon, or null for none.</param>
@@ -864,7 +865,8 @@ public sealed record DiscordServerSnapshot(
     string? BannerUrl = null,
     int? BoostCount = null,
     int? BoostLevel = null,
-    bool BotCanMentionEveryone = false);
+    bool BotCanMentionEveryone = false,
+    bool BotCanCreateEvents = false);
 
 /// <summary>
 /// A server event as the calendar describes it: an external event whose location is a line of text.

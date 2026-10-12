@@ -71,6 +71,9 @@ public class DiscordServer
     /// <summary>Whether the bot holds Manage Events for the whole server, which calendar events need.</summary>
     public bool BotCanManageEvents { get; set; }
 
+    /// <summary>Whether the bot holds Create Events for the whole server, which Discord asks for to make a calendar event.</summary>
+    public bool BotCanCreateEvents { get; set; }
+
     /// <summary>Whether the bot holds Ban Members, which copying a ban into Discord needs.</summary>
     public bool BotCanBanMembers { get; set; }
 

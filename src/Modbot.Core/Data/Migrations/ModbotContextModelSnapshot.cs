@@ -3031,6 +3031,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("bot_can_ban_members");
 
+                    b.Property<bool>("BotCanCreateEvents")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bot_can_create_events");
+
                     b.Property<bool>("BotCanManageEvents")
                         .HasColumnType("boolean")
                         .HasColumnName("bot_can_manage_events");

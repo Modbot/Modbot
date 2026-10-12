@@ -29,6 +29,36 @@ public static class CalendarDiscordRetry
     public const string NeedsManageEvents = "The bot may not manage server events; it needs Manage Events.";
 
     /// <summary>
+    /// How a refusal for a missing permission starts since 2026-10-12: it names the permission the
+    /// bot lacks, Create Events first when both are lacking (see <see cref="MissingPermissionSentence"/>).
+    /// <see cref="ClearAfterManageEventsGranted"/> finds the places it is on, together with
+    /// <see cref="NeedsManageEvents"/>, which places that failed earlier still carry.
+    /// </summary>
+    public const string NeedsCreateEventsStart = "The bot needs Create Events";
+
+    /// <summary>The other start of <see cref="NeedsCreateEventsStart"/>, for a bot that lacks only Manage Events.</summary>
+    public const string NeedsManageEventsStart = "The bot needs Manage Events";
+
+    /// <summary>
+    /// What a place says when Discord refused and the bot lacks one or both of Create Events and
+    /// Manage Events: the permission or permissions by name and the role to turn them on for.
+    /// </summary>
+    /// <param name="missingCreate">The bot does not hold Create Events server-wide.</param>
+    /// <param name="missingManage">The bot does not hold Manage Events server-wide.</param>
+    /// <param name="roleName">The bot's own role, or null when it has none to name.</param>
+    public static string MissingPermissionSentence(bool missingCreate, bool missingManage, string? roleName)
+    {
+        if (!missingCreate && !missingManage)
+            throw new ArgumentException("At least one permission has to be missing.");
+
+        var both = missingCreate && missingManage;
+        var names = both ? "Create Events and Manage Events" : missingCreate ? "Create Events" : "Manage Events";
+        var role = string.IsNullOrWhiteSpace(roleName) ? "the bot's role" : $"the {roleName} role";
+
+        return $"The bot needs {names}. Turn {(both ? "them" : "it")} on for {role} in Server Settings → Roles.";
+    }
+
+    /// <summary>
     /// A moderator's Try again on a failed Discord place. False, changing nothing, for a place
     /// that has not failed, which is also what a second press finds.
     /// </summary>
@@ -63,7 +93,8 @@ public static class CalendarDiscordRetry
     }
 
     /// <summary>
-    /// The bot's role got Manage Events after a place failed for the lack of it. Fixing a role
+    /// The bot's role got the event permissions it lacked after a place failed for the lack of them
+    /// (Manage Events alone until 2026-10-12). Fixing a role
     /// changes nothing about the event, so without this the refusal stayed until someone edited the
     /// event or pressed Try again (added 2026-10-09, after a tester granted the permission and the
     /// event still said it was missing). False, changing nothing, for any other place or failure.
@@ -75,13 +106,23 @@ public static class CalendarDiscordRetry
         if (!IsDiscord(place.Place)
             || place.State != CalendarPlaceStates.Failed
             || place.Error is not { } error
-            || !error.StartsWith(NeedsManageEvents, StringComparison.Ordinal))
+            || !IsPermissionRefusal(error))
         {
             return false;
         }
 
         Clear(place, now);
         return true;
+    }
+
+    /// <summary>Whether an error is a refusal for a missing event permission, in the old wording or the new.</summary>
+    public static bool IsPermissionRefusal(string error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+
+        return error.StartsWith(NeedsManageEvents, StringComparison.Ordinal)
+            || error.StartsWith(NeedsCreateEventsStart, StringComparison.Ordinal)
+            || error.StartsWith(NeedsManageEventsStart, StringComparison.Ordinal);
     }
 
     /// <summary>Whether a place is one the Discord loop sends.</summary>

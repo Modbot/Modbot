@@ -2812,7 +2812,7 @@ export type SyncHealth = {
   aiCalls?: AiCallsHealth | null
   /** Emails held under the daily email limit, and emails given up on. */
   email?: EmailHealth | null
-  /** Calendar places that failed, instances that did not open, and a missing Manage Events. */
+  /** Calendar places that failed, instances that did not open, and a missing Create Events or Manage Events. */
   calendar?: CalendarHealth | null
   /** Moderation rules that stopped themselves after acting far more in an hour than usual. */
   pausedRules?: PausedRule[] | null
@@ -2971,6 +2971,7 @@ export type AiCallsHealth = {
 
 export type CalendarHealth = {
   missingManageEvents: boolean
+  missingCreateEvents: boolean
   problems: {
     eventId: string
     title: string

@@ -1133,7 +1133,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
             return DiscordPostOutcome.Failed(
                 e.HttpCode == HttpStatusCode.Forbidden
-                    ? ForbiddenEventSentence(e)
+                    ? ForbiddenEventSentence(e, guild)
                     : e.HttpCode == HttpStatusCode.NotFound
                         ? DiscordScheduledEventDetails.Gone
                         : $"Discord answered {(int)e.HttpCode}: {e.Reason ?? e.Message}",
@@ -1150,21 +1150,30 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     }
 
     /// <summary>
-    /// What a refused server-event change says. Only Discord's "Missing Permissions" is the lack of
-    /// Manage Events, and it carries Discord's own words, so a bot that does hold the permission
-    /// shows what Discord really said. Any other refusal says what it was: until 2026-10-09 every
-    /// 403 was reported as the missing permission.
+    /// What a refused server-event change says. Discord's "Missing Permissions" does not say which
+    /// permission is missing, so it is worked out from what the bot holds server-wide right now:
+    /// Create Events (to make an event) and Manage Events (kept required beside it). The sentence
+    /// names the missing one or ones and the bot's role. A bot that holds both shows what Discord
+    /// really said, as does any other refusal: until 2026-10-09 every 403 was reported as the
+    /// missing permission, and until 2026-10-12 it always named Manage Events.
     /// </summary>
-    private static string ForbiddenEventSentence(HttpException e)
+    private static string ForbiddenEventSentence(HttpException e, SocketGuild guild)
     {
         var reason = string.IsNullOrWhiteSpace(e.Reason) ? null : e.Reason.Trim();
         var code = e.DiscordCode is { } known ? (int)known : (int?)null;
 
-        if (e.DiscordCode == DiscordErrorCode.MissingPermissions)
+        if (e.DiscordCode == DiscordErrorCode.MissingPermissions
+            && guild.CurrentUser is { } me)
         {
-            return reason is null
-                ? $"{Core.Calendar.CalendarDiscordRetry.NeedsManageEvents} (Discord code {code})"
-                : $"{Core.Calendar.CalendarDiscordRetry.NeedsManageEvents} (Discord said: {reason}, code {code})";
+            var held = me.GuildPermissions;
+
+            if (!held.CreateEvents || !held.ManageEvents)
+            {
+                return Core.Calendar.CalendarDiscordRetry.MissingPermissionSentence(
+                    missingCreate: !held.CreateEvents,
+                    missingManage: !held.ManageEvents,
+                    BotRoleName(me));
+            }
         }
 
         var answer = reason ?? e.Message;
@@ -1172,6 +1181,17 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             ? $"Discord refused ({(int)e.HttpCode}, code {number}): {answer}"
             : $"Discord refused ({(int)e.HttpCode}): {answer}";
     }
+
+    /// <summary>
+    /// The role to turn a permission on for: the one Discord made for the bot when it was added,
+    /// else the highest role it has. Null when it has only @everyone.
+    /// </summary>
+    private static string? BotRoleName(SocketGuildUser me) =>
+        me.Roles
+            .Where(r => !r.IsEveryone)
+            .OrderByDescending(r => r.Tags?.BotId == me.Id)
+            .ThenByDescending(r => r.Position)
+            .FirstOrDefault()?.Name;
 
     private async Task<DiscordPostOutcome> InChannelAsync(
         string channelId, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
@@ -1524,6 +1544,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             channels,
             roles,
             BotCanManageEvents: serverWide.ManageEvents,
+            BotCanCreateEvents: serverWide.CreateEvents,
             BotCanBanMembers: serverWide.BanMembers,
             BotCanRemoveMembers: serverWide.KickMembers,
 

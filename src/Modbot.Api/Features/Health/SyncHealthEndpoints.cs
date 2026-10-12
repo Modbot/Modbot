@@ -337,7 +337,7 @@ public static class SyncHealthEndpoints
 
     /// <summary>
     /// Calendar places that failed, instances that did not open for the current occurrence, a
-    /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4), and
+    /// missing Create Events or Manage Events while an event wants a Discord event (calendar design §3.2, §4), and
     /// places events want that are not set up (§14.3), and Discord events that look like copies of
     /// each other, whoever made them (§16).
     /// </summary>
@@ -380,7 +380,7 @@ public static class SyncHealthEndpoints
         {
             return duplicates.Count == 0 && googleLimitedUntil is null
                 ? null
-                : new CalendarHealth(false, [], [], duplicates, googleLimitedUntil);
+                : new CalendarHealth(false, [], [], duplicates, googleLimitedUntil, false);
         }
 
         var titles = live.ToDictionary(e => e.Id, e => e.Title);
@@ -412,6 +412,7 @@ public static class SyncHealthEndpoints
             .ToList();
 
         var missingManageEvents = false;
+        var missingCreateEvents = false;
 
         if (live.Any(e => e.PublishToDiscord) && !string.IsNullOrWhiteSpace(guildId))
         {
@@ -420,6 +421,7 @@ public static class SyncHealthEndpoints
 
             // A server the bot has never listed is not reported: before it first connects nothing is.
             missingManageEvents = server is { BotCanManageEvents: false };
+            missingCreateEvents = server is { BotCanCreateEvents: false };
         }
 
         var notSetUp = Modbot.Api.Features.Calendar.CalendarReadiness.NotSetUp(
@@ -432,9 +434,9 @@ public static class SyncHealthEndpoints
             // same rule the sending loop follows.
             wantsGoogle: live.Any(e => e.PublishToGoogle && !Modbot.Core.Calendar.CalendarGoogle.MembersOnly(e.Visibility, e.VRChatRoleIds)));
 
-        return problems.Count == 0 && !missingManageEvents && notSetUp.Count == 0 && duplicates.Count == 0 && googleLimitedUntil is null
+        return problems.Count == 0 && !missingManageEvents && !missingCreateEvents && notSetUp.Count == 0 && duplicates.Count == 0 && googleLimitedUntil is null
             ? null
-            : new CalendarHealth(missingManageEvents, problems, notSetUp, duplicates, googleLimitedUntil);
+            : new CalendarHealth(missingManageEvents, problems, notSetUp, duplicates, googleLimitedUntil, missingCreateEvents);
     }
 
     /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>

@@ -747,6 +747,7 @@ public sealed class DemoSeeder
             BotCanViewAuditLog = true,
             BotCanManageRoles = true,
             BotCanManageEvents = true,
+            BotCanCreateEvents = true,
             RefreshedAt = plan.Now.AddMinutes(-4),
             UpdatedAt = plan.Now.AddMinutes(-4),
             SeenThrough = plan.Now,

@@ -269,8 +269,12 @@ event finishing and cancelling: each changes what the place should say.
   the actual start, which is the planned one for every date that has no change.
 - Discord refuses an event that starts in the past, so an event created after its start is given
   a start one minute from now.
-- The bot needs **Manage Events**. Health's Discord card shows it as missing when an event wants a
-  Discord event and the bot does not hold it.
+- The bot needs **Create Events** and **Manage Events**. Health's Discord card shows whichever is
+  missing, by name, when an event wants a Discord event and the bot does not hold it. Discord asks
+  for Create Events to make an event (Create Events alone would cover the bot's own events, but both
+  are required, a decision of 2026-10-12). Discord's refusal does not say which permission is
+  missing, so the gateway reads the bot's server-wide permissions when it is refused and the error
+  names the missing ones and the bot's role.
 
 ### 3.3 The channel post
 

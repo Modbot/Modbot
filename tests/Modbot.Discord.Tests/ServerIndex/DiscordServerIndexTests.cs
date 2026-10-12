@@ -524,7 +524,7 @@ public class DiscordServerIndexTests
         await gateway.RaiseResumedAsync();
         Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, refused)).State);
 
-        gateway.Server = Server() with { BotCanManageEvents = true };
+        gateway.Server = Server() with { BotCanManageEvents = true, BotCanCreateEvents = true };
         services.Clock.Advance(TimeSpan.FromMinutes(1));
         await gateway.RaiseResumedAsync();
 
@@ -537,13 +537,64 @@ public class DiscordServerIndexTests
         Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, other)).State);
     }
 
+    /// <summary>
+    /// 2026-10-12: a server with Manage Events and without Create Events refused every event. The
+    /// refusal names the permission it needs now; it is sent again once the bot holds both, and not
+    /// before.
+    /// </summary>
+    [Fact]
+    public async Task APlaceThatFailedForCreateEvents_IsSentAgainOnlyOnceTheBotHoldsBoth()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        var sentence = Core.Calendar.CalendarDiscordRetry.MissingPermissionSentence(true, false, "Modbot");
+        var refused = await AddFailedServerEventAsync(services, sentence, services.Clock.UtcNow);
+
+        // Manage Events alone does not fix it.
+        gateway.Server = Server() with { BotCanManageEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+        Assert.Equal(CalendarPlaceStates.Failed, (await ServerEventPlaceAsync(services, refused)).State);
+
+        gateway.Server = Server() with { BotCanManageEvents = true, BotCanCreateEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+
+        var waiting = await ServerEventPlaceAsync(services, refused);
+        Assert.Equal(CalendarPlaceStates.Waiting, waiting.State);
+        Assert.Null(waiting.Error);
+    }
+
+    [Fact]
+    public async Task ReadingTheServer_StoresWhetherTheBotHoldsCreateEvents()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        gateway.Server = Server() with { BotCanManageEvents = true, BotCanCreateEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+        await using (var db = services.Database.NewContext())
+            Assert.True((await db.DiscordServers.AsNoTracking().SingleAsync(Ct)).BotCanCreateEvents);
+
+        gateway.Server = Server() with { BotCanManageEvents = true };
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseResumedAsync();
+
+        await using var later = services.Database.NewContext();
+        var row = await later.DiscordServers.AsNoTracking().SingleAsync(Ct);
+        Assert.False(row.BotCanCreateEvents);
+        Assert.True(row.BotCanManageEvents);
+    }
+
     [Fact]
     public async Task AFailureWhileManageEventsIsHeld_IsNotSentAgainByLaterReads()
     {
         await using var services = await TestServices.CreateAsync(_db, Ct);
         var (_, gateway) = await ReadyBotAsync(services);
 
-        gateway.Server = Server() with { BotCanManageEvents = true };
+        gateway.Server = Server() with { BotCanManageEvents = true, BotCanCreateEvents = true };
         services.Clock.Advance(TimeSpan.FromMinutes(1));
         await gateway.RaiseResumedAsync();
         var readAt = services.Clock.UtcNow;

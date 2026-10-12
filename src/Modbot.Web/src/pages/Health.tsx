@@ -195,6 +195,7 @@ export function Health() {
           channels={health.discordChannelProblems ?? []}
           readBack={health.discordReadBack}
           missingManageEvents={health.calendar?.missingManageEvents ?? false}
+          missingCreateEvents={health.calendar?.missingCreateEvents ?? false}
           now={health.now}
         />
       )}
@@ -867,12 +868,14 @@ function DiscordBot({
   channels,
   readBack,
   missingManageEvents,
+  missingCreateEvents,
   now,
 }: {
   bot: DiscordBotHealth
   channels: DiscordChannelProblem[]
   readBack: DiscordReadBackHealth | null
   missingManageEvents: boolean
+  missingCreateEvents: boolean
   now: string
 }) {
   // Looked up through `discordState` rather than in a Record here. That Record would be a
@@ -926,7 +929,11 @@ function DiscordBot({
           )}
         </p>
       ))}
-      {missingManageEvents && <p className="max-w-3xl text-warn">Missing Manage Events</p>}
+      {(missingCreateEvents || missingManageEvents) && (
+        <p className="max-w-3xl text-warn">
+          Missing {[missingCreateEvents && 'Create Events', missingManageEvents && 'Manage Events'].filter(Boolean).join(', ')}
+        </p>
+      )}
       {bot.missingIntents && bot.missingIntents.length > 0 && (
         <p className="max-w-3xl text-destructive">
           Intents off in the Developer Portal: {bot.missingIntents.join(', ')}

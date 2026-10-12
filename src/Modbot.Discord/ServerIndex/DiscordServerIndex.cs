@@ -53,12 +53,13 @@ public sealed class DiscordServerIndex
 
         // Read before the row takes the new picture. A server never read before has none, which
         // reads as without it.
-        var couldManageEvents = row!.BotCanManageEvents;
+        var couldHostEvents = row!.BotCanManageEvents && row.BotCanCreateEvents;
 
         row.Name = server.Name;
         row.BotCanViewAuditLog = server.BotCanViewAuditLog;
         row.BotCanManageRoles = server.BotCanManageRoles;
         row.BotCanManageEvents = server.BotCanManageEvents;
+        row.BotCanCreateEvents = server.BotCanCreateEvents;
         row.BotCanBanMembers = server.BotCanBanMembers;
         row.BotCanRemoveMembers = server.BotCanRemoveMembers;
         row.BotCanMentionEveryone = server.BotCanMentionEveryone;
@@ -127,29 +128,31 @@ public sealed class DiscordServerIndex
             }
         }
 
-        if (server.BotCanManageEvents && !couldManageEvents)
-            await ClearManageEventsRefusalsAsync(now, ct).ConfigureAwait(false);
+        if (server.BotCanManageEvents && server.BotCanCreateEvents && !couldHostEvents)
+            await ClearEventPermissionRefusalsAsync(now, ct).ConfigureAwait(false);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// The bot has just gained Manage Events: a Discord place the calendar gave up on for the lack
-    /// of it is sent again on the next pass (calendar design §17.4). Tied to the refresh rather than
-    /// to a moderator's press because the role is fixed in Discord, where Modbot is not told which
-    /// events were waiting for it.
+    /// The bot has just come to hold both Create Events and Manage Events: a Discord place the
+    /// calendar gave up on for the lack of one of them is sent again on the next pass (calendar
+    /// design §17.4). Tied to the refresh rather than to a moderator's press because the role is
+    /// fixed in Discord, where Modbot is not told which events were waiting for it.
     /// </summary>
     /// <remarks>
-    /// Only on the refresh where the permission went from missing (or never read) to held. A
-    /// refusal while it is held is not about the lack of it, and clearing it on later refreshes
-    /// would send it again and again; a moderator's Try again sends it when they want.
+    /// Only on the refresh where the pair went from not both held (or never read) to both held. A
+    /// refusal while both are held is not about the lack of them, and clearing it on later
+    /// refreshes would send it again and again; a moderator's Try again sends it when they want.
     /// </remarks>
-    private async Task ClearManageEventsRefusalsAsync(DateTimeOffset now, CancellationToken ct)
+    private async Task ClearEventPermissionRefusalsAsync(DateTimeOffset now, CancellationToken ct)
     {
         var refused = await _db.CalendarEventPlaces
             .Where(p => p.State == CalendarPlaceStates.Failed
                 && p.Error != null
-                && p.Error.StartsWith(CalendarDiscordRetry.NeedsManageEvents))
+                && (p.Error.StartsWith(CalendarDiscordRetry.NeedsManageEvents)
+                    || p.Error.StartsWith(CalendarDiscordRetry.NeedsCreateEventsStart)
+                    || p.Error.StartsWith(CalendarDiscordRetry.NeedsManageEventsStart)))
             .ToListAsync(ct)
             .ConfigureAwait(false);
 

@@ -200,6 +200,45 @@ public class CalendarDiscordRetryTests(PostgresFixture db)
         Assert.Contains(gateway.ServerEventCalls, c => c.Action == "create");
     }
 
+    [Theory]
+    [InlineData(true, false, "Modbot", "The bot needs Create Events. Turn it on for the Modbot role in Server Settings → Roles.")]
+    [InlineData(false, true, "Modbot", "The bot needs Manage Events. Turn it on for the Modbot role in Server Settings → Roles.")]
+    [InlineData(true, true, "Modbot", "The bot needs Create Events and Manage Events. Turn them on for the Modbot role in Server Settings → Roles.")]
+    [InlineData(true, false, null, "The bot needs Create Events. Turn it on for the bot's role in Server Settings → Roles.")]
+    public void TheMissingPermissionSentence_NamesWhatIsMissingAndTheBotsRole(
+        bool missingCreate, bool missingManage, string? role, string expected)
+    {
+        Assert.Equal(expected, CalendarDiscordRetry.MissingPermissionSentence(missingCreate, missingManage, role));
+    }
+
+    [Fact]
+    public void TheMissingPermissionSentence_NeedsSomethingToBeMissing()
+    {
+        Assert.Throws<ArgumentException>(() => CalendarDiscordRetry.MissingPermissionSentence(false, false, "Modbot"));
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void APlaceThatFailedWithTheNewSentence_IsClearedWhenThePermissionsAreGranted(bool missingCreate, bool missingManage)
+    {
+        var now = DateTimeOffset.UnixEpoch;
+
+        var refused = new CalendarEventPlace
+        {
+            Place = CalendarPlaces.DiscordEvent,
+            State = CalendarPlaceStates.Failed,
+            FailedFingerprint = "f",
+            Error = CalendarDiscordRetry.MissingPermissionSentence(missingCreate, missingManage, "Modbot"),
+            ErrorAt = now,
+        };
+
+        Assert.True(CalendarDiscordRetry.ClearAfterManageEventsGranted(refused, now));
+        Assert.Equal(CalendarPlaceStates.Waiting, refused.State);
+        Assert.Null(refused.Error);
+    }
+
     [Fact]
     public void OnlyAPlaceThatFailedForManageEvents_IsClearedWhenTheBotGainsIt()
     {

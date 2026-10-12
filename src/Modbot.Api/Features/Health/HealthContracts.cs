@@ -342,6 +342,7 @@ public sealed record PausedRule(
     string? Reason);
 
 /// <param name="MissingManageEvents">An event wants a Discord event and the bot does not hold Manage Events.</param>
+/// <param name="MissingCreateEvents">An event wants a Discord event and the bot does not hold Create Events.</param>
 /// <param name="NotSetUp">
 /// Places a scheduled or open event wants that are not set up, so nothing is sent there:
 /// <c>vrchat</c> and <c>instance</c> without a managed group or a VRChat account,
@@ -361,7 +362,8 @@ public sealed record CalendarHealth(
     IReadOnlyList<CalendarProblem> Problems,
     IReadOnlyList<string>? NotSetUp = null,
     IReadOnlyList<Modbot.Api.Features.Calendar.CalendarDuplicateView>? Duplicates = null,
-    DateTimeOffset? GoogleLimitedUntil = null);
+    DateTimeOffset? GoogleLimitedUntil = null,
+    bool MissingCreateEvents = false);
 
 /// <param name="Place">
 /// <c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, <c>googleCalendar</c>, or <c>instance</c>
