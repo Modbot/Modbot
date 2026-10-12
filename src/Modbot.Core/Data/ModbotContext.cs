@@ -164,6 +164,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The reasons a moderator picks from when writing up a ban (spec 5.8.2).</summary>
     public DbSet<BanReason> BanReasons => Set<BanReason>();
 
+    /// <summary>The questions on every member's profile (member profiles design §2).</summary>
+    public DbSet<ProfileField> ProfileFields => Set<ProfileField>();
+
+    /// <summary>The answers a pick-list profile field offers.</summary>
+    public DbSet<ProfileOption> ProfileOptions => Set<ProfileOption>();
+
+    /// <summary>Each member's answers to the profile fields, and who they let read them.</summary>
+    public DbSet<ProfileValue> ProfileValues => Set<ProfileValue>();
+
     /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
@@ -1158,6 +1167,58 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The buttons are drawn in this order, every time a ban is written up.
             entity.HasIndex(e => e.SortOrder).HasDatabaseName("ix_ban_reason_order");
+        });
+
+        builder.Entity<ProfileField>(entity =>
+        {
+            entity.ToTable("member_profile_field");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(ProfileField.MaxNameLength);
+            entity.HasIndex(e => e.SortOrder).HasDatabaseName("ix_member_profile_field_order");
+
+            entity.HasMany(e => e.Options)
+                .WithOne()
+                .HasForeignKey(o => o.FieldId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ProfileOption>(entity =>
+        {
+            entity.ToTable("member_profile_option");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Label).HasMaxLength(ProfileField.MaxOptionLength);
+            entity.HasIndex(e => new { e.FieldId, e.SortOrder }).HasDatabaseName("ix_member_profile_option_field");
+        });
+
+        builder.Entity<ProfileValue>(entity =>
+        {
+            entity.ToTable("member_profile_value");
+
+            entity.HasKey(e => new { e.FieldId, e.DiscordUserId });
+
+            // Discord ids are opaque text with no length assumption (spec 3.1.1).
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.Text).HasMaxLength(ProfileField.MaxTextLength);
+
+            entity.HasOne<ProfileField>()
+                .WithMany()
+                .HasForeignKey(e => e.FieldId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // A removed option clears the answer and leaves the member's choice of who sees it.
+            entity.HasOne<ProfileOption>()
+                .WithMany()
+                .HasForeignKey(e => e.OptionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // One member's whole profile, and a purge deleting by member.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_member_profile_value_user");
         });
 
         builder.Entity<CaseFile>(entity =>

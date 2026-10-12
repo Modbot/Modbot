@@ -40,6 +40,7 @@ using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
 using Modbot.Api.Features.Notifications;
 using Modbot.Api.Features.Insights;
+using Modbot.Api.Features.Profiles;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Now;
@@ -636,6 +637,11 @@ public static class ApiSurface
         // pick from. The fact writer and the profile sync's recorder resolve optionally, like
         // the review close does; a host without them reads case files and refuses to write one.
         app.MapBanReasons();
+
+        // Member profiles (member profiles design): the fields an admin sets up, and a member's
+        // answers as staff read them.
+        app.MapProfileFields();
+        app.MapMemberProfiles();
         app.MapCaseFiles();
 
         // Kick, ban and unban (M4 §4). The only endpoints that change anything in VRChat, so the

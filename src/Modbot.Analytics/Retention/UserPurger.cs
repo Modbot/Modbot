@@ -300,6 +300,20 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // Their answers on the member profile and who they let read them (member profiles design
+            // §6). For a VRChat account: those of the Discord account linked to it now.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM member_profile_value WHERE discord_user_id = @subject"
+                    : """
+                      DELETE FROM member_profile_value
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // And whether they are a friend of the group's VRChat account, which names them too.
             if (platform == FactPlatform.VRChat)
             {
