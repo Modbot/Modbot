@@ -931,7 +931,7 @@ function DiscordBot({
       ))}
       {(missingCreateEvents || missingManageEvents) && (
         <p className="max-w-3xl text-warn">
-          Missing {[missingCreateEvents && 'Create Events', missingManageEvents && 'Manage Events'].filter(Boolean).join(', ')}
+          Missing {[missingCreateEvents && 'Create Events', missingManageEvents && 'Manage Events'].filter(Boolean).join(' and ')}
         </p>
       )}
       {bot.missingIntents && bot.missingIntents.length > 0 && (

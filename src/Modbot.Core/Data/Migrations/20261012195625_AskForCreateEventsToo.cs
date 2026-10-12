@@ -6,8 +6,8 @@ namespace Modbot.Core.Data.Migrations
 {
     /// <summary>
     /// 2026-10-12: Discord asks for Create Events, not only Manage Events, to make a server event.
-    /// One column: whether the bot holds it. Rows start as without it and are read again when the
-    /// bot connects.
+    /// One column: whether the bot holds it. New rows start as without it; existing rows copy
+    /// Manage Events until the bot connects and reads the server again.
     /// </summary>
     public partial class AskForCreateEventsToo : Migration
     {
@@ -20,6 +20,10 @@ namespace Modbot.Core.Data.Migrations
                 type: "boolean",
                 nullable: false,
                 defaultValue: false);
+
+            // A server that holds Manage Events is taken to hold Create Events until the bot's
+            // next read says otherwise, so an upgrade does not show a false "Missing Create Events".
+            migrationBuilder.Sql("UPDATE discord_server SET bot_can_create_events = bot_can_manage_events;");
         }
 
         /// <inheritdoc />
