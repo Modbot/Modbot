@@ -31101,6 +31101,129 @@
         ]
       }
     },
+    "/api/posts/events": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "List events for a post",
+        "description": "The next date of every published event that is not cancelled, soonest first, at most 100: what Add event in the composer offers.\n\nNeeds the `ViewCalendar` and `ManagePosts` permissions.",
+        "operationId": "ListPostEvents",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PostEventChoice"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/posts/event-text": {
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Write an event list for a post",
+        "description": "The text for one published event (eventId), or for every published, not cancelled event whose date starts in a range of days (from and to, yyyy-MM-dd, counted, in timeZone; at most 62 days). Dates are written so Discord shows each reader's own time and VRChat and Bluesky the event's own zone; the list is wrapped in marks no site shows, saying what it was built from. Saves nothing.\n\nNeeds the `ViewCalendar` and `ManagePosts` permissions.",
+        "operationId": "WritePostEventText",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostEventTextRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostEventTextView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/posts/picture": {
       "post": {
         "tags": [
@@ -50694,6 +50817,83 @@
           }
         }
       },
+      "PostEventChoice": {
+        "required": [
+          "id",
+          "title",
+          "startsAt",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        }
+      },
+      "PostEventTextRequest": {
+        "required": [
+          "eventId",
+          "from",
+          "to",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PostEventTextView": {
+        "required": [
+          "text",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "PostHealthHold": {
         "required": [
           "network",
@@ -50813,6 +51013,10 @@
             "items": {
               "$ref": "#/components/schemas/PostRoleChoice"
             }
+          },
+          "canAddEvents": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

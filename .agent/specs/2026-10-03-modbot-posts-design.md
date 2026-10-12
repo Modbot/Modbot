@@ -412,6 +412,26 @@ A dialog in the event form's shape: Write · Preview, buttons pinned at the foot
 now when Now is picked; Save draft; Cancel).
 
 - Title, Text, a counter per ticked site ("Discord 212 / 2000", UTF-16 units, red when over).
+- Add event and What's on, under Text, shown when `canAddEvents` (Manage posts and See calendar).
+  Add event: a picker of published events (`GET /api/posts/events`). What's on: This week (Monday to
+  Sunday) · Next month · Next 30 days · Pick dates, counted in the post's zone, at most 62 days. Both
+  call `POST /api/posts/event-text` and put the answer in the text. Nothing posts by itself.
+  - **Marks.** The stored text holds `{{time 1792350000 Sun 18 Oct, 20:00 BST}}` for a date, and
+    `{{event id}}...{{/event}}` or `{{whats-on 2026-10-01 to 2026-10-31 Europe/London}}...{{/whats-on}}`
+    around a list. `PostEventText.ForSite` turns a date into `<t:unix:F>` for Discord (each reader's
+    own zone) and into the words after the number for VRChat and Bluesky (the event's own zone), and
+    drops the list marks. The senders, the preview and the counters all use it
+    (web: `eventTextFor`), so the preview is what goes out. The text is stored with its marks.
+  - **The marks are never shown (owner, 2026-10-12).** The composer does not put the stored text in
+    one box. `splitEventLists` cuts it into the writer's words and the lists, `joinEventLists` puts
+    it back, and the post's text stays the one source. A list is a card with the lines as VRChat
+    reads them (name, time in the event's own zone, link) and a Remove button; the writer's words
+    are boxes before, between and after the cards, and a new list goes in at the cursor. Counters,
+    headline and the on-site Edit box read the site's finished text, and "Own text" starts from it,
+    so no mark reaches any box or preview. Chosen over one box that shows clean text and converts
+    back, because a typed change to a line cannot be matched to its mark once the writer rewrites it.
+    The cost: a list's event names are not edited in place. Remove it and add it again.
+  - "Own text" holds finished text, so a list copied into it is no longer found by step 4's update.
 - Picture: Choose or a picture link (fetched through Modbot's picture-link guard), the calendar's
   crop box with 16:9 · 1:1 · As it is, uploaded to `POST /api/posts/picture`.
 - Where it goes: chips, all off when the composer opens for a new post, every time. A site not set
@@ -454,8 +474,13 @@ Try again.
 
 All under `/api/posts`: list, one post, create, change, send-now, cancel, delete a draft, try-again,
 edit and delete on a site, preview, picture, picture by id, picture-link, vrchat-picture (step 2),
-health; and `/api/settings/posts`. The list carries the VRChat group's roles (`vrChatRoles`) and
-whether VRChat picture uploads are on. The calendar's event read gains `posts` in step 4.
+health; and `/api/settings/posts`. The list carries the VRChat group's roles (`vrChatRoles`),
+whether VRChat picture uploads are on, and `canAddEvents`. Two more, both needing Manage posts and
+See calendar: `GET /events` (the next date of every published, not cancelled event, at most 100:
+`id, title, startsAt, timeZone`) and `POST /event-text` (`{eventId}` or `{from, to, timeZone}`,
+`yyyy-MM-dd`, at most 62 days, answering `{text, count}`; 400 `{error}` for a bad range or an event
+that is not published). Published means scheduled, open or finished; drafts, cancelled and deleted
+events and dates cancelled on their own are left out. No migration: a list lives in the post's text. The calendar's event read gains `posts` in step 4.
 
 ## 6. Facts
 
@@ -495,6 +520,11 @@ uploads, removing the Bluesky account.
   address (3b, decision 15, built, §4.2c); a fixed record key with `swapRecord: null`; Cancelled as a reply under
   Announced (decision 7, with step 4's event kinds); Check shows whether the account is marked
   automated (decision 10).
+- **Keep updated (step 2 of the event lists)**: a per-post choice. Off: each post stands alone. On:
+  Modbot edits the post it sent when an event in the list's range is published, changed or cancelled.
+  `PostEventText.ListsIn(text)` finds each list with the range or event id its mark holds; only the
+  list is written again and the words around it stay. Discord and VRChat edit, Bluesky cannot and
+  keeps its first version; edits use the existing VRChat posts lane and never ping again.
 - **Step 4, event posts**: `post_plan` and `post_texts` on the event; `CalendarPosts.Plan` (Announced
   once, Reminder an hour before each date (decision 11) and skipped past the start, We're live on the
   shared first-join check, Cancelled only where Announced posted); a planner step in

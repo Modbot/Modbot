@@ -605,4 +605,70 @@ public class PostEndpointTests(PostgresFixture db)
         Assert.Equal("This post changed. Try again.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
         Assert.Single(await host.FactsAsync(FactType.PostRemoved, id.ToString(), Ct));
     }
+
+    /// <summary>Add event and What's on read the calendar, so Manage posts alone is not enough.</summary>
+    [Fact]
+    public async Task TheEventListsNeedSeeCalendarAsWellAsManagePosts()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, postsOnly) = await host.SignedInAsync(Manager, Ct);
+        var (_, calendarOnly) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
+        var (_, both) = await host.SignedInAsync(Manager | ModbotPermissions.ViewCalendar, Ct);
+        var range = new { from = "2026-10-01", to = "2026-10-31", timeZone = "Europe/London" };
+
+        foreach (var cookie in new[] { postsOnly, calendarOnly })
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Get, "/api/posts/events", null, cookie, Ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Post, "/api/posts/event-text", range, cookie, Ct)).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Get, "/api/posts/events", null, both, Ct)).StatusCode);
+
+        var empty = await host.SendJsonAsync(HttpMethod.Post, "/api/posts/event-text", range, both, Ct);
+        Assert.Equal(HttpStatusCode.OK, empty.StatusCode);
+        var body = await ApiTestHost.BodyOf(empty, Ct);
+        Assert.Equal(0, body.GetProperty("count").GetInt32());
+        Assert.Contains(PostEventText.Nothing, body.GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public async Task AnEventListWithABadRangeIsRefused()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, both) = await host.SignedInAsync(Manager | ModbotPermissions.ViewCalendar, Ct);
+
+        var bad = new object[]
+        {
+            new { from = "2026-10-31", to = "2026-10-01", timeZone = "UTC" },
+            new { from = "2026-01-01", to = "2026-12-31", timeZone = "UTC" },
+            new { from = "soon", to = "later", timeZone = "UTC" },
+            new { from = "2026-10-01", to = "2026-10-31", timeZone = "Nowhere/Land" },
+            new { eventId = Guid.NewGuid() },
+        };
+
+        foreach (var body in bad)
+        {
+            var response = await host.SendJsonAsync(HttpMethod.Post, "/api/posts/event-text", body, both, Ct);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.False(string.IsNullOrEmpty((await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString()));
+        }
+    }
+
+    /// <summary>A date in the text is a timestamp for Discord, and no mark reaches the preview.</summary>
+    [Fact]
+    public async Task ThePreviewWritesAnInsertedDateForDiscord()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var body = Body(host, discord: new { channelId = Channel, text = "Starts {{time 1792350000 Sun 18 Oct, 20:00 BST}}." });
+
+        var preview = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/posts/preview", body, manager, Ct), Ct);
+
+        var content = preview.GetProperty("discord").GetProperty("content").GetString();
+        Assert.Equal("**Movie night**\nStarts <t:1792350000:F>.", content);
+        Assert.DoesNotContain("{{", content);
+    }
 }
