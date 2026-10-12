@@ -128,6 +128,11 @@ public static class ApiSurface
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
         services.TryAddScoped<Core.Posts.IBlueskyPostActions, Core.Bluesky.BlueskyPostActions>();
 
+        // Keep updated (posts design §8): the pass is scoped, the window it keeps is one for the
+        // process, and its timer is the host's, with AddPostListUpdates.
+        services.TryAddSingleton<Features.Posts.PostListWindow>();
+        services.TryAddScoped<Features.Posts.PostListUpdater>();
+
         // Twitch (Twitch design): the client and the app token keeper, on the named client "twitch"
         // with no redirects or proxy. The poll's pass is scoped; its timer is the host's, with
         // AddTwitchLive, so a test host runs the pass itself.
@@ -282,6 +287,17 @@ public static class ApiSurface
     public static IServiceCollection AddBlueskyPosting(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.Posts.PostBlueskyService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Edits posts that keep their event lists updated, every two minutes (posts design §8). Needs
+    /// the fact writer the analytics services register.
+    /// </summary>
+    public static IServiceCollection AddPostListUpdates(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Posts.PostListService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }

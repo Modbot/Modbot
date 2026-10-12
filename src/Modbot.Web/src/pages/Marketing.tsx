@@ -351,6 +351,11 @@ function PostRow({
             {post.createdBy}
           </span>
         )}
+        {post.keepUpdated && (
+          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {post.listsUpdatedAt ? `Updated ${dateTimeWithWeekday(post.listsUpdatedAt)}` : 'Keep updated'}
+          </span>
+        )}
         <div className="flex-1" />
         {canManage && (
           <span className="flex flex-wrap gap-1.5">

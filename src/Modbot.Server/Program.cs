@@ -435,6 +435,10 @@ try
     // is on.
     builder.Services.AddBlueskyPosting();
 
+    // Edits sent posts when an event in one of their lists changes, for the ones with Keep updated
+    // (posts design §8). Reads one row every two minutes when none use it.
+    builder.Services.AddPostListUpdates();
+
     // Asks Twitch once a minute whether the channel is live (Twitch design). Reads the settings row
     // and does nothing more until Twitch is set up and the poll is on.
     builder.Services.AddTwitchLive();

@@ -86,6 +86,10 @@ export type Post = {
   updatedAt: string
   cancelledAt: string | null
   destinations: PostDestination[]
+  /** Modbot edits the post on the sites when an event in its lists changes; missing from an older server. */
+  keepUpdated?: boolean
+  /** When it last did; null until it has. */
+  listsUpdatedAt?: string | null
 }
 
 export type PostCounts = Record<PostListName, number>
@@ -256,6 +260,8 @@ export type PostInput = {
   sendAt: string
   timeZone: string
   eventId: string | null
+  /** Modbot edits the post on the sites when an event in its lists changes. */
+  keepUpdated: boolean
   discord: DiscordInput
   vrChat: VRChatInput
   bluesky: BlueskyInput
@@ -271,6 +277,7 @@ export type PostRequest = {
   timeZone: string
   draft: boolean
   eventId: string | null
+  keepUpdated: boolean
   discord: { channelId: string | null; roleId: string | null; publish: boolean; text: string | null } | null
   vrChat: {
     visibility: VRChatVisibility
@@ -651,6 +658,7 @@ export function blankPost(now: Date, zone: string): PostInput {
     sendAt: localInput(new Date(now.getTime() + 60 * 60 * 1000), zone),
     timeZone: zone,
     eventId: null,
+    keepUpdated: false,
     discord: { on: false, channelId: '', roleId: '', publish: false, ownText: false, text: '' },
     vrChat: blankVRChat(),
     bluesky: blankBluesky(),
@@ -691,6 +699,7 @@ export function inputFrom(post: Post, now: Date, zone: string): PostInput {
     sendAt: post.sendAtLocal ?? blank.sendAt,
     timeZone: post.sendAtLocal ? post.timeZone : zone,
     eventId: post.eventId,
+    keepUpdated: post.keepUpdated ?? false,
     discord: discord
       ? {
           on: true,
@@ -758,6 +767,7 @@ export function requestOf(input: PostInput, draft: boolean, version: number | nu
     timeZone: input.timeZone,
     draft,
     eventId: input.eventId,
+    keepUpdated: input.keepUpdated && splitEventLists(input.text).lists.length > 0,
     discord: input.discord.on
       ? {
           channelId: input.discord.channelId || null,

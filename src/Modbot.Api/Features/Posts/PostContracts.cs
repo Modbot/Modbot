@@ -53,6 +53,7 @@ public sealed record PostBlueskyRequest(string? Text = null, Guid? CardPictureId
 /// <param name="VRChat">VRChat's section when VRChat is ticked; null when it is not.</param>
 /// <param name="Bluesky">Bluesky's section when Bluesky is ticked; null when it is not.</param>
 /// <param name="Version">On a change: the version it was read at. A post changed since, or being sent, is refused.</param>
+/// <param name="KeepUpdated">Modbot edits the post on the sites when an event in its lists changes. Kept only when the text has a list.</param>
 public sealed record PostRequest(
     string? Title,
     string? Text,
@@ -65,7 +66,8 @@ public sealed record PostRequest(
     PostDiscordRequest? Discord = null,
     int? Version = null,
     PostVRChatRequest? VRChat = null,
-    PostBlueskyRequest? Bluesky = null);
+    PostBlueskyRequest? Bluesky = null,
+    bool KeepUpdated = false);
 
 /// <summary>New words for a post already on a site (posts design §4.5).</summary>
 /// <param name="Title">The title, or null for none.</param>
@@ -152,6 +154,8 @@ public sealed record PostDestinationView(
 /// <param name="Kind">For a post the calendar made: <c>announced</c>, <c>reminder</c>, <c>live</c> or <c>cancelled</c>.</param>
 /// <param name="Version">Send it back with a change.</param>
 /// <param name="CreatedBy">The username of whoever wrote it, or null.</param>
+/// <param name="KeepUpdated">Modbot edits the post on the sites when an event in its lists changes.</param>
+/// <param name="ListsUpdatedAt">When Modbot last did, or null.</param>
 public sealed record PostView(
     Guid Id,
     string? Title,
@@ -170,7 +174,9 @@ public sealed record PostView(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     DateTimeOffset? CancelledAt,
-    IReadOnlyList<PostDestinationView> Destinations);
+    IReadOnlyList<PostDestinationView> Destinations,
+    bool KeepUpdated = false,
+    DateTimeOffset? ListsUpdatedAt = null);
 
 /// <summary>How many posts each list holds.</summary>
 public sealed record PostCounts(int Scheduled, int Sent, int Drafts, int Failed, int Cancelled);

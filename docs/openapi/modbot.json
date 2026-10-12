@@ -51254,6 +51254,10 @@
                 "$ref": "#/components/schemas/PostBlueskyRequest"
               }
             ]
+          },
+          "keepUpdated": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -51557,6 +51561,17 @@
             "items": {
               "$ref": "#/components/schemas/PostDestinationView"
             }
+          },
+          "keepUpdated": {
+            "type": "boolean",
+            "default": false
+          },
+          "listsUpdatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

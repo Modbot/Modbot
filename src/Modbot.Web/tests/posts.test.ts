@@ -494,3 +494,14 @@ test('What\'s on offers this week, next month and the next 30 days from today in
   assert.equal(todayIn(new Date('2026-10-14T23:30:00Z'), 'Asia/Tokyo'), '2026-10-15')
   assert.equal(todayIn(new Date('2026-10-14T23:30:00Z'), 'America/Los_Angeles'), '2026-10-14')
 })
+
+test('Keep updated is off for a new post, and is sent only while the text still has an event list', () => {
+  const input = blankPost(now, 'UTC')
+  assert.equal(input.keepUpdated, false)
+  assert.equal(requestOf(input, false).keepUpdated, false)
+
+  const list = '{{event 01923456-7890-7abc-8def-0123456789ab}}\nMovie night - {{time 1792350000 Sun 18 Oct, 20:00 BST}}\n{{/event}}'
+  const ticked = { ...input, text: `Come along\n${list}`, keepUpdated: true }
+  assert.equal(requestOf(ticked, false).keepUpdated, true)
+  assert.equal(requestOf({ ...ticked, text: 'Come along' }, false).keepUpdated, false)
+})

@@ -51,7 +51,8 @@ internal static class PostRequests
         Guid? EventId,
         CheckedDiscord? Discord,
         CheckedVRChat? VRChat = null,
-        CheckedBluesky? Bluesky = null);
+        CheckedBluesky? Bluesky = null,
+        bool KeepUpdated = false);
 
     /// <summary>The Bluesky section, checked.</summary>
     /// <param name="Did">The account it goes to: the one in Settings when it was saved.</param>
@@ -244,7 +245,8 @@ internal static class PostRequests
         if (body.Bluesky is { } blueskySection)
             bluesky = await CheckBlueskyAsync(db, blueskySection, title, text, blueskyOwnText, body.PictureId, body.Draft, problems, ct);
 
-        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord, vrchat, bluesky), problems);
+        return (new Checked(title, text, body.PictureId, sendAt, zone?.Id ?? "UTC", body.EventId, discord, vrchat, bluesky,
+            KeepUpdated: body.KeepUpdated && PostEventText.ListsIn(text).Count > 0), problems);
     }
 
     /// <summary>
@@ -507,6 +509,7 @@ internal static class PostRequests
         post.SendAt = request.SendAt;
         post.TimeZone = request.TimeZone;
         post.EventId = request.EventId;
+        post.KeepUpdated = request.KeepUpdated;
         post.CancelledAt = null;
         post.UpdatedAt = now;
 
@@ -681,6 +684,7 @@ internal static class PostRequests
             ["sendAt"] = post.SendAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             ["timeZone"] = post.TimeZone,
             ["eventId"] = post.EventId?.ToString(),
+            ["keepUpdated"] = post.KeepUpdated,
             ["destinations"] = new JsonArray([.. post.Destinations
                 .OrderBy(d => d.Network, StringComparer.Ordinal)
                 .Select(d =>
@@ -868,7 +872,9 @@ internal static class PostRequests
                         vrchat,
                         d.State is PostDestinationStates.Failed ? d.MissingPermission : null,
                         bluesky);
-                })]);
+                })],
+            post.KeepUpdated,
+            post.ListsUpdatedAt);
     }
 
     private static LocalDateTime? ParseLocal(string? text)

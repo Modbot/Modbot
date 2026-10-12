@@ -28,6 +28,7 @@ import {
   POST_PICTURE_MAX_BYTES,
   postsApi,
   requestOf,
+  splitEventLists,
   vrchatCount,
   vrchatNeedsTitle,
   vrchatPictureWanted,
@@ -405,6 +406,11 @@ export function PostComposer({
                     {input.vrChat.on && !input.vrChat.ownText && <Counter count={vrchatCounter} />}
                     {input.bluesky.on && !input.bluesky.ownText && <Counter count={blueskyCounter} />}
                   </div>
+                  {splitEventLists(input.text).lists.length > 0 && (
+                    <Checkbox checked={input.keepUpdated} onChange={(v) => set('keepUpdated', v)}>
+                      Keep updated
+                    </Checkbox>
+                  )}
                 </div>
 
                 <Section title="Picture">

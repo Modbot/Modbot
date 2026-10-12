@@ -49,6 +49,8 @@ channel card edited in place are not posts, because they are rewritten whenever 
 | `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); null for hand-written posts. |
 | `external_key` text null | What a post of a kind is about outside Modbot: for `twitch_live`, the Twitch stream id. Null on every other post (added 2026-10-07, Twitch design). |
 | `date_starts_at` timestamptz null | The date a reminder, live or one-date cancel post is about (step 4). |
+| `keep_updated` bool | Modbot edits the post on Discord and VRChat when an event in one of its lists changes (§8). Kept only while the text holds a list. |
+| `lists_updated_at` timestamptz null | When Modbot last edited a site for `keep_updated`; the list shows it. |
 | `version` int | Raised by every write a person makes, and by the sender's claim. The EF concurrency token (§4.3). |
 | `created_by_user_id`, `created_at`, `updated_at`, `cancelled_at` | |
 
@@ -400,7 +402,8 @@ the Discord server." otherwise.
 
 Four lists with counts; each row the time in the viewer's zone (the post's zone after it when
 another), the title or first line, who wrote it, a badge per destination, the event's name when
-linked, and the actions open to the post now. **Cancelled** chip. **New post**.
+linked, and the actions open to the post now. **Cancelled** chip. **New post**. A post with Keep
+updated shows "Updated" and the time Modbot last edited it for a list, or "Keep updated" until it has.
 
 Once a post has gone out, the title or first line is what the sites show: Edit on a site (§5.5)
 writes that site's own title and text and leaves the post's alone, so when every site it is posted
@@ -431,7 +434,10 @@ now when Now is picked; Save draft; Cancel).
     so no mark reaches any box or preview. Chosen over one box that shows clean text and converts
     back, because a typed change to a line cannot be matched to its mark once the writer rewrites it.
     The cost: a list's event names are not edited in place. Remove it and add it again.
-  - "Own text" holds finished text, so a list copied into it is no longer found by step 4's update.
+  - "Own text" holds finished text, so a list copied into it has no marks to find. Keep updated
+    (§8) finds it by its finished words instead.
+  - **Keep updated** is a tick under Text, shown while the text holds at least one list. It is
+    chosen when the post is written; the composer cannot be opened on a post that has gone out.
 - Picture: Choose or a picture link (fetched through Modbot's picture-link guard), the calendar's
   crop box with 16:9 · 1:1 · As it is, uploaded to `POST /api/posts/picture`.
 - Where it goes: chips, all off when the composer opens for a new post, every time. A site not set
@@ -480,7 +486,7 @@ See calendar: `GET /events` (the next date of every published, not cancelled eve
 `id, title, startsAt, timeZone`) and `POST /event-text` (`{eventId}` or `{from, to, timeZone}`,
 `yyyy-MM-dd`, at most 62 days, answering `{text, count}`; 400 `{error}` for a bad range or an event
 that is not published). Published means scheduled, open or finished; drafts, cancelled and deleted
-events and dates cancelled on their own are left out. No migration: a list lives in the post's text. The calendar's event read gains `posts` in step 4.
+events and dates cancelled on their own are left out. A list lives in the post's text; the request takes `keepUpdated` and the post carries `keepUpdated` and `listsUpdatedAt` (§2.1). The calendar's event read gains `posts` in step 4.
 
 ## 6. Facts
 
@@ -520,11 +526,40 @@ uploads, removing the Bluesky account.
   address (3b, decision 15, built, §4.2c); a fixed record key with `swapRecord: null`; Cancelled as a reply under
   Announced (decision 7, with step 4's event kinds); Check shows whether the account is marked
   automated (decision 10).
-- **Keep updated (step 2 of the event lists)**: a per-post choice. Off: each post stands alone. On:
-  Modbot edits the post it sent when an event in the list's range is published, changed or cancelled.
-  `PostEventText.ListsIn(text)` finds each list with the range or event id its mark holds; only the
-  list is written again and the words around it stay. Discord and VRChat edit, Bluesky cannot and
-  keeps its first version; edits use the existing VRChat posts lane and never ping again.
+- **Keep updated (step 2 of the event lists)**: built (2026-10-12). A per-post choice (`post.keep_updated`).
+  Off: each post stands alone. On: Modbot edits the post it sent when an event in the list's range
+  is published, changed or cancelled. `PostEventText.ListsIn(text)` finds each list with the range or
+  event id its mark holds; only the list is written again and the words around it stay. Discord and
+  VRChat edit, Bluesky cannot and keeps its first version; edits use the existing VRChat posts lane
+  and never ping again.
+  - **Looks, not listens.** The calendar is written from many places and none says "an event
+    changed", so `PostListService` runs `PostListUpdater` every two minutes: for each scheduled post
+    with Keep updated and a Discord or VRChat destination that is posted, `PostListUpdates.ChangesAsync`
+    builds each list again (a What's on over its range; an Add event for the event's next date) and
+    compares it with the list in the post's text. Nothing differs, nothing is asked of any site.
+  - **Which words an edit changes.** A site is not sent the marks, so the old list as that site was
+    sent it (`PostEventText.ForSite` of the old list) is found in the destination's `sent_text` and
+    swapped for the new one (`PostListUpdates.ForSite`), then the edit goes through
+    `IDiscordPostActions.EditAsync` (Discord: text only, pings nobody) or `IVRChatPostActions.EditAsync`
+    (the `groups.posts.write` lane, notifies nobody). A list a person changed by hand on a site is not
+    found and stays as it is there; the other site is still updated.
+  - **When it stops.** Pause all posting stops every edit. A What's on list is left alone once its
+    last day has passed; an Add event list once the date it shows has started; an event that is
+    cancelled, deleted or back to a draft turns its list into "Nothing is planned yet.". The per-site
+    switches are not consulted: an edit is not a send.
+  - **Once a window.** A post in which a change was found is not looked at again for five minutes
+    (`PostListUpdater.Window`, held in memory by `PostListWindow`; after a restart a post is looked at
+    again at once, which edits it only if its lists read differently), so a burst of calendar edits
+    makes one edit. A site that turns an edit away (a VRChat limit, the bot off, a refusal) is not asked
+    again in that pass, and nothing is retried inside the window: a 429 is never retried.
+  - **The row.** After a site took the edit its `sent_text` (and `text_override` when it held the list)
+    follows, `post.lists_updated_at` is set and `version` raised, with the same re-read on a conflict as
+    §4.4. The post's own text gets the new lists only once every site that needed the edit has taken it
+    (a message gone from Discord counts: its row is marked deleted), so a site turned away is found
+    again with the old list still to look for. Each edit writes a `modbot.post.edit` fact with no
+    actor and `automatic: true`.
+  - **Not built**: ticking Keep updated on a post that already went out (the composer cannot be opened
+    on one); Bluesky never edits.
 - **Step 4, event posts**: `post_plan` and `post_texts` on the event; `CalendarPosts.Plan` (Announced
   once, Reminder an hour before each date (decision 11) and skipped past the start, We're live on the
   shared first-join check, Cancelled only where Announced posted); a planner step in

@@ -95,6 +95,18 @@ bottom.
   each time shows in the reader's own time zone; on VRChat and Bluesky it shows in the event's own
   zone, such as "Sun 18 Oct, 20:00 BST". Nothing posts by itself: a monthly post is one you write
   and schedule.
+- **Keep updated** shows under the text once the post has an event list. Off, each post stands
+  alone, as it was sent. On, after the post has gone out Modbot edits it when an event in a list is
+  published, changed, moved or cancelled: it writes the list again and leaves your words around it
+  alone. Only Discord and VRChat are edited, with the same rules as **Edit** under
+  [After it goes](#after-it-goes): nobody is pinged or notified again. Bluesky cannot edit a post, so
+  it keeps the first version. A burst of calendar changes makes one edit, then Modbot leaves the
+  post alone for five minutes; a site that turns an edit away (VRChat when it is busy, Discord when
+  the bot is not connected) is asked again after that. Nothing is edited while **Pause all
+  posting** is on. An **Add event** list for an event that was cancelled says **Nothing is planned
+  yet.** A **What's on** list stops changing after its last day, and an **Add event** list once the
+  date it shows has started. A list you changed by hand on a site is left as it is
+  there. **Updated** and the time show beside the post when Modbot last did.
 - **Picture**: **Choose picture** to pick one on your computer, or paste a **Picture link**. It
   opens in a crop box. Pick its shape: **16:9**, **1:1**, or **As it is** for the whole picture.
   Move and size the box, then **Upload**. A picture up to 8 MB is kept by Modbot and sent to Discord
@@ -352,7 +364,7 @@ When there is nothing to say, the card is not shown.
 
 Everything done to a post is written to the audit log, under the operational log: who wrote,
 changed, cancelled or sent it now, each post Modbot sent with its link and exactly what it said,
-each post that failed with the reason, each edit and delete on a site with who did it, and each
+each post that failed with the reason, each edit and delete on a site with who did it (an edit made by **Keep updated** has no person), and each
 picture uploaded to VRChat for a post, with who chose it.
 
 ## What leaves your server

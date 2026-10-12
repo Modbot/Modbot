@@ -135,6 +135,15 @@ public class Post
     /// <summary>The planned start of the date a calendar post is about, for its reminder, live and one-date cancel posts.</summary>
     public DateTimeOffset? DateStartsAt { get; set; }
 
+    /// <summary>
+    /// Modbot edits this post on the sites that took it when an event in one of its lists is
+    /// published, changed or cancelled (posts design §8). Off: the post stands as it was sent.
+    /// </summary>
+    public bool KeepUpdated { get; set; }
+
+    /// <summary>When Modbot last rewrote an event list on a site for <see cref="KeepUpdated"/>. Null until it has.</summary>
+    public DateTimeOffset? ListsUpdatedAt { get; set; }
+
     /// <summary>Raised on every write; the concurrency token.</summary>
     public int Version { get; set; }
 

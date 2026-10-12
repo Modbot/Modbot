@@ -100,6 +100,10 @@ public static class PostEventText
     public static string EventList(PostEventLine line) =>
         $"{{{{{EventWord} {line.EventId:D}}}}}\n{Lines(line)}\n{{{{/{EventWord}}}}}";
 
+    /// <summary>An event's list once the event is not published any more: <see cref="Nothing"/> where its line was.</summary>
+    public static string EmptyEventList(Guid eventId) =>
+        $"{{{{{EventWord} {eventId:D}}}}}\n{Nothing}\n{{{{/{EventWord}}}}}";
+
     /// <summary>The text for "What's on": every event in the range, a blank line between, wrapped with the range it was built from.</summary>
     public static string WhatsOnList(LocalDate from, LocalDate to, string timeZone, IReadOnlyList<PostEventLine> lines)
     {
