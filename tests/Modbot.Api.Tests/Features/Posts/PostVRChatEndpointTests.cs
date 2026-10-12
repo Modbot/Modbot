@@ -14,8 +14,21 @@ namespace Modbot.Api.Tests.Features.Posts;
 /// being what the sender sends, edit and delete in the group, and the VRChat posts switch.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class PostVRChatEndpointTests(PostgresFixture db)
+public class PostVRChatEndpointTests(PostgresFixture db) : IAsyncLifetime
 {
+    public ValueTask InitializeAsync() => ForgetVRChatPlusAsync();
+
+    /// <summary>Whether Modbot's VRChat account has VRChat+ is left in the settings row; the next class must not find it set.</summary>
+    public ValueTask DisposeAsync() => ForgetVRChatPlusAsync();
+
+    private async ValueTask ForgetVRChatPlusAsync()
+    {
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.VRChatHasPlus = null;
+        await context.SaveChangesAsync(Ct);
+    }
+
     private const string Group = "grp_marketing";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -45,7 +58,7 @@ public class PostVRChatEndpointTests(PostgresFixture db)
         }
     }
 
-    private async Task<(ApiTestHost Host, FakeVRChatPosts VRChat)> StartAsync(bool uploadsOn = false, string? group = Group)
+    private async Task<(ApiTestHost Host, FakeVRChatPosts VRChat)> StartAsync(bool uploadsOn = false, string? group = Group, bool? hasPlus = null)
     {
         await using (var context = db.NewContext())
         {
@@ -55,6 +68,7 @@ public class PostVRChatEndpointTests(PostgresFixture db)
             settings.VRChatUsername = "modbot";
             settings.VRChatPasswordEncrypted = "sealed";
             settings.VRChatPictureUploads = uploadsOn;
+            settings.VRChatHasPlus = hasPlus;
             settings.PostsPaused = false;
             settings.VRChatPostsOn = true;
             await context.SaveChangesAsync(Ct);
@@ -236,6 +250,44 @@ public class PostVRChatEndpointTests(PostgresFixture db)
             // A post with no picture sends VRChat no picture id, whatever is said.
             var none = await CreateAsync(onHost, manager, Body(onHost, new { imageId = "file_1" }));
             Assert.Equal(JsonValueKind.Null, none.GetProperty("destinations")[0].GetProperty("vrChat").GetProperty("imageId").ValueKind);
+        }
+    }
+
+    [Fact]
+    public async Task WithNoVRChatPlus_TheUploadIsRefusedWithTheSentence_AndAnIdAlreadySentIsKept()
+    {
+        var picture = Guid.CreateVersion7();
+
+        await using (var context = db.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture
+            {
+                Id = picture,
+                Bytes = [0x89, 0x50, 0x4E, 0x47],
+                ContentType = "image/png",
+                CreatedAt = DateTimeOffset.UnixEpoch,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var (host, _) = await StartAsync(uploadsOn: true, hasPlus: false);
+        await using (host)
+        {
+            var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+            var upload = await host.SendJsonAsync(HttpMethod.Post, "/api/posts/vrchat-picture", new { pictureId = picture }, manager, Ct);
+            Assert.Equal(HttpStatusCode.Conflict, upload.StatusCode);
+            Assert.Equal(
+                "Modbot's VRChat account needs VRChat+ to use pictures.",
+                (await ApiTestHost.BodyOf(upload, Ct)).GetProperty("error").GetString());
+
+            // A picture VRChat already has keeps going with the post.
+            var kept = await CreateAsync(host, manager, Body(host, new { imageId = "file_1" }, pictureId: picture));
+            Assert.Equal("file_1", kept.GetProperty("destinations")[0].GetProperty("vrChat").GetProperty("imageId").GetString());
+
+            var list = await host.SendJsonAsync(HttpMethod.Get, "/api/posts", null, manager, Ct);
+            var sites = (await ApiTestHost.BodyOf(list, Ct)).GetProperty("sites");
+            Assert.False(sites.GetProperty("vrChatPlus").GetBoolean());
         }
     }
 

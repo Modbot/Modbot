@@ -86,6 +86,7 @@ export function CalendarEventForm({
   platforms,
   ready,
   pictureUploads = false,
+  vrchatPlus = null,
   onClose,
   onSaved,
 }: {
@@ -98,6 +99,8 @@ export function CalendarEventForm({
   ready?: CalendarReady | null
   /** Whether a VRChat picture may be uploaded (Settings). Off, the picture is only an id typed or cleared. */
   pictureUploads?: boolean
+  /** Whether Modbot's VRChat account has VRChat+. False turns the VRChat picture off; null is not known. */
+  vrchatPlus?: boolean | null
   onClose: () => void
   onSaved: (saved: CalendarEvent) => void
 }) {
@@ -268,7 +271,7 @@ export function CalendarEventForm({
   // A picture chosen on this computer opens in every crop box shown, so one choice serves both
   // places; each is cropped to its own shape.
   const chooseEverywhere = (file: Blob) => {
-    if (pictureUploads && input.publishToVRChat) vrchatPicture.openFile(file)
+    if (pictureUploads && vrchatPlus !== false && input.publishToVRChat) vrchatPicture.openFile(file)
     if (discordOn) discordCover.openFile(file)
   }
 
@@ -611,6 +614,7 @@ export function CalendarEventForm({
                       <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
                       <VRChatPictureField
                         uploads={pictureUploads}
+                        plus={vrchatPlus}
                         picture={vrchatPicture}
                         thumbnails={pictureThumbnails}
                         value={input.vrChatImageId}

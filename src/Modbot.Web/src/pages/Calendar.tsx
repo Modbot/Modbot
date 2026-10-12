@@ -643,6 +643,7 @@ export function Calendar() {
           platforms={data.view.platforms}
           ready={data.view.ready}
           pictureUploads={data.view.pictureUploads}
+          vrchatPlus={data.view.vrChatPlus}
           onClose={closeForm}
           onSaved={(saved) => {
             closeForm()

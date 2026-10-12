@@ -96,7 +96,7 @@ public static class PostEndpoints
                     PageSize,
                     total,
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManagePosts),
-                    PostRequests.SitesView(sites, settings?.VRChatPictureUploads ?? false),
+                    PostRequests.SitesView(sites, settings?.VRChatPictureUploads ?? false, settings?.VRChatHasPlus),
                     clock.UtcNow,
                     PostRequests.VRChatRoles(settings),
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ViewCalendar | ModbotPermissions.ManagePosts)));
@@ -849,6 +849,10 @@ public static class PostEndpoints
                 if (settings is not { VRChatPictureUploads: true })
                     return Conflict("Picture uploads are off.");
 
+                // Known to have no VRChat+: VRChat would refuse it, so it is not asked.
+                if (settings.VRChatHasPlus == false)
+                    return Conflict(VRChat.Files.VRChatPictureUploads.NeedsPlus);
+
                 if (uploads is null)
                     return Unavailable("This build of Modbot cannot upload pictures to VRChat.");
 
@@ -907,7 +911,8 @@ public static class PostEndpoints
                 + "gave it; send that as the VRChat section's `imageId`. Only a PNG or JPEG of at most "
                 + "10 MB. One request to VRChat, at most one a minute and never retried. Answers 409 "
                 + "\"Picture uploads are off.\" until the operator turns VRChat picture uploads on in "
-                + "Settings; while they are off a VRChat post goes as text only.")
+                + "Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" while the "
+                + "account is known to have none; while uploads are off a VRChat post goes as text only.")
             .Produces<PostVRChatPictureView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

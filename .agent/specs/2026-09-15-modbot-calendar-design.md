@@ -605,8 +605,11 @@ Two loops, both on `IModbotClock`, never the system clock:
   series); whether an update to one date wants `parentId`; and whether VRChat keeps a changed date
   through a later update of the series. Built from the spec's model (`occurrenceKind`,
   `occurrenceModified`, `seriesId`, `parentId`), not from a call to the real service.
-- Whether `POST /file/image` with the `gallery` purpose needs VRChat+ on Modbot's account, what size
-  VRChat takes, and its real rate limit (§15).
+- Whether `POST /file/image` with the `gallery` purpose needs VRChat+ on Modbot's account (very
+  likely: the first real upload was refused with "You don't have permission to use tag: gallery."
+  and §15 now reads the account's `system_supporter` tag instead of waiting for the answer; the
+  gallery refusal itself is still not tied to that tag by anything VRChat says), what size VRChat
+  takes, and its real rate limit (§15).
 
 ## 11. The page (added 2026-09-27)
 
@@ -916,6 +919,18 @@ upload.
   `pictureUploads: false` (what the calendar read says whenever it is not on), and the form shows the old typed *VRChat image id* box instead of
   *Choose picture*, so an event's existing id can still be seen and changed. Changing it writes a
   settings-changed fact.
+- **VRChat+ is read, not guessed** (added 2026-10-12). Whether Modbot's own VRChat account has
+  VRChat+ is `system_supporter` among its tags. It is read from the tags the sign-in already
+  returns (`GET /auth/user`, no request of its own) and kept on `settings.vr_chat_has_plus`
+  (nullable: null is not read yet, and everything behaves as before). It is not re-read on a timer;
+  Settings → Pictures shows it as *VRChat+: Yes / No / Not checked* with a *Check again* button, one
+  `GET /users/{ownId}` on `users.read` at interactive priority, never retried. Known false (`No`):
+  the *Upload VRChat pictures* switch is greyed out, the event form's VRChat picture box (the typed
+  id as well as the upload) is turned off, the composer sends no picture to VRChat, and each says
+  "Modbot's VRChat account needs VRChat+ to use pictures." with the *Get VRChat+* link. The upload
+  endpoints (`POST /api/calendar/vrchat-picture`, `POST /api/posts/vrchat-picture`) answer 409 with
+  that sentence before reading the body. An event or post that already has a VRChat picture id keeps
+  it and still sends it: nothing here rewrites a saved id.
 - **Large bodies** are refused before they are read: a `Content-Length` over the limit gets 413 with
   nothing read, and the endpoint sets its own request body limit to 10 MB plus one byte (as imports
   do), so a chunked body cannot be read past that either.

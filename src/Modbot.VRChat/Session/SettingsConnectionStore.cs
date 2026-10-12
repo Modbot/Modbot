@@ -84,6 +84,7 @@ public sealed class SettingsConnectionStore(IServiceScopeFactory scopes, ISecret
         settings.VRChatAuthCookieEncrypted = protector.Protect(StoredSession.Serialise(authCookie, twoFactorAuthCookie));
         settings.VRChatSessionAccount = account.Account;
         settings.VRChatSessionUserId = account.UserId;
+        settings.VRChatHasPlus = account.HasPlus;
 
         if (!string.IsNullOrWhiteSpace(account.DisplayName))
             settings.VRChatDisplayName = account.DisplayName;

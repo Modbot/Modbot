@@ -103,6 +103,21 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
         Assert.Equal("ModbotBot", connection.DisplayName);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task ASignInStoresWhetherTheAccountHasVRChatPlus(bool? hasPlus)
+    {
+        var (store, _) = await NewStoreAsync();
+
+        await store.SaveSignInAsync(
+            "authValue", null, new VRChatSignedInAccount("modbot@example.com", "usr_bot", "ModbotBot", hasPlus), Ct);
+
+        await using var context = db.NewContext();
+        Assert.Equal(hasPlus, (await context.GetSettingsAsync(Ct)).VRChatHasPlus);
+    }
+
     /// <summary>
     /// A session issued to another username is not offered, so the gate can never present one
     /// account's session while holding another account's password.

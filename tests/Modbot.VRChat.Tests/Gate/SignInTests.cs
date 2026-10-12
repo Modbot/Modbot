@@ -73,6 +73,33 @@ public class SignInTests
         Assert.NotNull(harness.SignIns.LastSignedInAt);
     }
 
+    [Theory]
+    [InlineData("system_supporter", true)]
+    [InlineData("system_trust_known", false)]
+    public async Task ASignInKeepsWhetherTheAccountHasVRChatPlus_FromTheTagsItReturned(string tag, bool hasPlus)
+    {
+        var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
+            .AlwaysSignedInAs(tags: [tag, "system_trust_basic"]);
+        var harness = new Harness(vrchat, Account(cookie: "expiredCookie"));
+
+        var result = await harness.Gate.ExecuteAsync(Members, Ok("members"), ct: Ct);
+
+        Assert.True(result.Success);
+        Assert.Equal(hasPlus, harness.Store.SavedHasPlus);
+    }
+
+    [Fact]
+    public async Task ASignInWithNoTagsLeavesVRChatPlusNotKnown()
+    {
+        var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }.AlwaysSignedInAs();
+        var harness = new Harness(vrchat, Account(cookie: "expiredCookie"));
+
+        var result = await harness.Gate.ExecuteAsync(Members, Ok("members"), ct: Ct);
+
+        Assert.True(result.Success);
+        Assert.Null(harness.Store.SavedHasPlus);
+    }
+
     [Fact]
     public async Task VerifyAuthTokenOkFalseIsABadSession()
     {

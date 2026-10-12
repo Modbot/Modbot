@@ -102,6 +102,8 @@ export type PostSites = {
   vrChatSetUp: boolean
   /** VRChat picture uploads are on, so a VRChat post can carry the picture. */
   vrChatPictures: boolean
+  /** Whether Modbot's VRChat account has VRChat+. Null or missing: not known. */
+  vrChatPlus?: boolean | null
   /** The Bluesky Posting switch. Missing from an older server: off. */
   blueskyOn?: boolean
   /** A Bluesky account passed Check and its app password works. */

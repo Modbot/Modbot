@@ -477,6 +477,17 @@ has to have it is the VRChat account Modbot signs in as for your group. Without 
 the upload with *You don't have permission to use tag: gallery.* Modbot shows that sentence under the
 field with a **Get VRChat+** link, and nothing is uploaded.
 
+Modbot also checks for itself. It reads whether its VRChat account has VRChat+ from the account's
+own tags each time it signs in to VRChat, and **Settings**, **Modbot's VRChat login**, **Pictures**
+shows the answer as **VRChat+: Yes**, **No** or **Not checked**. **Check again** reads it again
+right away, with one request to VRChat; use it after you buy VRChat+ for that account. While the
+answer is **No**, the **Upload VRChat pictures** switch is greyed out, the VRChat picture box
+in the form is turned off, and the form says *Modbot's VRChat account needs VRChat+ to use
+pictures.* with a **Get VRChat+** link. The server answers the same sentence to anyone who asks it
+to upload. An event that already has a VRChat picture keeps it and still sends it. **Not checked**
+(an account Modbot has not signed in with since this check was added, or one VRChat sent no tags
+for) is treated as before: nothing is turned off.
+
 To turn it on, go to **Settings**, **Modbot's VRChat login**, **Pictures**, and turn on **Upload
 VRChat pictures**. A **Get VRChat+** link sits beside the switch. While it is off the form has a
 box for a VRChat image id instead: the id of a picture already on VRChat. Paste the whole VRChat

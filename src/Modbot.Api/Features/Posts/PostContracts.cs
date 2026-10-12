@@ -190,6 +190,7 @@ public sealed record PostCounts(int Scheduled, int Sent, int Drafts, int Failed,
 /// <param name="VRChatPictures">VRChat picture uploads are on, so a VRChat post can carry the picture.</param>
 /// <param name="BlueskyOn">The Bluesky Posting switch.</param>
 /// <param name="BlueskySetUp">A Bluesky account passed Check and its app password works.</param>
+/// <param name="VRChatPlus">Whether Modbot's VRChat account has VRChat+; null until it has been read.</param>
 public sealed record PostSitesView(
     bool Paused,
     bool DiscordOn,
@@ -198,7 +199,8 @@ public sealed record PostSitesView(
     bool VRChatSetUp,
     bool VRChatPictures,
     bool BlueskyOn = false,
-    bool BlueskySetUp = false);
+    bool BlueskySetUp = false,
+    bool? VRChatPlus = null);
 
 /// <summary>A role of the VRChat group, for choosing who a VRChat post is for.</summary>
 public sealed record PostRoleChoice(string Id, string Name);

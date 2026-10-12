@@ -8276,6 +8276,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("vr_chat_file_cache_bytes");
 
+                    b.Property<bool?>("VRChatHasPlus")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vr_chat_has_plus");
+
                     b.Property<bool>("VRChatImagesProxied")
                         .HasColumnType("boolean")
                         .HasColumnName("vr_chat_images_proxied");

@@ -44,6 +44,12 @@ public sealed class VRChatPictureUploads(IVRChatGate gate)
     public const string Png = "image/png";
     public const string Jpeg = "image/jpeg";
 
+    /// <summary>
+    /// The sentence for an upload refused up front because the account Modbot signs in as is known
+    /// to have no VRChat+. The web app shows the same words beside the picture fields.
+    /// </summary>
+    public const string NeedsPlus = "Modbot's VRChat account needs VRChat+ to use pictures.";
+
     /// <summary>The sentence for a picture over <see cref="MaxBytes"/>.</summary>
     public static string TooBig => $"The picture is larger than {MaxBytes / (1024 * 1024)} MB.";
 

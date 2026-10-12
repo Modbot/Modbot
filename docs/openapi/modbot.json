@@ -5318,6 +5318,96 @@
         ]
       }
     },
+    "/api/settings/vrchat-pictures/check-plus": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Check VRChat+",
+        "description": "Reads Modbot's own VRChat user again and keeps whether its tags say it has VRChat+. One request to VRChat (users.read, interactive), never retried.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CheckVRChatPlus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VRChatPictureUploadsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/auto-invites": {
       "get": {
         "tags": [
@@ -26416,7 +26506,7 @@
           "Calendar"
         ],
         "summary": "Upload VRChat calendar picture",
-        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" until the operator turns uploads on in Settings; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" until the operator turns uploads on in Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" while the account is known to have none; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UploadCalendarVRChatPicture",
         "parameters": [
           {
@@ -31300,7 +31390,7 @@
           "Posts"
         ],
         "summary": "Upload post picture to VRChat",
-        "description": "Uploads a post's picture, kept with `POST /api/posts/picture`, to VRChat, on the VRChat account Modbot signs in as, for a VRChat group post. Answers with the file id VRChat gave it; send that as the VRChat section's `imageId`. Only a PNG or JPEG of at most 10 MB. One request to VRChat, at most one a minute and never retried. Answers 409 \"Picture uploads are off.\" until the operator turns VRChat picture uploads on in Settings; while they are off a VRChat post goes as text only.\n\nNeeds the `ManagePosts` permission.",
+        "description": "Uploads a post's picture, kept with `POST /api/posts/picture`, to VRChat, on the VRChat account Modbot signs in as, for a VRChat group post. Answers with the file id VRChat gave it; send that as the VRChat section's `imageId`. Only a PNG or JPEG of at most 10 MB. One request to VRChat, at most one a minute and never retried. Answers 409 \"Picture uploads are off.\" until the operator turns VRChat picture uploads on in Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" while the account is known to have none; while uploads are off a VRChat post goes as text only.\n\nNeeds the `ManagePosts` permission.",
         "operationId": "UploadPostVRChatPicture",
         "requestBody": {
           "content": {
@@ -37617,6 +37707,12 @@
           "pictureUploads": {
             "type": "boolean",
             "default": false
+          },
+          "vrChatPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -51368,6 +51464,12 @@
           "blueskySetUp": {
             "type": "boolean",
             "default": false
+          },
+          "vrChatPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -57071,6 +57173,12 @@
         "properties": {
           "on": {
             "type": "boolean"
+          },
+          "hasPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

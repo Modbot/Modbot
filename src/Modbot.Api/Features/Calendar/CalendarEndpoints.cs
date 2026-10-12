@@ -110,7 +110,8 @@ public static class CalendarEndpoints
                     now,
                     ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics),
                     CalendarReadiness.Of(settings, discordBot),
-                    settings?.VRChatPictureUploads ?? false));
+                    settings?.VRChatPictureUploads ?? false,
+                    settings?.VRChatHasPlus));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")
@@ -729,6 +730,15 @@ public static class CalendarEndpoints
                         statusCode: StatusCodes.Status409Conflict);
                 }
 
+                // Known to have no VRChat+ (read at sign-in, or by Check again in Settings): VRChat
+                // would refuse the upload, so it is not asked. Not known is asked as before.
+                if (settings.VRChatHasPlus == false)
+                {
+                    return Results.Json(
+                        new { error = VRChatPictureUploads.NeedsPlus },
+                        statusCode: StatusCodes.Status409Conflict);
+                }
+
                 if (uploads is null)
                 {
                     // Only a host built without VRChat lacks the service; a Modbot server always has it,
@@ -825,7 +835,8 @@ public static class CalendarEndpoints
                 + "eventId names the event when it is already saved, for the audit log. One request "
                 + "to VRChat, at most one a minute and never retried; a picture that is too big or "
                 + "not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" "
-                + "until the operator turns uploads on in Settings; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.")
+                + "until the operator turns uploads on in Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" "
+                + "while the account is known to have none; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.")
             .Produces<CalendarVRChatPictureView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

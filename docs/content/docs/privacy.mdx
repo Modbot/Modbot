@@ -83,7 +83,9 @@ wherever you choose to store them. These pages describe what is kept and how it 
   **VRChat picture** is uploaded to VRChat, to the VRChat account Modbot signs in as for your group,
   and stays there as a file on that account. It is off until you turn it on, with **Settings**,
   **Modbot's VRChat login**, **Pictures**, **Upload VRChat pictures**, and it needs VRChat+ on that
-  account. Even when it is on, nothing is uploaded unless someone with **Manage calendar** chooses
+  account. Modbot reads whether the account has VRChat+ from its own tags when it signs in to
+  VRChat, and again when you press **Check again** there (one request to VRChat, for the account's
+  own user, nothing else sent). Even when it is on, nothing is uploaded unless someone with **Manage calendar** chooses
   a picture. The picture is cropped and turned into a PNG or JPEG in that person's browser; only the
   cropped picture is sent.
 - [The Discord picture](/moderation/calendar#the-discord-picture): a picture cropped for an event's

@@ -746,8 +746,8 @@ internal static class PostRequests
             PostSites.BlueskyReady(settings));
     }
 
-    public static PostSitesView SitesView(PostSites sites, bool vrchatPictures) =>
-        new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp, sites.VRChatOn, sites.VRChatSetUp, vrchatPictures, sites.BlueskyOn, sites.BlueskySetUp);
+    public static PostSitesView SitesView(PostSites sites, bool vrchatPictures, bool? vrchatPlus = null) =>
+        new(sites.Paused, sites.DiscordOn, sites.DiscordSetUp, sites.VRChatOn, sites.VRChatSetUp, vrchatPictures, sites.BlueskyOn, sites.BlueskySetUp, vrchatPlus);
 
     /// <summary>The posts as the page draws them, with the names Modbot has for their channels, roles, events and writers.</summary>
     public static async Task<List<PostView>> ViewsAsync(

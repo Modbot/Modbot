@@ -213,6 +213,15 @@ public class Settings
     public bool VRChatPictureUploads { get; set; }
 
     /// <summary>
+    /// Whether the VRChat account Modbot signs in as has VRChat+, read off its own tags
+    /// (<c>system_supporter</c>) when Modbot signs in, and again when someone presses Check again
+    /// in Settings. Null until it has been read, and then Modbot behaves as it did before it was
+    /// known. False turns the VRChat picture fields off: VRChat takes a picture upload only from
+    /// an account with VRChat+.
+    /// </summary>
+    public bool? VRChatHasPlus { get; set; }
+
+    /// <summary>
     /// Whether the calendar's public feed answers at <c>/api/calendar/public.ics</c> (calendar design
     /// §6.1, added 2026-10-03): the events visible to everyone, with no secret in the address, for
     /// event directories and websites. Off until someone with Manage calendar turns it on, because it

@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { Tabs } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { VRChatPlusWarning } from '@/components/VRChatPlusWarning'
 import { ApiError } from '@/lib/api'
 import { useDiscordChannels } from '@/lib/discordLists'
 import { useCanManageSettings } from '@/lib/manageSettings'
@@ -140,7 +141,11 @@ export function PostComposer({
   }
 
   // Only when the tick, the picture or the switch changes; the function itself is new every render.
-  const wantsVRChatPicture = vrchatPictureWanted(input, sites.vrChatPictures)
+  // An account known to have no VRChat+ sends nothing new: VRChat would refuse it. A picture the
+  // post already sent keeps going, since requestOf below still reads the switch alone.
+  const noVRChatPlus = sites.vrChatPlus === false
+  const picturesToVRChat = sites.vrChatPictures && !noVRChatPlus
+  const wantsVRChatPicture = vrchatPictureWanted(input, picturesToVRChat)
   useEffect(() => {
     if (wantsVRChatPicture && input.pictureId) void sendPictureToVRChat(input.pictureId)
   }, [wantsVRChatPicture, input.pictureId])
@@ -243,7 +248,7 @@ export function PostComposer({
 
       // The crop went up just now, so VRChat has not had it yet: sent once, here. Refused, nothing
       // is saved and the VRChat section says why; saving again sends VRChat the text only.
-      if (vrchatPictureWanted(saving, sites.vrChatPictures)) {
+      if (vrchatPictureWanted(saving, picturesToVRChat)) {
         const sent = await sendPictureToVRChat(id)
         if (!sent) {
           setBusy(false)
@@ -264,7 +269,7 @@ export function PostComposer({
         saving = { ...saving, bluesky: { ...saving.bluesky, ...made } }
       }
     } else {
-      if (input.pictureId && vrchatPictureWanted(saving, sites.vrChatPictures) && vrchatSends.current.has(input.pictureId)) {
+      if (input.pictureId && vrchatPictureWanted(saving, picturesToVRChat) && vrchatSends.current.has(input.pictureId)) {
         // A send to VRChat still on its way is waited for, so the post goes with what it answers.
         const sent = await vrchatSends.current.get(input.pictureId)
         if (sent) saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
@@ -568,6 +573,7 @@ export function PostComposer({
                       </span>
                     )}
                     {vrchatPictureError && <Outcome tone="problem">{vrchatPictureError}</Outcome>}
+                    {sites.vrChatPictures && noVRChatPlus && vrchatPictureWanted(input, true) && <VRChatPlusWarning />}
                   </Section>
                 )}
 

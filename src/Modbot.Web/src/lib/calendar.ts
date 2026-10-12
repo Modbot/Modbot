@@ -254,6 +254,8 @@ export type CalendarView = {
   ready?: CalendarReady | null
   /** Whether the form may upload a VRChat picture (Settings). Missing from an older server: taken as off. */
   pictureUploads?: boolean
+  /** Whether Modbot's VRChat account has VRChat+. Null or missing: not known, and pictures are left as they were. */
+  vrChatPlus?: boolean | null
 }
 
 /** The event as each place would show it, drawn by the server from the code that sends it (§14.2). */
@@ -511,6 +513,9 @@ const base = '/api/calendar'
 
 /** Where a person gets VRChat+, which VRChat's gallery upload needs on the account Modbot signs in as. */
 export const VRCHAT_PLUS_URL = 'https://hello.vrchat.com/vrchatplus'
+
+/** What the picture fields say while the account Modbot signs in as is known to have no VRChat+. The server's words for the same refusal. */
+export const NEEDS_VRCHAT_PLUS = "Modbot's VRChat account needs VRChat+ to use pictures."
 
 /**
  * Whether VRChat refused an upload for want of the permission to use the gallery tag (its words:

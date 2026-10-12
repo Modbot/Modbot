@@ -159,11 +159,11 @@ public sealed class FakeVRChat
     }
 
     /// <summary>A signed-in user, with the <c>auth</c> cookie a real login would have set.</summary>
-    public FakeVRChat SignedInAs(string displayName = "Modbot", string id = "usr_fake")
+    public FakeVRChat SignedInAs(string displayName = "Modbot", string id = "usr_fake", string[]? tags = null)
     {
         Cookies.Add(new Cookie("auth", "authCookieValue", "/", "api.vrchat.cloud"));
 
-        return RespondsWith(Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id }));
+        return RespondsWith(Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id, Tags = [.. tags ?? []] }));
     }
 
     /// <summary>
@@ -175,10 +175,10 @@ public sealed class FakeVRChat
     /// A one-shot script would therefore turn "the producer was refused by its own limiter" into
     /// "the test ran out of scripted logins", which is a confusing way to fail.
     /// </remarks>
-    public FakeVRChat AlwaysSignedInAs(string displayName = "Modbot", string id = "usr_fake")
+    public FakeVRChat AlwaysSignedInAs(string displayName = "Modbot", string id = "usr_fake", string[]? tags = null)
     {
-        _standingCurrentUser = Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id });
-        return SignedInAs(displayName, id);
+        _standingCurrentUser = Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id, Tags = [.. tags ?? []] });
+        return SignedInAs(displayName, id, tags);
     }
 
     /// <summary>A login that VRChat answers with a two-factor challenge, then accepts.</summary>
@@ -233,6 +233,9 @@ public sealed class FakeConnectionStore(VRChatConnection? connection = null) : I
 
     public string? SavedTwoFactorAuthCookie { get; private set; }
 
+    /// <summary>What the last sign-in saved as "has VRChat+": null when the tags did not say.</summary>
+    public bool? SavedHasPlus { get; private set; }
+
     public Task<VRChatConnection> ReadAsync(CancellationToken ct = default) =>
         Task.FromResult(Connection);
 
@@ -254,6 +257,7 @@ public sealed class FakeConnectionStore(VRChatConnection? connection = null) : I
     {
         SignInSaves++;
         SessionSaves++;
+        SavedHasPlus = account.HasPlus;
         SavedAuthCookie = authCookie;
         SavedTwoFactorAuthCookie = twoFactorAuthCookie;
         Connection = Connection with

@@ -572,7 +572,11 @@ export type PublicInstancesView = {
 }
 
 /** Whether the calendar's event form may upload a picture to VRChat. */
-export type VRChatPictureUploadsView = { on: boolean }
+export type VRChatPictureUploadsView = {
+  on: boolean
+  /** Whether Modbot's VRChat account has VRChat+; null until it has been read. */
+  hasPlus: boolean | null
+}
 
 export type CloudStatusView = {
   disabled: boolean
@@ -5022,6 +5026,9 @@ export const api = {
   vrchatPictureUploads: () => request<VRChatPictureUploadsView>('/api/settings/vrchat-pictures'),
 
   setVRChatPictureUploads: (on: boolean) => put<VRChatPictureUploadsView>('/api/settings/vrchat-pictures', { on }),
+
+  /** Reads Modbot's own VRChat user again for VRChat+. One request to VRChat. */
+  checkVRChatPlus: () => post<VRChatPictureUploadsView>('/api/settings/vrchat-pictures/check-plus'),
 
   updateCheck: () => request<UpdateView>('/api/settings/updates'),
 

@@ -76,7 +76,8 @@ public sealed record VRChatConnection(
 }
 
 /// <summary>Who a new session belongs to, stored beside its cookies.</summary>
-public sealed record VRChatSignedInAccount(string? Account, string? UserId, string? DisplayName);
+/// <param name="HasPlus">Whether the account has VRChat+, from the tags the sign-in returned; null when not known.</param>
+public sealed record VRChatSignedInAccount(string? Account, string? UserId, string? DisplayName, bool? HasPlus = null);
 
 /// <summary>
 /// Where the VRChat account's credentials and session live.

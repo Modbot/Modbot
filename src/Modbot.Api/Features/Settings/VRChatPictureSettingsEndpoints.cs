@@ -5,14 +5,20 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.GroupPage;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.VRChat;
+using Modbot.VRChat.Users;
 
 namespace Modbot.Api.Features.Settings;
 
 /// <param name="On">Whether the calendar's event form may upload a picture to VRChat.</param>
-public sealed record VRChatPictureUploadsView([property: JsonPropertyName("on")] bool On);
+/// <param name="HasPlus">Whether Modbot's VRChat account has VRChat+; null until it has been read.</param>
+public sealed record VRChatPictureUploadsView(
+    [property: JsonPropertyName("on")] bool On,
+    [property: JsonPropertyName("hasPlus")] bool? HasPlus = null);
 
 public sealed record SetVRChatPictureUploadsRequest([property: JsonPropertyName("on")] bool On);
 
@@ -41,7 +47,7 @@ public static class VRChatPictureSettingsEndpoints
                 CancellationToken ct) =>
             {
                 var settings = await db.GetSettingsAsync(ct);
-                return Results.Ok(new VRChatPictureUploadsView(settings.VRChatPictureUploads));
+                return Results.Ok(new VRChatPictureUploadsView(settings.VRChatPictureUploads, settings.VRChatHasPlus));
             })
             .WithName("GetVRChatPictureUploads")
             .WithSummary("Get VRChat picture uploads")
@@ -62,7 +68,7 @@ public static class VRChatPictureSettingsEndpoints
                 var before = settings.VRChatPictureUploads;
 
                 if (before == body.On)
-                    return Results.Ok(new VRChatPictureUploadsView(before));
+                    return Results.Ok(new VRChatPictureUploadsView(before, settings.VRChatHasPlus));
 
                 settings.VRChatPictureUploads = body.On;
                 await db.SaveChangesAsync(ct);
@@ -79,13 +85,76 @@ public static class VRChatPictureSettingsEndpoints
                     },
                     ct);
 
-                return Results.Ok(new VRChatPictureUploadsView(body.On));
+                return Results.Ok(new VRChatPictureUploadsView(body.On, settings.VRChatHasPlus));
             })
             .WithName("SetVRChatPictureUploads")
             .WithSummary("Set VRChat picture uploads")
             .WithDescription("Turn the calendar form's upload of a picture to VRChat on or off.")
             .Produces<VRChatPictureUploadsView>()
             .Produces(StatusCodes.Status403Forbidden);
+
+        // One read of Modbot's own VRChat user, for a person pressing Check again. The same
+        // endpoint and lane as the session check and profile sync (users.read, interactive
+        // priority): a 429 is a cold stop and is not retried, and nothing here loops.
+        group.MapPost("/check-plus", async (
+                [FromServices] ModbotContext db,
+                // Optional: the VRChat services are wired by the host, not by the API.
+                [FromServices] IVRChatGate? gate,
+                CancellationToken ct) =>
+            {
+                if (gate is null)
+                {
+                    return Results.Json(
+                        new { error = "This build of Modbot cannot reach VRChat." },
+                        statusCode: StatusCodes.Status503ServiceUnavailable);
+                }
+
+                var settings = await db.GetSettingsAsync(ct);
+                var userId = settings.VRChatSessionUserId ?? settings.VRChatAccountUserId;
+
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return Results.Json(
+                        new { error = "Modbot has not signed in to VRChat yet." },
+                        statusCode: StatusCodes.Status409Conflict);
+                }
+
+                var result = await gate.ExecuteAsync(
+                    new VRChatEndpoint(VRChatEndpointClass.UsersRead, null, "GetUser (VRChat+ check)"),
+                    (vrchat, token) => vrchat.Users.GetUserWithHttpInfoAsync(userId, token),
+                    VRChatCallPriority.Interactive,
+                    ct);
+
+                if (!result.Success)
+                {
+                    return Results.Json(
+                        new { error = GroupPageAnswers.Said(result) },
+                        statusCode: GroupPageAnswers.StatusFor(result));
+                }
+
+                if (VRChatPlus.FromTags(result.Value?.Tags) is not { } hasPlus)
+                {
+                    return Results.Json(
+                        new { error = "VRChat did not say whether the account has VRChat+." },
+                        statusCode: StatusCodes.Status502BadGateway);
+                }
+
+                settings.VRChatHasPlus = hasPlus;
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(new VRChatPictureUploadsView(settings.VRChatPictureUploads, hasPlus));
+            })
+            .WithName("CheckVRChatPlus")
+            .WithSummary("Check VRChat+")
+            .WithDescription(
+                "Reads Modbot's own VRChat user again and keeps whether its tags say it has VRChat+. "
+                + "One request to VRChat (users.read, interactive), never retried.")
+            .Produces<VRChatPictureUploadsView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests)
+            .Produces(StatusCodes.Status502BadGateway)
+            .Produces(StatusCodes.Status503ServiceUnavailable);
 
         return app;
     }

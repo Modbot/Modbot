@@ -20,11 +20,18 @@ namespace Modbot.Api.Tests.Features.Calendar;
 /// too big or not a PNG or JPEG, behind Manage calendar, and a fact naming who uploaded it.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class CalendarPictureTests(PostgresFixture db)
+public class CalendarPictureTests(PostgresFixture db) : IAsyncLifetime
 {
     private const string Path = "/api/calendar/vrchat-picture";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    public ValueTask InitializeAsync() => ForgetVRChatPlusAsync();
+
+    /// <summary>Whether Modbot's VRChat account has VRChat+ is left in the settings row; the next class must not find it set.</summary>
+    public ValueTask DisposeAsync() => ForgetVRChatPlusAsync();
+
+    private async ValueTask ForgetVRChatPlusAsync() => await SetHasPlusAsync(null);
 
     private static readonly byte[] PngStart = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -201,6 +208,64 @@ public class CalendarPictureTests(PostgresFixture db)
         var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
 
         Assert.True((await ApiTestHost.BodyOf(view, Ct)).GetProperty("pictureUploads").GetBoolean());
+    }
+
+    [Fact]
+    public async Task WithNoVRChatPlus_ThePictureIsRefusedWithTheSentence_AndVRChatIsNotAsked()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        await SetHasPlusAsync(false);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var response = await UploadAsync(host, manager, Png());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(
+            "Modbot's VRChat account needs VRChat+ to use pictures.",
+            (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Empty(gate.Calls);
+
+        var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
+        Assert.False((await ApiTestHost.BodyOf(view, Ct)).GetProperty("vrChatPlus").GetBoolean());
+    }
+
+    [Fact]
+    public async Task WithVRChatPlusNotKnown_ThePictureIsUploadedAsBefore()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        await SetHasPlusAsync(null);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var response = await UploadAsync(host, manager, Png());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(gate.Calls);
+
+        var view = await host.SendJsonAsync(HttpMethod.Get, "/api/calendar", null, manager, Ct);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, (await ApiTestHost.BodyOf(view, Ct)).GetProperty("vrChatPlus").ValueKind);
+    }
+
+    [Fact]
+    public async Task WithVRChatPlus_ThePictureIsUploaded()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        await SetHasPlusAsync(true);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+
+        var response = await UploadAsync(host, manager, Png());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private async Task SetHasPlusAsync(bool? hasPlus)
+    {
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.VRChatHasPlus = hasPlus;
+        await context.SaveChangesAsync(Ct);
     }
 
     private async Task SetUploadsAsync(bool on)

@@ -9,6 +9,7 @@ using Modbot.VRChat.Proxy;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Session;
+using Modbot.VRChat.Users;
 using OtpNet;
 using Serilog;
 using VRChat.API.Client;
@@ -1285,7 +1286,9 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             user = current.Value ?? user;
         }
 
-        var account = new VRChatSignedInAccount(connection.Username, user.Id, user.DisplayName);
+        // VRChat+ is read here, off the tags the sign-in already returned: no request of its own.
+        var account = new VRChatSignedInAccount(
+            connection.Username, user.Id, user.DisplayName, VRChatPlus.FromTags(user.Tags));
         var (auth, twoFactor) = CookiesOf(client);
         twoFactor ??= connection.TwoFactorAuthCookie;
 

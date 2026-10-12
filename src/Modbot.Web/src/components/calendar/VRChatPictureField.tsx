@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { VRChatPlusWarning } from '@/components/VRChatPlusWarning'
 import { coverAddress, isGalleryRefusal, VRCHAT_PLUS_URL } from '@/lib/calendar'
 import { isVRChatFileHost, VRCHAT_FILE_NOT_FOUND, vrchatFileIdIn, vrchatFileIdInLink } from '@/lib/eventPicture'
 import { CropField } from './CropField'
@@ -21,6 +22,7 @@ import { vrchatPictureAddress } from './useVRChatPicture'
  */
 export function VRChatPictureField({
   uploads,
+  plus = null,
   picture,
   thumbnails,
   value,
@@ -31,6 +33,8 @@ export function VRChatPictureField({
 }: {
   /** Whether pictures may be uploaded (Settings). */
   uploads: boolean
+  /** Whether Modbot's VRChat account has VRChat+. False turns the field off; null is not known. */
+  plus?: boolean | null
   /** The picture being chosen, held by the form. */
   picture: CroppedPicture
   /** The form's thumbnails, so one outlives this field being drawn again. */
@@ -44,9 +48,27 @@ export function VRChatPictureField({
   /** A picture file chosen here, which the form opens in every crop box that is shown. */
   onFile: (file: Blob) => void
 }) {
+  if (plus === false) return <NoPlus value={value} />
+
   if (!uploads) return <TypedId value={value} saved={saved} onChange={onChange} />
 
   return <Upload picture={picture} thumbnails={thumbnails} value={value} link={link} onChange={onChange} onFile={onFile} />
+}
+
+/**
+ * The field while the account Modbot signs in as has no VRChat+: nothing can be typed or uploaded,
+ * and a picture the event already has stays in it and is still sent.
+ */
+function NoPlus({ value }: { value: string | null }) {
+  return (
+    <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <label className="flex flex-col gap-1">
+        <span className="text-muted-foreground">VRChat picture</span>
+        <Input value={value ?? ''} placeholder="file_…" disabled />
+      </label>
+      <VRChatPlusWarning />
+    </div>
+  )
 }
 
 function Upload({

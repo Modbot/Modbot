@@ -7,6 +7,7 @@ import { ConfirmButton, Fact, Field, Hint, Outcome, PasswordField, Placeholder, 
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { dateTime } from '@/components/charts/format'
 import { VRCHAT_PLUS_URL } from '@/lib/calendar'
+import { VRChatPlusWarning } from '@/components/VRChatPlusWarning'
 
 /**
  * The VRChat account and the egress proxy — spec 7.1 steps 2 and 3, re-run.
@@ -166,16 +167,23 @@ function CredentialsCard({
 /**
  * The one switch for uploading the calendar's VRChat pictures. Saves at once: it is one yes or no
  * with nothing to save beside it. Off by default, with the link to where VRChat+ is had beside it.
+ * Beside it, whether Modbot's own VRChat account has VRChat+ (read at sign-in) and a button that
+ * reads it again; known to have none, the switch is off and says why.
  */
 function PicturesCard() {
   const [on, setOn] = useState<boolean | null>(null)
+  const [plus, setPlus] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     api
       .vrchatPictureUploads()
-      .then((view) => setOn(view.on))
+      .then((view) => {
+        setOn(view.on)
+        setPlus(view.hasPlus ?? null)
+      })
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
   }, [])
 
@@ -190,17 +198,41 @@ function PicturesCard() {
       .finally(() => setBusy(false))
   }
 
+  const check = () => {
+    setChecking(true)
+    setError(null)
+
+    api
+      .checkVRChatPlus()
+      .then((view) => setPlus(view.hasPlus ?? null))
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'))
+      .finally(() => setChecking(false))
+  }
+
   return (
     <SettingsCard title="Pictures" footer={<Outcome tone="problem">{error}</Outcome>}>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <Switch checked={on ?? false} disabled={busy || on === null} onChange={change}>
-          Upload VRChat pictures
-        </Switch>
-        <Button asChild size="xs" variant="outline">
-          <a href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
-            Get VRChat+
-          </a>
-        </Button>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Switch checked={on ?? false} disabled={busy || on === null || plus === false} onChange={change}>
+            Upload VRChat pictures
+          </Switch>
+          {plus !== false && (
+            <Button asChild size="xs" variant="outline">
+              <a href={VRCHAT_PLUS_URL} target="_blank" rel="noreferrer noopener">
+                Get VRChat+
+              </a>
+            </Button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span>
+            VRChat+: <span className="font-medium">{plus === null ? 'Not checked' : plus ? 'Yes' : 'No'}</span>
+          </span>
+          <Button size="xs" variant="outline" disabled={checking} onClick={check}>
+            {checking ? 'Checking…' : 'Check again'}
+          </Button>
+        </div>
+        {plus === false && <VRChatPlusWarning />}
       </div>
     </SettingsCard>
   )

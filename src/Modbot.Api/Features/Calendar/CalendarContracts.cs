@@ -350,6 +350,7 @@ public sealed record CalendarTwitchStreamView(
 /// True with See analytics as well: what each time an event ran did, and Past events.
 /// </param>
 /// <param name="Ready">Which places are set up, so a ticked place that is not can say so.</param>
+/// <param name="VRChatPlus">Whether Modbot's VRChat account has VRChat+; null until it has been read.</param>
 public sealed record CalendarView(
     IReadOnlyList<CalendarEventView> Events,
     bool CanManage,
@@ -358,7 +359,8 @@ public sealed record CalendarView(
     DateTimeOffset Now,
     bool CanSeeResults = false,
     CalendarReadyView? Ready = null,
-    bool PictureUploads = false);
+    bool PictureUploads = false,
+    bool? VRChatPlus = null);
 
 /// <summary>Whether the places an event can go are set up (calendar design §14.3).</summary>
 /// <param name="VRChat">
