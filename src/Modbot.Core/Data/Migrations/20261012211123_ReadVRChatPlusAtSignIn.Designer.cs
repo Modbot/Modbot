@@ -6775,10 +6775,18 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("external_key");
 
+                    b.Property<bool>("KeepUpdated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("keep_updated");
+
                     b.Property<string>("Kind")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset?>("ListsUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lists_updated_at");
 
                     b.Property<Guid?>("PictureId")
                         .HasColumnType("uuid")
