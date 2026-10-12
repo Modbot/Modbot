@@ -1,3 +1,5 @@
+using Modbot.Core.Data.Entities;
+
 namespace Modbot.Discord.Gateway;
 
 /// <summary>Where a gateway session is. <c>Ready</c> is the only state that answers or posts.</summary>
@@ -815,6 +817,7 @@ public sealed record DiscordChannelPermissions(
 /// <param name="Type">One of <c>DiscordChannelTypes</c>.</param>
 /// <param name="CategoryId">The category it sits under, or null.</param>
 /// <param name="EveryoneCanView">Whether @everyone may see it; false for a staff-only channel. Null when not known.</param>
+/// <param name="ViewOverwrites">The roles the channel's own overwrites allow or hide it from. Null when not known.</param>
 public sealed record DiscordChannelSnapshot(
     string Id,
     string Name,
@@ -823,7 +826,8 @@ public sealed record DiscordChannelSnapshot(
     int Position,
     bool Nsfw,
     DiscordChannelPermissions BotPermissions,
-    bool? EveryoneCanView = null);
+    bool? EveryoneCanView = null,
+    ChannelViewOverwrites? ViewOverwrites = null);
 
 /// <summary>One role as the bot sees it right now.</summary>
 /// <param name="Color">0xRRGGBB, zero for none.</param>

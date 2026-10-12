@@ -2273,6 +2273,7 @@ export type QuietChannelRow = {
   id: string
   name: string
   type: 'text' | 'announcement' | 'forum'
+  categoryId: string | null
   categoryName: string | null
   /** @everyone cannot see it. */
   staffOnly: boolean
@@ -2291,7 +2292,14 @@ export type QuietChannelList = {
   channels: QuietChannelRow[]
   /** Staff-only channels left out because the caller may not see their names (it takes Change settings). */
   staffOnlyHidden: number
+  /** The roles to pick in "Seen by", highest first. */
+  roles: { id: string; name: string; color: number }[]
+  /** The categories the listed channels sit in, in Discord's order, whatever "Seen by" left out. */
+  categories: { id: string; name: string }[]
 }
+
+/** Which channels the Channels tab asks for by role: those any of `seenBy` can see, those none of `notSeenBy` can. */
+export type QuietChannelQuery = { seenBy?: string[]; notSeenBy?: string[] }
 
 /** One number for the last seven days and the seven before them. */
 export type WeekPair = { thisWeek: number; lastWeek: number }
@@ -5629,9 +5637,14 @@ export const api = {
   /** The Discord page's Roles tab. */
   discordRoleReport: () => request<RoleReport>('/api/discord/reports/roles'),
 
-  /** The Discord page's Channels tab, without the channels @everyone cannot see when `hideStaffOnly`. */
-  discordQuietChannels: (hideStaffOnly: boolean) =>
-    request<QuietChannelList>(`/api/discord/reports/quiet-channels${hideStaffOnly ? '?hideStaffOnly=true' : ''}`),
+  /** The Discord page's Channels tab, narrowed to what the given roles can or cannot see. */
+  discordQuietChannels: (query: QuietChannelQuery = {}) => {
+    const q = new URLSearchParams()
+    query.seenBy?.forEach((r) => q.append('seenBy', r))
+    query.notSeenBy?.forEach((r) => q.append('notSeenBy', r))
+    const search = q.toString()
+    return request<QuietChannelList>(`/api/discord/reports/quiet-channels${search ? `?${search}` : ''}`)
+  },
 
   /** `at` is a message id to open on: the page holding it comes back, whatever `page` says. */
   discordMemberMessages: (id: string, page: number, pageSize: number, at?: string) =>

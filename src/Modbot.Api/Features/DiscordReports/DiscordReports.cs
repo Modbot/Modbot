@@ -1,3 +1,5 @@
+using Modbot.Core.Data.Entities;
+
 namespace Modbot.Api.Features.DiscordReports;
 
 /// <summary>The marks the roles report puts on a role, as the API sends them.</summary>
@@ -57,7 +59,8 @@ public sealed record RoleReport(
 
 /// <summary>One text, announcement or forum channel and when anybody last wrote in it.</summary>
 /// <param name="Type">text, announcement or forum.</param>
-/// <param name="CategoryName">The category it sits under, or null for one at the top.</param>
+/// <param name="CategoryId">The category it sits under, or null for one at the top.</param>
+/// <param name="CategoryName">The category's name, or null for one at the top.</param>
 /// <param name="StaffOnly">@everyone cannot see it. False when that is not known yet.</param>
 /// <param name="CanRead">The bot may see the channel and read its history. When false, the last message is not known.</param>
 /// <param name="StillReading">Modbot is still reading the channel's history back, so an older message may yet be found.</param>
@@ -69,6 +72,7 @@ public sealed record QuietChannelRow(
     string Id,
     string Name,
     string Type,
+    string? CategoryId,
     string? CategoryName,
     bool StaffOnly,
     bool CanRead,
@@ -82,11 +86,25 @@ public sealed record QuietChannelRow(
 /// How many staff-only channels were left out because the caller may not see their names (it takes
 /// <c>ManageSettings</c> as well as See analytics). Zero for someone who may.
 /// </param>
+/// <param name="Roles">The roles to pick in "Seen by", highest first. @everyone is not one: staff-only is its own filter.</param>
+/// <param name="Categories">
+/// The categories the channels the caller may see sit in, in Discord's order, whatever "Seen by"
+/// left out.
+/// </param>
 public sealed record QuietChannelList(
     string? GuildId,
     DateTimeOffset Now,
     IReadOnlyList<QuietChannelRow> Channels,
-    int StaffOnlyHidden);
+    int StaffOnlyHidden,
+    IReadOnlyList<ChannelRoleOption> Roles,
+    IReadOnlyList<ChannelCategoryOption> Categories);
+
+/// <summary>A role the channels list can be narrowed to.</summary>
+/// <param name="Color">0xRRGGBB, zero for a role with no colour.</param>
+public sealed record ChannelRoleOption(string Id, string Name, int Color);
+
+/// <summary>A category the channels list can be narrowed to.</summary>
+public sealed record ChannelCategoryOption(string Id, string Name);
 
 /// <summary>
 /// The two read-only reports for tidying a Discord server: its roles with their marks, and its
@@ -101,16 +119,99 @@ public static class DiscordTidyUp
 
     /// <summary>One stored channel, as the quiet channels list needs it.</summary>
     /// <param name="EveryoneCanView">Null when not read yet.</param>
+    /// <param name="ViewOverwrites">Null when not read yet.</param>
     public sealed record ChannelFacts(
         string Id,
         string Name,
         string Type,
+        string? CategoryId,
         string? CategoryName,
         int Position,
         bool? EveryoneCanView,
+        ChannelViewOverwrites? ViewOverwrites,
         bool CanRead,
         bool StillReading,
         DateTimeOffset? LastMessageAt);
+
+    /// <summary>Discord's Administrator permission bit: sees every channel, whatever its overwrites say.</summary>
+    public const long Administrator = 1L << 3;
+
+    /// <summary>Discord's View Channels permission bit.</summary>
+    public const long ViewChannels = 1L << 10;
+
+    /// <summary>
+    /// Whether somebody holding only this role (and so @everyone) can see the channel, worked out the
+    /// way Discord does: the permissions of @everyone and the role together, Administrator seeing
+    /// everything, then the channel's overwrite for @everyone, then its overwrite for the role, Deny
+    /// before Allow at each step.
+    /// </summary>
+    /// <param name="everyonePermissions">@everyone's server-wide permission bits, or null when not read yet.</param>
+    /// <param name="rolePermissions">The role's server-wide permission bits, or null when not read yet.</param>
+    /// <param name="overwrites">The channel's own overwrites. A synced channel already holds a copy of its category's.</param>
+    /// <returns>Null when something needed is not read yet: nothing can be said about the channel.</returns>
+    public static bool? RoleCanView(
+        string roleId, long? rolePermissions, string everyoneId, long? everyonePermissions, ChannelViewOverwrites? overwrites)
+    {
+        if (rolePermissions is not { } role || everyonePermissions is not { } everyone || overwrites is null)
+            return null;
+
+        var together = role | everyone;
+        if ((together & Administrator) != 0)
+            return true;
+
+        var sees = (together & ViewChannels) != 0;
+
+        if (overwrites.Deny.Contains(everyoneId))
+            sees = false;
+        else if (overwrites.Allow.Contains(everyoneId))
+            sees = true;
+
+        if (overwrites.Deny.Contains(roleId))
+            sees = false;
+        else if (overwrites.Allow.Contains(roleId))
+            sees = true;
+
+        return sees;
+    }
+
+    /// <summary>
+    /// The channels that suit "Seen by": those at least one of <paramref name="seenBy"/> can see, and
+    /// those none of <paramref name="notSeenBy"/> can see. A channel whose answer is not known for a
+    /// role asked about is left out of both, since neither "yes" nor "no" is true of it.
+    /// </summary>
+    /// <param name="roles">Every role by id, @everyone included.</param>
+    public static IReadOnlyList<ChannelFacts> SeenBy(
+        IReadOnlyList<ChannelFacts> channels,
+        IReadOnlyDictionary<string, long?> roles,
+        string everyoneId,
+        IReadOnlyCollection<string> seenBy,
+        IReadOnlyCollection<string> notSeenBy)
+    {
+        ArgumentNullException.ThrowIfNull(channels);
+        ArgumentNullException.ThrowIfNull(roles);
+        ArgumentNullException.ThrowIfNull(seenBy);
+        ArgumentNullException.ThrowIfNull(notSeenBy);
+
+        if (seenBy.Count == 0 && notSeenBy.Count == 0)
+            return channels;
+
+        var everyone = roles.GetValueOrDefault(everyoneId);
+
+        bool? Sees(ChannelFacts channel, string roleId)
+            => roles.TryGetValue(roleId, out var permissions)
+                ? RoleCanView(roleId, permissions, everyoneId, everyone, channel.ViewOverwrites)
+                : null;
+
+        return channels
+            .Where(c =>
+            {
+                if (seenBy.Count > 0 && !seenBy.Any(r => Sees(c, r) == true))
+                    return false;
+
+                return notSeenBy.Count == 0 || notSeenBy.All(r => Sees(c, r) == false);
+            })
+            .ToList();
+    }
 
     /// <summary>
     /// Every role with its marks, marked roles first: the most marks first, then the fewest members,
@@ -201,17 +302,16 @@ public static class DiscordTidyUp
     /// The channels, quietest first: those with no message at all, then the longest since the last
     /// message, then those still being read back with nothing found yet, then those the bot cannot read.
     /// </summary>
-    /// <param name="hideStaffOnly">Leave out channels @everyone cannot see. A channel not read yet counts as one everybody sees.</param>
-    public static IReadOnlyList<QuietChannelRow> Channels(IReadOnlyList<ChannelFacts> channels, bool hideStaffOnly)
+    public static IReadOnlyList<QuietChannelRow> Channels(IReadOnlyList<ChannelFacts> channels)
     {
         ArgumentNullException.ThrowIfNull(channels);
 
         return channels
-            .Where(c => !hideStaffOnly || c.EveryoneCanView != false)
             .Select(c => (Facts: c, Row: new QuietChannelRow(
                 c.Id,
                 c.Name,
                 c.Type,
+                c.CategoryId,
                 c.CategoryName,
                 StaffOnly: c.EveryoneCanView == false,
                 c.CanRead,

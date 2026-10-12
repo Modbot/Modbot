@@ -466,6 +466,46 @@ public class DiscordServerIndexTests
         Assert.Equal(0x2_0000_0006, (await RoleRowAsync(services, "201")).Permissions);
     }
 
+    [Fact]
+    public async Task TheRolesAChannelAllowsOrHides_AreStored_ForTheSeenByFilter()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next(g => g.Server = Server(
+            channels:
+            [
+                Channel("101", "general") with { ViewOverwrites = new([Guild], []) },
+                Channel("102", "mod-chat"),
+            ],
+            roles: [Role("201", "Member", 1)]));
+        var bot = Service(services, gateways);
+
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordBotTokenEncrypted = services.Protector.Protect("token");
+            s.DiscordGuildId = Guild;
+        }, Ct);
+
+        await bot.TickAsync(Ct);
+        await gateway.RaiseReadyAsync();
+
+        Assert.Equal(new ChannelViewOverwrites([Guild], []).ToJson(), (await ChannelRowAsync(services, "101")).ViewOverwrites);
+        Assert.Null((await ChannelRowAsync(services, "102")).ViewOverwrites);
+
+        // Changed in Discord: saved.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        var changed = new ChannelViewOverwrites(["201"], [Guild]);
+        await gateway.RaiseChannelChangedAsync(Guild, Channel("101", "general") with { ViewOverwrites = changed });
+        var row = await ChannelRowAsync(services, "101");
+        Assert.Equal(changed.ToJson(), row.ViewOverwrites);
+        Assert.Equal(services.Clock.UtcNow, row.UpdatedAt);
+
+        // A reading that could not tell keeps what was known.
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseChannelChangedAsync(Guild, Channel("101", "general"));
+        Assert.Equal(changed.ToJson(), (await ChannelRowAsync(services, "101")).ViewOverwrites);
+    }
+
     private static async Task<Guid> AddFailedServerEventAsync(TestServices services, string error, DateTimeOffset errorAt)
     {
         var now = services.Clock.UtcNow;

@@ -84,19 +84,21 @@ public class DiscordReportTests
 
         DiscordChannel Channel(
             string id, string name, string type = DiscordChannelTypes.Text, string? category = null, int position = 0,
-            bool? everyone = true, bool canRead = true, bool removed = false) => new()
+            bool? everyone = true, bool canRead = true, bool removed = false, ChannelViewOverwrites? sees = null) => new()
         {
             ChannelId = id, GuildId = Guild, Name = name, Type = type, CategoryId = category, Position = position,
-            EveryoneCanView = everyone, BotCanView = canRead, BotCanReadHistory = canRead,
+            EveryoneCanView = everyone, ViewOverwrites = sees?.ToJson(), BotCanView = canRead, BotCanReadHistory = canRead,
             FirstSeenAt = at, UpdatedAt = at, RemovedAt = removed ? at : null,
         };
 
         db.DiscordChannels.AddRange(
             Channel("100", "Town Square", DiscordChannelTypes.Category),
-            Channel("101", "general-chat", category: "100", position: 1),
+            Channel("101", "general-chat", category: "100", position: 1, sees: new([Guild], [])),
             Channel("102", "general-forum", DiscordChannelTypes.Forum, category: "100", position: 2),
-            Channel("103", "mod-chat", position: 3, everyone: false),
-            Channel("104", "rules-of-conduct", DiscordChannelTypes.Announcement, position: 4),
+
+            // Staff (202) is let in; everyone else is kept out.
+            Channel("103", "mod-chat", position: 3, everyone: false, sees: new(["202"], [Guild])),
+            Channel("104", "rules-of-conduct", DiscordChannelTypes.Announcement, position: 4, sees: new([Guild], [])),
             Channel("105", "evidence-locker", position: 5, everyone: false, canRead: false),
             Channel("106", "Lounge", DiscordChannelTypes.Voice, position: 6),
             Channel("107", "deleted-channel", position: 7, removed: true),
@@ -228,23 +230,54 @@ public class DiscordReportTests
         Assert.All(list.Channels, c => Assert.False(c.StaffOnly));
         Assert.Equal(2, list.StaffOnlyHidden);
 
-        // Asking to hide them changes nothing for someone who never saw them.
-        var hidden = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?hideStaffOnly=true", cookie, Ct);
-        Assert.Equal(list.Channels.Select(c => c.Id), hidden.Channels.Select(c => c.Id));
+        // Nor does asking about a role bring them back: the staff role is let into the staff-only
+        // channel, and the caller still does not see it.
+        var staff = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?seenBy=202", cookie, Ct);
+        Assert.DoesNotContain(staff.Channels, c => c.StaffOnly);
+        Assert.Equal(2, staff.StaffOnlyHidden);
     }
 
     [Fact]
-    public async Task Channels_CanLeaveStaffOnlyOnesOut()
+    public async Task Channels_CanBeNarrowedToWhatARoleCanSee()
     {
         await using var host = await StartAsync(_db);
         await ChannelsAsync(host);
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
 
-        var list = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?hideStaffOnly=true", cookie, Ct);
+        // Staff: the two @everyone is let into, and the staff-only channel they are let into.
+        var staff = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?seenBy=202", cookie, Ct);
+        Assert.Equal(["104", "103", "101"], staff.Channels.Select(c => c.Id));
 
-        Assert.Equal(["104", "102", "101", "108"], list.Channels.Select(c => c.Id));
-        Assert.All(list.Channels, c => Assert.False(c.StaffOnly));
-        Assert.Equal(0, list.StaffOnlyHidden);
+        // A role with nothing of its own sees only what @everyone is let into.
+        var member = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?seenBy=201", cookie, Ct);
+        Assert.Equal(["104", "101"], member.Channels.Select(c => c.Id));
+
+        // Any of several roles.
+        var either = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?seenBy=201&seenBy=202", cookie, Ct);
+        Assert.Equal(["104", "103", "101"], either.Channels.Select(c => c.Id));
+
+        // The channels a role cannot see: only the ones whose answer is known.
+        var cannot = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels?notSeenBy=201", cookie, Ct);
+        Assert.Equal(["103"], cannot.Channels.Select(c => c.Id));
+
+        // What the page offers does not shrink with the narrowing.
+        Assert.Equal(staff.Roles.Select(r => r.Id), member.Roles.Select(r => r.Id));
+        Assert.Equal(["100"], staff.Categories.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task Channels_OfferTheRolesAndCategoriesToNarrowBy()
+    {
+        await using var host = await StartAsync(_db);
+        await ChannelsAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
+
+        var list = await host.GetJsonAsync<QuietChannelList>("/api/discord/reports/quiet-channels", cookie, Ct);
+
+        // Highest first, without @everyone and without the deleted role.
+        Assert.Equal(["205", "202", "203", "204", "201"], list.Roles.Select(r => r.Id));
+        Assert.Equal([("100", "Town Square")], list.Categories.Select(c => (c.Id, c.Name)));
+        Assert.Equal("100", list.Channels.Single(c => c.Id == "101").CategoryId);
     }
 
     [Fact]

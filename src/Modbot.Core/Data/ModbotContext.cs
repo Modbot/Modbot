@@ -1609,6 +1609,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Name).HasColumnType("text");
             entity.Property(e => e.Type).HasMaxLength(16);
             entity.Property(e => e.CategoryId).HasColumnType("text");
+            entity.Property(e => e.ViewOverwrites).HasColumnType("text");
 
             // The only question asked of it: every channel in this server.
             entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_channel_guild");

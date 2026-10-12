@@ -70,15 +70,62 @@ Instead of a time, **Quiet for** can say:
 - **Can't read**: the bot is not allowed to see the channel or read its history. Give the bot's role
   **View Channels** and **Read Message History** there to include it.
 
-The order is: channels with no messages, then the longest quiet, then channels still being read,
-then channels the bot cannot read.
+The list opens with the quietest first: channels with no messages, then the longest quiet, then
+channels still being read, then channels the bot cannot read.
 
-Above the list, **All channels** shows every channel; **Hide staff-only** leaves out the ones
-@everyone cannot see.
+### Sorting
+
+Click a column's name to sort by it, and click it again to turn the order round. An arrow marks the
+column in use. On a phone, where the table is a list, the **Sort** box and the arrow beside it do the
+same. Channels that have nothing to sort by in a column (no category, no last message, a time that
+is not known) always come last, whichever way it runs.
+
+| Column | Sorts by | First click |
+|---|---|---|
+| **Channel** | Name, A to Z, numbers counted as numbers. | A to Z |
+| **Category** | The category's name. | A to Z |
+| **Last message** | The day of the newest message. | Newest first |
+| **Quiet for** | How long it has been quiet. Channels with no messages count as quiet longest. | Longest first |
+
+### Filtering
+
+**Filter** adds a filter; each one is a chip that can be changed or removed with its ×, and
+**Clear** takes them all off. Filters combine: a channel has to pass every one. The search box finds
+channels by part of their name.
+
+| Filter | Keeps |
+|---|---|
+| **Seen by** | Channels a role can see, or with **is not**, channels none of the roles picked can see. See below. |
+| **Quiet for** | Channels quiet for at least 7, 30, 60, 90, 180 or 365 days. Channels with no messages count; channels still being read and channels the bot cannot read do not, since nothing is known about them. |
+| **Category** | Channels in the categories picked, or with **is not**, all the others. **No category** picks the channels at the top of the list. |
+| **Type** | Text, announcement or forum channels. |
+| **Status** | **Has messages**, **No messages**, **Still reading** or **Can't read**, as **Quiet for** shows them. |
+| **Staff-only** | Yes or no. Shown only to someone who can **Change settings**, as the others never see staff-only channels. |
+
+The sort and the filters are in the page's address, so copying it gives someone else the same view.
+
+### Seen by a role
+
+**Seen by** answers "which channels can people with this role see?", worked out the way Discord
+does for someone who holds only that role (and so @everyone):
+
+- The permissions of @everyone and the role are added together. If that includes **Administrator**,
+  the role sees every channel.
+- Otherwise **View Channels** decides, unless the channel says something about @everyone, which
+  wins over the server-wide permission, or about the role itself, which wins over both.
+- A channel synced to its category already holds the category's settings, so nothing more is
+  looked up.
+
+Modbot reads the channel settings with the rest of the channel list when the bot signs in or
+resumes, and keeps them up to date as they change in Discord, so it asks Discord for nothing more.
+Until the bot has read a channel's settings once after Modbot was updated, **Seen by** leaves that
+channel out whichever way it is asked, since nothing is known about it. A person's own settings in a
+channel (a setting for one member, not a role) and anything else that member holds are not looked at:
+the answer is for the role alone.
 
 Staff-only channel names are shown only to someone who can also **Change settings**. Everyone else
 sees the public channels and one line, for example **3 staff-only channels**, with nothing else about
-them.
+them. Sorting and filtering change nothing about that.
 
 ### Where the time comes from
 

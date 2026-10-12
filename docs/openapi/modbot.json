@@ -11484,14 +11484,27 @@
           "Discord"
         ],
         "summary": "Get the Discord quiet channels list",
-        "description": "The server's text, announcement and forum channels with when anybody last wrote in each (in the channel or any of its threads), quietest first: channels with no message at all, then the longest since the last message, then channels still being read back with nothing found yet, then channels the bot cannot read. `hideStaffOnly=true` leaves out channels @everyone cannot see. Those channels are listed by name only for someone who can also change settings; for everyone else they are left out whatever `hideStaffOnly` says, and `staffOnlyHidden` counts them. Read from the messages Modbot stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The server's text, announcement and forum channels with when anybody last wrote in each (in the channel or any of its threads), quietest first: channels with no message at all, then the longest since the last message, then channels still being read back with nothing found yet, then channels the bot cannot read. `seenBy` (a role id, repeated for more) keeps the channels at least one of those roles can see, and `notSeenBy` the channels none of them can see: worked out from each role's server-wide permissions, @everyone's, and the channel's own overwrites (a synced channel holds its category's), with Administrator seeing everything, for somebody who holds only that role. A channel whose overwrites or role permissions are not read yet matches neither. Channels @everyone cannot see are listed by name only for someone who can also change settings; for everyone else they are left out and `staffOnlyHidden` counts them. `roles` and `categories` are what the page offers to narrow by. Read from what the bot already stores; nothing is asked of Discord and nothing is changed.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetDiscordQuietChannels",
         "parameters": [
           {
-            "name": "hideStaffOnly",
+            "name": "seenBy",
             "in": "query",
             "schema": {
-              "type": "boolean"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "notSeenBy",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -40230,6 +40243,21 @@
           }
         }
       },
+      "ChannelCategoryOption": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "ChannelMessages": {
         "required": [
           "id",
@@ -40268,6 +40296,26 @@
           "messages": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "ChannelRoleOption": {
+        "required": [
+          "id",
+          "name",
+          "color"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -54566,7 +54614,9 @@
           "guildId",
           "now",
           "channels",
-          "staffOnlyHidden"
+          "staffOnlyHidden",
+          "roles",
+          "categories"
         ],
         "type": "object",
         "properties": {
@@ -54589,6 +54639,18 @@
           "staffOnlyHidden": {
             "type": "integer",
             "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelRoleOption"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChannelCategoryOption"
+            }
           }
         }
       },
@@ -54597,6 +54659,7 @@
           "id",
           "name",
           "type",
+          "categoryId",
           "categoryName",
           "staffOnly",
           "canRead",
@@ -54613,6 +54676,12 @@
           },
           "type": {
             "type": "string"
+          },
+          "categoryId": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "categoryName": {
             "type": [

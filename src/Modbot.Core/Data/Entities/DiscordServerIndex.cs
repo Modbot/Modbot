@@ -182,6 +182,20 @@ public class DiscordChannel
     /// </remarks>
     public bool? EveryoneCanView { get; set; }
 
+    /// <summary>
+    /// The roles whose own View Channel setting on this channel is Allow or Deny, as
+    /// <see cref="ChannelViewOverwrites.ToJson"/> writes them. Null until the bot has read the
+    /// channel since this was added.
+    /// </summary>
+    /// <remarks>
+    /// Plain text rather than <c>jsonb</c>: the bot compares it with what it just read to see
+    /// whether anything changed, and <c>jsonb</c> hands the same JSON back reordered and respaced.
+    /// With each role's server-wide permissions this answers which channels a role can see (Discord
+    /// tidy-up design §3.1) without asking Discord anything. A synced channel already carries its
+    /// category's overwrites, so the channel's own are all there is to read.
+    /// </remarks>
+    public string? ViewOverwrites { get; set; }
+
     public DateTimeOffset FirstSeenAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
@@ -227,9 +241,10 @@ public class DiscordRole
     /// read the role since this was added.
     /// </summary>
     /// <remarks>
-    /// Only ever compared whole, never read bit by bit: the roles report puts two roles side by side
-    /// when their permissions and colour are the same (Discord tidy-up design §2). Discord sends it
-    /// as an unsigned 64-bit number; it is kept as the same 64 bits in a signed column.
+    /// Compared whole by the roles report, which puts two roles side by side when their permissions
+    /// and colour are the same (Discord tidy-up design §2), and read for two bits, Administrator and
+    /// View Channel, by the channels list's "Seen by" filter (§3.1). Discord sends it as an unsigned
+    /// 64-bit number; it is kept as the same 64 bits in a signed column.
     /// </remarks>
     public long? Permissions { get; set; }
 
@@ -255,4 +270,39 @@ public class DiscordRole
 
     /// <summary>When the role was found to be gone from Discord, or null while it exists.</summary>
     public DateTimeOffset? RemovedAt { get; set; }
+}
+
+/// <summary>
+/// Which roles a channel's own overwrites let see it and which hide it from them: the roles whose
+/// View Channel setting there is Allow, and those where it is Deny. @everyone is a role here, under
+/// the server's id. A role that is left alone appears in neither list.
+/// </summary>
+public sealed record ChannelViewOverwrites(IReadOnlyList<string> Allow, IReadOnlyList<string> Deny)
+{
+    /// <summary>The kept text: both lists in order of id, so the same overwrites always read the same.</summary>
+    public string ToJson()
+        => System.Text.Json.JsonSerializer.Serialize(new Stored(
+            Allow.Order(StringComparer.Ordinal).ToList(),
+            Deny.Order(StringComparer.Ordinal).ToList()));
+
+    /// <summary>The overwrites a kept text holds, or null for no text or text that is not theirs.</summary>
+    public static ChannelViewOverwrites? FromJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            var stored = System.Text.Json.JsonSerializer.Deserialize<Stored>(json);
+            return stored is { Allow: not null, Deny: not null }
+                ? new ChannelViewOverwrites(stored.Allow, stored.Deny)
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record Stored(List<string> Allow, List<string> Deny);
 }

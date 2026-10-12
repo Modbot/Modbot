@@ -2293,6 +2293,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<string>("ViewOverwrites")
+                        .HasColumnType("text")
+                        .HasColumnName("view_overwrites");
+
                     b.HasKey("ChannelId")
                         .HasName("pk_discord_channel");
 

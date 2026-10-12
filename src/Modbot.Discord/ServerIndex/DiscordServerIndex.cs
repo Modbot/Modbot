@@ -250,6 +250,7 @@ public sealed class DiscordServerIndex
             && row.BotCanAttachFiles == permissions.AttachFiles
             && row.BotCanManageMessages == permissions.ManageMessages
             && row.EveryoneCanView == (snapshot.EveryoneCanView ?? row.EveryoneCanView)
+            && row.ViewOverwrites == (snapshot.ViewOverwrites?.ToJson() ?? row.ViewOverwrites)
             && row.RemovedAt is null;
 
         if (same)
@@ -270,6 +271,7 @@ public sealed class DiscordServerIndex
 
         // Not known is not "staff-only": a snapshot that could not tell keeps what was known.
         row.EveryoneCanView = snapshot.EveryoneCanView ?? row.EveryoneCanView;
+        row.ViewOverwrites = snapshot.ViewOverwrites?.ToJson() ?? row.ViewOverwrites;
         row.RemovedAt = null;
         row.UpdatedAt = now;
     }

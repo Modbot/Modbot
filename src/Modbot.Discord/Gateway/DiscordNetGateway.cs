@@ -6,6 +6,7 @@ using Discord.Rest;
 using Discord.WebSocket;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using ChannelViewOverwrites = Modbot.Core.Data.Entities.ChannelViewOverwrites;
 using DiscordChannelTypes = Modbot.Core.Data.Entities.DiscordChannelTypes;
 using Serilog;
 using Serilog.Events;
@@ -2104,6 +2105,13 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                   _ => everyone.Permissions.ViewChannel,
               });
 
+        // The roles the channel's own overwrites allow or hide it from, @everyone's among them. A
+        // synced channel carries a copy of its category's, so these are the whole story.
+        var roleOverwrites = channel.PermissionOverwrites.Where(o => o.TargetType == PermissionTarget.Role).ToList();
+        var viewOverwrites = new ChannelViewOverwrites(
+            roleOverwrites.Where(o => o.Permissions.ViewChannel == PermValue.Allow).Select(o => Text(o.TargetId)).ToList(),
+            roleOverwrites.Where(o => o.Permissions.ViewChannel == PermValue.Deny).Select(o => Text(o.TargetId)).ToList());
+
         return new DiscordChannelSnapshot(
             Text(channel.Id),
             channel.Name,
@@ -2118,7 +2126,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                 permissions.EmbedLinks,
                 permissions.AttachFiles,
                 permissions.ManageMessages),
-            everyoneCanView);
+            everyoneCanView,
+            viewOverwrites);
     }
 
     private static DiscordRoleSnapshot Describe(SocketRole role, SocketGuildUser? me)

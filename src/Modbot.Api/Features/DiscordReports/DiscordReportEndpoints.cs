@@ -78,12 +78,14 @@ public static class DiscordReportEndpoints
                 HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
-                [FromQuery] bool? hideStaffOnly,
+                [FromQuery] string[]? seenBy,
+                [FromQuery] string[]? notSeenBy,
                 CancellationToken ct) =>
                 Results.Ok(await QuietChannelsAsync(
                     db,
                     clock,
-                    hideStaffOnly ?? false,
+                    seenBy ?? [],
+                    notSeenBy ?? [],
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageSettings),
                     ct)))
             .WithName("GetDiscordQuietChannels")
@@ -93,11 +95,16 @@ public static class DiscordReportEndpoints
                 + "each (in the channel or any of its threads), quietest first: channels with no "
                 + "message at all, then the longest since the last message, then channels still being "
                 + "read back with nothing found yet, then channels the bot cannot read. "
-                + "`hideStaffOnly=true` leaves out channels @everyone cannot see. Those channels are "
-                + "listed by name only for someone who can also change settings; for everyone else "
-                + "they are left out whatever `hideStaffOnly` says, and `staffOnlyHidden` counts them. "
-                + "Read from the messages Modbot stores; nothing is asked of Discord and nothing is "
-                + "changed.")
+                + "`seenBy` (a role id, repeated for more) keeps the channels at least one of those "
+                + "roles can see, and `notSeenBy` the channels none of them can see: worked out from "
+                + "each role's server-wide permissions, @everyone's, and the channel's own overwrites "
+                + "(a synced channel holds its category's), with Administrator seeing everything, for "
+                + "somebody who holds only that role. A channel whose overwrites or role permissions "
+                + "are not read yet matches neither. Channels @everyone cannot see are listed by name "
+                + "only for someone who can also change settings; for everyone else they are left "
+                + "out and `staffOnlyHidden` counts them. `roles` and `categories` are what the page "
+                + "offers to narrow by. Read from what the bot already stores; nothing is asked of "
+                + "Discord and nothing is changed.")
             .Produces<QuietChannelList>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -138,17 +145,31 @@ public static class DiscordReportEndpoints
     }
 
     internal static async Task<QuietChannelList> QuietChannelsAsync(
-        ModbotContext db, IModbotClock clock, bool hideStaffOnly, bool canSeeStaffOnly, CancellationToken ct)
+        ModbotContext db,
+        IModbotClock clock,
+        IReadOnlyCollection<string> seenBy,
+        IReadOnlyCollection<string> notSeenBy,
+        bool canSeeStaffOnly,
+        CancellationToken ct)
     {
         var now = clock.UtcNow;
 
         var guildId = await DiscordMemberEndpoints.GuildIdAsync(db, ct);
         if (guildId is null)
-            return new QuietChannelList(null, now, [], 0);
+            return new QuietChannelList(null, now, [], 0, [], []);
 
-        var categories = await db.DiscordChannels.AsNoTracking()
+        var categoryRows = await db.DiscordChannels.AsNoTracking()
             .Where(c => c.GuildId == guildId && c.Type == DiscordChannelTypes.Category)
-            .ToDictionaryAsync(c => c.ChannelId, c => c.Name, StringComparer.Ordinal, ct);
+            .Select(c => new { c.ChannelId, c.Name, c.Position })
+            .ToListAsync(ct);
+        var categories = categoryRows.ToDictionary(c => c.ChannelId, c => c.Name, StringComparer.Ordinal);
+
+        var storedRoles = await db.DiscordRoles.AsNoTracking()
+            .Where(r => r.GuildId == guildId && r.RemovedAt == null)
+            .Select(r => new { r.RoleId, r.Name, r.Color, r.Position, r.Permissions, r.Everyone })
+            .ToListAsync(ct);
+        var everyoneId = storedRoles.FirstOrDefault(r => r.Everyone)?.RoleId ?? guildId;
+        var permissionsOf = storedRoles.ToDictionary(r => r.RoleId, r => r.Permissions, StringComparer.Ordinal);
 
         var types = QuietChannelTypes.ToList();
 
@@ -165,6 +186,7 @@ public static class DiscordReportEndpoints
                 c.CategoryId,
                 c.Position,
                 c.EveryoneCanView,
+                c.ViewOverwrites,
                 CanRead = c.BotCanView && c.BotCanReadHistory,
                 LastMessageAt = db.DiscordMessages
                     .Where(m => m.ChannelId == c.ChannelId)
@@ -193,21 +215,39 @@ public static class DiscordReportEndpoints
         if (!canSeeStaffOnly)
             channels = channels.Where(c => c.EveryoneCanView != false).ToList();
 
-        var rows = DiscordTidyUp.Channels(
-            channels
-                .Select(c => new DiscordTidyUp.ChannelFacts(
-                    c.ChannelId,
-                    c.Name,
-                    c.Type,
-                    c.CategoryId is { } category ? categories.GetValueOrDefault(category) : null,
-                    c.Position,
-                    c.EveryoneCanView,
-                    c.CanRead,
-                    reading.Contains(c.ChannelId),
-                    c.LastMessageAt))
-                .ToList(),
-            hideStaffOnly);
+        var facts = channels
+            .Select(c => new DiscordTidyUp.ChannelFacts(
+                c.ChannelId,
+                c.Name,
+                c.Type,
+                c.CategoryId,
+                c.CategoryId is { } category ? categories.GetValueOrDefault(category) : null,
+                c.Position,
+                c.EveryoneCanView,
+                ChannelViewOverwrites.FromJson(c.ViewOverwrites),
+                c.CanRead,
+                reading.Contains(c.ChannelId),
+                c.LastMessageAt))
+            .ToList();
 
-        return new QuietChannelList(guildId, now, rows, canSeeStaffOnly ? 0 : staffOnly.Count);
+        // What the page offers to narrow by comes from the channels the caller may see, before
+        // "Seen by" narrows them, so picking a role does not shrink the list of categories.
+        var offered = facts.Where(f => f.CategoryId is not null).Select(f => f.CategoryId!).ToHashSet(StringComparer.Ordinal);
+        var categoryOptions = categoryRows
+            .Where(c => offered.Contains(c.ChannelId))
+            .OrderBy(c => c.Position)
+            .ThenBy(c => c.ChannelId, StringComparer.Ordinal)
+            .Select(c => new ChannelCategoryOption(c.ChannelId, c.Name))
+            .ToList();
+        var roleOptions = storedRoles
+            .Where(r => !r.Everyone)
+            .OrderByDescending(r => r.Position)
+            .ThenBy(r => r.RoleId, StringComparer.Ordinal)
+            .Select(r => new ChannelRoleOption(r.RoleId, r.Name, r.Color))
+            .ToList();
+
+        var rows = DiscordTidyUp.Channels(DiscordTidyUp.SeenBy(facts, permissionsOf, everyoneId, seenBy, notSeenBy));
+
+        return new QuietChannelList(guildId, now, rows, canSeeStaffOnly ? 0 : staffOnly.Count, roleOptions, categoryOptions);
     }
 }
