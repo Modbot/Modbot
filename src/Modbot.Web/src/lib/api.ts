@@ -3542,6 +3542,35 @@ export type BanReasonView = {
 }
 
 /** `reasonAlwaysRequired`: a kick, an unban and a rejection each need a reason too, as a ban always does. */
+export type ProfileFieldKind = 'pick-list' | 'text'
+export type ProfileVisibility = 'only-me' | 'staff' | 'members'
+
+export type ProfileOptionView = { id: string; label: string }
+
+export type ProfileFieldView = {
+  id: string
+  name: string
+  kind: ProfileFieldKind
+  defaultVisibility: ProfileVisibility
+  options: ProfileOptionView[]
+}
+
+/** An option with an id keeps the members who picked it; one without is new. */
+export type ProfileFieldInput = {
+  name: string
+  kind?: ProfileFieldKind
+  defaultVisibility?: ProfileVisibility
+  options?: { id: string | null; label: string }[]
+}
+
+export type MemberProfileLine = {
+  fieldId: string
+  name: string
+  kind: ProfileFieldKind
+  answer: string
+  visibility: ProfileVisibility
+}
+
 export type BanReasonList = { reasons: BanReasonView[]; canEdit: boolean; reasonAlwaysRequired: boolean }
 
 /** A reason as picked on a case file, with its current label. `isActive` false: since switched off. */
@@ -5851,6 +5880,23 @@ export const api = {
     put<{ required: boolean }>('/api/settings/ban-reasons/required', { required }),
 
   reorderBanReasons: (ids: string[]) => put<BanReasonList>('/api/settings/ban-reasons/order', { ids }),
+
+  // ── Member profiles ─────────────────────────────────────────────────────────────────────
+
+  profileFields: () => request<{ fields: ProfileFieldView[] }>('/api/settings/profile-fields'),
+
+  createProfileField: (body: ProfileFieldInput) => post<ProfileFieldView>('/api/settings/profile-fields', body),
+
+  updateProfileField: (id: string, body: ProfileFieldInput) =>
+    put<ProfileFieldView>(`/api/settings/profile-fields/${encodeURIComponent(id)}`, body),
+
+  reorderProfileFields: (ids: string[]) => put<unknown>('/api/settings/profile-fields/order', { ids }),
+
+  deleteProfileField: (id: string) => del<void>(`/api/settings/profile-fields/${encodeURIComponent(id)}`),
+
+  /** The answers one Discord member filled in, every one of them: staff see what a member keeps to themselves. */
+  discordMemberProfile: (id: string) =>
+    request<{ lines: MemberProfileLine[] }>(`/api/discord/members/${encodeURIComponent(id)}/profile`),
 
   /** Case files, newest first. `userId` narrows to one person; the id goes in the query (spec 3.1.1). */
   cases: (query: { userId?: string; includeWithdrawn?: boolean; offset?: number; limit?: number } = {}) => {

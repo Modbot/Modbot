@@ -160,6 +160,8 @@ export function DiscordHistory({
     <div className="flex min-h-0 flex-col">
       {read.data?.member && <DiscordDetails member={read.data.member} timedOut={read.data.timedOut} />}
 
+      <MemberProfile id={id} />
+
       {children}
 
       <Panel title="In the server" flush>
@@ -168,6 +170,37 @@ export function DiscordHistory({
         {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
       </Panel>
     </div>
+  )
+}
+
+const PROFILE_LEVELS = { 'only-me': 'Only me', staff: 'Staff', members: 'Members' }
+
+/** What the member filled in with /profile. Staff read every answer, including the ones kept to the member alone. */
+function MemberProfile({ id }: { id: string }) {
+  const load = useCallback(() => api.discordMemberProfile(id), [id])
+  const { data, error, reload } = useLoad(load)
+
+  return (
+    <Panel title="Profile" flush>
+      {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
+      {!error && !data && <EmptyRow tone="loading" />}
+      {data && data.lines.length === 0 && <EmptyRow>Nothing filled in.</EmptyRow>}
+      {data && data.lines.length > 0 && (
+        <ul className="flex flex-col">
+          {data.lines.map((line) => (
+            <li
+              key={line.fieldId}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-t-(length:--hairline) px-(--panel-pad) py-1.5 first:border-t-0"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              <span className="w-full text-muted-foreground sm:w-40 sm:shrink-0">{line.name}</span>
+              <span className="min-w-0 flex-1 break-words">{line.answer}</span>
+              <Badge variant="outline">{PROFILE_LEVELS[line.visibility]}</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   )
 }
 

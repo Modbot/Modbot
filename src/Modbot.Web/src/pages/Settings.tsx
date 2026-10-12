@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DataSection } from '@/components/settings/DataSection'
 import { EvidenceSection } from '@/components/settings/EvidenceSection'
+import { MemberProfilesSection } from '@/components/settings/MemberProfilesSection'
 import { IamSection } from '@/components/settings/iam/IamSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
@@ -44,6 +45,7 @@ const TABS = [
   { value: 'evidence', label: 'Evidence', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'iam', label: 'People and roles', group: 'People', needs: ['ManageUsers', 'ManageRoles'] },
   { value: 'companions', label: 'Paired companions', group: 'People', needs: ['PairCompanion', 'ManageUsers'] },
+  { value: 'profiles', label: 'Member profiles', group: 'People', needs: ['ManageSettings'] },
   { value: 'purge', label: 'Purge a person', group: 'People', needs: ['Administrator'] },
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
@@ -290,6 +292,8 @@ function Panel({
       return <VRChatProxySection />
     case 'auto-invites':
       return <AutoInvitesSection />
+    case 'profiles':
+      return <MemberProfilesSection />
     case 'purge':
       return <PurgeSection />
     case 'companions':
