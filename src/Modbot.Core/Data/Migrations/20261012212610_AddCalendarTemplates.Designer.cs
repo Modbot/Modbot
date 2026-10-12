@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261012211613_AddCalendarTemplates")]
+    [Migration("20261012212610_AddCalendarTemplates")]
     partial class AddCalendarTemplates
     {
         /// <inheritdoc />
@@ -6827,10 +6827,18 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("external_key");
 
+                    b.Property<bool>("KeepUpdated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("keep_updated");
+
                     b.Property<string>("Kind")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset?>("ListsUpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lists_updated_at");
 
                     b.Property<Guid?>("PictureId")
                         .HasColumnType("uuid")
@@ -8322,6 +8330,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<long>("VRChatFileCacheBytes")
                         .HasColumnType("bigint")
                         .HasColumnName("vr_chat_file_cache_bytes");
+
+                    b.Property<bool?>("VRChatHasPlus")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vr_chat_has_plus");
 
                     b.Property<bool>("VRChatImagesProxied")
                         .HasColumnType("boolean")
