@@ -686,7 +686,7 @@ function Shell({
           {page === 'discord-channels' && <DiscordChannels me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live me={me} />}
-          {page === 'calendar' && <Calendar />}
+          {page === 'calendar' && <Calendar me={me} />}
           {page === 'event-categories' && <EventCategories />}
           {page === 'world-lists' && <WorldLists />}
           {/* One element for the four lists, so an open composer stays open when the list changes. */}

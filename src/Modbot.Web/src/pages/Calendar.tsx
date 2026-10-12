@@ -12,6 +12,7 @@ import { PastEvents } from '@/components/calendar/PastEvents'
 import { NARROW, useMedia } from '@/components/calendar/phone'
 import { QuickCreate } from '@/components/calendar/QuickCreate'
 import { ScheduleView } from '@/components/calendar/ScheduleView'
+import { TemplatesCard } from '@/components/calendar/TemplatesCard'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -21,7 +22,8 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { SwitchBank } from '@/components/ui/switch-bank'
-import { ApiError } from '@/lib/api'
+import { ApiError, type CurrentUser } from '@/lib/api'
+import { canAny } from '@/lib/permissions'
 import {
   calendarApi,
   inputFrom,
@@ -76,7 +78,7 @@ type Detail = { id: string; start: Date; end: Date; spot: Spot | null }
  * `movedInput`), through the same update the form's Save sends, so it is recorded and published
  * exactly as an edit is.
  */
-export function Calendar() {
+export function Calendar({ me }: { me: CurrentUser }) {
   const [view, setView] = useState<CalendarViewName>(() =>
     firstView(typeof window !== 'undefined' && window.matchMedia(NARROW).matches),
   )
@@ -520,6 +522,17 @@ export function Calendar() {
             ))}
           </div>
         </Card>
+      )}
+
+      {canAny(me, ['ManageCalendar', 'ManageTemplates']) && (
+        <TemplatesCard
+          settings={{
+            categories: data.view.categories,
+            platforms: data.view.platforms,
+            ready: data.view.ready,
+            pictureUploads: data.view.pictureUploads,
+          }}
+        />
       )}
 
       {data.view.canSeeResults && <PastEvents live={live} onOpen={openPast} />}

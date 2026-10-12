@@ -39,6 +39,8 @@ import {
   type CalendarDestination,
   type CalendarReady,
 } from '@/lib/calendarPlaces'
+import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
+import { fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
@@ -88,8 +90,10 @@ export function CalendarEventForm({
   ready,
   pictureUploads = false,
   vrchatPlus = null,
+  template,
   onClose,
   onSaved,
+  onTemplateSaved,
 }: {
   event: CalendarEvent | null
   /** What a new event starts with: a time drawn on the calendar, or a copy of another event. */
@@ -102,8 +106,11 @@ export function CalendarEventForm({
   pictureUploads?: boolean
   /** Whether Modbot's VRChat account has VRChat+. False turns the VRChat picture off; null is not known. */
   vrchatPlus?: boolean | null
+  /** Set, the form makes or edits an event template: a name and a length in place of the dates. */
+  template?: { id: string | null; name: string; lengthMinutes: number }
   onClose: () => void
-  onSaved: (saved: CalendarEvent) => void
+  onSaved?: (saved: CalendarEvent) => void
+  onTemplateSaved?: () => void
 }) {
   const [input, setInput] = useState<CalendarEventInput>(() => initial ?? (event ? inputFrom(event) : blankEvent(new Date())))
   const [worlds, setWorlds] = useState<CalendarWorld[]>([])
@@ -119,6 +126,8 @@ export function CalendarEventForm({
   const [languages, setLanguages] = useState(() => input.languages.join(', '))
   const [tags, setTags] = useState(() => input.tags.join(', '))
   const [busy, setBusy] = useState(false)
+  const [templateName, setTemplateName] = useState(template?.name ?? '')
+  const [length, setLength] = useState(template?.lengthMinutes ?? 0)
   const pictureThumbnails = usePictureThumbnails()
   // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
   // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
@@ -257,6 +266,18 @@ export function CalendarEventForm({
       saving = { ...saving, coverPictureId: coverId }
     }
 
+    if (template) {
+      const fields = fieldsFromInput(saving, length)
+      const name = templateName.trim()
+      const request = template.id ? calendarTemplateApi.update(template.id, name, fields) : calendarTemplateApi.create(name, fields)
+
+      request
+        .then(() => onTemplateSaved?.())
+        .catch((e: unknown) => setError(e instanceof ApiError ? problemsOf(e) : ['Could not save the template.']))
+        .finally(() => setBusy(false))
+      return
+    }
+
     const request = event ? calendarApi.update(event.id, saving) : calendarApi.create(saving)
 
     request
@@ -311,7 +332,7 @@ export function CalendarEventForm({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        title={event ? 'Edit event' : 'New event'}
+        title={template ? (template.id ? 'Edit template' : 'New template') : event ? 'Edit event' : 'New event'}
         className="max-w-[720px]"
         foot={
           <DialogFoot>
@@ -327,13 +348,13 @@ export function CalendarEventForm({
             <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
-            {isDraft && (
+            {isDraft && !template && (
               <Button size="sm" variant="outline" disabled={busy || uploading} onClick={() => void save(true)}>
                 Save draft
               </Button>
             )}
             <Button size="sm" disabled={busy || uploading} onClick={() => void save(false)}>
-              {isDraft ? 'Schedule' : 'Save'}
+              {isDraft && !template ? 'Schedule' : 'Save'}
             </Button>
           </DialogFoot>
         }
@@ -386,6 +407,7 @@ export function CalendarEventForm({
               { value: 'preview', label: 'Preview' },
             ]}
             panelClassName="overflow-visible pt-4"
+            rowClassName={template ? 'hidden' : undefined}
           >
             {tab === 'preview' && shown ? (
               <EventPreview
@@ -397,6 +419,7 @@ export function CalendarEventForm({
               />
             ) : (
               <div className="flex flex-col gap-4">
+                {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
                 <Counted label="Title" count={title}>
                   <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
                 </Counted>
@@ -420,22 +443,51 @@ export function CalendarEventForm({
 
                 <Section title="When">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Labelled label="Starts">
-                      <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
-                    </Labelled>
-                    <Labelled label="Ends">
-                      <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
-                    </Labelled>
-                    <Labelled label="Time zone">
-                      <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
-                        {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
-                        {zones.map((z) => (
-                          <option key={z} value={z}>
-                            {z}
-                          </option>
-                        ))}
-                      </Select>
-                    </Labelled>
+                    {template ? (
+                      <Labelled label="Length">
+                        <span className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={168}
+                            className="w-20"
+                            aria-label="Hours"
+                            value={splitLength(length).hours}
+                            onChange={(e) => setLength(joinLength(Number(e.target.value), splitLength(length).minutes))}
+                          />
+                          <span>h</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={59}
+                            className="w-20"
+                            aria-label="Minutes"
+                            value={splitLength(length).minutes}
+                            onChange={(e) => setLength(joinLength(splitLength(length).hours, Number(e.target.value)))}
+                          />
+                          <span>min</span>
+                        </span>
+                      </Labelled>
+                    ) : (
+                      <>
+                        <Labelled label="Starts">
+                          <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
+                        </Labelled>
+                        <Labelled label="Ends">
+                          <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
+                        </Labelled>
+                        <Labelled label="Time zone">
+                          <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
+                            {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
+                            {zones.map((z) => (
+                              <option key={z} value={z}>
+                                {z}
+                              </option>
+                            ))}
+                          </Select>
+                        </Labelled>
+                      </>
+                    )}
                     <Labelled label="Repeat">
                       <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
                         <option value="none">Does not repeat</option>
@@ -474,7 +526,7 @@ export function CalendarEventForm({
                       <Labelled label="Ends">
                         <Select value={repeatEnd} onChange={(v) => pickRepeatEnd(v as RepeatEnd)} aria-label="Ends">
                           <option value="never">Never</option>
-                          <option value="date">On a date</option>
+                          {!template && <option value="date">On a date</option>}
                           <option value="times">After a number of times</option>
                         </Select>
                       </Labelled>
