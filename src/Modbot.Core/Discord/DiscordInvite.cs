@@ -20,6 +20,7 @@ public static class DiscordInvite
     public const long ViewChannel = 1L << 10;
     public const long SendMessages = 1L << 11;
     public const long EmbedLinks = 1L << 14;
+    public const long AttachFiles = 1L << 15;
     public const long ReadMessageHistory = 1L << 16;
     public const long ManageGuild = 1L << 5;
     public const long ManageRoles = 1L << 28;
@@ -32,6 +33,11 @@ public static class DiscordInvite
         // Posting the moderation log, instance cards (fetched by id before each rewrite) and the
         // backup channel mention; and reading the audit log to catch up what the bot missed.
         var permissions = ViewChannel | SendMessages | EmbedLinks | ReadMessageHistory | ViewAuditLog;
+
+        // Pictures go to Discord as files: on cards while VRChat pictures are fetched, and on
+        // Marketing posts, which Discord receives while posts to Discord are on.
+        if (settings.VRChatImagesProxied || settings.DiscordPostsOn)
+            permissions |= AttachFiles;
 
         if (!string.IsNullOrWhiteSpace(settings.DiscordLinkedRoleId)
             || !string.IsNullOrWhiteSpace(settings.DiscordEighteenPlusRoleId)

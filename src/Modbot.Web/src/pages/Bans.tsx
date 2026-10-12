@@ -495,7 +495,7 @@ function DiscordBans() {
           {coverage.guildId === null ? (
             <Unread>No Discord server set.</Unread>
           ) : !coverage.canRead ? (
-            <Unread>Cannot read the Discord ban list: the bot needs Ban Members.</Unread>
+            <Unread>Cannot read the Discord ban list: the bot needs Ban Members or View Audit Log.</Unread>
           ) : coverage.listedAt === null ? (
             <Unread>The Discord ban list has not been read yet.</Unread>
           ) : (

@@ -1593,7 +1593,7 @@ export type DiscordBanList = {
     guildId: string | null
     /** When the whole list was last read from Discord. Null until it has been. */
     listedAt: string | null
-    /** Whether the bot holds Ban Members, which reading the whole list needs. */
+    /** Whether the bot holds Ban Members or View Audit Log, either of which reading the whole list needs. */
     canRead: boolean
     /** Bans that stand, whatever the filters. */
     standing: number

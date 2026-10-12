@@ -353,7 +353,7 @@ public sealed partial class DiscordNetGateway
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
             return DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true);
 
-        return await InChannelAsync(channelId, async channel =>
+        return await InChannelAsync(channelId, ChannelNeed.Edit, async channel =>
         {
             if (await channel.GetMessageAsync(id).ConfigureAwait(false) is not IUserMessage card
                 || _client.CurrentUser is not { } me

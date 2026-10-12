@@ -122,7 +122,7 @@ public class DiscordServer
 
     /// <summary>
     /// When the whole ban list was last read from Discord. Null until the bot has read it, which
-    /// needs Ban Members. Read on sign-in and again once a day (<see cref="DiscordBan"/>).
+    /// needs Ban Members or View Audit Log. Read on sign-in and again once a day (<see cref="DiscordBan"/>).
     /// </summary>
     public DateTimeOffset? BansListedAt { get; set; }
 }

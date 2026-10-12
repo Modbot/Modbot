@@ -140,7 +140,7 @@ function Rules() {
     ],
     [
       'The Discord bot’s permissions',
-      'View Channels, Send Messages, Embed Links, Read Message History and View Audit Log. It does not ask for Administrator.',
+      'View Channels, Send Messages, Embed Links, Attach Files, Read Message History and View Audit Log. It does not ask for Administrator.',
     ],
   ]
 

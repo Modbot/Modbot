@@ -327,7 +327,7 @@ public sealed class BanSync
         {
             return new SyncPreview(0, [], gateway is null
                 ? "The Discord bot is not connected, so its ban list could not be read."
-                : "The bot could not read the Discord ban list. It needs Ban Members.");
+                : "The bot could not read the Discord ban list. It needs Ban Members or View Audit Log.");
         }
 
         var inDiscord = bannedInDiscord.Select(b => b.UserId).ToHashSet(StringComparer.Ordinal);

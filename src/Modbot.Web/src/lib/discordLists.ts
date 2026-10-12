@@ -82,7 +82,7 @@ export const EVENT_POST_NEEDS: readonly DiscordChannelPermission[] = ['viewChann
 
 /** Discord's own names for the permissions, as a moderator sees them in Discord's settings. */
 export const channelPermissionNames: Record<DiscordChannelPermission, string> = {
-  viewChannel: 'View Channel',
+  viewChannel: 'View Channels',
   readMessageHistory: 'Read Message History',
   sendMessages: 'Send Messages',
   embedLinks: 'Embed Links',

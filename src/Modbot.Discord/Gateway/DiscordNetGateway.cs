@@ -252,7 +252,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     {
         ArgumentNullException.ThrowIfNull(embeds);
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, pictures is { Count: > 0 } ? ChannelNeed.PostWithPictures : ChannelNeed.Post, async channel =>
         {
             var built = embeds.Select(ToEmbed).ToArray();
             var buttons = Buttons(links, actions) is { Components.Count: > 0 } b ? b : null;
@@ -307,7 +307,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var role))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord role id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, pictures is { Count: > 0 } ? ChannelNeed.PostWithPictures : ChannelNeed.Post, async channel =>
         {
             var built = embeds.Select(ToEmbed).ToArray();
             var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
@@ -404,7 +404,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                 "That is not a Discord message id.", permanent: true));
         }
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, pictures is { Count: > 0 } ? ChannelNeed.EditWithPictures : ChannelNeed.Edit, async channel =>
         {
             // Only messages the bot itself sent can be edited, which is what this is for; anything
             // else comes back as a permanent failure and the caller forgets the id.
@@ -508,7 +508,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (Emoji(emoji) is not { } emote)
             return Task.FromResult(DiscordPostOutcome.Failed("Discord does not recognise that emoji.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.React, async channel =>
         {
             if (await channel.GetMessageAsync(message, options: new RequestOptions { CancelToken = ct })
                     .ConfigureAwait(false) is not IUserMessage found)
@@ -572,7 +572,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.Delete, async channel =>
         {
             await channel.DeleteMessageAsync(message, new RequestOptions { AuditLogReason = reason, CancelToken = ct })
                 .ConfigureAwait(false);
@@ -614,7 +614,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         }
         catch (HttpException e) when (e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
         {
-            return DiscordPostOutcome.Failed(Explain(e), permanent: true, notFound: e.HttpCode == HttpStatusCode.NotFound);
+            return DiscordPostOutcome.Failed(Explain(e, ChannelNeed.Find), permanent: true, notFound: e.HttpCode == HttpStatusCode.NotFound);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -660,7 +660,10 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         }
         catch (HttpException e)
         {
-            return DiscordPostOutcome.Failed(Explain(e), permanent: true, notFound: e.HttpCode == HttpStatusCode.NotFound);
+            return DiscordPostOutcome.Failed(
+                Explain(e, files.Count > 0 ? ChannelNeed.PostTextWithPictures : ChannelNeed.PostText),
+                permanent: true,
+                notFound: e.HttpCode == HttpStatusCode.NotFound);
         }
         catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
         {
@@ -681,7 +684,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.Edit, async channel =>
         {
             if (await channel.GetMessageAsync(message, options: Request(ct)).ConfigureAwait(false) is not IUserMessage mine)
                 return DiscordPostOutcome.Failed("That message is gone.", permanent: true, notFound: true);
@@ -704,7 +707,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.Publish, async channel =>
         {
             if (await channel.GetMessageAsync(message, options: Request(ct)).ConfigureAwait(false) is not IUserMessage mine)
                 return DiscordPostOutcome.Failed("That message is gone.", permanent: true, notFound: true);
@@ -750,7 +753,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             return DiscordMessagePage.Failed(
                 e.HttpCode == HttpStatusCode.NotFound
                     ? "The channel is gone."
-                    : "The bot may not read this channel's history.",
+                    : ReadHistoryRefused,
                 noAccess: true);
         }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -787,7 +790,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
             return DiscordPostOutcome.Failed(
                 e.HttpCode == HttpStatusCode.Forbidden
-                    ? "The bot may not time that person out; it needs Moderate Members and a role above theirs."
+                    ? "The bot may not time that person out. Give the bot's role Timeout Members, and keep its role above theirs."
                     : $"Discord answered {(int)e.HttpCode}.",
                 permanent);
         }
@@ -1194,7 +1197,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             .FirstOrDefault()?.Name;
 
     private async Task<DiscordPostOutcome> InChannelAsync(
-        string channelId, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
+        string channelId, ChannelNeed need, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
     {
         if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
         {
@@ -1219,7 +1222,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         catch (HttpException e)
         {
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
-            return DiscordPostOutcome.Failed(Explain(e), permanent, notFound: e.HttpCode == HttpStatusCode.NotFound);
+            return DiscordPostOutcome.Failed(Explain(e, need), permanent, notFound: e.HttpCode == HttpStatusCode.NotFound);
         }
         catch (RateLimitedException)
         {
@@ -1227,7 +1230,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            return DiscordPostOutcome.Failed($"Could not post to Discord: {e.Message}");
+            return DiscordPostOutcome.Failed($"Could not {need.Failed}: {e.Message}");
         }
     }
 
@@ -1270,7 +1273,9 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         catch (HttpException e)
         {
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
-            return DiscordPostOutcome.Failed($"Could not send the direct message: Discord answered {(int)e.HttpCode}.", permanent);
+            return DiscordPostOutcome.Failed(
+                $"Could not send the direct message: Discord answered {(int)e.HttpCode}: {e.Reason ?? e.Message}",
+                permanent);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -1295,7 +1300,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord user id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.PostText, async channel =>
         {
             // Only this one person may be pinged, whatever else the text happens to contain.
             var sent = await channel.SendMessageAsync(
@@ -1318,7 +1323,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
     {
         ArgumentNullException.ThrowIfNull(embeds);
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.Post, async channel =>
         {
             var sent = await channel.SendMessageAsync(
                     text: text,
@@ -1345,7 +1350,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
             return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
 
-        return InChannelAsync(channelId, async channel =>
+        return InChannelAsync(channelId, ChannelNeed.Edit, async channel =>
         {
             if (await channel.GetMessageAsync(message).ConfigureAwait(false) is not IUserMessage mine)
                 return DiscordPostOutcome.Failed("That message is gone, or was not posted by the bot.", permanent: true, notFound: true);
@@ -1450,7 +1455,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
         {
             return DiscordRoleOutcome.Failed(
-                "The bot may not change that role. Give it Manage Roles and keep its role above the linked roles.");
+                "The bot may not change that role. Give the bot's role Manage Roles, and keep its role above the role it is changing.");
         }
         catch (HttpException e)
         {
@@ -1695,13 +1700,19 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         return Task.CompletedTask;
     }
 
+    private const string AuditLogRefused =
+        "The bot may not read the audit log. In Discord, open Server Settings, then Roles, pick the bot's role and turn on View Audit Log.";
+
+    private const string ReadHistoryRefused =
+        "The bot may not read this channel's history. In Discord, give the bot's role View Channels and Read Message History in that channel's Permissions.";
+
     public async Task<DiscordAuditPage> ReadAuditLogAsync(string guildId, string? afterId, CancellationToken ct)
     {
         if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
             return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot is not in that server.");
 
         if (guild.CurrentUser is { GuildPermissions.ViewAuditLog: false })
-            return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot may not read the audit log.");
+            return new DiscordAuditPage([], null, NoAccess: true, Error: AuditLogRefused);
 
         try
         {
@@ -1723,7 +1734,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         }
         catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
         {
-            return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot may not read the audit log.");
+            return new DiscordAuditPage([], null, NoAccess: true, Error: AuditLogRefused);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -2112,7 +2123,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             return DiscordMessagePage.Failed(
                 e.HttpCode == HttpStatusCode.NotFound
                     ? "The channel is gone."
-                    : "The bot may not read this channel's history.",
+                    : ReadHistoryRefused,
                 noAccess: true);
         }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -2557,26 +2568,71 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                 Fatal: true,
                 IntentsRefused: true),
         WebSocketClosedException { CloseCode: 4013 } =>
-            new DiscordDisconnect("Discord refused the gateway intents this bot asked for.", Fatal: true),
+            new DiscordDisconnect(
+                "Discord refused the gateway intents this bot asked for. Check the Privileged Gateway Intents in the Developer Portal under Bot.",
+                Fatal: true),
         WebSocketClosedException w =>
             new DiscordDisconnect($"Discord closed the connection ({w.CloseCode}: {w.Reason}).", Fatal: false),
         _ => new DiscordDisconnect($"The gateway connection dropped: {exception.Message}", Fatal: false),
     };
 
-    private static string Explain(HttpException e)
+    /// <summary>
+    /// What a refused channel request says. Discord's 403 does not name the permission, so the
+    /// sentence names the ones the request needs, which differ by what is being done: deleting
+    /// somebody else's message needs Manage Messages, a message with a picture needs Attach Files,
+    /// reading a message back needs Read Message History.
+    /// </summary>
+    private static string Explain(HttpException e, ChannelNeed need)
     {
         var reason = e.HttpCode switch
         {
             HttpStatusCode.Forbidden =>
-                "the bot may not post in that channel; give it View Channel, Send Messages and Embed Links there",
+                $"the bot may not {need.Doing}; give the bot's role {need.Gives} in that channel's Permissions in Discord",
             HttpStatusCode.NotFound => "Discord does not know that channel",
             HttpStatusCode.Unauthorized => "the bot token was rejected",
             _ => $"Discord answered {(int)e.HttpCode}",
         };
 
         return string.IsNullOrEmpty(e.Reason)
-            ? $"Could not post to Discord: {reason}."
-            : $"Could not post to Discord: {reason} ({e.Reason}).";
+            ? $"Could not {need.Failed}: {reason}."
+            : $"Could not {need.Failed}: {reason} ({e.Reason}).";
+    }
+
+    /// <summary>
+    /// What one channel request needs the bot to hold in that channel, in Discord's names, per
+    /// Discord's documented rule for each endpoint.
+    /// </summary>
+    private sealed record ChannelNeed(string Failed, string Doing, string Gives)
+    {
+        public static readonly ChannelNeed Find =
+            new("find the channel on Discord", "see that channel", "View Channels");
+
+        public static readonly ChannelNeed Post =
+            new("post to Discord", "post in that channel", "View Channels, Send Messages and Embed Links");
+
+        public static readonly ChannelNeed PostWithPictures =
+            new("post to Discord", "post in that channel", "View Channels, Send Messages, Embed Links and Attach Files");
+
+        public static readonly ChannelNeed PostText =
+            new("post to Discord", "post in that channel", "View Channels and Send Messages");
+
+        public static readonly ChannelNeed PostTextWithPictures =
+            new("post to Discord", "post in that channel", "View Channels, Send Messages and Attach Files");
+
+        public static readonly ChannelNeed Edit =
+            new("edit the message on Discord", "edit its message in that channel", "View Channels and Read Message History");
+
+        public static readonly ChannelNeed EditWithPictures =
+            new("edit the message on Discord", "edit its message in that channel", "View Channels, Read Message History and Attach Files");
+
+        public static readonly ChannelNeed Delete =
+            new("delete the message on Discord", "delete messages in that channel", "View Channels and Manage Messages");
+
+        public static readonly ChannelNeed React =
+            new("add the reaction on Discord", "react in that channel", "View Channels, Read Message History and Add Reactions");
+
+        public static readonly ChannelNeed Publish =
+            new("publish the message on Discord", "publish in that channel", "View Channels, Read Message History and Send Messages");
     }
 
     private static ApplicationCommandProperties ToProperties(DiscordCommandDefinition command)

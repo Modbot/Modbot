@@ -1184,7 +1184,7 @@ public interface IDiscordGateway : IAsyncDisposable
     /// Times a member out. For AI moderation rules set to act (M8 §2).
     /// </summary>
     /// <remarks>
-    /// Needs Moderate Members, and no gateway intent: the member is looked up by id over REST.
+    /// Needs Timeout Members, and no gateway intent: the member is looked up by id over REST.
     /// </remarks>
     Task<DiscordPostOutcome> TimeOutAsync(string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct);
 

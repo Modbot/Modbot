@@ -101,6 +101,17 @@ public class DiscordBanListTests
     }
 
     [Fact]
+    public async Task With_only_View_Audit_Log_the_list_is_still_read()
+    {
+        // Discord's Get Guild Bans accepts Ban Members or View Audit Log.
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services, canBan: false, canViewAuditLog: true, configure: g => g.Banned = ["1"]);
+
+        Assert.Equal(1, gateway.BanListReads);
+        Assert.Equal(["1"], (await BansAsync(services)).Select(b => b.UserId));
+    }
+
+    [Fact]
     public async Task A_ban_event_adds_its_one_row_without_reading_the_list()
     {
         await using var services = await TestServices.CreateAsync(_db, Ct);

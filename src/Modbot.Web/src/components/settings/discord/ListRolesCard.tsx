@@ -153,7 +153,7 @@ function ListRolesForm({ data, onChanged }: { data: ListRoles; onChanged: (next:
     >
       <div ref={top} className="grid gap-3 sm:grid-cols-2">
         <Fact label="Last checked" value={data.ranAt ? dateTime(data.ranAt) : 'Never'} />
-        <Fact label="Bot in Discord" value={data.botCanManageRoles ? 'Manage roles' : 'No manage roles'} />
+        <Fact label="Bot in Discord" value={data.botCanManageRoles ? 'Manage Roles' : 'No Manage Roles'} />
       </div>
 
       <Outcome tone="problem">{data.problem}</Outcome>

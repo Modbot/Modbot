@@ -28,16 +28,16 @@ The bot needs permissions in your Discord server, and only the ones you actually
 
 | What you switch on | What the bot needs |
 | --- | --- |
-| Keep paired roles in step | Manage roles, and its own role above every role you pair |
-| Copy group bans into Discord, as a ban | Ban members |
-| Copy group bans into Discord, as a removal | Kick members |
-| A ban or unban made in Modbot reaching Discord (no switch) | Ban members, which the invite link does not ask for: give it to the bot in Discord yourself |
+| Keep paired roles in step | **Manage Roles**, and its own role above every role you pair |
+| Copy group bans into Discord, as a ban | **Ban Members** |
+| Copy group bans into Discord, as a removal | **Kick Members** |
+| A ban or unban made in Modbot reaching Discord (no switch) | **Ban Members**, which the invite link does not ask for: give it to the bot in Discord yourself |
 
 Re-invite the bot with the link on **Settings → Discord → Account linking** after switching one on:
 the link asks for exactly what your settings need.
 
-A ban made in Modbot also needs **Ban members** to reach Discord, and no switch here asks the link
-for it. If you want those bans to reach Discord, give the bot **Ban members** yourself; until you do,
+A ban made in Modbot also needs **Ban Members** to reach Discord, and no switch here asks the link
+for it. If you want those bans to reach Discord, give the bot **Ban Members** yourself; until you do,
 the ban still stands in the group and Modbot tells you Discord refused.
 
 ## Pair a role
@@ -139,7 +139,7 @@ Discord is set up and they have [linked their accounts](/discord/account-linking
 page is involved.
 
 Somebody with no linked Discord account is banned in the group and nothing else happens. If Discord
-refuses, for instance because the bot has no **Ban members**, the group ban still stands: the
+refuses, for instance because the bot has no **Ban Members**, the group ban still stands: the
 confirmation says what Discord answered, and the audit log has a **A copy between platforms failed**
 entry.
 
@@ -165,9 +165,9 @@ The card shows when each half last ran and what went wrong.
 
 | What it says | What to do |
 | --- | --- |
-| The bot cannot assign a role | Give the bot Manage roles, and move its own role above that one in Discord |
-| The bot may not ban in this server | Give the bot Ban members, and keep its role above the people it bans |
-| The bot may not remove people from this server | Give the bot Kick members |
+| The bot cannot assign a role | Give the bot Manage Roles, and move its own role above that one in Discord |
+| The bot may not ban in this server | Give the bot Ban Members, and keep its role above the people it bans |
+| The bot may not remove people from this server | Give the bot Kick Members |
 
 A ban that could not be copied because of a missing permission is copied on the next check once you
 fix it.

@@ -396,12 +396,12 @@ function line(change: PlannedChange): string {
 
 function permissions(settings: DiscordSyncSettings): string {
   const held = [
-    settings.botCanManageRoles ? 'Manage roles' : null,
-    settings.botCanBanMembers ? 'Ban members' : null,
-    settings.botCanRemoveMembers ? 'Kick members' : null,
+    settings.botCanManageRoles ? 'Manage Roles' : null,
+    settings.botCanBanMembers ? 'Ban Members' : null,
+    settings.botCanRemoveMembers ? 'Kick Members' : null,
   ].filter(Boolean)
 
-  return held.length ? held.join(', ') : 'None of manage roles, ban members or kick members'
+  return held.length ? held.join(', ') : 'None of Manage Roles, Ban Members or Kick Members'
 }
 
 function when(at: string | null): string {

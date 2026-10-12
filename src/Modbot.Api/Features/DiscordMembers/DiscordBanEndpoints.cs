@@ -30,7 +30,7 @@ public sealed record DiscordBanView(
 
 /// <param name="GuildId">The server in settings, or null when none is set.</param>
 /// <param name="ListedAt">When the whole ban list was last read from Discord. Null until it has been.</param>
-/// <param name="CanRead">Whether the bot holds Ban Members, which reading the whole list needs.</param>
+/// <param name="CanRead">Whether the bot holds Ban Members or View Audit Log, either of which reading the whole list needs.</param>
 /// <param name="Standing">Bans that stand, whatever the filters.</param>
 /// <param name="Now">The server's clock (spec 4.4).</param>
 public sealed record DiscordBanListCoverage(
@@ -89,7 +89,7 @@ public static class DiscordBanEndpoints
                 + "`status=lifted` shows bans that were lifted, `status=all` both. `search` matches the "
                 + "name, username and id, case-insensitively. Newest first.\n\n"
                 + "The whole list is read from Discord when the bot signs in and once a day, which needs "
-                + "Ban Members (`coverage.canRead`); bans and unbans seen as they happen change the list "
+                + "Ban Members or View Audit Log (`coverage.canRead`); bans and unbans seen as they happen change the list "
                 + "between reads. `bannedAt` is null for a ban that was already in place when it was "
                 + "found, because Discord's list carries no date. `coverage.listedAt` is null until the "
                 + "whole list has been read once.")
@@ -155,7 +155,7 @@ public static class DiscordBanEndpoints
             new DiscordBanListCoverage(
                 guildId,
                 server?.BansListedAt,
-                server?.BotCanBanMembers ?? false,
+                (server?.BotCanBanMembers ?? false) || (server?.BotCanViewAuditLog ?? false),
                 await inGuild.CountAsync(b => b.LiftedAt == null, ct),
                 clock.UtcNow));
     }

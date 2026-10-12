@@ -142,7 +142,7 @@ public static class SyncHealthEndpoints
                         settings?.BanSweepPolledAt,
                         Run(diagnostics.LastBanSweepRun)),
                     clock.UtcNow,
-                    await DiscordChannelProblemsAsync(db, ct),
+                    await DiscordChannelProblemsAsync(db, settings?.VRChatImagesProxied ?? false, ct),
                     await ReadBackAsync(db, settings?.DiscordGuildId, ct),
                     aiSpend is null
                         ? []
@@ -274,10 +274,11 @@ public static class SyncHealthEndpoints
 
     /// <summary>
     /// Each channel an enabled route sends to where the bot is missing a permission it needs, the
-    /// channel is gone, or the last post was refused.
+    /// channel is gone, or the last post was refused. Attach Files counts only while cards carry
+    /// VRChat pictures (<paramref name="picturesSent"/>): they go as files.
     /// </summary>
     private static async Task<IReadOnlyList<DiscordChannelProblem>> DiscordChannelProblemsAsync(
-        ModbotContext db, CancellationToken ct)
+        ModbotContext db, bool picturesSent, CancellationToken ct)
     {
         var channelIds = await db.DiscordEventRoutes.AsNoTracking()
             .Where(r => r.Enabled && r.ChannelId != "")
@@ -308,9 +309,10 @@ public static class SyncHealthEndpoints
             var missing = new List<string>();
             if (channel is not null && channel.RemovedAt is null)
             {
-                if (!channel.BotCanView) missing.Add("View Channel");
+                if (!channel.BotCanView) missing.Add("View Channels");
                 if (!channel.BotCanSend) missing.Add("Send Messages");
                 if (!channel.BotCanEmbedLinks) missing.Add("Embed Links");
+                if (picturesSent && !channel.BotCanAttachFiles) missing.Add("Attach Files");
             }
 
             var removed = channel?.RemovedAt is not null;

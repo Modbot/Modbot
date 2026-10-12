@@ -310,6 +310,37 @@ public class DiscordRouteTests
         Assert.Null(problems[2].Name);
     }
 
+    [Theory]
+    [InlineData(true, new[] { "View Channels", "Attach Files" })]
+    [InlineData(false, new[] { "View Channels" })]
+    public async Task Health_NamesAttachFilesOnlyWhileCardsCarryPictures(bool picturesSent, string[] expected)
+    {
+        await using var host = await StartAsync(_db);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, Ct);
+        var at = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(Ct);
+            settings.VRChatImagesProxied = picturesSent;
+
+            db.DiscordChannels.Add(new DiscordChannel
+            {
+                ChannelId = "301", GuildId = "1", Name = "locked", Type = DiscordChannelTypes.Text,
+                BotCanView = false, BotCanSend = true, BotCanEmbedLinks = true, BotCanAttachFiles = false,
+                FirstSeenAt = at, UpdatedAt = at,
+            });
+            db.DiscordEventRoutes.Add(Route("301", 0, true));
+
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var health = await host.GetJsonAsync<SyncHealth>("/api/health/sync", cookie, Ct);
+
+        Assert.Equal(expected, health.DiscordChannelProblems!.Single().Missing);
+    }
+
     private static DiscordEventRoute Route(string channel, int position, bool enabled) => new()
     {
         Id = Guid.NewGuid(),

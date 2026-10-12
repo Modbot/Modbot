@@ -14,7 +14,7 @@ namespace Modbot.Discord.Members;
 /// <para>
 /// <strong>Two sources.</strong> The whole list is read from Discord on sign-in and once a day
 /// (<see cref="ListedAsync"/>), which is the only way to learn of bans from before the bot joined
-/// and needs Ban Members. Between reads, a ban or unban seen on the gateway changes its one row
+/// and needs Ban Members or View Audit Log (Discord accepts either). Between reads, a ban or unban seen on the gateway changes its one row
 /// (<see cref="BannedAsync"/>, <see cref="UnbannedAsync"/>), with no request. The gateway event
 /// carries no reason; the audit log does when the bot may read it (<see cref="AuditLogAsync"/>), and
 /// otherwise the next read fills it in.
@@ -47,18 +47,18 @@ public sealed class DiscordBanList
     }
 
     /// <summary>
-    /// Whether a full read is due: the bot holds Ban Members, and the list has never been read or
+    /// Whether a full read is due: the bot holds Ban Members or View Audit Log, and the list has never been read or
     /// was last read <see cref="ReadEvery"/> ago or more.
     /// </summary>
     public async Task<bool> ReadDueAsync(string guildId, CancellationToken ct)
     {
         var server = await _db.DiscordServers.AsNoTracking()
             .Where(s => s.GuildId == guildId)
-            .Select(s => new { s.BotCanBanMembers, s.BansListedAt })
+            .Select(s => new { s.BotCanBanMembers, s.BotCanViewAuditLog, s.BansListedAt })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        return server is { BotCanBanMembers: true }
+        return server is { BotCanBanMembers: true } or { BotCanViewAuditLog: true }
             && (server.BansListedAt is not { } at || _clock.UtcNow - at >= ReadEvery);
     }
 

@@ -341,7 +341,7 @@
           "Discord"
         ],
         "summary": "List Discord bans",
-        "description": "The Discord server's bans as the bot last saw them. Bans that stand by default; `status=lifted` shows bans that were lifted, `status=all` both. `search` matches the name, username and id, case-insensitively. Newest first.\n\nThe whole list is read from Discord when the bot signs in and once a day, which needs Ban Members (`coverage.canRead`); bans and unbans seen as they happen change the list between reads. `bannedAt` is null for a ban that was already in place when it was found, because Discord's list carries no date. `coverage.listedAt` is null until the whole list has been read once.\n\nNeeds the `ViewAuditLog` permission.",
+        "description": "The Discord server's bans as the bot last saw them. Bans that stand by default; `status=lifted` shows bans that were lifted, `status=all` both. `search` matches the name, username and id, case-insensitively. Newest first.\n\nThe whole list is read from Discord when the bot signs in and once a day, which needs Ban Members or View Audit Log (`coverage.canRead`); bans and unbans seen as they happen change the list between reads. `bannedAt` is null for a ban that was already in place when it was found, because Discord's list carries no date. `coverage.listedAt` is null until the whole list has been read once.\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "GetDiscordBans",
         "parameters": [
           {

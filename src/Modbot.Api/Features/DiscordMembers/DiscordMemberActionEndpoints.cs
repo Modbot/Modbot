@@ -19,7 +19,7 @@ namespace Modbot.Api.Features.DiscordMembers;
 /// <remarks>
 /// <para>
 /// <strong>One permission per action.</strong> Discord's own are separate (Ban Members, Kick
-/// Members, Moderate Members), and so are Modbot's: a group can let a helper time people out
+/// Members, Timeout Members), and so are Modbot's: a group can let a helper time people out
 /// without letting them ban anybody. The VRChat <c>Kick</c>, <c>Ban</c> and <c>Unban</c> are not
 /// reused, because acting on one platform is not permission to act on the other.
 /// </para>

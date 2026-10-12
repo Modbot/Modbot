@@ -418,7 +418,7 @@ public sealed record AiSpendWarningView(
 /// A channel events are sent to that has something wrong with it.
 /// </summary>
 /// <param name="Name">The channel's name as the bot last saw it, or null when the bot has never seen it.</param>
-/// <param name="Missing">Discord's names for the permissions the bot lacks there, of View Channel, Send Messages and Embed Links.</param>
+/// <param name="Missing">Discord's names for the permissions the bot lacks there, of View Channels, Send Messages, Embed Links and Attach Files.</param>
 /// <param name="Removed">The channel was deleted in Discord.</param>
 /// <param name="LastError">Why the last post was refused, until a post goes through.</param>
 public sealed record DiscordChannelProblem(

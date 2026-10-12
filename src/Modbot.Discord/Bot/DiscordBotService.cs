@@ -664,7 +664,7 @@ public sealed class DiscordBotService : BackgroundService
     }
 
     /// <summary>
-    /// Reads the server's whole ban list and stores it, when the bot holds Ban Members and either
+    /// Reads the server's whole ban list and stores it, when the bot holds Ban Members or View Audit Log and either
     /// <paramref name="always"/> is set (a fresh sign-in) or the daily read is due. Pages a thousand
     /// bans a request; a list the bot may not read is left as it was.
     /// </summary>
@@ -678,7 +678,7 @@ public sealed class DiscordBotService : BackgroundService
             var bans = scope.ServiceProvider.GetRequiredService<DiscordBanList>();
 
             if (!await bans.ReadDueAsync(guildId, ct).ConfigureAwait(false)
-                && !(always && await BotCanBanAsync(scope, guildId, ct).ConfigureAwait(false)))
+                && !(always && await BotCanReadBansAsync(scope, guildId, ct).ConfigureAwait(false)))
             {
                 return;
             }
@@ -697,10 +697,10 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
-    private static Task<bool> BotCanBanAsync(IServiceScope scope, string guildId, CancellationToken ct)
+    private static Task<bool> BotCanReadBansAsync(IServiceScope scope, string guildId, CancellationToken ct)
         => scope.ServiceProvider.GetRequiredService<ModbotContext>().DiscordServers.AsNoTracking()
             .Where(s => s.GuildId == guildId)
-            .Select(s => s.BotCanBanMembers)
+            .Select(s => s.BotCanBanMembers || s.BotCanViewAuditLog)
             .FirstOrDefaultAsync(ct);
 
     private async Task KeepBanListAsync(string what, Func<DiscordBanList, CancellationToken, Task> work)

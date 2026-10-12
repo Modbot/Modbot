@@ -7,8 +7,8 @@ const POSTABLE: DiscordChannelType[] = ['text', 'announcement']
 /**
  * Picks one channel in the bot's Discord server, grouped under its category and shown as `#name`.
  *
- * `needs` names the permissions the setting depends on -- posting needs View Channel, Send
- * Messages and Embed Links; reading history back needs View Channel and Read Message History.
+ * `needs` names the permissions the setting depends on -- posting needs View Channels, Send
+ * Messages and Embed Links; reading history back needs View Channels and Read Message History.
  * A channel where the bot lacks any of them is still offered, marked with the missing ones by
  * name (M5 spec §7), because the fix is a Discord setting and the moderator may be about to make
  * it.
