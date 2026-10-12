@@ -149,8 +149,10 @@ internal static class PostRequests
         if (title is { Length: > Post.MaxTitleLength })
             problems.Add($"The title is longer than {Post.MaxTitleLength} characters.");
 
-        if (text.Length > Post.MaxTextLength)
-            problems.Add($"The text is longer than {Post.MaxTextLength} characters.");
+        // Only the guard on what the database keeps. The lengths people are held to are counted on
+        // what each site is sent (below), so a long list of dates is never refused for its marks.
+        if (text.Length > Post.MaxStoredTextLength)
+            problems.Add($"The text is longer than {Post.MaxStoredTextLength} characters.");
 
         var ownText = body.Discord?.Text is { } own ? PostTexts.Tidy(own) : null;
         var vrchatOwnTitle = body.VRChat?.Title is { } ownTitle ? PostTexts.TidyTitle(ownTitle) : null;
@@ -283,9 +285,6 @@ internal static class PostRequests
                 problems.Add(account?.BlueskyPostingOn == true ? BlueskyNotSetUp : BlueskyOff);
         }
 
-        if (ownText is { Length: > Post.MaxTextLength })
-            problems.Add($"The Bluesky text is longer than {Post.MaxTextLength} characters.");
-
         var sent = ownText is not null
             ? PostEventText.ForSite(PostNetworks.Bluesky, ownText)
             : PostTexts.Bluesky(title, PostEventText.ForSite(PostNetworks.Bluesky, text));
@@ -355,7 +354,11 @@ internal static class PostRequests
         if (ownTitle is { Length: > Post.MaxTitleLength })
             problems.Add($"The VRChat title is longer than {Post.MaxTitleLength} characters.");
 
-        if (ownText is { Length: > Post.MaxTextLength })
+        // VRChat documents no length for a group post, so the only ceiling is Modbot's own, counted
+        // on the text VRChat is sent (the counter in the composer counts the same).
+        var sentText = PostEventText.ForSite(PostNetworks.VRChat, ownText ?? text);
+
+        if (sentText.Length > Post.MaxTextLength || ownText is { Length: > Post.MaxStoredTextLength })
             problems.Add($"The VRChat text is longer than {Post.MaxTextLength} characters.");
 
         var sentTitle = ownTitle ?? title;
@@ -385,7 +388,7 @@ internal static class PostRequests
             ownTitle,
             ownText,
             sentTitle,
-            PostEventText.ForSite(PostNetworks.VRChat, ownText ?? text),
+            sentText,
             [.. options.RoleIds!.Select(id => roles.TryGetValue(id, out var name) ? name : id)],
             imageId is null || pictureId is not { } picture ? null : PostEndpoints.PicturePath + picture);
     }
@@ -649,8 +652,13 @@ internal static class PostRequests
             if (PostTexts.TitleFor(post, destination) is null)
                 problems.Add("VRChat needs a title.");
 
-            if (PostTexts.TextFor(post, destination).Length == 0)
+            var vrchatText = PostTexts.TextFor(post, destination);
+
+            if (vrchatText.Length == 0)
                 problems.Add("Write some text.");
+
+            if (vrchatText.Length > Post.MaxTextLength)
+                problems.Add($"The VRChat text is longer than {Post.MaxTextLength} characters.");
         }
 
         foreach (var destination in live.Where(d => d.Network == PostNetworks.Bluesky))

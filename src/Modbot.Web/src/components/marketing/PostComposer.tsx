@@ -27,6 +27,7 @@ import {
   eventTextFor,
   pictureAddress,
   POST_PICTURE_MAX_BYTES,
+  POST_TITLE_MAX,
   postsApi,
   requestOf,
   splitEventLists,
@@ -397,7 +398,7 @@ export function PostComposer({
             ) : (
               <div className="flex flex-col gap-4">
                 <Labelled label="Title">
-                  <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
+                  <Input value={input.title} maxLength={POST_TITLE_MAX} onChange={(e) => set('title', e.target.value)} />
                 </Labelled>
                 <div className="flex flex-col gap-1">
                   <PostTextField
@@ -459,7 +460,9 @@ export function PostComposer({
                       onChange={(v) =>
                         setInput((current) => ({
                           ...current,
-                          discord: { ...current.discord, ownText: v, text: v && !current.discord.text ? eventTextFor('discord', current.text) : current.discord.text },
+                          // Starts from the post's own text, event lists and all: the lists show as cards,
+                          // so the time codes Discord is sent never reach a moderator's eyes.
+                          discord: { ...current.discord, ownText: v, text: v && !current.discord.text ? current.text : current.discord.text },
                         }))
                       }
                     >
@@ -467,15 +470,17 @@ export function PostComposer({
                     </Checkbox>
                     {input.discord.ownText && (
                       <div className="flex flex-col gap-1">
-                        <Textarea
-                          rows={5}
-                          aria-label="Discord text"
+                        <PostTextField
+                          label="Discord text"
+                          showLabel={false}
                           value={input.discord.text}
-                          onChange={(e) => setDiscord('text', e.target.value)}
+                          onChange={(text) => setDiscord('text', text)}
+                          timeZone={input.timeZone}
+                          canAddEvents={false}
                         />
                         <div className="flex items-center justify-between gap-2">
                           <Counter count={count} />
-                          <Button size="xs" variant="outline" onClick={() => setDiscord('text', eventTextFor('discord', input.text))}>
+                          <Button size="xs" variant="outline" onClick={() => setDiscord('text', input.text)}>
                             Reset
                           </Button>
                         </div>
@@ -532,6 +537,7 @@ export function PostComposer({
                       <div className="flex items-center gap-2">
                         <Input
                           aria-label="VRChat title"
+                          maxLength={POST_TITLE_MAX}
                           value={input.vrChat.title}
                           onChange={(e) => setVRChat({ title: e.target.value })}
                         />

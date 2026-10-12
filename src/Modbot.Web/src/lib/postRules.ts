@@ -302,6 +302,16 @@ export const BLUESKY_LIMIT = 300
 /** Bluesky's limit in UTF-8 bytes. */
 export const BLUESKY_BYTE_LIMIT = 3000
 
+/** The longest title Modbot keeps: the server's `Post.MaxTitleLength`. A longer one is refused on save. */
+export const POST_TITLE_MAX = 200
+
+/**
+ * The most text VRChat is sent, in characters, counted on the text as VRChat gets it: the server's
+ * `Post.MaxTextLength`. VRChat documents no length for a group post, so this is Modbot's own ceiling,
+ * not VRChat's: the counter shows no limit, and goes red only past this.
+ */
+export const VRCHAT_TEXT_CEILING = 8000
+
 /** The largest card picture Bluesky takes: the server's `BlueskyText.CardPictureMaxBytes`. */
 export const BLUESKY_CARD_PICTURE_MAX_BYTES = 1_000_000
 
@@ -552,9 +562,7 @@ export function discordMessage(title: string, text: string, roleId: string | nul
 
 /** The counter under the text for Discord: "Discord 212 / 2000", red once over. */
 export function discordCount(input: Pick<PostInput, 'title' | 'text' | 'discord'>): { label: string; over: boolean } {
-  const text = eventTextFor('discord', input.discord.ownText ? input.discord.text : input.text)
-  const length = discordMessage(input.title, text, input.discord.roleId || null).length
-  return { label: `Discord ${length} / ${DISCORD_LIMIT}`, over: length > DISCORD_LIMIT }
+  return discordLength(input.title, input.discord.ownText ? input.discord.text : input.text, input.discord.roleId || null)
 }
 
 /** The title VRChat gets: its own when "Own title" is ticked and filled, otherwise the post's. Empty when none. */
@@ -568,10 +576,24 @@ export function vrchatNeedsTitle(input: Pick<PostInput, 'title' | 'vrChat'>): bo
   return input.vrChat.on && vrchatTitle(input) === ''
 }
 
-/** The counter under the text for VRChat: "VRChat 212". VRChat documents no limit, so it is never red. */
+/**
+ * The counter under the text for VRChat: "VRChat 212". VRChat documents no length, so no limit is
+ * shown; it turns red past Modbot's own ceiling (`VRCHAT_TEXT_CEILING`), where the server refuses.
+ */
 export function vrchatCount(input: Pick<PostInput, 'text' | 'vrChat'>): { label: string; over: boolean } {
-  const text = eventTextFor('vrchat', input.vrChat.ownText ? input.vrChat.text : input.text)
-  return { label: `VRChat ${tidy(text).length}`, over: false }
+  return vrchatLength(input.vrChat.ownText ? input.vrChat.text : input.text)
+}
+
+/** The VRChat counter for a text on its own, as the on-site edit has it. */
+export function vrchatLength(text: string): { label: string; over: boolean } {
+  const length = eventTextFor('vrchat', text).length
+  return { label: `VRChat ${length}`, over: length > VRCHAT_TEXT_CEILING }
+}
+
+/** The Discord counter for a title and text on their own, as the on-site edit has it. */
+export function discordLength(title: string, text: string, roleId: string | null): { label: string; over: boolean } {
+  const length = discordMessage(title, eventTextFor('discord', text), roleId).length
+  return { label: `Discord ${length} / ${DISCORD_LIMIT}`, over: length > DISCORD_LIMIT }
 }
 
 /**

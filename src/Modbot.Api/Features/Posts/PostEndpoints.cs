@@ -504,8 +504,15 @@ public static class PostEndpoints
                 var text = PostTexts.Tidy(body.Text);
                 var problems = new List<string>();
 
-                if (text.Length == 0)
+                // The text is kept as the composer holds it, event marks and all, so Keep updated can
+                // still find a list in it; the site is sent the same text written for that site.
+                var sentText = PostEventText.ForSite(destination.Network, text);
+
+                if (sentText.Length == 0)
                     problems.Add("Write some text.");
+
+                if (text.Length > Post.MaxStoredTextLength)
+                    problems.Add($"The text is longer than {Post.MaxStoredTextLength} characters.");
 
                 if (title is { Length: > Post.MaxTitleLength })
                     problems.Add($"The title is longer than {Post.MaxTitleLength} characters.");
@@ -514,9 +521,12 @@ public static class PostEndpoints
                     problems.Add("VRChat needs a title.");
 
                 // What the site is sent: the whole Discord message, or VRChat's text under its title.
-                var content = onVRChat ? text : PostTexts.Discord(title, text, PostTexts.DiscordOptionsOf(destination).RoleId);
+                var content = onVRChat ? sentText : PostTexts.Discord(title, sentText, PostTexts.DiscordOptionsOf(destination).RoleId);
                 if (!onVRChat && !PostTexts.DiscordFits(content))
                     problems.Add($"The Discord text is longer than {PostTexts.DiscordLimit} characters.");
+
+                if (onVRChat && sentText.Length > Post.MaxTextLength)
+                    problems.Add($"The VRChat text is longer than {Post.MaxTextLength} characters.");
 
                 if (problems.Count > 0)
                     return Refused(problems);
@@ -529,7 +539,7 @@ public static class PostEndpoints
                     // with are sent again, and nobody is notified again.
                     var options = PostTexts.VRChatOptionsOf(destination);
                     outcome = await vrchat.EditAsync(
-                        destination.Target, messageId, title!, text, options.Visibility, PostTexts.VRChatRoles(options), options.ImageId, ct);
+                        destination.Target, messageId, title!, sentText, options.Visibility, PostTexts.VRChatRoles(options), options.ImageId, ct);
 
                     if (outcome.BotOffline)
                         return Unavailable(outcome.Error ?? NoVRChatPostActions.NotSetUp);

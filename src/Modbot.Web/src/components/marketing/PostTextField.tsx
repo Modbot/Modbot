@@ -41,12 +41,18 @@ export function PostTextField({
   onChange,
   timeZone,
   canAddEvents,
+  label = 'Text',
+  showLabel = true,
 }: {
   value: string
   onChange: (text: string) => void
   /** The post's zone: What's on counts its days in it. */
   timeZone: string
   canAddEvents: boolean
+  /** The name of the first box for a screen reader ("Discord text"); later boxes add a number. */
+  label?: string
+  /** Whether "Text" is drawn above the boxes: not for a site's own text, which has its tick above it. */
+  showLabel?: boolean
 }) {
   const parts = splitEventLists(value)
   const [panel, setPanel] = useState<Panel>(null)
@@ -90,12 +96,12 @@ export function PostTextField({
 
   return (
     <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">Text</span>
+      {showLabel && <span className="text-muted-foreground">Text</span>}
       {parts.texts.map((text, i) => (
         <Fragment key={i}>
           <Textarea
             rows={parts.lists.length === 0 ? 6 : i === 0 || i === last ? 3 : 1}
-            aria-label={i === 0 ? 'Text' : `Text ${i + 1}`}
+            aria-label={i === 0 ? label : `${label} ${i + 1}`}
             value={text}
             onChange={(e) => {
               remember(i, e.target)

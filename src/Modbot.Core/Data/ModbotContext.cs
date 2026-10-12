@@ -2554,7 +2554,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
 
             entity.Property(e => e.Title).HasMaxLength(Post.MaxTitleLength);
-            entity.Property(e => e.Text).HasMaxLength(Post.MaxTextLength);
+            entity.Property(e => e.Text).HasMaxLength(Post.MaxStoredTextLength);
             entity.Property(e => e.Status).HasMaxLength(16);
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Kind).HasMaxLength(16);
@@ -2625,7 +2625,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Target).HasColumnType("text");
             entity.Property(e => e.Options).HasColumnType("jsonb");
             entity.Property(e => e.TitleOverride).HasMaxLength(Post.MaxTitleLength);
-            entity.Property(e => e.TextOverride).HasMaxLength(Post.MaxTextLength);
+            entity.Property(e => e.TextOverride).HasMaxLength(Post.MaxStoredTextLength);
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.ClientKey).HasColumnType("text");
             entity.Property(e => e.ExternalId).HasColumnType("text");

@@ -99,8 +99,20 @@ public class Post
     /// <summary>The longest title kept. VRChat needs one; Discord shows it in bold above the text.</summary>
     public const int MaxTitleLength = 200;
 
-    /// <summary>The longest text kept: room for every site's own limit and some.</summary>
+    /// <summary>
+    /// The most text any one site is sent, counted on the text as that site gets it (event marks
+    /// left out, dates written for the site). Only VRChat can reach it: Discord and Bluesky stop
+    /// lower, and VRChat documents no length of its own, so this is Modbot's ceiling, not VRChat's.
+    /// </summary>
     public const int MaxTextLength = 8000;
+
+    /// <summary>
+    /// The most text kept in a post or a site's own text, marks and all. Only a guard on what the
+    /// database stores: the marks around an event list and its dates make the kept text longer than
+    /// any site's, so the lengths people see are counted on what is sent (<see cref="MaxTextLength"/>),
+    /// never on this.
+    /// </summary>
+    public const int MaxStoredTextLength = 100_000;
 
     public Guid Id { get; set; }
 
