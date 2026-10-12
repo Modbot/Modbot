@@ -1,0 +1,54 @@
+---
+title: Welcome steps
+description: Send each new Discord member up to three next steps, picked from the roles Discord's onboarding gave them. By direct message, in a welcome channel, or both.
+---
+
+Discord's onboarding asks new members a few questions and hands out roles from their answers. Then it
+leaves them in the server with no hint of what to do first. Welcome steps fill that gap: you write
+rules such as "if they hold this role, show this step", and Modbot sends each new member up to three
+steps.
+
+Everything is off until you turn it on. It is separate from the [join gate's](/discord/join-gate)
+own welcome message, which keeps working as before.
+
+## Set it up
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Welcome steps** card.
+
+| Setting | What it does |
+|---|---|
+| **Welcome new members** | The switch. Needs at least one rule or default step. |
+| **Send as** | **Direct message**, **Channel** or **Both**. |
+| **Welcome channel** | Where the message goes for **Channel** and **Both**. The bot needs to see the channel and send messages in it. |
+| **Rules** | Up to 25. Each has a **Role**, a **Step** and an optional **Link**. |
+| **Default steps** | Up to 3. Each has a **Step** and an optional **Link**. |
+
+A step is one line of at most 80 characters. A link must start with `https://`. Use the arrows on a
+row to change its order, then press **Save welcome steps**.
+
+## Which steps a member gets
+
+1. Modbot goes through your rules from the top. Each rule whose role the member holds adds its step.
+2. It stops at three steps.
+3. If fewer than three matched, it fills the rest from your default steps, in order.
+
+So the order of your rules is the order members see their steps in. A member who matches nothing gets
+only the default steps. If you have no default steps either, nothing is sent.
+
+## When it is sent
+
+| Your server | Sent |
+|---|---|
+| Uses Discord's onboarding | When Discord marks the member as having finished it, so their answers have already given them roles. |
+| Has no onboarding | When the member joins. With the [join gate](/discord/join-gate) on, once the gate lets them in. |
+
+Each member is welcomed once. Switching it on welcomes only members who join after that, so
+nobody who is already in the server is greeted.
+
+If a member has direct messages from server members closed, the direct message cannot be delivered.
+Modbot does not retry. Use **Channel** or **Both** to reach them anyway.
+
+Each welcome is recorded as **Sent next steps on Discord**.

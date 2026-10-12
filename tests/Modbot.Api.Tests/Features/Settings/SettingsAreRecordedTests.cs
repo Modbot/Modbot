@@ -227,6 +227,31 @@ public class SettingsAreRecordedTests
     }
 
     [Fact]
+    public async Task TheWelcomeStepsAreRecorded()
+    {
+        var (host, _, cookie) = await StartAsync(ModbotPermissions.ManageSettings);
+        await using var running = host;
+
+        object Body(string text) => new
+        {
+            enabled = false,
+            via = "dm",
+            channelId = (string?)null,
+            rules = new[] { new { roleId = "801", text, link = (string?)null } },
+            defaults = Array.Empty<object>(),
+        };
+
+        await PutAsync(host, "/api/settings/discord-welcome", Body("Read the rules"), cookie);
+        await PutAsync(host, "/api/settings/discord-welcome", Body("Pick your games"), cookie);
+
+        var entries = await EntriesAsync(host, "discordWelcome");
+        var rules = Field(entries[0], "rules");
+
+        Assert.Contains("Read the rules", rules.GetProperty("old")[0].GetString(), StringComparison.Ordinal);
+        Assert.Contains("Pick your games", rules.GetProperty("new")[0].GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task TheDiscordSyncSwitchesAndPairsAreRecorded()
     {
         var (host, _, cookie) = await StartAsync(ModbotPermissions.ManageDiscordSync);
