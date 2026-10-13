@@ -185,7 +185,7 @@ public class DiscordListTests
     [Theory]
     [InlineData("/api/discord/channels")]
     [InlineData("/api/discord/roles")]
-    public async Task OnlySomebodyWhoCanChangeSettings_MayReadTheLists(string path)
+    public async Task SomebodyWithoutSettingsOrCalendarRights_MayNotReadTheLists(string path)
     {
         await using var host = await StartAsync(_db);
         await SeedAsync(host);

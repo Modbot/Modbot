@@ -77,6 +77,14 @@ public static class CalendarEndpoints
     /// <summary>What picking an invite list needs: the Lists rule (lists design §6).</summary>
     public const ModbotPermissions ToPickAList = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
 
+    /// <summary>
+    /// Whether the caller may pick an invite list. Always with the Lists rule; on a template, also with
+    /// Manage templates (auto-invite design §9): a template holds a list's name, never its members, and
+    /// the Lists rule still decides when an event is made from it.
+    /// </summary>
+    internal static bool MayPickAList(ModbotPermissions held, bool onTemplate)
+        => ModbotAuth.Allows(held, ToPickAList) || (onTemplate && ModbotAuth.Allows(held, ModbotPermissions.ManageTemplates));
+
     /// <summary>The longest one occurrence may last. Discord and VRChat both expect an evening, not a week.</summary>
     public static readonly TimeSpan MaxLength = TimeSpan.FromDays(7);
 
@@ -1042,6 +1050,7 @@ public static class CalendarEndpoints
         group.MapGet("/invite-choices", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
+                [FromQuery] bool? template,
                 CancellationToken ct) =>
             {
                 if (RefusedWithoutEditorRights(http) is { } refused)
@@ -1057,8 +1066,9 @@ public static class CalendarEndpoints
                         u.DiscordUserId != null && u.DiscordUserId != ""))
                     .ToListAsync(ct);
 
-                // The names of lists are no secret, but picking one is the Lists rule's to allow.
-                var lists = ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ToPickAList)
+                // Only each list's id and name go out, never who is on it. Picking one is the Lists rule's to
+                // allow, and the template editor (`template=true`) also lets Manage templates.
+                var lists = MayPickAList(ModbotAuth.PermissionsOf(http.User), template == true)
                     ? await db.SavedLists.AsNoTracking()
                         .Where(l => l.DeletedAt == null)
                         .OrderBy(l => l.Name)
@@ -1073,7 +1083,8 @@ public static class CalendarEndpoints
             .WithSummary("List who an event can invite")
             .WithDescription(
                 "The staff accounts an event can invite as its host and staff, and the saved lists it can "
-                + "invite. Lists are null without See members and See profiles. Needs Manage calendar or "
+                + "invite (each list's id and name only). Lists are null without See members and See profiles; "
+                + "with template=true, Manage templates is enough too. Needs Manage calendar or "
                 + "Manage templates, because the template editor picks them too.")
             .Produces<CalendarInviteChoicesView>()
             .Produces(StatusCodes.Status403Forbidden);
@@ -1560,6 +1571,10 @@ public static class CalendarEndpoints
     /// auto-invite design §9). Null when it is fine.
     /// </summary>
     /// <param name="keptListId">The list already on the event: keeping it needs no more than editing the event.</param>
+    /// <param name="onTemplate">
+    /// True when a template is being saved: Manage templates may pick a list there (auto-invite design §9).
+    /// An event made from the template is checked as any event, so without the Lists rule it is refused.
+    /// </param>
     /// <param name="kept">
     /// The staff accounts already on the event. Not checked again, so an account disabled since does
     /// not stop an unrelated edit; the invites leave a disabled account out anyway.
@@ -1570,7 +1585,8 @@ public static class CalendarEndpoints
         CalendarEventRequest body,
         Guid? keptListId,
         IReadOnlyCollection<Guid> kept,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool onTemplate = false)
     {
         var accounts = new List<Guid>();
 
@@ -1592,7 +1608,7 @@ public static class CalendarEndpoints
         if (body.InviteListId is not { } listId || listId == keptListId)
             return null;
 
-        if (!ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ToPickAList))
+        if (!MayPickAList(ModbotAuth.PermissionsOf(http.User), onTemplate))
         {
             return Results.Json(
                 new { error = "Picking a list needs See members and See profiles." },

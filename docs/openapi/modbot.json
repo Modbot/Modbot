@@ -27767,8 +27767,17 @@
           "Calendar"
         ],
         "summary": "List who an event can invite",
-        "description": "The staff accounts an event can invite as its host and staff, and the saved lists it can invite. Lists are null without See members and See profiles. Needs Manage calendar or Manage templates, because the template editor picks them too.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "The staff accounts an event can invite as its host and staff, and the saved lists it can invite (each list's id and name only). Lists are null without See members and See profiles; with template=true, Manage templates is enough too. Needs Manage calendar or Manage templates, because the template editor picks them too.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarInviteChoices",
+        "parameters": [
+          {
+            "name": "template",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",

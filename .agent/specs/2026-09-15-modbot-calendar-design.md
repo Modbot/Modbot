@@ -1376,8 +1376,15 @@ fill themselves in (step 4) are not here.
   `POST /api/calendar/picture-link`, `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds`,
   `GET /api/calendar/invite-choices`, and `GET /api/discord/channels` and `/roles` (which also stay
   open to Change settings). Making, changing and publishing events stays Manage calendar, and so do
-  the preview (the template form has no Preview tab) and the World lists page's world search. Picking
-  an invite list on a template still needs See members and See profiles, the Lists rule.
+  the preview (the template form has no Preview tab) and the World lists page's world search.
+  `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds` and `GET /api/calendar/invite-choices`
+  now also need See calendar (before: Manage calendar alone). Picking an invite list on a template needs
+  Manage templates, not the Lists rule (user, 2026-10-13, option A; auto-invite design §9):
+  `GET /api/calendar/invite-choices?template=true` returns `lists` (each list's id and name, never its
+  members) to Manage templates, and a template save may carry a list. Without `template=true`, and when
+  an event is saved, the Lists rule applies as before. An event made from a template with a list, by
+  somebody without the Lists rule, opens with Invite list empty: the form drops it, so the 403 on
+  save is never reached.
 - **Checks.** A save runs the event's own checks (`ApplyAll`, preview mode) on a made-up first date
   (a Monday in UTC) plus the world-list, role-mention, picture and invite checks, so a template holds
   what an event would, spelled and trimmed the same way. What an event is refused for only when it is

@@ -94,7 +94,7 @@ export type CalendarStaffChoice = { id: string; name: string; hasVRChat: boolean
 
 export type CalendarListChoice = { id: string; name: string }
 
-/** Who an event can invite. `lists` is null without See members and See profiles. */
+/** Who an event can invite. `lists` is null without See members and See profiles (a template: or Manage templates). */
 export type CalendarInviteChoices = { staff: CalendarStaffChoice[]; lists: CalendarListChoice[] | null }
 
 
@@ -620,7 +620,8 @@ export const calendarApi = {
       body: picture,
       headers: { 'content-type': picture.type || 'application/octet-stream' },
     }),
-  inviteChoices: () => http.request<CalendarInviteChoices>(`${base}/invite-choices`),
+  inviteChoices: (forTemplate = false) =>
+    http.request<CalendarInviteChoices>(`${base}/invite-choices${forTemplate ? '?template=true' : ''}`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   /** What the time of an event that started at `at` did. */
   results: (id: string, at: Date) =>

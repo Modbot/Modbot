@@ -315,7 +315,7 @@ public static class CalendarTemplateEndpoints
             ? []
             : (keptFields.InviteStaffUserIds ?? []).Concat(keptFields.InviteHostUserId is { } host ? [host] : []).ToList();
 
-        if (await CalendarEndpoints.CheckInvitesAsync(http, db, asEvent, keptFields?.InviteListId, keptStaff, ct) is { } refused)
+        if (await CalendarEndpoints.CheckInvitesAsync(http, db, asEvent, keptFields?.InviteListId, keptStaff, ct, onTemplate: true) is { } refused)
             return (refused, null, null);
 
         var fields = body.Fields;

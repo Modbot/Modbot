@@ -173,6 +173,90 @@ public class CalendarInviteEndpointTests(PostgresFixture db)
         Assert.Equal("Regulars", Assert.Single(with.GetProperty("lists").EnumerateArray()).GetProperty("name").GetString());
     }
 
+    private const ModbotPermissions TemplateManager = ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates;
+
+    private static object TemplateBody(Guid? list) => new
+    {
+        name = "Movie night",
+        fields = new Dictionary<string, object?>
+        {
+            ["title"] = "Movie night",
+            ["description"] = "Bring snacks",
+            ["lengthMinutes"] = 120,
+            ["repeat"] = "none",
+            ["repeatDays"] = Array.Empty<string>(),
+            ["category"] = "gaming",
+            ["languages"] = Array.Empty<string>(),
+            ["platforms"] = Array.Empty<string>(),
+            ["tags"] = Array.Empty<string>(),
+            ["publishToVRChat"] = false,
+            ["publishToDiscord"] = true,
+            ["postToChannel"] = false,
+            ["autoOpen"] = false,
+            ["inviteListId"] = list,
+        },
+    };
+
+    [Fact]
+    public async Task ATemplateManagerSeesTheListNamesAndNothingElse_ForTheTemplateEditorOnly()
+    {
+        await using var host = await StartAsync();
+        await AddListAsync(host);
+        var (_, templates) = await host.SignedInAsync(TemplateManager, Ct);
+
+        var forTemplate = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/calendar/invite-choices?template=true", null, templates, Ct), Ct);
+        var list = Assert.Single(forTemplate.GetProperty("lists").EnumerateArray());
+        Assert.Equal("Regulars", list.GetProperty("name").GetString());
+        Assert.Equal(["id", "name"], list.EnumerateObject().Select(p => p.Name).Order().ToArray());
+
+        var forEvent = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/calendar/invite-choices", null, templates, Ct), Ct);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, forEvent.GetProperty("lists").ValueKind);
+    }
+
+    [Fact]
+    public async Task ManageCalendarAloneStillGetsNoLists_EvenAskingForTheTemplateEditor()
+    {
+        await using var host = await StartAsync();
+        await AddListAsync(host);
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var answer = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/calendar/invite-choices?template=true", null, manager, Ct), Ct);
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, answer.GetProperty("lists").ValueKind);
+    }
+
+    [Fact]
+    public async Task ATemplateManagerSavesATemplateWithAList_ButNotOneThatIsGone()
+    {
+        await using var host = await StartAsync();
+        var list = await AddListAsync(host);
+        var (_, templates) = await host.SignedInAsync(TemplateManager, Ct);
+
+        var saved = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/templates", TemplateBody(list), templates, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal(list, (await ApiTestHost.BodyOf(saved, Ct)).GetProperty("fields").GetProperty("inviteListId").GetGuid());
+
+        var gone = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/templates", TemplateBody(Guid.CreateVersion7()), templates, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, gone.StatusCode);
+    }
+
+    [Fact]
+    public async Task WithoutTheListsRule_AnEventWithAListIsRefused_EvenForSomebodyWhoManagesTemplates()
+    {
+        await using var host = await StartAsync();
+        var list = await AddListAsync(host);
+        var (_, both) = await host.SignedInAsync(Manager | ModbotPermissions.ManageTemplates, Ct);
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var byBoth = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", Body(host, list), both, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, byBoth.StatusCode);
+
+        var byManager = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", Body(host, list), manager, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, byManager.StatusCode);
+    }
+
     [Fact]
     public async Task StaffTurnEventInvitesOffAndOn_OnTheirAccountPage()
     {

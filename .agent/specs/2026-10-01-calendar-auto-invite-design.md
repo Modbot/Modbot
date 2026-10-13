@@ -199,6 +199,10 @@ keeps" list and the privacy policy name all three.
 - Setting host, staff, list and the first-person post: **Manage calendar**, like the rest of the event.
 - **Picking a list** (or changing it) also needs **See members and See profiles**, the Lists rule
   (lists design §6). Keeping the list already on an event while editing something else does not.
+- **On a template** (calendar design §20), Manage templates is enough to pick a list: a template
+  holds only the list's id, and the picker shows names, never members. An event made from a template
+  is an ordinary event save, so somebody without the Lists rule gets the list dropped from the form
+  (user, 2026-10-13).
 - A list an event still being run names cannot be deleted, as for giveaways and auto-invites.
 
 ## 10. The screen

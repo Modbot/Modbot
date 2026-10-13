@@ -127,6 +127,9 @@ export function CalendarEventForm({
   const [languages, setLanguages] = useState(() => input.languages.join(', '))
   const [tags, setTags] = useState(() => input.tags.join(', '))
   const [busy, setBusy] = useState(false)
+  // Fixed when the form opens: which editor this is, and whether the event is new.
+  const [forTemplate] = useState(template !== undefined)
+  const [startedNew] = useState(event === null)
   const [templateName, setTemplateName] = useState(template?.name ?? '')
   const [length, setLength] = useState(template?.lengthMinutes ?? 0)
   // Template editor only: the fill-ins made here and not yet in any text, and the new one's name as
@@ -184,10 +187,16 @@ export function CalendarEventForm({
       })
       .catch(() => setCategoryChoices([]))
     calendarApi
-      .inviteChoices()
-      .then(setChoices)
+      .inviteChoices(forTemplate)
+      .then((answer) => {
+        setChoices(answer)
+        // A new event cannot start with a list its maker may not pick (a template's, say); the
+        // server would refuse it and the picker is locked.
+        if (answer.lists === null && !forTemplate && startedNew)
+          setInput((current) => (current.inviteListId === null ? current : { ...current, inviteListId: null }))
+      })
       .catch(() => setChoices({ staff: [], lists: null }))
-  }, [])
+  }, [forTemplate, startedNew])
 
   const zones = useMemo(() => {
     try {
