@@ -359,6 +359,30 @@ export type DiscordGallerySettings = {
   channelId: string | null
 }
 
+/** One kind of ticket members can open. Settings → Discord → Tickets. */
+export type DiscordTicketType = {
+  id: string
+  name: string
+  staffRoleId: string | null
+  staffRoleName: string | null
+  openingMessage: string
+  holdsPrivateImages: boolean
+  position: number
+  openTickets: number
+}
+
+export type DiscordTickets = {
+  transcriptChannelId: string | null
+  types: DiscordTicketType[]
+}
+
+export type DiscordTicketTypeInput = {
+  name: string
+  staffRoleId: string
+  openingMessage: string
+  holdsPrivateImages: boolean
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -5107,6 +5131,25 @@ export const api = {
 
   setDiscordGallerySettings: (body: { channelId: string }) =>
     put<DiscordGallerySettings>('/api/settings/discord-gallery', body),
+  discordTickets: () => request<DiscordTickets>('/api/settings/discord-tickets'),
+
+  setDiscordTicketTranscriptChannel: (channelId: string) =>
+    put<DiscordTickets>('/api/settings/discord-tickets/transcript-channel', { channelId }),
+
+  addDiscordTicketType: (body: DiscordTicketTypeInput) =>
+    post<DiscordTickets>('/api/settings/discord-tickets/types', body),
+
+  updateDiscordTicketType: (id: string, body: DiscordTicketTypeInput) =>
+    put<DiscordTickets>(`/api/settings/discord-tickets/types/${encodeURIComponent(id)}`, body),
+
+  reorderDiscordTicketTypes: (ids: string[]) =>
+    put<DiscordTickets>('/api/settings/discord-tickets/types/order', { ids }),
+
+  deleteDiscordTicketType: (id: string) =>
+    del<DiscordTickets>(`/api/settings/discord-tickets/types/${encodeURIComponent(id)}`),
+
+  postDiscordTicketPanel: (body: { channelId: string; text: string }) =>
+    post<{ done: boolean }>('/api/settings/discord-tickets/panel', body),
 
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 

@@ -15,6 +15,7 @@ import { ListRolesCard } from './ListRolesCard'
 import { PermissionWatchCard } from './PermissionWatchCard'
 import { RoleMenusCard } from './RoleMenusCard'
 import { SyncCard } from './SyncCard'
+import { TicketsCard } from './TicketsCard'
 import { WelcomeCard } from './WelcomeCard'
 
 /**
@@ -58,6 +59,7 @@ export function DiscordSection({
           <GalleryPicturesCard />
           <WelcomeCard />
           <RoleMenusCard />
+          <TicketsCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}
           <ListRolesCard />
