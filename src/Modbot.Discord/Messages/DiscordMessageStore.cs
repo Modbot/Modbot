@@ -56,6 +56,8 @@ public sealed class DiscordMessageStore
 
         var cutoff = await RetentionCutoffAsync(ct).ConfigureAwait(false);
 
+        messages = await WithoutPrivateImagesAsync(messages, ct).ConfigureAwait(false);
+
         var keep = messages
             .Where(m => cutoff is null || m.SentAt >= cutoff)
             .DistinctBy(m => m.Id, StringComparer.Ordinal)
@@ -127,6 +129,8 @@ public sealed class DiscordMessageStore
     {
         ArgumentNullException.ThrowIfNull(after);
 
+        after = (await WithoutPrivateImagesAsync([after], ct).ConfigureAwait(false))[0];
+
         var row = await _db.DiscordMessages
             .FirstOrDefaultAsync(m => m.MessageId == after.Id && m.SentAt == after.SentAt, ct)
             .ConfigureAwait(false);
@@ -187,6 +191,36 @@ public sealed class DiscordMessageStore
             .Where(m => ids.Contains(m.MessageId) && m.DeletedAt == null)
             .ExecuteUpdateAsync(u => u.SetProperty(m => m.DeletedAt, now), ct)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Takes the attachments off messages in a ticket thread whose type holds private images, so
+    /// the file names and addresses of an ID photo are never kept. The text stays.
+    /// </summary>
+    private async Task<IReadOnlyList<DiscordMessageSnapshot>> WithoutPrivateImagesAsync(
+        IReadOnlyList<DiscordMessageSnapshot> messages, CancellationToken ct)
+    {
+        var threads = messages
+            .Where(m => m.ThreadId is not null && m.Attachments.Count > 0)
+            .Select(m => m.ThreadId!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (threads.Length == 0)
+            return messages;
+
+        var privateThreads = await _db.DiscordTickets.AsNoTracking()
+            .Where(t => t.HoldsPrivateImages && threads.Contains(t.ThreadId))
+            .Select(t => t.ThreadId)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (privateThreads.Count == 0)
+            return messages;
+
+        var set = privateThreads.ToHashSet(StringComparer.Ordinal);
+
+        return [.. messages.Select(m => m.ThreadId is not null && set.Contains(m.ThreadId) ? m with { Attachments = [] } : m)];
     }
 
     private async Task<DateTimeOffset?> RetentionCutoffAsync(CancellationToken ct)

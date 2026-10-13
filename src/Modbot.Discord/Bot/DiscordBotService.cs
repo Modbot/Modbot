@@ -1178,6 +1178,26 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // Member tickets: the panel's open buttons, and Close and Delete inside a ticket. A
+            // delete takes the thread the answer would go to, so a failed reply is not a failure.
+            if (Tickets.DiscordTickets.IsButton(press.ButtonId))
+            {
+                var ticketAnswer = await scope.ServiceProvider.GetRequiredService<Tickets.DiscordTickets>()
+                    .HandleButtonAsync(ReadyGateway, press, _sessionOptions.MessageContent, CancellationToken.None)
+                    .ConfigureAwait(false);
+
+                try
+                {
+                    await press.ReplyAsync(ticketAnswer, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception replyError)
+                {
+                    _log.Debug(replyError, "Could not answer a ticket button");
+                }
+
+                return;
+            }
+
             // /find's View profile: the member's card, as /profile shows it to the one who pressed.
             if (FindCommand.IsButton(press.ButtonId))
             {

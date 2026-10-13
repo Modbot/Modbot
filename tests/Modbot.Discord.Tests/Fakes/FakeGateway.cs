@@ -926,6 +926,74 @@ public sealed class FakeGateway : IDiscordGateway
             Full: page.Count >= DiscordMessagePage.Size));
     }
 
+    // ── Tickets ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Every ticket thread asked for.</summary>
+    public List<DiscordTicketOpening> TicketsOpened { get; } = [];
+
+    /// <summary>Set to make opening a ticket thread fail with this sentence.</summary>
+    public string? OpenTicketError { get; set; }
+
+    /// <summary>Every ticket thread closed: its id and the line posted in it.</summary>
+    public List<(string ThreadId, string Line)> TicketsClosed { get; } = [];
+
+    /// <summary>Set to make closing a ticket thread fail with this sentence.</summary>
+    public string? CloseTicketError { get; set; }
+
+    /// <summary>Every ticket thread deleted: its id and the reason.</summary>
+    public List<(string ThreadId, string Reason)> TicketsDeleted { get; } = [];
+
+    /// <summary>Set to make deleting a ticket thread fail with this sentence.</summary>
+    public string? DeleteTicketError { get; set; }
+
+    /// <summary>Set to make deleting a ticket thread answer that it is already gone.</summary>
+    public bool DeleteTicketNotFound { get; set; }
+
+    /// <summary>Threads that answer as if they are gone.</summary>
+    public HashSet<string> GoneThreads { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Set to make the existence check unable to ask.</summary>
+    public bool ThreadExistsUnknown { get; set; }
+
+    /// <summary>What the bot lacks in a channel to run tickets: empty for nothing, null for a channel it does not hold.</summary>
+    public IReadOnlyList<string>? MissingTicketPermissions { get; set; } = [];
+
+    public Task<DiscordTicketOutcome> OpenTicketThreadAsync(DiscordTicketOpening opening, CancellationToken ct)
+    {
+        if (OpenTicketError is { } error)
+            return Task.FromResult(DiscordTicketOutcome.Failed(error));
+
+        TicketsOpened.Add(opening);
+        return Task.FromResult(DiscordTicketOutcome.Made((9000 + TicketsOpened.Count).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    public Task<DiscordPostOutcome> CloseTicketThreadAsync(string threadId, string line, CancellationToken ct)
+    {
+        if (CloseTicketError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error));
+
+        TicketsClosed.Add((threadId, line));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
+    public Task<DiscordPostOutcome> DeleteTicketThreadAsync(string threadId, string reason, CancellationToken ct)
+    {
+        if (DeleteTicketNotFound)
+            return Task.FromResult(DiscordPostOutcome.Failed("Unknown Channel", permanent: true, notFound: true));
+
+        if (DeleteTicketError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error));
+
+        TicketsDeleted.Add((threadId, reason));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
+    public Task<bool?> TicketThreadExistsAsync(string threadId, CancellationToken ct) =>
+        Task.FromResult<bool?>(ThreadExistsUnknown ? null : !GoneThreads.Contains(threadId));
+
+    public Task<IReadOnlyList<string>?> MissingTicketPermissionsAsync(string channelId, CancellationToken ct) =>
+        Task.FromResult(MissingTicketPermissions);
+
     public Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
         string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct)
     {

@@ -157,6 +157,7 @@ public static class ApiSurface
         services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
         services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
+        services.TryAddSingleton<IDiscordTicketPanel, NoDiscordTicketPanel>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();

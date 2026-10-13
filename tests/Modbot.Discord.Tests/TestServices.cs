@@ -137,6 +137,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Discord.Welcome.SmartWelcome>();
         services.AddSingleton<Modbot.Discord.Gate.JoinGateState>();
         services.AddScoped<Modbot.Discord.Gate.JoinGate>();
+        services.AddScoped<Modbot.Discord.Tickets.DiscordTickets>();
         services.AddScoped<Modbot.Analytics.Messages.MessagePartitionMaintainer>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageStore>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageHandler>();

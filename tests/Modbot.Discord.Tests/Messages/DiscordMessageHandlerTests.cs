@@ -98,6 +98,39 @@ public class DiscordMessageHandlerTests
         Assert.False(seen.Edited);
     }
 
+    /// <summary>Photos in a ticket thread of a type that holds private images are never kept; the text is.</summary>
+    [Fact]
+    public async Task AMessageInAPrivateImageTicket_IsStoredWithoutItsAttachments()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordTickets.Add(new Modbot.Core.Data.Entities.DiscordTicket
+            {
+                TypeId = Guid.NewGuid(),
+                TypeName = "Verify",
+                DiscordUserId = "900",
+                ThreadId = "7001",
+                ChannelId = "500",
+                HoldsPrivateImages = true,
+                OpenedAt = services.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await gateway.RaiseMessageAsync(Message(10, thread: "7001", text: "my ID"));
+        await gateway.RaiseMessageAsync(Message(11, thread: "7002", text: "an ordinary thread"));
+
+        await using var read = services.Database.NewContext();
+        var rows = await read.DiscordMessages.AsNoTracking().OrderBy(m => m.SentAt).ToListAsync(Ct);
+
+        Assert.Equal("my ID", rows[0].Text);
+        Assert.Equal("[]", rows[0].Attachments);
+        Assert.Contains("cat.png", rows[1].Attachments, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AMessageInAnotherServer_IsNotStored()
     {

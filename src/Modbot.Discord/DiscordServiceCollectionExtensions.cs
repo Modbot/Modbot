@@ -205,6 +205,12 @@ public static class DiscordServiceCollectionExtensions
         // conventions design §8), through the same live session.
         services.AddSingleton<IDiscordMemberActions, DiscordMemberActions>();
 
+        // Member tickets: the buttons that open, close and delete a private thread with staff, and
+        // the panel that carries the opening buttons.
+        services.AddScoped<Tickets.DiscordTickets>();
+        services.AddSingleton<IDiscordTicketPanel>(
+            p => new Tickets.DiscordTicketPanel(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
         // Discord's online count for the server header, asked on page open and kept five minutes.
         services.AddSingleton<IDiscordOnlineCount, DiscordOnlineCount>();
 
