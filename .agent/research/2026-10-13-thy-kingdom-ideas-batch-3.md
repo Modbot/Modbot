@@ -39,3 +39,15 @@ OKs a plan. Keep each feature generic, with Thy Kingdom as the first user.
 | 5 | Nothing similar (OtherGroupName only names) | Partner entity, contacts, last collab, Envoy | No | Medium |
 | 6 | 19 slash commands; Google service-account key (Calendar scopes only); AI chat tools | /term, /rule; Docs reading needs a Drive/Docs scope + sharing, or an admin-edited copy in Modbot | Google Docs API (new) if reading Docs | Small–medium |
 | 7 | Facts + daily totals for bans, unbans, removals, instance kicks, warns (TeamAnalyticsQuery) | Appeals (only an "Appeal upheld" unban reason); yearly report; public page | No | Small (staff count) / Medium (public page or real appeals) |
+
+## User's answers
+- 2026-10-13: Thy Kingdom still takes photo IDs (the cleanup checklist's "no ID photos" is out of date; Driver told).
+- 1a: the 18+ button can be pressed any time; the moderator decides (A). What it does is set per server: which Discord roles to give and remove, which VRChat group role to give (most servers won't have Thy Kingdom's roles). It always logs who did it.
+- 1b (photo ID): Thy Kingdom deletes the Discord age ticket channel once someone is verified (user, 2026-10-13). Driver's updated policy: photo ID only in a Discord age ticket, offered after the VRChat 18+ badge; ticket deleted as soon as the check is done; age list keeps only method, date, checker. So the 18+ action supports both methods (badge / photo-ID ticket) and deletes the ticket channel after verifying (per-server setting). Proposed: run it as a Discord command inside the ticket (works with any ticket bot) and as the profile button.
+- 1c: yes (2026-10-13): a /verify command typed inside the ticket (badge or photo) gives roles, logs method/date/checker, deletes that ticket channel (per-server: roles, delete on/off); the profile button stays for checks without a ticket.
+- 2: C + percent (2026-10-13): per-server setting 'alert at N people' or 'at N% of the instance's capacity (as VRChat reports it)'; alert says open a second instance and has a button that opens one (existing instances.create, 1 per 5 s). Existing filling/unwatched alerts stay.
+- 3: A (2026-10-13): event recap posts to Discord only: turnout, a photo thread, next date.
+- 4: A and C, each a per-server setting (2026-10-13): profile marks for staff (always available); optional 'Regular' Discord role at the Nth event; optional post in a chosen channel for each moment. Numbers configurable (default 1st, 5th event; welcome back after 60 days).
+- 5: A (2026-10-13): partner tracker is staff-only in Modbot.
+- 6: A (2026-10-13): /term and /rule answer from terms and rules staff type into a Modbot page; no Google link.
+- 7: B (2026-10-13): staff-only yearly report (warnings, kicks, bans, unbans) plus appeal tracking (staff log each appeal: received, upheld, turned down). No public page.

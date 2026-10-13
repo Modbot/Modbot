@@ -40,3 +40,14 @@ the user OKs a plan. Keep each feature generic, with Thy Kingdom as the first us
 | 7 | Reports open/closed with closer and required close note | Reporter is never told (privacy rule: reporter id never sent to Discord) | No (DM sender exists) | Small–medium |
 | 8 | Current server index + audit-log facts for role/channel changes | Snapshots over time, diff view, schedule | No | Medium |
 | 9 | Nothing for Ko-fi/Patreon; webhooks outbound only; list roles reusable | Inbound webhook with signature, tier→role mapping, thank-you | Inbound Ko-fi webhook (new) | Medium–large |
+
+## User's answers
+- 1: B (2026-10-13): record which invite each new Discord member used; staff name each invite (Linktree, Partner: X); a page shows joins per source; Modbot can also create the per-source invites from a list of names. Needs Manage Server.
+- 2: C (2026-10-13): linked-share view; one slow one-time DM to unlinked Discord members with the /verify link; 'Link your VRChat' button in the welcome message; Modbot replaces the VRChat Linking bot.
+- 3: B (2026-10-13): voting with Modbot buttons (any number of options, no time limit, can be limited to a role, results kept in Modbot). Covers the held batch-2 polls step K.
+- 4: A + C, not B (2026-10-13): per-series page (Discord interested, VRChat interested, actually came, over time) plus a monthly summary post to a staff channel; no drop alert. Built together with batch 5 #5.
+- 5: B (2026-10-13): nothing to build now; Marketing already schedules VRChat group, Discord and Bluesky posts. Driver gets a how-to; look for gaps once Thy Kingdom has used it (later batch).
+- 6: C + trial tasks (2026-10-13): checklist on each new staff member's profile with two kinds of items: tasks the trial mod does and fills out themselves (written answers), and items the buddy signs off; staff-channel reminder at day 30 (checklist, events worked, buddy note) for the Council vote; 30-day inactive check-in reminders for all staff. Checklist items set per server.
+- 7: C with presets (2026-10-13): when closing a report, staff can send the reporter a DM; they pick a preset message (set per server) or write their own, or skip. Never posted in a channel.
+- 8: C (2026-10-13): scheduled snapshots of roles, channels, permissions (schedule chosen by the server, e.g. monthly); what-changed view; restore one role's or channel's permissions from a snapshot (needs Manage Roles/Channels); download a snapshot as a file.
+- 9: B (2026-10-13): Ko-fi and Patreon: each tier maps to a Discord role and a VRChat group role, thank-you message, role removed when a monthly payment stops; replaces both bots. New: inbound Ko-fi webhook (verification token) and Patreon webhooks/API (new outside service; check its limits).
