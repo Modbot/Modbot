@@ -183,6 +183,24 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>The reason given for each role change made through <see cref="ChangeRoleAsync"/>.</summary>
     public List<string> RoleReasons { get; } = [];
 
+    /// <summary>Member and role pairs the test says Modbot itself just gave.</summary>
+    public HashSet<(string UserId, string RoleId)> GivenByModbot { get; } = [];
+
+    public bool GrantedByModbot(string guildId, string userId, string roleId) => GivenByModbot.Contains((userId, roleId));
+
+    /// <summary>Every permission removal asked for: server, role, the permissions, the reason.</summary>
+    public List<(string GuildId, string RoleId, long Permissions, string Reason)> PermissionRemovals { get; } = [];
+
+    public Task<DiscordRoleOutcome> RemovePermissionsAsync(
+        string guildId, string roleId, long permissions, string reason, CancellationToken ct)
+    {
+        if (RoleError is { } error)
+            return Task.FromResult(DiscordRoleOutcome.Failed(error));
+
+        PermissionRemovals.Add((guildId, roleId, permissions, reason));
+        return Task.FromResult(DiscordRoleOutcome.Ok);
+    }
+
     /// <summary>The bot's own Discord account id, as the sync reads it back off its own actions.</summary>
     public string? BotUserId { get; set; } = "999000999";
 

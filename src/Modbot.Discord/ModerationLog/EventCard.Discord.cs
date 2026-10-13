@@ -199,6 +199,24 @@ public static partial class EventCard
                     e.Type == FactType.DiscordRoleDeleted ? null : CardLink.RoleMention(e.SubjectId),
                     "Role");
 
+            case FactType.DiscordRoleGainedPermission:
+                return AboutTheGroup(
+                    e, style, label, null,
+                    [
+                        .. Field("Role", string.IsNullOrWhiteSpace(own.Name) ? CardLink.RoleMention(e.SubjectId) : CardText.EscapeText(own.Name)),
+                        .. Field("Permissions", own.Permissions),
+                        .. PermissionOutcome(own),
+                    ]);
+
+            case FactType.DiscordMemberGainedPermission:
+                return DiscordPersonCard(
+                    e, style, picture, label,
+                    [
+                        .. Field("Role", string.IsNullOrWhiteSpace(e.What.RoleName) ? null : CardText.EscapeText(e.What.RoleName)),
+                        .. Field("Permissions", own.Permissions),
+                        .. PermissionOutcome(own),
+                    ]);
+
             // The server itself is the subject of the first read of its members.
             case FactType.DiscordMembersSnapshot:
                 return AboutTheGroup(e, style, label, null, Field("Members", Word(own.Count)));
@@ -297,6 +315,16 @@ public static partial class EventCard
             : null;
 
     /// <summary>One inline field, or none when there is nothing to put in it.</summary>
+    /// <summary>What the permission watch did about it: took the permission away, left it, or could not.</summary>
+    private static DiscordEmbedField[] PermissionOutcome(ModbotDetails own)
+        => Field(
+            "What happened",
+            own.Action == "removed"
+                ? "Permission removed"
+                : string.IsNullOrWhiteSpace(own.Error)
+                    ? "Left as it was"
+                    : "Could not remove: " + CardText.EscapeText(own.Error));
+
     private static DiscordEmbedField[] Field(string name, string? value)
         => string.IsNullOrWhiteSpace(value)
             ? []

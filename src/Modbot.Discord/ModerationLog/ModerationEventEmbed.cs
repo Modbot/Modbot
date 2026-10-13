@@ -67,7 +67,7 @@ public static class ModerationEventEmbed
 
     public static uint ColorFor(string type) => type switch
     {
-        FactType.MemberBanned => CardColour.Red,
+        FactType.MemberBanned or FactType.DiscordRoleGainedPermission or FactType.DiscordMemberGainedPermission => CardColour.Red,
         FactType.MemberUnbanned => CardColour.Green,
         FactType.MemberKicked or FactType.GroupInstanceKick => CardColour.Orange,
         FactType.GroupInstanceWarn => CardColour.Yellow,

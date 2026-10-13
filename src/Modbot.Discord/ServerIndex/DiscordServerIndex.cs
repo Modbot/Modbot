@@ -2,8 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Permissions;
 
 namespace Modbot.Discord.ServerIndex;
 
@@ -43,7 +45,12 @@ public sealed class DiscordServerIndex
     /// Replaces the stored picture of the server with this one: every channel and role in it is
     /// saved, and every stored one missing from it is marked removed.
     /// </summary>
-    public async Task RefreshAsync(DiscordServerSnapshot server, CancellationToken ct)
+    /// <returns>
+    /// The roles that gained a permission the permission watch tells staff about since the last read:
+    /// a stored role whose permissions grew, or a role new since the server was first read. A server
+    /// read for the first time, and a stored role whose permissions were never kept, tell nothing.
+    /// </returns>
+    public async Task<IReadOnlyList<DiscordRoleGain>> RefreshAsync(DiscordServerSnapshot server, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(server);
 
@@ -54,6 +61,7 @@ public sealed class DiscordServerIndex
         // Read before the row takes the new picture. A server never read before has none, which
         // reads as without it.
         var couldHostEvents = row!.BotCanManageEvents && row.BotCanCreateEvents;
+        var firstRead = row.RefreshedAt == default;
 
         row.Name = server.Name;
         row.BotCanViewAuditLog = server.BotCanViewAuditLog;
@@ -106,16 +114,31 @@ public sealed class DiscordServerIndex
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
 
+        var gains = new List<DiscordRoleGain>();
+
         foreach (var snapshot in server.Roles)
         {
-            if (!roles.TryGetValue(snapshot.Id, out var role))
+            var created = !roles.TryGetValue(snapshot.Id, out var role);
+            long gained = 0;
+
+            if (created)
             {
                 role = new DiscordRole { RoleId = snapshot.Id, FirstSeenAt = now };
                 _db.DiscordRoles.Add(role);
                 roles[snapshot.Id] = role;
+
+                if (!firstRead && snapshot.Permissions is { } made)
+                    gained = DiscordDangerousPermissions.Gained(null, made);
+            }
+            else if (role!.RemovedAt is null && role.Permissions is { } had && snapshot.Permissions is { } has)
+            {
+                gained = DiscordDangerousPermissions.Gained(had, has);
             }
 
-            Apply(role, server.GuildId, snapshot, now);
+            Apply(role!, server.GuildId, snapshot, now);
+
+            if (gained != 0)
+                gains.Add(new DiscordRoleGain(snapshot.Id, snapshot.Name, snapshot.Managed, gained, created));
         }
 
         var presentRoles = roleIds.ToHashSet(StringComparer.Ordinal);
@@ -132,6 +155,8 @@ public sealed class DiscordServerIndex
             await ClearEventPermissionRefusalsAsync(now, ct).ConfigureAwait(false);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        return gains;
     }
 
     /// <summary>

@@ -76,6 +76,8 @@ public static class FactLabels
         [FactType.DiscordVoiceJoined] = "Joined a voice channel",
         [FactType.DiscordVoiceLeft] = "Left a voice channel",
         [FactType.DiscordRoleGranted] = "Discord role granted",
+        [FactType.DiscordRoleGainedPermission] = "Discord role gained a dangerous permission",
+        [FactType.DiscordMemberGainedPermission] = "Discord member given a dangerous permission",
         [FactType.DiscordRoleRevoked] = "Discord role revoked",
         [FactType.DiscordMembersSnapshot] = "Discord member list first read",
         [FactType.DiscordMemberBanned] = "Banned from Discord",

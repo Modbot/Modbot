@@ -369,6 +369,21 @@ public static class FactType
     public const string DiscordRoleChanged = "discord.role.update";
     public const string DiscordRoleDeleted = "discord.role.delete";
 
+    /// <summary>
+    /// A Discord role gained a permission the permission watch tells staff about, or was made with
+    /// one. The subject is the role. Payload: <c>name</c>, <c>permissions</c> (the names, as text),
+    /// <c>action</c> (<c>removed</c> or <c>kept</c>) and, when removal was tried and refused, <c>error</c>.
+    /// </summary>
+    public const string DiscordRoleGainedPermission = "discord.permission.role";
+
+    /// <summary>
+    /// A Discord member, a bot among them, was given a role that carries a permission the permission
+    /// watch tells staff about. The subject is the member. Payload: <c>displayName</c>, <c>roleId</c>,
+    /// <c>roleName</c>, <c>permissions</c>, <c>action</c> (<c>removed</c> or <c>kept</c>) and, when removal
+    /// was tried and refused, <c>error</c>.
+    /// </summary>
+    public const string DiscordMemberGainedPermission = "discord.permission.member";
+
     // ── Modbot's Discord bot (foundation §9) ───────────────────────────────────────────────
 
     /// <summary>

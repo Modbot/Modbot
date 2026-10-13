@@ -734,6 +734,21 @@ public class Settings
     /// <summary>The role a linked member whose VRChat record is 18+ verified is given. Null means none.</summary>
     public string? DiscordEighteenPlusRoleId { get; set; }
 
+    // --- Permission watch ---
+
+    /// <summary>
+    /// The Discord channel staff are told in when a role or a member gains a dangerous permission
+    /// (see <c>DiscordDangerousPermissions</c>). Null means the fact log alone, which a channel route
+    /// can still send.
+    /// </summary>
+    public string? DiscordPermissionWatchChannelId { get; set; }
+
+    /// <summary>
+    /// Also take the permission away: from the role, or the role from the member. Off unless somebody
+    /// turns it on. Never takes anything from the server's owner.
+    /// </summary>
+    public bool DiscordPermissionWatchRemoves { get; set; }
+
     /// <summary>
     /// Which of the bot's commands are on, as a JSON object mapping a command's name to true or
     /// false (Discord commands design §3.8). A name that is not in it takes its default from

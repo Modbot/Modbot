@@ -1512,6 +1512,57 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 
     private const string LinkedRoleReason = "Modbot: linked VRChat account";
 
+    /// <summary>How long a role Modbot gave counts as Modbot's own, for the permission watch.</summary>
+    private static readonly TimeSpan OwnGrantWindow = TimeSpan.FromMinutes(5);
+
+    /// <summary>Roles Modbot gave and when, keyed by server, member and role.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string, string, string), DateTimeOffset> _ownGrants = new();
+
+    public bool GrantedByModbot(string guildId, string userId, string roleId)
+        => _ownGrants.TryGetValue((guildId, userId, roleId), out var at) && _clock.UtcNow - at <= OwnGrantWindow;
+
+    public async Task<DiscordRoleOutcome> RemovePermissionsAsync(
+        string guildId, string roleId, long permissions, string reason, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
+            || !ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+        {
+            return DiscordRoleOutcome.Failed("That is not a Discord id.");
+        }
+
+        if (_client.GetGuild(guild)?.GetRole(id) is not { } role)
+            return DiscordRoleOutcome.NoSuchRole;
+
+        var kept = role.Permissions.RawValue & ~unchecked((ulong)permissions);
+        if (kept == role.Permissions.RawValue)
+            return DiscordRoleOutcome.Ok;
+
+        try
+        {
+            await role.ModifyAsync(p => p.Permissions = new GuildPermissions(kept), new RequestOptions { AuditLogReason = reason, CancelToken = ct })
+                .ConfigureAwait(false);
+
+            return DiscordRoleOutcome.Ok;
+        }
+        catch (HttpException e) when (e.DiscordCode == DiscordErrorCode.UnknownRole)
+        {
+            return DiscordRoleOutcome.NoSuchRole;
+        }
+        catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
+        {
+            return DiscordRoleOutcome.Failed(
+                "The bot may not change that role. It needs Manage Roles, and its own role must be above that role.");
+        }
+        catch (HttpException e)
+        {
+            return DiscordRoleOutcome.Failed($"Could not change the role: Discord answered {(int)e.HttpCode}.");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordRoleOutcome.Failed($"Could not change the role: {e.Message}");
+        }
+    }
+
     /// <summary>
     /// One role change by ids, over REST. The member does not have to be in the session's cache,
     /// which without the members intent they usually are not.
@@ -1532,9 +1583,19 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         try
         {
             if (add)
+            {
                 await _client.Rest.AddRoleAsync(guild, user, role, options).ConfigureAwait(false);
+                var now = _clock.UtcNow;
+                _ownGrants[(guildId, userId, roleId)] = now;
+
+                // Only the last few minutes are ever asked about.
+                foreach (var old in _ownGrants.Where(g => now - g.Value > OwnGrantWindow).Select(g => g.Key))
+                    _ownGrants.TryRemove(old, out _);
+            }
             else
+            {
                 await _client.Rest.RemoveRoleAsync(guild, user, role, options).ConfigureAwait(false);
+            }
 
             return DiscordRoleOutcome.Ok;
         }

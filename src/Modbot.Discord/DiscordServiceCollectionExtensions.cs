@@ -105,6 +105,9 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<Welcome.OnboardingCheck>();
         services.AddScoped<Welcome.SmartWelcome>();
 
+        // Telling staff when a role or a member gains a dangerous permission.
+        services.AddScoped<Permissions.DiscordPermissionWatch>();
+
         // The join gate (join gate design). Its own loop as well; the state is shared by the loop,
         // the buttons and the API's actions, so one change to a person's row happens at a time.
         services.TryAddSingleton<Gate.JoinGateState>();

@@ -104,6 +104,9 @@ public sealed record EventDetails(
 /// <c>ModerationActionService</c> writes them. The note they may have written beside them is
 /// deliberately not read: a card goes to a channel with no audit-log gate on it.
 /// </param>
+/// <param name="Permissions">
+/// The names of the dangerous permissions the permission watch found, as it writes them.
+/// </param>
 public sealed record ModbotDetails(
     string? Name = null,
     string? DisplayName = null,
@@ -132,7 +135,8 @@ public sealed record ModbotDetails(
     IReadOnlyList<KeyValuePair<string, string?>>? Before = null,
     IReadOnlyList<KeyValuePair<string, string?>>? After = null,
     string? Reason = null,
-    IReadOnlyList<string>? ReasonLabels = null)
+    IReadOnlyList<string>? ReasonLabels = null,
+    string? Permissions = null)
 {
     public static ModbotDetails None { get; } = new();
 
@@ -398,7 +402,8 @@ public sealed record ModerationEventView(
         Before: Members(root, "before"),
         After: Members(root, "after"),
         Reason: Text(root, "reason"),
-        ReasonLabels: Texts(root, "reasonLabels"));
+        ReasonLabels: Texts(root, "reasonLabels"),
+        Permissions: Text(root, "permissions"));
 
     /// <summary>The scalar members of one object in the payload, as text, in the order written.</summary>
     private static IReadOnlyList<KeyValuePair<string, string?>>? Members(JsonElement root, string name)

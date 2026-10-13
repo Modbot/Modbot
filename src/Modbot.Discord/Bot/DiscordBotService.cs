@@ -13,6 +13,7 @@ using Modbot.Discord.Gateway;
 using Modbot.Discord.Interactions;
 using Modbot.Discord.Members;
 using Modbot.Discord.Messages;
+using Modbot.Discord.Permissions;
 using Modbot.Discord.ServerIndex;
 using Serilog;
 
@@ -640,14 +641,23 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
-    private Task RecordMemberJoinedAsync(DiscordMemberJoin join)
-        => IsOurServer(join.GuildId)
-            ? RecordAsync("record a member joining", (recorder, ct) => recorder.MemberJoinedAsync(
-                join.GuildId,
-                join.Member ?? new DiscordMemberSnapshot(join.UserId, join.Username, join.Username, null, join.IsBot, null, [], null),
-                _gateway?.ReadMemberCount(join.GuildId),
-                ct))
-            : Task.CompletedTask;
+    private async Task RecordMemberJoinedAsync(DiscordMemberJoin join)
+    {
+        if (!IsOurServer(join.GuildId))
+            return;
+
+        var member = join.Member ?? new DiscordMemberSnapshot(join.UserId, join.Username, join.Username, null, join.IsBot, null, [], null);
+
+        // The watch first: the recorder replaces the roles it compares with.
+        if (_gateway is { } gateway)
+            await WatchAsync("tell staff about a new member's roles", (watch, ct) => watch.MemberChangedAsync(gateway, join.GuildId, member, joined: true, ct)).ConfigureAwait(false);
+
+        await RecordAsync("record a member joining", (recorder, ct) => recorder.MemberJoinedAsync(
+            join.GuildId,
+            member,
+            _gateway?.ReadMemberCount(join.GuildId),
+            ct)).ConfigureAwait(false);
+    }
 
     private Task OnMemberLeftAsync(string guildId, string userId)
         => IsOurServer(guildId)
@@ -655,10 +665,17 @@ public sealed class DiscordBotService : BackgroundService
                 recorder.MemberLeftAsync(guildId, userId, _gateway?.ReadMemberCount(guildId), ct))
             : Task.CompletedTask;
 
-    private Task OnMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
-        => IsOurServer(guildId)
-            ? RecordAsync("record a member change", (recorder, ct) => recorder.MemberUpdatedAsync(guildId, member, ct))
-            : Task.CompletedTask;
+    private async Task OnMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
+    {
+        if (!IsOurServer(guildId))
+            return;
+
+        // The watch first: the recorder replaces the roles it compares with.
+        if (_gateway is { } gateway)
+            await WatchAsync("tell staff about a member's new roles", (watch, ct) => watch.MemberChangedAsync(gateway, guildId, member, joined: false, ct)).ConfigureAwait(false);
+
+        await RecordAsync("record a member change", (recorder, ct) => recorder.MemberUpdatedAsync(guildId, member, ct)).ConfigureAwait(false);
+    }
 
     private async Task OnMemberBannedAsync(string guildId, string userId)
     {
@@ -831,28 +848,49 @@ public sealed class DiscordBotService : BackgroundService
     }
 
     /// <summary>Reads every channel and role from the session and stores them.</summary>
-    private Task RefreshServerIndexAsync()
+    private async Task RefreshServerIndexAsync()
     {
         var gateway = _gateway;
         var guildId = _guildId;
         if (gateway is null || guildId is null)
-            return Task.CompletedTask;
+            return;
 
-        return IndexAsync(async (index, ct) =>
-        {
-            // Read inside the lock, so the stored picture is never older than one already saved.
-            if (gateway.ReadServer(guildId) is not { } server)
+        IReadOnlyList<DiscordRoleGain> gains = [];
+
+        await IndexAsync(async (index, ct) =>
             {
-                _log.Debug("The Discord session does not know server {GuildId}; not reading its channels", guildId);
-                return;
-            }
+                // Read inside the lock, so the stored picture is never older than one already saved.
+                if (gateway.ReadServer(guildId) is not { } server)
+                {
+                    _log.Debug("The Discord session does not know server {GuildId}; not reading its channels", guildId);
+                    return;
+                }
 
-            await index.RefreshAsync(server, ct).ConfigureAwait(false);
-            _log.Information(
-                "Read {Channels} Discord channels and {Roles} roles",
-                server.Channels.Count,
-                server.Roles.Count);
-        });
+                gains = await index.RefreshAsync(server, ct).ConfigureAwait(false);
+                _log.Information(
+                    "Read {Channels} Discord channels and {Roles} roles",
+                    server.Channels.Count,
+                    server.Roles.Count);
+            }).ConfigureAwait(false);
+
+        if (gains.Count > 0)
+            await WatchAsync("tell staff about a role's new permissions", (watch, ct) => watch.RolesGainedAsync(gateway, guildId, gains, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>The permission watch never stops anything else: a failure is logged and shown as a problem.</summary>
+    private async Task WatchAsync(string what, Func<DiscordPermissionWatch, CancellationToken, Task> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var watch = scope.ServiceProvider.GetRequiredService<DiscordPermissionWatch>();
+            await work(watch, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
     }
 
     private Task OnChannelChangedAsync(string guildId, DiscordChannelSnapshot channel)

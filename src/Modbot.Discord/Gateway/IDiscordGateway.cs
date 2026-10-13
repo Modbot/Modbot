@@ -1395,6 +1395,20 @@ public interface IDiscordGateway : IAsyncDisposable
     Task<DiscordRoleOutcome> ChangeRoleAsync(
         string guildId, string userId, string roleId, bool add, string reason, CancellationToken ct);
 
+    /// <summary>
+    /// Whether Modbot itself gave this member this role in the last few minutes, so the permission
+    /// watch does not tell staff about a role the server set Modbot up to give.
+    /// </summary>
+    bool GrantedByModbot(string guildId, string userId, string roleId);
+
+    /// <summary>
+    /// Takes these permissions away from a role, saying why in the server's audit log. Permissions
+    /// the role does not hold are left alone, so asking twice is harmless. Needs Manage Roles and the
+    /// role below the bot's highest.
+    /// </summary>
+    Task<DiscordRoleOutcome> RemovePermissionsAsync(
+        string guildId, string roleId, long permissions, string reason, CancellationToken ct);
+
     // ── Messages (M5 spec §5.1) ──────────────────────────────────────────────────────────
     //
     // Only messages in a server, never direct messages, and only messages people post: Discord's

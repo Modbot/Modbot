@@ -200,6 +200,7 @@ public static class FactSubjects
         [FactType.DiscordRoleCreated] = SubjectKind.Other,
         [FactType.DiscordRoleChanged] = SubjectKind.Other,
         [FactType.DiscordRoleDeleted] = SubjectKind.Other,
+        [FactType.DiscordRoleGainedPermission] = SubjectKind.Other,
 
         // The link role and prompt facts are about a Discord account, so they take the default:
         // a person, with the subject platform saying Discord, which opens the Discord person popup
