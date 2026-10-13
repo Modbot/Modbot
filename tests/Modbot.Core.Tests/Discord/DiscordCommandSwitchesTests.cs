@@ -84,4 +84,21 @@ public class DiscordCommandSwitchesTests
         Assert.Equal(DiscordCommandSwitches.All.Count, DiscordCommandSwitches.All.Select(c => c.Name).Distinct().Count());
         Assert.Equal(["Look up in Modbot", "Add a note", "Report to mods"], DiscordCommandSwitches.All.Where(c => c.Menu).Select(c => c.Name));
     }
+
+    [Fact]
+    public void ASwitchStoredUnderTheOldVerifyName_CarriesOverToVerifyAccount_UnlessItHasItsOwn()
+    {
+        Assert.False(DiscordCommandSwitches.IsOn("{\"verify\":false}", "verifyaccount"));
+        Assert.False(DiscordCommandSwitches.Read("{\"verify\":false}").ContainsKey("verify"));
+
+        // A choice already made under the new name wins.
+        Assert.True(DiscordCommandSwitches.IsOn("{\"verify\":false,\"verifyaccount\":true}", "verifyaccount"));
+    }
+
+    [Fact]
+    public void AgeVerified_IsAStaffCommandThatIsOffUntilTheOperatorTurnsItOn()
+    {
+        Assert.False(DiscordCommandSwitches.Find("ageverified")!.OnByDefault);
+        Assert.True(DiscordCommandSwitches.IsOn("{\"ageverified\":true}", "ageverified"));
+    }
 }
