@@ -208,17 +208,18 @@ Discord bot can serve several Modbots: each one answers only in its own server.
 | `/remindme event: before:` | Sends you one direct message before an event, so you don't miss it. Pick the event from the list under `event`, which suggests only the events `/events` would show. `before` is **15 minutes**, **1 hour** (if you leave it out) or **1 day**. Running it with an event is the whole opt-in: Modbot sends you a confirmation direct message at once, with a **Stop** button, and the reply you see says when the reminder will come. If your direct messages are closed, it tells you so and keeps nothing. Run it with no event to list your reminders, each with a **Stop** button. The reminder says "**Title** starts" and the time in your own time zone, and has a **Join** link only if anyone can join the event and its instance is open. A repeating event is reminded for its next date only. The reminder follows a date that moves, is dropped if the date or event is cancelled, and is not sent if it is more than 15 minutes late. You can have one waiting reminder per event date and ten in all. Only there when **/remindme** is on the **Commands** card; see [What Modbot keeps for reminders](#what-modbot-keeps-for-reminders). | Anyone in the server |
 | `/report member: what:` | Tells the mods about someone, privately. `member` is picked from Discord's list; `what` is 1 to 1,000 characters. The reply, seen only by you, is "Sent to the mods." You can't report yourself or Modbot. If you already have an open report on that person it says "The mods already have your report." You can make 3 reports in any 10 minutes and 10 in a day; after that it says "Slow down. Try again in a few minutes." Nobody else in the server sees that you reported, and the person reported is never told. The mods read it on the [Reports](/moderation/reports) page. Only there when **/report** is on the **Commands** card; see [What Modbot keeps for reports](#what-modbot-keeps-for-reports). | Anyone in the server |
 | `/profile member:` | Your own profile card, seen only by you, with **Edit** and **Who sees what** buttons: the fields you fill in are the ones set up under **Settings → Member profiles**. A pick-list field is a select menu in the form and a free text field a text box. With `member` it shows that member's card: only the fields they let you see, or every answer if you are a moderator with a connected Modbot account who can see members. Only there when **/profile** is on the **Commands** card. | Anyone in the server |
+| `/notify` | Opens a form to sign up for [event categories](/moderation/calendar#event-categories) and be told before events that carry them. Tick the categories you want, none to take them all off; when both ways are on, also pick **Direct message** or **Ping in a channel**. The reply says what you will be told about. The same sign-up is on the **Notify me** button under each event's channel post. Not on the **Commands** card: it is there only while **On** is switched on in the **Alerts** card on the **Event categories** page, and is off until then. See [Event alerts](/moderation/calendar#event-alerts). | Anyone in the server |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 | `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
-| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/remindme`, `/report`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/remindme`, `/notify`, `/report`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
 
 ### Switching commands on and off
 
 **Settings → Discord → Commands** has one switch for every command and right-click menu, labelled with its
 name. A command that is off is not registered: nobody sees it in Discord. Press
 **Save commands**; the bot registers the new list within a few seconds, without reconnecting.
-Everything is on except `/me`, `/events`, `/remindme`, `/report`, `/profile` and the **Report to mods** menu, which stay off until you turn them on. The commands you never touched
+Everything is on except `/me`, `/events`, `/remindme`, `/report`, `/profile` and the **Report to mods** menu, which stay off until you turn them on. `/notify` is not on this card: it follows the **On** switch in the **Alerts** card on the **Event categories** page, off by default. The commands you never touched
 keep following their default if a later version changes it. Nothing can be saved in the demo.
 
 ### What Modbot keeps for reminders
@@ -267,7 +268,7 @@ with no names and no words, and at most one every 15 minutes.
 `/lookup`, `/recent`, `/modbot`, `/note`, `/watch`, `/live`, `/ban`, `/kick` and `/gate` are shown only to members who may time others out (Discord's
 **Timeout Members** permission). `/event` and `/post` are shown only to members who may manage events
 (**Manage Events**), which event hosts usually have and moderators often do not. Everyone else does not see
-them in the command list. `/report`, like `/events` and `/remindme`, is shown to everyone while it is on. To change
+them in the command list. `/report`, like `/events`, `/remindme` and `/notify`, is shown to everyone while it is on. To change
 who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
 members for each command. `/verify` is shown to everyone, because many moderators don't hold
 Timeout Members; without a code from a Modbot account it does nothing.
@@ -277,7 +278,7 @@ permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link`, `/me`, `/events`, `/remindme`, `/report`, `/verify` and `/help` only answers people Modbot can match to
+Every command except `/link`, `/me`, `/events`, `/remindme`, `/notify`, `/report`, `/verify` and `/help` only answers people Modbot can match to
 a Modbot account. Each moderator connects their own Discord account from their **Your account**
 page in Modbot, under **Your Discord account**, in one of two ways. Either way, the card then says
 **Connected as** and their Discord name. Nobody can do this for somebody else, and nobody can type

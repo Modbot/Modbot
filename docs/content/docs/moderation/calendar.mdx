@@ -32,6 +32,7 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
 | See the [**Event categories**](#event-categories) page | **See calendar** |
 | Make, rename and delete event categories | **Manage calendar** and **See calendar** |
+| Change the [event alerts](#event-alerts) settings | **Manage calendar** and **See calendar** |
 | See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
@@ -1184,6 +1185,60 @@ Each category shows how many events carry it. Making, renaming and deleting are 
 [operational log](/moderation/audit-log). Categories are picked on the event form, under
 [Categories](#categories).
 
+## Event alerts
+
+Members of your Discord server can sign up for a category and be told shortly before an event that
+carries it starts. Alerts are off until someone with **Manage calendar** turns them on, in the
+**Alerts** card at the top of the **Event categories** page.
+
+| Setting | What it does |
+|---|---|
+| **On** | The master switch. Off (the default), nothing is queued or sent, the **Notify me** button comes off the channel posts and `/notify` is not registered in Discord. |
+| **Direct message** | Members can be told by direct message. On by default. |
+| **Ping** | Members can be told by a post in a channel that mentions them. Off by default. Turning it on needs a channel; **Ping channel** appears when it is on. |
+| **Minutes before** | How long before the start an alert goes: 5 to 1,440. 60 by default. |
+
+**Save alerts** saves all five together. Each setting that changed is in the
+[operational log](/moderation/audit-log).
+
+### How members sign up
+
+- **`/notify`** opens a form with the categories to tick. The ones a member already ticked stay
+  ticked. When both ways are on, the form also asks how to be told: **Direct message** or
+  **Ping in a channel**. Sending it replaces the member's sign-ups with what is ticked; nothing
+  ticked takes them all off. The form lists up to 25 categories, the first 25 by name.
+- **Notify me** is a button under each event's channel post, there only while alerts are on. Pressed,
+  it signs the member up for the categories the event carries, or for that one event when it has
+  none. Pressed again by a member who is already signed up for all of that, it takes the sign-ups off.
+
+Both answer only the member who used them. Nobody needs a Modbot account.
+
+### What goes out
+
+- **One alert per member per event date.** A member signed up through several categories of one
+  event is told once. A repeating event alerts for each date, once.
+- **Direct message:** **Title** starts, the time in the member's own time zone and how long until
+  it starts, with a **Join** link where [`/events`](/discord/bot-setup#slash-commands) would show one.
+- **Ping:** one post in the channel you picked with the same words, mentioning the members who
+  chose ping. A long list is split into several posts.
+- A member whose way is switched off in the settings is told the other way when that is on, and
+  otherwise not at all.
+- **Cancelled and deleted** events send nothing, and an alert still waiting for one is dropped. A date
+  cancelled on its own sends nothing either.
+- **Moving an event.** An event that happens once alerts once, even if its start moves after
+  the alert went. A date that moves before the alert is queued is alerted at its new time.
+- **Members who left** the server are skipped.
+- **A closed direct message** is not tried again. Nothing else is retried either: an alert that
+  Discord refuses is counted as failed.
+- Turning alerts off leaves the waiting ones where they are. They go if alerts are turned on again
+  before the event starts, and are dropped after.
+
+Each finished alert is one entry, **Event alert sent**, in the
+[operational log](/moderation/audit-log). It names the event and the date and counts what
+happened: how many went by direct message, how many by ping, how many had direct messages closed,
+how many failed and how many were skipped. Closed and failed are counted separately. It names no
+member. [Privacy](/privacy) says what is kept.
+
 ## Editing, cancelling and deleting
 
 ### Edit
@@ -1336,6 +1391,7 @@ entries (you need **See the operational log** to see them):
 | **Event category made** | Someone made an [event category](#event-categories). |
 | **Event category renamed** | Someone renamed one. Shows the name before. |
 | **Event category deleted** | Someone deleted one. Shows how many events carried it. |
+| **Event alert sent** | Members were told before an [event](#event-alerts). Shows how many by direct message and by ping, how many direct messages were closed, how many failed and how many were skipped, never who. |
 
 Each invite is recorded too, about the person who was invited, with the moderation entries (you need
 **See the audit log**):
