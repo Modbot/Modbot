@@ -634,8 +634,8 @@ export const calendarApi = {
   /** Discord server events, made by anyone, that look like copies of each other. Changes nothing. */
   discordDuplicates: () => http.request<CalendarDiscordDuplicates>(`${base}/discord-duplicates`),
   /**
-   * Events with the same title starting at nearly the same time, in Modbot's calendar and VRChat's
-   * group calendar, for the warning before a save. Changes nothing.
+   * Events with the same title starting at nearly the same time, among the stored events (including
+   * those read from VRChat's group calendar), for the warning before a save. Changes nothing.
    */
   sameEvents: (title: string, startsAt: string, timeZone: string, eventId: string | null) =>
     http.post<CalendarSameEvents>(`${base}/same-events`, { title, startsAt, timeZone, eventId }),

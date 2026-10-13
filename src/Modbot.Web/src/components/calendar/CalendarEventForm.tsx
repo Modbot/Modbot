@@ -269,7 +269,10 @@ export function CalendarEventForm({
   // and an event already at that time. The check for that one failing is no reason to hold the save.
   const warningsFor = async (saving: CalendarEventInput): Promise<string[]> => {
     // A slow answer is no answer: the save goes ahead without the duplicate lines.
-    const none = new Promise<never[]>((resolve) => window.setTimeout(() => resolve([]), SAME_EVENTS_WAIT_MS))
+    let timer = 0
+    const none = new Promise<never[]>((resolve) => {
+      timer = window.setTimeout(() => resolve([]), SAME_EVENTS_WAIT_MS)
+    })
     const same = await Promise.race([
       calendarApi
         .sameEvents(saving.title, saving.startsAt, saving.timeZone, event?.id ?? null)
@@ -277,6 +280,7 @@ export function CalendarEventForm({
         .catch(() => []),
       none,
     ])
+    window.clearTimeout(timer)
 
     return saveWarnings(
       {
