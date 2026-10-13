@@ -206,7 +206,7 @@ public class DiscordBotServiceTests
 
         Assert.Equal(
             DiscordCommands.All
-                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Notify))
+                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Find or DiscordCommands.Notify))
                 .Select(c => c.Name),
             gateway.RegisteredCommands.Select(c => c.Name));
 
