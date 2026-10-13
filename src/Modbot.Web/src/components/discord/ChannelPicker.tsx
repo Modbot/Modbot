@@ -46,9 +46,12 @@ export function ChannelPicker({
     return missing ? [{ text: missing, tone: 'problem' }] : []
   }
 
+  // A category is named as Discord shows it, without the hash a channel gets.
+  const nameOf = (channel: DiscordChannel) => (channel.type === 'category' ? channel.name : `#${channel.name}`)
+
   const option = (channel: DiscordChannel) => ({
     id: channel.id,
-    label: `#${channel.name}`,
+    label: nameOf(channel),
     keywords: channel.id,
     marks: marksFor(channel),
   })
@@ -85,7 +88,7 @@ export function ChannelPicker({
   const current = !value
     ? null
     : saved
-      ? { label: `#${saved.name}`, marks: marksFor(saved) }
+      ? { label: nameOf(saved), marks: marksFor(saved) }
       : data
         ? { label: 'Unknown channel', marks: [{ text: value, tone: 'quiet' as const }] }
         : { label: value, marks: [] }
