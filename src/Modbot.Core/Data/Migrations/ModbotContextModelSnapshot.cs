@@ -3458,6 +3458,163 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("email_queue", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<DateTimeOffset>("QueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("queued_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert");
+
+                    b.HasIndex("QueuedAt")
+                        .HasDatabaseName("ix_event_alert_queued_at");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_event_date");
+
+                    b.ToTable("event_alert", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AlertId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("alert_id");
+
+                    b.Property<bool>("DirectMessagesClosed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("direct_messages_closed");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Way")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("way");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert_delivery");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_event_alert_delivery_discord_user_id");
+
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_event_alert_delivery_waiting")
+                        .HasFilter("state = 'waiting'");
+
+                    b.HasIndex("AlertId", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_delivery_alert_user");
+
+                    b.ToTable("event_alert_delivery", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertMember", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Way")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("way");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_event_alert_member");
+
+                    b.ToTable("event_alert_member", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertSignup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert_signup");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_event_alert_signup_category_id");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("ix_event_alert_signup_event_id");
+
+                    b.HasIndex("DiscordUserId", "CategoryId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_signup_category")
+                        .HasFilter("category_id IS NOT NULL");
+
+                    b.HasIndex("DiscordUserId", "EventId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_signup_event")
+                        .HasFilter("event_id IS NOT NULL");
+
+                    b.ToTable("event_alert_signup", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_event_alert_signup_one_target", "(category_id IS NULL) <> (event_id IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventInviteChoice", b =>
                 {
                     b.Property<string>("DiscordUserId")
@@ -8049,6 +8206,30 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("email_limit_per24hours");
 
+                    b.Property<string>("EventAlertsChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("event_alerts_channel_id");
+
+                    b.Property<bool>("EventAlertsDirectMessage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("event_alerts_direct_message");
+
+                    b.Property<int>("EventAlertsMinutesBefore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60)
+                        .HasColumnName("event_alerts_minutes_before");
+
+                    b.Property<bool>("EventAlertsOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_alerts_on");
+
+                    b.Property<bool>("EventAlertsPing")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_alerts_ping");
+
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
                         .HasColumnName("evidence_backend");
@@ -9892,6 +10073,41 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_discord_staff_role_state_modbot_user_user_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlert", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_alert_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertDelivery", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.EventAlert", null)
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_alert_delivery_event_alert_alert_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertSignup", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_event_alert_signup_calendar_category_category_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_event_alert_signup_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventReminder", b =>
