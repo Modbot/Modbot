@@ -125,7 +125,7 @@ sends nothing now, `paused`, `off` or `notSetUp`.
   text, whose marks are not sent: Discord's 2000 is on the whole message (mention, bold title and
   text), Bluesky's 300 graphemes and 3000 bytes on its post, VRChat's `Post.MaxTextLength` (8000) on
   its text, and the title's `Post.MaxTitleLength` (200) on the title. The same numbers are in the
-  composer's counters (`postRules.ts`), Try again, Post now and the edit on a site, so a post cannot
+  composer's counters (`postRules.ts`), Post now and the edit on a site, so a post cannot
   pass one and be refused by another. Only the stored-text guard (100000) measures the marks.
   VRChat documents no maximum (its API lists only a minimum of 1 for title and text), so 8000 is
   Modbot's own ceiling and the counter shows no limit, red only past it.
