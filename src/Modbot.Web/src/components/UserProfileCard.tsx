@@ -8,7 +8,7 @@ import { Empty, Field } from '@/components/subject/shared'
 import { Field as TextField } from '@/components/settings/fields'
 import { Ago, Unread } from '@/components/Freshness'
 import { ago, duration, formatDay } from '@/lib/format'
-import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
+import { api, ApiError, type AgeCheckMethod, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
@@ -233,6 +233,8 @@ function AgeMark({
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  /** What the last 18+ check said: the headline, then anything that could not be done. */
+  const [lines, setLines] = useState<string[]>([])
 
   /** Which of the three opened it, which is what decides whether the card takes the focus. */
   const openedBy = useRef<'hover' | 'press'>('press')
@@ -262,13 +264,38 @@ function AgeMark({
 
   useEffect(() => stopClosing, [])
 
-  const submit = () => {
-    if (editing === null) return
+  /** Marks the person 18+ with the check: the flag, the roles and the log, in one step. */
+  const check = (method: AgeCheckMethod) => {
     setBusy(true)
     setProblem(null)
 
     api
-      .setAgeVerified(profile.userId, { verified: editing, reason: reason.trim() || undefined })
+      .runAgeCheck(profile.userId, { method })
+      .then((done) => {
+        onChanged(done.profile)
+        setLines(done.lines)
+        setEditing(null)
+      })
+      .catch((e: unknown) =>
+        setProblem(
+          e instanceof ApiError && e.status === 403
+            ? 'You do not have permission to change this flag.'
+            : e instanceof ApiError && e.status === 400
+              ? e.message
+              : 'Could not run the check.',
+        ),
+      )
+      .finally(() => setBusy(false))
+  }
+
+  /** Clears the flag, with the reason the moderator gave. */
+  const clear = () => {
+    if (editing !== false) return
+    setBusy(true)
+    setProblem(null)
+
+    api
+      .setAgeVerified(profile.userId, { verified: false, reason: reason.trim() || undefined })
       .then((next) => {
         onChanged(next)
         setEditing(null)
@@ -293,6 +320,7 @@ function AgeMark({
         if (!next) {
           setEditing(null)
           setProblem(null)
+          setLines([])
         }
       }}
     >
@@ -359,12 +387,39 @@ function AgeMark({
             </Button>
           )}
 
-          {editing !== null && (
+          {lines.length > 0 && editing === null && (
+            <div className="flex flex-col gap-1">
+              {lines.map((line, i) => (
+                <div key={i} className={i === 0 ? undefined : 'text-destructive'}>
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {editing === true && (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button size="xs" onClick={() => check('badge')} disabled={busy}>
+                  Badge
+                </Button>
+                <Button size="xs" onClick={() => check('photo')} disabled={busy}>
+                  Photo ID
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                  Cancel
+                </Button>
+              </div>
+              {problem && <div className="text-destructive">{problem}</div>}
+            </div>
+          )}
+
+          {editing === false && (
             <div className="flex flex-col gap-2">
               <TextField label="Reason" value={reason} maxLength={500} onChange={setReason} />
               <div className="flex gap-2">
-                <Button size="xs" onClick={submit} disabled={busy}>
-                  {editing ? 'Mark 18+ verified' : 'Clear flag'}
+                <Button size="xs" onClick={clear} disabled={busy}>
+                  Clear flag
                 </Button>
                 <Button size="xs" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
                   Cancel

@@ -337,6 +337,27 @@ export type DiscordCommandSwitch = {
 
 export type DiscordCommandsSettings = { commands: DiscordCommandSwitch[] }
 
+/** Settings → Discord → 18+ check: what the check gives, takes away and deletes. */
+export type AgeCheckSettings = {
+  giveRoleIds: string[]
+  removeRoleIds: string[]
+  /** The VRChat group role the person is given; null for none. */
+  groupRoleId: string | null
+  deleteTicket: boolean
+  ticketCategoryId: string | null
+  /** The group's roles, for the picker. Empty until the group is set and has been read once. */
+  groupRoles: { id: string; name: string }[]
+}
+
+/** Every part left out keeps what is stored; an empty list or an empty id clears. */
+export type AgeCheckSettingsInput = {
+  giveRoleIds?: string[]
+  removeRoleIds?: string[]
+  groupRoleId?: string
+  deleteTicket?: boolean
+  ticketCategoryId?: string
+}
+
 export type DiscordLinkingSettingsInput = {
   clientId: string
   /** Empty keeps the stored secret, unless the client id changed. */
@@ -3239,6 +3260,15 @@ export type AgeVerifiedFlag = {
   setByUsername: string | null
 }
 
+/** How an 18+ check was done: VRChat's badge, or a photo ID shown in a ticket (never seen or kept by Modbot). */
+export type AgeCheckMethod = 'badge' | 'photo'
+
+/** What the 18+ check from a profile came to: the profile now, and a sentence for the headline and each thing that failed. */
+export type AgeCheckResult = {
+  profile: VRChatUserProfile
+  lines: string[]
+}
+
 export type RefreshState = {
   pending: boolean
   reason: string | null
@@ -5129,6 +5159,11 @@ export const api = {
   setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
     put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
 
+  ageCheckSettings: () => request<AgeCheckSettings>('/api/settings/age-check'),
+
+  /** Refuses a role holding a dangerous permission, a role in both lists, and a category that is not one. */
+  setAgeCheckSettings: (body: AgeCheckSettingsInput) => put<AgeCheckSettings>('/api/settings/age-check', body),
+
   discordCommandsSettings: () => request<DiscordCommandsSettings>('/api/settings/discord-commands'),
 
   /** Each command's name with whether it is on. A command left out keeps what it has. */
@@ -6140,6 +6175,13 @@ export const api = {
   setAgeVerified: (id: string, body: { verified: boolean; reason?: string }) =>
     request<VRChatUserProfile>(`/api/vrchat-users/age-verified?id=${encodeURIComponent(id)}`, {
       method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  /** The 18+ check: sets the flag, gives and takes the server's roles, logs method, date and checker. Needs the EditAgeVerification permission. */
+  runAgeCheck: (id: string, body: { method: AgeCheckMethod }) =>
+    request<AgeCheckResult>(`/api/vrchat-users/age-check?id=${encodeURIComponent(id)}`, {
+      method: 'POST',
       body: JSON.stringify(body),
     }),
 

@@ -6,6 +6,7 @@ import { can } from '@/lib/permissions'
 import { StaffRolesCard } from '@/components/staffRoles/StaffRoles'
 import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { AgeCheckCard } from './AgeCheckCard'
 import { ChannelsCard } from './ChannelsCard'
 import { CommandsCard } from './CommandsCard'
 import { BirthdaysCard } from './BirthdaysCard'
@@ -54,6 +55,7 @@ export function DiscordSection({
           <InstanceCard status={status} refresh={refresh} />
           <ChannelsCard />
           <LinkingCard />
+          <AgeCheckCard />
           <CommandsCard />
           <JoinGateCard />
           <PermissionWatchCard />

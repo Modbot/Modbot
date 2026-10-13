@@ -113,7 +113,7 @@ export function RuleScopeFields({
   )
 }
 
-function Chips({
+export function Chips({
   ids,
   name,
   onRemove,
