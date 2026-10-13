@@ -429,7 +429,7 @@ export function CalendarEventForm({
                 </Counted>
                 <OwnText input={input} set={set} />
 
-                {categoryChoices.length > 0 && (
+                {!template && categoryChoices.length > 0 && (
                   <Section title="Categories">
                     <div role="group" aria-label="Categories" className="flex flex-wrap gap-2">
                       {categoryChoices.map((c) => (
