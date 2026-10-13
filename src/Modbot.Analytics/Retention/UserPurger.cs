@@ -351,9 +351,50 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // The spotlight drafts that have not gone out hold their name, their answers and their
+            // avatar (spotlight design §9). The card and the note staff typed share one text, so they
+            // cannot be told apart: such a draft is deleted whole, with the avatar copy it kept if no
+            // other post or event uses it. A draft with a site that has sent, may have sent or
+            // failed is a post that went out, and stays as it is. The week row stays too (below), so
+            // that week gets no second draft.
+            const string unsentSpotlightDrafts = """
+                SELECT p.id FROM post p
+                JOIN spotlight_week w ON w.post_id = p.id
+                WHERE p.kind = 'spotlight'
+                  AND {0}
+                  AND NOT EXISTS (
+                      SELECT 1 FROM post_destination d
+                      WHERE d.post_id = p.id
+                        AND d.state IN ('sending', 'checking', 'posted', 'removed', 'failed'))
+                """;
+
+            var featuredIs = platform == FactPlatform.Discord
+                ? "w.discord_user_id = @subject"
+                : """
+                  w.discord_user_id IN (
+                      SELECT discord_user_id FROM discord_account_link
+                      WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                  """;
+            var drafts = string.Format(System.Globalization.CultureInfo.InvariantCulture, unsentSpotlightDrafts, featuredIs);
+
+            await ExecuteAsync(
+                $"""
+                 DELETE FROM calendar_cover_picture c
+                 WHERE c.id IN (SELECT p.picture_id FROM post p WHERE p.id IN ({drafts}) AND p.picture_id IS NOT NULL)
+                   AND NOT EXISTS (SELECT 1 FROM post o WHERE o.picture_id = c.id AND o.id NOT IN ({drafts}))
+                   AND NOT EXISTS (SELECT 1 FROM calendar_event e WHERE e.cover_picture_id = c.id)
+                 """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
+            await ExecuteAsync(
+                $"DELETE FROM post WHERE id IN ({drafts})",
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // And the weeks they were featured in the spotlight (spotlight design §4), by the same
-            // rule. The week and its draft stay, so that week still has its draft and no second one
-            // is made; only the member is cleared.
+            // rule. The week stays (with its draft, if it went out), so no second draft is made for it;
+            // only the member is cleared.
             await ExecuteAsync(
                 platform == FactPlatform.Discord
                     ? "UPDATE spotlight_week SET discord_user_id = NULL WHERE discord_user_id = @subject"

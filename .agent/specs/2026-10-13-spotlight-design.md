@@ -75,7 +75,9 @@ a site that is off); the composer shows staff what to fix when they open it.
 When a spotlight draft has no member, the Marketing page shows a small card above its tabs, for
 people who can manage posts: a list of the members who opted in (by name) and a **Choose** button.
 Choosing fills the draft with that member's card and avatar and records the week's member; then the
-note is written and the post sent from the list below as for any post.
+note is written and the post sent from the list below as for any post. Anything staff typed in the
+draft first is kept: the card goes above their text (cut to fit, never their words), their own title
+stays if they changed it, and their own picture stays if they set one.
 
 The note is typed into the draft's text like any post, by hand. Modbot does not write it.
 
@@ -129,9 +131,14 @@ featured lately.
 
 A purge of a person (foundation §5.5) removes the opt-in with the rest of their profile row, and sets
 `spotlight_week.discord_user_id` to null for the weeks they were featured, whether the purge is by
-Discord id or by a linked VRChat account. The week and its draft stay, so that week keeps its draft
-and no second one is made. An already-sent post is a post on Discord, VRChat or Bluesky and is not
-touched by a purge.
+Discord id or by a linked VRChat account.
+
+**Drafts that have not gone out are deleted whole.** Such a draft holds the member's name, their
+answers and a copy of their avatar. The card and the note staff typed share one text and cannot be
+told apart, so the draft is deleted, and its avatar copy with it unless another post or an event
+uses the same picture. "Not gone out" means no site of the post is sending, being checked, posted,
+removed or failed. A draft that went out, or may have, is a post on Discord, VRChat or Bluesky and is
+left as it is. The week row stays either way, so no second draft is made for that week.
 
 ## 10. Not built
 

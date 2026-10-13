@@ -57,15 +57,34 @@ internal static class SpotlightPosts
         return post;
     }
 
-    /// <summary>Puts a member's card and avatar into a draft that has none yet. Not saved.</summary>
+    /// <summary>
+    /// Puts a member's card and avatar into a draft that has none yet. Not saved. What staff already
+    /// typed is kept: the card goes above their text, their own title and picture stay.
+    /// </summary>
     public static async Task FillAsync(
         ModbotContext db, Post post, SpotlightMember member, PictureLinks pictures, DateTimeOffset now, CancellationToken ct)
     {
-        var (title, text) = await MemberSpotlight.CardAsync(db, member.Name, member.UserId, ct).ConfigureAwait(false);
+        var (title, card) = await MemberSpotlight.CardAsync(db, member.Name, member.UserId, ct).ConfigureAwait(false);
 
-        post.Title = title;
-        post.Text = text;
-        post.PictureId = await KeepAvatarAsync(db, member.AvatarUrl, pictures, now, ct).ConfigureAwait(false);
+        // The title is replaced only while it is still the one the draft started with.
+        if (string.IsNullOrWhiteSpace(post.Title) || post.Title == MemberSpotlight.Title)
+            post.Title = title;
+
+        var typed = post.Text.Trim();
+        if (typed.Length == 0)
+        {
+            post.Text = card;
+        }
+        else
+        {
+            // The card is cut to leave room, never the words staff wrote.
+            const string gap = "\n\n";
+            var room = Math.Max(0, Post.MaxTextLength - typed.Length - gap.Length);
+            var shown = card.Length > room ? card[..room].TrimEnd() : card;
+            post.Text = shown.Length == 0 ? typed : shown + gap + typed;
+        }
+
+        post.PictureId ??= await KeepAvatarAsync(db, member.AvatarUrl, pictures, now, ct).ConfigureAwait(false);
         post.UpdatedAt = now;
         post.Version++;
     }

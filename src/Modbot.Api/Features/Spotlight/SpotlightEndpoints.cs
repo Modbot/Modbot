@@ -144,7 +144,7 @@ public static class SpotlightEndpoints
             .WithSummary("Pick the spotlight's member")
             .WithDescription(
                 "Picks the member for a spotlight draft that has none (staff mode) and fills the draft "
-                + "with their card: their name, their avatar and the answers they opened to Members. "
+                + "with their card: their name, their avatar and the answers they opened to Members, above any text already there. "
                 + "Only a member who opted in and is still in the server is taken. The note is written "
                 + "and the post sent from Marketing as for any post. Refused (409) once a member is "
                 + "picked, and once the draft has gone out or is being sent.")

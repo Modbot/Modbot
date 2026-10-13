@@ -353,6 +353,79 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// A purge takes the member's opt-in, clears them from the weeks they were featured, and deletes
+    /// the spotlight drafts that have not gone out (with their avatar copy); a draft that went out, and
+    /// everybody else's, stay (spotlight design §9).
+    /// </summary>
+    [Fact]
+    public async Task TheSpotlightOfThePurgedMemberGoes_UnsentDraftsToo_ButASentPostStays()
+    {
+        const string DiscordSubject = "7201";
+        const string DiscordBystander = "7202";
+
+        Post Draft() => new()
+        {
+            Id = Guid.CreateVersion7(),
+            Kind = PostKinds.Spotlight,
+            Status = PostStatuses.Draft,
+            Title = "Member spotlight",
+            Text = "Hobby: Pottery",
+            CreatedAt = Start,
+            UpdatedAt = Start,
+        };
+
+        var unsent = Draft();
+        var sent = Draft();
+        var bystander = Draft();
+        var avatar = new CalendarCoverPicture { Id = Guid.CreateVersion7(), Bytes = [1, 2, 3], ContentType = "image/png", CreatedAt = Start };
+        unsent.PictureId = avatar.Id;
+        sent.Destinations.Add(new PostDestination
+        {
+            Id = Guid.CreateVersion7(),
+            Network = PostNetworks.Discord,
+            State = PostDestinationStates.Posted,
+        });
+
+        await using (var setup = Database.NewContext())
+        {
+            await setup.SpotlightWeeks.ExecuteDeleteAsync(Ct);
+            await setup.Posts.Where(p => p.Kind == PostKinds.Spotlight).ExecuteDeleteAsync(Ct);
+            await setup.MemberProfiles.ExecuteDeleteAsync(Ct);
+
+            setup.CalendarCoverPictures.Add(avatar);
+            setup.Posts.AddRange(unsent, sent, bystander);
+            setup.MemberProfiles.AddRange(
+                new MemberProfile { DiscordUserId = DiscordSubject, Spotlight = true, UpdatedAt = Start },
+                new MemberProfile { DiscordUserId = DiscordBystander, Spotlight = true, UpdatedAt = Start });
+            await setup.SaveChangesAsync(Ct);
+
+            setup.SpotlightWeeks.AddRange(
+                new SpotlightWeek { Id = Guid.CreateVersion7(), Week = new DateOnly(2026, 9, 28), DiscordUserId = DiscordSubject, PostId = sent.Id, CreatedAt = Start },
+                new SpotlightWeek { Id = Guid.CreateVersion7(), Week = new DateOnly(2026, 10, 5), DiscordUserId = DiscordSubject, PostId = unsent.Id, CreatedAt = Start },
+                new SpotlightWeek { Id = Guid.CreateVersion7(), Week = new DateOnly(2026, 10, 12), DiscordUserId = DiscordBystander, PostId = bystander.Id, CreatedAt = Start });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await using var read = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await read.MemberProfiles.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+        Assert.Equal(
+            new HashSet<Guid> { sent.Id, bystander.Id },
+            (await read.Posts.AsNoTracking().Where(p => p.Kind == PostKinds.Spotlight).Select(p => p.Id).ToListAsync(Ct)).ToHashSet());
+        Assert.False(await read.CalendarCoverPictures.AnyAsync(c => c.Id == avatar.Id, Ct));
+
+        var weeks = await read.SpotlightWeeks.AsNoTracking().OrderBy(w => w.Week).ToListAsync(Ct);
+        Assert.Equal(3, weeks.Count);
+        Assert.Null(weeks[0].DiscordUserId);
+        Assert.Equal(sent.Id, weeks[0].PostId);
+        Assert.Null(weeks[1].DiscordUserId);
+        Assert.Null(weeks[1].PostId);
+        Assert.Equal(DiscordBystander, weeks[2].DiscordUserId);
+    }
+
+    /// <summary>
     /// The event alerts a member signed up for (event alerts design §7) name their Discord account in
     /// three tables -- sign-ups, the choice of way and the alerts queued for them -- so a purge takes
     /// all three, for the Discord account and for the VRChat account it is linked to, and leaves

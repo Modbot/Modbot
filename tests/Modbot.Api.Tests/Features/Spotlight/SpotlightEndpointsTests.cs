@@ -39,6 +39,7 @@ public sealed class SpotlightEndpointsTests
             await context.SpotlightWeeks.ExecuteDeleteAsync(Ct);
             await context.Posts.Where(p => p.Kind == PostKinds.Spotlight).ExecuteDeleteAsync(Ct);
             await context.MemberProfiles.ExecuteDeleteAsync(Ct);
+            await context.ProfileFields.ExecuteDeleteAsync(Ct);
             await context.DiscordMembers.Where(m => m.GuildId == Guild).ExecuteDeleteAsync(Ct);
 
             var settings = await context.GetSettingsAsync(Ct);
@@ -150,6 +151,47 @@ public sealed class SpotlightEndpointsTests
 
         await using var read = _db.NewContext();
         Assert.Equal("2", (await read.SpotlightWeeks.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
+    }
+
+    [Fact]
+    public async Task PickingKeepsTheNoteStaffAlreadyTyped_AndTheirTitleAndPicture()
+    {
+        var (host, cookie) = await StartAsync();
+        await using var running = host;
+        await MakeDraftAsync();
+        var id = await WeekIdAsync();
+
+        var picture = new CalendarCoverPicture
+        {
+            Id = Guid.CreateVersion7(),
+            Bytes = [1, 2, 3],
+            ContentType = "image/png",
+            CreatedAt = Start,
+        };
+
+        await using (var context = _db.NewContext())
+        {
+            var hobby = new ProfileField { Name = "Hobby", Kind = ProfileFieldKind.Text, DefaultVisibility = ProfileVisibility.Members, SortOrder = 0, CreatedAt = Start, UpdatedAt = Start };
+            context.ProfileFields.Add(hobby);
+            context.CalendarCoverPictures.Add(picture);
+            await context.SaveChangesAsync(Ct);
+
+            await Modbot.Core.Profiles.MemberProfiles.SetAnswersAsync(
+                context, "2", new Dictionary<Guid, string?> { [hobby.Id] = "Pottery" }, Start, Ct);
+
+            await context.Posts.Where(p => p.Kind == PostKinds.Spotlight).ExecuteUpdateAsync(
+                u => u.SetProperty(p => p.Text, "Welcome Bo!").SetProperty(p => p.Title, "Our star").SetProperty(p => p.PictureId, picture.Id), Ct);
+        }
+
+        var picked = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/{id}/member", new { discordUserId = "2" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, picked.StatusCode);
+
+        await using var read = _db.NewContext();
+        var post = await read.Posts.AsNoTracking().SingleAsync(p => p.Kind == PostKinds.Spotlight, Ct);
+        Assert.Equal("Hobby: Pottery\n\nWelcome Bo!", post.Text);
+        Assert.Equal("Our star", post.Title);
+        Assert.Equal(picture.Id, post.PictureId);
     }
 
     [Theory]

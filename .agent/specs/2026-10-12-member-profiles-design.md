@@ -71,7 +71,7 @@ registered, and its buttons and forms say it is off.
 
 | You type | You get (only you can see it) |
 |---|---|
-| `/profile` | Your card: your name, one line per field with your answer, and the level beside it. Buttons **Edit**, **Who sees what** and **Findable: On/Off** (§8.2). |
+| `/profile` | Your card: your name, one line per field with your answer, and the level beside it. Buttons **Edit**, **Who sees what**, **Findable: On/Off** (§8.2) and **Spotlight: On/Off** (the spotlight design, §2). |
 | `/profile member:@someone` | Their card with only the fields you may see. No buttons. If they have none you may see: "{name} has nothing to show." |
 
 Both look the same for a member with an empty profile: "{name} has nothing to show." for others;
@@ -115,7 +115,7 @@ answered are left out; a member with none shows "Nothing filled in."
 |---|---|
 | `member_profile_field` | id, name, kind, default level, position, created/updated |
 | `member_profile_option` | id, field id, label, position, Discord role id (step 2) -- pick-list options |
-| `member_profile` | Discord user id, Findable, updated (step 2); a row only while the member is findable |
+| `member_profile` | Discord user id, Findable, updated (step 2); a row only while the member is findable or has opted in to the weekly spotlight (`spotlight`, the spotlight design §2) |
 | `member_profile_value` | field id, Discord user id, option id **or** text, the member's own level (null = the field's default), updated. One row per field per member; deleted when it holds neither an answer nor a level |
 
 The value table is keyed on the Discord user id as text (opaque, per foundation §3.1.1) with no
@@ -181,12 +181,15 @@ switch: staff and admins cannot turn it on for anyone.
 
 - **In Discord.** The member's own `/profile` card has a third button, **Findable: On** or
   **Findable: Off**. Pressing it flips the switch and rewrites the card with the new label. It is
-  the pressing member's own switch only.
+  the pressing member's own switch only. A fourth button, **Spotlight: On** or **Spotlight: Off**,
+  works the same way for the weekly spotlight (the spotlight design, §2).
 - **In Modbot.** The Profile panel on a person's Discord tab shows a **Findable** row (On or
   Off) to anyone who may see members. `GET /api/discord/members/{id}/profile` returns
   `findable`.
 - **Stored** in `member_profile` (Discord user id, `findable`, updated). A member with no row is
-  not findable; turning it off deletes the row, so nothing is kept for the default.
+  not findable; turning it off deletes the row when the Spotlight switch is also off, so nothing is
+  kept for the default. The row stays while either switch is on, and turning one off leaves the other
+  as it was.
 - **Purge.** A purge of the Discord person (or of the VRChat person, for the linked Discord
   account) deletes the row with the member's answers.
 - **`/find`** is not built here (see the find design). It lists only members whose switch is on, and it
