@@ -121,6 +121,7 @@ public static class AuditShow
             Discord => type.StartsWith("discord.", StringComparison.Ordinal)
                 || type.StartsWith("modbot.copy.", StringComparison.Ordinal)
                 || type.StartsWith("modbot.list.role.", StringComparison.Ordinal)
+                || type.StartsWith("modbot.rolemenu.role.", StringComparison.Ordinal)
                 || type == FactType.DiscordCommandRun,
             _ => true,
         };

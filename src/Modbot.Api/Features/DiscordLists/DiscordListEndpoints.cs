@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api.Features.DiscordLists;
 
@@ -51,6 +52,10 @@ public sealed record DiscordChannelsResponse(
 /// A mention of the role by the bot pings: the role is open to mentions, or the bot holds Mention
 /// @everyone, @here and All Roles. Never @everyone itself.
 /// </param>
+/// <param name="Dangerous">
+/// The role holds a permission the permission watch tells staff about (<see cref="DiscordDangerousPermissions"/>),
+/// so a role menu will not give it.
+/// </param>
 public sealed record DiscordRoleView(
     string Id,
     string Name,
@@ -60,7 +65,8 @@ public sealed record DiscordRoleView(
     bool Everyone,
     bool BotCanAssign,
     bool Removed,
-    bool BotCanMention = false);
+    bool BotCanMention = false,
+    bool Dangerous = false);
 
 public sealed record DiscordRolesResponse(
     string? GuildId,
@@ -169,7 +175,8 @@ public static class DiscordListEndpoints
                             r.Everyone,
                             r.BotCanAssign,
                             r.RemovedAt != null,
-                            !r.Everyone && r.RoleId != r.GuildId && (r.Mentionable || mentionEveryone)))
+                            !r.Everyone && r.RoleId != r.GuildId && (r.Mentionable || mentionEveryone),
+                            r.Permissions != null && (r.Permissions.Value & DiscordDangerousPermissions.Mask) != 0))
                         .ToListAsync(ct);
 
                 return Results.Ok(new DiscordRolesResponse(

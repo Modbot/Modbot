@@ -895,6 +895,18 @@ public static class FactType
     /// <summary>A Discord role this pairing gave was taken away, because they are no longer in the list.</summary>
     public const string ListRoleTaken = "modbot.list.role.take";
 
+    // ── Discord role menus ─────────────────────────────────────────────────────────────────
+    //
+    // Modbot gave or took a Discord role because the member pressed it on a role menu. The subject
+    // is the Discord account that pressed; there is no other actor. The payload names the menu and
+    // the role by id and name. Moderation retention: a role change is membership history.
+
+    /// <summary>Given a Discord role because they picked it on a role menu.</summary>
+    public const string RoleMenuRoleGiven = "modbot.rolemenu.role.give";
+
+    /// <summary>A Discord role was taken away because they picked it again, or picked another on a pick-one menu.</summary>
+    public const string RoleMenuRoleTaken = "modbot.rolemenu.role.take";
+
     /// <summary>
     /// A pairing stopped because a pass would take its role from too many people at once, and waits
     /// for somebody to press Apply. Subject is the pairing's id on the Modbot platform. Payload: the

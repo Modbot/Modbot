@@ -157,6 +157,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordMemberActions, NoDiscordMemberActions>();
         services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordMessageReactions, Core.Discord.NoDiscordMessageReactions>();
 
@@ -560,6 +561,9 @@ public static class ApiSurface
 
         // The next steps a new member is sent, picked by rules on their roles (smart welcome design).
         app.MapDiscordWelcomeSettings();
+
+        // Messages with buttons or a drop-down list that give people roles.
+        app.MapDiscordRoleMenus();
 
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).

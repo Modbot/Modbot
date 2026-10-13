@@ -333,7 +333,9 @@ public sealed record DiscordLinkButton(string Label, string Url);
 /// characters.
 /// </param>
 /// <param name="Style">How the button looks. Red is for the press that bans or kicks.</param>
-public sealed record DiscordActionButton(string Label, string Id, DiscordButtonStyle Style = DiscordButtonStyle.Plain)
+/// <param name="Emoji">A Unicode emoji or a server emoji (<c>&lt;:name:id&gt;</c>) before the label, or null.</param>
+public sealed record DiscordActionButton(
+    string Label, string Id, DiscordButtonStyle Style = DiscordButtonStyle.Plain, string? Emoji = null)
 {
     public const string Prefix = "modbot:";
 
@@ -355,6 +357,24 @@ public sealed record DiscordActionButton(string Label, string Id, DiscordButtonS
 
     /// <summary>An id that a press in a direct message can be traced back to this server by.</summary>
     public static string Marked(string id, string guildId) => id + ServerMark + guildId;
+}
+
+/// <summary>One thing a <see cref="DiscordSelectMenu"/> offers.</summary>
+/// <param name="Value">What comes back in <see cref="DiscordButtonPress.Values"/> when it is picked. Discord allows 100 characters.</param>
+/// <param name="Emoji">A Unicode emoji or a server emoji before the label, or null.</param>
+public sealed record DiscordSelectChoice(string Label, string Value, string? Emoji = null);
+
+/// <summary>
+/// A drop-down list under a message. A pick arrives as a <see cref="DiscordButtonPress"/> carrying
+/// <see cref="Id"/> and the picked values.
+/// </summary>
+/// <param name="Id">Always starts with <see cref="DiscordActionButton.Prefix"/>, like a button's.</param>
+/// <param name="Choices">At most 25.</param>
+/// <param name="MostPicks">How many may be picked at once, from 1 to the number of choices.</param>
+public sealed record DiscordSelectMenu(
+    string Id, string? Placeholder, IReadOnlyList<DiscordSelectChoice> Choices, int MostPicks = 1)
+{
+    public const int MostChoices = 25;
 }
 
 public enum DiscordButtonStyle
@@ -574,6 +594,12 @@ public sealed class DiscordButtonPress
 
     /// <summary>The <see cref="DiscordActionButton.Id"/> of the button pressed.</summary>
     public string ButtonId { get; }
+
+    /// <summary>What was picked, when the press is a pick from a <see cref="DiscordSelectMenu"/>; empty for a button.</summary>
+    public IReadOnlyList<string> Values { get; init; } = [];
+
+    /// <summary>The roles the member held when they pressed, as Discord sent them; null where it did not say.</summary>
+    public IReadOnlyList<string>? MemberRoleIds { get; init; }
 
     /// <summary>
     /// The channel of the message the button sits on, when that message is a card in a channel;
@@ -1078,6 +1104,32 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
         IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Posts a message of plain text with buttons the bot answers when pressed, or a drop-down list,
+    /// and says what its id is. A role menu's post. Mentions are off.
+    /// </summary>
+    /// <param name="buttons">Buttons whose presses arrive as <see cref="ButtonPressed"/>; at most 25.</param>
+    /// <param name="select">A drop-down list, or null.</param>
+    Task<DiscordPostOutcome> PostMenuAsync(
+        string channelId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites a message <see cref="PostMenuAsync"/> posted, setting its text and its buttons or
+    /// drop-down list whole. A message that is gone comes back as a permanent failure that is
+    /// <see cref="DiscordPostOutcome.NotFound"/>.
+    /// </summary>
+    Task<DiscordPostOutcome> EditMenuAsync(
+        string channelId,
+        string messageId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
         CancellationToken ct);
 
     /// <summary>

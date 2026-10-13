@@ -52,6 +52,9 @@ const HISTORY_TYPES = [
   // A role a saved list gave or took, for the same reason.
   'modbot.list.role.give',
   'modbot.list.role.take',
+  // A role a member picked on a role menu.
+  'modbot.rolemenu.role.give',
+  'modbot.rolemenu.role.take',
 ]
 
 /** Who they are in the server: picture, names and the marks. Somebody the bot never saw says so. */

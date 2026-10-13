@@ -1883,6 +1883,21 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // A Discord role a member picked on a role menu.
+  'modbot.rolemenu.role.give': (p) => (
+    <>
+      Modbot gave {p.subject} {named(p.text('roleName'), 'Discord role')} from the role menu
+      <Quoted value={p.text('menuName')} />.
+    </>
+  ),
+
+  'modbot.rolemenu.role.take': (p) => (
+    <>
+      Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject} on the role menu
+      <Quoted value={p.text('menuName')} />.
+    </>
+  ),
+
   'modbot.list.role.stop': (p) => {
     const taking = p.entry.data?.['taking']
 

@@ -204,6 +204,10 @@ public static class AuditVisibility
         [FactType.ListRoleTaken] = AuditCategory.Moderation,
         [FactType.ListRoleStopped] = AuditCategory.Operational,
 
+        // A role a member picked on a role menu is a role change, member history like the others.
+        [FactType.RoleMenuRoleGiven] = AuditCategory.Moderation,
+        [FactType.RoleMenuRoleTaken] = AuditCategory.Moderation,
+
         // Auth and config: spec 5.9.2's first two rows, and the reason the split exists.
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,

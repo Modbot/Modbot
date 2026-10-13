@@ -291,6 +291,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Who the smart welcome has seen, so each member is welcomed once (smart welcome design §5.1).</summary>
     public DbSet<DiscordWelcome> DiscordWelcomes => Set<DiscordWelcome>();
 
+    /// <summary>Messages with buttons or a drop-down list that give people roles.</summary>
+    public DbSet<DiscordRoleMenu> DiscordRoleMenus => Set<DiscordRoleMenu>();
+
+    /// <summary>The roles on each role menu.</summary>
+    public DbSet<DiscordRoleMenuRole> DiscordRoleMenuRoles => Set<DiscordRoleMenuRole>();
+
     /// <summary>
     /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
     /// deletes change the row, and a deleted message keeps it.
@@ -2267,6 +2273,36 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // Both lists are read in order.
             entity.HasIndex(e => new { e.Kind, e.Position }).HasDatabaseName("ix_discord_welcome_step_order");
+        });
+
+        builder.Entity<DiscordRoleMenu>(entity =>
+        {
+            entity.ToTable("discord_role_menu");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(DiscordRoleMenuLimits.MostNameLength);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.Text).HasMaxLength(DiscordRoleMenuLimits.MostTextLength);
+            entity.Property(e => e.Style).HasMaxLength(16);
+            entity.Property(e => e.MessageId).HasColumnType("text");
+
+            // A press finds its menu by id; the list shows them in the order they were made.
+            entity.HasMany(e => e.Roles)
+                .WithOne()
+                .HasForeignKey(r => r.MenuId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DiscordRoleMenuRole>(entity =>
+        {
+            entity.ToTable("discord_role_menu_role");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.Label).HasMaxLength(DiscordRoleMenuLimits.MostLabelLength);
+            entity.Property(e => e.Emoji).HasMaxLength(DiscordRoleMenuLimits.MostEmojiLength);
+
+            entity.HasIndex(e => new { e.MenuId, e.Position }).HasDatabaseName("ix_discord_role_menu_role_order");
         });
 
         builder.Entity<DiscordWelcome>(entity =>

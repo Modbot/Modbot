@@ -240,6 +240,8 @@ public static class FactLabels
         [FactType.ListRoleGiven] = "Discord role given for a list",
         [FactType.ListRoleTaken] = "Discord role taken away for a list",
         [FactType.ListRoleStopped] = "Role from a list stopped",
+        [FactType.RoleMenuRoleGiven] = "Discord role given from a role menu",
+        [FactType.RoleMenuRoleTaken] = "Discord role taken away from a role menu",
 
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
         [FactType.ReviewOpened] = "Review opened",

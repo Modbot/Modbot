@@ -107,6 +107,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.Disconnected += OnDisconnected;
         _client.SlashCommandExecuted += OnSlashCommand;
         _client.ButtonExecuted += OnButton;
+        _client.SelectMenuExecuted += OnButton;
         _client.UserCommandExecuted += OnUserCommand;
         _client.MessageCommandExecuted += OnMessageCommand;
         _client.ModalSubmitted += OnFormSubmitted;
@@ -402,6 +403,61 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct) =>
         EditAsync(channelId, messageId, text: null, writeText: false, embeds, links, pictures, actions, ct);
+
+    public Task<DiscordPostOutcome> PostMenuAsync(
+        string channelId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(buttons);
+
+        return InChannelAsync(channelId, ChannelNeed.PostText, async channel =>
+        {
+            var sent = await channel.SendMessageAsync(
+                    text: text,
+                    allowedMentions: AllowedMentions.None,
+                    components: Menu(buttons, select))
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        });
+    }
+
+    public Task<DiscordPostOutcome> EditMenuAsync(
+        string channelId,
+        string messageId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(buttons);
+
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, ChannelNeed.Edit, async channel =>
+        {
+            if (await channel.GetMessageAsync(message).ConfigureAwait(false) is not IUserMessage mine)
+            {
+                return DiscordPostOutcome.Failed(
+                    "That message is gone, or was not posted by the bot.", permanent: true, notFound: true);
+            }
+
+            await mine.ModifyAsync(m =>
+            {
+                m.Content = text;
+                m.AllowedMentions = AllowedMentions.None;
+
+                // Always set, so a menu that changed from buttons to a list loses the buttons.
+                m.Components = Menu(buttons, select);
+            }).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(messageId);
+        });
+    }
 
     /// <param name="writeText">
     /// False for a repeat folded into a card: the message's text is not written, and a message that
@@ -1656,6 +1712,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.Disconnected -= OnDisconnected;
         _client.SlashCommandExecuted -= OnSlashCommand;
         _client.ButtonExecuted -= OnButton;
+        _client.SelectMenuExecuted -= OnButton;
         _client.UserCommandExecuted -= OnUserCommand;
         _client.MessageCommandExecuted -= OnMessageCommand;
         _client.ModalSubmitted -= OnFormSubmitted;
@@ -2955,11 +3012,61 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                         DiscordButtonStyle.Danger => ButtonStyle.Danger,
                         DiscordButtonStyle.Main => ButtonStyle.Primary,
                         _ => ButtonStyle.Secondary,
-                    });
+                    },
+                    emote: ParseEmoji(action.Emoji));
             }
         }
 
         return builder.Build();
+    }
+
+    /// <summary>
+    /// A drop-down list, or the buttons when there is none. A choice or button whose id is not
+    /// Modbot's is left off, and so is an emoji Discord would not know, rather than losing the post.
+    /// </summary>
+    private static MessageComponent Menu(IReadOnlyList<DiscordActionButton> buttons, DiscordSelectMenu? select)
+    {
+        if (select is null)
+            return Buttons(links: null, buttons);
+
+        var builder = new ComponentBuilder();
+
+        if (select.Id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal) && select.Id.Length <= 100)
+        {
+            var choices = select.Choices
+                .Where(c => c.Label is { Length: > 0 } && c.Value is { Length: > 0 and <= 100 })
+                .Take(DiscordSelectMenu.MostChoices)
+                .Select(c => new SelectMenuOptionBuilder(
+                    c.Label.Length > 100 ? c.Label[..100] : c.Label,
+                    c.Value,
+                    description: null,
+                    emote: ParseEmoji(c.Emoji)))
+                .ToList();
+
+            if (choices.Count > 0)
+            {
+                builder.WithSelectMenu(
+                    select.Id,
+                    choices,
+                    select.Placeholder is { Length: > 0 } ? select.Placeholder : null,
+                    minValues: 1,
+                    maxValues: Math.Clamp(select.MostPicks, 1, choices.Count));
+            }
+        }
+
+        return builder.Build();
+    }
+
+    /// <summary>A server emoji (<c>&lt;:name:id&gt;</c>) or a Unicode one Discord knows, or null.</summary>
+    private static IEmote? ParseEmoji(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        if (Emote.TryParse(text, out var custom))
+            return custom;
+
+        return Emoji.TryParse(text, out var unicode) ? unicode : null;
     }
 
     private static bool IsHttps(string? address) =>

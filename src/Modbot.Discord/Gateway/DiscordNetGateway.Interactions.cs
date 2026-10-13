@@ -307,6 +307,8 @@ public sealed partial class DiscordNetGateway
         {
             CardChannelId = card is not null && channelId is { } c ? Text(c) : null,
             CardMessageId = card is not null ? Text(card.Id) : null,
+            Values = [.. press.Data.Values ?? []],
+            MemberRoleIds = press.User is IGuildUser member ? [.. member.RoleIds.Select(Text)] : null,
         };
 
         var handler = ButtonPressed;
