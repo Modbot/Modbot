@@ -3,6 +3,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { blankEvent, type CalendarEventInput } from '@/lib/calendar'
+import { splitFillIns } from '@/lib/calendarFillIns'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import {
   FIRST_LENGTH_MINUTES,
@@ -80,7 +81,23 @@ export function TemplatesCard({
             >
               <span className="min-w-0 flex-1 truncate">
                 {t.name}
-                {t.fields.title && <span className="text-muted-foreground"> · {t.fields.title}</span>}
+                {t.fields.title && (
+                  <span className="text-muted-foreground">
+                    {' · '}
+                    {splitFillIns(t.fields.title).map((piece, i) =>
+                      piece.kind === 'fillIn' ? (
+                        <span
+                          key={i}
+                          className="mx-0.5 rounded-sm border border-(length:--hairline) border-input bg-accent px-1.5 text-accent-foreground"
+                        >
+                          {piece.name}
+                        </span>
+                      ) : (
+                        piece.text
+                      ),
+                    )}
+                  </span>
+                )}
               </span>
               <span className="font-mono text-muted-foreground">{lengthWords(t.fields.lengthMinutes)}</span>
               {answer.canManage && (
