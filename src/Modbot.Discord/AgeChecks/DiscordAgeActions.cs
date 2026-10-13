@@ -1,5 +1,7 @@
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -51,9 +53,10 @@ public sealed class DiscordAgeActions(Func<IDiscordGateway?> readyGateway, IServ
             : DiscordAgeOutcome.Failed(outcome.Error ?? "Discord refused.");
     }
 
-    public async Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, CancellationToken ct = default)
+    public async Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, string actorDiscordUserId, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(channelId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorDiscordUserId);
 
         if (readyGateway() is not { } gateway)
             return DiscordAgeOutcome.Offline;
@@ -73,9 +76,30 @@ public sealed class DiscordAgeActions(Func<IDiscordGateway?> readyGateway, IServ
             if (!gone.Sent && !gone.NotFound)
                 return DiscordAgeOutcome.Failed(gone.Error ?? "Discord refused.");
 
+            var now = clock.UtcNow;
             ticket.State = DiscordTicketStates.Deleted;
-            ticket.DeletedAt = clock.UtcNow;
+            ticket.DeletedAt = now;
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            // The same fact the ticket's Delete button writes, so the ticket log stays complete.
+            await scope.ServiceProvider.GetRequiredService<EventPartitionMaintainer>().EnsureForAsync(now, ct).ConfigureAwait(false);
+            await scope.ServiceProvider.GetRequiredService<IFactWriter>().WriteAsync(new FactRecord
+                {
+                    Type = FactType.DiscordTicketDeleted,
+                    OccurredAt = now,
+                    SubjectPlatform = FactPlatform.Discord,
+                    SubjectId = ticket.DiscordUserId,
+                    ActorPlatform = FactPlatform.Discord,
+                    ActorId = actorDiscordUserId,
+                    Source = FactSource.Modbot,
+                    Data = new JsonObject
+                    {
+                        ["ticketId"] = ticket.Id.ToString("D"),
+                        ["type"] = ticket.TypeName,
+                        ["threadId"] = ticket.ThreadId,
+                    },
+                }, ct)
+                .ConfigureAwait(false);
 
             return DiscordAgeOutcome.Ok;
         }

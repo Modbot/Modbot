@@ -30,8 +30,11 @@ public interface IDiscordAgeActions
     /// <summary>
     /// Deletes the channel the check was typed in, but only if it is a Modbot ticket thread or sits
     /// inside the category the server picked. Any other channel is left alone and the answer says so.
+    /// A ticket thread's deletion is logged like the ticket's own Delete button, with the checker as actor.
     /// </summary>
-    Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, CancellationToken ct = default);
+    /// <param name="channelId">The channel the check was typed in.</param>
+    /// <param name="actorDiscordUserId">The staff member who ran the check.</param>
+    Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, string actorDiscordUserId, CancellationToken ct = default);
 }
 
 /// <summary>A process with no Discord bot. Every action answers that the bot is not connected.</summary>
@@ -40,6 +43,6 @@ public sealed class NoDiscordAgeActions : IDiscordAgeActions
     public Task<DiscordAgeOutcome> ChangeRoleAsync(string guildId, string userId, string roleId, bool add, CancellationToken ct = default)
         => Task.FromResult(DiscordAgeOutcome.Offline);
 
-    public Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, CancellationToken ct = default)
+    public Task<DiscordAgeOutcome> DeleteTicketAsync(string channelId, string actorDiscordUserId, CancellationToken ct = default)
         => Task.FromResult(DiscordAgeOutcome.Offline);
 }

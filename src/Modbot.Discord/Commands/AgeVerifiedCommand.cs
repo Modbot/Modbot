@@ -69,7 +69,7 @@ public sealed class AgeVerifiedCommand(ModbotContext db, IDiscordAgeActions acti
         // The reply first: it would fail once the channel is gone.
         await call.ReplyAsync(DiscordReply.Say(CardText.EscapeText(answer.Text + "\nDeleting this ticket.")), ct).ConfigureAwait(false);
 
-        var deleted = await actions.DeleteTicketAsync(channelId, ct).ConfigureAwait(false);
+        var deleted = await actions.DeleteTicketAsync(channelId, call.DiscordUserId, ct).ConfigureAwait(false);
 
         if (!deleted.Done)
         {
