@@ -348,6 +348,12 @@ export type DiscordLinkingSettingsInput = {
   eighteenPlusRoleId: string
 }
 
+/** Settings → Discord → Permission watch. */
+export type DiscordPermissionWatchSettings = {
+  channelId: string | null
+  removes: boolean
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -5010,6 +5016,12 @@ export const api = {
   /** Each command's name with whether it is on. A command left out keeps what it has. */
   setDiscordCommandsSettings: (commands: Record<string, boolean>) =>
     put<DiscordCommandsSettings>('/api/settings/discord-commands', { commands }),
+
+  discordPermissionWatchSettings: () =>
+    request<DiscordPermissionWatchSettings>('/api/settings/discord-permission-watch'),
+
+  setDiscordPermissionWatchSettings: (body: { channelId: string; removes: boolean }) =>
+    put<DiscordPermissionWatchSettings>('/api/settings/discord-permission-watch', body),
 
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 
