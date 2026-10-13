@@ -362,8 +362,11 @@ public class CalendarTemplateEndpointTests(PostgresFixture db)
     {
         await using var host = await StartAsync();
         var manager = await ManagerAsync(host);
-        var used = await UploadedCoverAsync(host, manager);
-        var unused = await UploadedCoverAsync(host, manager);
+
+        // Uploading a picture is a calendar action (Manage calendar), which Manage templates alone does not hold.
+        var uploader = (await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct)).Cookie;
+        var used = await UploadedCoverAsync(host, uploader);
+        var unused = await UploadedCoverAsync(host, uploader);
 
         await CreateAsync(host, manager, fields: Fields(cover: used));
 
