@@ -1,0 +1,80 @@
+---
+title: Gallery pictures
+description: Let members post pictures in a Discord channel, and have staff add the good ones to the group's gallery on VRChat.
+---
+
+Members post a picture in one Discord channel. Modbot copies it into a queue on the **Gallery** tab of
+the **VRChat** page. Staff look at the queue and add a picture to one of the group's galleries on
+VRChat, or decline it.
+
+Nothing is collected until you choose the channel.
+
+## Set it up
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Gallery pictures** card. Pick the **Picture channel** and
+press **Save gallery pictures**. The bot needs to see the channel and read its message history. To
+put the tick on a picture once it is added, it also needs **Add Reactions** in that channel.
+
+Messages in a thread under the channel count too. Messages from bots and webhooks are ignored.
+
+## Which pictures are taken
+
+- Only **PNG and JPEG** files. VRChat takes nothing else, so a GIF or a file of any other kind is left
+  out. Modbot checks the file itself, not just what Discord calls it.
+- Up to **10 MB** each.
+- A message with several pictures gives several entries.
+- Up to **100** pictures wait at a time. Once the queue is full, new pictures are not kept until
+  somebody adds or declines some.
+
+Modbot copies the picture when it is posted, because Discord's own link to it stops working after a
+day. It keeps the copy only while the picture is waiting.
+
+## Adding a picture
+
+On the **VRChat** page, open the **Gallery** tab. **Pictures from Discord** lists what is waiting,
+oldest first, with who posted it and a link to their message. With **Manage the group gallery**
+([roles and permissions](/accounts/roles-and-permissions#manage-the-group-gallery)), choose the
+gallery in **Add to** and press **Add**.
+
+Adding is two requests to VRChat: Modbot uploads the picture, then adds it to the gallery. When VRChat
+accepts it:
+
+- The picture shows in the gallery. If the gallery needs approval, it shows as **Pending** until a
+  group manager approves it on VRChat.
+- The [audit log](/moderation/audit-log) records **Gallery image added**, with who added it and who
+  posted it.
+- Modbot puts a ✅ on the member's message in Discord.
+- Modbot's copy of the picture is deleted.
+
+If VRChat refuses at the gallery, the picture stays in the queue with the reason under it, and the
+upload is kept. Pressing **Add** again does not upload it a second time.
+
+### What it needs
+
+Uploading is the same switch as every other picture Modbot sends to VRChat: **Upload VRChat
+pictures** must be on, under **Settings**, **Modbot's VRChat login**, **Pictures**, and Modbot's VRChat
+account must have VRChat+ (see [calendar pictures](/moderation/calendar#the-vrchat-picture)). If
+the switch is off, or Modbot knows the account has no VRChat+, **Add** is refused and nothing is sent to
+VRChat.
+
+Whether adding to a gallery needs VRChat+ itself is not known. Modbot follows the picture-uploads
+switch and the VRChat+ check, which cover the upload.
+
+Modbot's VRChat account also needs **Manage Group Galleries** in the group's roles on VRChat.
+
+VRChat limits how fast Modbot may upload (one a minute), and adding to a gallery shares its limit with
+removing an image. If VRChat is limiting, try again later.
+
+## Declining a picture
+
+**Decline** takes the picture out of the queue, after you confirm. Modbot sends nothing to VRChat,
+tells the member nothing, and leaves their message in Discord alone. Its copy of the picture is
+deleted.
+
+## Removing a member's pictures
+
+[Purging](/moderation/purge) a Discord member deletes every entry they posted, waiting or
+decided.
