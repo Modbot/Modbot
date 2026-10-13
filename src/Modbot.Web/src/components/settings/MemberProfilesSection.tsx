@@ -164,7 +164,7 @@ function ProfileFieldsCard() {
                     {LEVELS.find((l) => l.value === field.defaultVisibility)?.label}
                   </span>
 
-                  <div className="flex items-center gap-1 max-sm:ml-auto">
+                  <div className="flex flex-wrap items-center justify-end gap-1 max-sm:ml-auto">
                     <Button
                       size="icon-xs"
                       variant="ghost"
