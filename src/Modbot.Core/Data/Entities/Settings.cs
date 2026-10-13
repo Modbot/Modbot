@@ -758,6 +758,12 @@ public class Settings
     public string? DiscordGalleryChannelId { get; set; }
 
     /// <summary>
+    /// The Discord channel a closed ticket's transcript is posted to, as a file. Null means no
+    /// transcript is kept: the ticket still closes and the fact log still records it.
+    /// </summary>
+    public string? DiscordTicketTranscriptChannelId { get; set; }
+
+    /// <summary>
     /// Which of the bot's commands are on, as a JSON object mapping a command's name to true or
     /// false (Discord commands design §3.8). A name that is not in it takes its default from
     /// <see cref="Modbot.Core.Discord.DiscordCommandSwitches"/>, and a command that is off is not

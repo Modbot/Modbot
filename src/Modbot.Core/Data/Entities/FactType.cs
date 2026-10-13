@@ -384,6 +384,25 @@ public static class FactType
     /// </summary>
     public const string DiscordMemberGainedPermission = "discord.permission.member";
 
+    /// <summary>
+    /// A member opened a ticket: a private thread with staff. The subject is the member. Payload:
+    /// <c>ticketId</c>, <c>type</c> (the type's name), <c>threadId</c> and <c>channelId</c>.
+    /// </summary>
+    public const string DiscordTicketOpened = "discord.ticket.open";
+
+    /// <summary>
+    /// A ticket was closed. The subject is the member who opened it; the actor is who closed it.
+    /// Payload: <c>ticketId</c>, <c>type</c>, <c>threadId</c>, <c>transcript</c> (<c>posted</c>, <c>none</c>
+    /// when no channel is set) and <c>messages</c>, how many were in it.
+    /// </summary>
+    public const string DiscordTicketClosed = "discord.ticket.close";
+
+    /// <summary>
+    /// A ticket's thread was deleted by staff. The subject is the member who opened it; the actor is
+    /// who deleted it. Payload: <c>ticketId</c>, <c>type</c> and <c>threadId</c>.
+    /// </summary>
+    public const string DiscordTicketDeleted = "discord.ticket.delete";
+
     // ── Modbot's Discord bot (foundation §9) ───────────────────────────────────────────────
 
     /// <summary>

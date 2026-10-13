@@ -288,6 +288,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The steps the smart welcome can send, rules and defaults (smart welcome design §7).</summary>
     public DbSet<DiscordWelcomeStep> DiscordWelcomeSteps => Set<DiscordWelcomeStep>();
 
+    /// <summary>The kinds of ticket members can open from a panel.</summary>
+    public DbSet<DiscordTicketType> DiscordTicketTypes => Set<DiscordTicketType>();
+
+    /// <summary>Tickets members opened: a private thread each, open, closed or deleted.</summary>
+    public DbSet<DiscordTicket> DiscordTickets => Set<DiscordTicket>();
+
     /// <summary>Who the smart welcome has seen, so each member is welcomed once (smart welcome design §5.1).</summary>
     public DbSet<DiscordWelcome> DiscordWelcomes => Set<DiscordWelcome>();
 
@@ -2303,6 +2309,41 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Emoji).HasMaxLength(DiscordRoleMenuLimits.MostEmojiLength);
 
             entity.HasIndex(e => new { e.MenuId, e.Position }).HasDatabaseName("ix_discord_role_menu_role_order");
+        });
+
+        builder.Entity<DiscordTicketType>(entity =>
+        {
+            entity.ToTable("discord_ticket_type");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(DiscordTicketLimits.MostNameLength);
+            entity.Property(e => e.StaffRoleId).HasColumnType("text");
+            entity.Property(e => e.OpeningMessage).HasMaxLength(DiscordTicketLimits.MostOpeningLength);
+
+            entity.HasIndex(e => e.Position).HasDatabaseName("ix_discord_ticket_type_order");
+        });
+
+        builder.Entity<DiscordTicket>(entity =>
+        {
+            entity.ToTable("discord_ticket");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.TypeName).HasMaxLength(DiscordTicketLimits.MostNameLength);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.DiscordUserName).HasColumnType("text");
+            entity.Property(e => e.ThreadId).HasColumnType("text");
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.ClosedByDiscordUserId).HasColumnType("text");
+
+            // One open ticket of each type for each member. Two presses at once cannot both open one.
+            entity.HasIndex(e => new { e.TypeId, e.DiscordUserId })
+                .IsUnique()
+                .HasFilter("state = 'open'")
+                .HasDatabaseName("ux_discord_ticket_open");
+
+            // A press inside a ticket finds its row by the thread.
+            entity.HasIndex(e => e.ThreadId).HasDatabaseName("ix_discord_ticket_thread");
         });
 
         builder.Entity<DiscordWelcome>(entity =>

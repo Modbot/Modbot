@@ -165,6 +165,9 @@ public static class AuditVisibility
         [FactType.DiscordRoleDeleted] = AuditCategory.Moderation,
         [FactType.DiscordRoleGainedPermission] = AuditCategory.Moderation,
         [FactType.DiscordMemberGainedPermission] = AuditCategory.Moderation,
+        [FactType.DiscordTicketOpened] = AuditCategory.Moderation,
+        [FactType.DiscordTicketClosed] = AuditCategory.Moderation,
+        [FactType.DiscordTicketDeleted] = AuditCategory.Moderation,
 
         // Linking a member's accounts, and the roles that follow, are member history. The prompt
         // sent to a new member is plumbing.
