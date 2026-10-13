@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261012212610_AddCalendarTemplates")]
+    [Migration("20261013014039_AddCalendarTemplates")]
     partial class AddCalendarTemplates
     {
         /// <inheritdoc />
@@ -879,6 +879,36 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_ban_reason_order");
 
                     b.ToTable("ban_reason", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_calendar_category");
+
+                    b.ToTable("calendar_category", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarCoverPicture", b =>
@@ -3342,6 +3372,72 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcome", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_discord_welcome");
+
+                    b.ToTable("discord_welcome", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcomeStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("link");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_welcome_step");
+
+                    b.HasIndex("Kind", "Position")
+                        .HasDatabaseName("ix_discord_welcome_step_order");
+
+                    b.ToTable("discord_welcome_step", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EmailQueueEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3415,6 +3511,163 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_email_queue_state_kind_queued_at");
 
                     b.ToTable("email_queue", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_at");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<DateTimeOffset>("QueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("queued_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert");
+
+                    b.HasIndex("QueuedAt")
+                        .HasDatabaseName("ix_event_alert_queued_at");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_event_date");
+
+                    b.ToTable("event_alert", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AlertId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("alert_id");
+
+                    b.Property<bool>("DirectMessagesClosed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("direct_messages_closed");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Way")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("way");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert_delivery");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_event_alert_delivery_discord_user_id");
+
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_event_alert_delivery_waiting")
+                        .HasFilter("state = 'waiting'");
+
+                    b.HasIndex("AlertId", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_delivery_alert_user");
+
+                    b.ToTable("event_alert_delivery", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertMember", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Way")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("way");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_event_alert_member");
+
+                    b.ToTable("event_alert_member", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertSignup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_event_alert_signup");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("ix_event_alert_signup_category_id");
+
+                    b.HasIndex("EventId")
+                        .HasDatabaseName("ix_event_alert_signup_event_id");
+
+                    b.HasIndex("DiscordUserId", "CategoryId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_signup_category")
+                        .HasFilter("category_id IS NOT NULL");
+
+                    b.HasIndex("DiscordUserId", "EventId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_event_alert_signup_event")
+                        .HasFilter("event_id IS NOT NULL");
+
+                    b.ToTable("event_alert_signup", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_event_alert_signup_one_target", "(category_id IS NULL) <> (event_id IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventInviteChoice", b =>
@@ -5090,6 +5343,30 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_mcp_grant_user_id");
 
                     b.ToTable("mcp_grant", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberProfile", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<bool>("Findable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("findable");
+
+                    b.Property<bool>("Spotlight")
+                        .HasColumnType("boolean")
+                        .HasColumnName("spotlight");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_member_profile");
+
+                    b.ToTable("member_profile", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.MemberReport", b =>
@@ -7040,6 +7317,119 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("post_destination", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DefaultVisibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_visibility");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_profile_field");
+
+                    b.HasIndex("SortOrder")
+                        .HasDatabaseName("ix_member_profile_field_order");
+
+                    b.ToTable("member_profile_field", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_role_id");
+
+                    b.Property<Guid>("FieldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("field_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_profile_option");
+
+                    b.HasIndex("FieldId", "SortOrder")
+                        .HasDatabaseName("ix_member_profile_option_field");
+
+                    b.ToTable("member_profile_option", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileValue", b =>
+                {
+                    b.Property<Guid>("FieldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("field_id");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid?>("OptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("option_id");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("Visibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("FieldId", "DiscordUserId")
+                        .HasName("pk_member_profile_value");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_member_profile_value_user");
+
+                    b.HasIndex("OptionId")
+                        .HasDatabaseName("ix_member_profile_value_option_id");
+
+                    b.ToTable("member_profile_value", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
                 {
                     b.Property<int>("Id")
@@ -7851,9 +8241,53 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("discord_staff_roles_on");
 
+                    b.Property<string>("DiscordWelcomeChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_welcome_channel_id");
+
+                    b.Property<bool>("DiscordWelcomeEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_welcome_enabled");
+
+                    b.Property<DateTimeOffset?>("DiscordWelcomeStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_welcome_started_at");
+
+                    b.Property<string>("DiscordWelcomeVia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("dm")
+                        .HasColumnName("discord_welcome_via");
+
                     b.Property<int>("EmailLimitPer24Hours")
                         .HasColumnType("integer")
                         .HasColumnName("email_limit_per24hours");
+
+                    b.Property<string>("EventAlertsChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("event_alerts_channel_id");
+
+                    b.Property<bool>("EventAlertsDirectMessage")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("event_alerts_direct_message");
+
+                    b.Property<int>("EventAlertsMinutesBefore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60)
+                        .HasColumnName("event_alerts_minutes_before");
+
+                    b.Property<bool>("EventAlertsOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_alerts_on");
+
+                    b.Property<bool>("EventAlertsPing")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_alerts_ping");
 
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
@@ -8212,6 +8646,46 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("smtp_username");
 
+                    b.Property<int>("SpotlightDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("spotlight_day");
+
+                    b.Property<DateTimeOffset?>("SpotlightHandledThrough")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("spotlight_handled_through");
+
+                    b.Property<int>("SpotlightHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(9)
+                        .HasColumnName("spotlight_hour");
+
+                    b.Property<string>("SpotlightMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("random")
+                        .HasColumnName("spotlight_mode");
+
+                    b.Property<bool>("SpotlightOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("spotlight_on");
+
+                    b.Property<string>("SpotlightPlaces")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("spotlight_places");
+
+                    b.Property<string>("SpotlightTimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("spotlight_time_zone");
+
                     b.Property<string>("SyncPacing")
                         .HasColumnType("jsonb")
                         .HasColumnName("sync_pacing");
@@ -8408,6 +8882,48 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_settings_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SpotlightWeek", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset?>("PickedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("picked_at");
+
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
+
+                    b.Property<DateOnly>("Week")
+                        .HasColumnType("date")
+                        .HasColumnName("week");
+
+                    b.HasKey("Id")
+                        .HasName("pk_spotlight_week");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_spotlight_week_user");
+
+                    b.HasIndex("PostId")
+                        .HasDatabaseName("ix_spotlight_week_post_id");
+
+                    b.HasIndex("Week")
+                        .IsUnique()
+                        .HasDatabaseName("ux_spotlight_week_week");
+
+                    b.ToTable("spotlight_week", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
@@ -9502,6 +10018,25 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("world_pick", (string)null);
                 });
 
+            modelBuilder.Entity("calendar_event_category", b =>
+                {
+                    b.Property<Guid>("event_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("category_id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("category_id");
+
+                    b.HasKey("event_id", "category_id")
+                        .HasName("pk_calendar_event_category");
+
+                    b.HasIndex("category_id")
+                        .HasDatabaseName("ix_calendar_event_category_category_id");
+
+                    b.ToTable("calendar_event_category", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
@@ -9696,6 +10231,41 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_discord_staff_role_state_modbot_user_user_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlert", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_alert_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertDelivery", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.EventAlert", null)
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_event_alert_delivery_event_alert_alert_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAlertSignup", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_event_alert_signup_calendar_category_category_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_event_alert_signup_calendar_event_event_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventReminder", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
@@ -9871,6 +10441,41 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_post_destination_calendar_cover_picture_site_picture_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileOption", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileField", null)
+                        .WithMany("Options")
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_profile_option_member_profile_field_field_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileValue", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileField", null)
+                        .WithMany()
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_profile_value_member_profile_field_field_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileOption", null)
+                        .WithMany()
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_member_profile_value_member_profile_option_option_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SpotlightWeek", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_spotlight_week_posts_post_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
@@ -9957,6 +10562,23 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_world_pick_calendar_event_event_id");
                 });
 
+            modelBuilder.Entity("calendar_event_category", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarCategory", null)
+                        .WithMany()
+                        .HasForeignKey("category_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_event_category_calendar_categories_category_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("event_id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_event_category_calendar_event_event_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.Navigation("Messages");
@@ -9985,6 +10607,11 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.Post", b =>
                 {
                     b.Navigation("Destinations");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
+                {
+                    b.Navigation("Options");
                 });
 #pragma warning restore 612, 618
         }
