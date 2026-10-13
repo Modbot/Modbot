@@ -1,0 +1,87 @@
+---
+title: Tickets
+description: Let members press a button to open a private thread with staff. Staff or the member close it, and a text transcript goes to a channel of your choice.
+---
+
+A ticket is a private thread. A member presses a button on a ticket panel, Modbot opens a thread that
+only they, the staff role you picked and people who can manage threads can see, and the opening
+message you wrote is the first thing in it. When the ticket is closed, Modbot posts its transcript in
+a channel you choose.
+
+Everything is off until you add a ticket type and post a panel.
+
+## Set it up
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Tickets** card.
+
+| Setting | What it does |
+|---|---|
+| **Button** | The words on the panel's button, and the start of the thread's name. Up to 80 characters. |
+| **Staff role** | The role asked into every ticket of this type. It may close and delete them. |
+| **Opening message** | The first message in the ticket. Up to 1,500 characters. |
+| **Private images** | Turn on for a type where members may post photos or documents Modbot must not keep, such as an ID for an age check. |
+| **Transcript channel** | Where a closed ticket's transcript goes. Leave it empty to keep no transcript. |
+
+You can add up to five ticket types. Each saves on its own with its own **Save**; the arrows change
+the order of the buttons, and **Delete** removes a type.
+
+Then post the panel: pick a **Channel**, write the **Text**, and press **Post panel**. The panel is
+one message with a button for each ticket type, in the order shown. Tickets open as threads under that
+channel. Post the panel again after you change the types, since an old panel keeps the buttons it was
+posted with.
+
+## What the bot needs
+
+In the channel the panel is in:
+
+- View Channel, Send Messages and Read Message History
+- **Create Private Threads**, **Send Messages in Threads** and **Manage Threads**
+
+In the transcript channel: View Channel, Send Messages, Embed Links and Attach Files.
+
+The staff role is mentioned in the first message of a ticket, which is what brings its members into
+the thread. So the role needs to be mentionable, or the bot needs **Mention All Roles**. The role
+picker marks roles the bot cannot mention.
+
+## Opening, closing and deleting
+
+- A member has **one open ticket of each type** at a time. Pressing the button again links to the one
+  they have.
+- **Close** can be pressed by the member who opened the ticket and by staff. Modbot posts the
+  transcript first and only then locks and archives the thread. If the transcript cannot be read or
+  posted, the ticket stays open and says why, so a ticket is never closed with its record lost. With no
+  transcript channel set, it closes and says no transcript was kept.
+- **Delete** is for staff only. It removes the thread and posts no transcript.
+- Staff means someone with the type's staff role, or anyone who can manage threads. If you delete a
+  ticket type, its open tickets stay open and only people who can manage threads can close or delete
+  them.
+- A closed ticket is not reopened.
+
+## The transcript
+
+The transcript is a text file posted in the transcript channel, with a card naming the ticket type, who
+opened it, who closed it and the number of messages. It lists every message in the thread, oldest
+first, with the time and author. Attachments are listed by name and link.
+
+Modbot reads message text through the Message Content intent. If your server does not give it, the
+transcript says at the top that the text of the messages is missing.
+
+## Private images
+
+For a type with **Private images** on:
+
+- The transcript writes `[image removed]` where a message had an attachment, and never names or links
+  it.
+- Modbot keeps no attachment names or addresses from those tickets in its own copy of messages either.
+- The member's photos or documents stay in the Discord thread only.
+
+Tickets already open keep the rule they were opened with if you change the switch later.
+
+## What Modbot keeps
+
+For each ticket Modbot keeps the ticket type's name, the member's Discord id and name, the thread, and
+when it was opened, closed or deleted and by whom. The audit log shows each setting change, and the
+fact log shows every ticket opened, closed and deleted.
