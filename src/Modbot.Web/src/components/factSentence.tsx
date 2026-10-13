@@ -1633,6 +1633,31 @@ const SENTENCES: Record<string, Sentence> = {
     )
   },
 
+  // ── Event templates ─────────────────────────────────────────────────────────────────────────
+  'modbot.calendar-template.create': (p) => (
+    <>
+      {p.actor} made the event template<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.calendar-template.change': (p) => {
+    const before = p.text('before')
+    const name = p.text('name')
+
+    return (
+      <>
+        {p.actor} changed the event template<Quoted value={before && before !== name ? before : name} />
+        {before && before !== name ? <> and renamed it to<Quoted value={name} /></> : null}.
+      </>
+    )
+  },
+
+  'modbot.calendar-template.delete': (p) => (
+    <>
+      {p.actor} deleted the event template<Quoted value={p.text('name')} />.
+    </>
+  ),
+
   // ── Giveaways ───────────────────────────────────────────────────────────────────────────────
   'modbot.giveaway.create': (p) => (
     <>
