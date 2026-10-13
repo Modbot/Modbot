@@ -23,6 +23,15 @@ public enum ProfileViewer
 /// <param name="Visibility">The level in force: the member's own choice, else the field's default.</param>
 public sealed record ProfileLine(Guid FieldId, string Name, ProfileFieldKind Kind, string? Answer, ProfileVisibility Visibility);
 
+/// <summary>One thing <c>/find</c> asks for: a field, and the words its answer must hold.</summary>
+public sealed record ProfileSearch(Guid FieldId, string Value);
+
+/// <summary>A member <c>/find</c> lists.</summary>
+public sealed record ProfileMatch(string DiscordUserId, string Name);
+
+/// <summary>What <c>/find</c> found: the first members in name order, and how many matched in all.</summary>
+public sealed record ProfileFound(IReadOnlyList<ProfileMatch> Members, int Total);
+
 /// <summary>
 /// Reading and writing member profiles (member profiles design). The Discord commands and the web
 /// page both go through here, so the rule for who sees what is written once.
@@ -270,6 +279,113 @@ public static class MemberProfiles
         }
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The members <c>/find</c> lists (member profiles design §8.2, find design): current, not bots,
+    /// not the searcher, with Findable on, and whose answer to every one of <paramref name="searches"/>
+    /// matches. A member matches a field only through an answer the searcher may read, so a match
+    /// never tells the searcher what the member kept hidden. Ordered by name; at most
+    /// <paramref name="most"/> are returned, and <see cref="ProfileFound.Total"/> counts all.
+    /// </summary>
+    /// <param name="staff">Whether the searcher reads every answer, as <see cref="ProfileViewer.Staff"/> does, or only the ones opened to members.</param>
+    public static async Task<ProfileFound> FindAsync(
+        ModbotContext db,
+        string searcherId,
+        bool staff,
+        IReadOnlyList<ProfileSearch> searches,
+        int most,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentException.ThrowIfNullOrWhiteSpace(searcherId);
+        ArgumentNullException.ThrowIfNull(searches);
+
+        var nobody = new ProfileFound([], 0);
+
+        if (searches.Count == 0)
+            return nobody;
+
+        var fields = (await FieldsAsync(db, ct).ConfigureAwait(false)).ToDictionary(f => f.Id);
+        HashSet<string>? matching = null;
+
+        foreach (var search in searches)
+        {
+            if (!fields.TryGetValue(search.FieldId, out var field))
+                return nobody;
+
+            var ids = await MatchingAsync(db, field, search.Value, staff, ct).ConfigureAwait(false);
+
+            if (matching is null)
+                matching = ids;
+            else
+                matching.IntersectWith(ids);
+
+            if (matching.Count == 0)
+                return nobody;
+        }
+
+        var candidates = matching!.ToList();
+
+        var rows = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.LeftAt == null
+                        && !m.IsBot
+                        && m.UserId != searcherId
+                        && candidates.Contains(m.UserId)
+                        && db.MemberProfiles.Any(p => p.DiscordUserId == m.UserId && p.Findable))
+            .Select(m => new { m.UserId, m.DisplayName, m.Username })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var found = rows
+            .GroupBy(r => r.UserId, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .Select(r => new ProfileMatch(r.UserId, string.IsNullOrWhiteSpace(r.DisplayName) ? r.Username : r.DisplayName))
+            .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(m => m.DiscordUserId, StringComparer.Ordinal)
+            .ToList();
+
+        return new ProfileFound([.. found.Take(most)], found.Count);
+    }
+
+    /// <summary>
+    /// The members whose answer to one field matches what was typed and which the searcher may read.
+    /// A pick-list matches the option named, else every option whose label holds the words; a text
+    /// field matches an answer that holds the words. Letters are compared without case.
+    /// </summary>
+    private static async Task<HashSet<string>> MatchingAsync(
+        ModbotContext db, ProfileField field, string typed, bool staff, CancellationToken ct)
+    {
+        var words = typed.Trim();
+        var query = db.ProfileValues.AsNoTracking().Where(v => v.FieldId == field.Id);
+
+        if (!staff)
+        {
+            var standard = field.DefaultVisibility;
+            query = query.Where(v => (v.Visibility ?? standard) == ProfileVisibility.Members);
+        }
+
+        if (field.Kind == ProfileFieldKind.Text)
+        {
+            var lower = words.ToLowerInvariant();
+            query = query.Where(v => v.Text != null && v.Text.ToLower().Contains(lower));
+        }
+        else
+        {
+            var named = field.Options.Where(o => string.Equals(o.Label, words, StringComparison.OrdinalIgnoreCase)).ToList();
+            var options = (named.Count > 0
+                    ? named
+                    : [.. field.Options.Where(o => o.Label.Contains(words, StringComparison.OrdinalIgnoreCase))])
+                .Select(o => (Guid?)o.Id)
+                .ToList();
+
+            if (options.Count == 0)
+                return [];
+
+            query = query.Where(v => options.Contains(v.OptionId));
+        }
+
+        var users = await query.Select(v => v.DiscordUserId).ToListAsync(ct).ConfigureAwait(false);
+        return users.ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>

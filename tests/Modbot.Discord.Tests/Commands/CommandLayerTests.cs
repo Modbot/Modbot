@@ -47,9 +47,10 @@ public class CommandLayerTests
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.RemindMe);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Report);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Profile);
+        Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Find);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.ReportMenu);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Notify);
-        Assert.Equal(DiscordCommands.All.Count - 7, registered.Count);
+        Assert.Equal(DiscordCommands.All.Count - 8, registered.Count);
         Assert.Equal(registered.Select(c => c.Name).ToHashSet(), DiscordCommands.NamesFor(null));
     }
 

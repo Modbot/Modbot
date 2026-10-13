@@ -189,7 +189,7 @@ switch: staff and admins cannot turn it on for anyone.
   not findable; turning it off deletes the row, so nothing is kept for the default.
 - **Purge.** A purge of the Discord person (or of the VRChat person, for the linked Discord
   account) deletes the row with the member's answers.
-- **`/find`** is not built here. When it is, it lists only members whose switch is on, and it
+- **`/find`** is not built here (see the find design). It lists only members whose switch is on, and it
   shows them only the fields their levels allow (§3); Findable decides whether they are listed at
   all, not which fields show.
 

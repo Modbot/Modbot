@@ -60,6 +60,7 @@ public sealed class DiscordCommandHandler
     private readonly PostCommand? _post;
     private readonly ReportCommand? _report;
     private readonly ProfileCommand? _profile;
+    private readonly FindCommand? _find;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -77,7 +78,8 @@ public sealed class DiscordCommandHandler
         EventCommand? eventCommand = null,
         PostCommand? post = null,
         ReportCommand? report = null,
-        ProfileCommand? profile = null)
+        ProfileCommand? profile = null,
+        FindCommand? find = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -101,6 +103,7 @@ public sealed class DiscordCommandHandler
         _post = post;
         _report = report;
         _profile = profile;
+        _find = find;
     }
 
     /// <summary>
@@ -173,6 +176,11 @@ public sealed class DiscordCommandHandler
                 ? DiscordReply.Say("Modbot does not know that command.")
                 : await _profile.RunAsync(call, ct).ConfigureAwait(false);
         }
+
+        // For every member too, and private: it lists only members who turned on Findable, and only
+        // through answers the searcher may read (find design).
+        if (call.CommandName == DiscordCommands.Find)
+            return await FindAsync(call, ct).ConfigureAwait(false);
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
@@ -378,6 +386,16 @@ public sealed class DiscordCommandHandler
                 : [];
         }
 
+        // The fields and options under /find name nothing about a member; offered only while the
+        // command is on, and not recorded either.
+        if (ask.CommandName == DiscordCommands.Find)
+        {
+            return _find is not null
+                   && await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.Find, ct).ConfigureAwait(false)
+                ? await _find.SuggestAsync(ask, ct).ConfigureAwait(false)
+                : [];
+        }
+
         // The events and dates under /event are the calendar's, for Manage calendar (and See calendar,
         // which the calendar service asks for itself).
         if (ask.CommandName == DiscordCommands.Event)
@@ -491,6 +509,27 @@ public sealed class DiscordCommandHandler
         var answer = await _remind.RunAsync(call, gateway, ct).ConfigureAwait(false);
         await RecordAsync(call, null, answer.Outcome, null, ct).ConfigureAwait(false);
         return answer.Reply;
+    }
+
+    /// <summary>
+    /// <c>/find</c>: members by what their profiles say, for any member. A call over the per-person
+    /// limit is refused and not recorded, as with <c>/remindme</c>. Recorded like every command, with
+    /// no Modbot account, no target and neither the words searched for nor who was found.
+    /// </summary>
+    private async Task<DiscordReply> FindAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_find is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_find.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(FindCommand.TooFastMessage);
+
+        var reply = await _find.RunAsync(call, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
     }
 
     /// <summary>

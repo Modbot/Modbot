@@ -176,6 +176,10 @@ public static class DiscordServiceCollectionExtensions
 
         // /profile: its buttons and forms are answered by the same class (member profiles design §4).
         services.AddScoped<ProfileCommand>();
+
+        // /find counts its own tries too, and its View profile button shows /profile's card.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(FindCommand.LimitsKey);
+        services.AddScoped<FindCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

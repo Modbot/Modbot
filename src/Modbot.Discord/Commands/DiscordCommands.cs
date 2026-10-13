@@ -30,6 +30,9 @@ namespace Modbot.Discord.Commands;
 /// <see cref="Profile"/> is for every member too and answers in private; it is off until the operator
 /// turns it on, needs no Modbot account, and shows a member only the profile fields their owner lets
 /// that viewer read (member profiles design §4).
+/// <see cref="Find"/> is for every member too and answers in private; it is off until the operator
+/// turns it on, needs no Modbot account, and lists only members who turned on Findable, matching
+/// them only on answers the searcher may read (find design).
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Event"/> and <see cref="Post"/> are for event hosts: Discord shows them to members who
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
@@ -88,6 +91,19 @@ public static class DiscordCommands
     public const string Post = "post";
     public const string Report = "report";
     public const string Profile = "profile";
+    public const string Find = "find";
+
+    /// <summary>The profile field <c>/find</c> looks in, picked from the suggestions.</summary>
+    public const string FindFieldOption = "field";
+
+    /// <summary>What the answer to <see cref="FindFieldOption"/> must say: an option of a pick-list, or words a text answer holds.</summary>
+    public const string FindValueOption = "value";
+
+    /// <summary>The second field <c>/find</c> may also look in.</summary>
+    public const string FindAlsoFieldOption = "also-field";
+
+    /// <summary>What the answer to <see cref="FindAlsoFieldOption"/> must say.</summary>
+    public const string FindAlsoValueOption = "also-value";
 
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
@@ -387,6 +403,15 @@ public static class DiscordCommands
             "Your profile, or a member's",
             [new DiscordCommandOption(MemberOption, "Whose profile", DiscordOptionKind.Member, Required: false)]),
         new(
+            Find,
+            "Find members by their profile",
+            [
+                new DiscordCommandOption(FindFieldOption, "Which profile field", DiscordOptionKind.Text, Required: true, Suggests: true),
+                new DiscordCommandOption(FindValueOption, "What it says", DiscordOptionKind.Text, Required: true, Suggests: true),
+                new DiscordCommandOption(FindAlsoFieldOption, "A second profile field", DiscordOptionKind.Text, Required: false, Suggests: true),
+                new DiscordCommandOption(FindAlsoValueOption, "What it says", DiscordOptionKind.Text, Required: false, Suggests: true),
+            ]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -433,7 +458,7 @@ public static class DiscordCommands
         => For(switches, alertsOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Notify or Report or Profile;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Notify or Report or Profile or Find;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

@@ -1131,6 +1131,16 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /find's View profile: the member's card, as /profile shows it to the one who pressed.
+            if (FindCommand.IsButton(press.ButtonId))
+            {
+                var findAnswer = await scope.ServiceProvider.GetRequiredService<FindCommand>()
+                    .HandleButtonAsync(press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(findAnswer, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             if (PostCommand.IsButton(press.ButtonId))
             {
                 var postAnswer = await scope.ServiceProvider.GetRequiredService<PostCommand>()

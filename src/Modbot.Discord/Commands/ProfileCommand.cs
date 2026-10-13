@@ -101,7 +101,7 @@ public sealed class ProfileCommand
     }
 
     /// <summary>Another member's card, with the fields the viewer may read; nothing is said about the ones they may not.</summary>
-    private async Task<DiscordReply> OtherCardAsync(string viewerId, string targetId, CancellationToken ct)
+    public async Task<DiscordReply> OtherCardAsync(string viewerId, string targetId, CancellationToken ct)
     {
         var member = await FindMemberAsync(targetId, ct).ConfigureAwait(false);
 
@@ -121,7 +121,7 @@ public sealed class ProfileCommand
     }
 
     /// <summary>Staff here means a proven Modbot account that may see members (design §3).</summary>
-    private async Task<bool> IsStaffAsync(string discordUserId, CancellationToken ct)
+    public async Task<bool> IsStaffAsync(string discordUserId, CancellationToken ct)
         => await StaffDiscord.AccountForAsync(_db, discordUserId, _clock.UtcNow, ct).ConfigureAwait(false)
             is { IsDisabled: false } account
             && DiscordCommands.Allows(account.EffectivePermissions, ModbotPermissions.ViewMembers);
