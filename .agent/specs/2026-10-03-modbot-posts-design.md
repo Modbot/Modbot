@@ -438,12 +438,17 @@ now when Now is picked; Save draft; Cancel).
     it back, and the post's text stays the one source. A list is a card with the lines as VRChat
     reads them (name, time in the event's own zone, link) and a Remove button; the writer's words
     are boxes before, between and after the cards, and a new list goes in at the cursor. Counters,
-    headline and the on-site Edit box read the site's finished text, and "Own text" starts from it,
-    so no mark reaches any box or preview. Chosen over one box that shows clean text and converts
-    back, because a typed change to a line cannot be matched to its mark once the writer rewrites it.
-    The cost: a list's event names are not edited in place. Remove it and add it again.
-  - "Own text" holds finished text, so a list copied into it has no marks to find. Keep updated
-    (§8) finds it by its finished words instead.
+    headline read the site's finished text, so no mark reaches any box or preview. Chosen over one
+    box that shows clean text and converts back, because a typed change to a line cannot be matched
+    to its mark once the writer rewrites it. The cost: a list's event names are not edited in place.
+    Remove it and add it again.
+  - **Own text keeps its marks.** Discord's "Own text" starts from the post's text, lists and all,
+    and shows the lists as cards like the main box; the on-site Edit box does the same. What is
+    stored in `text_override` is that text with its `{{…}}` marks, and the site is sent its finished
+    form. Keep updated (§8) swaps the old list for the new one in `text_override` by its marks, as
+    it does in the post's text. VRChat's "Own text" box starts from finished text and has no marks;
+    so does an own text saved before this, and one a person typed: Keep updated finds the list in
+    those by its finished words (`PostListUpdates.ForOwnText`).
   - **Keep updated** is a tick under Text, shown while the text holds at least one list. It is
     chosen when the post is written; the composer cannot be opened on a post that has gone out.
 - Picture: Choose or a picture link (fetched through Modbot's picture-link guard), the calendar's
@@ -563,8 +568,9 @@ uploads, removing the Bluesky account.
     again at once, which edits it only if its lists read differently), so a burst of calendar edits
     makes one edit. A site that turns an edit away (a VRChat limit, the bot off, a refusal) is not asked
     again in that pass, and nothing is retried inside the window: a 429 is never retried.
-  - **The row.** After a site took the edit its `sent_text` (and `text_override` when it held the list)
-    follows, `post.lists_updated_at` is set and `version` raised, with the same re-read on a conflict as
+  - **The row.** After a site took the edit its `sent_text` follows (found by finished words), and so
+    does `text_override` when it held the list (found by its marks, or by finished words when it holds
+    none), `post.lists_updated_at` is set and `version` raised, with the same re-read on a conflict as
     §4.4. The post's own text gets the new lists only once every site that needed the edit has taken it
     (a message gone from Discord counts: its row is marked deleted), so a site turned away is found
     again with the old list still to look for. Each edit writes a `modbot.post.edit` fact with no

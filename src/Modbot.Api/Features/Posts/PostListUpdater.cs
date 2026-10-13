@@ -271,7 +271,7 @@ public sealed class PostListUpdater
                     destination.SentText = PostListUpdates.ForSite(destination.Network, destination.SentText ?? string.Empty, changes);
 
                     if (destination.TextOverride is { } own)
-                        destination.TextOverride = PostListUpdates.ForSite(destination.Network, own, changes);
+                        destination.TextOverride = PostListUpdates.ForOwnText(destination.Network, own, changes);
 
                     destination.UpdatedAt = now;
                 }

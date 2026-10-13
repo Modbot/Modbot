@@ -97,6 +97,18 @@ public static partial class PostListUpdates
         return text;
     }
 
+    /// <summary>
+    /// A site's own text with each changed list swapped. Own text is kept with its marks, so the old
+    /// list is found as it stands; a text saved before that holds the finished words instead, and is
+    /// searched for those as <see cref="ForSite"/> does.
+    /// </summary>
+    public static string ForOwnText(string network, string text, IReadOnlyList<PostListChange> changes)
+    {
+        var swapped = Swap(text, changes);
+
+        return string.Equals(swapped, text, StringComparison.Ordinal) ? ForSite(network, text, changes) : swapped;
+    }
+
     // Null: leave the list as it is (its argument is unreadable, or its date has started).
     private static async Task<string?> EventListAsync(
         ModbotContext db, string argument, string old, DateTimeOffset now, CancellationToken ct)

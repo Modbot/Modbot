@@ -202,6 +202,28 @@ public class PostListUpdatesTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public void AnOwnTextKeptWithItsMarksGetsTheNewListWithItsMarks()
+    {
+        var movies = new PostEventLine(Guid.NewGuid(), "Movie night", Friday, "Europe/London", null);
+        var games = new PostEventLine(Guid.NewGuid(), "Games night", Friday.AddDays(1), "Europe/London", null);
+        var change = new PostListChange(October(movies), October(movies, games));
+        var own = $"Just for VRChat\n\n{change.Old}\n\nSee you there.";
+
+        Assert.Equal($"Just for VRChat\n\n{change.New}\n\nSee you there.", PostListUpdates.ForOwnText(PostNetworks.VRChat, own, [change]));
+    }
+
+    [Fact]
+    public void AnOwnTextSavedAsFinishedWordsStillGetsTheNewList()
+    {
+        var movies = new PostEventLine(Guid.NewGuid(), "Movie night", Friday, "Europe/London", null);
+        var games = new PostEventLine(Guid.NewGuid(), "Games night", Friday.AddDays(1), "Europe/London", null);
+        var change = new PostListChange(October(movies), October(movies, games));
+        var own = PostEventText.ForSite(PostNetworks.VRChat, $"Just for VRChat\n\n{change.Old}");
+
+        Assert.Equal(PostEventText.ForSite(PostNetworks.VRChat, $"Just for VRChat\n\n{change.New}"), PostListUpdates.ForOwnText(PostNetworks.VRChat, own, [change]));
+    }
+
+    [Fact]
     public void AListAlreadyRewrittenOnASiteIsNotRewrittenAgain()
     {
         var movies = new PostEventLine(Guid.NewGuid(), "Movie night", Friday, "Europe/London", null);
