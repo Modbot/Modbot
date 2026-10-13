@@ -514,6 +514,19 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManageTemplates = 1L << 59,
 
+    // --- Partners (partner tracker). Bit 60. ---
+
+    /// <summary>
+    /// See the Partners page and keep it: add a partner group, change what is known about it, and
+    /// delete it.
+    /// </summary>
+    /// <remarks>
+    /// One flag for seeing and changing, not a pair: the page is staff-only (decided 2026-10-13), and
+    /// its contacts and notes are about people in other groups, so nobody gets to read it without
+    /// being trusted to keep it. Not in the built-in roles; Administrator holds it.
+    /// </remarks>
+    ManagePartners = 1L << 60,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

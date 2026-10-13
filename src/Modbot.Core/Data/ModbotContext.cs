@@ -443,6 +443,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Saved lists: a name and a rule tree, asked again whenever one is opened (lists design).</summary>
     public DbSet<SavedList> SavedLists => Set<SavedList>();
 
+    /// <summary>The other groups this one works with, kept by staff (partner tracker).</summary>
+    public DbSet<Partner> Partners => Set<Partner>();
+
     /// <summary>
     /// Modbot's own log, so it can be read in the app without Seq or a disk. Written only by
     /// <c>DatabaseLogSink</c>; outbound API traffic is left out.
@@ -3443,6 +3446,22 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Name).HasMaxLength(SavedList.MaxNameLength);
+        });
+
+        builder.Entity<Partner>(entity =>
+        {
+            entity.ToTable("partner");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(Partner.MaxNameLength);
+            entity.Property(e => e.GroupId).HasMaxLength(Partner.MaxGroupIdLength);
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.Envoy).HasMaxLength(Partner.MaxEnvoyLength);
+            entity.Property(e => e.LastCollabNote).HasMaxLength(Partner.MaxCollabNoteLength);
+            entity.Property(e => e.Notes).HasMaxLength(Partner.MaxNotesLength);
+
+            // The page lists the most recent collab first.
+            entity.HasIndex(e => e.LastCollabOn).HasDatabaseName("ix_partner_last_collab");
         });
 
         builder.Entity<HealthWatch>(entity =>

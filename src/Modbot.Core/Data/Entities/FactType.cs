@@ -845,6 +845,15 @@ public static class FactType
     /// </summary>
     public const string ListExported = "modbot.list.export";
 
+    // ── Partners (partner tracker). The subject is the partner's id on the Modbot platform. ──
+    //
+    // Staff-typed names of other groups, their contacts and notes: nothing keyed to a Modbot-known
+    // member, so a purge has nothing to find in these.
+
+    public const string PartnerCreated = "modbot.partner.create";
+    public const string PartnerChanged = "modbot.partner.change";
+    public const string PartnerDeleted = "modbot.partner.delete";
+
     // ── Posts (posts design §5) ────────────────────────────────────────────────────────────
     //
     // The subject is the post's id on the Modbot platform. A person who wrote, changed, cancelled,

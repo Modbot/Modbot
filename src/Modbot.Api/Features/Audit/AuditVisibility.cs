@@ -420,6 +420,12 @@ public static class AuditVisibility
         [FactType.ListDeleted] = AuditCategory.Operational,
         [FactType.ListExported] = AuditCategory.Operational,
 
+        // Partners: staff-typed records about other groups, kept on the Partners page. Operational,
+        // the same shape as lists.
+        [FactType.PartnerCreated] = AuditCategory.Operational,
+        [FactType.PartnerChanged] = AuditCategory.Operational,
+        [FactType.PartnerDeleted] = AuditCategory.Operational,
+
         // Posts: Modbot's own feature, gated by See posts and Manage posts on its own tab, the same
         // shape as giveaways. Live updates reach somebody with See posts through LiveScope.
         [FactType.PostCreated] = AuditCategory.Operational,

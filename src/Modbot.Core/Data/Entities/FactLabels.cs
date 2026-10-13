@@ -227,6 +227,9 @@ public static class FactLabels
         [FactType.ListChanged] = "List changed",
         [FactType.ListDeleted] = "List deleted",
         [FactType.ListExported] = "List exported",
+        [FactType.PartnerCreated] = "Partner added",
+        [FactType.PartnerChanged] = "Partner changed",
+        [FactType.PartnerDeleted] = "Partner deleted",
 
         [FactType.PostCreated] = "Post written",
         [FactType.PostChanged] = "Post changed",

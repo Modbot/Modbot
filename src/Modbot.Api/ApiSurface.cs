@@ -764,6 +764,10 @@ public static class ApiSurface
         // only; nothing here reaches VRChat or Discord.
         Features.Availability.AvailabilityEndpoints.MapAvailability(app);
 
+        // Partners: the other groups this one works with, kept by staff on the Partners page. Modbot's
+        // own table only; nothing here reaches VRChat.
+        Features.Partners.PartnerEndpoints.MapPartners(app);
+
         // What members told the mods with /report and Report to mods, and closing it with a note
         // (Discord commands design §3.4). Reports about a staff account need Review tickets too.
         Features.Reports.ReportEndpoints.MapReports(app);
