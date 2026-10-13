@@ -159,7 +159,54 @@ public class ProfileCommandTests
         Assert.Equal("Not set", card.Fields.Single(f => f.Name == "Pronouns").Value);
         Assert.Contains("Pottery", card.Fields.Single(f => f.Name == "Field 2").Value);
         Assert.Contains("Staff", card.Fields.Single(f => f.Name == "Field 2").Value);
-        Assert.Equal(["Edit", "Who sees what", "Findable: Off"], reply.Actions!.Select(a => a.Label));
+        Assert.Equal(["Edit", "Who sees what", "Findable: Off", "Spotlight: Off"], reply.Actions!.Select(a => a.Label));
+    }
+
+    [Fact]
+    public async Task TheSpotlightButtonFlipsTheSwitchAndRewritesTheCardWithTheNewState()
+    {
+        await using var services = await ServicesAsync();
+        await AddFieldsAsync(services, 1);
+        await AddMemberAsync(services, Ada, "Ada");
+
+        for (var times = 1; times <= 2; times++)
+        {
+            DiscordReply? updated = null;
+            var press = new DiscordButtonPress(
+                Ada,
+                "kiri",
+                ProfileCommand.SpotlightButton,
+                (_, _) => Task.CompletedTask,
+                update: (reply, _) =>
+                {
+                    updated = reply;
+                    return Task.CompletedTask;
+                });
+
+            using (var scope = services.Scope())
+                Assert.Null(await scope.ServiceProvider.GetRequiredService<ProfileCommand>().HandleButtonAsync(press, Ct));
+
+            Assert.Equal(times == 1 ? "Spotlight: On" : "Spotlight: Off", updated!.Actions!.Last().Label);
+
+            await using var db = services.Database.NewContext();
+            Assert.Equal(times == 1, await MemberProfiles.IsSpotlightAsync(db, Ada, Ct));
+        }
+    }
+
+    [Fact]
+    public async Task OnlyTheMemberWhoPressedSpotlightChangesTheirOwnSwitch_AndFindableIsLeftAlone()
+    {
+        await using var services = await ServicesAsync();
+        await AddFieldsAsync(services, 1);
+        await AddMemberAsync(services, Ada, "Ada");
+        await AddMemberAsync(services, Bea, "Bea");
+
+        await PressAsync(services, Ada, ProfileCommand.SpotlightButton);
+
+        await using var db = services.Database.NewContext();
+        Assert.True(await MemberProfiles.IsSpotlightAsync(db, Ada, Ct));
+        Assert.False(await MemberProfiles.IsSpotlightAsync(db, Bea, Ct));
+        Assert.False(await MemberProfiles.IsFindableAsync(db, Ada, Ct));
     }
 
     [Fact]
