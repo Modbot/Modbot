@@ -8,6 +8,7 @@ import {
   requestOf,
   vrchatAudience,
   BLUESKY_BYTE_LIMIT,
+  VRCHAT_TEXT_CEILING,
   type BlueskyPostPreview,
   type DiscordPostPreview,
   type PostInput,
@@ -142,7 +143,9 @@ export function VRChatPost({ post }: { post: VRChatPostPreview }) {
         )}
         {post.text && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{post.text}</p>}
       </article>
-      <span className="font-mono text-muted-foreground">{post.length}</span>
+      <span className={cn('font-mono', post.length > VRCHAT_TEXT_CEILING ? 'text-destructive' : 'text-muted-foreground')}>
+        {post.length}
+      </span>
     </section>
   )
 }

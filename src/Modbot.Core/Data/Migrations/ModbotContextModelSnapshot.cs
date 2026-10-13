@@ -7078,8 +7078,8 @@ namespace Modbot.Core.Data.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)")
                         .HasColumnName("text");
 
                     b.Property<string>("TimeZone")
@@ -7233,8 +7233,8 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("target");
 
                     b.Property<string>("TextOverride")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)")
                         .HasColumnName("text_override");
 
                     b.Property<string>("TitleOverride")

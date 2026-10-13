@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PostComposer } from '@/components/marketing/PostComposer'
+import { PostTextField } from '@/components/marketing/PostTextField'
 import { SpotlightChooser } from '@/components/marketing/SpotlightChooser'
 import { Outcome } from '@/components/settings/fields'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +11,6 @@ import { Chip } from '@/components/ui/chip'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api'
 import { dateTimeWithWeekday } from '@/lib/format'
 import { changesPosts } from '@/lib/liveRules'
@@ -20,9 +20,8 @@ import {
   canCancel,
   canEditWhole,
   canPostNow,
-  discordMessage,
+  discordLength,
   duplicateOf,
-  eventTextFor,
   inputFrom,
   LIST_LABEL,
   listAfterSave,
@@ -33,7 +32,8 @@ import {
   shownTone,
   tidy,
   vrchatAudience,
-  DISCORD_LIMIT,
+  vrchatLength,
+  POST_TITLE_MAX,
   type Post,
   type PostDestination,
   type PostInput,
@@ -445,12 +445,14 @@ function SiteEdit({
   onSaved: () => void
 }) {
   const [title, setTitle] = useState(destination.titleOverride ?? post.title ?? '')
-  const [text, setText] = useState(destination.textOverride ?? eventTextFor(destination.network, post.text))
+  // Starts from the stored text, marks and all, so PostTextField draws any event list as a card and
+  // no raw time code reaches the box.
+  const [text, setText] = useState(destination.textOverride ?? post.text)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const vrchat = destination.network === 'vrchat'
-  const length = vrchat ? tidy(text).length : discordMessage(title, text, destination.roleId).length
+  const count = vrchat ? vrchatLength(text) : discordLength(title, text, destination.roleId)
   const needsTitle = vrchat && !tidy(title)
 
   const save = () => {
@@ -488,20 +490,11 @@ function SiteEdit({
         <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
           <label className="flex flex-col gap-1">
             <span className="text-muted-foreground">Title</span>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input value={title} maxLength={POST_TITLE_MAX} onChange={(e) => setTitle(e.target.value)} />
             {needsTitle && <span className="text-destructive">Needs a title</span>}
           </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-muted-foreground">Text</span>
-            <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} />
-          </label>
-          {vrchat ? (
-            <span className="font-mono text-muted-foreground">VRChat {length}</span>
-          ) : (
-            <span className={cn('font-mono', length > DISCORD_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>
-              Discord {length} / {DISCORD_LIMIT}
-            </span>
-          )}
+          <PostTextField value={text} onChange={setText} timeZone={post.timeZone} canAddEvents={false} />
+          <span className={cn('font-mono', count.over ? 'text-destructive' : 'text-muted-foreground')}>{count.label}</span>
         </div>
       </DialogContent>
     </Dialog>
