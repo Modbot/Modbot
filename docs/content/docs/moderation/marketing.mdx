@@ -360,6 +360,31 @@ Modbot sends at most one post a pass to each site, every 20 seconds or so for Di
 VRChat and every 30 for Bluesky, and at most 10 posts an hour to each, so a mistake cannot flood a
 channel, a group or an account.
 
+### Live posts
+
+**Settings**, **Posts**, **Live posts** makes a "We're live" post in your VRChat group when somebody is in
+one of its instances. **Instances** picks which ones:
+
+- **Off**: none. It is off to start with.
+- **Calendar events**: an instance Modbot opened for a calendar event, and one in the world of an event
+  that is on.
+- **Any group instance**: every instance of your group.
+- **Opened from Modbot**: only an instance Modbot opened itself, on time or with **Open now**.
+
+Only an instance first seen after you chose a setting, and less than two hours ago, gets a post, and
+each instance gets one. The post is the instance's name, *... has started.* and its join link, for the
+group, with **Notify members** off.
+
+By default the post is a draft in **Drafts**, and the host is told on Discord with a link that opens it
+in the form. The host is the event's host, else the person who pressed **Open now**; if neither can
+manage posts, everyone who can is told, as their [notification settings](/accounts/notifications) allow. Edit it or
+**Post now**.
+
+**Post without a draft** posts at once instead, with no draft and no message.
+
+An event with **Announce in VRChat when the first person joins** ticked posts for itself, and gets no
+second post from here.
+
 ## Health
 
 The **Posts** card on **Health** shows:
