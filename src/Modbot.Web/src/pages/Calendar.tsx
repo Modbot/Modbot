@@ -521,10 +521,17 @@ export function Calendar({ me }: { me: CurrentUser }) {
                 className="flex min-h-(--row-h) items-center px-(--panel-pad) text-left hover:underline"
                 style={{ fontSize: 'var(--text-small)' }}
                 onClick={(e) =>
-                  setDetail({ id: d.id, start: new Date(d.startsAt), end: new Date(d.endsAt), spot: spotOf(e.currentTarget) })
+                  // The title, not the whole row: the row runs to the page's right edge, so a popup
+                  // placed beside it had no room and hung off the left.
+                  setDetail({
+                    id: d.id,
+                    start: new Date(d.startsAt),
+                    end: new Date(d.endsAt),
+                    spot: spotOf(e.currentTarget.firstElementChild ?? e.currentTarget),
+                  })
                 }
               >
-                {d.title}
+                <span>{d.title}</span>
               </button>
             ))}
           </div>
