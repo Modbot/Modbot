@@ -206,12 +206,20 @@ function NewType({ onChange }: { onChange: (next: DiscordTickets) => void }) {
       </div>
     )
 
+  const clear = () => {
+    setName('')
+    setStaffRoleId('')
+    setOpeningMessage('')
+    setHoldsPrivateImages(false)
+    setOpen(false)
+  }
+
   const add = () =>
     run(
       () =>
         api.addDiscordTicketType({ name, staffRoleId, openingMessage, holdsPrivateImages }).then((next) => {
           onChange(next)
-          setOpen(false)
+          clear()
         }),
       'Could not add.',
     )
@@ -229,7 +237,7 @@ function NewType({ onChange }: { onChange: (next: DiscordTickets) => void }) {
         <Button type="button" size="xs" onClick={add} disabled={busy}>
           {busy ? 'Adding…' : 'Add'}
         </Button>
-        <Button type="button" size="xs" variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+        <Button type="button" size="xs" variant="ghost" onClick={clear} disabled={busy}>
           Cancel
         </Button>
         <Outcome tone="problem">{problem}</Outcome>
