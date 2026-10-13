@@ -169,11 +169,10 @@ public sealed class AppealService
             _ => throw new AppealRefused(400, "Say whether it was upheld or turned down."),
         };
 
-        var appeal = await _db.Appeals.FirstOrDefaultAsync(a => a.Id == id, ct)
-            ?? throw new AppealRefused(404, "That appeal does not exist.");
+        var exists = await _db.Appeals.AsNoTracking().AnyAsync(a => a.Id == id, ct);
 
-        if (appeal.Outcome != AppealOutcome.Pending)
-            throw new AppealRefused(409, "That appeal was already decided.");
+        if (!exists)
+            throw new AppealRefused(404, "That appeal does not exist.");
 
         var (facts, partitions) = Writer();
         var now = _clock.UtcNow;
@@ -181,12 +180,23 @@ public sealed class AppealService
         await partitions.EnsureForAsync(now, ct);
         await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
-        appeal.Outcome = outcome;
-        appeal.DecidedAt = now;
-        appeal.DecidedByUserId = caller.UserId;
-        appeal.DecidedByUsername = caller.Username;
+        // One statement that only matches a waiting appeal: two people deciding at the same time
+        // cannot both win, because the second waits for the first to finish and then finds
+        // nothing left to change. No decision fact is written for the one that loses.
+        var changed = await _db.Appeals
+            .Where(a => a.Id == id && a.Outcome == AppealOutcome.Pending)
+            .ExecuteUpdateAsync(
+                u => u
+                    .SetProperty(a => a.Outcome, outcome)
+                    .SetProperty(a => a.DecidedAt, now)
+                    .SetProperty(a => a.DecidedByUserId, caller.UserId)
+                    .SetProperty(a => a.DecidedByUsername, caller.Username),
+                ct);
 
-        await _db.SaveChangesAsync(ct);
+        if (changed == 0)
+            throw new AppealRefused(409, "That appeal was already decided.");
+
+        var appeal = await _db.Appeals.AsNoTracking().FirstAsync(a => a.Id == id, ct);
 
         var word = outcome == AppealOutcome.Upheld ? Upheld : TurnedDown;
 

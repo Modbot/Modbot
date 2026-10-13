@@ -394,10 +394,11 @@ public static class AuditVisibility
         [FactType.WatchStarted] = AuditCategory.Moderation,
         [FactType.WatchEnded] = AuditCategory.Moderation,
 
+        [FactType.WatchFollowedUp] = AuditCategory.Moderation,
+
         // An appeal is moderation history about the person who made it, like a note.
         [FactType.AppealLogged] = AuditCategory.Moderation,
         [FactType.AppealDecided] = AuditCategory.Moderation,
-        [FactType.WatchFollowedUp] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
 
         // Giveaways: a Modbot feature Modbot runs itself, gated by its own ViewGiveaways and

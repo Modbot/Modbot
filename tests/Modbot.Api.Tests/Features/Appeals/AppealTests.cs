@@ -217,6 +217,27 @@ public class AppealTests
     }
 
     [Fact]
+    public async Task Deciding_AtTheSameTime_LetsOneWin_AndWritesOneFact()
+    {
+        await using var host = await ReadyAsync();
+        var staff = await host.SignedInAsync(Staff, Ct);
+        var appeal = await LoggedAsync(host, staff);
+
+        var both = await Task.WhenAll(
+            DecideAsync(host, staff, appeal.Id, "upheld"),
+            DecideAsync(host, staff, appeal.Id, "turned-down"));
+
+        Assert.Single(both, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Single(both, r => r.StatusCode == HttpStatusCode.Conflict);
+
+        var winner = await ReadAsync<AppealView>(both.Single(r => r.StatusCode == HttpStatusCode.OK));
+        var read = await host.GetJsonAsync<AppealList>($"/api/appeals?userId={Person}", staff, Ct);
+        Assert.Equal(winner.Outcome, Assert.Single(read.Appeals).Outcome);
+
+        Assert.Single(await FactsAsync(host, FactType.AppealDecided));
+    }
+
+    [Fact]
     public async Task Deciding_NeedsUnban_AndNeedsAnOutcomeAndAnAppeal()
     {
         await using var host = await ReadyAsync();

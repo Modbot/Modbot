@@ -262,6 +262,7 @@ say which ban it lifts; the overturn rate on Stats → Moderation reads these fa
 - Automated moderation. Modbot does not ban anyone by itself at any point in M4. Detection surfaces
   things for humans; humans act. (Automated flagging arrives at M8 and is still advisory.)
 - Appeals as a user-facing portal. Reversal exists; a public appeals workflow does not.
+  Update 2026-10-13: staff-logged appeals (no public portal) now exist; see `.agent/research/2026-10-13-thy-kingdom-ideas-batch-3.md`, step G.
 - Cross-group action. Federation is M8.
 - Editing or deleting facts. The log is append-only.
 
