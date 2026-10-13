@@ -70,6 +70,15 @@ public class DiscordRolePair
     /// <summary>Off leaves the pair recorded and stops Modbot looking at it.</summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    /// What the group calls this level, in its own words ("Owner", "Moderator", "Member"), or null
+    /// for none. Free text: Modbot never reads it, it only groups the out of step list.
+    /// </summary>
+    public string? Rank { get; set; }
+
+    /// <summary>The longest a <see cref="Rank"/> may be.</summary>
+    public const int RankMaxLength = 60;
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }

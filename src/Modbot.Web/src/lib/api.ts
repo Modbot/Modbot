@@ -458,6 +458,8 @@ export type RolePair = {
   decides: string
   enabled: boolean
   botCanAssign: boolean
+  /** The group's own name for this level ("Owner", "Moderator"), or null. */
+  rank: string | null
   problem: string | null
 }
 
@@ -494,7 +496,25 @@ export type RolePairInput = {
   discordRoleId: string
   decides: string
   enabled: boolean
+  /** Blank or null clears it. */
+  rank?: string | null
 }
+
+/** One linked person whose group role and Discord role disagree on one pair. */
+export type OutOfStepMember = {
+  vrchatUserId: string | null
+  discordUserId: string | null
+  name: string | null
+  vrchatRoleName: string | null
+  discordRoleName: string | null
+  /** vrchat or discord: where they hold the role. */
+  heldIn: string
+}
+
+/** The people out of step on the pairs with one rank. A null rank is the pairs with none. */
+export type OutOfStepRank = { rank: string | null; members: OutOfStepMember[] }
+
+export type OutOfStep = { total: number; ranks: OutOfStepRank[] }
 
 /** One Discord role that gives one Modbot role (staff roles from Discord). */
 export type StaffRoleMapping = {
@@ -5064,6 +5084,9 @@ export const api = {
 
   /** Copies the roles and bans that are already different. */
   runDiscordSync: () => post<SyncPreview>('/api/discord-sync/run'),
+
+  /** Linked members whose group and Discord roles disagree on a pair, grouped by rank. */
+  outOfStep: () => request<OutOfStep>('/api/discord-sync/out-of-step'),
 
   staffRoles: () => request<StaffRolesSettings>('/api/staff-roles'),
 

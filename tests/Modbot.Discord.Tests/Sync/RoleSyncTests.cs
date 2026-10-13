@@ -118,6 +118,68 @@ public class RoleSyncTests
         Assert.Single(await services.FactsOfTypeAsync(FactType.RolesDisagree, Ct));
     }
 
+    /// <summary>The out of step list says who holds what where, with the pair's rank, and does nothing else.</summary>
+    [Fact]
+    public async Task OutOfStepListsALinkedPersonWithTheirRank_AndChangesNothing()
+    {
+        await using var services = await OnAsync(_db);
+        await SyncSetUp.PairAsync(services, RoleSyncDecides.VRChat, Ct, rank: "Moderator");
+        await SyncSetUp.LinkAsync(services, Person, Discord, inGroup: [SyncSetUp.GroupRole], inServer: [], ct: Ct);
+
+        var list = await SyncSetUp.OutOfStepAsync(services, Ct);
+
+        Assert.Equal(1, list.Total);
+        var member = Assert.Single(list.Members);
+        Assert.Equal("Moderator", member.Rank);
+        Assert.Equal(Person, member.VRChatUserId);
+        Assert.Equal(Discord, member.DiscordUserId);
+        Assert.Equal(SyncPlatforms.VRChat, member.HeldIn);
+        Assert.Equal("Staff", member.VRChatRoleName);
+        Assert.Equal("Staff", member.DiscordRoleName);
+
+        Assert.Empty(services.VRChat.Actions);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.RolesDisagree, Ct));
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.CopiedRoleGiven, Ct));
+    }
+
+    [Fact]
+    public async Task OutOfStepNamesTheSideThatHoldsTheRole()
+    {
+        await using var services = await OnAsync(_db);
+        await SyncSetUp.PairAsync(services, RoleSyncDecides.Nobody, Ct);
+        await SyncSetUp.LinkAsync(services, Person, Discord, inGroup: [], inServer: [SyncSetUp.DiscordRole], ct: Ct);
+
+        var member = Assert.Single((await SyncSetUp.OutOfStepAsync(services, Ct)).Members);
+
+        Assert.Null(member.Rank);
+        Assert.Equal(SyncPlatforms.Discord, member.HeldIn);
+    }
+
+    /// <summary>Agreement, no link and a pair switched off are none of the list's business.</summary>
+    [Fact]
+    public async Task OutOfStepIsEmptyWhenEveryoneAgrees_IsNotLinked_OrThePairIsOff()
+    {
+        await using var services = await OnAsync(_db);
+        await SyncSetUp.PairAsync(services, RoleSyncDecides.Nobody, Ct, rank: "Member");
+        await SyncSetUp.LinkAsync(
+            services, Person, Discord, inGroup: [SyncSetUp.GroupRole], inServer: [SyncSetUp.DiscordRole], ct: Ct);
+        await SyncSetUp.UnlinkedMemberAsync(services, "6001", [SyncSetUp.DiscordRole], Ct);
+
+        Assert.Equal(0, (await SyncSetUp.OutOfStepAsync(services, Ct)).Total);
+
+        await SyncSetUp.SetServerRolesAsync(services, Discord, [], Ct);
+        Assert.Equal(1, (await SyncSetUp.OutOfStepAsync(services, Ct)).Total);
+
+        await using (var db = services.Database.NewContext())
+        {
+            await db.DiscordRolePairs.ExecuteUpdateAsync(u => u.SetProperty(p => p.Enabled, false), Ct);
+        }
+
+        var off = await SyncSetUp.OutOfStepAsync(services, Ct);
+        Assert.Equal(0, off.Total);
+        Assert.Empty(off.Members);
+    }
+
     [Fact]
     public async Task AMemberWithNoLinkIsNeverTouched()
     {

@@ -45,6 +45,24 @@ public sealed record RoleSyncPass(
     string? Problem,
     IReadOnlyList<PlannedChange> Changes);
 
+/// <summary>One linked person whose group role and Discord role disagree on one pair.</summary>
+/// <param name="Rank">The pair's rank label, or null when it has none.</param>
+/// <param name="VRChatRoleName">The paired group role's name.</param>
+/// <param name="DiscordRoleName">The paired Discord role's name.</param>
+/// <param name="HeldIn">Which platform they hold the role on, from <see cref="SyncPlatforms"/>.</param>
+public sealed record OutOfStepMember(
+    string? Rank,
+    string? VRChatUserId,
+    string? DiscordUserId,
+    string? Name,
+    string? VRChatRoleName,
+    string? DiscordRoleName,
+    string HeldIn);
+
+/// <summary>Everyone out of step, in pair order.</summary>
+/// <param name="Total">Every person found, even if <see cref="Members"/> was cut short.</param>
+public sealed record OutOfStepList(int Total, IReadOnlyList<OutOfStepMember> Members);
+
 /// <summary>What one ban sync pass did.</summary>
 /// <param name="Copied">Bans, unbans and removals copied to the other platform.</param>
 /// <param name="Dropped">Events recognised as Modbot's own copies coming back, and left alone.</param>
@@ -96,6 +114,12 @@ public interface IDiscordSyncRunner
     /// with, which the minute-by-minute passes deliberately never touch.
     /// </summary>
     Task<SyncPreview> CatchUpAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Linked members whose group roles and Discord roles disagree on a paired role, read from
+    /// what Modbot has stored. Changes nothing and asks neither platform anything.
+    /// </summary>
+    Task<OutOfStepList> OutOfStepAsync(CancellationToken ct = default);
 }
 
 /// <summary>A process with no Discord bot. There is nothing to work out and nothing to run.</summary>
@@ -108,4 +132,7 @@ public sealed class NoDiscordSyncRunner : IDiscordSyncRunner
 
     public Task<SyncPreview> CatchUpAsync(CancellationToken ct = default)
         => Task.FromResult(new SyncPreview(0, [], NoBot));
+
+    public Task<OutOfStepList> OutOfStepAsync(CancellationToken ct = default)
+        => Task.FromResult(new OutOfStepList(0, []));
 }

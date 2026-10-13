@@ -15,6 +15,7 @@ using Modbot.VRChat.Sync;
 namespace Modbot.Api.Features.DiscordSync;
 
 /// <param name="Decides">vrchat, discord or nobody.</param>
+/// <param name="Rank">The group's own name for this level, or null.</param>
 /// <param name="Problem">The last change this pair asked for that was refused.</param>
 public sealed record RolePairView(
     Guid Id,
@@ -25,6 +26,7 @@ public sealed record RolePairView(
     string Decides,
     bool Enabled,
     bool BotCanAssign,
+    string? Rank,
     string? Problem);
 
 /// <param name="BanSyncFromBots">
@@ -62,7 +64,24 @@ public sealed record DiscordSyncSettingsUpdate(
     string? BanCopyAction,
     bool? BanSyncFromBots = null);
 
-public sealed record RolePairUpdate(string VRChatRoleId, string DiscordRoleId, string Decides, bool Enabled);
+/// <param name="Rank">Free text, up to 60 characters. Blank clears it.</param>
+public sealed record RolePairUpdate(string VRChatRoleId, string DiscordRoleId, string Decides, bool Enabled, string? Rank = null);
+
+/// <summary>One person out of step on one pair.</summary>
+/// <param name="HeldIn">vrchat or discord: where they hold the role.</param>
+public sealed record OutOfStepMemberView(
+    string? VRChatUserId,
+    string? DiscordUserId,
+    string? Name,
+    string? VRChatRoleName,
+    string? DiscordRoleName,
+    string HeldIn);
+
+/// <summary>The people out of step on the pairs with one rank. A null rank is the pairs with none.</summary>
+public sealed record OutOfStepRankView(string? Rank, IReadOnlyList<OutOfStepMemberView> Members);
+
+/// <param name="Total">Everyone found, even if the groups were cut short.</param>
+public sealed record OutOfStepView(int Total, IReadOnlyList<OutOfStepRankView> Ranks);
 
 /// <summary>One change a sync would make, for the screen.</summary>
 public sealed record PlannedChangeView(
@@ -229,6 +248,7 @@ public static class DiscordSyncEndpoints
                     DiscordRoleId = discordRoleId,
                     Decides = body.Decides,
                     Enabled = body.Enabled,
+                    Rank = CleanRank(body.Rank),
                     CreatedAt = now,
                     UpdatedAt = now,
                 };
@@ -302,6 +322,7 @@ public static class DiscordSyncEndpoints
                 pair.DiscordRoleId = discordRoleId;
                 pair.Decides = body.Decides;
                 pair.Enabled = body.Enabled;
+                pair.Rank = CleanRank(body.Rank);
                 pair.UpdatedAt = clock.UtcNow;
                 pair.Problem = null;
 
@@ -365,6 +386,16 @@ public static class DiscordSyncEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
 
+        group.MapGet("/out-of-step", async (
+                [FromServices] IDiscordSyncRunner runner,
+                CancellationToken ct) => Results.Ok(GroupByRank(await runner.OutOfStepAsync(ct))))
+            .WithName("GetOutOfStep")
+            .WithSummary("Get who is out of step")
+            .WithDescription("Linked members whose group roles and Discord roles disagree on a paired role, grouped by rank. Changes nothing.")
+            .Produces<OutOfStepView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageDiscordSync);
+
         group.MapPost("/run", async (
                 [FromServices] IDiscordSyncRunner runner,
                 CancellationToken ct) => Results.Ok(View(await runner.CatchUpAsync(ct))))
@@ -385,7 +416,32 @@ public static class DiscordSyncEndpoints
     /// <summary>One pair in the words the audit log shows: "Staff with Staff, decided by vrchat, on".</summary>
     private static string Describe(DiscordRolePair pair)
         => $"{pair.VRChatRoleName ?? pair.VRChatRoleId} with {pair.DiscordRoleName ?? pair.DiscordRoleId}, "
-           + $"decided by {pair.Decides}, {(pair.Enabled ? "on" : "off")}";
+           + $"decided by {pair.Decides}, {(pair.Enabled ? "on" : "off")}"
+           + (pair.Rank is null ? "" : $", rank {pair.Rank}");
+
+    private static string? CleanRank(string? rank) => string.IsNullOrWhiteSpace(rank) ? null : rank.Trim();
+
+    /// <summary>
+    /// Groups the people by rank label, in the order the ranks first appear (the order their pairs
+    /// were made), with the people on pairs that have no rank last. Labels that differ only in
+    /// capital letters are one group.
+    /// </summary>
+    private static OutOfStepView GroupByRank(OutOfStepList list)
+    {
+        var ranks = list.Members
+            .GroupBy(m => m.Rank ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .Select((g, index) => (Order: g.Key.Length == 0 ? int.MaxValue : index, Group: g))
+            .OrderBy(x => x.Order)
+            .Select(x => new OutOfStepRankView(
+                x.Group.Key.Length == 0 ? null : x.Group.First().Rank,
+                x.Group
+                    .Select(m => new OutOfStepMemberView(
+                        m.VRChatUserId, m.DiscordUserId, m.Name, m.VRChatRoleName, m.DiscordRoleName, m.HeldIn))
+                    .ToList()))
+            .ToList();
+
+        return new OutOfStepView(list.Total, ranks);
+    }
 
     private static string? Refuse(RolePairUpdate body)
     {
@@ -397,6 +453,9 @@ public static class DiscordSyncEndpoints
 
         if (!RoleSyncDecides.IsKnown(body.Decides))
             return "A pair is decided by VRChat, by Discord, or by nobody.";
+
+        if (CleanRank(body.Rank) is { Length: > DiscordRolePair.RankMaxLength })
+            return $"A rank can be at most {DiscordRolePair.RankMaxLength} characters.";
 
         return null;
     }
@@ -484,6 +543,7 @@ public static class DiscordSyncEndpoints
                     p.Decides,
                     p.Enabled,
                     role?.BotCanAssign ?? false,
+                    p.Rank,
                     p.Problem))
                 .ToList(),
             (snapshot?.Roles ?? [])

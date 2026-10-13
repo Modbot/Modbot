@@ -14270,6 +14270,56 @@
         ]
       }
     },
+    "/api/discord-sync/out-of-step": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get who is out of step",
+        "description": "Linked members whose group roles and Discord roles disagree on a paired role, grouped by rank. Changes nothing.\n\nNeeds the `ManageDiscordSync` permission.",
+        "operationId": "GetOutOfStep",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutOfStepView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-sync/run": {
       "post": {
         "tags": [
@@ -52682,6 +52732,92 @@
           }
         }
       },
+      "OutOfStepMemberView": {
+        "required": [
+          "vrChatUserId",
+          "discordUserId",
+          "name",
+          "vrChatRoleName",
+          "discordRoleName",
+          "heldIn"
+        ],
+        "type": "object",
+        "properties": {
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "heldIn": {
+            "type": "string"
+          }
+        }
+      },
+      "OutOfStepRankView": {
+        "required": [
+          "rank",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutOfStepMemberView"
+            }
+          }
+        }
+      },
+      "OutOfStepView": {
+        "required": [
+          "total",
+          "ranks"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ranks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OutOfStepRankView"
+            }
+          }
+        }
+      },
       "PeakCount": {
         "required": [
           "value",
@@ -56036,6 +56172,12 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "rank": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -56049,6 +56191,7 @@
           "decides",
           "enabled",
           "botCanAssign",
+          "rank",
           "problem"
         ],
         "type": "object",
@@ -56083,6 +56226,12 @@
           },
           "botCanAssign": {
             "type": "boolean"
+          },
+          "rank": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "problem": {
             "type": [

@@ -4,8 +4,17 @@ import { Picker } from '@/components/discord/Picker'
 import { RolePicker } from '@/components/discord/RolePicker'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type DiscordSyncSettings, type PlannedChange, type RolePair, type SyncPreview } from '@/lib/api'
-import { ConfirmButton, Fact, Outcome, Switch } from '../fields'
+import { Input } from '@/components/ui/input'
+import {
+  api,
+  ApiError,
+  type DiscordSyncSettings,
+  type OutOfStep,
+  type PlannedChange,
+  type RolePair,
+  type SyncPreview,
+} from '@/lib/api'
+import { ConfirmButton, Fact, Field, Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 import { dateTime } from '@/components/charts/format'
 
@@ -69,6 +78,7 @@ function SyncForm({
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [preview, setPreview] = useState<SyncPreview | null>(null)
+  const [outOfStep, setOutOfStep] = useState<OutOfStep | null>(null)
   // "Copy what is different" bans, unbans and removes on both platforms, so its first press only
   // shows what would change, and a second, red one copies it (settings review 2026-09-27 §4).
   const [copying, setCopying] = useState(false)
@@ -101,10 +111,25 @@ function SyncForm({
     setSaved(false)
     setProblem(null)
     setPreview(null)
+    setOutOfStep(null)
 
     ;(apply ? api.runDiscordSync() : api.previewDiscordSync())
       .then(setPreview)
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not work out what would change.'))
+      .finally(() => setBusy(false))
+  }
+
+  const lookOutOfStep = () => {
+    setBusy(true)
+    setSaved(false)
+    setProblem(null)
+    setPreview(null)
+    setOutOfStep(null)
+
+    api
+      .outOfStep()
+      .then(setOutOfStep)
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not work out who is out of step.'))
       .finally(() => setBusy(false))
   }
 
@@ -133,6 +158,9 @@ function SyncForm({
           </Button>
           <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => look(false)}>
             Show what would change
+          </Button>
+          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={lookOutOfStep}>
+            Show who is out of step
           </Button>
           {copying ? (
             <>
@@ -211,6 +239,7 @@ function SyncForm({
       <Pairs settings={settings} busy={busy} onChanged={after} onProblem={setProblem} />
 
       {preview && <Preview preview={preview} />}
+      {outOfStep && <OutOfStepList outOfStep={outOfStep} />}
     </SettingsCard>
   )
 }
@@ -229,6 +258,7 @@ function Pairs({
   const [vrchatRoleId, setVRChatRoleId] = useState('')
   const [discordRoleId, setDiscordRoleId] = useState('')
   const [decides, setDecides] = useState('nobody')
+  const [rank, setRank] = useState('')
 
   const act = (work: () => Promise<DiscordSyncSettings>) => {
     onProblem(null)
@@ -276,6 +306,7 @@ function Pairs({
           error={null}
         />
         <RolePicker label="Discord role" value={discordRoleId} onChange={setDiscordRoleId} needsAssign />
+        <Field label="Rank" value={rank} onChange={setRank} maxLength={60} placeholder="" />
         <Picker
           label="Who decides"
           value={decides}
@@ -292,9 +323,10 @@ function Pairs({
             variant="outline"
             disabled={busy || !vrchatRoleId || !discordRoleId}
             onClick={() => {
-              act(() => api.addRolePair({ vrchatRoleId, discordRoleId, decides, enabled: true }))
+              act(() => api.addRolePair({ vrchatRoleId, discordRoleId, decides, enabled: true, rank }))
               setVRChatRoleId('')
               setDiscordRoleId('')
+              setRank('')
             }}
           >
             Pair these roles
@@ -313,7 +345,13 @@ function PairRow({
 }: {
   pair: RolePair
   busy: boolean
-  onSave: (body: { vrchatRoleId: string; discordRoleId: string; decides: string; enabled: boolean }) => void
+  onSave: (body: {
+    vrchatRoleId: string
+    discordRoleId: string
+    decides: string
+    enabled: boolean
+    rank: string | null
+  }) => void
   onDelete: () => void
 }) {
   const body = (changes: Partial<RolePair>) => ({
@@ -321,6 +359,7 @@ function PairRow({
     discordRoleId: pair.discordRoleId,
     decides: changes.decides ?? pair.decides,
     enabled: changes.enabled ?? pair.enabled,
+    rank: changes.rank === undefined ? pair.rank : changes.rank,
   })
 
   return (
@@ -328,6 +367,20 @@ function PairRow({
       <span className="min-w-0 flex-1 truncate" style={{ fontSize: 'var(--text-small)' }}>
         {pair.vrchatRoleName ?? pair.vrchatRoleId} → {pair.discordRoleName ?? pair.discordRoleId}
       </span>
+
+      <Input
+        key={pair.rank ?? ''}
+        aria-label="Rank"
+        placeholder="Rank"
+        maxLength={60}
+        className="w-36"
+        defaultValue={pair.rank ?? ''}
+        disabled={busy}
+        onBlur={(e) => {
+          const rank = e.target.value.trim()
+          if (rank !== (pair.rank ?? '')) onSave(body({ rank: rank || null }))
+        }}
+      />
 
       <Picker
         label="Who decides"
@@ -369,6 +422,33 @@ function Preview({ preview }: { preview: SyncPreview }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+function OutOfStepList({ outOfStep }: { outOfStep: OutOfStep }) {
+  if (outOfStep.ranks.length === 0) return <Fact label="Out of step" value="Nobody" />
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Fact label="Out of step" value={outOfStep.total.toString()} mono />
+      {outOfStep.ranks.map((group) => (
+        <div key={group.rank ?? ''} className="flex flex-col gap-1">
+          <h4 className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
+            {group.rank ?? 'No rank'}
+          </h4>
+          <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
+            {group.members.map((member, index) => (
+              <li key={index} style={{ fontSize: 'var(--text-small)' }}>
+                {member.name ?? member.vrchatUserId ?? member.discordUserId ?? 'Somebody'} —{' '}
+                {member.heldIn === 'vrchat'
+                  ? `${member.vrchatRoleName ?? 'the group role'} in the group, not in Discord`
+                  : `${member.discordRoleName ?? 'the Discord role'} in Discord, not in the group`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   )
 }

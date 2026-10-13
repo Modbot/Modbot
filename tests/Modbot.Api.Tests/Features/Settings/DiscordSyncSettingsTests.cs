@@ -152,6 +152,71 @@ public class DiscordSyncSettingsTests
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
     }
 
+    /// <summary>
+    /// A rank is free text on the pair: it is trimmed, a blank one clears it, and it has a limit.
+    /// </summary>
+    [Fact]
+    public async Task APairKeepsItsRank_TrimmedAndClearedWhenBlank()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageDiscordSync, Ct);
+
+        await ServerAsync(host, manageRoles: true, banMembers: true, removeMembers: true, Ct);
+
+        static JsonElement OnlyPair(string json) => JsonDocument.Parse(json).RootElement.GetProperty("pairs")[0].Clone();
+
+        var added = await host.SendJsonAsync(
+            HttpMethod.Post,
+            Path + "/pairs",
+            new { vrchatRoleId = "grol_staff", discordRoleId = "801", decides = "vrchat", enabled = true, rank = "  Moderator " },
+            cookie,
+            Ct);
+        Assert.Equal(HttpStatusCode.OK, added.StatusCode);
+
+        var pair = OnlyPair(await added.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("Moderator", pair.GetProperty("rank").GetString());
+
+        var id = pair.GetProperty("id").GetGuid();
+
+        var cleared = await host.SendJsonAsync(
+            HttpMethod.Put,
+            Path + "/pairs/" + id,
+            new { vrchatRoleId = "grol_staff", discordRoleId = "801", decides = "vrchat", enabled = true, rank = " " },
+            cookie,
+            Ct);
+        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        Assert.Equal(JsonValueKind.Null, OnlyPair(await cleared.Content.ReadAsStringAsync(Ct)).GetProperty("rank").ValueKind);
+
+        var tooLong = await host.SendJsonAsync(
+            HttpMethod.Put,
+            Path + "/pairs/" + id,
+            new { vrchatRoleId = "grol_staff", discordRoleId = "801", decides = "vrchat", enabled = true, rank = new string('x', 61) },
+            cookie,
+            Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+    }
+
+    [Fact]
+    public async Task TheOutOfStepListNeedsManageDiscordSync_AndIsEmptyWhenNobodyIsLinked()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+
+        var (_, nobody) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.SendJsonAsync(HttpMethod.Get, Path + "/out-of-step", null, nobody, Ct)).StatusCode);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageDiscordSync, Ct);
+        var response = await host.SendJsonAsync(HttpMethod.Get, Path + "/out-of-step", null, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct)).RootElement;
+        Assert.Equal(0, body.GetProperty("total").GetInt32());
+        Assert.Equal(0, body.GetProperty("ranks").GetArrayLength());
+    }
+
     [Fact]
     public async Task APairNeedsAKnownSideToDecideIt()
     {

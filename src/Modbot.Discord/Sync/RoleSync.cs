@@ -144,30 +144,7 @@ public sealed class RoleSync
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
 
-        // Everybody whose two accounts are proved to be the same person, who is still in the group
-        // and still in the server. Everyone else is left alone -- which is nearly everyone.
-        var people = await _db.DiscordAccountLinks.AsNoTracking()
-            .Where(l => l.UnlinkedAt == null)
-            .Join(
-                _db.GroupMembers.AsNoTracking().Where(m => m.GroupId == groupId && m.LeftAt == null),
-                l => l.VRChatUserId,
-                m => m.UserId,
-                (l, m) => new { Link = l, GroupRoles = m.Roles })
-            .Join(
-                _db.DiscordMembers.AsNoTracking().Where(m => m.GuildId == guildId && m.LeftAt == null),
-                x => x.Link.DiscordUserId,
-                m => m.UserId,
-                (x, m) => new
-                {
-                    x.Link.VRChatUserId,
-                    x.Link.DiscordUserId,
-                    x.Link.VRChatDisplayName,
-                    DiscordName = m.DisplayName,
-                    x.GroupRoles,
-                    DiscordRoles = m.Roles,
-                })
-            .ToListAsync(ct)
-            .ConfigureAwait(false);
+        var people = await LinkedPeopleAsync(guildId, groupId, ct).ConfigureAwait(false);
 
         var saidRecently = await SaidRecentlyAsync(ct).ConfigureAwait(false);
 
@@ -244,6 +221,109 @@ public sealed class RoleSync
 
         return new RoleSyncPass(tally.Found, tally.Given, tally.Taken, tally.Disagreed, tally.Left, tally.Problem, changes);
     }
+
+    // ── Who is out of step ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Everybody linked on both sides whose group roles and Discord roles disagree on an enabled
+    /// pair, with the pair's rank. Changes nothing and asks neither platform anything: it is the
+    /// comparison a pass makes, read from what Modbot has stored.
+    /// </summary>
+    /// <remarks>
+    /// Ordered by pair, in the order the pairs were made, then by name, so the screen's groups come
+    /// out in a steady order. Only the first <see cref="MaxListed"/> are returned; the count is of
+    /// every one.
+    /// </remarks>
+    public async Task<OutOfStepList> OutOfStepAsync(CancellationToken ct)
+    {
+        var settings = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.DiscordGuildId, s.ManagedGroupId })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (Blank(settings?.DiscordGuildId) is not { } guildId || Blank(settings?.ManagedGroupId) is not { } groupId)
+            return new OutOfStepList(0, []);
+
+        var pairs = await _db.DiscordRolePairs.AsNoTracking()
+            .Where(p => p.Enabled)
+            .OrderBy(p => p.CreatedAt)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (pairs.Count == 0)
+            return new OutOfStepList(0, []);
+
+        var discordRoles = await _db.DiscordRoles.AsNoTracking()
+            .Where(r => r.GuildId == guildId)
+            .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
+            .ConfigureAwait(false);
+
+        var people = await LinkedPeopleAsync(guildId, groupId, ct).ConfigureAwait(false);
+        var held = people.Select(p => (Person: p, InGroup: Ids(p.GroupRoles), InServer: Ids(p.DiscordRoles))).ToList();
+
+        var found = new List<OutOfStepMember>();
+
+        foreach (var pair in pairs)
+        {
+            var rows = new List<OutOfStepMember>();
+
+            foreach (var (person, inGroupRoles, inServerRoles) in held)
+            {
+                var inGroup = inGroupRoles.Contains(pair.VRChatRoleId);
+
+                if (inGroup == inServerRoles.Contains(pair.DiscordRoleId))
+                    continue;
+
+                rows.Add(new OutOfStepMember(
+                    pair.Rank,
+                    person.VRChatUserId,
+                    person.DiscordUserId,
+                    person.VRChatDisplayName ?? person.DiscordName,
+                    pair.VRChatRoleName,
+                    NameOf(pair, discordRoles),
+                    inGroup ? SyncPlatforms.VRChat : SyncPlatforms.Discord));
+            }
+
+            found.AddRange(rows.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase));
+        }
+
+        return new OutOfStepList(found.Count, found.Take(MaxListed).ToList());
+    }
+
+    /// <summary>
+    /// Everybody whose two accounts are proved to be the same person, who is still in the group
+    /// and still in the server. Everyone else is left alone -- which is nearly everyone.
+    /// </summary>
+    private async Task<List<LinkedPerson>> LinkedPeopleAsync(string guildId, string groupId, CancellationToken ct)
+        => await _db.DiscordAccountLinks.AsNoTracking()
+            .Where(l => l.UnlinkedAt == null)
+            .Join(
+                _db.GroupMembers.AsNoTracking().Where(m => m.GroupId == groupId && m.LeftAt == null),
+                l => l.VRChatUserId,
+                m => m.UserId,
+                (l, m) => new { Link = l, GroupRoles = m.Roles })
+            .Join(
+                _db.DiscordMembers.AsNoTracking().Where(m => m.GuildId == guildId && m.LeftAt == null),
+                x => x.Link.DiscordUserId,
+                m => m.UserId,
+                (x, m) => new LinkedPerson(
+                    x.Link.VRChatUserId,
+                    x.Link.DiscordUserId,
+                    x.Link.VRChatDisplayName,
+                    m.DisplayName,
+                    x.GroupRoles,
+                    m.Roles))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+    private sealed record LinkedPerson(
+        string VRChatUserId,
+        string DiscordUserId,
+        string? VRChatDisplayName,
+        string? DiscordName,
+        string GroupRoles,
+        string DiscordRoles);
 
     // ── One change ─────────────────────────────────────────────────────────────────────────
 

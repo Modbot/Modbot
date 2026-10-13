@@ -1635,6 +1635,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatRoleId).HasColumnType("text");
             entity.Property(e => e.DiscordRoleId).HasColumnType("text");
             entity.Property(e => e.Decides).HasMaxLength(16);
+            entity.Property(e => e.Rank).HasMaxLength(DiscordRolePair.RankMaxLength);
             entity.Property(e => e.Problem).HasMaxLength(1000);
 
             // One pair per VRChat role and one per Discord role. Two pairs naming the same role

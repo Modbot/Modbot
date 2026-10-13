@@ -3086,6 +3086,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("problem");
 
+                    b.Property<string>("Rank")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("rank");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");

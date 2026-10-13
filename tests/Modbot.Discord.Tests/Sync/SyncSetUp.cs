@@ -139,7 +139,8 @@ internal static class SyncSetUp
         await db.SaveChangesAsync(ct);
     }
 
-    public static async Task PairAsync(TestServices services, string decides, CancellationToken ct)
+    public static async Task PairAsync(
+        TestServices services, string decides, CancellationToken ct, string? rank = null)
     {
         await using var db = services.Database.NewContext();
 
@@ -151,6 +152,7 @@ internal static class SyncSetUp
             DiscordRoleName = "Staff",
             Decides = decides,
             Enabled = true,
+            Rank = rank,
             CreatedAt = services.Clock.UtcNow,
             UpdatedAt = services.Clock.UtcNow,
         });
@@ -253,6 +255,12 @@ internal static class SyncSetUp
     {
         using var scope = services.Scope();
         return await scope.ServiceProvider.GetRequiredService<RoleSync>().RunAsync(gateway, apply, ct);
+    }
+
+    public static async Task<OutOfStepList> OutOfStepAsync(TestServices services, CancellationToken ct)
+    {
+        using var scope = services.Scope();
+        return await scope.ServiceProvider.GetRequiredService<RoleSync>().OutOfStepAsync(ct);
     }
 
     public static async Task<BanSyncPass> BanPassAsync(TestServices services, FakeGateway? gateway, CancellationToken ct)

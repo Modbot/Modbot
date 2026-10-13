@@ -30,6 +30,13 @@ public sealed class DiscordSyncRunner : IDiscordSyncRunner
 
     public Task<SyncPreview> CatchUpAsync(CancellationToken ct = default) => BothAsync(apply: true, ct);
 
+    public async Task<OutOfStepList> OutOfStepAsync(CancellationToken ct = default)
+    {
+        using var scope = _scopes.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<RoleSync>().OutOfStepAsync(ct).ConfigureAwait(false);
+    }
+
     private async Task<SyncPreview> BothAsync(bool apply, CancellationToken ct)
     {
         using var scope = _scopes.CreateScope();
