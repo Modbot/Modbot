@@ -27982,7 +27982,7 @@
           "Calendar templates"
         ],
         "summary": "List event templates",
-        "description": "Every template by name, with the event fields it fills in. Needs Manage calendar or Manage templates; canManage says whether the caller may also change them.",
+        "description": "Every template by name, with the event fields it fills in. Needs Manage calendar or Manage templates; canManage says whether the caller may also change them.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarTemplates",
         "responses": {
           "200": {
@@ -28030,7 +28030,7 @@
           "Calendar templates"
         ],
         "summary": "Add event template",
-        "description": "Save a template: a name and the event fields, without dates. A refusal (400) lists everything wrong at once, in problems, and joins it in error. A title, a channel or a world may be left empty; the event made from it is refused for them instead.\n\nNeeds the `ManageTemplates` permission.",
+        "description": "Save a template: a name and the event fields, without dates. A refusal (400) lists everything wrong at once, in problems, and joins it in error. A title, a channel or a world may be left empty; the event made from it is refused for them instead.\n\nNeeds the `ViewCalendar` and `ManageTemplates` permissions.",
         "operationId": "CreateCalendarTemplate",
         "requestBody": {
           "content": {
@@ -28100,7 +28100,7 @@
           "Calendar templates"
         ],
         "summary": "Update event template",
-        "description": "Replace a template's name and fields. Events already made from it do not change.\n\nNeeds the `ManageTemplates` permission.",
+        "description": "Replace a template's name and fields. Events already made from it do not change.\n\nNeeds the `ViewCalendar` and `ManageTemplates` permissions.",
         "operationId": "UpdateCalendarTemplate",
         "parameters": [
           {
@@ -28189,7 +28189,7 @@
           "Calendar templates"
         ],
         "summary": "Delete event template",
-        "description": "Delete a template. Events already made from it stay as they are.\n\nNeeds the `ManageTemplates` permission.",
+        "description": "Delete a template. Events already made from it stay as they are.\n\nNeeds the `ViewCalendar` and `ManageTemplates` permissions.",
         "operationId": "DeleteCalendarTemplate",
         "parameters": [
           {
