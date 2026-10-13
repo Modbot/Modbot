@@ -3,7 +3,7 @@ using Modbot.Core.Users;
 namespace Modbot.Core.Tests.Users;
 
 /// <summary>
-/// The <c>/verify</c> code as people see and type it (Discord account linking design §14): six
+/// The <c>/verifyaccount</c> code as people see and type it (Discord account linking design §14): six
 /// characters nobody misreads, shown with a dash, taken with or without one in either case.
 /// </summary>
 public class StaffDiscordCodesTests
@@ -27,7 +27,7 @@ public class StaffDiscordCodesTests
     [InlineData("K7P42Q")]
     [InlineData("  K7P 42Q ")]
     [InlineData("K7P–42Q")]
-    [InlineData("/verify K7P-42Q")]
+    [InlineData("/verifyaccount K7P-42Q")]
     [InlineData("code:K7P-42Q")]
     public void WhatIsTyped_IsTakenWithOrWithoutTheDash_InEitherCase(string typed)
     {

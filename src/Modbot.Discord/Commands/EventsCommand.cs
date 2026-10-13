@@ -43,7 +43,7 @@ namespace Modbot.Discord.Commands;
 /// </remarks>
 public sealed class EventsCommand
 {
-    /// <summary>The key of the per-person limit, apart from <c>/me</c>'s and <c>/verify</c>'s.</summary>
+    /// <summary>The key of the per-person limit, apart from <c>/me</c>'s and <c>/verifyaccount</c>'s.</summary>
     public const string LimitsKey = "events";
 
     public const string TooFastMessage = "Slow down. Try again in a minute.";

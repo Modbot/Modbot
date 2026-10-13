@@ -31,7 +31,7 @@ public sealed record StaffDiscordProofResult(
 
 /// <summary>
 /// Puts a Discord account on a staff account as proven (accounts and access design §4.6), the same
-/// way whichever proof brought it: Discord sign-in from the account page, or <c>/verify</c> with a
+/// way whichever proof brought it: Discord sign-in from the account page, or <c>/verifyaccount</c> with a
 /// code from it (Discord account linking design §14).
 /// </summary>
 /// <remarks>

@@ -7,7 +7,7 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Core.Users;
 
 /// <summary>
-/// The codes staff run <c>/verify</c> with to prove which Discord account is theirs, without
+/// The codes staff run <c>/verifyaccount</c> with to prove which Discord account is theirs, without
 /// Discord sign-in (Discord account linking design §14): handing one out, and finding the one a
 /// command names.
 /// </summary>
@@ -24,7 +24,7 @@ namespace Modbot.Core.Users;
 /// the code, the second half is checked. A wrong code whose first half matches a live code counts
 /// against that code, and after <see cref="MaxFailedTries"/> it stops working, so many Discord
 /// accounts guessing at once cannot wear one down; a wrong code that matches nothing costs nobody
-/// anything, so a member running <c>/verify</c> with rubbish cannot use up somebody's code. On top
+/// anything, so a member running <c>/verifyaccount</c> with rubbish cannot use up somebody's code. On top
 /// of that each Discord account gets <c>MemberCommandLimits.PerMinute</c> tries a minute.
 /// </para>
 /// <para>
@@ -51,7 +51,7 @@ public static class StaffDiscordCodes
     public const int MaxFailedTries = 5;
 
     /// <summary>The command, as the account page shows it and Discord registers it.</summary>
-    public const string Command = "verify";
+    public const string Command = "verifyaccount";
 
     /// <summary>A code as people read it: <c>K7P-42Q</c>.</summary>
     public static string Show(string code)
@@ -62,7 +62,7 @@ public static class StaffDiscordCodes
 
     /// <summary>
     /// What somebody typed, as a stored code: upper case, with spaces and dashes taken out, and the
-    /// command in front of it too when the whole <c>/verify K7P-42Q</c> the account page shows was
+    /// command in front of it too when the whole <c>/verifyaccount K7P-42Q</c> the account page shows was
     /// pasted into the code. Null when it cannot be one.
     /// </summary>
     public static string? Normalize(string? typed)

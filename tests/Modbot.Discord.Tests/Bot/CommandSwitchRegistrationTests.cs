@@ -171,7 +171,7 @@ public class CommandSwitchRegistrationTests
     [InlineData("lookup", "/lookup is turned off on this server.")]
     [InlineData("modbot", "/modbot is turned off on this server.")]
     [InlineData("help", "/help is turned off on this server.")]
-    [InlineData("verify", "/verify is turned off on this server.")]
+    [InlineData("verifyaccount", "/verifyaccount is turned off on this server.")]
     [InlineData("note", "/note is turned off on this server.")]
     [InlineData("watch", "/watch is turned off on this server.")]
     [InlineData("live", "/live is turned off on this server.")]

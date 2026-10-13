@@ -12,7 +12,7 @@ using Modbot.TestSupport;
 namespace Modbot.Discord.Tests.Commands;
 
 /// <summary>
-/// <c>/verify code:</c> (Discord account linking design §14): a code from the account page proves
+/// <c>/verifyaccount code:</c> (Discord account linking design §14): a code from the account page proves
 /// the Discord account that runs it, once, for fifteen minutes, and never one another account
 /// proved; wrong codes count, and each Discord account gets a few tries a minute.
 /// </summary>
@@ -34,7 +34,7 @@ public class VerifyCommandTests
         if (code is not null)
             options[DiscordCommands.VerifyCodeOption] = code;
 
-        return new DiscordCommandCall(discordUserId, username, DiscordCommands.Verify, options, (_, _) => Task.CompletedTask);
+        return new DiscordCommandCall(discordUserId, username, DiscordCommands.VerifyAccount, options, (_, _) => Task.CompletedTask);
     }
 
     private static async Task<string?> RunAsync(TestServices services, string discordUserId, string? code, string username = "kiri")
@@ -320,11 +320,11 @@ public class VerifyCommandTests
     [Fact]
     public void Verify_IsForEveryone_AndTakesARequiredCode()
     {
-        var verify = DiscordCommands.All.Single(c => c.Name == DiscordCommands.Verify);
+        var verify = DiscordCommands.All.Single(c => c.Name == DiscordCommands.VerifyAccount);
 
         Assert.False(verify.StaffOnly);
-        Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.Verify));
-        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.Verify);
+        Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.VerifyAccount));
+        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.VerifyAccount);
 
         var option = Assert.Single(verify.Options);
         Assert.Equal(DiscordCommands.VerifyCodeOption, option.Name);

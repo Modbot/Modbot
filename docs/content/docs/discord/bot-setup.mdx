@@ -213,8 +213,8 @@ Discord bot can serve several Modbots: each one answers only in its own server.
 | `/birthday set month: day:`, `/birthday show`, `/birthday remove` | Your own birthday, a month and a day and never a year. `set` takes the month from a list and the day as a number, and refuses a date that does not exist. `show` tells you what is set and `remove` forgets it, taking the birthday role off at once if you hold it. Only you see the answers. You can run it five times a minute. Only there when **/birthday** is on the **Commands** card; see [Birthdays](/discord/birthdays). | Anyone in the server |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 | `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **/me** is on the **Commands** card; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
-| `/verify code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
-| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/remindme`, `/birthday`, `/notify`, `/report`, `/verify` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
+| `/verifyaccount code:` | Connects the Discord account that runs it to a Modbot account, with the code from **Connect with a code** on that account's **Your account** page. See [Letting moderators use the commands](#letting-moderators-use-the-commands). | Anyone in the server |
+| `/help` | The commands the person who ran it can use, and what each does. A member who has not connected Discord to a Modbot account sees `/link`, `/me`, `/events`, `/remindme`, `/birthday`, `/notify`, `/report`, `/verifyaccount` and `/help` only; a moderator also sees the commands their Modbot permissions let them run. | Anyone in the server |
 
 ### Switching commands on and off
 
@@ -272,7 +272,7 @@ with no names and no words, and at most one every 15 minutes.
 (**Manage Events**), which event hosts usually have and moderators often do not. Everyone else does not see
 them in the command list. `/report`, like `/events`, `/remindme`, `/birthday` and `/notify`, is shown to everyone while it is on. To change
 who sees them, open **Server Settings → Integrations → Modbot** in Discord and pick roles or
-members for each command. `/verify` is shown to everyone, because many moderators don't hold
+members for each command. `/verifyaccount` is shown to everyone, because many moderators don't hold
 Timeout Members; without a code from a Modbot account it does nothing.
 
 Seeing a command does not let anyone use it: Modbot still checks the person's Modbot account and
@@ -280,14 +280,14 @@ permissions every time, as described below.
 
 ### Letting moderators use the commands
 
-Every command except `/link`, `/me`, `/events`, `/remindme`, `/birthday`, `/notify`, `/report`, `/verify` and `/help` only answers people Modbot can match to
+Every command except `/link`, `/me`, `/events`, `/remindme`, `/birthday`, `/notify`, `/report`, `/verifyaccount` and `/help` only answers people Modbot can match to
 a Modbot account. Each moderator connects their own Discord account from their **Your account**
 page in Modbot, under **Your Discord account**, in one of two ways. Either way, the card then says
 **Connected as** and their Discord name. Nobody can do this for somebody else, and nobody can type
 an id in: Modbot knows the Discord account is theirs because Discord told it.
 
 - **Connect with a code** works once the bot is set up. The card shows a code such as `K7P-42Q`,
-  with **Copy**, and the command to run: `/verify K7P-42Q`. Run `/verify` in your Discord server and
+  with **Copy**, and the command to run: `/verifyaccount K7P-42Q`. Run `/verifyaccount` in your Discord server and
   paste the code into `code`. Discord tells Modbot which account ran the command, and the bot
   replies "Your Discord account is now connected to Modbot." The card changes by itself within a few
   seconds. A code works once, for 15 minutes; **New code** replaces it. A wrong or old code gets
@@ -302,7 +302,7 @@ If the bot isn't set up either, **Connect Discord** stays, and pressing it says 
 not set up on this server."
 
 A Discord account can be connected to one Modbot account. If it is already connected to another
-one, nothing changes: the account page says so, or `/verify` replies "This Discord account is
+one, nothing changes: the account page says so, or `/verifyaccount` replies "This Discord account is
 connected to another Modbot account." **Disconnect** on the same card takes it off; the bot then
 treats that Discord account as nobody.
 

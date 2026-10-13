@@ -46,7 +46,7 @@ public sealed record RemindMeAnswer(DiscordReply Reply, string Outcome);
 /// </remarks>
 public sealed class RemindMeCommand
 {
-    /// <summary>The key of the per-person limit, apart from <c>/me</c>'s, <c>/verify</c>'s and <c>/events</c>'.</summary>
+    /// <summary>The key of the per-person limit, apart from <c>/me</c>'s, <c>/verifyaccount</c>'s and <c>/events</c>'.</summary>
     public const string LimitsKey = "remindme";
 
     public const string TooFastMessage = "Slow down. Try again in a minute.";

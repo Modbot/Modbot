@@ -149,7 +149,7 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<MemberCommandLimits>();
         services.AddScoped<MeCommand>();
 
-        // /verify counts its own tries, apart from /me's (Discord account linking design §14).
+        // /verifyaccount counts its own tries, apart from /me's (Discord account linking design §14).
         services.TryAddKeyedSingleton<MemberCommandLimits>(VerifyCommand.LimitsKey);
         services.AddScoped<VerifyCommand>();
 

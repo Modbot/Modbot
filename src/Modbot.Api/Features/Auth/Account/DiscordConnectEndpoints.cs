@@ -45,7 +45,7 @@ namespace Modbot.Api.Features.Auth.Account;
 /// <para>
 /// <strong>Or a code and a command.</strong> Sign-in needs the account linking card's client id
 /// and secret, which many servers never set up. The same card hands out a code instead
-/// (<see cref="StaffDiscordCodes"/>), and <c>/verify</c> with it in the Discord server proves the
+/// (<see cref="StaffDiscordCodes"/>), and <c>/verifyaccount</c> with it in the Discord server proves the
 /// Discord account that ran it (Discord account linking design §14). Both go through
 /// <see cref="StaffDiscordProof"/>, so the rules above are the same for each.
 /// </para>
@@ -108,9 +108,9 @@ public static class DiscordConnectEndpoints
                 return Results.Ok(await CodeStatusAsync(db, protector, demo, live, ct));
             })
             .WithName("GetDiscordCode")
-            .WithSummary("Get your /verify code")
+            .WithSummary("Get your /verifyaccount code")
             .WithDescription(
-                "The code you can run /verify with in the Discord server to connect your Discord account, "
+                "The code you can run /verifyaccount with in the Discord server to connect your Discord account, "
                 + "while one is live, and which ways of connecting this server offers.")
             .Produces<DiscordCodeStatus>();
 
@@ -129,9 +129,9 @@ public static class DiscordConnectEndpoints
                 return Results.Ok(await CodeStatusAsync(db, protector, demo, code, ct));
             })
             .WithName("NewDiscordCode")
-            .WithSummary("Get a new /verify code")
+            .WithSummary("Get a new /verifyaccount code")
             .WithDescription(
-                "Make a code to run as /verify in the Discord server, which connects the Discord account "
+                "Make a code to run as /verifyaccount in the Discord server, which connects the Discord account "
                 + "that runs it to your Modbot account. It works once, for fifteen minutes, and replaces "
                 + "any code you had.")
             .Produces<DiscordCodeStatus>()
@@ -195,7 +195,7 @@ public static class DiscordConnectEndpoints
             await CommandSetUpAsync(db, demo, ct));
 
     /// <summary>
-    /// Whether <c>/verify</c> can be answered: a bot token and a server are saved, and this is not a
+    /// Whether <c>/verifyaccount</c> can be answered: a bot token and a server are saved, and this is not a
     /// demo, which never runs the bot.
     /// </summary>
     private static async Task<bool> CommandSetUpAsync(ModbotContext db, DemoMode? demo, CancellationToken ct)
@@ -287,11 +287,11 @@ public static class DiscordConnectEndpoints
     }
 }
 
-/// <summary>The account page's Discord card: the <c>/verify</c> code, and which ways of connecting work here.</summary>
+/// <summary>The account page's Discord card: the <c>/verifyaccount</c> code, and which ways of connecting work here.</summary>
 /// <param name="Code">The live code as people read it, <c>K7P-42Q</c>; null when there is none.</param>
 /// <param name="ExpiresAt">When the code stops working.</param>
 /// <param name="SignInSetUp">Connect Discord works: the account linking card's client id and secret, and a public address, are saved.</param>
-/// <param name="CommandSetUp"><c>/verify</c> can be answered: the bot is set up.</param>
+/// <param name="CommandSetUp"><c>/verifyaccount</c> can be answered: the bot is set up.</param>
 public sealed record DiscordCodeStatus(
     string? Code,
     DateTimeOffset? ExpiresAt,

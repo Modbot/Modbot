@@ -1,7 +1,7 @@
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
-/// A code a staff account runs <c>/verify</c> with, to prove which Discord account is theirs
+/// A code a staff account runs <c>/verifyaccount</c> with, to prove which Discord account is theirs
 /// without Discord sign-in (Discord account linking design §14). The table is
 /// <c>staff_discord_code</c>.
 /// </summary>

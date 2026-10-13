@@ -9,7 +9,7 @@ using Modbot.Core.Users;
 
 namespace Modbot.Discord.Commands;
 
-/// <summary>How a <c>/verify</c> went, for the reply and the command fact.</summary>
+/// <summary>How a <c>/verifyaccount</c> went, for the reply and the command fact.</summary>
 public enum VerifyOutcome
 {
     /// <summary>The caller's Discord account is now the account's, or already was.</summary>
@@ -40,7 +40,7 @@ public sealed record VerifyAnswer(VerifyOutcome Outcome, ModbotUser? Account)
 }
 
 /// <summary>
-/// <c>/verify code:</c>: a staff member proves which Discord account is theirs with the code their
+/// <c>/verifyaccount code:</c>: a staff member proves which Discord account is theirs with the code their
 /// account page showed them (Discord account linking design §14).
 /// </summary>
 /// <remarks>
@@ -101,7 +101,7 @@ public sealed class VerifyCommand
         _limits = limits;
     }
 
-    /// <summary>Runs one <c>/verify</c> for the Discord account that ran it.</summary>
+    /// <summary>Runs one <c>/verifyaccount</c> for the Discord account that ran it.</summary>
     public async Task<VerifyAnswer> RunAsync(string discordUserId, string discordUsername, string? typed, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrEmpty(discordUserId);

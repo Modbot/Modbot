@@ -11,7 +11,7 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Auth;
 
 /// <summary>
-/// The account page's <c>/verify</c> code (Discord account linking design §14): one per account,
+/// The account page's <c>/verifyaccount</c> code (Discord account linking design §14): one per account,
 /// a new one replaces the old, offered only where the bot is set up, and the card says which ways
 /// of connecting the server has.
 /// </summary>

@@ -301,20 +301,20 @@ const DISCORD_PROBLEMS: Record<string, string> = {
   'signed-out': 'You were signed out of Modbot before Discord sent you back.',
 }
 
-/** How often the card looks for `/verify` having used the code it shows. */
+/** How often the card looks for `/verifyaccount` having used the code it shows. */
 const CODE_POLL_MS = 5000
 
 /**
  * The Discord account the bot treats as this person (accounts and access design §4.6). Proven by
  * signing in to Discord: the button is a link to the server, which sends the browser to Discord
  * and back here with `?discord=` saying how it went. Or proven with a code: the card shows one,
- * the person runs `/verify` with it in the Discord server, and Discord says who ran it (Discord
+ * the person runs `/verifyaccount` with it in the Discord server, and Discord says who ran it (Discord
  * account linking design §14). An id typed in before proving existed shows as not proven, with the
  * day it stops counting.
  *
  * Connect Discord is offered where sign-in is set up, the code where the bot is; where neither is,
  * Connect Discord stays, so pressing it says what is missing. While a code is up the card asks
- * every few seconds whether the account is connected yet, so it changes by itself once `/verify`
+ * every few seconds whether the account is connected yet, so it changes by itself once `/verifyaccount`
  * worked, and drops the code once it runs out.
  */
 function YourDiscord({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
@@ -452,7 +452,7 @@ function YourDiscord({ me, onChanged }: { me: CurrentUser; onChanged: () => void
               </Button>
             </div>
             <code className="w-fit rounded-sm border-(length:--hairline) bg-strip px-2 py-0.5 font-mono select-all">
-              /verify {code}
+              /verifyaccount {code}
             </code>
           </div>
         )}

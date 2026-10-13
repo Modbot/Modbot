@@ -31,7 +31,7 @@ namespace Modbot.Discord.Commands;
 /// <strong>Unlinked callers learn nothing.</strong> Not whether a name exists, not whether the bot
 /// is healthy: one sentence telling them to link, and that is all. The exceptions are
 /// <c>/link</c> and <c>/me</c>, which are for every member and only ever about the caller
-/// (<see cref="MeCommand"/>), and <c>/verify</c>, which is how a staff member proves their
+/// (<see cref="MeCommand"/>), and <c>/verifyaccount</c>, which is how a staff member proves their
 /// Discord account in the first place (<see cref="VerifyCommand"/>). Every command, answered or
 /// refused, is a <c>modbot.discord.command</c> fact -- who looked at whom through Discord is an
 /// access record, like opening evidence.
@@ -192,7 +192,7 @@ public sealed class DiscordCommandHandler
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
 
-        if (call.CommandName == DiscordCommands.Verify)
+        if (call.CommandName == DiscordCommands.VerifyAccount)
             return await VerifyAsync(call, ct).ConfigureAwait(false);
 
         if (DiscordCommands.IsForEveryone(call.CommandName))
@@ -561,7 +561,7 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
-    /// <c>/verify code:</c>: proves the caller's Discord account is the Modbot account that was
+    /// <c>/verifyaccount code:</c>: proves the caller's Discord account is the Modbot account that was
     /// shown the code (<see cref="VerifyCommand"/>). Recorded like every command, with the account
     /// as the actor once it is connected and never with the code; a call over the per-person limit
     /// is refused and not recorded, as with <c>/me</c>.

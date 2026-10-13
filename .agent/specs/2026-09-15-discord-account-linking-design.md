@@ -266,7 +266,7 @@ Other features read it through `AccountLinkLookup` in `Modbot.Core.Discord`:
 `ActiveAccountLinks()`, `LinkedVRChatUserIdAsync(discordUserId)` and
 `LinkedDiscordUserIdAsync(vrchatUserId)`. A null answer means two separate people.
 
-## 14. Staff proving their Discord account with `/verify`
+## 14. Staff proving their Discord account with `/verifyaccount`
 
 *Added 2026-10-03.* Connect Discord on the account page (§3.2, accounts and access design §4.6)
 signs in to Discord through this page's OAuth client, so it needs the client id, the client secret
@@ -308,16 +308,16 @@ The **Your Discord account** card, while the account has no proven Discord accou
 | Neither | **Connect Discord**, which then says sign-in is not set up |
 
 **Connect with a code** shows the label **Code**, the code with **Copy**, and the command as a code
-chip, `/verify K7P-42Q`. The button becomes **New code**. No other text. While a code is up, the
+chip, `/verifyaccount K7P-42Q`. The button becomes **New code**. No other text. While a code is up, the
 card asks the server every five seconds whether the account is proven yet, so it changes to
-**Connected as** by itself once `/verify` worked, and drops the code once it runs out.
+**Connected as** by itself once `/verifyaccount` worked, and drops the code once it runs out.
 
 `GET /api/auth/discord/code` returns the live code and which ways the server offers;
 `POST /api/auth/discord/code` makes a new one, and refuses when the bot is not set up.
 
 ### 14.3 The command
 
-`/verify code:` (required text). **Registered for everyone, always.** It cannot be staff-only: the
+`/verifyaccount code:` (required text). **Registered for everyone, always.** It cannot be staff-only: the
 staff-only commands are shown to members who hold Timeout Members, and many staff don't. It is not
 registered only "while there is something to verify" either: which accounts still need it changes
 with every new staff account and every disconnect, and registering again on each change would run
@@ -340,14 +340,14 @@ deleted and the caller is told the code isn't right.
 ### 14.4 Guessing
 
 - **Per Discord account**: five tries a minute, through `MemberCommandLimits`, with an instance of
-  its own so `/me` and `/verify` never eat into each other. Over it, nothing is read and nothing is
+  its own so `/me` and `/verifyaccount` never eat into each other. Over it, nothing is read and nothing is
   recorded.
 - **Per code**: the first three characters find a code, the last three are checked (in fixed time).
   A wrong code whose first half matches a live code counts against that code, and after **five** it
   stops working; the person asks for a new one. New codes never share a first half with a live one,
   so one person's typing mistakes never count against another's code.
 - A wrong code that matches no live code costs nobody anything. That is on purpose: a member running
-  `/verify` with rubbish cannot wear down a moderator's code, while many Discord accounts guessing
+  `/verifyaccount` with rubbish cannot wear down a moderator's code, while many Discord accounts guessing
   together still use a real code up after five tries at its second half.
 
 Thirty characters, six of them, is about 729 million codes, each live for fifteen minutes.

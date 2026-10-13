@@ -271,7 +271,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<DiscordLinkCode> DiscordLinkCodes => Set<DiscordLinkCode>();
 
     /// <summary>
-    /// Codes staff run <c>/verify</c> with to prove their Discord account, one per account
+    /// Codes staff run <c>/verifyaccount</c> with to prove their Discord account, one per account
     /// (Discord account linking design §14).
     /// </summary>
     public DbSet<StaffDiscordCode> StaffDiscordCodes => Set<StaffDiscordCode>();
@@ -1980,6 +1980,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.BirthdayRoleId).HasMaxLength(32);
             entity.Property(e => e.BirthdayProblem).HasMaxLength(300);
 
+            // The 18+ check: no roles, no ticket deleted, until an operator says so.
+            entity.Property(e => e.AgeCheckGiveRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.AgeCheckRemoveRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.AgeCheckGroupRoleId).HasMaxLength(64);
+            entity.Property(e => e.AgeCheckTicketCategoryId).HasMaxLength(32);
+
             // "We're live" group posts: off, until an operator picks which instances.
             entity.Property(e => e.LivePostScope).HasMaxLength(8).HasDefaultValue(LivePostScopes.Off);
 
@@ -2392,7 +2398,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.UserId).ValueGeneratedNever();
             entity.Property(e => e.Code).HasMaxLength(16);
 
-            // /verify finds a code by what was typed, and no two accounts may hold the same one.
+            // /verifyaccount finds a code by what was typed, and no two accounts may hold the same one.
             entity.HasIndex(e => e.Code).IsUnique();
 
             entity.HasOne<ModbotUser>()

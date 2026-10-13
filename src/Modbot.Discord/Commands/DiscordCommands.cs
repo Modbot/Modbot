@@ -11,7 +11,7 @@ namespace Modbot.Discord.Commands;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="Verify"/>, <see cref="Help"/>,
+/// Every command but <see cref="Link"/>, <see cref="Me"/>, <see cref="VerifyAccount"/>, <see cref="Help"/>,
 /// <see cref="Events"/> and <see cref="RemindMe"/> needs a Modbot account linked to the caller's Discord user id. The permission on top of that is the same one the
 /// equivalent web page asks for, so the bot never shows anybody more than the web app would.
 /// <see cref="Link"/> is for every member: it answers with the link page's address and nothing else
@@ -38,7 +38,7 @@ namespace Modbot.Discord.Commands;
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
 /// <c>/event</c>, Manage posts for <c>/post new</c> and See posts for <c>/post list</c>
 /// (<see cref="RequiresFor"/>).
-/// <see cref="Verify"/> is how a staff member proves their Discord account with a code from their
+/// <see cref="VerifyAccount"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
 /// not hold Timeout Members, and it tells nobody anything without a right code.
 /// </para>
@@ -71,7 +71,7 @@ public static class DiscordCommands
     public const string Link = "link";
     public const string Me = "me";
     public const string Help = "help";
-    public const string Verify = StaffDiscordCodes.Command;
+    public const string VerifyAccount = StaffDiscordCodes.Command;
     public const string Note = "note";
     public const string Watch = "watch";
     public const string Live = "live";
@@ -129,7 +129,7 @@ public static class DiscordCommands
 
     public const int ReportWhatMax = 1000;
 
-    /// <summary>The code from the account page that <c>/verify</c> takes.</summary>
+    /// <summary>The code from the account page that <c>/verifyaccount</c> takes.</summary>
     public const string VerifyCodeOption = "code";
 
     /// <summary>The VRChat side of <c>/lookup</c>: a name or an id, typed, with suggestions.</summary>
@@ -475,7 +475,7 @@ public static class DiscordCommands
             "What the bot's commands do",
             []),
         new(
-            Verify,
+            VerifyAccount,
             "Connect your Discord account to your Modbot account",
             [new DiscordCommandOption(VerifyCodeOption, "The code from your account page in Modbot", DiscordOptionKind.Text, Required: true)]),
 
@@ -509,7 +509,7 @@ public static class DiscordCommands
         => For(switches, alertsOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Notify or Report or Profile or Find or Birthday;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or VerifyAccount or Events or RemindMe or Notify or Report or Profile or Find or Birthday;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

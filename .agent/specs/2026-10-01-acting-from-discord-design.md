@@ -366,7 +366,7 @@ No Modbot account is needed. Written to the access record with the caller's Disc
   forgets it. It comes from the command's definition (`DiscordCommandDefinition.PublicOncePer`), not from a
   special case. If nothing says which channel, the answer is not limited.
 - **A member limit** of 5 a minute per Discord account (`MemberCommandLimits`, its own instance under the key
-  `events`, so `/me` and `/verify` do not use it up). A refused run answers "Slow down. Try again in a minute." and is
+  `events`, so `/me` and `/verifyaccount` do not use it up). A refused run answers "Slow down. Try again in a minute." and is
   not recorded, as with `/me`.
 - **A late run of a switched-off `/events`** is told so by the generic switch check. Because the acknowledgement
   was made before the check, that sentence is public too; the command is not registered while it is off, so this

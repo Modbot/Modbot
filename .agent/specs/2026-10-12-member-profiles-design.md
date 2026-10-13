@@ -53,7 +53,7 @@ same entry every other settings screen writes).
 | Level | Who |
 |---|---|
 | Only me | The member. |
-| Staff | Modbot staff: a Modbot account that has proved its Discord account (the `/verify` code) and holds **See members**. Administrator counts. |
+| Staff | Modbot staff: a Modbot account that has proved its Discord account (the `/verifyaccount` code) and holds **See members**. Administrator counts. |
 | Members | Everyone in the Discord server. |
 
 **Staff can always see every field, whatever the member chose, including Only me.** The member's

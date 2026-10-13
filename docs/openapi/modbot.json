@@ -1931,8 +1931,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Get your /verify code",
-        "description": "The code you can run /verify with in the Discord server to connect your Discord account, while one is live, and which ways of connecting this server offers.",
+        "summary": "Get your /verifyaccount code",
+        "description": "The code you can run /verifyaccount with in the Discord server to connect your Discord account, while one is live, and which ways of connecting this server offers.",
         "operationId": "GetDiscordCode",
         "responses": {
           "200": {
@@ -1966,8 +1966,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Get a new /verify code",
-        "description": "Make a code to run as /verify in the Discord server, which connects the Discord account that runs it to your Modbot account. It works once, for fifteen minutes, and replaces any code you had.",
+        "summary": "Get a new /verifyaccount code",
+        "description": "Make a code to run as /verifyaccount in the Discord server, which connects the Discord account that runs it to your Modbot account. It works once, for fifteen minutes, and replaces any code you had.",
         "operationId": "NewDiscordCode",
         "responses": {
           "200": {

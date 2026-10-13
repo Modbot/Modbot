@@ -22,7 +22,7 @@ public sealed record ProfileRecorded(bool FirstSeen, IReadOnlyList<string> Chang
 /// <summary>What a moderator's change to the 18+ flag did.</summary>
 public enum AgeFlagChange
 {
-    /// <summary>The flag already had that value. Nothing written.</summary>
+    /// <summary>The flag already had that value. Nothing written, unless an 18+ check was logged.</summary>
     Unchanged,
 
     /// <summary>Set to true by hand.</summary>
@@ -479,19 +479,26 @@ public sealed class VRChatUserProfiles
     /// </summary>
     /// <param name="byUserId">The Modbot account making the change. Required: an override with no author is not an override.</param>
     /// <param name="reason">Their own words, kept with the fact. Optional, but the screen should ask.</param>
+    /// <param name="method">
+    /// How an 18+ check was done (<see cref="Modbot.Core.Users.AgeCheckMethods"/>), when this is one. The fact is then
+    /// written even if the flag was already set, because the check itself is what is logged: its
+    /// method, its date (the fact's) and its checker (the actor). A flag already set is left as it was.
+    /// </param>
     public async Task<AgeFlagChange> SetAgeFlagAsync(
         string userId,
         bool verified,
         Guid byUserId,
         string? reason,
+        string? method = null,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         var now = _clock.UtcNow;
         var row = await RowAsync(userId, now, ct).ConfigureAwait(false);
+        var alreadySet = row.Is18PlusVerified == verified;
 
-        if (row.Is18PlusVerified == verified)
+        if (alreadySet && !(verified && method is not null))
             return AgeFlagChange.Unchanged;
 
         var payload = new JsonObject
@@ -502,10 +509,16 @@ public sealed class VRChatUserProfiles
             ["ageVerificationStatusLastSeen"] = row.AgeVerificationStatus,
         };
 
-        row.Is18PlusVerified = verified;
-        row.Is18PlusVerifiedAt = now;
-        row.Is18PlusVerifiedSource = AgeVerificationSource.Manual;
-        row.Is18PlusVerifiedByUserId = byUserId;
+        if (method is not null)
+            payload["method"] = method;
+
+        if (!alreadySet)
+        {
+            row.Is18PlusVerified = verified;
+            row.Is18PlusVerifiedAt = now;
+            row.Is18PlusVerifiedSource = AgeVerificationSource.Manual;
+            row.Is18PlusVerifiedByUserId = byUserId;
+        }
 
         var fact = new FactRecord
         {
@@ -528,7 +541,7 @@ public sealed class VRChatUserProfiles
             "{Actor} {Action} the 18+ verified flag on {UserId}",
             byUserId, verified ? "set" : "cleared", userId);
 
-        return verified ? AgeFlagChange.Set : AgeFlagChange.Cleared;
+        return alreadySet ? AgeFlagChange.Unchanged : verified ? AgeFlagChange.Set : AgeFlagChange.Cleared;
     }
 
     /// <summary>The tracked row, created with only the id when the person is new.</summary>

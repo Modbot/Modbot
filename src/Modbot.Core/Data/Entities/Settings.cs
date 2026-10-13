@@ -749,6 +749,26 @@ public class Settings
     /// </summary>
     public bool DiscordPermissionWatchRemoves { get; set; }
 
+    // --- 18+ check ---
+
+    /// <summary>The Discord roles a member is given when they pass the 18+ check. Null or empty means none.</summary>
+    public List<string>? AgeCheckGiveRoleIds { get; set; }
+
+    /// <summary>The Discord roles taken away from a member when they pass the 18+ check. Null or empty means none.</summary>
+    public List<string>? AgeCheckRemoveRoleIds { get; set; }
+
+    /// <summary>The managed VRChat group's role the person is given when they pass the 18+ check. Null means none.</summary>
+    public string? AgeCheckGroupRoleId { get; set; }
+
+    /// <summary>Delete the ticket channel once the 18+ check is done. Off to start.</summary>
+    public bool AgeCheckDeleteTicket { get; set; }
+
+    /// <summary>
+    /// The category whose channels an 18+ check may delete. A Modbot ticket thread may be deleted
+    /// whatever this says; no other channel may be, so null means only those.
+    /// </summary>
+    public string? AgeCheckTicketCategoryId { get; set; }
+
     // --- Gallery pictures from Discord ---
 
     /// <summary>

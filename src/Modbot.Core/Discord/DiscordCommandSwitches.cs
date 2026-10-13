@@ -42,7 +42,9 @@ public static class DiscordCommandSwitches
     /// Every command with a switch. Staff commands are on by default, and so are the commands every
     /// member already had before the switches existed; <c>/me</c> was always opt-in and stays so.
     /// Commands for members that come later (<c>/events</c>, <c>/remindme</c>, <c>/report</c>, <c>/profile</c>, <c>/find</c>, <c>/birthday</c>
-    /// and the Report to mods menu so far) are off until the operator turns them on.
+    /// and the Report to mods menu so far) are off until the operator turns them on. So is
+    /// <c>/ageverified</c>, a staff command: it changes roles and deletes a channel, so it waits
+    /// for the 18+ check settings to be filled in.
     /// </summary>
     public static IReadOnlyList<DiscordCommandSwitch> All { get; } =
     [
@@ -52,7 +54,7 @@ public static class DiscordCommandSwitches
         new("link", OnByDefault: true),
         new("me", OnByDefault: false),
         new("help", OnByDefault: true),
-        new("verify", OnByDefault: true),
+        new("verifyaccount", OnByDefault: true),
         new("note", OnByDefault: true),
         new("watch", OnByDefault: true),
         new("live", OnByDefault: true),
@@ -67,6 +69,7 @@ public static class DiscordCommandSwitches
         new("profile", OnByDefault: false),
         new("find", OnByDefault: false),
         new("birthday", OnByDefault: false),
+        new("ageverified", OnByDefault: false),
         new("Look up in Modbot", OnByDefault: true, Menu: true),
         new("Add a note", OnByDefault: true, Menu: true),
         new("Report to mods", OnByDefault: false, Menu: true),
@@ -102,8 +105,16 @@ public static class DiscordCommandSwitches
         {
         }
 
+        // /verifyaccount was called /verify until 2026-10-13. A choice stored under the old name
+        // carries over, unless the new name already has one of its own.
+        if (map.Remove(OldVerifyAccountName, out var carried))
+            map.TryAdd("verifyaccount", carried);
+
         return map;
     }
+
+    /// <summary>The name <c>/verifyaccount</c> had before it was renamed, as an old setting may still hold it.</summary>
+    private const string OldVerifyAccountName = "verify";
 
     /// <summary>Whether a command is on: the stored choice, or its default when there is none.</summary>
     public static bool IsOn(string? json, string name)
