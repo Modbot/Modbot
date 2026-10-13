@@ -1073,7 +1073,7 @@ Discord's event cover is 2.5:1 and VRChat's picture 16:9, so one crop cannot ser
   and cutting the picture on the server was the other way; it would need an image library on the
   server (the one thing §15.2 avoids) and the picture link would have to be fetched again, and still
   answer, every time the event changed.
-  - `POST /api/calendar/cover` (Manage calendar): the body is the picture, PNG, JPEG, GIF or WebP by
+  - `POST /api/calendar/cover` (Manage calendar or Manage templates, §20): the body is the picture, PNG, JPEG, GIF or WebP by
     its first bytes, at most **8 MB** (under Discord's 10 MB for a cover); a larger
     `Content-Length` is refused unread. Answers `{ coverId }`, saved on the event as
     `coverPictureId`, checked to exist when the event is saved.
@@ -1369,7 +1369,10 @@ fill themselves in (step 4) are not here.
 - **Who.** `ManageTemplates` — "Manage templates" (bit 59): make, change and delete templates. It is
   apart from Manage calendar on purpose: Manage calendar or Manage templates reads the list
   (`canManage` says whether the caller may also change it), and only Manage templates writes. In no
-  built-in role; Administrator holds it.
+  built-in role; Administrator holds it. The template form keeps a Discord picture and crops from a
+  picture link, so `POST /api/calendar/cover` and `POST /api/calendar/picture-link` take See calendar
+  with Manage calendar **or** Manage templates (checked in the handler, as the list is; changed
+  2026-10-13). The VRChat picture upload stays Manage calendar: it puts a file on VRChat.
 - **Checks.** A save runs the event's own checks (`ApplyAll`, preview mode) on a made-up first date
   (a Monday in UTC) plus the world-list, role-mention, picture and invite checks, so a template holds
   what an event would, spelled and trimmed the same way. What an event is refused for only when it is

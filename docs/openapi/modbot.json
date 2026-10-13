@@ -27377,7 +27377,7 @@
           "Calendar"
         ],
         "summary": "Upload Discord picture",
-        "description": "Keeps a picture for an event's Discord cover and channel post. The body is the picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps it until the event is deleted or given another; one no event was saved with is deleted once it is a day old, within the hour after.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Keeps a picture for an event's Discord cover and channel post. Needs Manage calendar or Manage templates, because the template editor keeps one too. The body is the picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps it until the event is deleted or given another; one no event was saved with is deleted once it is a day old, within the hour after.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "UploadCalendarCover",
         "responses": {
           "200": {
@@ -27537,7 +27537,7 @@
           "Calendar"
         ],
         "summary": "Fetch picture link",
-        "description": "Fetches the picture behind an event's picture link and returns its bytes, for the form to crop. The link must be https on port 443. Modbot connects only to public addresses, checks every redirect the same way and follows at most three, reads a page only as far as its og:image or twitter:image, stops at 10 MB and 15 seconds, and returns only PNG, JPEG, GIF, WebP, BMP, AVIF or HEIC, told apart by the bytes. A VRChat file link is fetched with Modbot's VRChat session. Nothing is kept.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Fetches the picture behind an event's picture link and returns its bytes, for the form to crop. Needs Manage calendar or Manage templates. The link must be https on port 443. Modbot connects only to public addresses, checks every redirect the same way and follows at most three, reads a page only as far as its og:image or twitter:image, stops at 10 MB and 15 seconds, and returns only PNG, JPEG, GIF, WebP, BMP, AVIF or HEIC, told apart by the bytes. A VRChat file link is fetched with Modbot's VRChat session. Nothing is kept.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "FetchCalendarPictureLink",
         "requestBody": {
           "content": {

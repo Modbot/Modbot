@@ -50,6 +50,23 @@ public static class CalendarEndpoints
     /// <summary>The refusal for a Discord picture over <see cref="CalendarCoverPicture.MaxBytes"/>.</summary>
     public const string CoverTooBig = "The picture is larger than 8 MB.";
 
+    /// <summary>
+    /// The refusal for a picture helper (<c>cover</c>, <c>picture-link</c>) asked by someone with neither
+    /// Manage calendar nor Manage templates, or null when the caller holds one. The endpoint itself already
+    /// requires See calendar. The template editor keeps these pictures too, so a template manager who
+    /// cannot manage events needs them.
+    /// </summary>
+    private static IResult? RefusedWithoutPictureRights(HttpContext http)
+    {
+        var held = ModbotAuth.PermissionsOf(http.User);
+
+        return ModbotAuth.Allows(held, ModbotPermissions.ManageCalendar) || ModbotAuth.Allows(held, ModbotPermissions.ManageTemplates)
+            ? null
+            : Results.Json(
+                new { error = "Pictures need Manage calendar or Manage templates." },
+                statusCode: StatusCodes.Status403Forbidden);
+    }
+
     /// <summary>The most staff accounts one event invites, besides the host.</summary>
     public const int MaxInviteStaff = 20;
 
@@ -857,6 +874,9 @@ public static class CalendarEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutPictureRights(http) is { } refused)
+                    return refused;
+
                 if (http.Request.ContentLength > CalendarCoverPicture.MaxBytes)
                 {
                     return Results.Json(
@@ -896,11 +916,12 @@ public static class CalendarEndpoints
                 return Results.Ok(new CalendarCoverView(cover.Id));
             })
             // No declared request body, as with the VRChat picture: the body is a file.
-            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("UploadCalendarCover")
             .WithSummary("Upload Discord picture")
             .WithDescription(
-                "Keeps a picture for an event's Discord cover and channel post. The body is the "
+                "Keeps a picture for an event's Discord cover and channel post. Needs Manage calendar "
+                + "or Manage templates, because the template editor keeps one too. The body is the "
                 + "picture itself: a PNG, JPEG, GIF or WebP of at most 8 MB, told apart by its first "
                 + "bytes. Answers with its id; save that as the event's coverPictureId. Modbot keeps "
                 + "it until the event is deleted or given another; one no event was saved with is "
@@ -947,13 +968,16 @@ public static class CalendarEndpoints
                 [FromServices] ModbotContext db,
                 // Optional: the VRChat side is wired by the host, not by the API.
                 [FromServices] Core.Files.IPictures? vrchatPictures,
-                CancellationToken ct) => PictureLinkFetch.AnswerAsync(http, body.Url, db, vrchatPictures, ct))
-            .RequiresFlag(ModbotPermissions.ManageCalendar)
+                CancellationToken ct) =>
+                RefusedWithoutPictureRights(http) is { } refused
+                    ? Task.FromResult(refused)
+                    : PictureLinkFetch.AnswerAsync(http, body.Url, db, vrchatPictures, ct))
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("FetchCalendarPictureLink")
             .WithSummary("Fetch picture link")
             .WithDescription(
                 "Fetches the picture behind an event's picture link and returns its bytes, for the "
-                + "form to crop. The link must be https on port 443. Modbot connects only to public "
+                + "form to crop. Needs Manage calendar or Manage templates. The link must be https on port 443. Modbot connects only to public "
                 + "addresses, checks every redirect the same way and follows at most three, reads a "
                 + "page only as far as its og:image or twitter:image, stops at 10 MB and 15 seconds, "
                 + "and returns only PNG, JPEG, GIF, WebP, BMP, AVIF or HEIC, told apart by the bytes. "

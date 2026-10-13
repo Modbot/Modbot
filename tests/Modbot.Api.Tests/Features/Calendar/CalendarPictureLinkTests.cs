@@ -172,7 +172,7 @@ public class CalendarPictureLinkTests(PostgresFixture db)
     // ── Fetching a picture link for the crop box ─────────────────────────────────────────
 
     [Fact]
-    public async Task FetchingAPictureLinkNeedsManageCalendar()
+    public async Task FetchingAPictureLinkNeedsManageCalendarOrManageTemplates()
     {
         await using var host = await StartAsync();
         var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
@@ -181,6 +181,21 @@ public class CalendarPictureLinkTests(PostgresFixture db)
             HttpMethod.Post, PictureLink, new { url = "https://pictures.example/movie.png" }, viewer, Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>The template editor crops from a link too; a link that is not https is refused for its own reason, not as a 403.</summary>
+    [Fact]
+    public async Task ATemplateManagerMayFetchAPictureLink()
+    {
+        await using var host = await StartAsync();
+        var (_, templateManager) = await host.SignedInAsync(
+            ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates, Ct);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, PictureLink, new { url = "http://pictures.example/movie.png" }, templateManager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(PictureLinks.NotHttps, (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
     }
 
     [Theory]

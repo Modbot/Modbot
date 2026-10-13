@@ -12,7 +12,7 @@ namespace Modbot.Api.Tests.Features.Calendar;
 
 /// <summary>
 /// The picture cropped for Discord (calendar design §15.4, added 2026-10-02): kept by Modbot behind
-/// Manage calendar, a picture by its bytes and at most 8 MB, saved on the event by its id, and
+/// Manage calendar or Manage templates, a picture by its bytes and at most 8 MB, saved on the event by its id, and
 /// deleted once no live event uses it.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
@@ -87,12 +87,32 @@ public class CalendarCoverTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task KeepingAPictureNeedsManageCalendar()
+    public async Task KeepingAPictureNeedsManageCalendarOrManageTemplates()
     {
         await using var host = await StartAsync();
         var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
 
         Assert.Equal(HttpStatusCode.Forbidden, (await UploadAsync(host, viewer, Png())).StatusCode);
+    }
+
+    /// <summary>The template editor keeps a cover too, for someone who may change templates and not events.</summary>
+    [Fact]
+    public async Task ATemplateManagerWhoCanSeeTheCalendarMayKeepAPicture()
+    {
+        await using var host = await StartAsync();
+        var (_, templateManager) = await host.SignedInAsync(
+            ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates, Ct);
+
+        Assert.True(await KeptAsync(await UploadedAsync(host, templateManager)));
+    }
+
+    [Fact]
+    public async Task ManageTemplatesWithoutSeeCalendarMayNotKeepAPicture()
+    {
+        await using var host = await StartAsync();
+        var (_, templateManager) = await host.SignedInAsync(ModbotPermissions.ManageTemplates, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await UploadAsync(host, templateManager, Png())).StatusCode);
     }
 
     [Fact]
