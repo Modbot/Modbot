@@ -284,16 +284,25 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("subject", subjectId));
 
             // The birthday they set with /birthday names their Discord account. For a VRChat account,
-            // the Discord account linked to it now, as with reminders.
+            // the Discord account linked to it now, as with reminders. A row whose birthday role is
+            // still held keeps only that role, with no month and day, as when a member takes their
+            // birthday off: the next birthday pass takes the role back and deletes the row, which it
+            // could not do for a row that is already gone.
+            var whoseBirthday = platform == FactPlatform.Discord
+                ? "discord_user_id = @subject"
+                : """
+                  discord_user_id IN (
+                      SELECT discord_user_id FROM discord_account_link
+                      WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                  """;
+
             await ExecuteAsync(
-                platform == FactPlatform.Discord
-                    ? "DELETE FROM member_birthday WHERE discord_user_id = @subject"
-                    : """
-                      DELETE FROM member_birthday
-                      WHERE discord_user_id IN (
-                          SELECT discord_user_id FROM discord_account_link
-                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
-                      """,
+                $"UPDATE member_birthday SET month = 0, day = 0 WHERE role_given_id IS NOT NULL AND {whoseBirthday}",
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
+            await ExecuteAsync(
+                $"DELETE FROM member_birthday WHERE role_given_id IS NULL AND {whoseBirthday}",
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 

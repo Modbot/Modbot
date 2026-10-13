@@ -330,6 +330,85 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A purge takes the birthday a member set (a Discord purge, or a VRChat one through the linked
+    /// account) and leaves everybody else's. A row whose birthday role is still held stays with no
+    /// month and day, so the next birthday pass can take the role back and delete it.
+    /// </summary>
+    [Fact]
+    public async Task TheBirthdayTheySet_Goes_AndARoleStillHeldIsKeptWithNoDateSoItCanBeTakenBack()
+    {
+        const string DiscordSubject = "7401";
+        const string DiscordBystander = "7402";
+        const string Role = "8001";
+
+        async Task SetUpAsync(string? roleHeld)
+        {
+            await using var setup = Database.NewContext();
+            await setup.MemberBirthdays.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            setup.MemberBirthdays.AddRange(
+                new MemberBirthday
+                {
+                    DiscordUserId = DiscordSubject,
+                    Month = 3,
+                    Day = 14,
+                    SetAt = Start,
+                    RoleGivenId = roleHeld,
+                    RoleGivenOn = roleHeld is null ? null : DateOnly.FromDateTime(Start.UtcDateTime),
+                },
+                new MemberBirthday { DiscordUserId = DiscordBystander, Month = 5, Day = 6, SetAt = Start });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        // No role held: the row is gone, the bystander's stays.
+        await SetUpAsync(null);
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await using (var read = Database.NewContext())
+            Assert.Equal(DiscordBystander, Assert.Single(await read.MemberBirthdays.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+
+        // The same through the VRChat account the Discord one is linked to.
+        await SetUpAsync(null);
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+
+        await using (var read = Database.NewContext())
+            Assert.Equal(DiscordBystander, Assert.Single(await read.MemberBirthdays.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+
+        // A role still held: the date is gone, the role stays to be taken back.
+        await SetUpAsync(Role);
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await using var again = Database.NewContext();
+        var rows = await again.MemberBirthdays.AsNoTracking().OrderBy(b => b.DiscordUserId).ToListAsync(Ct);
+        Assert.Equal([DiscordSubject, DiscordBystander], rows.Select(b => b.DiscordUserId));
+
+        var kept = rows[0];
+        Assert.True(kept.IsForgotten);
+        Assert.Equal(0, kept.Month);
+        Assert.Equal(0, kept.Day);
+        Assert.Equal(Role, kept.RoleGivenId);
+
+        Assert.Equal((5, 6), (rows[1].Month, rows[1].Day));
+    }
+
     /// <summary>A purge takes the member's Findable switch (member profiles design §8) and leaves everybody else's.</summary>
     [Fact]
     public async Task TheFindableSwitchOfThePurgedMemberGoes()
