@@ -3052,6 +3052,100 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("discord_role", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordRoleMenu", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChannelId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset?>("PostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("posted_at");
+
+                    b.Property<bool>("SingleChoice")
+                        .HasColumnType("boolean")
+                        .HasColumnName("single_choice");
+
+                    b.Property<string>("Style")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("style");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_role_menu");
+
+                    b.ToTable("discord_role_menu", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordRoleMenuRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Emoji")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("emoji");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("label");
+
+                    b.Property<Guid>("MenuId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("menu_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("RoleId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_role_menu_role");
+
+                    b.HasIndex("MenuId", "Position")
+                        .HasDatabaseName("ix_discord_role_menu_role_order");
+
+                    b.ToTable("discord_role_menu_role", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordRolePair", b =>
                 {
                     b.Property<Guid>("Id")
@@ -10342,6 +10436,16 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_discord_list_role_given_discord_list_role_list_role_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordRoleMenuRole", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.DiscordRoleMenu", null)
+                        .WithMany("Roles")
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_discord_role_menu_role_discord_role_menu_menu_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRole", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotRole", "Role")
@@ -10727,6 +10831,11 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
                 {
                     b.Navigation("DateChanges");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordRoleMenu", b =>
+                {
+                    b.Navigation("Roles");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotRole", b =>
