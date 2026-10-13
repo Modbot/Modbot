@@ -1,0 +1,86 @@
+---
+title: Partners
+description: Keep a record of the other groups you work with. For each, its status, who to talk to there, who on your side looks after it, the last collab and notes. Staff only.
+---
+
+**Partners** is a staff-only list of the other VRChat groups you work with. For each one it keeps the
+group, where things stand, who to talk to there, the **envoy** on your side, the last time you did
+something together, and notes.
+
+An **envoy** is the member who represents your group to another group.
+
+Everything on the page is what staff typed. Modbot does not read anything about the other group
+from VRChat to fill it in. The one exception is the name: if you give a group id and leave **Name**
+empty, Modbot uses the name it already holds for that group, if an instance's **World** tab has
+shown it before.
+
+## Who can use it
+
+| To do this | You need |
+|---|---|
+| See the **Partners** page, add a partner, change one and delete one | [**Manage partners**](/accounts/roles-and-permissions#manage-partners) |
+
+There is no separate permission for looking. **Manage partners** is not in the built-in
+**Moderator** or **Viewer** roles. **Administrator** holds it.
+
+**Partners** is in the sidebar, under **Community**, just before **Availability**. It has no `g`
+shortcut.
+
+## The page
+
+Each partner is a card, with the most recent collab first. Partners with no collab come after them,
+by name.
+
+| Part | What it shows |
+|---|---|
+| Name | The group's name. |
+| Status | **Active**, **Paused** or **Ended**. |
+| Group id | VRChat's id for the group, if you gave one. Modbot does not check its shape. |
+| Envoy | The name of who represents your group to theirs. |
+| Contacts | The people to talk to in their group. |
+| Last collab | The date and what it was. |
+| Notes | Anything else. |
+
+A part with nothing in it is left out of the card.
+
+## Add and change a partner
+
+1. Press **New partner**, or **Edit** on a card.
+2. Fill in the form.
+   - **Name** is the only part that is needed, unless you give a **Group id** whose name Modbot
+     already holds.
+   - **Envoy** and each **Contact** are free text: write a name, and anything else you want beside it.
+   - **Add contact** adds a line; the cross beside a contact removes it.
+   - **Last collab date** and **Last collab** are the day and what you did.
+3. Press **Save**.
+
+To delete a partner, press **Delete** on its card and confirm. This removes everything on it.
+
+## Limits
+
+| Part | Longest |
+|---|---|
+| Name | 100 characters |
+| Group id | 64 characters |
+| Envoy | 100 characters |
+| Contacts | 20 contacts, 200 characters each |
+| Last collab | 300 characters |
+| Notes | 2,000 characters |
+
+## What goes in the audit log
+
+Adding, changing and deleting a partner are written to the [audit log](/moderation/audit-log)
+under the operational log, with who did it.
+
+| Entry | What it means |
+|---|---|
+| **Partner added** | Somebody added a partner. Carries its name. |
+| **Partner changed** | Somebody changed a partner. Carries its name and which parts changed, never the contacts or notes themselves. |
+| **Partner deleted** | Somebody deleted a partner. Carries its name. |
+
+## Privacy
+
+The contacts, envoy and notes are free text about people in other groups, kept in Modbot's own
+database and shown only to accounts that hold **Manage partners**. They are not sent anywhere, and
+they are not linked to a VRChat or Discord account, so a [purge](/moderation/purge) of a person does
+not remove a name that was typed here.
