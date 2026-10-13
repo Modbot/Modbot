@@ -368,7 +368,7 @@ public sealed class DiscordTickets
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        return !string.IsNullOrEmpty(role) && press.MemberRoleIds.Contains(role, StringComparer.Ordinal);
+        return !string.IsNullOrEmpty(role) && press.MemberRoleIds is { } held && held.Contains(role, StringComparer.Ordinal);
     }
 
     private async Task RecordAsync(string type, DiscordTicket ticket, string actorId, JsonObject data, CancellationToken ct)
