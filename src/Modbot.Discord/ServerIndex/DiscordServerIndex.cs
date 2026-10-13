@@ -138,7 +138,7 @@ public sealed class DiscordServerIndex
             Apply(role!, server.GuildId, snapshot, now);
 
             if (gained != 0)
-                gains.Add(new DiscordRoleGain(snapshot.Id, snapshot.Name, snapshot.Managed, gained, created));
+                gains.Add(new DiscordRoleGain(snapshot.Id, snapshot.Name, snapshot.Managed, gained, created, snapshot.Ours));
         }
 
         var presentRoles = roleIds.ToHashSet(StringComparer.Ordinal);

@@ -284,6 +284,40 @@ public class DiscordPermissionWatchTests
         Assert.Contains("(bot)", PostedText(gateway));
     }
 
+    private const long ManageRoles = 1L << 28;
+
+    [Fact]
+    public async Task ModbotsOwnRole_GainingAPermission_IsToldToStaff_ButNeverStripped()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        await SetUpAsync(services, removes: true);
+        var gateway = Gateway();
+
+        await RolesGainedAsync(services, gateway, new DiscordRoleGain(BotRole, "Modbot", Managed: true, ManageRoles, Created: false, Ours: true));
+
+        Assert.Empty(gateway.PermissionRemovals);
+
+        var fact = Assert.Single(await FactsAsync(services));
+        Assert.Equal(FactType.DiscordRoleGainedPermission, fact.Type);
+        Assert.Equal("kept", Data(fact, "action"));
+        Assert.Equal("Manage Roles", Data(fact, "permissions"));
+        Assert.Contains("Modbot's own role", PostedText(gateway));
+    }
+
+    [Fact]
+    public async Task EveryoneGainingAdministrator_WithRemovalOn_HasThoseBitsStripped()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        await SetUpAsync(services, removes: true);
+        var gateway = Gateway();
+
+        await RolesGainedAsync(services, gateway, new DiscordRoleGain(Guild, "@everyone", Managed: false, Administrator, Created: false));
+
+        var removal = Assert.Single(gateway.PermissionRemovals);
+        Assert.Equal((Guild, Guild, Administrator), (removal.GuildId, removal.RoleId, removal.Permissions));
+        Assert.Equal("removed", Data(Assert.Single(await FactsAsync(services)), "action"));
+    }
+
     [Fact]
     public async Task AMemberWhoseRolesWereNeverStored_IsSkipped()
     {

@@ -834,6 +834,7 @@ public sealed record DiscordChannelSnapshot(
 /// <param name="BotCanAssign">Manage Roles held, role below the bot's highest, not managed, not @everyone.</param>
 /// <param name="Permissions">The role's server-wide permission bits, as Discord sends them. Null when not known.</param>
 /// <param name="Mentionable">"Allow anyone to @mention this role" is on.</param>
+/// <param name="Ours">The role Discord made for Modbot's own account when it was added.</param>
 public sealed record DiscordRoleSnapshot(
     string Id,
     string Name,
@@ -843,7 +844,8 @@ public sealed record DiscordRoleSnapshot(
     bool Everyone,
     bool BotCanAssign,
     long? Permissions = null,
-    bool Mentionable = false);
+    bool Mentionable = false,
+    bool Ours = false);
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>

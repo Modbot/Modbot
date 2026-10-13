@@ -2212,7 +2212,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 
             // The same 64 bits in a signed number; only ever compared whole.
             unchecked((long)role.Permissions.RawValue),
-            role.IsMentionable);
+            role.IsMentionable,
+            me is not null && role.Tags?.BotId == me.Id);
     }
 
     // ── Messages ───────────────────────────────────────────────────────────────────────────

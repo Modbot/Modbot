@@ -59,6 +59,13 @@ When it is on:
 - For a bot's own role (the one Discord made for it when it joined), Discord does not let the role be
   taken off the bot, so the permissions are taken off the role instead.
 
+**Modbot never removes permissions from its own role.** If someone gives Modbot's role a permission
+from the list, staff are told and the card says **Left as it was: Modbot's own role**. Taking it away
+would stop Modbot from doing its job.
+
+**@everyone** is treated like any other role: if it gains one of the listed permissions, only those
+permissions are taken off it.
+
 The **server owner** never loses anything: they are told about, and the card says the member is the
 owner. If Discord does not allow Modbot to do it, for instance because the role sits above Modbot's
 own in **Server Settings → Roles**, nothing else is tried and the card says so.

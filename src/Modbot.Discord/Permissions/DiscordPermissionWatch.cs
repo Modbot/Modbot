@@ -16,7 +16,8 @@ namespace Modbot.Discord.Permissions;
 /// <summary>A role that gained watched permissions, as the server index found it.</summary>
 /// <param name="Gained">The watched permission bits the role gained, or was made with.</param>
 /// <param name="Created">The role is new since the server was first read.</param>
-public sealed record DiscordRoleGain(string RoleId, string Name, bool Managed, long Gained, bool Created);
+/// <param name="Ours">The role is Modbot's own: Modbot is told about it but never takes anything off it.</param>
+public sealed record DiscordRoleGain(string RoleId, string Name, bool Managed, long Gained, bool Created, bool Ours = false);
 
 /// <summary>
 /// Tells staff when a Discord role gains a dangerous permission, or a member -- a bot among them --
@@ -34,8 +35,8 @@ public sealed record DiscordRoleGain(string RoleId, string Name, bool Managed, l
 /// <strong>Removal is off unless somebody turns it on.</strong> A role loses the permissions it
 /// gained; a member loses the role, except a role a bot's integration made (Discord does not let
 /// those be taken off a bot), whose permissions are taken off the role instead. The server's owner
-/// never loses a role. When the bot may not do it, the fact and the post say so and nothing else is
-/// tried.
+/// never loses a role, and Modbot's own role never loses a permission: staff are told, and that is
+/// all. When the bot may not do it, the fact and the post say so and nothing else is tried.
 /// </para>
 /// <para>
 /// <strong>What Modbot did itself is not news:</strong> Modbot's own account, and a role Modbot gave
@@ -90,7 +91,7 @@ public sealed class DiscordPermissionWatch
 
         foreach (var gain in gains)
         {
-            var (action, error) = watch.Removes
+            var (action, error) = watch.Removes && !gain.Ours
                 ? await StripAsync(gateway, guildId, gain.RoleId, gain.Gained, ct).ConfigureAwait(false)
                 : (Kept, null);
 
@@ -109,6 +110,7 @@ public sealed class DiscordPermissionWatch
                 [],
                 action,
                 error,
+                gain.Ours,
                 ct).ConfigureAwait(false);
         }
     }
@@ -173,7 +175,7 @@ public sealed class DiscordPermissionWatch
             var action = Kept;
             string? error = null;
 
-            if (settings.Removes && !owner)
+            if (settings.Removes && !owner && !role.Ours)
             {
                 // A bot's own role cannot be taken off the bot, so its permissions come off the role.
                 (action, error) = role.Managed
@@ -204,6 +206,7 @@ public sealed class DiscordPermissionWatch
                 owner ? [new DiscordEmbedField("Note", "Server owner", Inline: true)] : [],
                 action,
                 error,
+                role.Ours,
                 ct).ConfigureAwait(false);
         }
     }
@@ -247,6 +250,7 @@ public sealed class DiscordPermissionWatch
         IReadOnlyList<DiscordEmbedField> extra,
         string action,
         string? error,
+        bool ours,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(watch.ChannelId))
@@ -255,7 +259,7 @@ public sealed class DiscordPermissionWatch
         var outcomeText = action == Removed
             ? "Permission removed"
             : error is null
-                ? "Left as it was"
+                ? (ours ? "Left as it was: Modbot's own role" : "Left as it was")
                 : $"Could not remove: {CardText.Fit(CardText.EscapeText(error), 500)}";
 
         var style = new CardStyle(watch.PublicAddress, watch.GroupName, BrandIcon.For(watch.PublicAddress));
