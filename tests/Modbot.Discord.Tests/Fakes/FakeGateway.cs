@@ -29,7 +29,7 @@ public sealed class FakeGateway : IDiscordGateway
     public event Func<DiscordMemberJoin, Task>? MemberJoined;
 
     public Task RaiseMemberJoinedAsync(DiscordMemberJoin member)
-        => MemberJoined?.Invoke(member) ?? Task.CompletedTask;
+        => AllAsync(MemberJoined, handler => handler(member));
 
     /// <summary>What the session was made with.</summary>
     public DiscordGatewayOptions Options { get; set; } = new();
@@ -1144,7 +1144,17 @@ public sealed class FakeGateway : IDiscordGateway
     }
 
     public Task RaiseMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
-        => MemberUpdated?.Invoke(guildId, member) ?? Task.CompletedTask;
+        => AllAsync(MemberUpdated, handler => handler(guildId, member));
+
+    /// <summary>
+    /// Waits for every handler of an event. Invoking a delegate with several handlers hands back
+    /// only the last one's task, so a test that raised an event with two handlers would carry on
+    /// while the first was still writing.
+    /// </summary>
+    private static Task AllAsync<T>(T? handlers, Func<T, Task> invoke) where T : Delegate
+        => handlers is null
+            ? Task.CompletedTask
+            : Task.WhenAll(handlers.GetInvocationList().Cast<T>().Select(invoke));
 
     public Task RaiseMemberFinishedOnboardingAsync(string guildId, DiscordMemberSnapshot member)
         => MemberFinishedOnboarding?.Invoke(guildId, member) ?? Task.CompletedTask;
