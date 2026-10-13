@@ -161,6 +161,16 @@ public sealed class DiscordTickets
             return DiscordReply.Say("You already have an open ticket.");
         }
 
+        // The thread and its first message existed before this row did, and an image posted in that
+        // gap was stored with its attachments. Take them off now; from here the message store does it.
+        if (ticket.HoldsPrivateImages)
+        {
+            await _db.DiscordMessages
+                .Where(m => m.ThreadId == threadId && m.Attachments != "[]")
+                .ExecuteUpdateAsync(u => u.SetProperty(m => m.Attachments, "[]"), ct)
+                .ConfigureAwait(false);
+        }
+
         await RecordAsync(
                 FactType.DiscordTicketOpened,
                 ticket,
@@ -218,7 +228,8 @@ public sealed class DiscordTickets
                 now,
                 read.Messages,
                 ticket.HoldsPrivateImages,
-                textMissing: !messageTextOn);
+                textMissing: !messageTextOn,
+                olderLeftOut: read.OlderLeftOut);
 
             var file = new DiscordPicture($"ticket-{ticket.Id.ToString("N")[..8]}.txt", Encoding.UTF8.GetBytes(text));
 
@@ -267,17 +278,18 @@ public sealed class DiscordTickets
             : "Ticket closed. No transcript was kept.");
     }
 
-    private static async Task<(IReadOnlyList<DiscordMessageSnapshot> Messages, string? Error)> ReadAllAsync(
+    private static async Task<(IReadOnlyList<DiscordMessageSnapshot> Messages, string? Error, bool OlderLeftOut)> ReadAllAsync(
         IDiscordGateway gateway, string threadId, CancellationToken ct)
     {
         var all = new List<DiscordMessageSnapshot>();
         string? before = null;
+        var olderLeftOut = false;
 
         for (var page = 0; page < MostPages; page++)
         {
             var got = await gateway.ReadMessagesAsync(threadId, before, null, ct).ConfigureAwait(false);
             if (got.Error is not null)
-                return ([], got.Error);
+                return ([], got.Error, false);
 
             all.AddRange(got.Messages);
 
@@ -285,9 +297,10 @@ public sealed class DiscordTickets
                 break;
 
             before = got.OldestId;
+            olderLeftOut = page == MostPages - 1;
         }
 
-        return ([.. all.OrderBy(m => m.SentAt).ThenBy(m => m.Id, StringComparer.Ordinal)], null);
+        return ([.. all.OrderBy(m => m.SentAt).ThenBy(m => m.Id, StringComparer.Ordinal)], null, olderLeftOut);
     }
 
     // ── Delete ───────────────────────────────────────────────────────────────────────────────

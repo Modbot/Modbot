@@ -958,13 +958,21 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>What the bot lacks in a channel to run tickets: empty for nothing, null for a channel it does not hold.</summary>
     public IReadOnlyList<string>? MissingTicketPermissions { get; set; } = [];
 
-    public Task<DiscordTicketOutcome> OpenTicketThreadAsync(DiscordTicketOpening opening, CancellationToken ct)
+    /// <summary>Runs with the new thread's id after it is made, before the ticket is saved: what happens in that gap.</summary>
+    public Func<string, Task>? WhileTicketThreadIsNew { get; set; }
+
+    public async Task<DiscordTicketOutcome> OpenTicketThreadAsync(DiscordTicketOpening opening, CancellationToken ct)
     {
         if (OpenTicketError is { } error)
-            return Task.FromResult(DiscordTicketOutcome.Failed(error));
+            return DiscordTicketOutcome.Failed(error);
 
         TicketsOpened.Add(opening);
-        return Task.FromResult(DiscordTicketOutcome.Made((9000 + TicketsOpened.Count).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        var threadId = (9000 + TicketsOpened.Count).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        if (WhileTicketThreadIsNew is { } during)
+            await during(threadId).ConfigureAwait(false);
+
+        return DiscordTicketOutcome.Made(threadId);
     }
 
     public Task<DiscordPostOutcome> CloseTicketThreadAsync(string threadId, string line, CancellationToken ct)

@@ -129,6 +129,52 @@ public class DiscordTicketsTests
         Assert.Equal(100, DiscordTickets.ThreadName(new string('a', 90), new string('b', 90)).Length);
     }
 
+    /// <summary>A photo posted before the ticket row is saved is stored with its attachments, then stripped.</summary>
+    [Fact]
+    public async Task APhotoPostedBeforeTheTicketWasSaved_LosesItsAttachments_WhenTheTicketOfAPrivateImageTypeIsSaved()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var type = await AddTypeAsync(services, privateImages: true);
+        var gateway = new FakeGateway
+        {
+            WhileTicketThreadIsNew = async threadId =>
+            {
+                using var scope = services.Scope();
+                await scope.ServiceProvider.GetRequiredService<Modbot.Discord.Messages.DiscordMessageStore>()
+                    .StoreAsync([Message(10, thread: threadId, text: "my ID")], Ct);
+            },
+        };
+
+        await PressAsync(services, gateway, Press(Member, DiscordTickets.OpenButtonId(type.Id), Panel));
+
+        await using var db = services.Database.NewContext();
+        var row = await db.DiscordMessages.AsNoTracking().SingleAsync(Ct);
+
+        Assert.Equal("my ID", row.Text);
+        Assert.Equal("[]", row.Attachments);
+    }
+
+    [Fact]
+    public async Task APhotoPostedBeforeTheTicketWasSaved_KeepsItsAttachments_ForAnOrdinaryType()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var type = await AddTypeAsync(services);
+        var gateway = new FakeGateway
+        {
+            WhileTicketThreadIsNew = async threadId =>
+            {
+                using var scope = services.Scope();
+                await scope.ServiceProvider.GetRequiredService<Modbot.Discord.Messages.DiscordMessageStore>()
+                    .StoreAsync([Message(10, thread: threadId, text: "a photo")], Ct);
+            },
+        };
+
+        await PressAsync(services, gateway, Press(Member, DiscordTickets.OpenButtonId(type.Id), Panel));
+
+        await using var db = services.Database.NewContext();
+        Assert.Contains("cat.png", (await db.DiscordMessages.AsNoTracking().SingleAsync(Ct)).Attachments, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task AMemberWithAnOpenTicketOfTheType_IsSentToIt_AndNoSecondThreadIsMade()
     {

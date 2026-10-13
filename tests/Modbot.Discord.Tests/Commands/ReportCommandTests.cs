@@ -292,6 +292,37 @@ public class ReportCommandTests
         Assert.Equal(new DateTimeOffset(2026, 9, 13, 11, 50, 0, TimeSpan.Zero), report.MessageSentAt);
     }
 
+    /// <summary>The file name of an ID photo is as private as the photo: a report keeps a count, not names.</summary>
+    [Fact]
+    public async Task AMessageInAPrivateImageTicket_IsReportedWithoutItsFileNames()
+    {
+        await using var services = await SetUpAsync(_db);
+
+        await using (var db = services.Database.NewContext())
+        {
+            db.DiscordTickets.Add(new DiscordTicket
+            {
+                TypeId = Guid.NewGuid(),
+                TypeName = "Verify",
+                DiscordUserId = Reported,
+                ThreadId = "555",
+                ChannelId = "500",
+                HoldsPrivateImages = true,
+                OpenedAt = services.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var (call, forms) = Menu(Reporter, Message(files: ["passport.jpg", "selfie.png"]));
+        Assert.Null(await MenuAsync(services, call));
+
+        await SendFormAsync(services, Submit(Reporter, Assert.Single(forms), Words));
+
+        var report = Assert.Single(await ReportsAsync(services));
+        Assert.Equal(["[image removed]", "[image removed]"], report.MessageAttachments);
+        Assert.Equal("the quoted message", report.MessageText);
+    }
+
     [Fact]
     public async Task TheSameMessageTwice_IsRefusedBeforeTheFormIsShown()
     {

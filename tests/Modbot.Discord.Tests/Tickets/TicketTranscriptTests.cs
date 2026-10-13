@@ -45,6 +45,15 @@ public class TicketTranscriptTests
     }
 
     [Fact]
+    public void WhenOlderMessagesWereNotRead_OneLineSaysSo()
+    {
+        var left = TicketTranscript.Build("Verify", "900", "ada", Start, "901", Closed, [Message(1)], false, false, olderLeftOut: true);
+
+        Assert.Contains(TicketTranscript.OlderLeftOut, left, StringComparison.Ordinal);
+        Assert.DoesNotContain(TicketTranscript.OlderLeftOut, Build([Message(1)]), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WithoutMessageText_OneLineSaysSo()
     {
         Assert.Contains(TicketTranscript.TextMissing, Build([Message(1, text: "")], textMissing: true), StringComparison.Ordinal);

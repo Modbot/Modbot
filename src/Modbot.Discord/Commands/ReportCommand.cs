@@ -1,9 +1,11 @@
+using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Reports;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Interactions;
+using Modbot.Discord.Tickets;
 
 namespace Modbot.Discord.Commands;
 
@@ -196,6 +198,15 @@ public sealed class ReportCommand
         if (IsBot(message.AuthorId, gateway))
             return DiscordReply.Say(BotMessage);
 
+        // A message in a ticket thread that holds private images keeps no file names: an ID photo's
+        // name is as private as the photo. The count stays, so staff can see something was attached.
+        var attachments = message.AttachmentNames ?? [];
+        if (attachments.Count > 0
+            && await _db.DiscordTickets.AsNoTracking()
+                .AnyAsync(t => t.HoldsPrivateImages && t.ThreadId == message.ChannelId, ct)
+                .ConfigureAwait(false))
+            attachments = [.. attachments.Select(_ => TicketTranscript.ImageRemoved)];
+
         var outcome = await _reports.OpenAsync(
             new NewMemberReport(
                 submit.DiscordUserId,
@@ -209,7 +220,7 @@ public sealed class ReportCommand
                     message.ChannelName,
                     message.SentAt,
                     message.Text,
-                    message.AttachmentNames ?? [],
+                    attachments,
                     message.Url)),
             ct).ConfigureAwait(false);
 

@@ -16,6 +16,9 @@ public static class TicketTranscript
     /// <summary>The line at the top when Discord sent no message text.</summary>
     public const string TextMissing = "The text of the messages is missing: Modbot cannot read message text on this server.";
 
+    /// <summary>The line at the top when the thread had more messages than the transcript reads.</summary>
+    public const string OlderLeftOut = "Older messages were left out: the transcript holds only the newest ones.";
+
     /// <summary>Most characters in a transcript, so the file stays under what Discord accepts.</summary>
     public const int MostLength = 2_000_000;
 
@@ -27,6 +30,7 @@ public static class TicketTranscript
     /// or linked, however it looks.
     /// </param>
     /// <param name="textMissing">Discord gave no message text because the Message Content intent is off.</param>
+    /// <param name="olderLeftOut">The thread had more messages than the reader's page cap, so the oldest are missing.</param>
     public static string Build(
         string typeName,
         string openedById,
@@ -36,7 +40,8 @@ public static class TicketTranscript
         DateTimeOffset closedAt,
         IReadOnlyList<DiscordMessageSnapshot> messagesOldestFirst,
         bool holdsPrivateImages,
-        bool textMissing)
+        bool textMissing,
+        bool olderLeftOut = false)
     {
         ArgumentNullException.ThrowIfNull(messagesOldestFirst);
 
@@ -48,6 +53,9 @@ public static class TicketTranscript
 
         if (textMissing)
             text.AppendLine(TextMissing);
+
+        if (olderLeftOut)
+            text.AppendLine(OlderLeftOut);
 
         text.AppendLine();
 
