@@ -1,0 +1,81 @@
+---
+title: 18+ check
+description: Mark a member 18+ verified with /ageverified in a ticket or from their profile, give and take away the roles you chose, and delete the ticket afterwards.
+---
+
+A member who shows their VRChat 18+ badge, or a photo ID in a ticket, is checked once and marked **18+
+verified** in Modbot. The same step gives and takes away the roles you chose in Discord, gives a VRChat
+group role, and can delete the ticket.
+
+Modbot never sees the photo ID. It keeps the **method** (badge or photo ID), the **date** and who did
+the check, and nothing else: no image, no text from it and no number from it.
+
+## Turn it on
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+`/ageverified` is off until you turn it on. Open **Settings → Discord → Commands**, switch on
+`/ageverified` and press **Save commands**.
+
+Then open **Settings → Discord** and find the **18+ check** card.
+
+| Setting | What it does |
+|---|---|
+| **Discord roles to give** | Roles the member is given. Add them one at a time; press **×** on a role to take it out of the list. Roles that hold a permission the [permission watch](/discord/permission-watch) warns about are not offered. |
+| **Discord roles to take away** | Roles the member loses, such as a waiting role. The **Linked role** and the **18+ role** from [Account linking](/discord/account-linking) cannot be taken away here, because Modbot gives them back. |
+| **VRChat group role to give** | A role of your VRChat group the member's VRChat account is given. Optional. |
+| **Delete the ticket afterwards** | Deletes the ticket once the check is done. Off to start. |
+| **Ticket category** | A Discord category whose channels may be deleted. Optional. |
+
+A role can be in one list only. The bot needs **Manage Roles**, and its own highest role must sit above
+every role it gives or takes away. A Discord role that is also part of a pair in
+[Role and ban sync](/discord/role-and-ban-sync) is kept in step by that pair, so leave those roles out
+of both lists.
+
+## Check someone in a ticket
+
+In the ticket, run `/ageverified member: method:`.
+
+| Option | What it takes |
+|---|---|
+| `member` | The Discord member, picked from Discord's list. |
+| `method` | **Badge** or **Photo ID**. |
+| `vrchat` | Their VRChat profile link. Needed only when the member has not [linked their accounts](/discord/account-linking); a member who has is checked as the account they linked. |
+
+Modbot then:
+
+1. Marks the VRChat account **18+ verified** and writes the check to the audit log, with the method and
+   your Modbot account as the checker.
+2. Gives and takes away the Discord roles you chose.
+3. Gives the VRChat group role, if you chose one.
+4. Answers with one line for what it did and one line for each thing it could not do. A role that fails
+   does not undo the check: the member stays marked.
+5. Deletes the ticket, if **Delete the ticket afterwards** is on. The answer is sent first.
+
+A member with no linked account gets both the Discord roles and the VRChat group role, from the
+VRChat profile link you typed. If a member has linked their accounts and you type a different VRChat
+profile, Modbot refuses and changes nothing.
+
+You need the **Edit 18+ verified** permission and a VRChat account linked to your Modbot account, and
+your Discord account must be [connected to your Modbot account](/discord/bot-setup#letting-moderators-use-the-commands).
+The command is shown to members who may time others out.
+
+### What is deleted
+
+Modbot deletes only a ticket thread that Modbot opened, or a channel directly inside the
+**Ticket category** you chose. Run in any other channel, the command checks the member and leaves the
+channel alone, and says so. To delete a channel in the category, the bot needs **Manage Channels**.
+
+A ticket thread deleted this way is logged like one deleted with the ticket's **Delete** button, with
+you as the person who deleted it.
+
+## Check someone from their profile
+
+On a person's profile, open the **Not seen as 18+ verified** badge and press **Mark 18+ verified**. It
+asks **Badge** or **Photo ID**, then does the same as `/ageverified`, except that it does not delete a
+ticket. The Discord roles go to the member linked to that VRChat account; with no one linked, only the
+mark and the VRChat group role are done, and the answer says so.
+
+**Clear flag** still asks for a reason and does nothing else: it gives and takes away no roles. See
+[The 18+ verified mark](/moderation/profiles#the-18-verified-mark).

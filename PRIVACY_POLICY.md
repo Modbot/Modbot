@@ -56,7 +56,9 @@ It depends on what the group has set up. At most:
   picture. Modbot stores the links, not the pictures.
 - The date you joined VRChat, your account tags, and the platform you were last on.
 - Whether VRChat says you are age-verified, and whether a moderator has marked you 18+ verified by
-  hand.
+  hand. For a mark made by an 18+ check, that is the method (VRChat's badge or a photo ID shown to
+  a moderator), the date and the moderator who did it. Modbot never receives the photo ID, and keeps
+  no image, text or number from it.
 - The group you show on your profile: its id, name and icon.
 - VRChat's raw answer about your profile, stored as it arrived, except the fields that say where you
   are, the private note an account can keep about you, and your friend key. Those are removed first.
