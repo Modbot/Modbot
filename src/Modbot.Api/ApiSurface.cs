@@ -140,6 +140,10 @@ public static class ApiSurface
         Core.Twitch.TwitchServices.AddTwitch(services);
         services.TryAddScoped<Features.Twitch.TwitchLivePass>();
 
+        // The weekly spotlight (spotlight design): its pass is scoped; its timer is the host's, with
+        // AddSpotlight, so a test host runs the pass itself.
+        services.TryAddScoped<Features.Spotlight.SpotlightPass>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -314,6 +318,14 @@ public static class ApiSurface
         return services;
     }
 
+    /// <summary>Makes the week's member spotlight draft when its time comes (spotlight design).</summary>
+    public static IServiceCollection AddSpotlight(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Spotlight.SpotlightService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
     /// <summary>Sends queued email in the background. Needs what <see cref="Auth.ModbotAuth.AddModbotAuth"/> registers.</summary>
     public static IServiceCollection AddEmailQueue(this IServiceCollection services)
     {
@@ -478,6 +490,7 @@ public static class ApiSurface
         app.MapBlueskySettings();
         app.MapBlueskyOAuth();
         app.MapTwitchSettings();
+        app.MapSpotlightSettings();
         app.MapTwitch();
         app.MapAiChatSettings();
         app.MapAutoModSettings();
@@ -712,6 +725,9 @@ public static class ApiSurface
         // site's own loop; these store what a person decides, and edit or delete a post on a site.
         Features.Posts.PostEndpoints.MapPosts(app);
         app.MapPostSettings();
+
+        // The weekly member spotlight's draft waiting for staff to pick a member (spotlight design).
+        Features.Spotlight.SpotlightEndpoints.MapSpotlight(app);
 
         // Whether this deployment is a demo, and the control that puts its data back (demo mode
         // design §6). Mapped everywhere; on anything but a demo it answers "no" and refuses the

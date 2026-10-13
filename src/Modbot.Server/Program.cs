@@ -443,6 +443,10 @@ try
     // and does nothing more until Twitch is set up and the poll is on.
     builder.Services.AddTwitchLive();
 
+    // Makes the member spotlight draft once a week (spotlight design). Reads the settings row and
+    // does nothing more while the spotlight is off.
+    builder.Services.AddSpotlight();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();

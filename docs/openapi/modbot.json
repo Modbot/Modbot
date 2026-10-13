@@ -7500,6 +7500,124 @@
         ]
       }
     },
+    "/api/settings/spotlight": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get spotlight settings",
+        "description": "Whether the weekly member spotlight is on, the day and hour its draft is made and the time zone they are in, how the member is picked, and the sites the post goes to.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetSpotlightSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotlightSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update spotlight settings",
+        "description": "Turn the weekly member spotlight on or off, or change the day and hour of its draft (`day` 0 is Sunday; `hour` 0 to 23 in `timeZone`, an IANA name, empty for UTC), who picks the member (`mode`: `random` or `staff`) or the sites it goes to. Each site ticked is checked as the Marketing tab checks a post. Turning it on, or moving the time, never makes a draft for a time already past. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetSpotlightSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotlightSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotlightSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/twitch/live": {
       "get": {
         "tags": [
@@ -32799,6 +32917,157 @@
           }
         ]
       }
+    },
+    "/api/spotlight": {
+      "get": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Get the spotlight waiting for a member",
+        "description": "The newest spotlight draft that has no member yet (staff mode), with the members who opted in to pick from. `pending` is null when none waits.\n\nNeeds the `ViewPosts` permission.",
+        "operationId": "GetSpotlight",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotlightView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/spotlight/{id}/member": {
+      "post": {
+        "tags": [
+          "Posts"
+        ],
+        "summary": "Pick the spotlight's member",
+        "description": "Picks the member for a spotlight draft that has none (staff mode) and fills the draft with their card: their name, their avatar and the answers they opened to Members. Only a member who opted in and is still in the server is taken. The note is written and the post sent from Marketing as for any post. Refused (409) once a member is picked, and once the draft has gone out or is being sent.\n\nNeeds the `ManagePosts` permission.",
+        "operationId": "PickSpotlightMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotlightPickRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotlightPendingView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -56028,6 +56297,171 @@
           "RateLimitedByVRChat",
           "SignInLimitReached"
         ]
+      },
+      "SpotlightMemberView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SpotlightPendingView": {
+        "required": [
+          "id",
+          "week",
+          "postId"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "week": {
+            "type": "string"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SpotlightPickRequest": {
+        "required": [
+          "discordUserId"
+        ],
+        "type": "object",
+        "properties": {
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SpotlightSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "day": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "hour": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "places": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TwitchPostPlaces"
+              }
+            ]
+          }
+        }
+      },
+      "SpotlightSettingsView": {
+        "required": [
+          "on",
+          "day",
+          "hour",
+          "timeZone",
+          "mode",
+          "places",
+          "vrChatRoles"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "day": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hour": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mode": {
+            "type": "string"
+          },
+          "places": {
+            "$ref": "#/components/schemas/TwitchPostPlaces"
+          },
+          "vrChatRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostRoleChoice"
+            }
+          }
+        }
+      },
+      "SpotlightView": {
+        "required": [
+          "pending",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "pending": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SpotlightPendingView"
+              }
+            ]
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpotlightMemberView"
+            }
+          }
+        }
       },
       "StaffRoleChangeView": {
         "required": [

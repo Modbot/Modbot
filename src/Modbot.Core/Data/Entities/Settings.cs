@@ -408,6 +408,33 @@ public class Settings
     [Column(TypeName = "jsonb")]
     public string TwitchPostPlaces { get; set; } = "{}";
 
+    // --- Weekly spotlight (spotlight design, 2026-10-13) ---
+
+    /// <summary>Whether Modbot makes a spotlight draft each week. Off to start.</summary>
+    public bool SpotlightOn { get; set; }
+
+    /// <summary>The day of the week the draft is made, 0 (Sunday) to 6, as <see cref="DayOfWeek"/> counts.</summary>
+    public int SpotlightDay { get; set; } = 1;
+
+    /// <summary>The hour of that day, 0 to 23, in <see cref="SpotlightTimeZone"/>.</summary>
+    public int SpotlightHour { get; set; } = 9;
+
+    /// <summary>The IANA zone the day and hour are in. Null is UTC.</summary>
+    public string? SpotlightTimeZone { get; set; }
+
+    /// <summary>One of <see cref="SpotlightModes"/>.</summary>
+    public string SpotlightMode { get; set; } = SpotlightModes.Random;
+
+    /// <summary>
+    /// Where the spotlight post goes, as JSON (<c>TwitchPostPlaces</c>, the same shape the Twitch post
+    /// uses): the sites ticked and their own choices. Nothing is ticked to start.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string SpotlightPlaces { get; set; } = "{}";
+
+    /// <summary>The latest moment already dealt with. A moment at or before it never makes a draft.</summary>
+    public DateTimeOffset? SpotlightHandledThrough { get; set; }
+
     // --- Bluesky (Bluesky design §3.1, posts design §4.2c) ---
 
     /// <summary>

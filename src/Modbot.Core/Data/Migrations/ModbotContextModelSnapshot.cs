@@ -5300,6 +5300,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("findable");
 
+                    b.Property<bool>("Spotlight")
+                        .HasColumnType("boolean")
+                        .HasColumnName("spotlight");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -8587,6 +8591,46 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("smtp_username");
 
+                    b.Property<int>("SpotlightDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("spotlight_day");
+
+                    b.Property<DateTimeOffset?>("SpotlightHandledThrough")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("spotlight_handled_through");
+
+                    b.Property<int>("SpotlightHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(9)
+                        .HasColumnName("spotlight_hour");
+
+                    b.Property<string>("SpotlightMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("random")
+                        .HasColumnName("spotlight_mode");
+
+                    b.Property<bool>("SpotlightOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("spotlight_on");
+
+                    b.Property<string>("SpotlightPlaces")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("spotlight_places");
+
+                    b.Property<string>("SpotlightTimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("spotlight_time_zone");
+
                     b.Property<string>("SyncPacing")
                         .HasColumnType("jsonb")
                         .HasColumnName("sync_pacing");
@@ -8783,6 +8827,48 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_settings_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SpotlightWeek", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset?>("PickedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("picked_at");
+
+                    b.Property<Guid?>("PostId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("post_id");
+
+                    b.Property<DateOnly>("Week")
+                        .HasColumnType("date")
+                        .HasColumnName("week");
+
+                    b.HasKey("Id")
+                        .HasName("pk_spotlight_week");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_spotlight_week_user");
+
+                    b.HasIndex("PostId")
+                        .HasDatabaseName("ix_spotlight_week_post_id");
+
+                    b.HasIndex("Week")
+                        .IsUnique()
+                        .HasDatabaseName("ux_spotlight_week_week");
+
+                    b.ToTable("spotlight_week", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
@@ -10309,6 +10395,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasForeignKey("OptionId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_member_profile_value_member_profile_option_option_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SpotlightWeek", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Post", null)
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_spotlight_week_posts_post_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>

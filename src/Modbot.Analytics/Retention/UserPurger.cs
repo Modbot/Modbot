@@ -351,6 +351,21 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // And the weeks they were featured in the spotlight (spotlight design §4), by the same
+            // rule. The week and its draft stay, so that week still has its draft and no second one
+            // is made; only the member is cleared.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "UPDATE spotlight_week SET discord_user_id = NULL WHERE discord_user_id = @subject"
+                    : """
+                      UPDATE spotlight_week SET discord_user_id = NULL
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // And whether they are a friend of the group's VRChat account, which names them too.
             if (platform == FactPlatform.VRChat)
             {

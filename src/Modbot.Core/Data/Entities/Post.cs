@@ -73,6 +73,9 @@ public static class PostKinds
 
     /// <summary>"We're live on Twitch": made by the Twitch poll, one per Twitch stream (<see cref="Post.ExternalKey"/>).</summary>
     public const string TwitchLive = "twitch_live";
+
+    /// <summary>The weekly member spotlight: a draft Modbot makes for staff to finish and send.</summary>
+    public const string Spotlight = "spotlight";
 }
 
 /// <summary>

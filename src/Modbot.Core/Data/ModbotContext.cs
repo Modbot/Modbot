@@ -175,6 +175,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
 
+    /// <summary>Each week's member spotlight and its Marketing draft (spotlight design §4).</summary>
+    public DbSet<SpotlightWeek> SpotlightWeeks => Set<SpotlightWeek>();
+
     /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
@@ -1226,6 +1229,29 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DiscordUserId).HasColumnType("text");
         });
 
+        builder.Entity<SpotlightWeek>(entity =>
+        {
+            entity.ToTable("spotlight_week");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            // Discord ids are opaque text with no length assumption (spec 3.1.1).
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+
+            // A deleted draft leaves the week and the member in the history.
+            entity.HasOne<Post>()
+                .WithMany()
+                .HasForeignKey(e => e.PostId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // One spotlight a week, kept by the database whatever the code does.
+            entity.HasIndex(e => e.Week).IsUnique().HasDatabaseName("ux_spotlight_week_week");
+
+            // A purge clearing the member.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_spotlight_week_user");
+        });
+
         builder.Entity<ProfileValue>(entity =>
         {
             entity.ToTable("member_profile_value");
@@ -1909,6 +1935,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.TwitchPostAfterMinutes).HasDefaultValue(3);
             entity.Property(e => e.TwitchPostEveryHours).HasDefaultValue(6);
             entity.Property(e => e.TwitchPostPlaces).HasDefaultValue("{}");
+
+            // The weekly spotlight: off, Monday 09:00, random, nothing ticked, for the row that exists already.
+            entity.Property(e => e.SpotlightDay).HasDefaultValue(1);
+            entity.Property(e => e.SpotlightHour).HasDefaultValue(9);
+            entity.Property(e => e.SpotlightMode).HasMaxLength(8).HasDefaultValue(SpotlightModes.Random);
+            entity.Property(e => e.SpotlightTimeZone).HasMaxLength(64);
+            entity.Property(e => e.SpotlightPlaces).HasDefaultValue("{}");
 
             // "automod" is one word on this screen and in its tables, so the columns say so too
             // rather than the "auto_mod" the naming convention would make of the property.

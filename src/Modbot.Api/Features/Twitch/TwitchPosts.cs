@@ -18,19 +18,23 @@ namespace Modbot.Api.Features.Twitch;
 /// </remarks>
 internal static class TwitchPosts
 {
-    /// <summary>The request a "live" post is checked and built from: now, UTC, nothing but the ticked sites.</summary>
-    public static PostRequest RequestFor(TwitchPostPlaces places, string title, string text)
+    /// <summary>
+    /// The request a post is checked and built from: now, UTC, nothing but the ticked sites. The
+    /// weekly spotlight uses it too, as a draft with a picture (spotlight design §6).
+    /// </summary>
+    public static PostRequest RequestFor(
+        TwitchPostPlaces places, string title, string text, bool draft = false, Guid? pictureId = null)
     {
         ArgumentNullException.ThrowIfNull(places);
 
         return new PostRequest(
             title,
             text,
-            PictureId: null,
-            When: PostRequests.WhenNow,
+            PictureId: pictureId,
+            When: draft ? null : PostRequests.WhenNow,
             SendAt: null,
             TimeZone: "UTC",
-            Draft: false,
+            Draft: draft,
             EventId: null,
             Discord: places.Discord is { } discord
                 ? new PostDiscordRequest(discord.ChannelId, discord.RoleId, discord.Publish)

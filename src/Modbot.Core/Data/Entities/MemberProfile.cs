@@ -102,7 +102,8 @@ public class ProfileValue
 
 /// <summary>
 /// A member's own switches on their profile. The table is <c>member_profile</c>; a member with no row
-/// has every switch off, which is how everyone starts (member profiles design §8).
+/// has every switch off, which is how everyone starts (member profiles design §8). A row is kept only
+/// while at least one switch is on.
 /// </summary>
 public class MemberProfile
 {
@@ -111,6 +112,9 @@ public class MemberProfile
 
     /// <summary>Whether <c>/find</c> may list them.</summary>
     public bool Findable { get; set; }
+
+    /// <summary>Whether the weekly spotlight may feature them (spotlight design §2).</summary>
+    public bool Spotlight { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 }

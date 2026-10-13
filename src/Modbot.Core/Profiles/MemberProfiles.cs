@@ -260,21 +260,59 @@ public static class MemberProfiles
     }
 
     /// <summary>Turns the member's Findable switch on or off. Off stores nothing: the row goes.</summary>
-    public static async Task SetFindableAsync(
+    public static Task SetFindableAsync(
         ModbotContext db, string discordUserId, bool findable, DateTimeOffset now, CancellationToken ct)
+        => SetSwitchAsync(db, discordUserId, findable: findable, spotlight: null, now, ct);
+
+    /// <summary>Whether the member let the weekly spotlight feature them. Off for a member who never touched it.</summary>
+    public static async Task<bool> IsSpotlightAsync(ModbotContext db, string discordUserId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+
+        return await db.MemberProfiles.AsNoTracking()
+            .AnyAsync(m => m.DiscordUserId == discordUserId && m.Spotlight, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Turns the member's Spotlight switch on or off. Off stores nothing: the row goes.</summary>
+    public static Task SetSpotlightAsync(
+        ModbotContext db, string discordUserId, bool spotlight, DateTimeOffset now, CancellationToken ct)
+        => SetSwitchAsync(db, discordUserId, findable: null, spotlight: spotlight, now, ct);
+
+    /// <summary>
+    /// Sets one of the member's switches and leaves the other as it was. A row stays only while a
+    /// switch is on, so turning the last one off deletes it.
+    /// </summary>
+    private static async Task SetSwitchAsync(
+        ModbotContext db, string discordUserId, bool? findable, bool? spotlight, DateTimeOffset now, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
 
         var row = await db.MemberProfiles.FirstOrDefaultAsync(m => m.DiscordUserId == discordUserId, ct).ConfigureAwait(false);
 
-        if (row is null && findable)
-            db.MemberProfiles.Add(new MemberProfile { DiscordUserId = discordUserId, Findable = true, UpdatedAt = now });
-        else if (row is not null && !findable)
-            db.MemberProfiles.Remove(row);
-        else if (row is not null && !row.Findable)
+        var findableAfter = findable ?? row?.Findable ?? false;
+        var spotlightAfter = spotlight ?? row?.Spotlight ?? false;
+
+        if (!findableAfter && !spotlightAfter)
         {
-            row.Findable = true;
+            if (row is not null)
+                db.MemberProfiles.Remove(row);
+        }
+        else if (row is null)
+        {
+            db.MemberProfiles.Add(new MemberProfile
+            {
+                DiscordUserId = discordUserId,
+                Findable = findableAfter,
+                Spotlight = spotlightAfter,
+                UpdatedAt = now,
+            });
+        }
+        else if (row.Findable != findableAfter || row.Spotlight != spotlightAfter)
+        {
+            row.Findable = findableAfter;
+            row.Spotlight = spotlightAfter;
             row.UpdatedAt = now;
         }
 

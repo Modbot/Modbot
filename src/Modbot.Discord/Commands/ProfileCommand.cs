@@ -39,6 +39,7 @@ public sealed class ProfileCommand
     public const string EditButton = ButtonPrefix + "edit";
     public const string SeeButton = ButtonPrefix + "see";
     public const string FindableButton = ButtonPrefix + "findable";
+    public const string SpotlightButton = ButtonPrefix + "spotlight";
 
     /// <summary>A profile form's id: <c>modbot:profile:form:edit:&lt;page&gt;</c> or <c>modbot:profile:form:see:&lt;page&gt;</c>.</summary>
     public const string FormPrefix = ButtonPrefix + "form:";
@@ -88,6 +89,7 @@ public sealed class ProfileCommand
         var member = await FindMemberAsync(userId, ct).ConfigureAwait(false);
         var card = Card(member?.DisplayName ?? fallbackName, member?.AvatarUrl, lines, showLevels: true);
         var findable = await MemberProfiles.IsFindableAsync(_db, userId, ct).ConfigureAwait(false);
+        var spotlight = await MemberProfiles.IsSpotlightAsync(_db, userId, ct).ConfigureAwait(false);
 
         return new DiscordReply(
             null,
@@ -97,6 +99,7 @@ public sealed class ProfileCommand
                 new DiscordActionButton("Edit", EditButton, DiscordButtonStyle.Main),
                 new DiscordActionButton("Who sees what", SeeButton),
                 new DiscordActionButton(findable ? "Findable: On" : "Findable: Off", FindableButton),
+                new DiscordActionButton(spotlight ? "Spotlight: On" : "Spotlight: Off", SpotlightButton),
             ]);
     }
 
@@ -172,6 +175,17 @@ public sealed class ProfileCommand
         {
             var findable = await MemberProfiles.IsFindableAsync(_db, press.DiscordUserId, ct).ConfigureAwait(false);
             await MemberProfiles.SetFindableAsync(_db, press.DiscordUserId, !findable, _clock.UtcNow, ct).ConfigureAwait(false);
+
+            await press.UpdateAsync(
+                await OwnCardAsync(press.DiscordUserId, press.DiscordUsername, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
+            return null;
+        }
+
+        // The Spotlight switch is the same: flipped, and the card rewritten in place.
+        if (press.ButtonId == SpotlightButton)
+        {
+            var spotlight = await MemberProfiles.IsSpotlightAsync(_db, press.DiscordUserId, ct).ConfigureAwait(false);
+            await MemberProfiles.SetSpotlightAsync(_db, press.DiscordUserId, !spotlight, _clock.UtcNow, ct).ConfigureAwait(false);
 
             await press.UpdateAsync(
                 await OwnCardAsync(press.DiscordUserId, press.DiscordUsername, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
