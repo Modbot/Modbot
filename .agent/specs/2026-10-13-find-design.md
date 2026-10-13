@@ -21,7 +21,7 @@ private, and it must not list anyone who did not ask to be found.
 |---|---|
 | Who may search | Any member of the server. No Modbot account. |
 | Who shows up | Only members who turned **Findable** on (profiles design §8.2). Never the searcher, a bot or a member who left. |
-| What the searcher gets | A reply only they see. Names, and a **View profile** button for each. |
+| What the searcher gets | A reply only they see: a button for each member, named for them, that opens their card. |
 
 ## 3. The command
 
@@ -52,12 +52,12 @@ all, for staff too; it does not decide which answers a searcher may read.
 
 ## 5. The reply
 
-- Private. A card titled **Found N** listing up to **25** members by name, in name order, numbered. If
-  there are more, a last line says how many ("and 2 more").
-- One **View profile** button for each member listed, labelled with the member's number when there
-  are several (Discord buttons carry no member name beside them). A press shows that member's card
-  exactly as `/profile member:` would show it to the one who pressed, so the same levels apply; it
-  follows the `/find` switch.
+- Private. A card titled **Found N**, and under it one button for each of up to **25** members, in
+  name order. If there are more, the card says how many ("and 2 more"); otherwise it has no text.
+- Each button is labelled with the member's display name, as plain text and cut with "…" at Discord's
+  80 characters. The names are the buttons, so there is no separate list. A press shows that
+  member's card exactly as `/profile member:` would show it to the one who pressed, so the same
+  levels apply; it follows the `/find` switch.
 - No match: "Nobody found."
 - A name that is not a field, or a pair with only one half filled in, is told so.
 
@@ -65,7 +65,7 @@ all, for staff too; it does not decide which answers a searcher may read.
 
 - **Off by default** on the Commands card, like `/profile`. A switched-off command is not registered.
 - **Per-person limit:** the same as `/remindme` (5 a minute, in memory); a refused call is not recorded.
-  Pressing View profile is not counted: it shows what `/profile` shows, which has no limit.
+  Pressing a member's button is not counted: it shows what `/profile` shows, which has no limit.
 - **Record:** a search is recorded as **Discord command used** like every other command, with the
   command name and the outcome. The words searched for and the members found are not stored.
 

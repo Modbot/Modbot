@@ -19,8 +19,8 @@ namespace Modbot.Discord.Commands;
 /// if the member wants one; a member is listed when every pair matches. Only members who turned on
 /// Findable are listed, and a member matches a field only through an answer the searcher may read
 /// (<see cref="MemberProfiles.FindAsync"/>), so the list never gives away a hidden answer. The
-/// reply names up to <see cref="Most"/> members, each with a button that shows their card exactly as
-/// <c>/profile</c> would.
+/// reply has a button for each of up to <see cref="Most"/> members, labelled with their name, that
+/// shows their card exactly as <c>/profile</c> would.
 /// </para>
 /// </remarks>
 public sealed class FindCommand
@@ -38,6 +38,9 @@ public sealed class FindCommand
 
     /// <summary>The View profile button's id: <c>modbot:find:view:&lt;Discord user id&gt;</c>.</summary>
     public const string ViewButton = DiscordActionButton.Prefix + "find:view:";
+
+    /// <summary>The longest a button's label may be.</summary>
+    private const int LabelLength = 80;
 
     private const string ButtonPrefix = DiscordActionButton.Prefix + "find:";
 
@@ -148,23 +151,19 @@ public sealed class FindCommand
         if (found.Total == 0)
             return DiscordReply.Say(NobodyMessage);
 
-        var lines = found.Members
-            .Select((m, i) => $"{(i + 1).ToString(CultureInfo.InvariantCulture)}. {CardText.EscapeName(CardText.Plain(m.Name, CardText.MaxNameLength))}")
-            .ToList();
-
-        if (found.Total > found.Members.Count)
-            lines.Add($"and {(found.Total - found.Members.Count).ToString(CultureInfo.InvariantCulture)} more");
+        // The names are the buttons' labels, so the card only counts, and says how many are not shown.
+        var more = found.Total - found.Members.Count;
+        var description = more > 0 ? $"and {more.ToString(CultureInfo.InvariantCulture)} more" : null;
 
         return new DiscordReply(
             null,
-            [new DiscordEmbedContent($"Found {found.Total.ToString(CultureInfo.InvariantCulture)}", string.Join('\n', lines), CardColour.Violet, [], null, null, null)],
-            Actions:
-            [
-                .. found.Members.Select((m, i) => new DiscordActionButton(
-                    found.Members.Count == 1 ? "View profile" : $"View profile {(i + 1).ToString(CultureInfo.InvariantCulture)}",
-                    ViewButton + m.DiscordUserId)),
-            ]);
+            [new DiscordEmbedContent($"Found {found.Total.ToString(CultureInfo.InvariantCulture)}", description, CardColour.Violet, [], null, null, null)],
+            Actions: [.. found.Members.Select(m => new DiscordActionButton(ButtonLabel(m.Name), ViewButton + m.DiscordUserId))]);
     }
+
+    /// <summary>A member's name as a button's label: one line, cut with an ellipsis at Discord's 80 characters.</summary>
+    private static string ButtonLabel(string name)
+        => CardText.Plain(name, LabelLength) is { Length: > 0 } label ? label : "View profile";
 
     private enum PairState
     {

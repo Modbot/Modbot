@@ -15,7 +15,7 @@ namespace Modbot.Discord.Tests.Commands;
 /// <summary>
 /// <c>/find</c> (find design): members found by what their profiles say, only the ones who turned
 /// Findable on, only through answers the searcher may read, never the searcher, at most 25, and a
-/// View profile button that shows the same card <c>/profile</c> would.
+/// button named for each member that shows the same card <c>/profile</c> would.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class FindCommandTests
@@ -146,8 +146,8 @@ public class FindCommandTests
         return (services, role, zone);
     }
 
-    private static string[] Names(DiscordReply reply)
-        => [.. Assert.Single(reply.Embeds).Description!.Split('\n').Select(l => l[(l.IndexOf(' ') + 1)..])];
+    /// <summary>The members listed: each button is labelled with the member's name.</summary>
+    private static string[] Names(DiscordReply reply) => [.. reply.Actions!.Select(a => a.Label)];
 
     private static async Task<JsonElement> LastCommandFactAsync(TestServices services)
     {
@@ -444,7 +444,7 @@ public class FindCommandTests
     // ── The reply ───────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task TheReplyListsAtMost25_SaysHowManyMoreThereAre_AndHasAViewProfileButtonForEach()
+    public async Task TheReplyHasAButtonNamedForEachOfAtMost25_AndSaysHowManyMoreThereAre()
     {
         var (services, role, _) = await WorldAsync();
         await using var disposing = services;
@@ -461,19 +461,30 @@ public class FindCommandTests
 
         var card = Assert.Single(reply.Embeds);
         Assert.Equal("Found 27", card.Title);
-        var lines = card.Description!.Split('\n');
-        Assert.Equal(26, lines.Length);
-        Assert.Equal("1. Member 00", lines[0]);
-        Assert.Equal("25. Member 24", lines[24]);
-        Assert.Equal("and 2 more", lines[25]);
+        Assert.Equal("and 2 more", card.Description);
         Assert.Equal(25, reply.Actions!.Count);
-        Assert.Equal("View profile 1", reply.Actions[0].Label);
+        Assert.Equal("Member 00", reply.Actions[0].Label);
+        Assert.Equal("Member 24", reply.Actions[24].Label);
         Assert.Equal(FindCommand.ViewButton + "8000", reply.Actions[0].Id);
         Assert.All(reply.Actions, a => Assert.True(a.Id.Length <= 100));
     }
 
     [Fact]
-    public async Task OneResultHasAPlainViewProfileButton()
+    public async Task WithEveryoneListedTheCardHasNoCountOfMoreToShow()
+    {
+        var (services, role, _) = await WorldAsync();
+        await using var disposing = services;
+        await AddMemberAsync(services, Bea, "Bea");
+        await AnswerAsync(services, Bea, role, OptionOf(role, "Dancer"));
+        await FindableAsync(services, Bea);
+
+        var reply = await RunAsync(services, Find(Ada, "Role", "Dancer"));
+
+        Assert.Null(Assert.Single(reply.Embeds).Description);
+    }
+
+    [Fact]
+    public async Task OneResultHasAButtonWithTheMembersName()
     {
         var (services, role, _) = await WorldAsync();
         await using var disposing = services;
@@ -484,8 +495,28 @@ public class FindCommandTests
         var reply = await RunAsync(services, Find(Ada, "Role", "Dancer"));
 
         var button = Assert.Single(reply.Actions!);
-        Assert.Equal("View profile", button.Label);
+        Assert.Equal("Bea", button.Label);
         Assert.Equal(FindCommand.ViewButton + Bea, button.Id);
+    }
+
+    [Fact]
+    public async Task ALongNameIsCutToDiscordsLabelLengthWithAnEllipsis_AndAMarkdownNameIsShownAsTyped()
+    {
+        var (services, role, _) = await WorldAsync();
+        await using var disposing = services;
+        await AddMemberAsync(services, Bea, new string('x', 120));
+        await AddMemberAsync(services, Cy, "*nova*");
+
+        foreach (var id in new[] { Bea, Cy })
+        {
+            await AnswerAsync(services, id, role, OptionOf(role, "Dancer"));
+            await FindableAsync(services, id);
+        }
+
+        var reply = await RunAsync(services, Find(Ada, "Role", "Dancer"));
+
+        Assert.Equal(["*nova*", new string('x', 79) + "…"], Names(reply).Order(StringComparer.Ordinal));
+        Assert.All(reply.Actions!, a => Assert.True(a.Label.Length <= 80));
     }
 
     [Fact]
