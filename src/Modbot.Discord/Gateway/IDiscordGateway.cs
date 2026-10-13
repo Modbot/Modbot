@@ -610,6 +610,9 @@ public sealed class DiscordButtonPress
     /// <summary>The card's message id, beside <see cref="CardChannelId"/>.</summary>
     public string? CardMessageId { get; init; }
 
+    /// <summary>The presser may manage threads in the server (an administrator and the owner may).</summary>
+    public bool MemberCanManageThreads { get; init; }
+
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
 
     /// <summary>Shows a form instead of a reply. Only as the first answer; throws when it can no longer be shown.</summary>
@@ -1514,6 +1517,40 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
         string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct);
+
+    // ── Tickets (member tickets) ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Makes a private thread under a channel, adds the member, and posts the first message in it,
+    /// which mentions the member and the staff role and nobody else.
+    /// </summary>
+    /// <remarks>
+    /// Needs Create Private Threads and Send Messages in Threads in the channel. The thread is not
+    /// open to other members to add people to. A thread made but not written in is deleted again.
+    /// </remarks>
+    Task<DiscordTicketOutcome> OpenTicketThreadAsync(DiscordTicketOpening opening, CancellationToken ct);
+
+    /// <summary>
+    /// Posts <paramref name="line"/> in a ticket's thread, then locks and archives it. Needs Manage
+    /// Threads.
+    /// </summary>
+    Task<DiscordPostOutcome> CloseTicketThreadAsync(string threadId, string line, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes a ticket's thread. A thread that is already gone comes back as a permanent failure
+    /// with <see cref="DiscordPostOutcome.NotFound"/>. Needs Manage Threads.
+    /// </summary>
+    Task<DiscordPostOutcome> DeleteTicketThreadAsync(string threadId, string reason, CancellationToken ct);
+
+    /// <summary>Whether a thread is still there: true or false when Discord said, null when it could not be asked.</summary>
+    Task<bool?> TicketThreadExistsAsync(string threadId, CancellationToken ct);
+
+    /// <summary>
+    /// What the bot lacks in a channel to run tickets under it, in Discord's names; empty when it
+    /// has all of it. Null when the channel is not one the session holds. Read from the session's
+    /// memory, so it costs no request to Discord.
+    /// </summary>
+    Task<IReadOnlyList<string>?> MissingTicketPermissionsAsync(string channelId, CancellationToken ct);
 
     // ── Members, voice and moderation (M5 spec §5) ───────────────────────────────────────
     //

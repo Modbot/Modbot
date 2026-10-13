@@ -2875,6 +2875,18 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         public static readonly ChannelNeed React =
             new("add the reaction on Discord", "react in that channel", "View Channels, Read Message History and Add Reactions");
 
+        public static readonly ChannelNeed TicketOpen =
+            new(
+                "open the ticket",
+                "make private threads in that channel",
+                "View Channels, Send Messages, Create Private Threads and Send Messages in Threads");
+
+        public static readonly ChannelNeed TicketClose =
+            new("close the ticket", "lock and archive threads", "Manage Threads and Send Messages in Threads");
+
+        public static readonly ChannelNeed TicketDelete =
+            new("delete the ticket", "delete threads", "Manage Threads");
+
         public static readonly ChannelNeed Publish =
             new("publish the message on Discord", "publish in that channel", "View Channels, Read Message History and Send Messages");
     }

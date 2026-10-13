@@ -309,6 +309,7 @@ public sealed partial class DiscordNetGateway
             CardMessageId = card is not null ? Text(card.Id) : null,
             Values = [.. press.Data.Values ?? []],
             MemberRoleIds = press.User is IGuildUser member ? [.. member.RoleIds.Select(Text)] : null,
+            MemberCanManageThreads = press.User is IGuildUser { GuildPermissions.ManageThreads: true },
         };
 
         var handler = ButtonPressed;
