@@ -83,7 +83,7 @@ public sealed class LivePostPassTests
         await using var context = _db.NewContext();
         await context.Posts.Where(p => p.Kind == PostKinds.InstanceLive).ExecuteDeleteAsync(Ct);
         await context.CalendarOpenings.Where(o => context.CalendarEvents.Any(e => e.Id == o.EventId && e.WorldId == World)).ExecuteDeleteAsync(Ct);
-        await context.CalendarEvents.Where(e => e.WorldId == World).ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().Where(e => e.WorldId == World).ExecuteDeleteAsync(Ct);
         await context.VRChatInstances.Where(i => i.GroupId == Group).ExecuteDeleteAsync(Ct);
 
         var settings = await context.GetSettingsAsync(Ct);
