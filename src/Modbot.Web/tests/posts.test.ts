@@ -9,6 +9,7 @@ import {
   canCancel,
   canEditWhole,
   discordCount,
+  discordLength,
   discordMessage,
   duplicateOf,
   eventListShown,
@@ -26,10 +27,12 @@ import {
   todayIn,
   vrchatAudience,
   vrchatCount,
+  vrchatLength,
   vrchatImage,
   vrchatNeedsTitle,
   vrchatPictureWanted,
   vrchatTitle,
+  VRCHAT_TEXT_CEILING,
   type Post,
   type PostDestination,
 } from '../src/lib/postRules.ts'
@@ -273,7 +276,7 @@ test('VRChat needs a title: its own when ticked and filled, otherwise the postâ€
   assert.equal(vrchatNeedsTitle(input), false)
 })
 
-test('the VRChat counter counts the text VRChat gets and is never red', () => {
+test('the VRChat counter counts the text VRChat gets, shows no limit, and is red only past the ceiling Modbot sets', () => {
   const input = blankPost(now, 'UTC')
   input.text = ' Friday at eight. '
   input.vrChat.on = true
@@ -282,6 +285,11 @@ test('the VRChat counter counts the text VRChat gets and is never red', () => {
   input.vrChat.ownText = true
   input.vrChat.text = 'x'.repeat(5000)
   assert.deepEqual(vrchatCount(input), { label: 'VRChat 5000', over: false })
+
+  input.vrChat.text = 'x'.repeat(VRCHAT_TEXT_CEILING)
+  assert.equal(vrchatCount(input).over, false)
+  input.vrChat.text = 'x'.repeat(VRCHAT_TEXT_CEILING + 1)
+  assert.deepEqual(vrchatCount(input), { label: `VRChat ${VRCHAT_TEXT_CEILING + 1}`, over: true })
 })
 
 test('a ticked VRChat sends who sees it, its roles only for the group, and its own words only when ticked', () => {
@@ -432,6 +440,25 @@ test('the counters count what each site is sent, not the marks', () => {
   assert.equal(vrchatCount(input).label, `VRChat ${'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2'.length}`)
   assert.equal(discordCount(input).label, `Discord ${'Movie night - <t:1792350000:F>\nhttps://discord.com/events/1/2'.length} / 2000`)
   assert.equal(blueskyText(input), 'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2')
+})
+
+test('the on-site edit counts the same way: marks are not counted, and VRChat is red only past the ceiling', () => {
+  assert.equal(vrchatLength(EVENT).label, `VRChat ${'Movie night - Sun 18 Oct, 20:00 BST\nhttps://discord.com/events/1/2'.length}`)
+  assert.equal(discordLength('', EVENT, null).label, `Discord ${'Movie night - <t:1792350000:F>\nhttps://discord.com/events/1/2'.length} / 2000`)
+
+  // A long list of dates is long as stored but short as sent, so it stays under the ceiling.
+  const marked = Array.from({ length: 300 }, () => '{{time 1792350000 Sun 18 Oct, 20:00 BST}}').join('\n')
+  assert.ok(marked.length > VRCHAT_TEXT_CEILING)
+  assert.equal(vrchatLength(marked).over, false)
+  assert.equal(vrchatLength('x'.repeat(VRCHAT_TEXT_CEILING + 1)).over, true)
+})
+
+test("an own text starts from words with the event lists kept as cards, so no time code is shown", () => {
+  const parts = splitEventLists(`Join us\n\n${EVENT}`)
+
+  assert.equal(parts.lists.length, 1)
+  assert.equal(parts.texts.some((text) => text.includes('<t:') || text.includes('{{')), false)
+  assert.equal(joinEventLists(parts), `Join us\n\n${EVENT}`)
 })
 
 test('the list names a post by its first line as a reader sees it', () => {

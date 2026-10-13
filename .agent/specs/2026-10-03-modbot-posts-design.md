@@ -40,7 +40,7 @@ channel card edited in place are not posts, because they are rewritten whenever 
 |---|---|
 | `id` uuid | |
 | `title` text null | Bold on Discord's first line; VRChat needs one (step 2); event posts fill it from the event. |
-| `text` text | The words, before any destination's own text. Up to 8000 characters. |
+| `text` text | The words, before any destination's own text, with the event marks (§5.3). The column keeps up to 100000 characters (`Post.MaxStoredTextLength`), only a guard on what the database holds; the lengths people are held to are counted on what each site is sent (§4.1). |
 | `picture_id` uuid null | A row of `calendar_cover_picture`, which holds every picture Modbot keeps for posting. The hourly sweep counts it as a use; a picture deleted under a post leaves it with none. |
 | `status` | `draft`, `scheduled`, `cancelled`. Sent, Failed and Sending come from the destinations (§3). |
 | `send_at` timestamptz null | When it goes. "Now" is saved as the time of saving. A draft may keep a planned time. |
@@ -121,6 +121,14 @@ sends nothing now, `paused`, `off` or `notSetUp`.
 - **`PostTexts`**: the text each site gets, the counters and Discord's mention line and bold title.
   Tidied the way Discord keeps it (`\n` line ends, trimmed), so the look compares like with like.
   The senders, the preview and the counters all use it, so the preview is what goes out.
+  **Lengths are counted on what a site is sent** (`PostEventText.ForSite`), never on the stored
+  text, whose marks are not sent: Discord's 2000 is on the whole message (mention, bold title and
+  text), Bluesky's 300 graphemes and 3000 bytes on its post, VRChat's `Post.MaxTextLength` (8000) on
+  its text, and the title's `Post.MaxTitleLength` (200) on the title. The same numbers are in the
+  composer's counters (`postRules.ts`), Try again, Post now and the edit on a site, so a post cannot
+  pass one and be refused by another. Only the stored-text guard (100000) measures the marks.
+  VRChat documents no maximum (its API lists only a minimum of 1 for title and text), so 8000 is
+  Modbot's own ceiling and the counter shows no limit, red only past it.
 - **`PostClaim`**: writes `sending`, `sent_at` and exactly what is about to go out, raises
   `post.version`, saves; only then may the caller send. A post written since it was read fails the
   claim, and nothing is sent until it is read again.
@@ -444,7 +452,7 @@ now when Now is picked; Save draft; Cancel).
   up shows Not set up and one switched off shows Off, linking to Settings. Discord: Channel, Mention
   role, Publish to followers (Announcement channels only), Own text with Reset. VRChat (step 2): Who
   sees it (Group / Everyone), Roles (from `GroupInfoSnapshot`, with Group), Notify members
-  (unticked), Own title and Own text with Reset, and a "VRChat 212" counter with no limit; its chip
+  (unticked), Own title and Own text with Reset, and a "VRChat 212" counter with no limit (red only past Modbot's own 8000 ceiling); its chip
   shows "Needs a title" until there is one. No automatic members-only rule: the tick and the preview
   are the gate.
 - When: Now or Later (date, time, time zone).
@@ -575,7 +583,7 @@ uploads, removing the Bluesky account.
   not); the crosspost limit; whether an edit of a published message reaches followers' copies.
 - Discord.Net's own default retry mode in 3.20.1. `AlwaysFail` is set explicitly on post sends and
   publishes, so the answer does not change what Modbot does.
-- VRChat: the length limits of a group post's title and text; whether `groups.posts.write`'s one
+- VRChat: whether `groups.posts.write`'s one
   call in 10 seconds is right; whether a post create can answer 500 and still post (assumed, as the
   calendar's did); whether a gallery-tagged upload is taken as a post's `imageId`; the address shape
   of the group's posts page used for Open (`vrchat.com/home/group/{id}/posts`); that `GetGroupPosts`

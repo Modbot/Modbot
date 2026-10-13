@@ -79,8 +79,13 @@ bottom.
 - **Text** is what the post says. Under it a counter for each place ticked shows how long the post
   will be, such as **Discord 212 / 2000**, **VRChat 212** and **Bluesky 212 / 300**. Discord takes
   at most 2000 characters, and its counter turns red past that; the title and a mentioned role count
-  too. VRChat gives no limit, so its counter is never red. Bluesky takes at most 300 characters,
+  too. VRChat documents no limit for a group post, so its counter shows none; it turns red only past
+  8000 characters, which is as much as Modbot will send there. Bluesky takes at most 300 characters,
   counted the way a reader sees them (an emoji with its skin tone is one), and the title counts too.
+  Every counter counts what that site is sent, not what you see in the box: an event list counts as
+  the words it becomes there, so a long list of dates is never refused because of the marks Modbot
+  keeps in the text.
+- A title is at most 200 characters; the box stops there.
 - **Add event** and **What's on**, under the text, put calendar events into the post. They show only
   if you hold **See calendar** as well. **Add event** offers the published events, soonest first; pick
   one and **Add**. **What's on** offers **This week** (Monday to Sunday), **Next month**, **Next 30
@@ -145,8 +150,9 @@ With **Discord** ticked:
   @everyone, @here and All Roles**.
 - **Publish to followers**: only for an **Announcement** channel. Once the post is in, Modbot
   publishes it to the servers that follow the channel.
-- **Own text**: tick it to give Discord words of its own. It starts as the post's text, has its own
-  counter, and **Reset** puts the post's text back.
+- **Own text**: tick it to give Discord words of its own. It starts as the post's text, with any
+  event list as a card (no time codes are shown), has its own counter, and **Reset** puts the post's
+  text back.
 
 ### VRChat
 
@@ -225,6 +231,8 @@ no **Edit**):
 
 - **Edit** changes its title and text there. On Discord the picture stays, and nobody is pinged
   again. On VRChat the picture and who sees it stay, nobody is notified again, and it needs a title.
+  The box shows an event list as a card, the same as the form does, and the counter under it counts
+  what that site is sent.
 - **Delete** asks "Delete this post on Discord?" (or on VRChat, or on Bluesky), then deletes it
   there. A post already gone from the site counts as deleted. A Bluesky post is deleted from the
   account in Settings; deleting removes it from Bluesky, not from copies other services already took.

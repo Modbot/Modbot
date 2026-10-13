@@ -79,10 +79,10 @@ public class PostVRChatEndpointTests(PostgresFixture db) : IAsyncLifetime
         return (host, vrchat);
     }
 
-    private static object Body(ApiTestHost host, object vrChat, string? title = "Movie night", Guid? pictureId = null) => new
+    private static object Body(ApiTestHost host, object vrChat, string? title = "Movie night", Guid? pictureId = null, string text = "Friday at eight. Bring snacks.") => new
     {
         title,
-        text = "Friday at eight. Bring snacks.",
+        text,
         pictureId,
         when = "later",
         sendAt = host.Clock.UtcNow.AddDays(1).ToString("yyyy-MM-dd'T'HH:mm", System.Globalization.CultureInfo.InvariantCulture),
@@ -317,6 +317,43 @@ public class PostVRChatEndpointTests(PostgresFixture db) : IAsyncLifetime
         var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.PostEdited, id.ToString(), Ct)));
         Assert.Equal(PostNetworks.VRChat, fact.GetProperty("network").GetString());
         Assert.Equal("Friday at eight. Bring snacks.", fact.GetProperty("before").GetString());
+    }
+
+    [Fact]
+    public async Task TheTextIsHeldToWhatVRChatIsSent_NotToTheMarksInTheStoredText()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        // 300 times: 41 characters stored, 21 sent. The stored text passes 8000 but what VRChat is sent does not.
+        var marked = string.Join('
+', Enumerable.Repeat("{{time 1792350000 Sun 18 Oct, 20:00 BST}}", 300));
+        Assert.True(marked.Length > Post.MaxTextLength);
+        Assert.True(PostEventText.ForSite(PostNetworks.VRChat, marked).Length <= Post.MaxTextLength);
+        await CreateAsync(host, manager, Body(host, new { }, text: marked));
+
+        var tooLong = await host.SendJsonAsync(HttpMethod.Post, "/api/posts", Body(host, new { }, text: new string('a', Post.MaxTextLength + 1)), manager, Ct);
+        Assert.Contains($"The VRChat text is longer than {Post.MaxTextLength} characters.", await ProblemsAsync(tooLong));
+    }
+
+    [Fact]
+    public async Task AnEditInTheGroupSendsTheTextAsVRChatGetsIt_AndKeepsTheMarks()
+    {
+        var (host, vrchat) = await StartAsync();
+        await using var _host = host;
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = (await CreateAsync(host, manager, Body(host, new { }))).GetProperty("id").GetGuid();
+        await PostedAsync(id, "not_1");
+
+        var destination = await DestinationAsync(id);
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/posts/{id}/destinations/{destination.Id}/edit",
+            new { title = "Cinema", text = "At {{time 1792350000 Sun 18 Oct, 20:00 BST}}." }, manager, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("At Sun 18 Oct, 20:00 BST.", Assert.Single(vrchat.Edits).Text);
+        Assert.Equal("At {{time 1792350000 Sun 18 Oct, 20:00 BST}}.", (await DestinationAsync(id)).TextOverride);
     }
 
     [Fact]
