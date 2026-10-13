@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261013001734_AddEventAlerts")]
+    [Migration("20261013005221_AddEventAlerts")]
     partial class AddEventAlerts
     {
         /// <inheritdoc />
@@ -3320,6 +3320,72 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcome", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_discord_welcome");
+
+                    b.ToTable("discord_welcome", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcomeStep", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("link");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_welcome_step");
+
+                    b.HasIndex("Kind", "Position")
+                        .HasDatabaseName("ix_discord_welcome_step_order");
+
+                    b.ToTable("discord_welcome_step", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EmailQueueEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -5225,6 +5291,26 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_mcp_grant_user_id");
 
                     b.ToTable("mcp_grant", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberProfile", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<bool>("Findable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("findable");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_member_profile");
+
+                    b.ToTable("member_profile", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.MemberReport", b =>
@@ -7175,6 +7261,119 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("post_destination", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("DefaultVisibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_visibility");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_profile_field");
+
+                    b.HasIndex("SortOrder")
+                        .HasDatabaseName("ix_member_profile_field_order");
+
+                    b.ToTable("member_profile_field", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_role_id");
+
+                    b.Property<Guid>("FieldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("field_id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id")
+                        .HasName("pk_member_profile_option");
+
+                    b.HasIndex("FieldId", "SortOrder")
+                        .HasDatabaseName("ix_member_profile_option_field");
+
+                    b.ToTable("member_profile_option", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileValue", b =>
+                {
+                    b.Property<Guid>("FieldId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("field_id");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid?>("OptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("option_id");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("Visibility")
+                        .HasColumnType("integer")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("FieldId", "DiscordUserId")
+                        .HasName("pk_member_profile_value");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_member_profile_value_user");
+
+                    b.HasIndex("OptionId")
+                        .HasDatabaseName("ix_member_profile_value_option_id");
+
+                    b.ToTable("member_profile_value", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
                 {
                     b.Property<int>("Id")
@@ -7985,6 +8184,26 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordStaffRolesOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_staff_roles_on");
+
+                    b.Property<string>("DiscordWelcomeChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_welcome_channel_id");
+
+                    b.Property<bool>("DiscordWelcomeEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_welcome_enabled");
+
+                    b.Property<DateTimeOffset?>("DiscordWelcomeStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_welcome_started_at");
+
+                    b.Property<string>("DiscordWelcomeVia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("dm")
+                        .HasColumnName("discord_welcome_via");
 
                     b.Property<int>("EmailLimitPer24Hours")
                         .HasColumnType("integer")
@@ -10069,6 +10288,32 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_post_destination_calendar_cover_picture_site_picture_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileOption", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileField", null)
+                        .WithMany("Options")
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_profile_option_member_profile_field_field_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileValue", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileField", null)
+                        .WithMany()
+                        .HasForeignKey("FieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_member_profile_value_member_profile_field_field_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.ProfileOption", null)
+                        .WithMany()
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_member_profile_value_member_profile_option_option_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.StaffAvailability", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", null)
@@ -10200,6 +10445,11 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.Post", b =>
                 {
                     b.Navigation("Destinations");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
+                {
+                    b.Navigation("Options");
                 });
 #pragma warning restore 612, 618
         }
