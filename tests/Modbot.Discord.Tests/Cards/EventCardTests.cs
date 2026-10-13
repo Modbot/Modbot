@@ -128,6 +128,21 @@ public class EventCardTests
         => Assert.Equal(title, EventCard.For(Event(type), Style, CardPicture.None).Title);
 
     /// <summary>
+    /// An appeal's note is staff's own word about a person. The audit log shows it to somebody who may
+    /// see it; a channel has no such gate, so the card says that it happened and nothing more.
+    /// </summary>
+    [Theory]
+    [InlineData(FactType.AppealLogged)]
+    [InlineData(FactType.AppealDecided)]
+    public void AnAppeal_SaysThatItHappened_AndNeverTheNote(string type)
+    {
+        var card = EventCard.For(Event(type, "Says it was a mistake."), Style, new CardPicture());
+
+        Assert.Null(card.Description);
+        Assert.DoesNotContain(card.Fields, f => f.Value.Contains("mistake", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// VRChat's ban, unban and kick entries carry an empty payload -- their <c>description</c> is
     /// VRChat's own template and states no reason -- so there is no reason field to fill. Modbot's
     /// own actions carry theirs inside that same sentence, which the card already quotes.

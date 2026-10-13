@@ -103,6 +103,7 @@ public static partial class EventCard
             FactType.UserProfileChanged => ProfileChanged(e, style, picture),
 
             FactType.WatchStarted or FactType.WatchEnded or FactType.WatchFollowedUp
+                or FactType.AppealLogged or FactType.AppealDecided
                 => WatchChanged(e, style, picture),
 
             FactType.GroupInfoChanged => GroupDetails(e, style),
@@ -340,10 +341,11 @@ public static partial class EventCard
     }
 
     /// <summary>
-    /// A watch started, stopped or followed up. The card says that it happened and nothing of why:
-    /// the reason is a moderator's words about a person, which only the audit log shows, and only to
-    /// somebody who may see it. A channel has no such gate, so the words that go to the log under
-    /// <c>description</c> are left off here, the way a notification names nobody and says nothing of why.
+    /// A watch started, stopped or followed up, or an appeal logged or decided. The card says that it
+    /// happened and nothing of why: the reason is a moderator's words about a person, which only the
+    /// audit log shows, and only to somebody who may see it. A channel has no such gate, so the words
+    /// that go to the log under <c>description</c> are left off here, the way a notification names
+    /// nobody and says nothing of why.
     /// </summary>
     private static DiscordEmbedContent WatchChanged(ModerationEventView e, CardStyle style, CardPicture picture)
         => Build(e, style, picture, ModerationEventEmbed.LabelFor(e.Type), null, []);
