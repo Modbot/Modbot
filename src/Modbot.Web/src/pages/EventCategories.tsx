@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EventAlertsCard } from '@/components/calendar/EventAlertsCard'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Field, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,12 @@ export function EventCategories() {
 
   return (
     <div className="flex flex-col gap-3">
+      {data.canManage && (
+        <div className="grid grid-cols-12">
+          <EventAlertsCard />
+        </div>
+      )}
+
       {data.canManage && (
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1" />
