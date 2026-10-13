@@ -12990,6 +12990,114 @@
         ]
       }
     },
+    "/api/settings/discord-permission-watch": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get permission watch settings",
+        "description": "The channel staff are told in when a Discord role or member gains a dangerous permission, and whether the bot also removes it.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordPermissionWatchSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordPermissionWatchSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update permission watch settings",
+        "description": "Save the permission watch's settings. `removes` takes the permission from the role, or the role from the member, and never touches the server's owner.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordPermissionWatchSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordPermissionWatchSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordPermissionWatchSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-commands": {
       "get": {
         "tags": [
@@ -42771,6 +42879,42 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "DiscordPermissionWatchSettingsResponse": {
+        "required": [
+          "channelId",
+          "removes"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "removes": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordPermissionWatchSettingsUpdate": {
+        "required": [
+          "channelId",
+          "removes"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "removes": {
+            "type": "boolean"
           }
         }
       },

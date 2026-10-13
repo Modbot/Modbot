@@ -544,6 +544,9 @@ public static class ApiSurface
         app.MapDiscordLinkModeration();
         app.MapDiscordLinkingSettings();
 
+        // Who is told when a Discord role or member gains a dangerous permission, and whether it is removed.
+        app.MapDiscordPermissionWatchSettings();
+
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();
 
