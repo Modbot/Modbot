@@ -60,6 +60,7 @@ public static class RequestEndpoints
         var group = app.MapGroup("/api/requests").WithTags("Requests").RequireAuthorization();
 
         group.MapGet("/", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromServices] GroupJoinRequests? vrchat,
@@ -108,7 +109,13 @@ public static class RequestEndpoints
                 var waiting = answer.Value ?? [];
 
                 return Results.Ok(new JoinRequestList(
-                    await RowsAsync(db, groupId, waiting, ct),
+                    await RowsAsync(
+                        db,
+                        groupId,
+                        waiting,
+                        // A note is a fact in the audit log, so its count is for whoever may read that log.
+                        ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ViewAuditLog),
+                        ct),
                     number,
                     size,
                     waiting.Count >= size,
@@ -122,7 +129,8 @@ public static class RequestEndpoints
                 + "stands. `page` and `pageSize` page it; `hasMore` is true when the page came back "
                 + "full, because VRChat sends no total for this list. Each row carries what Modbot "
                 + "already knows about the person: their profile, whether the group has banned them "
-                + "before, and whether they have been a member before.")
+                + "before, whether they have been a member before, how many staff notes are on them "
+                + "(only for a caller who may read the audit log) and whether they are 18+ verified.")
             .Produces<JoinRequestList>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status409Conflict)
@@ -210,12 +218,12 @@ public static class RequestEndpoints
     /// VRChat's queue, with everything Modbot already knows about each person written beside it.
     /// </summary>
     /// <remarks>
-    /// Three reads of Modbot's own tables for the whole page, never one per row. A moderator
-    /// deciding whether to let somebody in is deciding it mostly on the ban history, so the ban
-    /// read is not optional dressing.
+    /// Four reads of Modbot's own tables for the whole page (three when the caller may not read
+    /// notes), never one per row. A moderator deciding whether to let somebody in is deciding it
+    /// mostly on the ban history, so the ban read is not optional dressing.
     /// </remarks>
     private static async Task<IReadOnlyList<JoinRequestRow>> RowsAsync(
-        ModbotContext db, string groupId, IReadOnlyList<VRChatGroupMember> waiting, CancellationToken ct)
+        ModbotContext db, string groupId, IReadOnlyList<VRChatGroupMember> waiting, bool mayReadNotes, CancellationToken ct)
     {
         var ids = waiting
             .Select(m => m.UserId)
@@ -237,6 +245,28 @@ public static class RequestEndpoints
         var members = await db.GroupMembers.AsNoTracking()
             .Where(m => m.GroupId == groupId && ids.Contains(m.UserId))
             .ToDictionaryAsync(m => m.UserId, ct);
+
+        // Notes written and notes taken back, counted per person in one query. A take-back names
+        // one note and a note is taken back once, so the difference is the notes still standing.
+        var notes = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        if (mayReadNotes)
+        {
+            var counted = await db.Events.AsNoTracking()
+                .Where(e => (e.Type == FactType.NoteAdded || e.Type == FactType.NoteTakenBack)
+                    && e.SubjectPlatform == FactPlatform.VRChat
+                    && ids.Contains(e.SubjectId))
+                .GroupBy(e => new { e.SubjectId, e.Type })
+                .Select(g => new { g.Key.SubjectId, g.Key.Type, Count = g.Count() })
+                .ToListAsync(ct);
+
+            foreach (var person in counted.GroupBy(c => c.SubjectId, StringComparer.Ordinal))
+            {
+                var written = person.Where(c => c.Type == FactType.NoteAdded).Sum(c => c.Count);
+                var takenBack = person.Where(c => c.Type == FactType.NoteTakenBack).Sum(c => c.Count);
+                notes[person.Key] = Math.Max(0, written - takenBack);
+            }
+        }
 
         var rows = new List<JoinRequestRow>(waiting.Count);
 
@@ -266,7 +296,8 @@ public static class RequestEndpoints
                 BannedBefore: ban is { LiftedAt: not null },
                 WasMember: member is { LeftAt: not null },
                 member?.LeftAt,
-                Known: profile is not null || ban is not null || member is not null));
+                Known: profile is not null || ban is not null || member is not null,
+                mayReadNotes ? notes.GetValueOrDefault(id) : null));
         }
 
         return rows;

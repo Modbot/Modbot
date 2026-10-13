@@ -70,6 +70,51 @@ export function historyNote(row: JoinRequestRow): string | null {
   return null
 }
 
+/** One small mark on a row: what it says, how it is drawn, and what it means in full. */
+export type RowMark = {
+  key: 'history' | 'notes' | 'age'
+  label: string
+  tone: 'destructive' | 'outline' | 'ok'
+  title: string
+}
+
+/**
+ * Everything a row says about the person, from what Modbot has stored: the group's history with
+ * them, the notes on them and whether they are 18+. The 18+ mark is always there, because "not
+ * seen as 18+" is an answer a moderator needs on every row; the other two appear when there is
+ * something to say.
+ */
+export function rowMarks(row: JoinRequestRow): RowMark[] {
+  const marks: RowMark[] = []
+  const history = historyNote(row)
+
+  if (history) {
+    marks.push({
+      key: 'history',
+      label: history,
+      tone: row.banned ? 'destructive' : 'outline',
+      title: history,
+    })
+  }
+
+  if (row.staffNotes) {
+    marks.push({
+      key: 'notes',
+      label: row.staffNotes === 1 ? '1 note' : `${row.staffNotes} notes`,
+      tone: 'outline',
+      title: 'Staff notes on this person',
+    })
+  }
+
+  marks.push(
+    row.eighteenPlus
+      ? { key: 'age', label: '18+', tone: 'ok', title: '18+ verified' }
+      : { key: 'age', label: '18+ ?', tone: 'outline', title: 'Not seen as 18+ verified' },
+  )
+
+  return marks
+}
+
 /**
  * How many rows one read of the queue asks VRChat for, on the Requests page and on Now alike, so
  * the two count the same way.

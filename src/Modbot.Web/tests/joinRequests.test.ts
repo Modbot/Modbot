@@ -7,6 +7,7 @@ import {
   mayAnswer,
   resultText,
   rowIsAnswered,
+  rowMarks,
   waitingFrom,
 } from '../src/lib/joinRequests.ts'
 import type { CurrentUser, JoinRequestRow } from '../src/lib/api.ts'
@@ -29,6 +30,7 @@ function row(over: Partial<JoinRequestRow> = {}): JoinRequestRow {
     wasMember: false,
     leftAt: null,
     known: false,
+    staffNotes: null,
     ...over,
   }
 }
@@ -101,4 +103,20 @@ test('a full first page is written with a plus, never as a made-up total', () =>
   assert.deepEqual(waitingFrom(full, []), { count: 1, more: true })
   assert.equal(countText(50, true), '50+')
   assert.equal(countText(3, false), '3')
+})
+
+test('a row always says whether the person is 18+, and shows notes only when there are some', () => {
+  assert.deepEqual(rowMarks(row()).map((m) => m.label), ['18+ ?'])
+  assert.deepEqual(rowMarks(row({ eighteenPlus: true })).map((m) => m.label), ['18+'])
+  assert.deepEqual(rowMarks(row({ staffNotes: 0 })).map((m) => m.label), ['18+ ?'])
+  assert.deepEqual(rowMarks(row({ staffNotes: 1 })).map((m) => m.label), ['1 note', '18+ ?'])
+  assert.deepEqual(rowMarks(row({ staffNotes: 3 })).map((m) => m.label), ['3 notes', '18+ ?'])
+})
+
+test('past bans come first and a ban that stands is drawn as one', () => {
+  const marks = rowMarks(row({ bannedBefore: true, staffNotes: 2, eighteenPlus: true }))
+
+  assert.deepEqual(marks.map((m) => m.label), ['Banned before', '2 notes', '18+'])
+  assert.equal(marks[0].tone, 'outline')
+  assert.equal(rowMarks(row({ banned: true }))[0].tone, 'destructive')
 })

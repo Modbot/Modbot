@@ -65,9 +65,11 @@ a different list answering a different question, and Modbot has no screen that a
 `GET /api/requests` reads VRChat **when the moderator asks**, and stores nothing.
 
 - One VRChat request per page opened, plus one per press of Refresh. Nothing polls it.
-- Each row is then filled in from Modbot's own tables — three reads for the whole page, never one
-  per row: the stored profile (name, picture, trust rank, the sticky 18+ mark), the group's ban list
-  and the group's member list.
+- Each row is then filled in from Modbot's own tables — four reads for the whole page, never one
+  per row: the stored profile (name, picture, trust rank, the sticky 18+ mark), the group's ban list,
+  the group's member list and the staff-note count (notes written less notes taken back, read from
+  the facts in one grouped query, and only for a caller who may read the audit log, as reading notes
+  needs; for anybody else the count is absent, not zero).
 - Answering a row takes it out of the list in the browser rather than re-reading the page, so
   clearing a backlog costs one VRChat request per answer instead of two.
 

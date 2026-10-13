@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Requests;
 using Modbot.Api.Tests.Fakes;
@@ -174,6 +175,41 @@ public class JoinRequestTests
         Assert.False(row.Banned);
         Assert.True(row.BannedBefore);
         Assert.True(row.WasMember);
+    }
+
+    [Fact]
+    public async Task ARowCountsTheNotesStillStanding_AndOnlyForSomebodyWhoMayReadNotes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, Answering(Waiting(Asker)));
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        FactRecord Fact(string type, string subject) => new()
+        {
+            Type = type,
+            OccurredAt = Day.AddDays(-3),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = subject,
+            Source = FactSource.Modbot,
+        };
+
+        // Three notes on the asker, one of them taken back, and one note on somebody else.
+        await host.WriteFactAsync(Fact(FactType.NoteAdded, Asker), ct);
+        await host.WriteFactAsync(Fact(FactType.NoteAdded, Asker), ct);
+        await host.WriteFactAsync(Fact(FactType.NoteAdded, Asker), ct);
+        await host.WriteFactAsync(Fact(FactType.NoteTakenBack, Asker), ct);
+        await host.WriteFactAsync(Fact(FactType.NoteAdded, "usr_other"), ct);
+
+        var reader = await host.SignedInAsync(ModbotPermissions.ViewJoinRequests | ModbotPermissions.ViewAuditLog, ct);
+        var row = Assert.Single((await host.GetJsonAsync<JoinRequestList>("/api/requests", reader, ct)).Requests);
+        Assert.Equal(2, row.StaffNotes);
+
+        // A note is a fact in the audit log; without the right to read that, the count is absent,
+        // which is not the same as none.
+        var onlyQueue = await host.SignedInAsync(ModbotPermissions.ViewJoinRequests, ct);
+        var hidden = Assert.Single((await host.GetJsonAsync<JoinRequestList>("/api/requests", onlyQueue, ct)).Requests);
+        Assert.Null(hidden.StaffNotes);
     }
 
     [Fact]

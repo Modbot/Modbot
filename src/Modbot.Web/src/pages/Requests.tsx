@@ -26,11 +26,11 @@ import { formatDay } from '@/lib/format'
 import { noteRequired, reasonRequired, reasonsFor } from '@/lib/moderationActions'
 import {
   confirmTitle,
-  historyNote,
   JOIN_REQUEST_PAGE_SIZE,
   mayAnswer,
   resultText,
   rowIsAnswered,
+  rowMarks,
   waitingFrom,
   type WaitingCount,
 } from '@/lib/joinRequests'
@@ -192,9 +192,12 @@ export function JoinRequests({
                     main={<span className="block truncate font-medium">{row.displayName ?? row.userId}</span>}
                     facts={[
                       row.askedAt && <span key="asked" className="font-mono">{formatDay(row.askedAt)}</span>,
-                      historyNote(row) && <HistoryMark key="history" row={row} />,
                     ]}
                   >
+                    {/* Under the name rather than in the facts line, which has room for a date and no more. */}
+                    <div className="px-(--panel-pad) pb-2">
+                      <HistoryMarks row={row} />
+                    </div>
                     {canAnswer && (
                       <div className="flex justify-end gap-2 px-(--panel-pad) pb-2">
                         <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
@@ -255,7 +258,7 @@ export function JoinRequests({
                   {row.askedAt ? formatDay(row.askedAt) : <span className="text-muted-foreground">—</span>}
                 </Td>
                 <Td>
-                  <HistoryMark row={row} />
+                  <HistoryMarks row={row} />
                 </Td>
                 {canAnswer && (
                   <Td className="text-right">
@@ -300,13 +303,22 @@ export function JoinRequests({
   )
 }
 
-/** The one mark a row earns: that the group has dealt with this person before. */
-function HistoryMark({ row }: { row: JoinRequestRow }) {
-  const note = historyNote(row)
-
-  if (!note) return <span className="text-muted-foreground">—</span>
-
-  return <Badge variant={row.banned ? 'destructive' : 'outline'}>{note}</Badge>
+/** What Modbot has stored about this person: past bans, staff notes and 18+ status. */
+function HistoryMarks({ row }: { row: JoinRequestRow }) {
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {rowMarks(row).map((mark) => (
+        <Badge
+          key={mark.key}
+          variant={mark.tone}
+          title={mark.title}
+          className={mark.key === 'age' ? 'font-mono' : undefined}
+        >
+          {mark.label}
+        </Badge>
+      ))}
+    </span>
+  )
 }
 
 /**

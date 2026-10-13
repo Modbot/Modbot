@@ -26,6 +26,10 @@ namespace Modbot.Api.Features.Requests;
 /// False when Modbot has never recorded anything about this person: no profile, no membership, no
 /// ban. Everything above is then whatever VRChat sent with the request, and nothing more.
 /// </param>
+/// <param name="StaffNotes">
+/// How many staff notes stand on them (taken-back ones are not counted). Null when the caller may
+/// not read notes, which is not the same as none.
+/// </param>
 public sealed record JoinRequestRow(
     string UserId,
     string? DisplayName,
@@ -38,7 +42,8 @@ public sealed record JoinRequestRow(
     bool BannedBefore,
     bool WasMember,
     DateTimeOffset? LeftAt,
-    bool Known);
+    bool Known,
+    int? StaffNotes);
 
 /// <summary>
 /// One page of the join queue, as VRChat had it a moment ago.

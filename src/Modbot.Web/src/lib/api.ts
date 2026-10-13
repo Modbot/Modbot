@@ -1652,6 +1652,8 @@ export type JoinRequestRow = {
   leftAt: string | null
   /** False when Modbot has never recorded anything about this person at all. */
   known: boolean
+  /** Staff notes standing on them. Null when the signed-in account may not read notes. */
+  staffNotes: number | null
 }
 
 /**

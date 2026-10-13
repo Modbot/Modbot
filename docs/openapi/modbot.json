@@ -23699,7 +23699,7 @@
           "Requests"
         ],
         "summary": "List join requests",
-        "description": "Read from VRChat when you ask, not from a stored copy, so it is the queue as it stands. `page` and `pageSize` page it; `hasMore` is true when the page came back full, because VRChat sends no total for this list. Each row carries what Modbot already knows about the person: their profile, whether the group has banned them before, and whether they have been a member before.\n\nNeeds the `ViewJoinRequests` permission.",
+        "description": "Read from VRChat when you ask, not from a stored copy, so it is the queue as it stands. `page` and `pageSize` page it; `hasMore` is true when the page came back full, because VRChat sends no total for this list. Each row carries what Modbot already knows about the person: their profile, whether the group has banned them before, whether they have been a member before, how many staff notes are on them (only for a caller who may read the audit log) and whether they are 18+ verified.\n\nNeeds the `ViewJoinRequests` permission.",
         "operationId": "GetJoinRequests",
         "parameters": [
           {
@@ -48457,7 +48457,8 @@
           "bannedBefore",
           "wasMember",
           "leftAt",
-          "known"
+          "known",
+          "staffNotes"
         ],
         "type": "object",
         "properties": {
@@ -48520,6 +48521,13 @@
           },
           "known": {
             "type": "boolean"
+          },
+          "staffNotes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
