@@ -3,7 +3,6 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { blankEvent, type CalendarEventInput } from '@/lib/calendar'
-import { splitFillIns } from '@/lib/calendarFillIns'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import {
   FIRST_LENGTH_MINUTES,
@@ -14,6 +13,7 @@ import {
 } from '@/lib/calendarTemplates'
 import type { CalendarReady } from '@/lib/calendarPlaces'
 import { CalendarEventForm } from './CalendarEventForm'
+import { FillInShown } from './FillInText'
 
 /** The form's own settings, from the calendar's read. */
 type FormSettings = {
@@ -84,18 +84,7 @@ export function TemplatesCard({
                 {t.fields.title && (
                   <span className="text-muted-foreground">
                     {' · '}
-                    {splitFillIns(t.fields.title).map((piece, i) =>
-                      piece.kind === 'fillIn' ? (
-                        <span
-                          key={i}
-                          className="mx-0.5 rounded-sm border border-(length:--hairline) border-input bg-accent px-1.5 text-accent-foreground"
-                        >
-                          {piece.name}
-                        </span>
-                      ) : (
-                        piece.text
-                      ),
-                    )}
+                    <FillInShown text={t.fields.title} />
                   </span>
                 )}
               </span>

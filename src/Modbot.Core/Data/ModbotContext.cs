@@ -2710,6 +2710,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         builder.Entity<CalendarEvent>(entity =>
         {
             entity.ToTable("calendar_event");
+            entity.Ignore(e => e.AutoLinks);
             entity.HasOne<CalendarCoverPicture>()
                 .WithMany()
                 .HasForeignKey(e => e.CoverPictureId)

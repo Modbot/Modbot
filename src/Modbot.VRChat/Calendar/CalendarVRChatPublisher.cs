@@ -185,6 +185,8 @@ public sealed class CalendarVRChatPublisher
             .OrderBy(e => e.UpdatedAt)
             .ToListAsync(ct).ConfigureAwait(false);
 
+        await CalendarAutoLinks.ResolveAsync(_db, settings, events, ct).ConfigureAwait(false);
+
         // Places taken down whose event wants VRChat again (turned off and on, say). A place is one
         // row per event and kind of place, so the row left behind is used again: adding a second
         // one broke the key (event, place) and stopped every pass saving, as the Discord loop's did

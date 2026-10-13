@@ -176,6 +176,8 @@ public sealed class CalendarDiscordPublisher
         if (events.Count == 0 && cancelPosts.Count == 0 && dateCancelPosts.Count == 0 && oldPosts.Count == 0)
             return new CalendarDiscordPass(0);
 
+        await CalendarAutoLinks.ResolveAsync(_db, settings, events, ct).ConfigureAwait(false);
+
         var eventIds = events.Select(e => e.Id).ToList();
         var takenDown = await _db.CalendarEventPlaces
             .Where(p => eventIds.Contains(p.EventId)

@@ -389,6 +389,10 @@ public sealed class CalendarVRChatReader
             .Where(e => eventIds.Contains(e.Id))
             .ToDictionaryAsync(e => e.Id, ct).ConfigureAwait(false);
 
+        // The same words the publisher fingerprints, so an edit waiting to be sent is told from none.
+        if (_settings is not null)
+            await CalendarAutoLinks.ResolveAsync(_db, _settings, known.Values, ct).ConfigureAwait(false);
+
         var owned = places
             .Where(p => p.ExternalId is { Length: > 0 } && known.ContainsKey(p.EventId))
             .GroupBy(p => p.ExternalId!, StringComparer.Ordinal)

@@ -1418,3 +1418,44 @@ fill themselves in (step 4) are not here.
   a template saved before has none. A save checks them as an event's are (an id that is gone is a 400).
   Reading a template leaves out ids of categories deleted since, and the form also drops any id its
   own category read does not know. The Categories row is shown in the template editor again.
+
+### 20.2 Automatic links (step 4, added 2026-10-12)
+
+- **Four links.** `Google event`, `Discord event`, `Add our Google calendar`, `VRChat group page`.
+  Stored the way a fill-in is (`{{Google event}}`), so nothing changes in the database: the four
+  names are reserved. `splitFillIns` returns them as `link` pieces; they are left out of the Use
+  template dialog's boxes (`fillInsIn`) and survive `fillInText` unchanged, because Modbot, not the
+  person, fills them. The server reads the same names in `CalendarAutoLinks` (Core); a person who adds
+  a fill-in named like one gets the link.
+- **Where they show.** A Links row in the event form (both the template and the event editor) with one
+  button per link, putting it at the caret of the text last clicked into. Title, description and each
+  site's own text are `FillInText` boxes in both editors now, so a link is a box (grey, where a fill-in
+  is the accent colour) and never a code; the details popup and the template list draw them the same
+  way (`FillInShown`).
+- **Filling.** `CalendarAutoLinks.Fill(text, links)` runs on every text a site is sent:
+  `CalendarSiteText.Title`/`Description` (VRChat, Discord, Google), `CalendarRepeat.TitleOf`/
+  `DescriptionOf` (a date's own words too), the Google body's three description branches, and the
+  calendar feed entries (private and public). The addresses come from `CalendarEvent.AutoLinks`, a
+  property that is not stored; a pass that sends texts sets it with `CalendarAutoLinks.ResolveAsync`
+  (one read of the events' Google and Discord event places): the Google, Discord and VRChat
+  publishers, the VRChat reader (so its "edit waiting to be sent" check fingerprints the same words),
+  both feeds and the preview. Left null, every link is left out.
+- **Addresses.** Google event: the place's `GoogleLink` (Google's `htmlLink` from the insert answer),
+  once it is not Removed. Discord event: `https://discord.com/events/<guild>/<id>` of the Discord event
+  place whose `OccurrenceStartsAt` is the date the event is about now (a repeating event's link moves
+  to the next date's event; the old one is being ended). Add our Google calendar: Google's add link for
+  the calendar in Settings, only while Check found it public (`GooglePublic` is `all`). VRChat group
+  page: `https://vrchat.com/home/group/<ManagedGroupId>`. The fixed links (a vrc.group address, the
+  group's instances) stay typed text, as agreed.
+- **Left out cleanly.** A link with no address is removed along with the spaces before it; a line
+  that held nothing else goes, and a blank line is not left doubled. "Join: {{Google event}}" is sent
+  as "Join:". Nothing else is guessed.
+- **Updating what was sent.** The texts are part of every site's fingerprint, so the first publish
+  sends no per-event link and the next pass, which sees the address, finds a different fingerprint and
+  sends the text again by the ordinary update path: one update on each site whose text holds the link
+  (VRChat's update is the existing PATCH, no new endpoint). A repeating event's Discord address
+  changes with its date, so a text that holds it is updated once per date. No retry is added; a 429
+  stops sending as always.
+- **Limits.** The counters in the form count the stored text, where a link is its name; the address
+  sent is longer, and VRChat or Discord may cut or refuse a text that ends up over their limit (the
+  existing per-site checks and messages apply).

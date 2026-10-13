@@ -78,6 +78,10 @@ public static class CalendarPreviews
 
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
+        // The links as the sites will be sent them: an event not yet on Google or Discord has none of its own.
+        if (settings is not null)
+            await CalendarAutoLinks.ResolveAsync(db, settings, [calendarEvent], ct);
+
         var world = calendarEvent.WorldId is { } worldId
             ? await db.VRChatWorlds.AsNoTracking().FirstOrDefaultAsync(w => w.WorldId == worldId, ct)
             : null;

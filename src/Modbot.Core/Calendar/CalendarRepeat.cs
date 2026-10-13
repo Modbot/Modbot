@@ -275,14 +275,14 @@ public static class CalendarRepeat
     public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Title is { Length: > 0 } own ? own : calendarEvent.Title;
+        return CalendarAutoLinks.Fill(occurrence.Change?.Title is { Length: > 0 } own ? own : calendarEvent.Title, calendarEvent.AutoLinks);
     }
 
     /// <summary>The description a date goes out with: its own, or the event's.</summary>
     public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description;
+        return CalendarAutoLinks.Fill(occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description, calendarEvent.AutoLinks);
     }
 
     /// <summary>
@@ -292,7 +292,7 @@ public static class CalendarRepeat
     public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Title is { Length: > 0 } own ? own : CalendarSiteText.Title(calendarEvent, site);
+        return occurrence.Change?.Title is { Length: > 0 } own ? CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks) : CalendarSiteText.Title(calendarEvent, site);
     }
 
     /// <summary>
@@ -302,7 +302,7 @@ public static class CalendarRepeat
     public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Description is { Length: > 0 } own ? own : CalendarSiteText.Description(calendarEvent, site);
+        return occurrence.Change?.Description is { Length: > 0 } own ? CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks) : CalendarSiteText.Description(calendarEvent, site);
     }
 
     /// <summary>When an occurrence counts as open: its start, or earlier by the minutes its instance opens early.</summary>

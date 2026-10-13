@@ -1113,6 +1113,9 @@ public static class CalendarEndpoints
 
                 var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
+                if (settings is not null)
+                    await CalendarAutoLinks.ResolveAsync(db, settings, events, ct);
+
                 var body = CalendarFeedWriter.Write(FeedName(settings), events, names, now, settings?.PublicAddress);
                 return Results.Text(body, "text/calendar; charset=utf-8", Encoding.UTF8);
             })

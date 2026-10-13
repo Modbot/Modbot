@@ -321,8 +321,8 @@ public static class CalendarFeedWriter
             location = worldNames.TryGetValue(worldId, out var name) && !string.IsNullOrWhiteSpace(name) ? name : worldId;
 
         return new CalendarFeedEntry(
-            calendarEvent.Title,
-            string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : calendarEvent.Description,
+            CalendarAutoLinks.Fill(calendarEvent.Title, calendarEvent.AutoLinks),
+            string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : CalendarAutoLinks.Fill(calendarEvent.Description, calendarEvent.AutoLinks),
             location,
             Rule(calendarEvent, CalendarRepeat.ZoneOf(calendarEvent)));
     }

@@ -1277,6 +1277,27 @@ characters.
 The template form also shows the [**Categories**](#event-categories) you made in Modbot, so a template
 keeps them. A category deleted since is left out when the template is used.
 
+### Automatic links
+
+The **Links** row, in the template form and in the event form, puts a link where the cursor was last.
+There are four, each shown as a box with its name:
+
+| Link | What Modbot puts in its place |
+|---|---|
+| **Google event** | This event on the Google calendar. |
+| **Discord event** | This event's Discord event, for the date it is about. |
+| **Add our Google calendar** | The page that adds the server's Google calendar, once Settings names a calendar that is public. |
+| **VRChat group page** | The group's page on vrchat.com, once a group is set up. |
+
+You never type these in when you use a template: Modbot fills them when the event is sent. They work in
+the title, the description and each site's own text, on every site and in the calendar feed. An event
+is not on Google or Discord until its first publish, so **Google event** and **Discord event** are left
+out of what is sent first; once the address is known the texts are sent again by themselves, the way
+an edit is. A link that cannot exist (no public Google calendar, no group) is left out the same way:
+Modbot also removes the spaces before it, and a line with nothing else on it, so no half-written
+sentence is sent. The link to a group's own invite page, or to its instances, is not automatic: type it
+into the text.
+
 ### Use a template
 
 With **Manage calendar**, **Use template** sits beside **New event** once there is a template. Pick the

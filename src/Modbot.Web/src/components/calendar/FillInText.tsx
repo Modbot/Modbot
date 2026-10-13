@@ -1,17 +1,21 @@
 import { useEffect, useRef } from 'react'
-import { cleanFillInName, fillInMarker, splitFillIns } from '@/lib/calendarFillIns'
+import { autoLinkOf, cleanFillInName, fillInMarker, splitFillIns } from '@/lib/calendarFillIns'
 import { cn } from '@/lib/utils'
 
 const CHIP_ATTRIBUTE = 'data-fill-in'
 
 const CHIP_CLASS =
-  'mx-0.5 inline-block select-none rounded-sm border border-(length:--hairline) border-input bg-accent px-1.5 align-baseline text-accent-foreground'
+  'mx-0.5 inline-block select-none rounded-sm border border-(length:--hairline) border-input px-1.5 align-baseline'
+
+// A fill-in is asked for when a template is used; an automatic link is filled by Modbot, and looks different.
+const FILL_IN_TONE = 'bg-accent text-accent-foreground'
+const LINK_TONE = 'bg-muted text-foreground'
 
 function makeChip(name: string): HTMLElement {
   const chip = document.createElement('span')
   chip.setAttribute(CHIP_ATTRIBUTE, name)
   chip.contentEditable = 'false'
-  chip.className = CHIP_CLASS
+  chip.className = `${CHIP_CLASS} ${autoLinkOf(name) ? LINK_TONE : FILL_IN_TONE}`
   chip.style.fontSize = 'var(--text-small)'
   chip.textContent = name
   return chip
@@ -22,7 +26,7 @@ function draw(box: HTMLElement, text: string) {
   box.replaceChildren()
 
   for (const piece of splitFillIns(text)) {
-    if (piece.kind === 'fillIn') {
+    if (piece.kind !== 'text') {
       box.append(makeChip(piece.name))
       continue
     }
@@ -178,5 +182,21 @@ export function FillInText({
         document.execCommand('insertText', false, multiline ? dropped : dropped.replace(/\s*[\r\n]+\s*/g, ' '))
       }}
     />
+  )
+}
+
+/**
+ * A text read on the page rather than edited: its blanks and automatic links as boxes carrying their
+ * names, never as their stored codes.
+ */
+export function FillInShown({ text }: { text: string }) {
+  return splitFillIns(text).map((piece, i) =>
+    piece.kind === 'text' ? (
+      piece.text
+    ) : (
+      <span key={i} className={cn(CHIP_CLASS, piece.kind === 'link' ? LINK_TONE : FILL_IN_TONE)}>
+        {piece.name}
+      </span>
+    ),
   )
 }

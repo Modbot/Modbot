@@ -27,6 +27,7 @@ import { anySending, DESTINATION_LABEL, notSetUp, placeLines, type CalendarReady
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import { dateAt, type Spot } from './entry'
+import { FillInShown } from './FillInText'
 import { EventResults } from './EventResults'
 import { NextGame } from './NextGame'
 import { NotSetUp } from './NotSetUp'
@@ -145,7 +146,11 @@ function EventBody({
         </div>
       )}
 
-      {description && <p className="line-clamp-6 whitespace-pre-wrap">{description}</p>}
+      {description && (
+        <p className="line-clamp-6 whitespace-pre-wrap">
+          <FillInShown text={description} />
+        </p>
+      )}
 
       <WorldLine event={event} start={start} canManage={canManage} onChanged={onChanged} />
 

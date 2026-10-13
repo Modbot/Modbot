@@ -10,8 +10,9 @@ import type { CalendarTemplateFields } from './calendarTemplates.ts'
  *
  * Names are matched without regard to capitals or extra spaces, so `{{host}}` and `{{ Host }}` are
  * the same blank, and the spelling first met is the one shown. A later step can give some names a
- * meaning of their own (automatic links) by checking them in `splitFillIns`'s callers; the stored
- * form needs no change for that.
+ * meaning of their own, which step 4 does: the four automatic links (`AUTO_LINKS`) are stored the
+ * same way, are never asked for, and are filled by Modbot when an event's texts are sent. They come
+ * out of `splitFillIns` as `link` pieces, so no caller has to know the names.
  */
 
 /** The longest a fill-in's name may be. */
@@ -31,13 +32,31 @@ export const FILL_IN_TEXTS = [
 
 type TextKey = (typeof FILL_IN_TEXTS)[number]
 
-export type Piece = { kind: 'text'; text: string } | { kind: 'fillIn'; name: string }
+/**
+ * The automatic links, by the name shown in their box and stored between the brackets. The server
+ * reads the same four (`CalendarAutoLinks`): a link is this event on Google, this event on Discord,
+ * the server's public Google calendar to add, and the VRChat group's page.
+ */
+export const AUTO_LINKS = ['Google event', 'Discord event', 'Add our Google calendar', 'VRChat group page'] as const
+
+export type AutoLink = (typeof AUTO_LINKS)[number]
+
+export type Piece =
+  | { kind: 'text'; text: string }
+  | { kind: 'fillIn'; name: string }
+  | { kind: 'link'; name: AutoLink }
 
 const MARKER = /\{\{([^{}\r\n]{1,80})\}\}/g
 
 /** What a name is compared by: trimmed, single spaces, lower case. */
 export function fillInKey(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/** The automatic link a name means, in its own spelling, or null for any other name. */
+export function autoLinkOf(name: string): AutoLink | null {
+  const key = fillInKey(name)
+  return AUTO_LINKS.find((link) => fillInKey(link) === key) ?? null
 }
 
 /** A name as typed, made fit to keep: no brackets or line breaks, single spaces, at most 40 characters. */
@@ -65,7 +84,9 @@ export function splitFillIns(text: string): Piece[] {
     if (name === '') continue
 
     if (match.index > from) pieces.push({ kind: 'text', text: text.slice(from, match.index) })
-    pieces.push({ kind: 'fillIn', name })
+
+    const link = autoLinkOf(name)
+    pieces.push(link ? { kind: 'link', name: link } : { kind: 'fillIn', name })
     from = match.index + match[0].length
   }
 
@@ -96,10 +117,19 @@ export function fillInsOfTemplate(fields: Pick<CalendarTemplateFields, TextKey>)
   return fillInsIn(textsOf(fields))
 }
 
-/** One text with every blank replaced by its value, or by nothing when it has none. Values are not read for blanks again. */
+/**
+ * One text with every blank replaced by its value, or by nothing when it has none. Values are not
+ * read for blanks again. An automatic link stays as it is: Modbot fills it when the text is sent.
+ */
 export function fillInText(text: string, values: Readonly<Record<string, string>>): string {
   return splitFillIns(text)
-    .map((piece) => (piece.kind === 'text' ? piece.text : (values[fillInKey(piece.name)] ?? '').trim()))
+    .map((piece) =>
+      piece.kind === 'text'
+        ? piece.text
+        : piece.kind === 'link'
+          ? fillInMarker(piece.name)
+          : (values[fillInKey(piece.name)] ?? '').trim(),
+    )
     .join('')
 }
 

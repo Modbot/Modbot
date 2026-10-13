@@ -187,6 +187,9 @@ public static class PublicCalendarFeedEndpoints
         var names = await CalendarEndpoints.FeedWorldNamesAsync(db, events, ct);
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
+        if (settings is not null)
+            await CalendarAutoLinks.ResolveAsync(db, settings, events, ct);
+
         return CalendarFeedWriter.WritePublic(CalendarEndpoints.FeedName(settings), events, names, now, settings?.PublicAddress);
     }
 

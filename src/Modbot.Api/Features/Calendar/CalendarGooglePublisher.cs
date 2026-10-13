@@ -213,6 +213,7 @@ public sealed class CalendarGooglePublisher
             .ToListAsync(ct).ConfigureAwait(false);
 
         _worldNames = await CalendarEndpoints.FeedWorldNamesAsync(_db, events, ct).ConfigureAwait(false);
+        await CalendarAutoLinks.ResolveAsync(_db, _settings, events, ct).ConfigureAwait(false);
 
         // What each place said before this pass, so a change of state writes its fact.
         var was = places.ToDictionary(p => p.Key, p => (p.Value.State, OnGoogle: p.Value.SentFingerprint is not null));

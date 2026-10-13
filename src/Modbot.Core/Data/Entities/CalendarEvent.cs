@@ -1,3 +1,5 @@
+using Modbot.Core.Calendar;
+
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>The words stored in <see cref="CalendarEvent.State"/> (calendar design §2.1).</summary>
@@ -291,6 +293,14 @@ public class CalendarEvent
     /// with the event every time, because every place an event goes has to follow them.
     /// </summary>
     public List<CalendarDateChange> DateChanges { get; set; } = [];
+
+    /// <summary>
+    /// The addresses the event's automatic links stand for (<see cref="CalendarAutoLinks"/>). Not
+    /// stored: whoever is about to send the event's words sets it from the event's places, and
+    /// every text that goes out is filled from it. Left null, every link is left out, so a path
+    /// that forgot to set it sends no half-written code.
+    /// </summary>
+    public CalendarLinks? AutoLinks { get; set; }
 }
 
 /// <summary>

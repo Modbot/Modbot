@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Tabs } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { ApiError } from '@/lib/api'
 import {
   blankEvent,
@@ -40,7 +39,7 @@ import {
   type CalendarReady,
 } from '@/lib/calendarPlaces'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
-import { cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
+import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
@@ -130,8 +129,8 @@ export function CalendarEventForm({
   const [busy, setBusy] = useState(false)
   const [templateName, setTemplateName] = useState(template?.name ?? '')
   const [length, setLength] = useState(template?.lengthMinutes ?? 0)
-  // Template editor only: the fill-ins made here and not yet in any text, the new one's name as
-  // typed, and where a fill-in goes (the text last clicked into).
+  // Template editor only: the fill-ins made here and not yet in any text, and the new one's name as
+  // typed. Where a fill-in or an automatic link goes (the text last clicked into) is for both editors.
   const [spareFillIns, setSpareFillIns] = useState<string[]>([])
   const [newFillIn, setNewFillIn] = useState('')
   const [putFillIn, setPutFillIn] = useState<{ insert: (name: string) => boolean } | null>(null)
@@ -353,18 +352,29 @@ export function CalendarEventForm({
     return [...inTexts, ...spareFillIns.filter((name) => !known.has(fillInKey(name)))]
   }, [template, input, spareFillIns])
 
-  // A fill-in goes where the caret last was; with no text clicked into yet, on the end of the title.
+  // A fill-in or a link goes where the caret last was; with no text clicked into yet, on the end of the title.
+  // The field last clicked into may have gone (a site's own text ticked off): then the title.
+  const putIn = (name: string) => {
+    if (!putFillIn?.insert(name)) set('title', input.title + fillInMarker(name))
+  }
+
   const addFillIn = (raw: string) => {
     const name = cleanFillInName(raw)
     if (name === '') return
+
+    // A name that means an automatic link is that link, not a blank to ask for.
+    const link = autoLinkOf(name)
+    if (link) {
+      setNewFillIn('')
+      putIn(link)
+      return
+    }
 
     const taken = fillIns.find((n) => fillInKey(n) === fillInKey(name))
     const shown = taken ?? name
     if (!taken) setSpareFillIns((current) => [...current, shown])
     setNewFillIn('')
-
-    // The field last clicked into may have gone (a site's own text ticked off): then the title.
-    if (!putFillIn?.insert(shown)) set('title', input.title + fillInMarker(shown))
+    putIn(shown)
   }
 
   return (
@@ -483,27 +493,28 @@ export function CalendarEventForm({
                     </div>
                   </Section>
                 )}
+                <Section title="Links">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {AUTO_LINKS.map((link) => (
+                      <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
+                        {link}
+                      </Button>
+                    ))}
+                  </div>
+                </Section>
                 <Counted label="Title" count={title}>
-                  {template ? (
-                    <FillInText label="Title" value={input.title} onChange={(v) => set('title', v)} onActive={(insert) => setPutFillIn({ insert })} />
-                  ) : (
-                    <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
-                  )}
+                  <FillInText label="Title" value={input.title} onChange={(v) => set('title', v)} onActive={(insert) => setPutFillIn({ insert })} />
                 </Counted>
                 <Counted label="Description" count={description}>
-                  {template ? (
-                    <FillInText
-                      multiline
-                      label="Description"
-                      value={input.description}
-                      onChange={(v) => set('description', v)}
-                      onActive={(insert) => setPutFillIn({ insert })}
-                    />
-                  ) : (
-                    <Textarea rows={3} value={input.description} onChange={(e) => set('description', e.target.value)} />
-                  )}
+                  <FillInText
+                    multiline
+                    label="Description"
+                    value={input.description}
+                    onChange={(v) => set('description', v)}
+                    onActive={(insert) => setPutFillIn({ insert })}
+                  />
                 </Counted>
-                <OwnText input={input} set={set} onActive={template ? (insert) => setPutFillIn({ insert }) : undefined} />
+                <OwnText input={input} set={set} onActive={(insert) => setPutFillIn({ insert })} />
 
                 {categoryChoices.length > 0 && (
                   <Section title="Categories">
@@ -852,8 +863,8 @@ function OwnText({
 }: {
   input: CalendarEventInput
   set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
-  /** Set in the template editor, where the texts show their fill-ins as boxes. */
-  onActive?: (insert: (name: string) => boolean) => void
+  /** Hands the form the way to put a fill-in or a link into the text last clicked into. */
+  onActive: (insert: (name: string) => boolean) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -881,38 +892,21 @@ function OwnText({
       {OWN_TEXT_SITES.filter((site) => open[site.label]).map((site) => (
         <div key={site.label} className="flex flex-col gap-3 border-l-2 border-l-border pl-3">
           <Counted label={`${site.label} title`} count={counted(input[site.title] ?? '', TITLE_LIMIT)}>
-            {onActive ? (
-              <FillInText
-                label={`${site.label} title`}
-                value={input[site.title] ?? ''}
-                onChange={(v) => set(site.title, v)}
-                onActive={onActive}
-              />
-            ) : (
-              <Input
-                aria-label={`${site.label} title`}
-                value={input[site.title] ?? ''}
-                onChange={(e) => set(site.title, e.target.value)}
-              />
-            )}
+            <FillInText
+              label={`${site.label} title`}
+              value={input[site.title] ?? ''}
+              onChange={(v) => set(site.title, v)}
+              onActive={onActive}
+            />
           </Counted>
           <Counted label={`${site.label} description`} count={counted(input[site.description] ?? '', DESCRIPTION_LIMIT)}>
-            {onActive ? (
-              <FillInText
-                multiline
-                label={`${site.label} description`}
-                value={input[site.description] ?? ''}
-                onChange={(v) => set(site.description, v)}
-                onActive={onActive}
-              />
-            ) : (
-              <Textarea
-                rows={3}
-                aria-label={`${site.label} description`}
-                value={input[site.description] ?? ''}
-                onChange={(e) => set(site.description, e.target.value)}
-              />
-            )}
+            <FillInText
+              multiline
+              label={`${site.label} description`}
+              value={input[site.description] ?? ''}
+              onChange={(v) => set(site.description, v)}
+              onActive={onActive}
+            />
           </Counted>
         </div>
       ))}

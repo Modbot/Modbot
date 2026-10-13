@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  AUTO_LINKS,
+  autoLinkOf,
   cleanFillInName,
   fillInFields,
   fillInKey,
@@ -102,4 +104,36 @@ test('minutes are added to a wall-clock time, and a length is read back', () => 
   assert.equal(lengthBetween('2026-10-20T19:00', '2026-10-20T21:30'), 150)
   assert.equal(lengthBetween('2026-10-20T19:00', '2026-10-20T19:00'), 1)
   assert.equal(lengthBetween('2026-10-20T19:00', '2027-10-20T19:00'), 7 * 24 * 60)
+})
+
+test('the four automatic links are told from fill-ins by name, in any capitals or spacing', () => {
+  assert.deepEqual([...AUTO_LINKS], ['Google event', 'Discord event', 'Add our Google calendar', 'VRChat group page'])
+  assert.equal(autoLinkOf('  google   EVENT '), 'Google event')
+  assert.equal(autoLinkOf('Host'), null)
+
+  assert.deepEqual(splitFillIns('See {{google event}} and {{Host}}'), [
+    { kind: 'text', text: 'See ' },
+    { kind: 'link', name: 'Google event' },
+    { kind: 'text', text: ' and ' },
+    { kind: 'fillIn', name: 'Host' },
+  ])
+})
+
+test('automatic links are not blanks to ask for, and stay in the text when a template is filled in', () => {
+  const fields = fieldsFromInput(
+    { ...input, description: '{{What}}: {{Google event}} / {{Discord event}}', vrChatDescription: '{{VRChat group page}}' },
+    60,
+  )
+
+  assert.deepEqual(fillInsOfTemplate(fields), ['Host', 'What'])
+
+  const filled = fillInFields(fields, { Host: 'Ana', What: 'Movies' })
+
+  assert.equal(filled.description, 'Movies: {{Google event}} / {{Discord event}}')
+  assert.equal(filled.vrChatDescription, '{{VRChat group page}}')
+  assert.deepEqual(fillInsOfTemplate(filled), [])
+})
+
+test('a link typed in other capitals is stored under its own spelling once filled in', () => {
+  assert.equal(fillInText('{{add our google calendar}}', {}), '{{Add our Google calendar}}')
 })

@@ -22,7 +22,12 @@ public enum CalendarSite
 /// it; a site's own words are the event's, and the date has stepped away from the event.
 /// </para>
 /// <para>
-/// Modbot's own pages, the calendar feed, reminders and invites say the shared title.
+/// Modbot's own pages, reminders and invites say the shared title.
+/// </para>
+/// <para>
+/// The words are returned with the event's automatic links filled in (<see cref="CalendarAutoLinks"/>),
+/// from <see cref="CalendarEvent.AutoLinks"/>: what a site is sent, and so what its fingerprint is of.
+/// <see cref="OwnTitle"/> and <see cref="OwnDescription"/> are the words as typed.
 /// </para>
 /// </remarks>
 public static class CalendarSiteText
@@ -31,14 +36,14 @@ public static class CalendarSiteText
     public static string Title(CalendarEvent calendarEvent, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return Own(OwnTitle(calendarEvent, site)) ?? calendarEvent.Title;
+        return CalendarAutoLinks.Fill(Own(OwnTitle(calendarEvent, site)) ?? calendarEvent.Title, calendarEvent.AutoLinks);
     }
 
     /// <summary>The description <paramref name="site"/> shows for the event as a whole.</summary>
     public static string Description(CalendarEvent calendarEvent, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return Own(OwnDescription(calendarEvent, site)) ?? calendarEvent.Description;
+        return CalendarAutoLinks.Fill(Own(OwnDescription(calendarEvent, site)) ?? calendarEvent.Description, calendarEvent.AutoLinks);
     }
 
     /// <summary>The site's own title, or null when it says the shared one.</summary>

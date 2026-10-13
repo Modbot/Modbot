@@ -238,12 +238,12 @@ public sealed record CalendarGoogleBody(
     private static string? TextOf(CalendarEvent calendarEvent, CalendarOccurrence? occurrence)
     {
         if (occurrence?.Change?.Description is { Length: > 0 } date && !string.IsNullOrWhiteSpace(date))
-            return Escape(date.Trim());
+            return Escape(CalendarAutoLinks.Fill(date, calendarEvent.AutoLinks).Trim());
 
         if (CalendarSiteText.OwnDescription(calendarEvent, CalendarSite.Google) is { } own)
-            return CalendarGoogleLinks.Html(own.Trim());
+            return CalendarGoogleLinks.Html(CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks).Trim());
 
-        return string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Escape(calendarEvent.Description.Trim());
+        return string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Escape(CalendarAutoLinks.Fill(calendarEvent.Description, calendarEvent.AutoLinks).Trim());
     }
 
     /// <summary>
