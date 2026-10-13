@@ -1868,6 +1868,31 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Partners ────────────────────────────────────────────────────────────────────────────────
+  'modbot.partner.create': (p) => (
+    <>
+      {p.actor} added the partner<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.partner.change': (p) => {
+    const changed = p.entry.data?.['changed']
+    const fields = Array.isArray(changed) ? changed.filter((c) => typeof c === 'string').join(', ') : ''
+
+    return (
+      <>
+        {p.actor} changed the partner<Quoted value={p.text('name')} />
+        {fields ? <> ({fields})</> : null}.
+      </>
+    )
+  },
+
+  'modbot.partner.delete': (p) => (
+    <>
+      {p.actor} deleted the partner<Quoted value={p.text('name')} />.
+    </>
+  ),
+
   // A Discord role a saved list gave or took (roles from lists design §7).
   'modbot.list.role.give': (p) => (
     <>

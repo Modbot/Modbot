@@ -108,6 +108,10 @@ export const NAV = [
   // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is
   // moderation history, not only membership (decided 2026-10-01). Making one is the page's own check.
   { id: 'lists', label: 'Lists', group: 'Community', needsAll: ['ViewMembers', 'ViewProfile'], words: ['segments', 'regulars', 'export'] },
+  // The other groups this one works with, their contacts, the last collab and the envoy (partner
+  // tracker). Staff only: one permission opens it and changes it. After Lists and before
+  // Availability, which stays last. No `g` letter: all twenty-six are taken.
+  { id: 'partners', label: 'Partners', group: 'Community', needs: 'ManagePartners', words: ['collab', 'envoy', 'groups we work with', 'contacts'] },
   // When the team is free each week: each person's own times, and everyone's together as a heatmap
   // (availability design). Last under Community, with the pages opened less often. Either of its
   // two permissions opens it, and which tabs there are is the page's own check: Enter availability
@@ -224,6 +228,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   giveaways: 'p',
   lists: 'u',
   availability: 'z',
+  partners: '',
   chat: 'c',
   bans: 'b',
   flags: 'f',

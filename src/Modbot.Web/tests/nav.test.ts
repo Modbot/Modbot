@@ -166,7 +166,7 @@ test('Community heads the pages from Requests to Availability, each of which nam
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'availability'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'partners', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -284,10 +284,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports and Event categories: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports, Event categories and Partners: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports' || item.id === 'event-categories') continue
+    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })
@@ -563,6 +563,14 @@ test('Availability is the last page under Community, labelled Availability, and 
   assert.equal(community.at(-1)?.id, 'availability')
   assert.equal(GO_TO_KEYS.availability, 'z')
   assert.equal(Object.values(GO_TO_KEYS).filter((k) => k === 'z').length, 1)
+})
+
+test('Partners opens with Manage partners alone, and sits just before Availability', () => {
+  const community = NAV.filter((n) => 'group' in n && n.group === 'Community').map((n) => n.id)
+
+  assert.equal(community.indexOf('partners'), community.indexOf('availability') - 1)
+  assert.equal(mayOpen(person('ManagePartners'), 'partners'), true)
+  assert.equal(mayOpen(person('ViewCalendar', 'ManageSettings'), 'partners'), false)
 })
 
 test('somebody who may only enter their times still gets the Community heading and the page', () => {
