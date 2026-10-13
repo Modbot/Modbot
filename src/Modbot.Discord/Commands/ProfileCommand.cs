@@ -38,6 +38,7 @@ public sealed class ProfileCommand
     public const string ButtonPrefix = DiscordActionButton.Prefix + "profile:";
     public const string EditButton = ButtonPrefix + "edit";
     public const string SeeButton = ButtonPrefix + "see";
+    public const string FindableButton = ButtonPrefix + "findable";
 
     /// <summary>A profile form's id: <c>modbot:profile:form:edit:&lt;page&gt;</c> or <c>modbot:profile:form:see:&lt;page&gt;</c>.</summary>
     public const string FormPrefix = ButtonPrefix + "form:";
@@ -86,6 +87,7 @@ public sealed class ProfileCommand
 
         var member = await FindMemberAsync(userId, ct).ConfigureAwait(false);
         var card = Card(member?.DisplayName ?? fallbackName, member?.AvatarUrl, lines, showLevels: true);
+        var findable = await MemberProfiles.IsFindableAsync(_db, userId, ct).ConfigureAwait(false);
 
         return new DiscordReply(
             null,
@@ -94,6 +96,7 @@ public sealed class ProfileCommand
             [
                 new DiscordActionButton("Edit", EditButton, DiscordButtonStyle.Main),
                 new DiscordActionButton("Who sees what", SeeButton),
+                new DiscordActionButton(findable ? "Findable: On" : "Findable: Off", FindableButton),
             ]);
     }
 
@@ -162,6 +165,18 @@ public sealed class ProfileCommand
 
         if (!await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.Profile, ct).ConfigureAwait(false))
             return DiscordReply.Say(CommandSwitchSetting.OffMessage(DiscordCommands.Profile, menu: false));
+
+        // The Findable switch flips and the card is rewritten in place, so the button shows the new
+        // state; it needs no form.
+        if (press.ButtonId == FindableButton)
+        {
+            var findable = await MemberProfiles.IsFindableAsync(_db, press.DiscordUserId, ct).ConfigureAwait(false);
+            await MemberProfiles.SetFindableAsync(_db, press.DiscordUserId, !findable, _clock.UtcNow, ct).ConfigureAwait(false);
+
+            await press.UpdateAsync(
+                await OwnCardAsync(press.DiscordUserId, press.DiscordUsername, ct).ConfigureAwait(false), ct).ConfigureAwait(false);
+            return null;
+        }
 
         if (!TryStep(press.ButtonId, ButtonPrefix, out var step, out var page))
             return DiscordReply.Say("Modbot does not know that button.");

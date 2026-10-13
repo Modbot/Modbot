@@ -185,7 +185,7 @@ function MemberProfile({ id }: { id: string }) {
       {error && <EmptyRow tone="danger" onTryAgain={reload}>{error}</EmptyRow>}
       {!error && !data && <EmptyRow tone="loading" />}
       {data && data.lines.length === 0 && <EmptyRow>Nothing filled in.</EmptyRow>}
-      {data && data.lines.length > 0 && (
+      {data && (
         <ul className="flex flex-col">
           {data.lines.map((line) => (
             <li
@@ -198,6 +198,13 @@ function MemberProfile({ id }: { id: string }) {
               <Badge variant="outline">{PROFILE_LEVELS[line.visibility]}</Badge>
             </li>
           ))}
+          <li
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-t-(length:--hairline) px-(--panel-pad) py-1.5"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            <span className="w-full text-muted-foreground sm:w-40 sm:shrink-0">Findable</span>
+            <span className="min-w-0 flex-1">{data.findable ? 'On' : 'Off'}</span>
+          </li>
         </ul>
       )}
     </Panel>

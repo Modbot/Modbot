@@ -14,7 +14,8 @@ namespace Modbot.Api.Features.Profiles;
 /// <param name="Visibility">only-me, staff or members: who the member lets read it.</param>
 public sealed record MemberProfileLineView(Guid FieldId, string Name, string Kind, string Answer, string Visibility);
 
-public sealed record MemberProfileView(IReadOnlyList<MemberProfileLineView> Lines);
+/// <param name="Findable">Whether the member let <c>/find</c> list them.</param>
+public sealed record MemberProfileView(IReadOnlyList<MemberProfileLineView> Lines, bool Findable = false);
 
 /// <summary>
 /// A member's profile as staff read it in Modbot (member profiles design §5): every answered
@@ -38,7 +39,8 @@ public static class MemberProfileEndpoints
                     l.Name,
                     l.Kind == ProfileFieldKind.Text ? ProfileFieldEndpoints.TextName : ProfileFieldEndpoints.PickListName,
                     l.Answer ?? string.Empty,
-                    ProfileFieldEndpoints.Visibility(l.Visibility)))]));
+                    ProfileFieldEndpoints.Visibility(l.Visibility)))],
+                    await MemberProfiles.IsFindableAsync(db, id, ct)));
             })
             .WithTags("Discord")
             .RequiresFlag(ModbotPermissions.ViewMembers)

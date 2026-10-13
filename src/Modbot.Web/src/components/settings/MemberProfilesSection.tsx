@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyRow } from '@/components/PanelGrid'
+import { RolePicker } from '@/components/discord/RolePicker'
 import {
   api,
   ApiError,
@@ -28,13 +29,17 @@ const LEVELS: { value: ProfileVisibility; label: string }[] = [
   { value: 'members', label: 'Members' },
 ]
 
-/** One option being edited: the id it already has on the server, or null for a new one. */
-type OptionDraft = { id: string | null; label: string; key: number }
+/** One option being edited: the id it already has on the server, or null for a new one; roleId is '' for none. */
+type OptionDraft = { id: string | null; label: string; roleId: string; key: number }
 
 let nextKey = 0
 const draftsOf = (field: ProfileFieldView): OptionDraft[] =>
-  field.options.map((o) => ({ id: o.id, label: o.label, key: nextKey++ }))
-const blankOption = (): OptionDraft => ({ id: null, label: '', key: nextKey++ })
+  field.options.map((o) => ({ id: o.id, label: o.label, roleId: o.roleId ?? '', key: nextKey++ }))
+const blankOption = (): OptionDraft => ({ id: null, label: '', roleId: '', key: nextKey++ })
+const sendable = (options: OptionDraft[], keepIds: boolean) =>
+  options
+    .filter((o) => o.label.trim())
+    .map((o) => ({ id: keepIds ? o.id : null, label: o.label.trim(), roleId: o.roleId || null }))
 
 /** Settings → Member profiles: the fields every member can fill in with /profile in Discord. */
 export function MemberProfilesSection() {
@@ -49,6 +54,7 @@ function ProfileFieldsCard() {
   const [fields, setFields] = useState<ProfileFieldView[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -91,6 +97,18 @@ function ProfileFieldsCard() {
       .finally(() => setBusy(false))
   }
 
+  const copyFromRoles = (field: ProfileFieldView) => {
+    setBusy(true)
+    setProblem(null)
+    setCopied(null)
+
+    api
+      .copyProfileFieldFromRoles(field.id)
+      .then((result) => setCopied(`${field.name}: ${result.filled} filled`))
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not copy the roles.'))
+      .finally(() => setBusy(false))
+  }
+
   const move = (index: number, by: -1 | 1) => {
     if (!fields) return
     const next = [...fields]
@@ -115,6 +133,7 @@ function ProfileFieldsCard() {
           >
             {adding ? 'Cancel' : 'Add a field'}
           </Button>
+          <Outcome tone="ok">{copied}</Outcome>
           <Outcome tone="problem">{problem}</Outcome>
         </>
       }
@@ -166,6 +185,16 @@ function ProfileFieldsCard() {
                     >
                       ↓
                     </Button>
+                    {field.kind === 'pick-list' && (
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        disabled={busy || !field.options.some((o) => o.roleId)}
+                        onClick={() => copyFromRoles(field)}
+                      >
+                        Copy from roles
+                      </Button>
+                    )}
                     <Button
                       size="xs"
                       variant="ghost"
@@ -231,7 +260,7 @@ function FieldEditor({
 }: {
   field: ProfileFieldView
   busy: boolean
-  onSave: (name: string, options: { id: string | null; label: string }[] | undefined) => Promise<void>
+  onSave: (name: string, options: ReturnType<typeof sendable> | undefined) => Promise<void>
 }) {
   const [name, setName] = useState(field.name)
   const [options, setOptions] = useState<OptionDraft[]>(() => draftsOf(field))
@@ -248,7 +277,7 @@ function FieldEditor({
           onClick={() =>
             void onSave(
               name.trim(),
-              pickList ? options.filter((o) => o.label.trim()).map((o) => ({ id: o.id, label: o.label.trim() })) : undefined,
+              pickList ? sendable(options, true) : undefined,
             )
           }
         >
@@ -297,10 +326,7 @@ function NewField({
               name: name.trim(),
               kind,
               defaultVisibility: visibility,
-              options:
-                kind === 'pick-list'
-                  ? options.filter((o) => o.label.trim()).map((o) => ({ id: null, label: o.label.trim() }))
-                  : undefined,
+              options: kind === 'pick-list' ? sendable(options, false) : undefined,
             })
           }
         >
@@ -329,34 +355,41 @@ function OptionsEditor({
   return (
     <ul className="flex flex-col gap-1" aria-label="Options">
       {options.map((option, index) => (
-        <li key={option.key} className="flex items-center gap-1">
+        <li key={option.key} className="grid items-end gap-1 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
           <Input
             value={option.label}
             maxLength={MAX_OPTION}
             aria-label={`Option ${index + 1}`}
             onChange={(e) => onChange(options.map((o) => (o === option ? { ...o, label: e.target.value } : o)))}
           />
-          <Button size="icon-xs" variant="ghost" disabled={index === 0} onClick={() => swap(index, -1)} aria-label={`Move option ${index + 1} up`} title="Move up">
-            ↑
-          </Button>
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            disabled={index === options.length - 1}
-            onClick={() => swap(index, 1)}
-            aria-label={`Move option ${index + 1} down`}
-            title="Move down"
-          >
-            ↓
-          </Button>
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => onChange(options.filter((o) => o !== option))}
-            aria-label={`Remove option ${index + 1}`}
-          >
-            Remove
-          </Button>
+          <RolePicker
+            label="Role"
+            value={option.roleId}
+            onChange={(roleId) => onChange(options.map((o) => (o === option ? { ...o, roleId } : o)))}
+          />
+          <div className="flex items-center gap-1">
+            <Button size="icon-xs" variant="ghost" disabled={index === 0} onClick={() => swap(index, -1)} aria-label={`Move option ${index + 1} up`} title="Move up">
+              ↑
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              disabled={index === options.length - 1}
+              onClick={() => swap(index, 1)}
+              aria-label={`Move option ${index + 1} down`}
+              title="Move down"
+            >
+              ↓
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => onChange(options.filter((o) => o !== option))}
+              aria-label={`Remove option ${index + 1}`}
+            >
+              Remove
+            </Button>
+          </div>
         </li>
       ))}
       <li>

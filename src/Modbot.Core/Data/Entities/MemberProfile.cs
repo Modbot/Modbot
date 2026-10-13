@@ -69,6 +69,12 @@ public class ProfileOption
     public string Label { get; set; } = string.Empty;
 
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// The Discord role whose holders get this answer from "Copy from roles", or null for none. Text,
+    /// never parsed. Kept when the role is deleted in Discord; the copy then finds nobody.
+    /// </summary>
+    public string? DiscordRoleId { get; set; }
 }
 
 /// <summary>
@@ -90,6 +96,21 @@ public class ProfileValue
 
     /// <summary>The member's own choice of who sees it, or null to follow the field's default.</summary>
     public ProfileVisibility? Visibility { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// A member's own switches on their profile. The table is <c>member_profile</c>; a member with no row
+/// has every switch off, which is how everyone starts (member profiles design §8).
+/// </summary>
+public class MemberProfile
+{
+    /// <summary>The member's Discord user id. Text, never parsed.</summary>
+    public string DiscordUserId { get; set; } = string.Empty;
+
+    /// <summary>Whether <c>/find</c> may list them.</summary>
+    public bool Findable { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 }

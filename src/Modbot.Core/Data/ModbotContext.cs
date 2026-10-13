@@ -173,6 +173,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each member's answers to the profile fields, and who they let read them.</summary>
     public DbSet<ProfileValue> ProfileValues => Set<ProfileValue>();
 
+    public DbSet<MemberProfile> MemberProfiles => Set<MemberProfile>();
+
     /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
@@ -1193,7 +1195,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
 
             entity.Property(e => e.Label).HasMaxLength(ProfileField.MaxOptionLength);
+
+            // Discord ids are opaque text with no length assumption (spec 3.1.1).
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
             entity.HasIndex(e => new { e.FieldId, e.SortOrder }).HasDatabaseName("ix_member_profile_option_field");
+        });
+
+        builder.Entity<MemberProfile>(entity =>
+        {
+            entity.ToTable("member_profile");
+
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
         });
 
         builder.Entity<ProfileValue>(entity =>

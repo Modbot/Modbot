@@ -314,6 +314,19 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // And their Findable switch (member profiles design §8), by the same rule.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM member_profile WHERE discord_user_id = @subject"
+                    : """
+                      DELETE FROM member_profile
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // And whether they are a friend of the group's VRChat account, which names them too.
             if (platform == FactPlatform.VRChat)
             {

@@ -330,6 +330,28 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
     }
 
+    /// <summary>A purge takes the member's Findable switch (member profiles design §8) and leaves everybody else's.</summary>
+    [Fact]
+    public async Task TheFindableSwitchOfThePurgedMemberGoes()
+    {
+        const string DiscordSubject = "7101";
+        const string DiscordBystander = "7102";
+
+        await using (var setup = Database.NewContext())
+        {
+            setup.MemberProfiles.AddRange(
+                new MemberProfile { DiscordUserId = DiscordSubject, Findable = true, UpdatedAt = Start },
+                new MemberProfile { DiscordUserId = DiscordBystander, Findable = true, UpdatedAt = Start });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await using var read = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await read.MemberProfiles.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+    }
+
     private async Task<int> CountAsync(string subjectId)
     {
         await using var context = Database.NewContext();

@@ -1,11 +1,11 @@
 # Modbot — Member profiles
 
 - **Date:** 2026-10-12
-- **Status:** Step 1 of 2 implemented with this document
+- **Status:** Step 1 of 2 implemented with this document; step 2 (§8) added 2026-10-12
 - **Covers:** the profile fields an admin sets up; what members fill in from Discord with `/profile`;
   who may see each field; where staff read a member's profile in Modbot
-- **Not in this document (step 2):** copying a member's existing roles into their profile, and a
-  "Findable" switch for `/find`. §8 says how the data leaves room for them.
+- **Step 2 (§8):** copying a member's existing roles into their profile, and a "Findable" switch
+  for `/find` (`/find` itself comes later).
 - **Related:** Discord commands design (every `/command` has a switch, §3.8); acting from Discord
   design (the staff account check); foundation §5.5 (a purge erases a person); ban reasons (the
   settings list this one copies the shape of)
@@ -71,7 +71,7 @@ registered, and its buttons and forms say it is off.
 
 | You type | You get (only you can see it) |
 |---|---|
-| `/profile` | Your card: your name, one line per field with your answer, and the level beside it. Buttons **Edit** and **Who sees what**. |
+| `/profile` | Your card: your name, one line per field with your answer, and the level beside it. Buttons **Edit**, **Who sees what** and **Findable: On/Off** (§8.2). |
 | `/profile member:@someone` | Their card with only the fields you may see. No buttons. If they have none you may see: "{name} has nothing to show." |
 
 Both look the same for a member with an empty profile: "{name} has nothing to show." for others;
@@ -114,7 +114,8 @@ answered are left out; a member with none shows "Nothing filled in."
 | Table | Holds |
 |---|---|
 | `member_profile_field` | id, name, kind, default level, position, created/updated |
-| `member_profile_option` | id, field id, label, position -- pick-list options |
+| `member_profile_option` | id, field id, label, position, Discord role id (step 2) -- pick-list options |
+| `member_profile` | Discord user id, Findable, updated (step 2); a row only while the member is findable |
 | `member_profile_value` | field id, Discord user id, option id **or** text, the member's own level (null = the field's default), updated. One row per field per member; deleted when it holds neither an answer nor a level |
 
 The value table is keyed on the Discord user id as text (opaque, per foundation §3.1.1) with no
@@ -137,15 +138,60 @@ count.
 | `DELETE /api/settings/profile-fields/{id}` | Manage settings | Remove the field and its answers |
 | `GET /api/discord/members/{id}/profile` | See members | One member's answers, with levels |
 
-## 8. Room for step 2
+## 8. Step 2: copy from roles, and Findable
 
-- **Roles to options.** An option has its own id that never changes when it is renamed or moved.
-  Step 2 adds a table that pairs a Discord role id with an option id; a pass reads each member's
-  roles and writes the paired options into `member_profile_value` for members who have not
-  answered themselves. Nothing in step 1 has to change for that. A free-text field has no option
-  to pair, so only pick-lists take part.
-- **Findable.** One more column per member (or per field) read by `/find`; the level scheme
-  already says who may see an answer.
+### 8.1 Copy from roles
+
+For a community that already hands out "about me" roles, an admin links each option to the role
+it replaces and copies the roles into the profiles once. Discord roles are not touched: Modbot
+never deletes or removes them, and the admin deletes the roles in Discord when they like.
+
+- **Link.** On **Settings → Member profiles**, each option of a pick-list has a role picker (the
+  same picker the other settings use, filled from Modbot's stored server roles). One role per
+  option, and a role may be linked to only one option of a field. The link is the
+  `discord_role_id` column of `member_profile_option` (null = none). A role may only be newly
+  linked if it is one of the server's stored roles; a link already saved stays even if Discord
+  later deletes the role, so saving a field never fails on it. A free-text field has no options,
+  so only pick-lists take part.
+- **Copy.** Each pick-list field has a **Copy from roles** button (off until an option is
+  linked). It fills the field for every current member (not bots, not people who left) who holds a
+  linked role and has no answer to the field yet.
+  - An answer a member set is never overwritten. A member who only chose who sees the field has
+    no answer yet: the answer is added and their level is kept.
+  - A member who holds the roles of two options of one field gets the first option in the
+    field's order.
+  - A copied answer follows the field's default level (no level is stored for it).
+  - It shows how many answers it filled, and running it again fills none that were filled
+    before.
+- **Audit log.** One settings change (setting `memberProfiles`) per press, naming the field and
+  the count. A press that filled nothing writes nothing, as with every settings save. Linking
+  roles to options is recorded with the field's other changes (`<field>: linked roles`).
+
+| Call | Needs | Does |
+|---|---|---|
+| `POST /api/settings/profile-fields/{id}/copy-from-roles` | Manage settings | Copies as above; answers `{ filled }`. 400 for a free-text field |
+
+The option list calls carry `roleId` on each option (null for none) and refuse an unknown role or
+one used by two options (400).
+
+### 8.2 Findable
+
+A member decides whether `/find` may list them. **Off by default**, and it is the member's own
+switch: staff and admins cannot turn it on for anyone.
+
+- **In Discord.** The member's own `/profile` card has a third button, **Findable: On** or
+  **Findable: Off**. Pressing it flips the switch and rewrites the card with the new label. It is
+  the pressing member's own switch only.
+- **In Modbot.** The Profile panel on a person's Discord tab shows a **Findable** row (On or
+  Off) to anyone who may see members. `GET /api/discord/members/{id}/profile` returns
+  `findable`.
+- **Stored** in `member_profile` (Discord user id, `findable`, updated). A member with no row is
+  not findable; turning it off deletes the row, so nothing is kept for the default.
+- **Purge.** A purge of the Discord person (or of the VRChat person, for the linked Discord
+  account) deletes the row with the member's answers.
+- **`/find`** is not built here. When it is, it lists only members whose switch is on, and it
+  shows them only the fields their levels allow (§3); Findable decides whether they are listed at
+  all, not which fields show.
 
 ## 9. What this does not do
 
@@ -154,4 +200,5 @@ count.
   ping (the card is private anyway).
 - Staff viewing a profile is not logged.
 - A member cannot add their own fields or options.
-- No import of the old role names; that is step 2.
+- Roles are copied only when an admin presses Copy from roles (§8.1); nothing follows a member's
+  roles afterwards.

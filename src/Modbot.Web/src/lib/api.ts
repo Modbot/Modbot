@@ -3545,7 +3545,8 @@ export type BanReasonView = {
 export type ProfileFieldKind = 'pick-list' | 'text'
 export type ProfileVisibility = 'only-me' | 'staff' | 'members'
 
-export type ProfileOptionView = { id: string; label: string }
+/** `roleId`: the Discord role "Copy from roles" reads for this option, or null. */
+export type ProfileOptionView = { id: string; label: string; roleId: string | null }
 
 export type ProfileFieldView = {
   id: string
@@ -3560,7 +3561,7 @@ export type ProfileFieldInput = {
   name: string
   kind?: ProfileFieldKind
   defaultVisibility?: ProfileVisibility
-  options?: { id: string | null; label: string }[]
+  options?: { id: string | null; label: string; roleId?: string | null }[]
 }
 
 export type MemberProfileLine = {
@@ -5894,9 +5895,13 @@ export const api = {
 
   deleteProfileField: (id: string) => del<void>(`/api/settings/profile-fields/${encodeURIComponent(id)}`),
 
+  /** Fills the field for members who hold a linked role and have no answer yet; says how many it filled. */
+  copyProfileFieldFromRoles: (id: string) =>
+    post<{ filled: number }>(`/api/settings/profile-fields/${encodeURIComponent(id)}/copy-from-roles`, {}),
+
   /** The answers one Discord member filled in, every one of them: staff see what a member keeps to themselves. */
   discordMemberProfile: (id: string) =>
-    request<{ lines: MemberProfileLine[] }>(`/api/discord/members/${encodeURIComponent(id)}/profile`),
+    request<{ lines: MemberProfileLine[]; findable: boolean }>(`/api/discord/members/${encodeURIComponent(id)}/profile`),
 
   /** Case files, newest first. `userId` narrows to one person; the id goes in the query (spec 3.1.1). */
   cases: (query: { userId?: string; includeWithdrawn?: boolean; offset?: number; limit?: number } = {}) => {

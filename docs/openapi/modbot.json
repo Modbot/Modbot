@@ -21686,6 +21686,87 @@
         ]
       }
     },
+    "/api/settings/profile-fields/{id}/copy-from-roles": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Fill a profile field from Discord roles",
+        "description": "Gives every current member who holds the role linked to one of the field's options that option, unless they already answered the field. A member who holds roles of two options gets the first option in the field's order. Answers follow the field's default level. Discord roles are not changed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CopyProfileFieldFromRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileCopyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/cases": {
       "get": {
         "tags": [
@@ -49579,6 +49660,10 @@
             "items": {
               "$ref": "#/components/schemas/MemberProfileLineView"
             }
+          },
+          "findable": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -52803,6 +52888,18 @@
         },
         "description": "What went wrong (RFC 9457). Some errors carry more fields beside these, such as `neededPermissions` or `missingGroupPermission`."
       },
+      "ProfileCopyResponse": {
+        "required": [
+          "filled"
+        ],
+        "type": "object",
+        "properties": {
+          "filled": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "ProfileFieldListResponse": {
         "required": [
           "fields"
@@ -53050,6 +53147,12 @@
           },
           "label": {
             "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -53066,6 +53169,12 @@
           },
           "label": {
             "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

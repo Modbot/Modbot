@@ -13,7 +13,8 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Profiles;
 
 /// <summary>One answer a pick-list field offers.</summary>
-public sealed record ProfileOptionView(Guid Id, string Label);
+/// <param name="RoleId">The Discord role "Copy from roles" reads for this option, or null.</param>
+public sealed record ProfileOptionView(Guid Id, string Label, string? RoleId = null);
 
 /// <summary>One profile field.</summary>
 /// <param name="Kind">pick-list or text.</param>
@@ -29,7 +30,11 @@ public sealed record ProfileFieldView(
 public sealed record ProfileFieldListResponse(IReadOnlyList<ProfileFieldView> Fields);
 
 /// <param name="Id">The option this is, or null for a new one.</param>
-public sealed record ProfileOptionRequest(Guid? Id, string Label);
+/// <param name="RoleId">The Discord role to link to the option, or null for none.</param>
+public sealed record ProfileOptionRequest(Guid? Id, string Label, string? RoleId = null);
+
+/// <param name="Filled">How many members' answers the copy filled.</param>
+public sealed record ProfileCopyResponse(int Filled);
 
 /// <param name="Kind">pick-list or text. Only read when adding: a field's kind does not change.</param>
 /// <param name="DefaultVisibility">
@@ -119,6 +124,9 @@ public static class ProfileFieldEndpoints
                     var options = OptionsFrom(body.Options, existing: [], out var optionProblem);
                     if (optionProblem is not null)
                         return Results.BadRequest(new { error = optionProblem });
+
+                    if (await UnknownRoleAsync(db, options, [], ct) is not null)
+                        return Results.BadRequest(new { error = RoleProblem });
 
                     field.Options = options;
                 }
@@ -238,6 +246,11 @@ public static class ProfileFieldEndpoints
                     if (optionProblem is not null)
                         return Results.BadRequest(new { error = optionProblem });
 
+                    if (await UnknownRoleAsync(db, options, field.Options, ct) is not null)
+                        return Results.BadRequest(new { error = RoleProblem });
+
+                    var wasLinks = await LinksAsync(db, field.Options, ct);
+
                     var keptIds = options.Select(o => o.Id).ToHashSet();
                     foreach (var gone in field.Options.Where(o => !keptIds.Contains(o.Id)).ToList())
                         db.ProfileOptions.Remove(gone);
@@ -248,6 +261,7 @@ public static class ProfileFieldEndpoints
                         {
                             same.Label = option.Label;
                             same.SortOrder = option.SortOrder;
+                            same.DiscordRoleId = option.DiscordRoleId;
                         }
                         else
                         {
@@ -257,6 +271,7 @@ public static class ProfileFieldEndpoints
                     }
 
                     change.Items($"{name}: options", wasLabels, options.Select(o => o.Label));
+                    change.Items($"{name}: linked roles", wasLinks, await LinksAsync(db, options, ct));
                 }
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -274,6 +289,42 @@ public static class ProfileFieldEndpoints
                 + "An option sent with its id keeps the members who picked it; one left out is removed and "
                 + "clears their answer. The kind and who sees the field by default do not change; sending a different default is refused.")
             .Produces<ProfileFieldView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/copy-from-roles", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                var field = await db.ProfileFields.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id, ct);
+                if (field is null)
+                    return Results.NotFound(new { error = "No such profile field." });
+
+                if (field.Kind != ProfileFieldKind.PickList)
+                    return Results.BadRequest(new { error = "Only a pick-list can be filled from roles." });
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                var filled = await MemberProfiles.CopyFromRolesAsync(db, id, clock.UtcNow, ct) ?? 0;
+
+                await new SettingsChange("memberProfiles")
+                    .Field($"{field.Name}: answers copied from roles", 0, filled)
+                    .RecordAsync(http, ct);
+
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(new ProfileCopyResponse(filled));
+            })
+            .WithName("CopyProfileFieldFromRoles")
+            .WithSummary("Fill a profile field from Discord roles")
+            .WithDescription(
+                "Gives every current member who holds the role linked to one of the field's options that option, "
+                + "unless they already answered the field. A member who holds roles of two options gets the first "
+                + "option in the field's order. Answers follow the field's default level. Discord roles are not changed.")
+            .Produces<ProfileCopyResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -316,7 +367,7 @@ public static class ProfileFieldEndpoints
             field.Name,
             field.Kind == ProfileFieldKind.Text ? TextName : PickListName,
             Visibility(field.DefaultVisibility),
-            [.. field.Options.OrderBy(o => o.SortOrder).Select(o => new ProfileOptionView(o.Id, o.Label))]);
+            [.. field.Options.OrderBy(o => o.SortOrder).Select(o => new ProfileOptionView(o.Id, o.Label, o.DiscordRoleId))]);
 
     public static string Visibility(ProfileVisibility level) => level switch
     {
@@ -385,6 +436,7 @@ public static class ProfileFieldEndpoints
         var known = existing.ToDictionary(o => o.Id);
         var result = new List<ProfileOption>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roles = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (item, index) in (requested ?? []).Select((o, i) => (o, i)))
         {
@@ -405,8 +457,16 @@ public static class ProfileFieldEndpoints
                 return result;
             }
 
+            var role = string.IsNullOrWhiteSpace(item.RoleId) ? null : item.RoleId.Trim();
+
+            if (role is not null && !roles.Add(role))
+            {
+                problem = "Two options use the same role.";
+                return result;
+            }
+
             var id = item.Id is { } given && known.ContainsKey(given) ? given : Guid.CreateVersion7();
-            result.Add(new ProfileOption { Id = id, Label = label, SortOrder = index });
+            result.Add(new ProfileOption { Id = id, Label = label, SortOrder = index, DiscordRoleId = role });
         }
 
         if (result.Count == 0)
@@ -415,5 +475,39 @@ public static class ProfileFieldEndpoints
             problem = $"A pick-list can have at most {ProfileField.MaxOptions} options.";
 
         return result;
+    }
+
+    private const string RoleProblem = "That role is not in the Discord server.";
+
+    /// <summary>"Option: role name" for each linked option, for the audit log.</summary>
+    private static async Task<List<string>> LinksAsync(ModbotContext db, IEnumerable<ProfileOption> options, CancellationToken ct)
+    {
+        var linked = options.Where(o => o.DiscordRoleId is not null).OrderBy(o => o.SortOrder).ToList();
+
+        if (linked.Count == 0)
+            return [];
+
+        var ids = linked.Select(o => o.DiscordRoleId!).ToList();
+        var names = await db.DiscordRoles.AsNoTracking().Where(r => ids.Contains(r.RoleId)).ToDictionaryAsync(r => r.RoleId, r => r.Name, ct);
+
+        return [.. linked.Select(o => $"{o.Label}: {(names.TryGetValue(o.DiscordRoleId!, out var n) ? n : "unknown role")}")];
+    }
+
+    /// <summary>
+    /// The first role among <paramref name="options"/> that is newly linked and is not one of the server's
+    /// roles. A link that was already saved stays, even if Discord has since deleted the role, so
+    /// saving a field never fails on a role nobody can pick any more.
+    /// </summary>
+    private static async Task<string?> UnknownRoleAsync(
+        ModbotContext db, IEnumerable<ProfileOption> options, IEnumerable<ProfileOption> existing, CancellationToken ct)
+    {
+        var kept = existing.Where(o => o.DiscordRoleId is not null).Select(o => o.DiscordRoleId!).ToHashSet(StringComparer.Ordinal);
+        var asked = options.Where(o => o.DiscordRoleId is not null && !kept.Contains(o.DiscordRoleId)).Select(o => o.DiscordRoleId!).ToList();
+
+        if (asked.Count == 0)
+            return null;
+
+        var known = await db.DiscordRoles.AsNoTracking().Where(r => asked.Contains(r.RoleId)).Select(r => r.RoleId).ToListAsync(ct);
+        return asked.FirstOrDefault(r => !known.Contains(r));
     }
 }

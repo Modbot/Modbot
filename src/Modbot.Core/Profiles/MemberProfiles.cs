@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -237,6 +238,125 @@ public static class MemberProfiles
         }
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Whether the member let <c>/find</c> list them. Off for a member who never touched it.</summary>
+    public static async Task<bool> IsFindableAsync(ModbotContext db, string discordUserId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+
+        return await db.MemberProfiles.AsNoTracking()
+            .AnyAsync(m => m.DiscordUserId == discordUserId && m.Findable, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Turns the member's Findable switch on or off. Off stores nothing: the row goes.</summary>
+    public static async Task SetFindableAsync(
+        ModbotContext db, string discordUserId, bool findable, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+
+        var row = await db.MemberProfiles.FirstOrDefaultAsync(m => m.DiscordUserId == discordUserId, ct).ConfigureAwait(false);
+
+        if (row is null && findable)
+            db.MemberProfiles.Add(new MemberProfile { DiscordUserId = discordUserId, Findable = true, UpdatedAt = now });
+        else if (row is not null && !findable)
+            db.MemberProfiles.Remove(row);
+        else if (row is not null && !row.Findable)
+        {
+            row.Findable = true;
+            row.UpdatedAt = now;
+        }
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Fills a pick-list field from the Discord roles its options are linked to (member profiles
+    /// design §8). Every current member who holds a linked role and has no answer to the field gets
+    /// the option of that role; one who holds roles of two options gets the first option in the
+    /// field's order. An answer a member set is never touched, and a copied one follows the field's
+    /// default level, so a level the member already chose stays. Returns how many answers it filled,
+    /// or null when the field is gone or is not a pick-list.
+    /// </summary>
+    public static async Task<int?> CopyFromRolesAsync(ModbotContext db, Guid fieldId, DateTimeOffset now, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        var field = (await FieldsAsync(db, ct).ConfigureAwait(false)).FirstOrDefault(f => f.Id == fieldId);
+
+        if (field is null || field.Kind != ProfileFieldKind.PickList)
+            return null;
+
+        // The first option in the order wins, so a role is looked up in that order too.
+        var linked = field.Options.Where(o => !string.IsNullOrEmpty(o.DiscordRoleId)).ToList();
+
+        if (linked.Count == 0)
+            return 0;
+
+        var roleIds = linked.Select(o => o.DiscordRoleId!).ToHashSet(StringComparer.Ordinal);
+
+        var members = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.LeftAt == null && !m.IsBot)
+            .Select(m => new { m.UserId, m.Roles })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var rows = await db.ProfileValues.Where(v => v.FieldId == fieldId).ToDictionaryAsync(v => v.DiscordUserId, ct).ConfigureAwait(false);
+        var done = new HashSet<string>(StringComparer.Ordinal);
+        var filled = 0;
+
+        foreach (var member in members)
+        {
+            if (!done.Add(member.UserId))
+                continue;
+
+            rows.TryGetValue(member.UserId, out var row);
+
+            if (row?.OptionId is not null)
+                continue;
+
+            var held = RolesOf(member.Roles);
+
+            if (!held.Overlaps(roleIds))
+                continue;
+
+            var option = linked.First(o => held.Contains(o.DiscordRoleId!));
+
+            if (row is null)
+            {
+                db.ProfileValues.Add(new ProfileValue
+                {
+                    FieldId = fieldId,
+                    DiscordUserId = member.UserId,
+                    OptionId = option.Id,
+                    UpdatedAt = now,
+                });
+            }
+            else
+            {
+                // The member only chose who sees it so far: keep that, add the answer.
+                row.OptionId = option.Id;
+                row.UpdatedAt = now;
+            }
+
+            filled++;
+        }
+
+        await db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return filled;
+    }
+
+    private static HashSet<string> RolesOf(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json)?.ToHashSet(StringComparer.Ordinal) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     private static void DropIfEmpty(ModbotContext db, ProfileValue row)

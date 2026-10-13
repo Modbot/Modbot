@@ -5133,6 +5133,26 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("mcp_grant", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberProfile", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<bool>("Findable")
+                        .HasColumnType("boolean")
+                        .HasColumnName("findable");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_member_profile");
+
+                    b.ToTable("member_profile", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.MemberReport", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7127,6 +7147,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("DiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_role_id");
 
                     b.Property<Guid>("FieldId")
                         .HasColumnType("uuid")

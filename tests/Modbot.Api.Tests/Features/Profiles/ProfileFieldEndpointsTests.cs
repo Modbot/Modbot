@@ -250,4 +250,118 @@ public class ProfileFieldEndpointsTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Empty((await ApiTestHost.BodyOf(response, Ct)).GetProperty("lines").EnumerateArray());
     }
+
+    private static async Task AddRolesAsync(PostgresFixture db, params string[] ids)
+    {
+        await using var context = db.NewContext();
+        await context.DiscordRoles.Where(r => ids.Contains(r.RoleId)).ExecuteDeleteAsync(Ct);
+        context.DiscordRoles.AddRange(ids.Select(id => new DiscordRole { RoleId = id, GuildId = "88000", Name = "Role " + id }));
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task AnOptionCanBeLinkedToARoleOfTheServerButNotToAnUnknownOneOrToTwoOptions()
+    {
+        await ClearAsync(_db);
+        await AddRolesAsync(_db, "88001", "88002");
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        object Body(params string?[] roles) => new
+        {
+            name = "Pronouns",
+            kind = "pick-list",
+            options = roles.Select((role, i) => new { id = (Guid?)null, label = "option " + i, roleId = role }).ToArray(),
+        };
+
+        var unknown = await host.SendJsonAsync(HttpMethod.Post, Fields, Body("88999"), cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+
+        var twice = await host.SendJsonAsync(HttpMethod.Post, Fields, Body("88001", "88001"), cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
+        Assert.Equal("Two options use the same role.", (await ApiTestHost.BodyOf(twice, Ct)).GetProperty("error").GetString());
+
+        var saved = await host.SendJsonAsync(HttpMethod.Post, Fields, Body("88001", null), cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        var options = (await ApiTestHost.BodyOf(saved, Ct)).GetProperty("options").EnumerateArray().ToList();
+        Assert.Equal("88001", options[0].GetProperty("roleId").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, options[1].GetProperty("roleId").ValueKind);
+    }
+
+    [Fact]
+    public async Task CopyFromRolesNeedsChangeSettingsFillsTheMembersAndSaysHowMany()
+    {
+        await ClearAsync(_db);
+        await AddRolesAsync(_db, "88001");
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var field = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, Fields, new
+        {
+            name = "Pronouns",
+            kind = "pick-list",
+            options = new[] { new { id = (Guid?)null, label = "she/her", roleId = (string?)"88001" } },
+        }, cookie, Ct), Ct);
+        var id = field.GetProperty("id").GetGuid();
+
+        await using (var context = _db.NewContext())
+        {
+            await context.DiscordMembers.Where(m => m.GuildId == "88000").ExecuteDeleteAsync(Ct);
+            foreach (var (user, roles) in new[] { ("88101", "[\"88001\"]"), ("88102", "[\"88001\"]"), ("88103", "[]") })
+            {
+                context.DiscordMembers.Add(new DiscordMember
+                {
+                    GuildId = "88000",
+                    UserId = user,
+                    Username = "u" + user,
+                    DisplayName = "U " + user,
+                    Roles = roles,
+                    FirstSeenAt = host.Clock.UtcNow,
+                    UpdatedAt = host.Clock.UtcNow,
+                });
+            }
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Post, $"{Fields}/{id}/copy-from-roles", null, viewer, Ct)).StatusCode);
+
+        var done = await host.SendJsonAsync(HttpMethod.Post, $"{Fields}/{id}/copy-from-roles", null, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        Assert.Equal(2, (await ApiTestHost.BodyOf(done, Ct)).GetProperty("filled").GetInt32());
+
+        var again = await host.SendJsonAsync(HttpMethod.Post, $"{Fields}/{id}/copy-from-roles", null, cookie, Ct);
+        Assert.Equal(0, (await ApiTestHost.BodyOf(again, Ct)).GetProperty("filled").GetInt32());
+
+        var profile = await host.SendJsonAsync(HttpMethod.Get, "/api/discord/members/88101/profile", null, viewer, Ct);
+        var lines = (await ApiTestHost.BodyOf(profile, Ct)).GetProperty("lines").EnumerateArray().ToList();
+        Assert.Equal("she/her", Assert.Single(lines).GetProperty("answer").GetString());
+
+        await using var cleanup = _db.NewContext();
+        await cleanup.DiscordMembers.Where(m => m.GuildId == "88000").ExecuteDeleteAsync(Ct);
+    }
+
+    [Fact]
+    public async Task AMembersPageSaysWhetherTheyAreFindable()
+    {
+        await ClearAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var off = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/discord/members/88201/profile", null, viewer, Ct), Ct);
+        Assert.False(off.GetProperty("findable").GetBoolean());
+
+        await using (var context = _db.NewContext())
+        {
+            context.MemberProfiles.Add(new MemberProfile { DiscordUserId = "88201", Findable = true, UpdatedAt = host.Clock.UtcNow });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var on = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/discord/members/88201/profile", null, viewer, Ct), Ct);
+        Assert.True(on.GetProperty("findable").GetBoolean());
+
+        await using var cleanup = _db.NewContext();
+        await cleanup.MemberProfiles.Where(m => m.DiscordUserId == "88201").ExecuteDeleteAsync(Ct);
+    }
 }
