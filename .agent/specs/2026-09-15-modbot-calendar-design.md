@@ -1326,8 +1326,7 @@ VRChat category. The maintainer approved this on 2026-10-12 as step 1 of 2; step
   it, an empty list takes them all off. An id that is gone is a 400 ("A category you picked is gone.
   Choose again."). The event's view returns `categories` (id and name, alphabetical). The form shows a
   Categories row of chips, only once at least one category exists.
-- **Templates.** Carry `categoryIds` where the template code is on this branch; see the build
-  notes in the commit that rebased onto it.
+- **Templates.** Carry `categoryIds` in their fields (§20.1).
 
 ### 19.3 Where they show
 
@@ -1353,8 +1352,8 @@ references the category with a cascading delete, as the event join does. The who
 
 A run of similar events starts from the same words, so a template keeps everything the event form
 holds except when the event happens. Step 2 of 4 of the templates plan: the list, the form and the
-permission. Making an event from a template (step 3) and links that fill themselves in (step 4) are
-not here.
+permission. Step 3 (using a template, fill-ins, saving an event as a template) is §20.1. Links that
+fill themselves in (step 4) are not here.
 
 - **What a template is.** A name (1 to 100 characters) and the event's fields: titles and
   descriptions (shared and each site's own, §18), places, category, languages, platforms, tags, world
@@ -1384,3 +1383,38 @@ not here.
   the event form in template mode: a Name above the title, a Length (hours and minutes) in place of
   Starts, Ends and Time zone, no Preview, no Save draft or Schedule, and a repeat that ends never or
   after a number of times.
+
+### 20.1 Using a template, fill-ins, saving an event as one (step 3, added 2026-10-12)
+
+- **Use template.** A button beside New event for Manage calendar, shown only while a template exists
+  (it reads `GET /api/calendar/templates` on load and again whenever a template is saved or deleted on
+  the page). It opens a dialog: a Template dropdown, one labelled box per fill-in of the chosen
+  template, Cancel and Use. Use opens the ordinary new-event form (`initial` filled from the
+  template): the start is the next whole hour as for any new event, the end is the start plus
+  `lengthMinutes`, and nothing is saved until the form is. The event's own checks run at that save as
+  always, so a template cannot make an event the form would refuse.
+- **Fill-ins.** A blank is stored as its name between double curly brackets, `{{Host}}`, in any of
+  the eight texts (title, description, and each of VRChat's, Discord's and Google's own title and
+  description). Names are compared without capitals or extra spaces and shown as first spelled; a
+  name is 1 to 40 characters with no brackets or line breaks. The server stores the text as typed and
+  knows nothing of them: the markers, and every place that reads them, are in
+  `src/lib/calendarFillIns.ts` (`splitFillIns` is the one reader, so step 4 can give some names a
+  meaning of their own there without changing what is stored).
+- **Never shown as codes.** In the template editor a Fill-ins section lists the template's blanks as
+  buttons (a button puts that blank at the caret of the text last clicked into) and a New fill-in box
+  with Add. The eight texts are `FillInText` boxes, which draw each blank as a box carrying its name
+  and turn it back into the stored form on every change; a box deletes like a letter. Using a template
+  shows each name as a labelled box.
+- **Filling.** Every blank is replaced everywhere it stands, in one pass: a value that itself looks
+  like a blank is not read again. Values are trimmed. **A blank left empty is refused**: Use stays
+  closed and says "Fill in Host, What." with the empty names; nothing is made with a hole in its
+  title. A template with no blanks opens straight into the form after Use.
+- **Save as template.** An event's details have a Save as template button for Manage templates (it
+  shows without Manage calendar too, beside nothing else). It opens the template editor in a new
+  template, filled from the event with no dates, `lengthMinutes` the event's own first length
+  (1 minute to 7 days), Name empty for the person to give. A repeat keeps its pattern but not its
+  last date, as any template does.
+- **Categories.** `categoryIds` is part of a template's fields, in the same JSON column (no migration):
+  a template saved before has none. A save checks them as an event's are (an id that is gone is a 400).
+  Reading a template leaves out ids of categories deleted since, and the form also drops any id its
+  own category read does not know. The Categories row is shown in the template editor again.

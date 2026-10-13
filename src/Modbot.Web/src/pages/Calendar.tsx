@@ -13,6 +13,7 @@ import { NARROW, useMedia } from '@/components/calendar/phone'
 import { QuickCreate } from '@/components/calendar/QuickCreate'
 import { ScheduleView } from '@/components/calendar/ScheduleView'
 import { TemplatesCard } from '@/components/calendar/TemplatesCard'
+import { UseTemplate } from '@/components/calendar/UseTemplate'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -23,7 +24,8 @@ import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError, type CurrentUser } from '@/lib/api'
-import { canAny } from '@/lib/permissions'
+import { FIRST_LENGTH_MINUTES, lengthBetween } from '@/lib/calendarTemplates'
+import { can, canAny } from '@/lib/permissions'
 import {
   calendarApi,
   inputFrom,
@@ -89,6 +91,10 @@ export function Calendar({ me }: { me: CurrentUser }) {
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [editing, setEditing] = useState<{ event: CalendarEvent | null; initial?: CalendarEventInput } | null>(null)
+  // An event being saved as a template: the template editor, filled in from the event.
+  const [templating, setTemplating] = useState<{ initial: CalendarEventInput; lengthMinutes: number } | null>(null)
+  // Changes when a template is made, changed or deleted, so the list and Use template read again.
+  const [templatesVersion, setTemplatesVersion] = useState(0)
   const [quick, setQuick] = useState<{ start: Date; end: Date; spot: Spot } | null>(null)
   const [asking, setAsking] = useState<{ entry: Entry; change: Change } | null>(null)
   // An event drawn at its new time while its save is on the way, so it does not jump back: every
@@ -446,6 +452,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
         <Button variant="outline" onClick={() => void readVRChat(true)} disabled={reading > 0}>
           <RefreshCw className={reading > 0 ? 'animate-spin' : undefined} /> Refresh
         </Button>
+        {canManage && <UseTemplate version={templatesVersion} onUse={(initial) => setEditing({ event: null, initial })} />}
         {canManage && <Button onClick={newEvent}>New event</Button>}
       </div>
 
@@ -526,6 +533,8 @@ export function Calendar({ me }: { me: CurrentUser }) {
 
       {canAny(me, ['ManageCalendar', 'ManageTemplates']) && (
         <TemplatesCard
+          reloadKey={templatesVersion}
+          onChanged={() => setTemplatesVersion((v) => v + 1)}
           settings={{
             categories: data.view.categories,
             platforms: data.view.platforms,
@@ -566,6 +575,15 @@ export function Calendar({ me }: { me: CurrentUser }) {
             setEditing({ event: null, initial: { ...inputFrom(opened), draft: false } })
             setDetail(null)
           }}
+          onSaveAsTemplate={
+            can(me, 'ManageTemplates')
+              ? () => {
+                  const input = inputFrom(opened)
+                  setTemplating({ initial: { ...input, draft: false }, lengthMinutes: lengthBetween(input.startsAt, input.endsAt) })
+                  setDetail(null)
+                }
+              : undefined
+          }
           onChanged={() => void load()}
         />
       )}
@@ -668,6 +686,24 @@ export function Calendar({ me }: { me: CurrentUser }) {
               end: new Date(saved.occurrenceEndsAt ?? saved.endsAt),
               spot: null,
             })
+          }}
+        />
+      )}
+
+      {templating && (
+        <CalendarEventForm
+          event={null}
+          initial={templating.initial}
+          categories={data.view.categories}
+          platforms={data.view.platforms}
+          ready={data.view.ready}
+          pictureUploads={data.view.pictureUploads}
+          vrchatPlus={data.view.vrChatPlus}
+          template={{ id: null, name: '', lengthMinutes: templating.lengthMinutes || FIRST_LENGTH_MINUTES }}
+          onClose={() => setTemplating(null)}
+          onTemplateSaved={() => {
+            setTemplating(null)
+            setTemplatesVersion((v) => v + 1)
           }}
         />
       )}

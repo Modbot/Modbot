@@ -39272,6 +39272,16 @@
               "null",
               "string"
             ]
+          },
+          "categoryIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

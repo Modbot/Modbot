@@ -236,12 +236,19 @@ public static class CalendarTemplateEndpoints
             .Where(u => makers.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
 
+        // A category deleted since the template was saved is left out, so the form never offers it.
+        var named = templates.SelectMany(t => FieldsOf(t).CategoryIds ?? []).Distinct().ToList();
+
+        var existing = named.Count == 0
+            ? []
+            : (await db.CalendarCategories.AsNoTracking().Where(c => named.Contains(c.Id)).Select(c => c.Id).ToListAsync(ct)).ToHashSet();
+
         return
         [
             .. templates.Select(t => new CalendarTemplateView(
                 t.Id,
                 t.Name,
-                FieldsOf(t),
+                FieldsOf(t) with { CategoryIds = [.. (FieldsOf(t).CategoryIds ?? []).Where(existing.Contains)] },
                 t.CreatedByUserId is { } maker && names.TryGetValue(maker, out var username) ? username : null,
                 t.CreatedAt,
                 t.UpdatedAt)),
@@ -290,6 +297,8 @@ public static class CalendarTemplateEndpoints
 
         if (await CalendarEndpoints.CoverProblemAsync(db, asEvent, keptFields?.CoverPictureId, ct) is { } coverProblem)
             problems.Add(coverProblem);
+
+        var categories = await CalendarEndpoints.CategoriesAsync(db, asEvent, problems, ct);
 
         if (problems.Count > 0)
             return (Results.BadRequest(new { error = string.Join(" ", problems), problems }), null, null);
@@ -344,7 +353,8 @@ public static class CalendarTemplateEndpoints
             DiscordTitle: target.DiscordTitle,
             DiscordDescription: target.DiscordDescription,
             GoogleTitle: target.GoogleTitle,
-            GoogleDescription: target.GoogleDescription));
+            GoogleDescription: target.GoogleDescription,
+            CategoryIds: [.. (categories ?? []).Select(c => c.Id).Order()]));
     }
 
     /// <summary>
@@ -399,6 +409,7 @@ public static class CalendarTemplateEndpoints
             DiscordTitle: f.DiscordTitle,
             DiscordDescription: f.DiscordDescription,
             GoogleTitle: f.GoogleTitle,
-            GoogleDescription: f.GoogleDescription);
+            GoogleDescription: f.GoogleDescription,
+            CategoryIds: f.CategoryIds);
     }
 }

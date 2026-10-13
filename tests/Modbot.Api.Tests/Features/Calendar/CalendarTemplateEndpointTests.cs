@@ -280,6 +280,82 @@ public class CalendarTemplateEndpointTests(PostgresFixture db)
         Assert.Empty(await host.FactsAsync(FactType.CalendarTemplateChanged, id.ToString(), Ct));
     }
 
+    private async Task<Guid> CategoryAsync(string name)
+    {
+        var id = Guid.CreateVersion7();
+
+        await using var context = db.NewContext();
+        context.CalendarCategories.Add(new CalendarCategory { Id = id, Name = name, CreatedAt = DateTimeOffset.UnixEpoch, UpdatedAt = DateTimeOffset.UnixEpoch });
+        await context.SaveChangesAsync(Ct);
+
+        return id;
+    }
+
+    private static IEnumerable<Guid> CategoryIdsOf(JsonElement listed) =>
+        Assert.Single(listed.GetProperty("templates").EnumerateArray())
+            .GetProperty("fields").GetProperty("categoryIds").EnumerateArray().Select(c => c.GetGuid());
+
+    /// <summary>A template keeps the Modbot categories it was saved with.</summary>
+    [Fact]
+    public async Task ATemplateKeepsItsCategories()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var first = await CategoryAsync("Movies");
+        var second = await CategoryAsync("Games");
+
+        var fields = Fields();
+        fields["categoryIds"] = new[] { first, second };
+        await CreateAsync(host, manager, fields: fields);
+
+        Assert.Equal(new[] { first, second }.Order(), CategoryIdsOf(await ListAsync(host, manager)).Order());
+    }
+
+    /// <summary>A save naming a category that is not there is refused, as an event's is.</summary>
+    [Fact]
+    public async Task ASaveNamingAGoneCategoryIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var fields = Fields();
+        fields["categoryIds"] = new[] { Guid.NewGuid() };
+        var response = await host.SendJsonAsync(HttpMethod.Post, Path, Body("Gone", fields), manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>A category deleted after the template was saved is left out when the template is read.</summary>
+    [Fact]
+    public async Task ADeletedCategoryIsLeftOutOfATemplate()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var kept = await CategoryAsync("Movies");
+        var removed = await CategoryAsync("Games");
+
+        var fields = Fields();
+        fields["categoryIds"] = new[] { kept, removed };
+        await CreateAsync(host, manager, fields: fields);
+
+        await using (var context = db.NewContext())
+            await context.CalendarCategories.Where(c => c.Id == removed).ExecuteDeleteAsync(Ct);
+
+        Assert.Equal([kept], CategoryIdsOf(await ListAsync(host, manager)));
+    }
+
+    /// <summary>A template saved without categories (older ones are) reads as having none.</summary>
+    [Fact]
+    public async Task ATemplateWithoutCategoriesHasNone()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        await CreateAsync(host, manager);
+
+        Assert.Empty(CategoryIdsOf(await ListAsync(host, manager)));
+    }
+
     /// <summary>The sweep keeps a picture a template uses, however old, and a template without it loses it.</summary>
     [Fact]
     public async Task TheCoverSweepKeepsATemplatesPicture()

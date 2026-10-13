@@ -21,6 +21,7 @@ export type CalendarTemplateFields = Omit<
   | 'discordDescription'
   | 'googleTitle'
   | 'googleDescription'
+  | 'categoryIds'
 > & {
   /** How long the event lasts, 1 minute to 7 days. */
   lengthMinutes: number
@@ -33,6 +34,8 @@ export type CalendarTemplateFields = Omit<
   discordDescription: string | null
   googleTitle: string | null
   googleDescription: string | null
+  /** The categories made in Modbot; null for a template saved before they were kept. */
+  categoryIds: string[] | null
 }
 
 export type CalendarTemplate = {
@@ -84,6 +87,7 @@ export function inputFromTemplate(fields: CalendarTemplateFields, base: Calendar
     discordDescription: fields.discordDescription ?? '',
     googleTitle: fields.googleTitle ?? '',
     googleDescription: fields.googleDescription ?? '',
+    categoryIds: fields.categoryIds ?? [],
   }
 }
 
@@ -102,7 +106,27 @@ export function fieldsFromInput(input: CalendarEventInput, lengthMinutes: number
     discordDescription: input.discordDescription ?? null,
     googleTitle: input.googleTitle ?? null,
     googleDescription: input.googleDescription ?? null,
+    categoryIds: input.categoryIds,
   }
+}
+
+/** `2026-10-20T19:00` and 90 minutes on: `2026-10-20T20:30`. Wall-clock arithmetic, no zone. */
+export function addMinutes(local: string, minutes: number): string {
+  const at = new Date(`${local}:00Z`)
+  at.setUTCMinutes(at.getUTCMinutes() + minutes)
+  return at.toISOString().slice(0, 16)
+}
+
+/** How long a new event runs from `startsAt` to `endsAt` (both `2026-10-20T19:00`), kept within 1 minute to 7 days. */
+export function lengthBetween(startsAt: string, endsAt: string): number {
+  const minutes = Math.round((Date.parse(`${endsAt}:00Z`) - Date.parse(`${startsAt}:00Z`)) / 60000)
+  return Number.isFinite(minutes) ? Math.min(Math.max(minutes, 1), MAX_LENGTH_MINUTES) : FIRST_LENGTH_MINUTES
+}
+
+/** The input a template starts a new event with: its fields, and the end its length gives after the start already there. */
+export function newEventFromTemplate(fields: CalendarTemplateFields, base: CalendarEventInput): CalendarEventInput {
+  const loaded = inputFromTemplate(fields, base)
+  return { ...loaded, endsAt: addMinutes(loaded.startsAt, fields.lengthMinutes) }
 }
 
 /** A length as whole hours and the minutes over, for the two boxes. */

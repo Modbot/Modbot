@@ -147,7 +147,7 @@ With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** 
 **Open now** from two hours before a time starts until it ends, while no instance of it is open. See
 [Opening the instance](#opening-the-instance).
 **Duplicate** opens the form for a new event filled in with this one's details; nothing is saved
-until you save it.
+until you save it. With **Manage templates** you also get [**Save as template**](#save-an-event-as-a-template).
 
 A link to one event (for example from a Chat answer) opens it in the middle of the page instead.
 
@@ -1264,6 +1264,33 @@ refused for them instead. The rest is checked as it is for an event. Modbot asks
 it deletes a template. Events already made from a template do not change when it does.
 
 Each change is in the [audit log](#in-the-audit-log).
+
+### Fill-ins
+
+A template's text can hold blanks that you fill in each time you use it, such as **Host** or **What**.
+In the template form, the **Fill-ins** row lists them: click a name to put it where the cursor was
+last, or type a name in **New fill-in** and click **Add**. A blank shows as a box with its name in
+the title, the description and each site's own text, and you delete it like a letter. The same blank
+may stand in as many texts as you like. Names do not mind capitals or extra spaces, and are at most 40
+characters.
+
+The template form also shows the [**Categories**](#event-categories) you made in Modbot, so a template
+keeps them. A category deleted since is left out when the template is used.
+
+### Use a template
+
+With **Manage calendar**, **Use template** sits beside **New event** once there is a template. Pick the
+template and type a value into the box for each fill-in; every place that blank stands is filled in,
+in the title, the description and each site's own text. Click **Use** and the form for a new event
+opens, filled in from the template, with the next whole hour as its start and the end set by the
+template's length. Nothing is saved until you save it. A fill-in left empty is not accepted: Modbot
+tells you which ones to fill in.
+
+### Save an event as a template
+
+With **Manage templates**, **Save as template** in an event's details opens the template form filled
+in with that event's details and its length, with no dates. Give it a name and click **Save**. It
+is a copy: the event does not change.
 
 ## Editing, cancelling and deleting
 

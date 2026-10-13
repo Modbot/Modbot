@@ -14,6 +14,10 @@ namespace Modbot.Api.Features.Calendar;
 /// can be filled in over several visits.
 /// </remarks>
 /// <param name="LengthMinutes">How long the event lasts, 1 minute to 7 days.</param>
+/// <param name="CategoryIds">
+/// The categories made in Modbot that the event gets, any number. A template saved before they were
+/// kept has none. An id of a category deleted since is left out when the template is read.
+/// </param>
 public sealed record CalendarTemplateFields(
     string Title,
     string? Description,
@@ -54,7 +58,8 @@ public sealed record CalendarTemplateFields(
     string? DiscordTitle,
     string? DiscordDescription,
     string? GoogleTitle,
-    string? GoogleDescription);
+    string? GoogleDescription,
+    IReadOnlyList<Guid>? CategoryIds = null);
 
 /// <summary>A template as a person fills it in.</summary>
 /// <param name="Name">What the list calls it, 1 to 100 characters.</param>

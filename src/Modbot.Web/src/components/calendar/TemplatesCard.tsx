@@ -27,7 +27,17 @@ type FormSettings = {
  * The event templates (calendar templates plan, step 2): a list for anyone who may use them, and
  * New template, Edit and Delete for those who hold Manage templates.
  */
-export function TemplatesCard({ settings }: { settings: FormSettings }) {
+export function TemplatesCard({
+  settings,
+  reloadKey = 0,
+  onChanged,
+}: {
+  settings: FormSettings
+  /** Changes when a template was made elsewhere on the page, so the list is read again. */
+  reloadKey?: number
+  /** After a template here was saved or deleted. */
+  onChanged?: () => void
+}) {
   const [answer, setAnswer] = useState<CalendarTemplates | null>(null)
   const [editing, setEditing] = useState<{ template: CalendarTemplate | null; initial: CalendarEventInput } | null>(null)
   const [deleting, setDeleting] = useState<CalendarTemplate | null>(null)
@@ -41,7 +51,7 @@ export function TemplatesCard({ settings }: { settings: FormSettings }) {
 
   useEffect(() => {
     load()
-  }, [load])
+  }, [load, reloadKey])
 
   if (!answer || (answer.templates.length === 0 && !answer.canManage)) return null
 
@@ -111,6 +121,7 @@ export function TemplatesCard({ settings }: { settings: FormSettings }) {
           onTemplateSaved={() => {
             setEditing(null)
             load()
+            onChanged?.()
           }}
         />
       )}
@@ -125,6 +136,7 @@ export function TemplatesCard({ settings }: { settings: FormSettings }) {
         onDone={() => {
           setDeleting(null)
           load()
+          onChanged?.()
         }}
       />
     </Card>

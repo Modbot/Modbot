@@ -40,9 +40,11 @@ import {
   type CalendarReady,
 } from '@/lib/calendarPlaces'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
+import { cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
+import { FillInText } from './FillInText'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
 import { calendarCategoryApi, type CalendarCategoryRow } from '@/lib/calendarCategories'
@@ -128,6 +130,11 @@ export function CalendarEventForm({
   const [busy, setBusy] = useState(false)
   const [templateName, setTemplateName] = useState(template?.name ?? '')
   const [length, setLength] = useState(template?.lengthMinutes ?? 0)
+  // Template editor only: the fill-ins made here and not yet in any text, the new one's name as
+  // typed, and where a fill-in goes (the text last clicked into).
+  const [spareFillIns, setSpareFillIns] = useState<string[]>([])
+  const [newFillIn, setNewFillIn] = useState('')
+  const [putFillIn, setPutFillIn] = useState<{ insert: (name: string) => void } | null>(null)
   const pictureThumbnails = usePictureThumbnails()
   // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
   // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
@@ -164,7 +171,16 @@ export function CalendarEventForm({
       .catch(() => setLists([]))
     calendarCategoryApi
       .all()
-      .then((answer) => setCategoryChoices(answer.categories))
+      .then((answer) => {
+        setCategoryChoices(answer.categories)
+        // A category deleted since a template or an event was loaded has nothing to tick.
+        const known = new Set(answer.categories.map((c) => c.id))
+        setInput((current) =>
+          current.categoryIds.every((id) => known.has(id))
+            ? current
+            : { ...current, categoryIds: current.categoryIds.filter((id) => known.has(id)) },
+        )
+      })
       .catch(() => setCategoryChoices([]))
     calendarApi
       .inviteChoices()
@@ -330,6 +346,27 @@ export function CalendarEventForm({
   const title = counted(input.title, TITLE_LIMIT)
   const description = counted(input.description, DESCRIPTION_LIMIT)
 
+  const fillIns = useMemo(() => {
+    if (!template) return []
+    const inTexts = fillInsIn(FILL_IN_TEXTS.map((field) => input[field]))
+    const known = new Set(inTexts.map(fillInKey))
+    return [...inTexts, ...spareFillIns.filter((name) => !known.has(fillInKey(name)))]
+  }, [template, input, spareFillIns])
+
+  // A fill-in goes where the caret last was; with no text clicked into yet, on the end of the title.
+  const addFillIn = (raw: string) => {
+    const name = cleanFillInName(raw)
+    if (name === '') return
+
+    const taken = fillIns.find((n) => fillInKey(n) === fillInKey(name))
+    const shown = taken ?? name
+    if (!taken) setSpareFillIns((current) => [...current, shown])
+    setNewFillIn('')
+
+    if (putFillIn) putFillIn.insert(shown)
+    else set('title', input.title + fillInMarker(shown))
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -421,15 +458,54 @@ export function CalendarEventForm({
             ) : (
               <div className="flex flex-col gap-4">
                 {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
+                {template && (
+                  <Section title="Fill-ins">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {fillIns.map((name) => (
+                        <Button key={fillInKey(name)} size="sm" variant="outline" onClick={() => addFillIn(name)}>
+                          {name}
+                        </Button>
+                      ))}
+                      <Input
+                        className="w-44"
+                        aria-label="New fill-in"
+                        value={newFillIn}
+                        onChange={(e) => setNewFillIn(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return
+                          e.preventDefault()
+                          addFillIn(newFillIn)
+                        }}
+                      />
+                      <Button size="sm" variant="outline" disabled={cleanFillInName(newFillIn) === ''} onClick={() => addFillIn(newFillIn)}>
+                        Add
+                      </Button>
+                    </div>
+                  </Section>
+                )}
                 <Counted label="Title" count={title}>
-                  <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
+                  {template ? (
+                    <FillInText label="Title" value={input.title} onChange={(v) => set('title', v)} onActive={(insert) => setPutFillIn({ insert })} />
+                  ) : (
+                    <Input value={input.title} onChange={(e) => set('title', e.target.value)} />
+                  )}
                 </Counted>
                 <Counted label="Description" count={description}>
-                  <Textarea rows={3} value={input.description} onChange={(e) => set('description', e.target.value)} />
+                  {template ? (
+                    <FillInText
+                      multiline
+                      label="Description"
+                      value={input.description}
+                      onChange={(v) => set('description', v)}
+                      onActive={(insert) => setPutFillIn({ insert })}
+                    />
+                  ) : (
+                    <Textarea rows={3} value={input.description} onChange={(e) => set('description', e.target.value)} />
+                  )}
                 </Counted>
-                <OwnText input={input} set={set} />
+                <OwnText input={input} set={set} onActive={template ? (insert) => setPutFillIn({ insert }) : undefined} />
 
-                {!template && categoryChoices.length > 0 && (
+                {categoryChoices.length > 0 && (
                   <Section title="Categories">
                     <div role="group" aria-label="Categories" className="flex flex-wrap gap-2">
                       {categoryChoices.map((c) => (
@@ -772,9 +848,12 @@ const OWN_TEXT_SITES = [
 function OwnText({
   input,
   set,
+  onActive,
 }: {
   input: CalendarEventInput
   set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
+  /** Set in the template editor, where the texts show their fill-ins as boxes. */
+  onActive?: (insert: (name: string) => void) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -802,19 +881,38 @@ function OwnText({
       {OWN_TEXT_SITES.filter((site) => open[site.label]).map((site) => (
         <div key={site.label} className="flex flex-col gap-3 border-l-2 border-l-border pl-3">
           <Counted label={`${site.label} title`} count={counted(input[site.title] ?? '', TITLE_LIMIT)}>
-            <Input
-              aria-label={`${site.label} title`}
-              value={input[site.title] ?? ''}
-              onChange={(e) => set(site.title, e.target.value)}
-            />
+            {onActive ? (
+              <FillInText
+                label={`${site.label} title`}
+                value={input[site.title] ?? ''}
+                onChange={(v) => set(site.title, v)}
+                onActive={onActive}
+              />
+            ) : (
+              <Input
+                aria-label={`${site.label} title`}
+                value={input[site.title] ?? ''}
+                onChange={(e) => set(site.title, e.target.value)}
+              />
+            )}
           </Counted>
           <Counted label={`${site.label} description`} count={counted(input[site.description] ?? '', DESCRIPTION_LIMIT)}>
-            <Textarea
-              rows={3}
-              aria-label={`${site.label} description`}
-              value={input[site.description] ?? ''}
-              onChange={(e) => set(site.description, e.target.value)}
-            />
+            {onActive ? (
+              <FillInText
+                multiline
+                label={`${site.label} description`}
+                value={input[site.description] ?? ''}
+                onChange={(v) => set(site.description, v)}
+                onActive={onActive}
+              />
+            ) : (
+              <Textarea
+                rows={3}
+                aria-label={`${site.label} description`}
+                value={input[site.description] ?? ''}
+                onChange={(e) => set(site.description, e.target.value)}
+              />
+            )}
           </Counted>
         </div>
       ))}

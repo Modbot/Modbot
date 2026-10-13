@@ -84,6 +84,8 @@ type Actions = {
   /** "This date" chosen for Edit: the form for this one date of a repeating event. */
   onEditDate: (occurrence: CalendarOccurrence) => void
   onDuplicate: () => void
+  /** Set for somebody who holds Manage templates: opens the template editor filled in from the event. */
+  onSaveAsTemplate?: () => void
   /** After a cancel, a delete, a Pick again or a place's Try again went through. */
   onChanged: () => void
   onClose: () => void
@@ -415,9 +417,10 @@ function EventButtons({
   now,
   onEdit,
   onDuplicate,
+  onSaveAsTemplate,
   onChanged,
   onAsk,
-}: Pick<Actions, 'onEdit' | 'onDuplicate' | 'onChanged'> & {
+}: Pick<Actions, 'onEdit' | 'onDuplicate' | 'onSaveAsTemplate' | 'onChanged'> & {
   event: CalendarEvent
   now: Date
   onAsk: (what: 'cancel' | 'delete') => void
@@ -435,6 +438,11 @@ function EventButtons({
       <Button size="sm" variant="outline" onClick={onDuplicate}>
         Duplicate
       </Button>
+      {onSaveAsTemplate && (
+        <Button size="sm" variant="outline" onClick={onSaveAsTemplate}>
+          Save as template
+        </Button>
+      )}
       {live && (
         <Button size="sm" variant="outline" onClick={() => onAsk('cancel')}>
           Cancel event
@@ -594,15 +602,22 @@ export function EventDetails({
     !dateCancelled &&
     end.getTime() > now.getTime()
 
-  const buttons = actions.canManage && (
+  const buttons = actions.canManage ? (
     <EventButtons
       event={event}
       now={now}
       onEdit={() => (ownDate ? setChoosing('edit') : actions.onEdit())}
       onDuplicate={actions.onDuplicate}
+      onSaveAsTemplate={actions.onSaveAsTemplate}
       onChanged={actions.onChanged}
       onAsk={(what) => (what === 'cancel' && ownDate ? setChoosing('cancel') : setConfirm(what))}
     />
+  ) : (
+    actions.onSaveAsTemplate && (
+      <Button size="sm" variant="outline" onClick={actions.onSaveAsTemplate}>
+        Save as template
+      </Button>
+    )
   )
   const shown = results ? <EventResults event={event} start={start} live={live} /> : undefined
   const body = (
