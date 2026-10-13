@@ -229,6 +229,27 @@ public class Settings
     /// </summary>
     public bool CalendarPublicFeed { get; set; }
 
+    // --- Event alerts (event alerts design §3) ---
+
+    /// <summary>
+    /// Whether members are told before an event whose category they signed up for. Off until someone
+    /// with Manage calendar turns it on: off, nothing is queued or sent, the Notify me button comes
+    /// off the channel posts and <c>/notify</c> is not registered.
+    /// </summary>
+    public bool EventAlertsOn { get; set; }
+
+    /// <summary>Whether an alert may go as a direct message. On by default.</summary>
+    public bool EventAlertsDirectMessage { get; set; } = true;
+
+    /// <summary>Whether an alert may go as a ping in <see cref="EventAlertsChannelId"/>. Off by default.</summary>
+    public bool EventAlertsPing { get; set; }
+
+    /// <summary>The Discord channel the ping is posted in. An opaque snowflake; null for none.</summary>
+    public string? EventAlertsChannelId { get; set; }
+
+    /// <summary>How long before an event starts the alert goes: 5 to 1,440. 60 by default.</summary>
+    public int EventAlertsMinutesBefore { get; set; } = EventAlertSettings.DefaultMinutesBefore;
+
     // --- Google Calendar (Google Calendar design §3.1) ---
 
     /// <summary>

@@ -368,6 +368,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Members' reminders for one date of an event, from <c>/remindme</c> (Discord commands design §3.5).</summary>
     public DbSet<EventReminder> EventReminders => Set<EventReminder>();
 
+    /// <summary>Members' wishes to hear before events of a category, or one event (event alerts design §4).</summary>
+    public DbSet<EventAlertSignup> EventAlertSignups => Set<EventAlertSignup>();
+
+    /// <summary>How each member wants to be told, when both ways are on.</summary>
+    public DbSet<EventAlertMember> EventAlertMembers => Set<EventAlertMember>();
+
+    /// <summary>The event dates that have been alerted: the promise that a date alerts once.</summary>
+    public DbSet<EventAlert> EventAlerts => Set<EventAlert>();
+
+    /// <summary>One member's alert for one alerted date.</summary>
+    public DbSet<EventAlertDelivery> EventAlertDeliveries => Set<EventAlertDelivery>();
+
     /// <summary>What members told the mods with <c>/report</c> and Report to mods (Discord commands design §3.4).</summary>
     public DbSet<MemberReport> MemberReports => Set<MemberReport>();
 
@@ -529,6 +541,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // Off, and sent as a direct message, for the row that exists already.
             entity.Property(e => e.DiscordWelcomeVia).HasMaxLength(16).HasDefaultValue(DiscordWelcomeWhere.DirectMessage);
+
+            // Event alerts (event alerts design §3): off for the row that exists already, but direct
+            // messages and the hour are what turning them on should find, so they are written out.
+            entity.Property(e => e.EventAlertsDirectMessage).HasDefaultValue(true);
+            entity.Property(e => e.EventAlertsMinutesBefore).HasDefaultValue(EventAlertSettings.DefaultMinutesBefore);
         });
 
         builder.Entity<ProtectorKey>(entity =>
@@ -2896,6 +2913,95 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // A list gives a VRChat id as often as a Discord one.
             entity.HasIndex(e => e.VRChatUserId).HasDatabaseName("ix_event_invite_choice_vrchat_user_id");
+        });
+
+        builder.Entity<EventAlertSignup>(entity =>
+        {
+            entity.ToTable("event_alert_signup", t =>
+                t.HasCheckConstraint("ck_event_alert_signup_one_target", "(category_id IS NULL) <> (event_id IS NULL)"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+
+            // One row per member per category and per member per event: signing up twice is one sign-up.
+            entity.HasIndex(e => new { e.DiscordUserId, e.CategoryId })
+                .IsUnique()
+                .HasFilter("category_id IS NOT NULL")
+                .HasDatabaseName("ux_event_alert_signup_category");
+            entity.HasIndex(e => new { e.DiscordUserId, e.EventId })
+                .IsUnique()
+                .HasFilter("event_id IS NOT NULL")
+                .HasDatabaseName("ux_event_alert_signup_event");
+
+            // "Who is signed up for this category?" -- asked when a date is queued.
+            entity.HasIndex(e => e.CategoryId).HasDatabaseName("ix_event_alert_signup_category_id");
+            entity.HasIndex(e => e.EventId).HasDatabaseName("ix_event_alert_signup_event_id");
+
+            entity.HasOne<CalendarCategory>()
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EventAlertMember>(entity =>
+        {
+            entity.ToTable("event_alert_member");
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.Way).HasMaxLength(8);
+        });
+
+        builder.Entity<EventAlert>(entity =>
+        {
+            entity.ToTable("event_alert");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            // One alert per date of an event: the promise that nobody is told twice.
+            entity.HasIndex(e => new { e.EventId, e.OccurrenceStartsAt })
+                .IsUnique()
+                .HasDatabaseName("ux_event_alert_event_date");
+
+            // The clean-up of old alerts, and "which are not finished?".
+            entity.HasIndex(e => e.QueuedAt).HasDatabaseName("ix_event_alert_queued_at");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EventAlertDelivery>(entity =>
+        {
+            entity.ToTable("event_alert_delivery");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.Way).HasMaxLength(8);
+            entity.Property(e => e.State).HasMaxLength(16);
+
+            // One delivery per member per alert.
+            entity.HasIndex(e => new { e.AlertId, e.DiscordUserId })
+                .IsUnique()
+                .HasDatabaseName("ux_event_alert_delivery_alert_user");
+
+            // "What is waiting?" -- asked every twenty seconds, over the waiting rows only.
+            entity.HasIndex(e => e.UpdatedAt)
+                .HasFilter("state = 'waiting'")
+                .HasDatabaseName("ix_event_alert_delivery_waiting");
+
+            // A purge finds a member's rows by their id.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_event_alert_delivery_discord_user_id");
+
+            entity.HasOne<EventAlert>()
+                .WithMany()
+                .HasForeignKey(e => e.AlertId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<EventReminder>(entity =>

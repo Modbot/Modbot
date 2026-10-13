@@ -1327,11 +1327,11 @@ VRChat category. The maintainer approved this on 2026-10-12 as step 1 of 2; step
 - **Not yet shown:** the event details popup, the AI chat tool and the demo seeder. They show
   VRChat's category only.
 
-### 19.4 Step 2: alerts (not built)
+### 19.4 Step 2: alerts (added 2026-10-13)
 
-Members will ask to hear about a category: `/notify` to sign up, a *Notify me* button on Discord
-event posts, by direct message or a channel ping, the alert types being these categories. The data
-is ready for it: a subscription holds a `CalendarCategory.Id` and nothing else about a category, so
-it survives a rename, and `calendar_event_category` says which events a new or starting event
-should tell whom. A subscription table should reference the category with a cascading delete, as
-the event join does.
+Members ask to hear about a category with `/notify` or a *Notify me* button on the Discord event
+post, and are told before a matching event by direct message or a ping in a channel. A sign-up holds
+a `CalendarCategory.Id` and nothing else about a category, so it survives a rename, and
+`calendar_event_category` says which events a starting event should tell whom; the sign-up table
+references the category with a cascading delete, as the event join does. The whole of it is in
+[the event alerts design](2026-10-13-event-alerts-design.md).
