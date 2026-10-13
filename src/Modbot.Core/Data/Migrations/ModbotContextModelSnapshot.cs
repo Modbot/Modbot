@@ -8461,6 +8461,22 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("instance_end_entries_started_at");
 
+                    b.Property<bool>("LivePostAuto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("live_post_auto");
+
+                    b.Property<DateTimeOffset?>("LivePostFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("live_post_from");
+
+                    b.Property<string>("LivePostScope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasDefaultValue("off")
+                        .HasColumnName("live_post_scope");
+
                     b.Property<int>("LogRetentionDays")
                         .HasColumnType("integer")
                         .HasColumnName("log_retention_days");

@@ -435,6 +435,23 @@ public class Settings
     /// <summary>The latest moment already dealt with. A moment at or before it never makes a draft.</summary>
     public DateTimeOffset? SpotlightHandledThrough { get; set; }
 
+    // --- "We're live" group posts (2026-10-13) ---
+
+    /// <summary>One of <see cref="LivePostScopes"/>: which instances get a "we're live" group post. Off to start.</summary>
+    public string LivePostScope { get; set; } = LivePostScopes.Off;
+
+    /// <summary>
+    /// Post straight away instead of making a draft for a person to approve. With it on there is
+    /// no draft and no message to the host.
+    /// </summary>
+    public bool LivePostAuto { get; set; }
+
+    /// <summary>
+    /// When the scope was last turned on from off. An instance first seen before this never gets a
+    /// post, so turning the setting on does not post about the instances already running.
+    /// </summary>
+    public DateTimeOffset? LivePostFrom { get; set; }
+
     // --- Bluesky (Bluesky design §3.1, posts design §4.2c) ---
 
     /// <summary>

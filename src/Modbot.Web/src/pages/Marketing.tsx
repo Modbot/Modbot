@@ -40,7 +40,7 @@ import {
   type PostList,
   type PostListName,
 } from '@/lib/posts'
-import { followLink } from '@/lib/router'
+import { followLink, useQueryParam } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
@@ -135,6 +135,17 @@ export function Marketing({ list, onList }: { list: MarketingPage; onList: (page
 
   const canManage = data?.canManage ?? false
   const newPost = useCallback(() => setComposing({ post: null, input: blankPost(new Date(), zone) }), [zone])
+
+  // A link from a message about a draft ("?post=<id>") opens that draft in the composer, once.
+  const [linkedPost, setLinkedPost] = useQueryParam('post')
+  useEffect(() => {
+    if (!linkedPost || !canManage) return
+    setLinkedPost(null)
+    void postsApi
+      .post(linkedPost)
+      .then((post) => setComposing({ post, input: inputFrom(post, new Date(), zone) }))
+      .catch(() => setError('Could not open that post.'))
+  }, [linkedPost, canManage, setLinkedPost, zone])
 
   useShortcuts(canManage ? [{ label: 'New post', group: 'Page', page: true, run: newPost }] : [])
 

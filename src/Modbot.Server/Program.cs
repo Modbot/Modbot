@@ -447,6 +447,10 @@ try
     // does nothing more while the spotlight is off.
     builder.Services.AddSpotlight();
 
+    // Makes the "we're live" group post for an instance with people in it. Reads the settings row
+    // and does nothing more while the setting is off.
+    builder.Services.AddLivePosts();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outcome, Placeholder, Switch } from '@/components/settings/fields'
+import { LivePostsCard } from '@/components/settings/LivePostsCard'
 import { SettingsCard, SettingsSection } from '@/components/settings/SettingsCard'
 import { ApiError } from '@/lib/api'
 import { postsApi, type PostSettings } from '@/lib/posts'
@@ -67,6 +68,7 @@ export function PostsSection() {
           </Switch>
         </div>
       </SettingsCard>
+      <LivePostsCard />
     </SettingsSection>
   )
 }

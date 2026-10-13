@@ -1947,6 +1947,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.SpotlightTimeZone).HasMaxLength(64);
             entity.Property(e => e.SpotlightPlaces).HasDefaultValue("{}");
 
+            // "We're live" group posts: off, until an operator picks which instances.
+            entity.Property(e => e.LivePostScope).HasMaxLength(8).HasDefaultValue(LivePostScopes.Off);
+
             // "automod" is one word on this screen and in its tables, so the columns say so too
             // rather than the "auto_mod" the naming convention would make of the property.
             entity.Property(e => e.AutoModEnabled).HasColumnName("automod_enabled");

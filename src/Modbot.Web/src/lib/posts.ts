@@ -23,6 +23,12 @@ export function pictureAddress(pictureId: string): string {
   return `${base}/pictures/${encodeURIComponent(pictureId)}`
 }
 
+/** Which instances get a "we're live" group post. */
+export type LivePostScope = 'off' | 'calendar' | 'any' | 'modbot'
+
+/** Settings, Posts, Live posts: which instances get a post, and whether it is sent without a draft. */
+export type LivePostSettings = { scope: LivePostScope; auto: boolean }
+
 export const postsApi = {
   list: (list: PostListName, page = 1) =>
     http.request<PostList>(`${base}?list=${encodeURIComponent(list)}&page=${page}`),
@@ -85,4 +91,7 @@ export const postsApi = {
   health: () => http.request<PostsHealth>(`${base}/health`),
   settings: () => http.request<PostSettings>('/api/settings/posts'),
   setSettings: (change: Partial<PostSettings>) => http.put<PostSettings>('/api/settings/posts', change),
+  livePostSettings: () => http.request<LivePostSettings>('/api/settings/live-posts'),
+  setLivePostSettings: (change: Partial<LivePostSettings>) =>
+    http.put<LivePostSettings>('/api/settings/live-posts', change),
 }

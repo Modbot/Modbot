@@ -52,6 +52,9 @@ public static class NotificationKinds
     /// design §3.4). Carries no names and no words from the report, and points at the Reports page.
     /// </summary>
     public const string MemberReportNew = "modbot.report.new";
+
+    /// <summary>A "we're live" group post is waiting as a draft for a host to approve.</summary>
+    public const string LivePostDraft = "modbot.live-post.draft";
 }
 
 /// <summary>Who a notification is for.</summary>

@@ -76,6 +76,12 @@ public static class PostKinds
 
     /// <summary>The weekly member spotlight: a draft Modbot makes for staff to finish and send.</summary>
     public const string Spotlight = "spotlight";
+
+    /// <summary>
+    /// "We're live": made when a group instance has its first people in it, as a draft for a host to
+    /// approve or posted straight away (<see cref="Post.ExternalKey"/> is the instance's id).
+    /// </summary>
+    public const string InstanceLive = "instance_live";
 }
 
 /// <summary>

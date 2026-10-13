@@ -144,6 +144,9 @@ public static class ApiSurface
         // AddSpotlight, so a test host runs the pass itself.
         services.TryAddScoped<Features.Spotlight.SpotlightPass>();
 
+        // "We're live" group posts: the pass is scoped; its timer is the host's, with AddLivePosts.
+        services.TryAddScoped<Features.LivePosts.LivePostPass>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -326,6 +329,14 @@ public static class ApiSurface
         return services;
     }
 
+    /// <summary>Makes the "we're live" group post for an instance with people in it.</summary>
+    public static IServiceCollection AddLivePosts(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.LivePosts.LivePostService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
     /// <summary>Sends queued email in the background. Needs what <see cref="Auth.ModbotAuth.AddModbotAuth"/> registers.</summary>
     public static IServiceCollection AddEmailQueue(this IServiceCollection services)
     {
@@ -491,6 +502,7 @@ public static class ApiSurface
         app.MapBlueskyOAuth();
         app.MapTwitchSettings();
         app.MapSpotlightSettings();
+        app.MapLivePostSettings();
         app.MapTwitch();
         app.MapAiChatSettings();
         app.MapAutoModSettings();

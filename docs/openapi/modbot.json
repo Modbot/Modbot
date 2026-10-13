@@ -7628,6 +7628,124 @@
         ]
       }
     },
+    "/api/settings/live-posts": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get live post settings",
+        "description": "Which instances get a \"we're live\" group post, and whether it is a draft or is posted at once.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetLivePostSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivePostSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update live post settings",
+        "description": "Pick which instances get a \"we're live\" group post (`scope`: `off`, `calendar`, `any` or `modbot`) and whether it is posted straight away (`auto`) or made as a draft in Marketing with a message to the host. Turning it on never posts about instances already running. An event that has its own \"announce in VRChat\" box ticked keeps posting for itself.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetLivePostSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivePostSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivePostSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/twitch/live": {
       "get": {
         "tags": [
@@ -50153,6 +50271,38 @@
                 "$ref": "#/components/schemas/LiveNotice"
               }
             ]
+          }
+        }
+      },
+      "LivePostSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "auto": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "LivePostSettingsView": {
+        "required": [
+          "scope",
+          "auto"
+        ],
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "auto": {
+            "type": "boolean"
           }
         }
       },
