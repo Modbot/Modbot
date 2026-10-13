@@ -18,6 +18,7 @@ using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordGate;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordSync;
+using Modbot.Api.Features.DiscordTickets;
 using Modbot.Api.Features.DiscordStaffRoles;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
@@ -553,6 +554,9 @@ public static class ApiSurface
 
         // The channel members post gallery pictures in.
         app.MapDiscordGallerySettings();
+
+        // Tickets members open from a panel's buttons: the types, the transcript channel, the panel.
+        app.MapDiscordTickets();
 
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();
