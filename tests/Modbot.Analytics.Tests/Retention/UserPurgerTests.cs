@@ -352,6 +352,128 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.Equal(DiscordBystander, Assert.Single(await read.MemberProfiles.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
     }
 
+    /// <summary>
+    /// The event alerts a member signed up for (event alerts design §7) name their Discord account in
+    /// three tables -- sign-ups, the choice of way and the alerts queued for them -- so a purge takes
+    /// all three, for the Discord account and for the VRChat account it is linked to, and leaves
+    /// everybody else's. The record of the purge counts them together and names nobody.
+    /// </summary>
+    [Fact]
+    public async Task TheEventAlertsTheySignedUpFor_GoToo_ForTheDiscordAccountAndItsLinkedVRChatAccount()
+    {
+        const string DiscordSubject = "7101";
+        const string DiscordBystander = "7102";
+
+        var calendarEvent = new CalendarEvent
+        {
+            Id = Guid.CreateVersion7(),
+            Title = "Karaoke",
+            StartsAt = Start.AddDays(1),
+            EndsAt = Start.AddDays(1).AddHours(2),
+            TimeZone = "UTC",
+            State = CalendarEventStates.Scheduled,
+            CreatedAt = Start,
+            UpdatedAt = Start,
+        };
+
+        var category = new CalendarCategory
+        {
+            Id = Guid.CreateVersion7(),
+            Name = "Karaoke " + Guid.NewGuid().ToString("N")[..8],
+            CreatedAt = Start,
+            UpdatedAt = Start,
+        };
+
+        var firstAlert = new EventAlert { EventId = calendarEvent.Id, OccurrenceStartsAt = calendarEvent.StartsAt, QueuedAt = Start };
+        var secondAlert = new EventAlert { EventId = calendarEvent.Id, OccurrenceStartsAt = calendarEvent.StartsAt.AddDays(7), QueuedAt = Start };
+
+        async Task SetUpAsync()
+        {
+            await using var setup = Database.NewContext();
+            await setup.EventAlertDeliveries.ExecuteDeleteAsync(Ct);
+            await setup.EventAlerts.ExecuteDeleteAsync(Ct);
+            await setup.EventAlertMembers.ExecuteDeleteAsync(Ct);
+            await setup.EventAlertSignups.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.CalendarEvents.AnyAsync(e => e.Id == calendarEvent.Id, Ct))
+                setup.CalendarEvents.Add(calendarEvent);
+
+            if (!await setup.CalendarCategories.AnyAsync(c => c.Id == category.Id, Ct))
+                setup.CalendarCategories.Add(category);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            await setup.SaveChangesAsync(Ct);
+
+            firstAlert.Id = Guid.CreateVersion7();
+            secondAlert.Id = Guid.CreateVersion7();
+            setup.EventAlerts.AddRange(firstAlert, secondAlert);
+
+            setup.EventAlertSignups.AddRange(
+                new EventAlertSignup { DiscordUserId = DiscordSubject, CategoryId = category.Id, CreatedAt = Start },
+                new EventAlertSignup { DiscordUserId = DiscordSubject, EventId = calendarEvent.Id, CreatedAt = Start },
+                new EventAlertSignup { DiscordUserId = DiscordBystander, CategoryId = category.Id, CreatedAt = Start });
+
+            setup.EventAlertMembers.AddRange(
+                new EventAlertMember { DiscordUserId = DiscordSubject, Way = EventAlertSettings.Ping, UpdatedAt = Start },
+                new EventAlertMember { DiscordUserId = DiscordBystander, Way = EventAlertSettings.Direct, UpdatedAt = Start });
+
+            setup.EventAlertDeliveries.AddRange(
+                new EventAlertDelivery { AlertId = firstAlert.Id, DiscordUserId = DiscordSubject, UpdatedAt = Start },
+                new EventAlertDelivery { AlertId = secondAlert.Id, DiscordUserId = DiscordSubject, UpdatedAt = Start },
+                new EventAlertDelivery { AlertId = firstAlert.Id, DiscordUserId = DiscordBystander, UpdatedAt = Start });
+
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        async Task AssertOnlyTheBystanderIsLeftAsync()
+        {
+            await using var read = Database.NewContext();
+            Assert.Equal(DiscordBystander, Assert.Single(await read.EventAlertSignups.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+            Assert.Equal(DiscordBystander, Assert.Single(await read.EventAlertMembers.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+            Assert.Equal(DiscordBystander, Assert.Single(await read.EventAlertDeliveries.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+        }
+
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(5, result.EventAlertsDeleted);
+        }
+
+        await AssertOnlyTheBystanderIsLeftAsync();
+
+        // The same, asked about the VRChat account the Discord one is linked to.
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+            Assert.Equal(5, result.EventAlertsDeleted);
+        }
+
+        await AssertOnlyTheBystanderIsLeftAsync();
+
+        // And the record of the purge counts them, naming nobody.
+        await using var again = Database.NewContext();
+        var record = await again.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.UserPurged)
+            .OrderByDescending(e => e.Id)
+            .FirstAsync(Ct);
+        Assert.Contains("\"eventAlerts\": 5", record.Data, StringComparison.Ordinal);
+        Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
+    }
+
     private async Task<int> CountAsync(string subjectId)
     {
         await using var context = Database.NewContext();

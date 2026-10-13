@@ -65,6 +65,10 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// <param name="EventInvitesDeleted">Rows on events' invite queues (calendar auto-invite design §8).</param>
 /// <param name="EventRemindersDeleted">Reminders they asked for with <c>/remindme</c>, whatever their state (Discord commands design §3.5).</param>
 /// <param name="MemberReportsDeleted">Member reports they made and reports made about them, whatever their state (Discord commands design §3.4).</param>
+/// <param name="EventAlertsDeleted">
+/// Event alert rows that named them: their sign-ups, their choice of way and the alerts queued for
+/// them (event alerts design §7). Added together; the record names nobody.
+/// </param>
 public sealed record PurgeResult(
     int FactsDeleted,
     int CountedDailyTotalsDeleted,
@@ -74,7 +78,8 @@ public sealed record PurgeResult(
     int GiveawayEntrantsBlanked = 0,
     int EventInvitesDeleted = 0,
     int EventRemindersDeleted = 0,
-    int MemberReportsDeleted = 0);
+    int MemberReportsDeleted = 0,
+    int EventAlertsDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -269,6 +274,25 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // Event alerts name a Discord account three ways (event alerts design §7): what they
+            // signed up for, their choice of way, and the alerts queued or sent to them. For a
+            // VRChat account, the Discord account linked to it now, as with reminders.
+            var alertsDeleted = 0;
+            foreach (var table in new[] { "event_alert_signup", "event_alert_member", "event_alert_delivery" })
+            {
+                alertsDeleted += await ExecuteAsync(
+                    platform == FactPlatform.Discord
+                        ? $"DELETE FROM {table} WHERE discord_user_id = @subject"
+                        : $"""
+                          DELETE FROM {table}
+                          WHERE discord_user_id IN (
+                              SELECT discord_user_id FROM discord_account_link
+                              WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                          """,
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+            }
+
             // The member reports they made and the ones made about them (Discord commands design
             // §3.4): the row is the only place the reporter is named, and it also holds the
             // reported person's name and the quoted message, so it goes whichever way round they
@@ -340,7 +364,7 @@ public sealed class UserPurger : IUserPurger
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
             var result = new PurgeResult(
-                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted, reportsDeleted);
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted, reportsDeleted, alertsDeleted);
 
             await RecordAsync(platform, actor, result, ct);
 
@@ -469,6 +493,7 @@ public sealed class UserPurger : IUserPurger
             ["eventInvites"] = result.EventInvitesDeleted,
             ["eventReminders"] = result.EventRemindersDeleted,
             ["memberReports"] = result.MemberReportsDeleted,
+            ["eventAlerts"] = result.EventAlertsDeleted,
         };
 
         if (actor is not null)

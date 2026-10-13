@@ -715,6 +715,14 @@ public static class FactType
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
     /// <summary>
+    /// An event date's alert is done: every member signed up for it has been sent it, skipped or
+    /// failed (event alerts design §8). The subject is the event's id. Payload: the title, the date,
+    /// and how many went by direct message, by ping, how many direct messages were closed, how many
+    /// failed and how many were skipped. Names no member, so a purge has nothing to find in it.
+    /// </summary>
+    public const string EventAlertSent = "modbot.calendar.alert.send";
+
+    /// <summary>
     /// A world was picked from a world list for an event (world lists design §7): for a date
     /// (<c>kind</c> <c>date</c>), or as the next game during it (<c>game</c>). No actor when Modbot
     /// picked a date by itself.

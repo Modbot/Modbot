@@ -89,6 +89,9 @@ public static class FactRetention
         // The join gate's halfway warning, for the same reason. Getting in and being removed are
         // history; being reminded is not.
         "discord.gate.warn",
+
+        // An event alert's "all done" marker (event alerts design §8). Plumbing that names no one.
+        "modbot.calendar.alert.",
     ];
 
     /// <summary>

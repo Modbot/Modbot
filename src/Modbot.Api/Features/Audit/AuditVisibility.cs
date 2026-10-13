@@ -260,6 +260,7 @@ public static class AuditVisibility
         [FactType.PlannedEventTakenDown] = AuditCategory.Operational,
         [FactType.PlannedEventPictureUploaded] = AuditCategory.Operational,
         [FactType.CalendarFeedRegenerated] = AuditCategory.Operational,
+        [FactType.EventAlertSent] = AuditCategory.Operational,
         [FactType.CalendarWorldPicked] = AuditCategory.Operational,
         [FactType.WorldListCreated] = AuditCategory.Operational,
         [FactType.WorldListChanged] = AuditCategory.Operational,

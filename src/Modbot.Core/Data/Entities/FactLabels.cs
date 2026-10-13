@@ -174,6 +174,7 @@ public static class FactLabels
         [FactType.PlannedEventTakenDown] = "Event taken down",
         [FactType.PlannedEventPictureUploaded] = "Event picture uploaded to VRChat",
         [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
+        [FactType.EventAlertSent] = "Event alert sent",
         [FactType.CalendarWorldPicked] = "World picked for an event",
         [FactType.WorldListCreated] = "World list made",
         [FactType.WorldListChanged] = "World list changed",

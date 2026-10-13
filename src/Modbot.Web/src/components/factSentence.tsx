@@ -1520,6 +1520,29 @@ const SENTENCES: Record<string, Sentence> = {
       <>{p.actor} made the calendar feed link.</>
     ),
 
+  // An event alert finished (event alerts design §8). Counts only; it names no member.
+  'modbot.calendar.alert.send': (p) => {
+    const count = (key: string) => {
+      const n = p.entry.data?.[key]
+      return typeof n === 'number' ? n : 0
+    }
+    const date = when(p.text('occurrenceStartsAt'))
+    const parts = [
+      count('direct') > 0 ? `${count('direct')} by direct message` : null,
+      count('ping') > 0 ? `${count('ping')} by ping` : null,
+      count('closed') > 0 ? `${count('closed')} with direct messages closed` : null,
+      count('failed') > 0 ? `${count('failed')} failed` : null,
+      count('skipped') > 0 ? `${count('skipped')} skipped` : null,
+    ].filter((part): part is string => part !== null)
+    return (
+      <>
+        Modbot alerted members about<Quoted value={p.text('title')} />
+        {date ? <> on {date}</> : null}
+        {parts.length > 0 ? <>: {parts.join(', ')}</> : null}.
+      </>
+    )
+  },
+
   // A world picked from a world list (world lists design §7): for a date, by Modbot unless somebody
   // asked to pick again, or as the next game during the event.
   'modbot.calendar.world.pick': (p) => {

@@ -580,3 +580,18 @@ public sealed record PublicCalendarFeedView(bool On, string Path, string? Url);
 
 /// <param name="On">Turn the public feed on or off.</param>
 public sealed record SetPublicCalendarFeedRequest(bool On);
+
+/// <summary>The event alert settings (event alerts design §3).</summary>
+/// <param name="On">Whether members are told before an event. Off, nothing is queued or sent.</param>
+/// <param name="DirectMessage">Whether an alert may go as a direct message.</param>
+/// <param name="Ping">Whether an alert may go as a ping in <paramref name="ChannelId"/>.</param>
+/// <param name="ChannelId">The Discord channel the ping is posted in; null for none.</param>
+/// <param name="MinutesBefore">How long before the start an alert goes: 5 to 1,440.</param>
+public sealed record EventAlertSettingsView(bool On, bool DirectMessage, bool Ping, string? ChannelId, int MinutesBefore);
+
+/// <param name="On">Turn alerts on or off.</param>
+/// <param name="DirectMessage">Allow alerts by direct message.</param>
+/// <param name="Ping">Allow alerts as a ping in the channel. Needs <paramref name="ChannelId"/>.</param>
+/// <param name="ChannelId">The channel the ping goes in; null or empty for none.</param>
+/// <param name="MinutesBefore">Minutes before the start, 5 to 1,440.</param>
+public sealed record SetEventAlertSettingsRequest(bool On, bool DirectMessage, bool Ping, string? ChannelId, int MinutesBefore);

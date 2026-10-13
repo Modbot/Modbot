@@ -100,6 +100,20 @@ public class FactRetentionTests
         => Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf(type));
 
     /// <summary>
+    /// An event alert's "all done" marker (event alerts design §8) is plumbing that names no one, so it
+    /// ages out like the other bot-send markers; the prefix keeps any alert fact added later with it.
+    /// Calendar facts around it stay history.
+    /// </summary>
+    [Fact]
+    public void EventAlertMarkersAgeOut_ButTheCalendarsOtherFactsDoNot()
+    {
+        Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf(FactType.EventAlertSent));
+        Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf("modbot.calendar.alert.anything"));
+        Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(FactType.PlannedEventPublished));
+        Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(FactType.CalendarFeedRegenerated));
+    }
+
+    /// <summary>
     /// Spec 5.9.2: "system events take the short retention class deliberately". A sync failure
     /// from last March is not history anyone needs.
     /// </summary>
