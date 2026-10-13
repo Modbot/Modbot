@@ -58,7 +58,7 @@ import { useServerProfile } from '@/pages/analytics/useServerProfile'
  *
  * Every column sorts, and the filters are the app's filter chips. Only "Seen by" a role goes to the
  * server, which holds the channels' overwrites; the rest narrow the rows already here. The sort and
- * the chips live in the address, so a link reproduces the view (lib/filters.ts).
+ * the chips and the name search live in the address, so a link reproduces the view (lib/filters.ts).
  */
 export function DiscordChannels({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const server = useServerProfile(me)
@@ -79,7 +79,8 @@ function ChannelList({ me }: { me: CurrentUser }) {
   const [chips, setChips] = useFilters(CHANNEL_DEFAULTS)
   const [sortParam, setSortParam] = useQueryParam('sort')
   const sort = readChannelSort(sortParam)
-  const [search, setSearch] = useState('')
+  const [searchParam, setSearchParam] = useQueryParam('name')
+  const search = searchParam ?? ''
 
   // The chips change identity whenever the address does, sort clicks included; only a different
   // question for the server is a reason to ask it again.
@@ -174,7 +175,7 @@ function ChannelList({ me }: { me: CurrentUser }) {
     <FilterBar properties={properties} chips={chips} starts={CHANNEL_STARTS} onChange={setChips}>
       <Input
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => setSearchParam(e.target.value === '' ? null : e.target.value)}
         placeholder="Search by name"
         className="w-56"
         aria-label="Search Discord channels"

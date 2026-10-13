@@ -83,7 +83,7 @@ becomes a list, a Sort box and a direction button do the same. Rows with nothing
 none) always come last, whichever way it runs; a channel with no messages is the longest quiet. The rules
 are pure functions in `lib/discordTidyUp.ts`.
 
-**Filtering:** the page's filter bar, so the choices live in the address (`f=`) and combine:
+**Filtering:** the page's filter bar, so the choices live in the address (`f=`) and combine; the name search is kept there too (`name=`):
 
 | Filter | Choices |
 |---|---|
@@ -91,7 +91,7 @@ are pure functions in `lib/discordTidyUp.ts`.
 | Quiet for | at least 7, 30, 60, 90, 180 or 365 days |
 | Category | each category, and No category |
 | Type | text, announcement, forum |
-| Status | No messages, Still reading, Can't read |
+| Status | Has messages, No messages, Still reading, Can't read |
 | Staff-only | yes / no; offered only with Change settings |
 | Name | search box |
 
