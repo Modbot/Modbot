@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261013014039_AddCalendarTemplates")]
+    [Migration("20261013022430_AddCalendarTemplates")]
     partial class AddCalendarTemplates
     {
         /// <inheritdoc />
@@ -7133,8 +7133,8 @@ namespace Modbot.Core.Data.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)")
                         .HasColumnName("text");
 
                     b.Property<string>("TimeZone")
@@ -7288,8 +7288,8 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("target");
 
                     b.Property<string>("TextOverride")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)")
+                        .HasMaxLength(100000)
+                        .HasColumnType("character varying(100000)")
                         .HasColumnName("text_override");
 
                     b.Property<string>("TitleOverride")
