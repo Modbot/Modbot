@@ -37,6 +37,7 @@ public class VRChatGroupPermissionsTests
     [InlineData("GetGroupInvites", "group-invites-manage")]
     [InlineData("DeleteGroupInvite", "group-invites-manage")]
     [InlineData("DeleteGroupGalleryImage", "group-galleries-manage")]
+    [InlineData("AddGroupGalleryImage", "group-galleries-manage")]
     public void EachGroupActionNamesThePermissionItNeeds(string operation, string permission)
         => Assert.Equal(permission, VRChatGroupPermissions.NeededFor(operation));
 

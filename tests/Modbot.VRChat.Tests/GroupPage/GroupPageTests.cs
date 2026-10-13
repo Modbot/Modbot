@@ -363,6 +363,7 @@ public class GroupPageTests
         await invites.CancelAsync("grp_test", "usr_1", Ct);
         await gallery.ListAsync("grp_test", "ggal_1", 500, -1, Ct);
         await gallery.RemoveAsync("grp_test", "ggal_1", "ggim_1", Ct);
+        await gallery.AddAsync("grp_test", "ggal_1", "file_1", Ct);
 
         Assert.Equal(
             [
@@ -374,6 +375,7 @@ public class GroupPageTests
                 (VRChatEndpointClass.GroupsInvitesCancel, "DeleteGroupInvite"),
                 (VRChatEndpointClass.GroupsGallery, "GetGroupGalleryImages"),
                 (VRChatEndpointClass.GroupsGalleryWrite, "DeleteGroupGalleryImage"),
+                (VRChatEndpointClass.GroupsGalleryWrite, "AddGroupGalleryImage"),
             ],
             gate.Calls.Select(c => (c.Endpoint.Class, c.Endpoint.Operation!)).ToList());
 

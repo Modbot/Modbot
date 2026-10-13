@@ -352,6 +352,39 @@ public class UserPurgerTests : AnalyticsTestBase
         Assert.Equal(DiscordBystander, Assert.Single(await read.MemberProfiles.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
     }
 
+    [Fact]
+    public async Task ThePicturesThePurgedMemberPostedForTheGalleryGo_ButNobodyElses()
+    {
+        const string DiscordSubject = "7301";
+        const string DiscordBystander = "7302";
+
+        GallerySubmission Picture(string author, string message) => new()
+        {
+            Id = Guid.NewGuid(),
+            DiscordMessageId = message,
+            DiscordChannelId = "chan_1",
+            AuthorDiscordId = author,
+            AuthorName = "Rowan",
+            Bytes = [1, 2, 3],
+            SubmittedAt = Start,
+        };
+
+        await using (var setup = Database.NewContext())
+        {
+            setup.GallerySubmissions.AddRange(
+                Picture(DiscordSubject, "m1"),
+                Picture(DiscordSubject, "m2"),
+                Picture(DiscordBystander, "m3"));
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await using var read = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await read.GallerySubmissions.AsNoTracking().ToListAsync(Ct)).AuthorDiscordId);
+    }
+
     /// <summary>
     /// A purge takes the member's opt-in, clears them from the weeks they were featured, and deletes
     /// the spotlight drafts that have not gone out (with their avatar copy); a draft that went out, and
