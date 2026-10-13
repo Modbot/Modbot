@@ -1,0 +1,75 @@
+---
+title: Permission watch
+description: Get told when a Discord role or member, a bot among them, gains Administrator or another dangerous permission. Optionally have Modbot take the permission away.
+---
+
+A role that quietly gains **Administrator**, or a bot that joins with a role that has it, can take a
+server over. Permission watch notices when that happens and tells your staff. It can also undo it,
+but only if you turn that on.
+
+The watch is always running once the bot is set up
+([Setting up the bot](/discord/bot-setup)). Nothing is removed unless you ask for it.
+
+## What is watched
+
+| Permission |
+|---|
+| Administrator |
+| Manage Server |
+| Manage Roles |
+| Manage Channels |
+| Manage Webhooks |
+| Ban Members |
+| Kick Members |
+| Mention Everyone |
+| Manage Messages |
+
+Two things count as a gain:
+
+- **A role gains one.** A role that already existed and now has a permission from the list it did not
+  have before, or a role that was made with one.
+- **A member is given a role that has one.** This includes a bot that joins with its own role.
+
+Modbot tells you the first time a role has the permission, not again on every later check.
+
+## Where you are told
+
+Every gain is recorded as a fact, **Discord role gained a dangerous permission** or **Discord member
+given a dangerous permission**. You see it in the audit log, and you can send it to a channel from
+**Settings → Discord → Channels**, like any other event
+([Event channels](/discord/event-channels)).
+
+To get a message straight in your staff room as well, open **Settings → Discord** and find the
+**Permission watch** card. You need the **Change settings** permission.
+
+| Setting | What it does |
+|---|---|
+| **Staff channel** | Where Modbot posts a card for each gain. The bot needs to see the channel, send messages and embed links. Leave it empty to use the fact log and channel routes only. |
+| **Remove automatically** | Off by default. Also takes the permission away. |
+
+The card names the role or member, the permissions, and what happened: **Permission removed**,
+**Left as it was**, or **Could not remove** with the reason.
+
+## Remove automatically
+
+When it is on:
+
+- A role that gained a permission loses exactly the permissions it gained.
+- A member who was given a role that has one loses that role.
+- For a bot's own role (the one Discord made for it when it joined), Discord does not let the role be
+  taken off the bot, so the permissions are taken off the role instead.
+
+The **server owner** never loses anything: they are told about, and the card says the member is the
+owner. If Discord does not allow Modbot to do it, for instance because the role sits above Modbot's
+own in **Server Settings → Roles**, nothing else is tried and the card says so.
+
+## What it leaves alone
+
+- Roles Modbot gave in the last few minutes, such as the ones from the [join gate](/discord/join-gate),
+  [account linking](/discord/account-linking) and [roles from lists](/discord/roles-from-lists), and
+  Modbot's own account.
+- The first time Modbot reads a server: everything that is already there stays as it is.
+- Members Modbot has no stored roles for yet. They are picked up the next time their roles are stored,
+  and a person given a dangerous role before then is not reported.
+- A bot that joins with a role of its own is reported twice, once as a new role and once as a member
+  given a role.
