@@ -36,6 +36,8 @@ namespace Modbot.Api.Features.Birthdays;
 /// </remarks>
 public sealed class BirthdayPass
 {
+    private const string RoleNotGiven = "The birthday role was not given: ";
+
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly IDiscordBirthdayActions _discord;
@@ -93,12 +95,28 @@ public sealed class BirthdayPass
         if (await TakeRolesBackAsync(guildId, today, ct).ConfigureAwait(false) is { } stuck)
             problems.Add(stuck);
 
-        if (!settings.BirthdaysOn
-            || settings.BirthdayChannelId is not { } channelId
-            || (settings.BirthdayHandledThrough is { } handled && handled >= moment))
+        if (!settings.BirthdaysOn || settings.BirthdayChannelId is not { } channelId)
         {
             if (problems.Count > 0)
                 await KeepProblemAsync(settings.Id, string.Join(" ", problems), ct).ConfigureAwait(false);
+
+            return false;
+        }
+
+        if (settings.BirthdayHandledThrough is { } handled && handled >= moment)
+        {
+            // The day was posted, but the role waited for Modbot to read its permissions.
+            if (problems.Count == 0
+                && handled == moment
+                && settings.BirthdayRoleId is { } waiting
+                && IsWaitingForPermissions(settings.BirthdayProblem))
+            {
+                await RetryRoleAsync(settings.Id, guildId, waiting, today, ct).ConfigureAwait(false);
+            }
+            else if (problems.Count > 0)
+            {
+                await KeepProblemAsync(settings.Id, string.Join(" ", problems), ct).ConfigureAwait(false);
+            }
 
             return false;
         }
@@ -162,6 +180,39 @@ public sealed class BirthdayPass
         return posted;
     }
 
+    private static bool IsWaitingForPermissions(string? problem)
+        => problem is not null && problem.StartsWith(RoleNotGiven + BirthdayRoleCheck.UnreadStart, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Gives the role to today's members who have not got it, once Modbot has read the role's
+    /// permissions. Nothing is posted: the day's post went out already.
+    /// </summary>
+    private async Task RetryRoleAsync(int settingsId, string guildId, string roleId, DateOnly today, CancellationToken ct)
+    {
+        var members = (await ListTodayAsync(guildId, today, ct).ConfigureAwait(false))
+            .Where(b => b.RoleGivenOn != today)
+            .ToList();
+
+        if (members.Count == 0)
+        {
+            await KeepProblemAsync(settingsId, null, ct).ConfigureAwait(false);
+            return;
+        }
+
+        // Still unread: leave the problem as it is, and look again on the next pass.
+        if (await BirthdayRoleCheck.RefusalAsync(_db, roleId, ct).ConfigureAwait(false) is { } refusal
+            && BirthdayRoleCheck.IsUnread(refusal))
+        {
+            return;
+        }
+
+        var problems = new List<string>();
+
+        await GiveRoleAsync(guildId, roleId, members, today, problems, ct).ConfigureAwait(false);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await KeepProblemAsync(settingsId, problems.Count == 0 ? null : string.Join(" ", problems), ct).ConfigureAwait(false);
+    }
+
     /// <summary>The members whose day it is and who are still in the server, by id.</summary>
     private async Task<List<MemberBirthday>> ListTodayAsync(string guildId, DateOnly today, CancellationToken ct)
     {
@@ -196,7 +247,7 @@ public sealed class BirthdayPass
     {
         if (await BirthdayRoleCheck.RefusalAsync(_db, roleId, ct).ConfigureAwait(false) is { } refusal)
         {
-            problems.Add($"The birthday role was not given: {refusal}");
+            problems.Add(RoleNotGiven + refusal);
             return;
         }
 
@@ -214,7 +265,9 @@ public sealed class BirthdayPass
             if (outcome.NotInServer)
                 continue;
 
-            problems.Add($"The birthday role was not given: {outcome.Error}");
+            // The rest would be refused the same way, so the card gets the one problem. A role that is
+            // gone says so, since choosing another is the fix.
+            problems.Add(outcome.RoleGone ? "The birthday role no longer exists." : RoleNotGiven + outcome.Error);
             return;
         }
     }
@@ -228,6 +281,7 @@ public sealed class BirthdayPass
     {
         var holders = await _db.MemberBirthdays
             .Where(b => b.RoleGivenId != null)
+            .OrderBy(b => b.DiscordUserId)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
@@ -240,8 +294,12 @@ public sealed class BirthdayPass
             if (outcome.BotOffline)
                 break;
 
-            if (!outcome.Done && !outcome.NotInServer)
+            // A role that no longer exists is off the member as much as it ever will be.
+            if (!outcome.Done && !outcome.NotInServer && !outcome.RoleGone)
+            {
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
                 return $"The birthday role was not taken back: {outcome.Error}";
+            }
 
             holder.RoleGivenId = null;
             holder.RoleGivenOn = null;

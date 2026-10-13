@@ -72,6 +72,12 @@ public sealed class BirthdayPassTests : IAsyncLifetime
 
         public HashSet<string> NotInServer { get; } = [];
 
+        /// <summary>When set, taking the role back answers this; giving it still answers <see cref="RoleResult"/>.</summary>
+        public DiscordBirthdayOutcome? TakeBackResult { get; set; }
+
+        /// <summary>Members Discord refuses to take the role back from.</summary>
+        public HashSet<string> RefuseTakeBackFor { get; } = [];
+
         public Task<DiscordBirthdayOutcome> PostAsync(string channelId, string text, CancellationToken ct = default)
         {
             if (PostResult.Done)
@@ -86,10 +92,15 @@ public sealed class BirthdayPassTests : IAsyncLifetime
             if (NotInServer.Contains(userId))
                 return Task.FromResult(DiscordBirthdayOutcome.Left);
 
-            if (RoleResult.Done)
+            if (!add && RefuseTakeBackFor.Contains(userId))
+                return Task.FromResult(DiscordBirthdayOutcome.Failed("Missing permissions."));
+
+            var result = !add && TakeBackResult is { } takeBack ? takeBack : RoleResult;
+
+            if (result.Done)
                 RoleChanges.Add((userId, roleId, add));
 
-            return Task.FromResult(RoleResult);
+            return Task.FromResult(result);
         }
     }
 
@@ -498,5 +509,117 @@ public sealed class BirthdayPassTests : IAsyncLifetime
 
         await using var read = NewContext();
         Assert.Empty(await read.MemberBirthdays.AsNoTracking().ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ARoleDeletedInDiscord_CountsAsTakenBack_SoOneStuckRowDoesNotBlockTheRest()
+    {
+        await ConfigureAsync(s => s.BirthdayRoleId = Party);
+        await AddBirthdaysAsync(10, 13, "1", "2");
+        await RunAsync();
+
+        // Discord no longer has the role. Taking it back is answered "gone" for both members.
+        _discord.TakeBackResult = DiscordBirthdayOutcome.Gone;
+        _clock.Advance(TimeSpan.FromDays(1));
+        await RunAsync();
+
+        Assert.Null((await RowAsync("1")).RoleGivenId);
+        Assert.Null((await RowAsync("2")).RoleGivenId);
+        Assert.Null((await SettingsAsync()).BirthdayProblem);
+    }
+
+    [Fact]
+    public async Task ARoleDeletedInDiscord_LetsAPlaceholderRowBeDeleted()
+    {
+        await using (var db = NewContext())
+        {
+            db.MemberBirthdays.Add(new MemberBirthday
+            {
+                DiscordUserId = "1",
+                Month = 0,
+                Day = 0,
+                SetAt = _clock.UtcNow,
+                RoleGivenId = Party,
+                RoleGivenOn = new DateOnly(2026, 10, 13),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        _discord.TakeBackResult = DiscordBirthdayOutcome.Gone;
+        await RunAsync();
+
+        await using var read = NewContext();
+        Assert.Empty(await read.MemberBirthdays.AsNoTracking().ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ARefusedTakeBack_KeepsTheRowsAlreadyHandled()
+    {
+        await ConfigureAsync(s => s.BirthdayRoleId = Party);
+        await AddBirthdaysAsync(10, 13, "1", "2");
+        await RunAsync();
+
+        // "1" is taken back, then Discord refuses "2".
+        _discord.TakeBackResult = null;
+        _clock.Advance(TimeSpan.FromDays(1));
+        _discord.RefuseTakeBackFor.Add("2");
+        await RunAsync();
+
+        Assert.Null((await RowAsync("1")).RoleGivenId);
+        Assert.Equal(Party, (await RowAsync("2")).RoleGivenId);
+        Assert.Contains("not taken back", (await SettingsAsync()).BirthdayProblem);
+    }
+
+    [Fact]
+    public async Task AGivenRoleThatIsGone_IsAProblemOnTheCard_NotARetryLoop()
+    {
+        await ConfigureAsync(s => s.BirthdayRoleId = Party);
+        await AddBirthdaysAsync(10, 13, "1", "2");
+        _discord.RoleResult = DiscordBirthdayOutcome.Gone;
+
+        await RunAsync();
+        await RunAsync();
+
+        Assert.Single(_discord.Posts);
+        Assert.Contains("no longer exists", (await SettingsAsync()).BirthdayProblem);
+    }
+
+    [Fact]
+    public async Task WhenThePermissionsAreNotReadYet_TheRoleIsGivenOnALaterPassThatDay_WithoutPostingAgain()
+    {
+        await using (var db = NewContext())
+        {
+            var role = await db.DiscordRoles.SingleAsync(r => r.RoleId == Party, Ct);
+            role.Permissions = null;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await ConfigureAsync(s => s.BirthdayRoleId = Party);
+        await AddBirthdaysAsync(10, 13, "1");
+
+        Assert.True(await RunAsync());
+        Assert.Empty(_discord.RoleChanges);
+        Assert.Contains("not read", (await SettingsAsync()).BirthdayProblem);
+
+        // Still unread: nothing is tried, the problem stays.
+        await RunAsync();
+        Assert.Empty(_discord.RoleChanges);
+
+        await using (var db = NewContext())
+        {
+            var role = await db.DiscordRoles.SingleAsync(r => r.RoleId == Party, Ct);
+            role.Permissions = Community;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        Assert.False(await RunAsync());
+        Assert.Equal(("1", Party, true), Assert.Single(_discord.RoleChanges));
+        Assert.Single(_discord.Posts);
+        Assert.Equal(new DateOnly(2026, 10, 13), (await RowAsync("1")).RoleGivenOn);
+        Assert.Null((await SettingsAsync()).BirthdayProblem);
+
+        // And once given, no pass gives it again.
+        await RunAsync();
+        Assert.Single(_discord.RoleChanges);
     }
 }

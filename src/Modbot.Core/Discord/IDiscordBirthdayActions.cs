@@ -6,18 +6,22 @@ namespace Modbot.Core.Discord;
 /// <param name="BotOffline">The bot has no session, so nothing was tried. The pass tries again shortly.</param>
 /// <param name="NotInServer">Discord does not know the member in the server.</param>
 /// <param name="TryAgain">Nothing was made and a later try may work (a rate limit); the pass tries again shortly.</param>
+/// <param name="RoleGone">The role no longer exists in the server (Unknown Role).</param>
 public sealed record DiscordBirthdayOutcome(
     bool Done,
     string? Error,
     bool BotOffline = false,
     bool NotInServer = false,
-    bool TryAgain = false)
+    bool TryAgain = false,
+    bool RoleGone = false)
 {
     public static DiscordBirthdayOutcome Ok { get; } = new(true, null);
 
     public static DiscordBirthdayOutcome Offline { get; } = new(false, "The Discord bot is not connected.", BotOffline: true);
 
     public static DiscordBirthdayOutcome Left { get; } = new(false, "That member is not in the server.", NotInServer: true);
+
+    public static DiscordBirthdayOutcome Gone { get; } = new(false, "The birthday role no longer exists.", RoleGone: true);
 
     public static DiscordBirthdayOutcome Failed(string error, bool tryAgain = false) => new(false, error, TryAgain: tryAgain);
 }

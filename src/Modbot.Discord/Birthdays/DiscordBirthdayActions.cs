@@ -42,8 +42,11 @@ public sealed class DiscordBirthdayActions(Func<IDiscordGateway?> readyGateway) 
         if (outcome.Done)
             return DiscordBirthdayOutcome.Ok;
 
-        return outcome.NotInServer
-            ? DiscordBirthdayOutcome.Left
+        if (outcome.NotInServer)
+            return DiscordBirthdayOutcome.Left;
+
+        return outcome.RoleGone
+            ? DiscordBirthdayOutcome.Gone
             : DiscordBirthdayOutcome.Failed(outcome.Error ?? "Discord refused.");
     }
 }
