@@ -1533,6 +1533,14 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         if (_client.GetGuild(guild)?.GetRole(id) is not { } role)
             return DiscordRoleOutcome.NoSuchRole;
 
+        // Modbot never takes permissions off its own role. Until its own member in this server is
+        // known, nothing can be told apart from it, so nothing is taken off at all.
+        if (role.Guild.CurrentUser is not { } me)
+            return DiscordRoleOutcome.Failed("Modbot's own account in this server is not known yet, so nothing was taken off.");
+
+        if (role.Tags?.BotId == me.Id)
+            return DiscordRoleOutcome.Failed("That is Modbot's own role, which Modbot never changes.");
+
         var kept = role.Permissions.RawValue & ~unchecked((ulong)permissions);
         if (kept == role.Permissions.RawValue)
             return DiscordRoleOutcome.Ok;
