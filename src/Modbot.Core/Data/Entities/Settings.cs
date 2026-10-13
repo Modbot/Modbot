@@ -757,6 +757,32 @@ public class Settings
     /// </summary>
     public string? DiscordGalleryChannelId { get; set; }
 
+    // --- Birthdays in Discord ---
+
+    /// <summary>Whether Modbot posts the day's birthdays. Off to start. <c>/birthday</c> follows its own switch on the Commands card.</summary>
+    public bool BirthdaysOn { get; set; }
+
+    /// <summary>The Discord channel the day's birthdays are posted in. Null means none.</summary>
+    public string? BirthdayChannelId { get; set; }
+
+    /// <summary>The hour of the day, 0 to 23, in <see cref="BirthdayTimeZone"/>, that the birthdays are posted.</summary>
+    public int BirthdayHour { get; set; } = 9;
+
+    /// <summary>The IANA zone the hour is in. Null is UTC.</summary>
+    public string? BirthdayTimeZone { get; set; }
+
+    /// <summary>The post's text, with <c>{members}</c>. Null for <see cref="BirthdayRules.DefaultMessage"/>.</summary>
+    public string? BirthdayMessage { get; set; }
+
+    /// <summary>The role members hold for their birthday and lose on a later day. Null for none.</summary>
+    public string? BirthdayRoleId { get; set; }
+
+    /// <summary>The latest day's moment already dealt with. A moment at or before it posts nothing again.</summary>
+    public DateTimeOffset? BirthdayHandledThrough { get; set; }
+
+    /// <summary>What went wrong the last time the pass tried, in a sentence. Null when it went well.</summary>
+    public string? BirthdayProblem { get; set; }
+
     /// <summary>
     /// The Discord channel a closed ticket's transcript is posted to, as a file. Null means no
     /// transcript is kept: the ticket still closes and the fact log still records it.

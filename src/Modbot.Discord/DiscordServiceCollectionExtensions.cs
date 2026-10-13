@@ -186,6 +186,12 @@ public static class DiscordServiceCollectionExtensions
         // /find counts its own tries too, and its View profile button shows /profile's card.
         services.TryAddKeyedSingleton<MemberCommandLimits>(FindCommand.LimitsKey);
         services.AddScoped<FindCommand>();
+
+        // /birthday counts its own tries too; the daily post and the role are the API's pass, through the bot's session.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(BirthdayCommand.LimitsKey);
+        services.AddScoped<BirthdayCommand>();
+        services.AddSingleton<Core.Discord.IDiscordBirthdayActions>(
+            p => new Birthdays.DiscordBirthdayActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

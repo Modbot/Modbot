@@ -348,6 +348,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
 
+    /// <summary>The birthdays members set with <c>/birthday set</c>: a month and a day, no year.</summary>
+    public DbSet<MemberBirthday> MemberBirthdays => Set<MemberBirthday>();
+
     /// <summary>Pictures members posted in Discord for the group gallery, waiting for staff or decided.</summary>
     public DbSet<GallerySubmission> GallerySubmissions => Set<GallerySubmission>();
 
@@ -1963,6 +1966,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.SpotlightTimeZone).HasMaxLength(64);
             entity.Property(e => e.SpotlightPlaces).HasDefaultValue("{}");
 
+            // Birthdays in Discord: off, 09:00, for the row that exists already.
+            entity.Property(e => e.BirthdayChannelId).HasMaxLength(32);
+            entity.Property(e => e.BirthdayHour).HasDefaultValue(9);
+            entity.Property(e => e.BirthdayTimeZone).HasMaxLength(64);
+            entity.Property(e => e.BirthdayMessage).HasMaxLength(BirthdayRules.MaxMessageLength);
+            entity.Property(e => e.BirthdayRoleId).HasMaxLength(32);
+            entity.Property(e => e.BirthdayProblem).HasMaxLength(300);
+
             // "We're live" group posts: off, until an operator picks which instances.
             entity.Property(e => e.LivePostScope).HasMaxLength(8).HasDefaultValue(LivePostScopes.Off);
 
@@ -2659,6 +2670,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // The queue: the ones waiting, oldest first.
             entity.HasIndex(e => new { e.Status, e.SubmittedAt }).HasDatabaseName("ix_gallery_submission_status");
             entity.HasIndex(e => e.AuthorDiscordId).HasDatabaseName("ix_gallery_submission_author");
+        });
+
+        // Birthdays members set: one row for each Discord account, a month and a day and no year.
+        builder.Entity<MemberBirthday>(entity =>
+        {
+            entity.ToTable("member_birthday");
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasMaxLength(32);
+            entity.Property(e => e.RoleGivenId).HasMaxLength(32);
+
+            // The day's pass looks up who has a birthday today.
+            entity.HasIndex(e => new { e.Month, e.Day }).HasDatabaseName("ix_member_birthday_day");
         });
 
         // Posts (posts design §2.2). A picture deleted under a post leaves it with none, as an

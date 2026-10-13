@@ -383,6 +383,18 @@ export type DiscordTicketTypeInput = {
   holdsPrivateImages: boolean
 }
 
+/** Settings → Discord → Birthdays. */
+export type DiscordBirthdaySettings = {
+  on: boolean
+  channelId: string | null
+  hour: number
+  timeZone: string | null
+  message: string
+  roleId: string | null
+  /** What stopped the last post or role change, or why the role cannot be given now. */
+  problem: string | null
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -5150,6 +5162,17 @@ export const api = {
 
   postDiscordTicketPanel: (body: { channelId: string; text: string }) =>
     post<{ done: boolean }>('/api/settings/discord-tickets/panel', body),
+
+  discordBirthdaySettings: () => request<DiscordBirthdaySettings>('/api/settings/discord-birthdays'),
+
+  setDiscordBirthdaySettings: (body: {
+    on: boolean
+    channelId: string
+    hour: number
+    timeZone: string
+    message: string
+    roleId: string
+  }) => put<DiscordBirthdaySettings>('/api/settings/discord-birthdays', body),
 
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 

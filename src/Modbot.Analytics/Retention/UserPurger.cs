@@ -283,6 +283,20 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // The birthday they set with /birthday names their Discord account. For a VRChat account,
+            // the Discord account linked to it now, as with reminders.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM member_birthday WHERE discord_user_id = @subject"
+                    : """
+                      DELETE FROM member_birthday
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // Event alerts name a Discord account three ways (event alerts design §7): what they
             // signed up for, their choice of way, and the alerts queued or sent to them. For a
             // VRChat account, the Discord account linked to it now, as with reminders.

@@ -149,6 +149,9 @@ public static class ApiSurface
         // "We're live" group posts: the pass is scoped; its timer is the host's, with AddLivePosts.
         services.TryAddScoped<Features.LivePosts.LivePostPass>();
 
+        // Birthdays in Discord: the pass is scoped; its timer is the host's, with AddBirthdays.
+        services.TryAddScoped<Features.Birthdays.BirthdayPass>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -161,6 +164,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordTicketPanel, NoDiscordTicketPanel>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordMessageReactions, Core.Discord.NoDiscordMessageReactions>();
 
@@ -338,6 +342,14 @@ public static class ApiSurface
     public static IServiceCollection AddLivePosts(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.LivePosts.LivePostService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>Posts the day's birthdays in Discord and gives the birthday role (birthdays).</summary>
+    public static IServiceCollection AddBirthdays(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Birthdays.BirthdayService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }
@@ -557,6 +569,9 @@ public static class ApiSurface
 
         // Tickets members open from a panel's buttons: the types, the transcript channel, the panel.
         app.MapDiscordTickets();
+
+        // The daily birthday post and the birthday role.
+        app.MapDiscordBirthdaySettings();
 
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();

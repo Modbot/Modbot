@@ -8,6 +8,7 @@ import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } f
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
 import { CommandsCard } from './CommandsCard'
+import { BirthdaysCard } from './BirthdaysCard'
 import { GalleryPicturesCard } from './GalleryPicturesCard'
 import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
@@ -57,6 +58,7 @@ export function DiscordSection({
           <JoinGateCard />
           <PermissionWatchCard />
           <GalleryPicturesCard />
+          <BirthdaysCard />
           <WelcomeCard />
           <RoleMenusCard />
           <TicketsCard />

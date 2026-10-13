@@ -5673,6 +5673,43 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("mcp_grant", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberBirthday", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer")
+                        .HasColumnName("day");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer")
+                        .HasColumnName("month");
+
+                    b.Property<string>("RoleGivenId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("role_given_id");
+
+                    b.Property<DateOnly?>("RoleGivenOn")
+                        .HasColumnType("date")
+                        .HasColumnName("role_given_on");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_member_birthday");
+
+                    b.HasIndex("Month", "Day")
+                        .HasDatabaseName("ix_member_birthday_day");
+
+                    b.ToTable("member_birthday", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.MemberProfile", b =>
                 {
                     b.Property<string>("DiscordUserId")
@@ -8284,6 +8321,45 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("BanSweepStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ban_sweep_started_at");
+
+                    b.Property<string>("BirthdayChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("birthday_channel_id");
+
+                    b.Property<DateTimeOffset?>("BirthdayHandledThrough")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("birthday_handled_through");
+
+                    b.Property<int>("BirthdayHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(9)
+                        .HasColumnName("birthday_hour");
+
+                    b.Property<string>("BirthdayMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("birthday_message");
+
+                    b.Property<string>("BirthdayProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("birthday_problem");
+
+                    b.Property<string>("BirthdayRoleId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("birthday_role_id");
+
+                    b.Property<string>("BirthdayTimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("birthday_time_zone");
+
+                    b.Property<bool>("BirthdaysOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("birthdays_on");
 
                     b.Property<string>("BlueskyAppPasswordEncrypted")
                         .HasColumnType("text")

@@ -61,6 +61,7 @@ public sealed class DiscordCommandHandler
     private readonly ReportCommand? _report;
     private readonly ProfileCommand? _profile;
     private readonly FindCommand? _find;
+    private readonly BirthdayCommand? _birthday;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -79,7 +80,8 @@ public sealed class DiscordCommandHandler
         PostCommand? post = null,
         ReportCommand? report = null,
         ProfileCommand? profile = null,
-        FindCommand? find = null)
+        FindCommand? find = null,
+        BirthdayCommand? birthday = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -104,6 +106,7 @@ public sealed class DiscordCommandHandler
         _report = report;
         _profile = profile;
         _find = find;
+        _birthday = birthday;
     }
 
     /// <summary>
@@ -181,6 +184,10 @@ public sealed class DiscordCommandHandler
         // through answers the searcher may read (find design).
         if (call.CommandName == DiscordCommands.Find)
             return await FindAsync(call, ct).ConfigureAwait(false);
+
+        // For every member too, and private: a member's own birthday, a month and a day and no year.
+        if (call.CommandName == DiscordCommands.Birthday)
+            return await BirthdayAsync(call, gateway, ct).ConfigureAwait(false);
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
@@ -528,6 +535,27 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say(FindCommand.TooFastMessage);
 
         var reply = await _find.RunAsync(call, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
+    }
+
+    /// <summary>
+    /// <c>/birthday</c>: a member's own birthday, for any member. A call over the per-person limit is
+    /// refused and not recorded, as with <c>/find</c>. Recorded like every command, with no Modbot
+    /// account, no target and never the date.
+    /// </summary>
+    private async Task<DiscordReply> BirthdayAsync(DiscordCommandCall call, IDiscordGateway? gateway, CancellationToken ct)
+    {
+        if (_birthday is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_birthday.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(BirthdayCommand.TooFastMessage);
+
+        var reply = await _birthday.RunAsync(call, gateway, ct).ConfigureAwait(false);
         await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
         return reply;
     }

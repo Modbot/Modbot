@@ -105,6 +105,22 @@ public static class DiscordCommands
     /// <summary>What the answer to <see cref="FindAlsoFieldOption"/> must say.</summary>
     public const string FindAlsoValueOption = "also-value";
 
+    /// <summary>
+    /// <c>/birthday</c>: a member's month and day, never a year (birthdays). For every member, private,
+    /// and needs no Modbot account; off until the operator turns it on.
+    /// </summary>
+    public const string Birthday = "birthday";
+
+    public const string BirthdaySet = "set";
+    public const string BirthdayRemove = "remove";
+    public const string BirthdayShow = "show";
+
+    /// <summary>The month <c>/birthday set</c> takes, 1 to 12.</summary>
+    public const string BirthdayMonthOption = "month";
+
+    /// <summary>The day of the month <c>/birthday set</c> takes, 1 to 31.</summary>
+    public const string BirthdayDayOption = "day";
+
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
 
@@ -412,6 +428,41 @@ public static class DiscordCommands
                 new DiscordCommandOption(FindAlsoValueOption, "What it says", DiscordOptionKind.Text, Required: false, Suggests: true),
             ]),
         new(
+            Birthday,
+            "Your birthday",
+            [],
+            Subcommands:
+            [
+                new DiscordSubcommand(
+                    BirthdaySet,
+                    "Set your birthday",
+                    [
+                        new DiscordCommandOption(
+                            BirthdayMonthOption,
+                            "Month",
+                            DiscordOptionKind.Choice,
+                            Required: true,
+                            Choices:
+                            [
+                                new("January", "1"),
+                                new("February", "2"),
+                                new("March", "3"),
+                                new("April", "4"),
+                                new("May", "5"),
+                                new("June", "6"),
+                                new("July", "7"),
+                                new("August", "8"),
+                                new("September", "9"),
+                                new("October", "10"),
+                                new("November", "11"),
+                                new("December", "12"),
+                            ]),
+                        new DiscordCommandOption(BirthdayDayOption, "Day", DiscordOptionKind.WholeNumber, Required: true, Min: 1, Max: 31),
+                    ]),
+                new DiscordSubcommand(BirthdayShow, "Show your birthday", []),
+                new DiscordSubcommand(BirthdayRemove, "Forget your birthday", []),
+            ]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -458,7 +509,7 @@ public static class DiscordCommands
         => For(switches, alertsOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Notify or Report or Profile or Find;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or Verify or Events or RemindMe or Notify or Report or Profile or Find or Birthday;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

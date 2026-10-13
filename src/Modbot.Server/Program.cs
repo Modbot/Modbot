@@ -451,6 +451,10 @@ try
     // and does nothing more while the setting is off.
     builder.Services.AddLivePosts();
 
+    // Posts the day's birthdays in Discord and gives the birthday role. Reads the settings row and one
+    // small table every five minutes while birthdays are off.
+    builder.Services.AddBirthdays();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();
