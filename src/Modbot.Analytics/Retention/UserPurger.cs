@@ -233,6 +233,15 @@ public sealed class UserPurger : IUserPurger
 
             var (entriesDeleted, entrantsBlanked) = await ErasedFromGiveawaysAsync(platform, subjectId, ct);
 
+            // Pictures they posted for the group gallery, waiting or decided, name them by id.
+            if (platform == FactPlatform.Discord)
+            {
+                await ExecuteAsync(
+                    "DELETE FROM gallery_submission WHERE author_discord_id = @subject",
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+            }
+
             // An event's invite queue names the person by id (calendar auto-invite design §8). Their
             // row goes; the event's "Invited N of M" counts one fewer, which is what erasing them means.
             var invitesDeleted = await ExecuteAsync(

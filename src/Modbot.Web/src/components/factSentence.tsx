@@ -2262,6 +2262,12 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.group.gallery.image.add': (p) => (
+    <>
+      {p.actor} added {p.text('submittedByName') ?? 'a member'}'s picture to the gallery<Quoted value={p.text('galleryName')} />.
+    </>
+  ),
+
   // ── Everything else Modbot does ─────────────────────────────────────────────────────────────
   'modbot.import.done': (p) => {
     const file = p.text('fileName') ?? 'a file'

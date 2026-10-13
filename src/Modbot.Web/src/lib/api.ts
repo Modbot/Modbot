@@ -354,6 +354,11 @@ export type DiscordPermissionWatchSettings = {
   removes: boolean
 }
 
+/** Settings → Discord → Gallery pictures. */
+export type DiscordGallerySettings = {
+  channelId: string | null
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -1917,6 +1922,21 @@ export type GroupGalleryPage = {
   hasMore: boolean
   readAt: string
 }
+
+/** A picture a member posted in Discord, waiting for staff to add it to a gallery. */
+export type GallerySubmissionRow = {
+  id: string
+  authorId: string
+  authorName: string
+  fileName: string
+  /** Opens the member's message in Discord. */
+  messageUrl: string
+  submittedAt: string
+  /** Where the picture is served from, on this server. */
+  pictureUrl: string
+}
+
+export type GallerySubmissionList = { submissions: GallerySubmissionRow[] }
 
 export type GroupInfo = {
   id: string | null
@@ -5043,6 +5063,11 @@ export const api = {
   setDiscordPermissionWatchSettings: (body: { channelId: string; removes: boolean }) =>
     put<DiscordPermissionWatchSettings>('/api/settings/discord-permission-watch', body),
 
+  discordGallerySettings: () => request<DiscordGallerySettings>('/api/settings/discord-gallery'),
+
+  setDiscordGallerySettings: (body: { channelId: string }) =>
+    put<DiscordGallerySettings>('/api/settings/discord-gallery', body),
+
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 
   setDiscordGateSettings: (body: DiscordGateSettingsInput) =>
@@ -5772,10 +5797,18 @@ export const api = {
   groupInvites: (page = 1) => request<GroupInviteList>(`/api/group/invites?page=${page}`),
   cancelGroupInvite: (userId: string, displayName: string | null) =>
     request<void>('/api/group/invites/cancel', { method: 'POST', body: JSON.stringify({ userId, displayName }) }),
-  groupGallery: (galleryId: string | null, page = 1) =>
+  groupGallery: (galleryId: string | null, page = 1, waiting = false) =>
     request<GroupGalleryPage>(
-      `/api/group/gallery?page=${page}${galleryId ? `&galleryId=${encodeURIComponent(galleryId)}` : ''}`,
+      `/api/group/gallery?page=${page}${galleryId ? `&galleryId=${encodeURIComponent(galleryId)}` : ''}${waiting ? '&waiting=true' : ''}`,
     ),
+  groupGallerySubmissions: () => request<GallerySubmissionList>('/api/group/gallery/submissions'),
+  addGroupGallerySubmission: (id: string, galleryId: string) =>
+    request<void>(`/api/group/gallery/submissions/${encodeURIComponent(id)}/add`, {
+      method: 'POST',
+      body: JSON.stringify({ galleryId }),
+    }),
+  declineGroupGallerySubmission: (id: string) =>
+    request<void>(`/api/group/gallery/submissions/${encodeURIComponent(id)}/decline`, { method: 'POST' }),
   removeGroupGalleryImage: (galleryId: string, imageId: string, submittedById: string | null) =>
     request<void>('/api/group/gallery/remove', {
       method: 'POST',

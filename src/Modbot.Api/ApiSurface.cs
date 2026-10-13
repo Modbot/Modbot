@@ -158,6 +158,7 @@ public static class ApiSurface
         services.TryAddSingleton<IJoinGateActions, NoJoinGateActions>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordMessageReactions, Core.Discord.NoDiscordMessageReactions>();
 
         // What the bot's right-click menus, forms and card buttons do: the moderation and note
         // services, built as the endpoints build them (acting from Discord design §5).
@@ -547,6 +548,9 @@ public static class ApiSurface
         // Who is told when a Discord role or member gains a dangerous permission, and whether it is removed.
         app.MapDiscordPermissionWatchSettings();
 
+        // The channel members post gallery pictures in.
+        app.MapDiscordGallerySettings();
+
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();
 
@@ -700,6 +704,7 @@ public static class ApiSurface
         Features.GroupPage.GroupInviteEndpoints.MapGroupInvites(app);
         Features.GroupPage.GroupMemberRoleEndpoints.MapGroupMemberRoles(app);
         Features.GroupPage.GroupGalleryEndpoints.MapGroupGallery(app);
+        Features.GroupPage.GroupGallerySubmissionEndpoints.MapGroupGallerySubmissions(app);
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.

@@ -210,6 +210,7 @@ public static class FactLabels
         [FactType.GroupRoleGiven] = "Group role given",
         [FactType.GroupRoleTaken] = "Group role taken away",
         [FactType.GroupGalleryImageRemoved] = "Gallery image removed",
+        [FactType.GroupGalleryImageAdded] = "Gallery image added",
 
         [FactType.GiveawayEntered] = "Entered a giveaway",
         [FactType.GiveawayWithdrawn] = "Withdrew from a giveaway",

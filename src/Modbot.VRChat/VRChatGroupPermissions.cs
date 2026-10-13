@@ -74,6 +74,7 @@ public static class VRChatGroupPermissions
         ["GetGroupInvites"] = ManageInvites,
         ["DeleteGroupInvite"] = ManageInvites,
         ["DeleteGroupGalleryImage"] = ManageGalleries,
+        ["AddGroupGalleryImage"] = ManageGalleries,
 
         // A message to everyone in a group instance. VRChat answered 403 "You don't have permission
         // to send announcements to this instance" to an account without this one (probe, 2026-10-03).

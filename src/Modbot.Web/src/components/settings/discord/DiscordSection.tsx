@@ -8,6 +8,7 @@ import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } f
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
 import { CommandsCard } from './CommandsCard'
+import { GalleryPicturesCard } from './GalleryPicturesCard'
 import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
 import { ListRolesCard } from './ListRolesCard'
@@ -53,6 +54,7 @@ export function DiscordSection({
           <CommandsCard />
           <JoinGateCard />
           <PermissionWatchCard />
+          <GalleryPicturesCard />
           <WelcomeCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}

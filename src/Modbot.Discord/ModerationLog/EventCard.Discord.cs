@@ -35,6 +35,7 @@ public static partial class EventCard
         FactType.GroupRoleEdited,
         FactType.GroupRoleRemoved,
         FactType.GroupGalleryImageRemoved,
+        FactType.GroupGalleryImageAdded,
         FactType.GroupAnnouncementScheduled,
         FactType.GroupAnnouncementCancelled,
         FactType.GroupAnnouncementSent,

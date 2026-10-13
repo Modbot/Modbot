@@ -399,7 +399,9 @@ public static class VRChatEndpointClass
 
     /// <summary>
     /// Removing an image from one of the group's galleries —
-    /// <c>DELETE /groups/{groupId}/galleries/{groupGalleryId}/images/{groupGalleryImageId}</c>.
+    /// <c>DELETE /groups/{groupId}/galleries/{groupGalleryId}/images/{groupGalleryImageId}</c> —
+    /// and adding one, <c>POST /groups/{groupId}/galleries/{groupGalleryId}/images</c>, which
+    /// share the one lane (the user approved that on 2026-10-13).
     /// </summary>
     /// <remarks>
     /// <strong>Not measured.</strong> One request every ten seconds, on the <see cref="Global"/>

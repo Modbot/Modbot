@@ -749,6 +749,14 @@ public class Settings
     /// </summary>
     public bool DiscordPermissionWatchRemoves { get; set; }
 
+    // --- Gallery pictures from Discord ---
+
+    /// <summary>
+    /// The Discord channel where members post pictures for the group's VRChat gallery. Every PNG or
+    /// JPEG posted there waits for staff on the Gallery page. Null means nothing is collected.
+    /// </summary>
+    public string? DiscordGalleryChannelId { get; set; }
+
     /// <summary>
     /// Which of the bot's commands are on, as a JSON object mapping a command's name to true or
     /// false (Discord commands design §3.8). A name that is not in it takes its default from

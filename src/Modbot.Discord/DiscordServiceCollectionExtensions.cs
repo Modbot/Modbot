@@ -213,6 +213,9 @@ public static class DiscordServiceCollectionExtensions
         // checks nothing stands in when AI moderation is not registered; when it is, it wins.
         services.AddScoped<DiscordMessageStore>();
         services.AddScoped<DiscordMessageHandler>();
+        services.AddScoped<Gallery.GallerySubmissionIntake>();
+        services.AddSingleton<Core.Discord.IDiscordMessageReactions>(
+            p => new Gallery.DiscordMessageReactions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
         services.AddScoped<DiscordEventRecorder>();
         services.AddScoped<DiscordBanList>();
         services.TryAddScoped<IModerationChecker, NoModerationChecker>();

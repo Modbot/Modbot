@@ -3960,6 +3960,112 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_evidence_blob", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GallerySubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttachmentIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("attachment_index");
+
+                    b.Property<string>("AuthorDiscordId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("author_discord_id");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("author_name");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("bytes");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by_user_id");
+
+                    b.Property<string>("DiscordChannelId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("discord_channel_id");
+
+                    b.Property<string>("DiscordMessageId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("discord_message_id");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("GalleryId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("gallery_id");
+
+                    b.Property<string>("MessageUrl")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("message_url");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("VRChatFileId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("vr_chat_file_id");
+
+                    b.Property<string>("VRChatImageId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("vr_chat_image_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_gallery_submission");
+
+                    b.HasIndex("AuthorDiscordId")
+                        .HasDatabaseName("ix_gallery_submission_author");
+
+                    b.HasIndex("DiscordMessageId", "AttachmentIndex")
+                        .IsUnique()
+                        .HasDatabaseName("ux_gallery_submission_message");
+
+                    b.HasIndex("Status", "SubmittedAt")
+                        .HasDatabaseName("ix_gallery_submission_status");
+
+                    b.ToTable("gallery_submission", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.Giveaway", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8124,6 +8230,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DiscordEighteenPlusRoleId")
                         .HasColumnType("text")
                         .HasColumnName("discord_eighteen_plus_role_id");
+
+                    b.Property<string>("DiscordGalleryChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_gallery_channel_id");
 
                     b.Property<string>("DiscordGateChannelId")
                         .HasColumnType("text")

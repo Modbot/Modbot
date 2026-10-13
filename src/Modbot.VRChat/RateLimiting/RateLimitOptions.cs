@@ -264,7 +264,7 @@ public static class VRChatRateLimits
     /// <summary>Reading a gallery's images (<see cref="VRChatEndpointClass.GroupsGallery"/>).</summary>
     public const string GroupsGalleryLane = "groups.gallery";
 
-    /// <summary>Removing a gallery image (<see cref="VRChatEndpointClass.GroupsGalleryWrite"/>).</summary>
+    /// <summary>Removing or adding a gallery image (<see cref="VRChatEndpointClass.GroupsGalleryWrite"/>).</summary>
     public const string GroupsGalleryWriteLane = "groups.gallery.write";
 
     /// <summary>Inviting a person to an event's instance (<see cref="VRChatEndpointClass.InvitesSend"/>).</summary>

@@ -52,6 +52,7 @@ public static class FactSubjects
         [FactType.GroupRoleEdited] = SubjectKind.Group,
         [FactType.GroupRoleRemoved] = SubjectKind.Group,
         [FactType.GroupGalleryImageRemoved] = SubjectKind.Group,
+        [FactType.GroupGalleryImageAdded] = SubjectKind.Group,
         [FactType.MembersSnapshot] = SubjectKind.Group,
         [FactType.BansSnapshot] = SubjectKind.Group,
         [FactType.GroupPostCreated] = SubjectKind.Group,

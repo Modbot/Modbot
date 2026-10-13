@@ -4,22 +4,21 @@ using VRChat.API.Model;
 namespace Modbot.VRChat.GroupPage;
 
 /// <summary>
-/// The images in the managed group's galleries: one gallery's images, and removing one.
+/// The images in the managed group's galleries: one gallery's images, adding one, and removing one.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <strong>Every request here is one a person asked for.</strong> A gallery's images are read when
 /// the Gallery tab opens, when another gallery is chosen, when a page is turned and when Refresh is
-/// pressed; a removal is one press. The list of galleries is not read here at all: it comes with
-/// the group poll Modbot already makes (<see cref="Sync.GroupInfoSync"/>).
+/// pressed; a removal or an addition is one press. The list of galleries is not read here at all:
+/// it comes with the group poll Modbot already makes (<see cref="Sync.GroupInfoSync"/>).
 /// </para>
 /// <para>
-/// Adding an image is not here. VRChat takes a picture through its file upload first and a gallery
-/// entry second, and Modbot uploads files only for a calendar event's picture
-/// (<see cref="Files.VRChatPictureUploads"/>), not for galleries yet.
+/// VRChat takes a picture through its file upload first (<see cref="Files.VRChatPictureUploads"/>)
+/// and a gallery entry second; <see cref="AddAsync"/> is the second half and is given the file's id.
 /// </para>
 /// <para>
-/// Reads are on <see cref="VRChatEndpointClass.GroupsGallery"/> and removals on
+/// Reads are on <see cref="VRChatEndpointClass.GroupsGallery"/>; removals and additions share
 /// <see cref="VRChatEndpointClass.GroupsGalleryWrite"/>. A 429 is a cold stop of that class only,
 /// never retried (spec 4.3.1).
 /// </para>
@@ -32,14 +31,15 @@ public sealed class GroupGalleries(IVRChatGate gate)
     public const int MaxPageSize = 100;
 
     /// <summary>
-    /// One page of a gallery's images, approved and waiting alike. VRChat sends no total.
+    /// One page of a gallery's images, approved and waiting alike, or only those waiting for approval
+    /// when <paramref name="approved"/> is false. VRChat sends no total.
     /// </summary>
     /// <remarks>
     /// The SDK types this answer as a bare object, because VRChat's <c>v=2</c> wraps it in a page;
     /// <c>v</c> is left unset here, so the answer is the plain list, and it is read as one.
     /// </remarks>
     public async Task<VRChatResult<List<GroupGalleryImage>>> ListAsync(
-        string groupId, string galleryId, int n, int offset, CancellationToken ct = default)
+        string groupId, string galleryId, int n, int offset, CancellationToken ct = default, bool? approved = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
         ArgumentException.ThrowIfNullOrWhiteSpace(galleryId);
@@ -50,7 +50,7 @@ public sealed class GroupGalleries(IVRChatGate gate)
         var answer = await _gate.ExecuteAsync(
             new VRChatEndpoint(VRChatEndpointClass.GroupsGallery, groupId, "GetGroupGalleryImages"),
             (client, token) => client.Groups.GetGroupGalleryImagesWithHttpInfoAsync(
-                groupId, galleryId, size, from, cancellationToken: token),
+                groupId, galleryId, size, from, approved: approved, cancellationToken: token),
             VRChatCallPriority.Interactive,
             ct).ConfigureAwait(false);
 
@@ -58,6 +58,25 @@ public sealed class GroupGalleries(IVRChatGate gate)
             return VRChatResult<List<GroupGalleryImage>>.From(answer);
 
         return VRChatResult<List<GroupGalleryImage>>.Ok(ImagesOf(answer.Value, answer.RawResponse), answer.StatusCode, answer.RawResponse);
+    }
+
+    /// <summary>
+    /// Adds a picture already uploaded to VRChat (<paramref name="fileId"/>, the <c>file_...</c> id
+    /// the upload answered with) to a gallery. One request, never retried.
+    /// </summary>
+    public Task<VRChatResult<GroupGalleryImage>> AddAsync(
+        string groupId, string galleryId, string fileId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(galleryId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileId);
+
+        return _gate.ExecuteAsync(
+            new VRChatEndpoint(VRChatEndpointClass.GroupsGalleryWrite, groupId, "AddGroupGalleryImage"),
+            (client, token) => client.Groups.AddGroupGalleryImageWithHttpInfoAsync(
+                groupId, galleryId, new AddGroupGalleryImageRequest(fileId), cancellationToken: token),
+            VRChatCallPriority.Interactive,
+            ct);
     }
 
     /// <summary>Removes one image from a gallery.</summary>

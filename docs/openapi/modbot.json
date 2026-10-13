@@ -13098,6 +13098,114 @@
         ]
       }
     },
+    "/api/settings/discord-gallery": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get gallery picture settings",
+        "description": "The Discord channel where members post pictures for the group's VRChat gallery.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordGallerySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGallerySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update gallery picture settings",
+        "description": "Save the channel members post gallery pictures in. Every PNG or JPEG posted there from now on waits for staff on the Gallery page; pictures posted earlier are not collected.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordGallerySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordGallerySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordGallerySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-commands": {
       "get": {
         "tags": [
@@ -26378,7 +26486,7 @@
           "Group page"
         ],
         "summary": "List group gallery images",
-        "description": "The group's galleries, and one page of a gallery's images read from VRChat when you ask, newest first. `galleryId` chooses the gallery; left out, the first one. The galleries come from the group poll Modbot already makes, so only the images cost a request, and a group with no galleries costs none. `page` and `pageSize` page the images (at most 100 a page); `hasMore` is true when the page came back full. Images still waiting for approval are included, with `approved` false.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The group's galleries, and one page of a gallery's images read from VRChat when you ask, newest first. `galleryId` chooses the gallery; left out, the first one. The galleries come from the group poll Modbot already makes, so only the images cost a request, and a group with no galleries costs none. `page` and `pageSize` page the images (at most 100 a page); `hasMore` is true when the page came back full. Images still waiting for approval are included, with `approved` false; `waiting=true` asks VRChat for those alone.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetGroupGallery",
         "parameters": [
           {
@@ -26386,6 +26494,13 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "waiting",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -26571,6 +26686,318 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/gallery/submissions": {
+      "get": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "List gallery pictures waiting for staff",
+        "description": "The pictures members posted in the Discord gallery channel that nobody has added or declined yet, oldest first. Read from Modbot's own database; nothing is asked of VRChat or Discord.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetGroupGallerySubmissions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GallerySubmissionList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/gallery/submissions/{id}/picture": {
+      "get": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Get a waiting gallery picture",
+        "description": "The picture itself, as a PNG or JPEG. Only while it is waiting: once it is added or declined the copy is deleted.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetGroupGallerySubmissionPicture",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/gallery/submissions/{id}/add": {
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Add a waiting picture to a gallery",
+        "description": "Upload a waiting picture to VRChat and add it to one of the group's galleries. `galleryId` chooses the gallery. Two requests to VRChat, never retried; if the gallery refuses, the upload is kept so pressing again does not upload twice. Needs picture uploads switched on in Settings and an account with VRChat+. Once VRChat accepts, the audit log records who added it, the copy in Modbot is deleted and the member's Discord message gets a tick.\n\nNeeds the `ManageGroupGallery` permission.",
+        "operationId": "AddGroupGallerySubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GallerySubmissionAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/gallery/submissions/{id}/decline": {
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Decline a waiting picture",
+        "description": "Take a waiting picture out of the queue. Nothing is sent to VRChat and the member is told nothing; Modbot's copy of the picture is deleted.\n\nNeeds the `ManageGroupGallery` permission.",
+        "operationId": "DeclineGroupGallerySubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -42047,6 +42474,34 @@
           }
         }
       },
+      "DiscordGallerySettingsResponse": {
+        "required": [
+          "channelId"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordGallerySettingsUpdate": {
+        "required": [
+          "channelId"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DiscordGateDone": {
         "required": [
           "done"
@@ -45438,6 +45893,68 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "GallerySubmissionAdd": {
+        "required": [
+          "galleryId"
+        ],
+        "type": "object",
+        "properties": {
+          "galleryId": {
+            "type": "string"
+          }
+        }
+      },
+      "GallerySubmissionList": {
+        "required": [
+          "submissions"
+        ],
+        "type": "object",
+        "properties": {
+          "submissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GallerySubmissionRow"
+            }
+          }
+        }
+      },
+      "GallerySubmissionRow": {
+        "required": [
+          "id",
+          "authorId",
+          "authorName",
+          "fileName",
+          "messageUrl",
+          "submittedAt",
+          "pictureUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "messageUrl": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pictureUrl": {
+            "type": "string"
           }
         }
       },

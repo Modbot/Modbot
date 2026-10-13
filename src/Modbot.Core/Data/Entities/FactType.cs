@@ -620,6 +620,13 @@ public static class FactType
     /// </summary>
     public const string GroupGalleryImageRemoved = "modbot.group.gallery.image.delete";
 
+    /// <summary>
+    /// Somebody approved a picture a member posted in Discord, and Modbot added it to one of the
+    /// group's galleries. Payload: the gallery's id and name, the new image's id, and who posted the
+    /// picture in Discord (their id and name).
+    /// </summary>
+    public const string GroupGalleryImageAdded = "modbot.group.gallery.image.add";
+
     // ── Messages to everyone in a group instance ───────────────────────────────────────────
     //
     // The subject is the managed group, as on the group page's own writes. The actor is the Modbot

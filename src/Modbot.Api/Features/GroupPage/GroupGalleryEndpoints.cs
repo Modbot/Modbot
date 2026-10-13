@@ -28,8 +28,8 @@ namespace Modbot.Api.Features.GroupPage;
 /// </para>
 /// <para>
 /// <strong>A removal is one request, and nothing is recorded unless VRChat accepted it.</strong>
-/// The ids travel in the body (foundation §3.1.1). Adding an image is not here: it needs VRChat's
-/// file upload, which Modbot does not do yet.
+/// The ids travel in the body (foundation §3.1.1). Adding an image is in
+/// <see cref="GroupGallerySubmissionEndpoints"/>: it starts from a picture a member posted in Discord.
 /// </para>
 /// </remarks>
 public static class GroupGalleryEndpoints
@@ -45,6 +45,7 @@ public static class GroupGalleryEndpoints
                 [FromServices] IModbotClock clock,
                 [FromServices] GroupGalleries? vrchat,
                 [FromQuery] string? galleryId,
+                [FromQuery] bool? waiting,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -71,7 +72,9 @@ public static class GroupGalleryEndpoints
                 if (chosen is null)
                     return Results.Ok(new GroupGalleryPage(galleries, null, [], number, size, false, clock.UtcNow));
 
-                var answer = await vrchat.ListAsync(groupId, chosen, size, (number - 1) * size, ct);
+                // Only the images VRChat has not approved yet, when asked: the same request, filtered by VRChat.
+                var answer = await vrchat.ListAsync(
+                    groupId, chosen, size, (number - 1) * size, ct, waiting == true ? false : null);
 
                 if (!answer.Success)
                     return GroupPageAnswers.Refused(answer, "GetGroupGalleryImages", groupId, settings);
@@ -106,7 +109,8 @@ public static class GroupGalleryEndpoints
                 + "The galleries come from the group poll Modbot already makes, so only the images "
                 + "cost a request, and a group with no galleries costs none. `page` and `pageSize` "
                 + "page the images (at most 100 a page); `hasMore` is true when the page came back "
-                + "full. Images still waiting for approval are included, with `approved` false.")
+                + "full. Images still waiting for approval are included, with `approved` false; "
+                + "`waiting=true` asks VRChat for those alone.")
             .Produces<GroupGalleryPage>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status409Conflict)

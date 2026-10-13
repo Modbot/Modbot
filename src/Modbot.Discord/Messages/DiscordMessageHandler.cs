@@ -1,13 +1,15 @@
 using Modbot.Core.Logging;
 using Modbot.Core.Moderation;
+using Modbot.Discord.Gallery;
 using Modbot.Discord.Gateway;
 using Serilog;
 
 namespace Modbot.Discord.Messages;
 
 /// <summary>
-/// What happens to a message the bot sees: it is stored, and then AI moderation checks it
-/// (<see cref="IModerationChecker"/>).
+/// What happens to a message the bot sees: it is stored, then AI moderation checks it
+/// (<see cref="IModerationChecker"/>), and a picture in the gallery channel is queued for staff
+/// (<see cref="GallerySubmissionIntake"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,15 +27,21 @@ public sealed class DiscordMessageHandler
 {
     private readonly DiscordMessageStore _store;
     private readonly IModerationChecker _checker;
+    private readonly GallerySubmissionIntake? _gallery;
     private readonly ILogger _log;
 
-    public DiscordMessageHandler(DiscordMessageStore store, IModerationChecker checker, ILogger? log = null)
+    public DiscordMessageHandler(
+        DiscordMessageStore store,
+        IModerationChecker checker,
+        GallerySubmissionIntake? gallery = null,
+        ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(checker);
 
         _store = store;
         _checker = checker;
+        _gallery = gallery;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -44,7 +52,10 @@ public sealed class DiscordMessageHandler
         var fresh = await _store.StoreAsync(messages, ct).ConfigureAwait(false);
 
         foreach (var message in fresh)
+        {
             await CheckAsync(message, edited: false, ct).ConfigureAwait(false);
+            await QueueGalleryPicturesAsync(message, ct).ConfigureAwait(false);
+        }
 
         return fresh.Count;
     }
@@ -59,6 +70,21 @@ public sealed class DiscordMessageHandler
 
     public Task<int> DeletedAsync(IReadOnlyList<string> messageIds, CancellationToken ct)
         => _store.DeleteAsync(messageIds, ct);
+
+    private async Task QueueGalleryPicturesAsync(DiscordMessageSnapshot message, CancellationToken ct)
+    {
+        if (_gallery is null)
+            return;
+
+        try
+        {
+            await _gallery.TakeAsync(message, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not queue the pictures in Discord message {MessageId} for the gallery", message.Id);
+        }
+    }
 
     private async Task CheckAsync(DiscordMessageSnapshot message, bool edited, CancellationToken ct)
     {

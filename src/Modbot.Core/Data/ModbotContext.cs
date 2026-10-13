@@ -336,6 +336,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<CalendarCoverPicture> CalendarCoverPictures => Set<CalendarCoverPicture>();
 
+    /// <summary>Pictures members posted in Discord for the group gallery, waiting for staff or decided.</summary>
+    public DbSet<GallerySubmission> GallerySubmissions => Set<GallerySubmission>();
+
     /// <summary>Posts Modbot sends to Discord and other sites at a time (posts design §2.2).</summary>
     public DbSet<Post> Posts => Set<Post>();
 
@@ -2551,6 +2554,34 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.ContentType).HasMaxLength(32);
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_calendar_cover_picture_created_at");
+        });
+
+        // Pictures members posted in Discord for the group gallery. Each picture of a message is
+        // stored once, however many times the message is seen.
+        builder.Entity<GallerySubmission>(entity =>
+        {
+            entity.ToTable("gallery_submission");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.DiscordMessageId).HasMaxLength(32);
+            entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
+            entity.Property(e => e.MessageUrl).HasMaxLength(200);
+            entity.Property(e => e.AuthorDiscordId).HasMaxLength(32);
+            entity.Property(e => e.AuthorName).HasMaxLength(100);
+            entity.Property(e => e.FileName).HasMaxLength(255);
+            entity.Property(e => e.ContentType).HasMaxLength(32);
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.VRChatFileId).HasMaxLength(64);
+            entity.Property(e => e.GalleryId).HasMaxLength(64);
+            entity.Property(e => e.VRChatImageId).HasMaxLength(64);
+
+            entity.HasIndex(e => new { e.DiscordMessageId, e.AttachmentIndex })
+                .IsUnique()
+                .HasDatabaseName("ux_gallery_submission_message");
+
+            // The queue: the ones waiting, oldest first.
+            entity.HasIndex(e => new { e.Status, e.SubmittedAt }).HasDatabaseName("ix_gallery_submission_status");
+            entity.HasIndex(e => e.AuthorDiscordId).HasDatabaseName("ix_gallery_submission_author");
         });
 
         // Posts (posts design §2.2). A picture deleted under a post leaves it with none, as an
