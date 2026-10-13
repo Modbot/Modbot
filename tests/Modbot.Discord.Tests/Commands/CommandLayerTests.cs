@@ -17,7 +17,8 @@ public class CommandLayerTests
     [Fact]
     public void EveryCommandHasASwitch_AndEverySwitchACommand()
     {
-        var commands = DiscordCommands.All.Select(c => c.Name).Order().ToList();
+        // /notify follows the Alerts setting, not a switch.
+        var commands = DiscordCommands.All.Where(c => c.Name != DiscordCommands.Notify).Select(c => c.Name).Order().ToList();
         var switches = DiscordCommandSwitches.All.Select(c => c.Name).Order().ToList();
 
         Assert.Equal(switches, commands);
@@ -26,7 +27,7 @@ public class CommandLayerTests
     [Fact]
     public void MenusAreMarkedAsMenus_InTheSwitchList()
     {
-        foreach (var command in DiscordCommands.All)
+        foreach (var command in DiscordCommands.All.Where(c => c.Name != DiscordCommands.Notify))
         {
             var found = DiscordCommandSwitches.Find(command.Name);
             Assert.NotNull(found);
@@ -47,8 +48,27 @@ public class CommandLayerTests
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Report);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Profile);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.ReportMenu);
-        Assert.Equal(DiscordCommands.All.Count - 6, registered.Count);
+        Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Notify);
+        Assert.Equal(DiscordCommands.All.Count - 7, registered.Count);
         Assert.Equal(registered.Select(c => c.Name).ToHashSet(), DiscordCommands.NamesFor(null));
+    }
+
+    [Fact]
+    public void Notify_IsRegisteredWhileAlertsAreOn_AndNotOtherwise_WhateverTheSwitchesSay()
+    {
+        Assert.DoesNotContain(DiscordCommands.For(DiscordCommandSwitches.Empty), c => c.Name == DiscordCommands.Notify);
+        Assert.Contains(DiscordCommands.For(DiscordCommandSwitches.Empty, alertsOn: true), c => c.Name == DiscordCommands.Notify);
+        Assert.Equal(
+            DiscordCommands.For(DiscordCommandSwitches.Empty).Count + 1,
+            DiscordCommands.For(DiscordCommandSwitches.Empty, alertsOn: true).Count);
+
+        // Turning alerts on changes the registration, so the bot registers again.
+        Assert.False(DiscordCommands.NamesFor(null).SetEquals(DiscordCommands.NamesFor(null, alertsOn: true)));
+        Assert.True(DiscordCommands.NamesFor(null, alertsOn: true).SetEquals(DiscordCommands.NamesFor(null, alertsOn: true)));
+
+        // It is not a switch on the Commands card, and it is for every member.
+        Assert.Null(DiscordCommandSwitches.Find(DiscordCommands.Notify));
+        Assert.True(DiscordCommands.IsForEveryone(DiscordCommands.Notify));
     }
 
     [Fact]

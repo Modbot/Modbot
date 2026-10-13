@@ -155,6 +155,10 @@ public static class DiscordServiceCollectionExtensions
         // /remindme counts its own tries too; its messages go out from the calendar's Discord loop.
         services.TryAddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
         services.AddScoped<RemindMeCommand>();
+
+        // /notify and the Notify me button count their own tries, apart from the others'.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(NotifyCommand.LimitsKey);
+        services.AddScoped<NotifyCommand>();
         services.AddScoped<Calendar.EventReminderMessages>();
 
         // /event and /post: the calendar's and the Marketing tab's own code, which the API

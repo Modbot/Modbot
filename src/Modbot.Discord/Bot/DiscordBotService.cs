@@ -267,9 +267,9 @@ public sealed class DiscordBotService : BackgroundService
         if (_gateway is { State: DiscordGatewayState.Ready } registering
             && _guildId is { } registerGuild
             && _registeredNames is { } registered
-            && !registered.SetEquals(DiscordCommands.NamesFor(config.Commands)))
+            && !registered.SetEquals(DiscordCommands.NamesFor(config.Commands, config.AlertsOn)))
         {
-            await RegisterCommandsAsync(registering, registerGuild, config.Commands).ConfigureAwait(false);
+            await RegisterCommandsAsync(registering, registerGuild, config.Commands, config.AlertsOn).ConfigureAwait(false);
         }
 
         // An event can be missed. If the gateway can post but the status says otherwise, the
@@ -401,11 +401,12 @@ public sealed class DiscordBotService : BackgroundService
             _status.IntentsAllowed();
 
         var switches = await ReadCommandSwitchesAsync().ConfigureAwait(false);
+        var alertsOn = await ReadAlertsOnAsync().ConfigureAwait(false);
 
         // A refusal leaves the bot connected but useless. It says so and stays signed in: the
         // channel poster still works, and a fixed guild id is picked up by the settings poll
         // without a restart.
-        if (await RegisterCommandsAsync(gateway, guildId, switches).ConfigureAwait(false))
+        if (await RegisterCommandsAsync(gateway, guildId, switches, alertsOn).ConfigureAwait(false))
             _log.Information("Discord bot connected; {Count} commands registered on the guild", _commandsRegistered);
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
@@ -413,16 +414,16 @@ public sealed class DiscordBotService : BackgroundService
     }
 
     /// <summary>
-    /// Replaces the server's commands with the ones the switches leave on. Returns whether Discord
-    /// took them.
+    /// Replaces the server's commands with the ones the switches leave on, and <c>/notify</c> while
+    /// event alerts are on. Returns whether Discord took them.
     /// </summary>
     /// <remarks>
     /// A refusal is remembered as done, so the settings poll does not ask again every few seconds;
     /// the Health page says what went wrong, and the next sign-in or switch change tries again.
     /// </remarks>
-    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, string switches)
+    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, string switches, bool alertsOn)
     {
-        var commands = DiscordCommands.For(switches);
+        var commands = DiscordCommands.For(switches, alertsOn);
         _registeredNames = commands.Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
         try
@@ -454,6 +455,19 @@ public sealed class DiscordBotService : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
         return await CommandSwitchSetting.ReadAsync(db, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>Whether event alerts are on, which is what keeps <c>/notify</c> in Discord.</summary>
+    private async Task<bool> ReadAlertsOnAsync()
+    {
+        using var scope = _scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.EventAlertsOn)
+            .FirstOrDefaultAsync(CancellationToken.None)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1022,6 +1036,16 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /notify opens the event alerts form; a null reply means it did.
+            if (call.CommandName == DiscordCommands.Notify)
+            {
+                var notify = scope.ServiceProvider.GetRequiredService<NotifyCommand>();
+                if (await notify.RunAsync(call, CancellationToken.None).ConfigureAwait(false) is { } told)
+                    await call.ReplyAsync(told, CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             // /ban and /kick open the reasons form and keep a confirmation waiting, which is the
             // staff handler's (Discord commands design §3.3).
             if (StaffInteractionHandler.HandlesCommand(call.CommandName))
@@ -1095,7 +1119,15 @@ public sealed class DiscordBotService : BackgroundService
 
                 if (profileAnswer is not null)
                     await press.ReplyAsync(profileAnswer, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
 
+            // The Notify me button under an event's channel post (event alerts design §6).
+            if (NotifyCommand.IsButton(press.ButtonId))
+            {
+                var notifyAnswer = await scope.ServiceProvider.GetRequiredService<NotifyCommand>()
+                    .HandleButtonAsync(press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(notifyAnswer, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 
@@ -1197,6 +1229,15 @@ public sealed class DiscordBotService : BackgroundService
                 var profileAnswer = await scope.ServiceProvider.GetRequiredService<ProfileCommand>()
                     .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
                 await submit.ReplyAsync(profileAnswer, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            // /notify's form is a member's too, and needs no account.
+            if (NotifyCommand.IsForm(submit.FormId))
+            {
+                var notified = await scope.ServiceProvider.GetRequiredService<NotifyCommand>()
+                    .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
+                await submit.ReplyAsync(notified, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 
@@ -1303,12 +1344,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordCommands })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordCommands, s.EventAlertsOn })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
         if (settings is null)
-            return new BotConfig(null, null, false, false, DiscordCommandSwitches.Empty);
+            return new BotConfig(null, null, false, false, DiscordCommandSwitches.Empty, false);
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
@@ -1321,7 +1362,8 @@ public sealed class DiscordBotService : BackgroundService
             string.IsNullOrWhiteSpace(settings.DiscordGuildId) ? null : settings.DiscordGuildId.Trim(),
             sendsEvents,
             settings.DiscordLinkPromptNewMembers,
-            settings.DiscordCommands);
+            settings.DiscordCommands,
+            settings.EventAlertsOn);
 
     }
 
@@ -1331,6 +1373,6 @@ public sealed class DiscordBotService : BackgroundService
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
-    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, string Commands);
+    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, string Commands, bool AlertsOn);
 
 }

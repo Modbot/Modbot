@@ -1046,6 +1046,19 @@ public interface IDiscordGateway : IAsyncDisposable
         CancellationToken ct);
 
     /// <summary>
+    /// <see cref="PostMentioningRoleAsync(string, string, IReadOnlyList{DiscordEmbedContent}, IReadOnlyList{DiscordLinkButton}?, IReadOnlyList{DiscordPicture}?, CancellationToken)"/>
+    /// with buttons the bot answers when pressed, after the links.
+    /// </summary>
+    Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
     /// Posts a message with pictures and with buttons the bot answers when pressed, after the links.
     /// </summary>
     /// <param name="actions">
@@ -1110,6 +1123,20 @@ public interface IDiscordGateway : IAsyncDisposable
         CancellationToken ct);
 
     /// <summary>
+    /// Rewrites a message the bot posted earlier, with buttons the bot answers when pressed after the
+    /// links. Buttons are set whole: null or empty takes away any the message had.
+    /// </summary>
+    Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
     /// Writes a repeat into a one-card post in an event channel (Discord event repeats design):
     /// the card, its pictures and its buttons, but never the message's own text. A post somebody
     /// acted on from Discord carries a line in that text ("Banned by alice", acting from Discord
@@ -1155,6 +1182,20 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </remarks>
     Task<DiscordPostOutcome> SendPostAsync(
         string channelId, string text, string? roleId, IReadOnlyList<DiscordPicture>? pictures, CancellationToken ct);
+
+    /// <summary>
+    /// Sends one message in a channel that mentions these members and nobody else, whatever its text
+    /// says (event alerts design §5). Like <see cref="SendPostAsync"/> it is <strong>never sent twice
+    /// by the library</strong>: a timeout or a 502 comes back as <see cref="DiscordPostOutcome.Unclear"/>.
+    /// </summary>
+    /// <param name="userIds">Who is pinged; the message starts with a mention of each. A message holds 2,000 characters, so the caller sends a few dozen at a time.</param>
+    /// <param name="links">Buttons under the message that open a web address, or null for none.</param>
+    Task<DiscordPostOutcome> SendPingAsync(
+        string channelId,
+        IReadOnlyList<string> userIds,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct);
 
     /// <summary>
     /// Rewrites the text of a post the bot sent, keeping its files. Pings nobody. A message that is

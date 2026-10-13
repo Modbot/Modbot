@@ -309,7 +309,13 @@ public sealed class DiscordCommandHandler
 
         // Whatever is registered on the server, so the list never names a command Discord does not
         // show: the ones the operator switched off are not in it.
-        var lines = DiscordCommands.For(switches)
+        var alertsOn = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.EventAlertsOn)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var lines = DiscordCommands.For(switches, alertsOn)
             .Where(c => c.Kind == DiscordCommandKind.Slash && (c.Name != DiscordCommands.Me || meOn))
             .Where(c => DiscordCommands.IsForEveryone(c.Name)
                         || (held is { } permissions

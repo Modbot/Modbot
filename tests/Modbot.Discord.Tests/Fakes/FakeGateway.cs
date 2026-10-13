@@ -435,6 +435,16 @@ public sealed class FakeGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        PostMentioningRoleAsync(channelId, roleId, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
@@ -447,6 +457,7 @@ public sealed class FakeGateway : IDiscordGateway
         Posts.Add((channelId, embeds));
         Messages.Add((channelId, messageId, $"<@&{roleId}>", embeds, links ?? []));
         PicturesSent[messageId] = pictures;
+        ActionsSent[messageId] = actions ?? [];
         RolePings.Add((channelId, messageId, roleId));
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
@@ -511,7 +522,7 @@ public sealed class FakeGateway : IDiscordGateway
         return EditAsync(channelId, messageId, null, embeds, links, pictures, actions, ct);
     }
 
-    private Task<DiscordPostOutcome> EditAsync(
+    public Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
         string? text,
@@ -639,6 +650,29 @@ public sealed class FakeGateway : IDiscordGateway
             false));
 
         return id;
+    }
+
+    /// <summary>Every ping sent, in order: the channel, who was pinged, the text, and the links.</summary>
+    public List<(string ChannelId, IReadOnlyList<string> UserIds, string Text, IReadOnlyList<DiscordLinkButton> Links)> Pings { get; } = [];
+
+    public Task<DiscordPostOutcome> SendPingAsync(
+        string channelId,
+        IReadOnlyList<string> userIds,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct)
+    {
+        Pings.Add((channelId, userIds, text, links ?? []));
+
+        if (_postAnswers.Count > 0)
+        {
+            var (answer, landed) = _postAnswers.Dequeue();
+            if (landed)
+                Land(channelId, text, []);
+            return Task.FromResult(answer);
+        }
+
+        return Task.FromResult(DiscordPostOutcome.Posted(Land(channelId, text, [])));
     }
 
     public Task<DiscordPostOutcome> EditPostAsync(string channelId, string messageId, string text, CancellationToken ct)

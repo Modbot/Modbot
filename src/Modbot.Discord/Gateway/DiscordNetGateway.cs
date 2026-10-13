@@ -300,6 +300,16 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct) =>
+        PostMentioningRoleAsync(channelId, roleId, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> PostMentioningRoleAsync(
+        string channelId,
+        string roleId,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
@@ -310,7 +320,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         return InChannelAsync(channelId, pictures is { Count: > 0 } ? ChannelNeed.PostWithPictures : ChannelNeed.Post, async channel =>
         {
             var built = embeds.Select(ToEmbed).ToArray();
-            var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
+            var buttons = Buttons(links, actions) is { Components.Count: > 0 } b ? b : null;
 
             // The one role, and nothing else the embeds or the text happen to contain. @everyone's id
             // is the server's: asked for that, nobody is pinged at all.
@@ -370,6 +380,17 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct) =>
         EditAsync(channelId, messageId, text, writeText: true, embeds, links, pictures, actions: null, ct);
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text, writeText: true, embeds, links, pictures, actions, ct);
 
     public Task<DiscordPostOutcome> FoldRepeatAsync(
         string channelId,
@@ -605,6 +626,51 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             role = parsed;
         }
 
+        return await SendPlainAsync(id, text, role, users: null, pictures, links: null, ct).ConfigureAwait(false);
+    }
+
+    public async Task<DiscordPostOutcome> SendPingAsync(
+        string channelId,
+        IReadOnlyList<string> userIds,
+        string text,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordPostOutcome.Failed("The channel id is not a Discord channel id.", permanent: true);
+
+        // Discord allows 100 users in one message's allowed mentions.
+        if (userIds.Count is 0 or > 100)
+            return DiscordPostOutcome.Failed("A ping names 1 to 100 members.", permanent: true);
+
+        var users = new List<ulong>(userIds.Count);
+        foreach (var userId in userIds)
+        {
+            if (!ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+                return DiscordPostOutcome.Failed("That is not a Discord user id.", permanent: true);
+            users.Add(user);
+        }
+
+        var line = string.Join(' ', users.Select(u => $"<@{Text(u)}>")) + " " + text;
+        return await SendPlainAsync(id, line, role: null, users, pictures: null, links, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The send behind <see cref="SendPostAsync"/> and <see cref="SendPingAsync"/>: one message, with
+    /// <see cref="PostOptions"/>, that pings the one role or the named members and nobody else.
+    /// </summary>
+    private async Task<DiscordPostOutcome> SendPlainAsync(
+        ulong id,
+        string text,
+        ulong? role,
+        IReadOnlyList<ulong>? users,
+        IReadOnlyList<DiscordPicture>? pictures,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct)
+    {
         // Finding the channel sends nothing, so anything going wrong here is a plain "not sent".
         IMessageChannel? channel;
         try
@@ -630,17 +696,20 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         // The one role and nothing else; @everyone's id is the server's, and asked for that nobody
         // is pinged.
         var everyone = role is { } asked && channel is IGuildChannel inServer && inServer.GuildId == asked;
-        var mentions = role is { } pinged && !everyone ? new AllowedMentions { RoleIds = [pinged] } : AllowedMentions.None;
+        var mentions = users is { Count: > 0 }
+            ? new AllowedMentions { UserIds = [.. users] }
+            : role is { } pinged && !everyone ? new AllowedMentions { RoleIds = [pinged] } : AllowedMentions.None;
 
         var options = PostOptions(ct);
         var files = Files(pictures);
+        var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
 
         try
         {
             var sent = files.Count > 0
-                ? await channel.SendFilesAsync(attachments: files, text: text, allowedMentions: mentions, options: options)
+                ? await channel.SendFilesAsync(attachments: files, text: text, allowedMentions: mentions, components: buttons, options: options)
                     .ConfigureAwait(false)
-                : await channel.SendMessageAsync(text: text, allowedMentions: mentions, options: options)
+                : await channel.SendMessageAsync(text: text, allowedMentions: mentions, components: buttons, options: options)
                     .ConfigureAwait(false);
 
             return DiscordPostOutcome.Posted(Text(sent.Id));

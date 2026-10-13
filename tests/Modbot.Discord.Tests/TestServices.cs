@@ -101,6 +101,8 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<GateCommand>();
         services.AddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
         services.AddScoped<RemindMeCommand>();
+        services.AddKeyedSingleton<MemberCommandLimits>(NotifyCommand.LimitsKey);
+        services.AddScoped<NotifyCommand>();
         services.AddScoped<Modbot.Discord.Calendar.EventReminderMessages>();
 
         // /report and Report to mods, with the real notification pipeline (no channels): the tests
