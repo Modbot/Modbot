@@ -388,7 +388,7 @@ function Resolved({
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
-        {tab === 'cases' && vrchatId && <PersonAppeals key={live} vrchatId={vrchatId} />}
+        {tab === 'cases' && vrchatId && <PersonAppeals key={`appeals-${live}`}vrchatId={vrchatId} />}
         {tab === 'flags' && (vrchatId || discordId) && (
           <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
         )}
