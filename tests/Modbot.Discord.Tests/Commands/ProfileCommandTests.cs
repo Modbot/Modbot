@@ -138,8 +138,11 @@ public class ProfileCommandTests
         await using var services = await ServicesAsync(on: false);
         await AddFieldsAsync(services, 1);
 
-        var reply = await RunAsync(services, Call(Ada));
+        // The switch is checked by RunAsync, which is what the bot calls; HandleAsync skips it.
+        using var scope = services.Scope();
+        var reply = await scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>().RunAsync(Call(Ada), Ct);
 
+        Assert.NotNull(reply);
         Assert.Empty(reply.Embeds);
         Assert.False(string.IsNullOrWhiteSpace(reply.Text));
     }
@@ -233,7 +236,7 @@ public class ProfileCommandTests
             using (var scope = services.Scope())
                 Assert.Null(await scope.ServiceProvider.GetRequiredService<ProfileCommand>().HandleButtonAsync(press, Ct));
 
-            Assert.Equal(times == 1 ? "Findable: On" : "Findable: Off", updated!.Actions!.Last().Label);
+            Assert.Equal(times == 1 ? "Findable: On" : "Findable: Off", updated!.Actions!.Single(a => a.Id == ProfileCommand.FindableButton).Label);
 
             await using var db = services.Database.NewContext();
             Assert.Equal(times == 1, await MemberProfiles.IsFindableAsync(db, Ada, Ct));
