@@ -134,7 +134,7 @@ export function CalendarEventForm({
   // typed, and where a fill-in goes (the text last clicked into).
   const [spareFillIns, setSpareFillIns] = useState<string[]>([])
   const [newFillIn, setNewFillIn] = useState('')
-  const [putFillIn, setPutFillIn] = useState<{ insert: (name: string) => void } | null>(null)
+  const [putFillIn, setPutFillIn] = useState<{ insert: (name: string) => boolean } | null>(null)
   const pictureThumbnails = usePictureThumbnails()
   // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
   // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
@@ -363,8 +363,8 @@ export function CalendarEventForm({
     if (!taken) setSpareFillIns((current) => [...current, shown])
     setNewFillIn('')
 
-    if (putFillIn) putFillIn.insert(shown)
-    else set('title', input.title + fillInMarker(shown))
+    // The field last clicked into may have gone (a site's own text ticked off): then the title.
+    if (!putFillIn?.insert(shown)) set('title', input.title + fillInMarker(shown))
   }
 
   return (
@@ -853,7 +853,7 @@ function OwnText({
   input: CalendarEventInput
   set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
   /** Set in the template editor, where the texts show their fill-ins as boxes. */
-  onActive?: (insert: (name: string) => void) => void
+  onActive?: (insert: (name: string) => boolean) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(

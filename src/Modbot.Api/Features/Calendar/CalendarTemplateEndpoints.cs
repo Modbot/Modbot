@@ -216,7 +216,14 @@ public static class CalendarTemplateEndpoints
         var fields = JsonSerializer.Deserialize<CalendarTemplateFields>(template.Fields, Json)
             ?? throw new InvalidOperationException($"Template {template.Id} has no fields.");
 
-        return fields with { CoverPictureId = template.CoverPictureId, WorldListId = template.WorldListId };
+        // A template saved before categories were stored has none: read as an empty list, so an
+        // unchanged save compares equal.
+        return fields with
+        {
+            CoverPictureId = template.CoverPictureId,
+            WorldListId = template.WorldListId,
+            CategoryIds = fields.CategoryIds ?? [],
+        };
     }
 
     private static void Fill(CalendarTemplate template, string name, CalendarTemplateFields fields)
@@ -237,7 +244,8 @@ public static class CalendarTemplateEndpoints
             .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
 
         // A category deleted since the template was saved is left out, so the form never offers it.
-        var named = templates.SelectMany(t => FieldsOf(t).CategoryIds ?? []).Distinct().ToList();
+        var parsed = templates.ToDictionary(t => t.Id, FieldsOf);
+        var named = parsed.Values.SelectMany(f => f.CategoryIds ?? []).Distinct().ToList();
 
         var existing = named.Count == 0
             ? []
@@ -248,7 +256,7 @@ public static class CalendarTemplateEndpoints
             .. templates.Select(t => new CalendarTemplateView(
                 t.Id,
                 t.Name,
-                FieldsOf(t) with { CategoryIds = [.. (FieldsOf(t).CategoryIds ?? []).Where(existing.Contains)] },
+                parsed[t.Id] with { CategoryIds = [.. (parsed[t.Id].CategoryIds ?? []).Where(existing.Contains)] },
                 t.CreatedByUserId is { } maker && names.TryGetValue(maker, out var username) ? username : null,
                 t.CreatedAt,
                 t.UpdatedAt)),

@@ -81,7 +81,7 @@ export function FillInText({
   onChange: (value: string) => void
   label: string
   multiline?: boolean
-  onActive?: (insert: (name: string) => void) => void
+  onActive?: (insert: (name: string) => boolean) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
   // Where the caret was last, because pressing a button elsewhere takes it away.
@@ -101,10 +101,12 @@ export function FillInText({
     }
   }
 
+  /** False when the field is gone from the screen, so nothing was put in. */
   const insert = (name: string) => {
     const field = box.current
     const clean = cleanFillInName(name)
-    if (!field || clean === '') return
+    if (!field) return false
+    if (clean === '') return true
 
     field.focus()
 
@@ -126,6 +128,7 @@ export function FillInText({
     caret.current = range.cloneRange()
 
     onChange(text(field))
+    return true
   }
 
   return (
@@ -159,6 +162,20 @@ export function FillInText({
         e.preventDefault()
         const pasted = e.clipboardData.getData('text/plain')
         document.execCommand('insertText', false, multiline ? pasted : pasted.replace(/\s*[\r\n]+\s*/g, ' '))
+      }}
+      onDrop={(e) => {
+        // Dropped styled text would bring its own elements, which read() turns into line breaks.
+        e.preventDefault()
+        const dropped = e.dataTransfer.getData('text/plain')
+        if (dropped === '') return
+
+        const at = document.caretRangeFromPoint?.(e.clientX, e.clientY)
+        if (at && e.currentTarget.contains(at.startContainer)) {
+          const selection = window.getSelection()
+          selection?.removeAllRanges()
+          selection?.addRange(at)
+        }
+        document.execCommand('insertText', false, multiline ? dropped : dropped.replace(/\s*[\r\n]+\s*/g, ' '))
       }}
     />
   )
