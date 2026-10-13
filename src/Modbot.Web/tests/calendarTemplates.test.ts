@@ -53,6 +53,8 @@ const input: CalendarEventInput = {
   discordDescription: 'Pop in',
   googleTitle: '',
   googleDescription: '',
+  publishToGoogle: null,
+  categoryIds: [],
 }
 
 test('a template keeps no dates, no last date and no draft flag', () => {

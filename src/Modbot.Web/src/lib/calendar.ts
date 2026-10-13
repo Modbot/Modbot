@@ -1,5 +1,5 @@
 import type { CalendarReady } from './calendarPlaces.ts'
-import { ApiError, http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from '@/lib/api'
+import { ApiError, http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from './api.ts'
 
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
