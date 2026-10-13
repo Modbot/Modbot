@@ -118,7 +118,7 @@ public static class GroupGallerySubmissionEndpoints
             .WithName("GetGroupGallerySubmissionPicture")
             .WithSummary("Get a waiting gallery picture")
             .WithDescription("The picture itself, as a PNG or JPEG. Only while it is waiting: once it is added or declined the copy is deleted.")
-            .Produces(StatusCodes.Status200OK, contentType: "image/png")
+            .Produces(StatusCodes.Status200OK, contentType: "image/png", additionalContentTypes: "image/jpeg")
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -210,13 +210,17 @@ public static class GroupGallerySubmissionEndpoints
 
                     var now = clock.UtcNow;
 
+                    // VRChat has the picture now. Record that on its own first, so a later database
+                    // failure cannot leave the row waiting and let a retry add the picture a second time.
+                    submission.Status = GallerySubmissionStatus.Added;
+                    submission.GalleryId = body.GalleryId;
+                    submission.VRChatImageId = added.Value?.Id;
+                    submission.DecidedAt = now;
+                    submission.DecidedByUserId = actor;
+                    await db.SaveChangesAsync(ct);
+
                     await using (var transaction = await db.Database.BeginTransactionAsync(ct))
                     {
-                        submission.Status = GallerySubmissionStatus.Added;
-                        submission.GalleryId = body.GalleryId;
-                        submission.VRChatImageId = added.Value?.Id;
-                        submission.DecidedAt = now;
-                        submission.DecidedByUserId = actor;
                         submission.Bytes = [];
 
                         await GroupPageAnswers.WriteFactAsync(

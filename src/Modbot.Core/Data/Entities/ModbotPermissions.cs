@@ -363,7 +363,7 @@ public enum ModbotPermissions : long
     /// <summary>See the invites the group has sent on VRChat, and cancel one.</summary>
     ManageGroupInvites = 1L << 41,
 
-    /// <summary>Remove an image from one of the group's galleries on VRChat.</summary>
+    /// <summary>Add Discord pictures to one of the group's galleries on VRChat, decline them, and remove an image.</summary>
     ManageGroupGallery = 1L << 42,
 
     // --- The companion. Bit 43. ---
