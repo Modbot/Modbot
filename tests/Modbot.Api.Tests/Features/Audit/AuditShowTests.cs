@@ -48,6 +48,13 @@ public class AuditShowTests
     }
 
     [Fact]
+    public void Appeals_AreModeration_LikeNotes()
+    {
+        Assert.True(AuditShow.Includes(AuditShow.Moderation, FactType.AppealLogged));
+        Assert.True(AuditShow.Includes(AuditShow.Moderation, FactType.AppealDecided));
+    }
+
+    [Fact]
     public void ArrivalsAreNeverModeration()
     {
         Assert.False(AuditShow.Includes(AuditShow.Moderation, FactType.InstanceJoined));
