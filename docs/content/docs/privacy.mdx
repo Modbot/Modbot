@@ -142,6 +142,12 @@ wherever you choose to store them. These pages describe what is kept and how it 
   after a day, and one nobody handled (while the command was off) 30 days after it was due. A
   [purge](/moderation/purge) deletes all of a person's, and nothing is sent to Modbot Cloud. A member whose direct messages are closed is told so and
   nothing is kept.
+- [Birthdays](/discord/birthdays): off until you turn on **/birthday** on the **Commands** card. A member who
+  runs `/birthday set` gives Modbot a month and a day. Modbot never asks for the year, so it holds no age.
+  It keeps the member's Discord id, the month and day, when they set it and, while they hold the birthday
+  role, which role and which day it was given. The daily post in your channel names the member with a
+  mention that does not ping them. It is kept until the member runs `/birthday remove`; a
+  [purge](/moderation/purge) deletes it, and nothing is sent to Modbot Cloud.
 - [Event alerts](/moderation/calendar#event-alerts): off until someone with **Manage calendar** turns on **On**
   in the **Alerts** card on the **Event categories** page. A member who signs up with `/notify` or the
   **Notify me** button gets a direct message from the server's Modbot bot before a matching event, naming the

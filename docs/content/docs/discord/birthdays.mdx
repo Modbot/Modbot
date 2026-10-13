@@ -1,0 +1,76 @@
+---
+title: Birthdays
+description: Let members tell the bot their birthday with /birthday, post the day's birthdays in a channel each day, and give a role for the day.
+---
+
+Members tell the bot their birthday with `/birthday`. Each day at the hour you choose, Modbot posts the
+names of the members whose birthday it is in a channel you pick. It can also give those members a role for
+the day.
+
+Modbot keeps a month and a day. It never asks for the year, so it holds no age.
+
+## Turn it on
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+`/birthday` is off until you turn it on. Open **Settings → Discord → Commands**, switch on `/birthday` and
+press **Save commands**.
+
+Then open **Settings → Discord** and find the **Birthdays** card.
+
+| Setting | What it does |
+|---|---|
+| **On** | Posts the day's birthdays. Off to start. |
+| **Birthday channel** | Where the post goes. The bot needs to see the channel and send messages in it. |
+| **At** | The hour of the day the post goes out. |
+| **Time zone** | The time zone the hour and the day are in. UTC if you leave it empty. |
+| **Message** | What the post says. `{members}` stands for the members with a birthday. Empty gives "Happy birthday {members}!". |
+| **Birthday role** | A role the members hold for their birthday. Optional. See [The birthday role](#the-birthday-role). |
+
+Press **Save birthdays**. Turning it on, or moving the hour, never posts for a time that has already
+passed: the first post is the next time the card names.
+
+## What members type
+
+| Command | What it does |
+|---|---|
+| `/birthday set month: day:` | Sets your birthday. Pick the month from the list and type the day. A date that does not exist, such as 30 February, is refused. |
+| `/birthday show` | Tells you your birthday. Only you see the answer. |
+| `/birthday remove` | Forgets your birthday. If you hold the birthday role, it comes off at once. |
+
+Every answer is seen only by the member who ran the command. A member can run it five times a minute.
+
+## The post
+
+Once a day, at the hour on the card, Modbot posts one message that names every member whose birthday it
+is. A post names at most 40 members; more are named in a second post.
+
+- Members who have left the server are left out.
+- Someone who set **29 February** is named on 28 February in a year with no 29th.
+- The names are mentions, so they show as the members' names, but nobody is pinged.
+- Modbot posts a day once, however often it restarts. If the bot is not connected when the hour comes, or
+  Discord asks it to wait, Modbot tries again a few minutes later. If Discord refuses the post, Modbot does
+  not send it again, and the card shows what went wrong.
+
+## The birthday role
+
+Pick a **Birthday role** and Modbot gives it to the members it names in the post. It takes the role back at
+the hour of the next day, even if you have turned birthdays off or picked another role since.
+
+- The bot needs **Manage Roles**, and its own role must sit above the birthday role. The card says so when
+  it does not.
+- A role that holds **Administrator** or another permission that
+  [permission watch](/discord/permission-watch) tells you about is refused. So is `@everyone`, and so is a
+  role that belongs to a bot or an integration.
+- Roles Modbot gives are not reported by permission watch.
+
+## What Modbot keeps
+
+For each member who sets a birthday: their Discord id, the month and the day, when they set it, and, while
+they hold the birthday role, which role and which day it was given. No name, no year and no age. It is kept
+until the member removes it. [Purging a person](/moderation/purge) deletes it; if they still hold the
+birthday role at that moment, the role comes off at the next daily check and the last of the row goes with it.
+
+Nothing about birthdays is sent to Modbot Cloud. What leaves your server is the post in your channel, and the
+role changes, through Discord.
