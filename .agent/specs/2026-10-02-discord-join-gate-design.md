@@ -231,7 +231,7 @@ counts as let in.
 
 **Bot permissions** (`DiscordInvite.PermissionsFor`, only while the gate is On; Watch only asks for
 nothing, so the invite link is opened again when the gate goes On): Manage Roles (the
-bot's role above the member role); View Channel, Send Messages, Embed Links and Read Message History
+bot's role above the member role); View Channels, Send Messages, Embed Links and Read Message History
 in the gate channel (the message is fetched by id before each rewrite); Kick Members while **Remove
 after** is not Never; Manage Server only while **Allow pausing invites** is on. **Intent:** Server
 Members, already asked for.

@@ -64,11 +64,11 @@ Text, announcement and forum channels not deleted, each with:
 - **Quiet for:** how long ago, against the server's clock, in Modbot's units (y, mth, d, h, m, s; no
   weeks), as every other age is written.
 - **Staff-only:** @everyone cannot see it, Discord's lock beside the name. Worked out when the bot reads
-  the channel: the channel's own overwrite for @everyone if it sets View Channel, else @everyone's
+  the channel: the channel's own overwrite for @everyone if it sets View Channels, else @everyone's
   server-wide permission; Administrator on @everyone sees everything. Kept as
   `discord_channel.everyone_can_view`, null until the bot reads the channel again.
 
-Without a last message the row says why instead: **Can't read** (the bot lacks View Channel or Read
+Without a last message the row says why instead: **Can't read** (the bot lacks View Channels or Read
 Message History; anything stored from before is not shown, since "quiet since then" would be wrong),
 **Still reading** (a read-back for the channel or one of its threads is unfinished), else **No
 messages**.

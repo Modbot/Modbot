@@ -186,7 +186,7 @@ the settings row.
 
 The Health page's Discord card lists each channel an enabled route sends to that has a problem:
 
-- the bot lacks View Channel, Send Messages or Embed Links there, from `discord_channel`;
+- the bot lacks View Channels, Send Messages or Embed Links there, from `discord_channel`;
 - the channel was deleted in Discord;
 - the last post was refused, with Discord's reason.
 
@@ -200,7 +200,7 @@ Discord gets its own top tab, `#discord`, with three cards: **Bot** (token and s
 email and the public address; `#integrations` still opens it.
 
 Channels card: one row per route — channel, name, how many events, on/off switch, Edit, Delete —
-and **Add channel**, which opens the editor: channel picker (needs View Channel, Send Messages,
+and **Add channel**, which opens the editor: channel picker (needs View Channels, Send Messages,
 Embed Links), event types by group, then filters. People are found by name or id among Modbot's
 stored VRChat profiles, the Discord member list and linked Discord accounts, each marked VRChat or Discord; a
 typed id can be used as either. The actor list also offers **Modbot (automatic)**. VRChat roles come

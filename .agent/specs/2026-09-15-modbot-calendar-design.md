@@ -293,7 +293,7 @@ event finishing and cancelling: each changes what the place should say.
   each occurrence, the way a notice board would.
 - Unticking the channel post deletes the post. Mentions are off, as on every message the bot sends,
   except the one role an event may name (§3.3.1).
-- The channel picker marks a channel missing View Channel, Send Messages or Embed Links.
+- The channel picker marks a channel missing View Channels, Send Messages or Embed Links.
 - **Deleting an event ends its post as "Cancelled"**, the same last word a cancel gives it, at once;
   the Discord event is ended as for a cancel. A delete is a cancel that is also hidden, so the post
   goes through the cancel's path.

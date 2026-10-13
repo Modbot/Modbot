@@ -1028,7 +1028,10 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.apikey.create': (p) => <>{p.actor} created an API key.</>,
   'modbot.apikey.revoke': (p) => <>{p.actor} revoked an API key.</>,
 
-  'modbot.settings.change': (p) => (
+  'modbot.settings.change': (p) =>
+    p.entry.data?.automatic === true && p.text('setting') === 'vrchatPictureUploads' ? (
+      <>Modbot turned off Upload VRChat pictures.</>
+    ) : (
     <>
       {p.actor} changed {p.text('setting') ? `the ${fieldName(p.text('setting')!)} setting` : "Modbot's settings"}
       {p.text('before') !== null || p.text('after') !== null ? (
@@ -1037,7 +1040,7 @@ const SENTENCES: Record<string, Sentence> = {
       <Changed changed={p.changed} />.
       <ChangedLists changed={p.changed} />
     </>
-  ),
+    ),
 
   // ── Reviews of a moderator's pattern ────────────────────────────────────────────────────────
   'modbot.review.opened': (p) => (

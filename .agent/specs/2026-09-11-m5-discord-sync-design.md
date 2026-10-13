@@ -161,7 +161,7 @@ message, and for AI moderation that reads chat (M8 §2), and chose full messages
 details without text or daily totals.
 
 - **Reading back.** When Discord is first set up, or when this change first runs on an existing
-  deployment, the bot reads back the history of every channel it can read (View Channel and Read
+  deployment, the bot reads back the history of every channel it can read (View Channels and Read
   Message History) and stores each message it has not already stored. After that it stores new
   messages, edits and deletes as they arrive.
 - **When reading back stops.** A channel is read newest first, one page at a time. Once three pages

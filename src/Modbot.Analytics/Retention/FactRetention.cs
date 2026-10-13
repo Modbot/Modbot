@@ -20,7 +20,7 @@ public enum RetentionClass
 
     /// <summary>
     /// Instance joins and leaves, avatar changes, voice sessions, and Modbot's operational noise.
-    /// Up to ~18k an hour at peak. Ninety days by default.
+    /// Up to ~18k an hour at peak. Kept forever by default (0 days means no pruning).
     /// </summary>
     Presence,
 }

@@ -42,7 +42,7 @@ The three worst problems, in order:
 ### 1. Gaps shown as zeros — the bot reads 35 of 165 channels and no audit log
 
 **What:** `/api/discord/channels` on the live install: 165 live channels that are not categories, 35 with
-both View Channel and Read Message History for the bot. `botCanViewAuditLog` is false. The unreadable ones
+both View Channels and Read Message History for the bot. `botCanViewAuditLog` is false. The unreadable ones
 include #staff-chat, #meetings, #off-topic, the ticket channels and every voice channel's text chat except
 one.
 
@@ -63,7 +63,7 @@ one.
 - the moderation panel, when the audit log is off: **"No audit log: kicks and removed messages
   missing."** above the chart, and no "Nothing recorded" while that is so.
 
-Fixing it is the server owner's job in Discord (give the bot's role View Channel, Read Message History and
+Fixing it is the server owner's job in Discord (give the bot's role View Channels, Read Message History and
 View Audit Log). No new request or intent: the permissions are already stored on each channel's row.
 
 ### 2. No "this week" numbers, and nothing compared

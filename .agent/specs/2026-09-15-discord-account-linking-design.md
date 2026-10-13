@@ -121,7 +121,7 @@ On the Discord settings tab, as one card ("Account linking"):
 | Redirect URL | — | Shown to copy: `{public address}/api/discord-link/callback`. Built from the public address setting only (accounts and access §4.2). No public address, no redirect URL, and linking is off. |
 | Bot invite link | — | Built from the client id (§5). |
 | Prompt new joiners to link their VRChat account | `discord_link_prompt_new_members` | Off by default. |
-| Backup channel | `discord_link_backup_channel_id` | Needs View Channel and Send Messages. |
+| Backup channel | `discord_link_backup_channel_id` | Needs View Channels and Send Messages. |
 | Linked role | `discord_linked_role_id` | Must be a role the bot can assign, when the bot has read the role list. |
 | 18+ role | `discord_eighteen_plus_role_id` | Optional. Same rule. |
 
@@ -136,7 +136,7 @@ features that are on need, per M5 §7:
 
 | Permission | Why |
 |---|---|
-| View Channel, Send Messages, Embed Links, Read Message History | Moderation log, instance cards (fetched by id before rewriting), backup channel mention |
+| View Channels, Send Messages, Embed Links, Read Message History | Moderation log, instance cards (fetched by id before rewriting), backup channel mention |
 | View Audit Log | Catching up what the bot missed (M5 §5.1) |
 | Manage Roles | Only when a linked role or an 18+ role is set |
 
