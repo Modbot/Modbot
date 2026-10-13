@@ -2215,6 +2215,8 @@ what remains, and the UI shows the window it actually had.
 
 #### 5.10.3 "Regular" is a definition, and the group owns it
 
+The Regulars tab of the Stats page uses a fixed rule instead (a visit in 3 of the latest 4 whole weeks); see `2026-09-27-stats-page-design.md`, "Regulars".
+
 Modbot must not silently decide what a regular is. A group running nightly events and one running a
 monthly meetup mean entirely different things by the word, and a hardcoded threshold would be wrong
 for one of them while looking authoritative to both.
