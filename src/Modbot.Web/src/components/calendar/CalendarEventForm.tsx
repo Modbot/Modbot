@@ -41,6 +41,7 @@ import {
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
+import { saveWarnings } from '@/lib/calendarWarnings'
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { FillInText } from './FillInText'
@@ -92,6 +93,7 @@ export function CalendarEventForm({
   pictureUploads = false,
   vrchatPlus = null,
   template,
+  templateTitle,
   onClose,
   onSaved,
   onTemplateSaved,
@@ -109,6 +111,8 @@ export function CalendarEventForm({
   vrchatPlus?: boolean | null
   /** Set, the form makes or edits an event template: a name and a length in place of the dates. */
   template?: { id: string | null; name: string; lengthMinutes: number }
+  /** The title the event's template gave it, when it was made from one: a different title is warned about on save. */
+  templateTitle?: string
   onClose: () => void
   onSaved?: (saved: CalendarEvent) => void
   onTemplateSaved?: () => void
@@ -156,6 +160,8 @@ export function CalendarEventForm({
   const uploading = vrchatPicture.uploading || discordCover.uploading
   // Everything a save was refused for, one line each, in the server's order.
   const [error, setError] = useState<string[] | null>(null)
+  // What a save found worth a second look, one line each. The next save of the same form goes through.
+  const [warnings, setWarnings] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('details')
   // Kept apart from the input, so "On a date" stays picked while its date is still empty.
   const [repeatEnd, setRepeatEnd] = useState<RepeatEnd>(() =>
@@ -256,6 +262,27 @@ export function CalendarEventForm({
   // "Pick from a list" with no list chosen would save as an event with no world at all.
   const listMissing = worldChoice === FROM_LIST && !input.worldListId
 
+  // The lines to show before a save: what the form leaves empty, a title that is not the template's,
+  // and an event already at that time. The check for that one failing is no reason to hold the save.
+  const warningsFor = async (saving: CalendarEventInput): Promise<string[]> => {
+    const same = await calendarApi
+      .sameEvents(saving.title, saving.startsAt, saving.timeZone, event?.id ?? null)
+      .then((answer) => answer.matches)
+      .catch(() => [])
+
+    return saveWarnings(
+      {
+        title: saving.title,
+        publishToVRChat: saving.publishToVRChat,
+        languages: saving.languages,
+        tags: saving.tags,
+        templateTitle,
+      },
+      same,
+      saving.timeZone,
+    )
+  }
+
   const save = async (draft: boolean) => {
     if (listMissing) {
       setListMissed(true)
@@ -267,6 +294,20 @@ export function CalendarEventForm({
     setError(null)
 
     let saving = body(draft)
+
+    // A draft is not published, so it is not looked over. Warnings never refuse a save: the same
+    // warnings shown once are not shown again, and the save goes through.
+    if (!template && !draft) {
+      const found = await warningsFor(saving)
+
+      if (found.length > 0 && found.join('\n') !== warnings.join('\n')) {
+        setWarnings(found)
+        setBusy(false)
+        return
+      }
+
+      setWarnings(found)
+    }
 
     // A crop still in a box goes up first; refused, nothing is saved and the field says why.
     if (vrchatPicture.draft && input.publishToVRChat) {
@@ -410,6 +451,13 @@ export function CalendarEventForm({
                 ))}
               </span>
             )}
+            {!error && warnings.length > 0 && (
+              <span role="status" className="mr-auto flex min-w-0 basis-full flex-col text-warn sm:basis-auto" style={{ fontSize: 'var(--text-small)' }}>
+                {warnings.map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
+              </span>
+            )}
             <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
@@ -420,6 +468,7 @@ export function CalendarEventForm({
             )}
             <Button size="sm" disabled={busy || uploading} onClick={() => void save(false)}>
               {isDraft && !template ? 'Schedule' : 'Save'}
+              {warnings.length > 0 && ' anyway'}
             </Button>
           </DialogFoot>
         }

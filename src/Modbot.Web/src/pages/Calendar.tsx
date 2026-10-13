@@ -90,7 +90,12 @@ export function Calendar({ me }: { me: CurrentUser }) {
   const [data, setData] = useState<{ key: string; view: CalendarView } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
-  const [editing, setEditing] = useState<{ event: CalendarEvent | null; initial?: CalendarEventInput } | null>(null)
+  const [editing, setEditing] = useState<{
+    event: CalendarEvent | null
+    initial?: CalendarEventInput
+    /** The title a template gave a new event, so a different one is warned about on save. */
+    templateTitle?: string
+  } | null>(null)
   // An event being saved as a template: the template editor, filled in from the event.
   const [templating, setTemplating] = useState<{ initial: CalendarEventInput; lengthMinutes: number } | null>(null)
   // Changes when a template is made, changed or deleted, so the list and Use template read again.
@@ -452,7 +457,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
         <Button variant="outline" onClick={() => void readVRChat(true)} disabled={reading > 0}>
           <RefreshCw className={reading > 0 ? 'animate-spin' : undefined} /> Refresh
         </Button>
-        {canManage && <UseTemplate version={templatesVersion} onUse={(initial) => setEditing({ event: null, initial })} />}
+        {canManage && <UseTemplate version={templatesVersion} onUse={(initial) => setEditing({ event: null, initial, templateTitle: initial.title })} />}
         {canManage && <Button onClick={newEvent}>New event</Button>}
       </div>
 
@@ -678,6 +683,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
         <CalendarEventForm
           event={form.event}
           initial={'initial' in form ? form.initial : undefined}
+          templateTitle={'templateTitle' in form ? form.templateTitle : undefined}
           categories={data.view.categories}
           platforms={data.view.platforms}
           ready={data.view.ready}

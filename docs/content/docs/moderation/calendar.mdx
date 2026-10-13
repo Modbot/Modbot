@@ -280,6 +280,23 @@ the event the way each place will show it.
 
 The buttons stay at the bottom of the form while you scroll, on a phone too. When you edit an event
 that is already scheduled, **Save** takes the place of **Schedule** and **Save draft**.
+
+**Schedule** and **Save** first look the event over. If something looks off, the form stays open and
+says what, above the buttons, and the button becomes **Schedule anyway** or **Save anyway**. Click it
+to save as it is, or change the form first. **Save draft** is not looked over.
+
+| Warning | When |
+|---|---|
+| No VRChat tags | **VRChat calendar** is on and **Tags** is empty |
+| No VRChat language | **VRChat calendar** is on and **Languages** is empty |
+| The title differs from the template's | The event was made with **Use template** and its title is no longer the one the template gave it |
+| "Title" already starts … | Another event has the same title and starts within 15 minutes of this one, in Modbot or on VRChat's group calendar. "On VRChat" is added when it was made there |
+
+Titles are compared the way [Duplicate Discord events](#duplicate-discord-events) compares them. A
+repeating event is checked by its first start. Before it looks, Modbot reads VRChat's calendar around
+that start, the same read the calendar page does, so an event made on vrchat.com or in the game is
+found too. If VRChat cannot be read right now (no sign-in, a rate limit), only Modbot's own events are
+checked and nothing is said.
 </Step>
 </Steps>
 

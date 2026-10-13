@@ -27761,6 +27761,82 @@
         ]
       }
     },
+    "/api/calendar/same-events": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Find events like one about to be saved",
+        "description": "Events in Modbot's calendar, including the ones brought in from VRChat's group calendar, with the same title (as the Discord duplicate finder compares titles) starting at most 15 minutes apart. Reads VRChat's calendar around the start first, the way opening the calendar page does, and skips that quietly when VRChat cannot be asked. Changes nothing and never refuses a save.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "FindSameCalendarEvents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarSameEventRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSameEventsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/invite-choices": {
       "get": {
         "tags": [
@@ -38973,6 +39049,85 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CalendarSameEventRequest": {
+        "required": [
+          "title",
+          "startsAt",
+          "timeZone",
+          "eventId"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startsAt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "eventId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "CalendarSameEventView": {
+        "required": [
+          "id",
+          "title",
+          "startsAt",
+          "onVRChat"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "onVRChat": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarSameEventsView": {
+        "required": [
+          "matches",
+          "vrChatRead"
+        ],
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSameEventView"
+            }
+          },
+          "vrChatRead": {
+            "type": "boolean"
           }
         }
       },
