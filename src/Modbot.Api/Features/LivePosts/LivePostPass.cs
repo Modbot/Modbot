@@ -9,6 +9,7 @@ using Modbot.Core.Logging;
 using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 using Modbot.Core.Twitch;
+using Npgsql;
 using Serilog;
 
 namespace Modbot.Api.Features.LivePosts;
@@ -207,7 +208,11 @@ public sealed class LivePostPass
         {
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException e) when (e.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "ux_post_kind_external_key",
+        })
         {
             // Another pass made it first: the unique key on the instance is the once.
             _db.ChangeTracker.Clear();

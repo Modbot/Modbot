@@ -148,8 +148,9 @@ public class Post
 
     /// <summary>
     /// What a post of this <see cref="Kind"/> is about, outside Modbot: for <see cref="PostKinds.TwitchLive"/>,
-    /// the Twitch stream id. A partial unique index on <c>(kind, external_key)</c> keeps a second post
-    /// from being made for one. Null on every other post.
+    /// the Twitch stream id; for <see cref="PostKinds.InstanceLive"/>, the group instance's id. A partial
+    /// unique index on <c>(kind, external_key)</c> keeps a second post from being made for one. Null on
+    /// every other post.
     /// </summary>
     public string? ExternalKey { get; set; }
 

@@ -46,8 +46,8 @@ channel card edited in place are not posts, because they are rewritten whenever 
 | `send_at` timestamptz null | When it goes. "Now" is saved as the time of saving. A draft may keep a planned time. |
 | `time_zone` text | The zone the time was picked in: the browser's, or the event's for event posts (decision 13). |
 | `event_id` uuid null | Set for event posts, and for a post linked to an event. |
-| `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); null for hand-written posts. |
-| `external_key` text null | What a post of a kind is about outside Modbot: for `twitch_live`, the Twitch stream id. Null on every other post (added 2026-10-07, Twitch design). |
+| `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); `twitch_live` (Twitch design) and `instance_live` (§8, Live posts) for posts Modbot makes about something outside the calendar; null for hand-written posts. |
+| `external_key` text null | What a post of a kind is about outside Modbot: for `twitch_live`, the Twitch stream id; for `instance_live`, the group instance's id (added 2026-10-13). Null on every other post (added 2026-10-07, Twitch design). |
 | `date_starts_at` timestamptz null | The date a reminder, live or one-date cancel post is about (step 4). |
 | `keep_updated` bool | Modbot edits the post on Discord and VRChat when an event in one of its lists changes (§8). Kept only while the text holds a list. |
 | `lists_updated_at` timestamptz null | When Modbot last edited a site for `keep_updated`; the list shows it. |
@@ -59,7 +59,7 @@ Two partial unique indexes keep the calendar from making a second post of one ki
 date_starts_at IS NULL`, and `(event_id, kind, date_starts_at) WHERE kind IS NOT NULL`.
 
 A third keeps a second post from being made for one outside thing: `(kind, external_key) WHERE
-external_key IS NOT NULL` (one "We're live on Twitch" post per Twitch stream id).
+external_key IS NOT NULL` (named `ux_post_kind_external_key`; one "We're live on Twitch" post per Twitch stream id, one live post per group instance id).
 
 ### 2.2 `post_destination`
 
@@ -582,6 +582,26 @@ uploads, removing the Bluesky account.
   shared first-join check, Cancelled only where Announced posted); a planner step in
   `CalendarService`; the first-join posts and the cancel line move onto posts, the cancel line with
   `remove_at`; Announced texts editable per site (decision 8); the event's picture (decision 9).
+- **Live posts (2026-10-13)**: a "We're live" VRChat group post for a group instance, made by
+  `LivePostPass` (a pass every 30 seconds, `LivePostService`) once the group instance poll counts
+  somebody in it. Kind `instance_live`, `external_key` the instance's id, so the unique index above
+  makes it once per instance across passes, restarts and copies; only a unique violation on that
+  index is read as "already made", any other save error is thrown.
+  - **Setting** (Settings, Posts, Live posts; `LivePostScope`, `LivePostAuto`, `LivePostFrom` on
+    `settings`): *Off* (the start), *Calendar events* (an instance Modbot opened for an event, or one
+    in the world of an event that is on, from an hour before its date), *Any group instance*, or
+    *Opened from Modbot* (a calendar opening or Open now). Turning it on from off sets
+    `LivePostFrom`; only instances first seen after that, and no more than two hours ago, get a post.
+  - **Draft or auto**: by default the post is a draft in Marketing (VRChat group place, notify off,
+    text "{name} has started." and the join link). With *Post without a draft* it is scheduled to go
+    at once and nobody is told.
+  - **Who is told** (draft only): one `modbot.live-post.draft` notification through `INotifier`,
+    with a link to `/marketing/drafts?post=<id>` (and the public address in the message when set).
+    The audience is the event's invite host, else the person who pressed Open now, if they can
+    manage posts; otherwise everyone who holds Manage posts, by their own notification preferences.
+  - **The per-event box stays**: an event with *Announce in VRChat when the first person joins*
+    keeps posting through `CalendarFirstJoinVRChatPost`, unchanged; the pass skips an instance Modbot
+    opened for such an event so it is not said twice.
 
 ## 9. Not checked
 
