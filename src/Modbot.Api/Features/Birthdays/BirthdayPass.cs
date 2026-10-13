@@ -135,7 +135,7 @@ public sealed class BirthdayPass
 
         if (members.Count == 0)
         {
-            await KeepProblemAsync(settings.Id, null, ct).ConfigureAwait(false);
+            await KeepProblemAsync(settings.Id, problems.Count == 0 ? null : string.Join(" ", problems), ct).ConfigureAwait(false);
             return false;
         }
 
