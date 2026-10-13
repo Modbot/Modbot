@@ -30,7 +30,7 @@ const report = (over: Partial<MemberReportView> = {}): MemberReportView => ({
   state: 'open',
   createdAt: '2026-10-07T10:05:00Z',
   reporter: { discordId: '111', name: 'Reporter' },
-  about: { discordId: '222', name: 'Reported', vrchatUserId: null },
+  about: { discordId: '222', name: 'Reported', vrChatUserId: null },
   text: 'They were rude.',
   message: null,
   textRemovedAt: null,
@@ -58,8 +58,8 @@ test('the Open tab carries a count only once the list has been read', () => {
 })
 
 test('a report about somebody linked to VRChat opens their VRChat profile, else their Discord one', () => {
-  assert.deepEqual(aboutSubject({ discordId: '222', name: 'A', vrchatUserId: 'usr_x' }), { kind: 'person', id: 'usr_x' })
-  assert.deepEqual(aboutSubject({ discordId: '222', name: 'A', vrchatUserId: null }), { kind: 'discord-person', id: '222' })
+  assert.deepEqual(aboutSubject({ discordId: '222', name: 'A', vrChatUserId: 'usr_x' }), { kind: 'person', id: 'usr_x' })
+  assert.deepEqual(aboutSubject({ discordId: '222', name: 'A', vrChatUserId: null }), { kind: 'discord-person', id: '222' })
   assert.deepEqual(aboutSubject({ discordId: '222', name: 'A' }), { kind: 'discord-person', id: '222' })
 })
 

@@ -7,8 +7,8 @@ export const CLOSE_NOTE_MAX = 2000
 
 /** The popup a person opens: their VRChat account when the Discord account was linked to one then. */
 export function aboutSubject(about: ReportPerson): { kind: 'person' | 'discord-person'; id: string } {
-  return about.vrchatUserId
-    ? { kind: 'person', id: about.vrchatUserId }
+  return about.vrChatUserId
+    ? { kind: 'person', id: about.vrChatUserId }
     : { kind: 'discord-person', id: about.discordId }
 }
 

@@ -255,7 +255,7 @@ function Pairs({
   onChanged: (next: DiscordSyncSettings) => void
   onProblem: (problem: string | null) => void
 }) {
-  const [vrchatRoleId, setVRChatRoleId] = useState('')
+  const [vrChatRoleId, setVRChatRoleId] = useState('')
   const [discordRoleId, setDiscordRoleId] = useState('')
   const [decides, setDecides] = useState('nobody')
   const [rank, setRank] = useState('')
@@ -294,12 +294,12 @@ function Pairs({
       <div className="flex max-w-lg flex-col gap-3">
         <Picker
           label="Group role"
-          value={vrchatRoleId}
+          value={vrChatRoleId}
           onChange={setVRChatRoleId}
           groups={groupRoles}
           current={
-            vrchatRoleId
-              ? { label: settings.groupRoles.find((r) => r.id === vrchatRoleId)?.name ?? vrchatRoleId, marks: [] }
+            vrChatRoleId
+              ? { label: settings.groupRoles.find((r) => r.id === vrChatRoleId)?.name ?? vrChatRoleId, marks: [] }
               : null
           }
           allowNone
@@ -321,9 +321,9 @@ function Pairs({
             type="button"
             size="sm"
             variant="outline"
-            disabled={busy || !vrchatRoleId || !discordRoleId}
+            disabled={busy || !vrChatRoleId || !discordRoleId}
             onClick={() => {
-              act(() => api.addRolePair({ vrchatRoleId, discordRoleId, decides, enabled: true, rank }))
+              act(() => api.addRolePair({ vrChatRoleId, discordRoleId, decides, enabled: true, rank }))
               setVRChatRoleId('')
               setDiscordRoleId('')
               setRank('')
@@ -346,7 +346,7 @@ function PairRow({
   pair: RolePair
   busy: boolean
   onSave: (body: {
-    vrchatRoleId: string
+    vrChatRoleId: string
     discordRoleId: string
     decides: string
     enabled: boolean
@@ -355,7 +355,7 @@ function PairRow({
   onDelete: () => void
 }) {
   const body = (changes: Partial<RolePair>) => ({
-    vrchatRoleId: pair.vrchatRoleId,
+    vrChatRoleId: pair.vrChatRoleId,
     discordRoleId: pair.discordRoleId,
     decides: changes.decides ?? pair.decides,
     enabled: changes.enabled ?? pair.enabled,
@@ -365,7 +365,7 @@ function PairRow({
   return (
     <li className="flex flex-wrap items-center gap-3 border-b border-b-(length:--hairline) py-2 last:border-0">
       <span className="min-w-0 flex-1 truncate" style={{ fontSize: 'var(--text-small)' }}>
-        {pair.vrchatRoleName ?? pair.vrchatRoleId} → {pair.discordRoleName ?? pair.discordRoleId}
+        {pair.vrChatRoleName ?? pair.vrChatRoleId} → {pair.discordRoleName ?? pair.discordRoleId}
       </span>
 
       <Input
@@ -440,9 +440,9 @@ function OutOfStepList({ outOfStep }: { outOfStep: OutOfStep }) {
           <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">
             {group.members.map((member, index) => (
               <li key={index} style={{ fontSize: 'var(--text-small)' }}>
-                {member.name ?? member.vrchatUserId ?? member.discordUserId ?? 'Somebody'} —{' '}
+                {member.name ?? member.vrChatUserId ?? member.discordUserId ?? 'Somebody'} —{' '}
                 {member.heldIn === 'vrchat'
-                  ? `${member.vrchatRoleName ?? 'the group role'} in the group, not in Discord`
+                  ? `${member.vrChatRoleName ?? 'the group role'} in the group, not in Discord`
                   : `${member.discordRoleName ?? 'the Discord role'} in Discord, not in the group`}
               </li>
             ))}
@@ -454,7 +454,7 @@ function OutOfStepList({ outOfStep }: { outOfStep: OutOfStep }) {
 }
 
 function line(change: PlannedChange): string {
-  const who = change.name ?? change.vrchatUserId ?? change.discordUserId ?? 'Somebody'
+  const who = change.name ?? change.vrChatUserId ?? change.discordUserId ?? 'Somebody'
   const where = change.platform === 'discord' ? 'Discord' : 'the group'
   const role = change.roleName ?? 'a paired role'
 

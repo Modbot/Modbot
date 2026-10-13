@@ -450,8 +450,8 @@ export type DiscordGate = {
 /** One VRChat group role paired with one Discord role (M5 §3). */
 export type RolePair = {
   id: string
-  vrchatRoleId: string
-  vrchatRoleName: string | null
+  vrChatRoleId: string
+  vrChatRoleName: string | null
   discordRoleId: string
   discordRoleName: string | null
   /** vrchat, discord or nobody. */
@@ -492,7 +492,7 @@ export type DiscordSyncSettingsInput = {
 }
 
 export type RolePairInput = {
-  vrchatRoleId: string
+  vrChatRoleId: string
   discordRoleId: string
   decides: string
   enabled: boolean
@@ -502,10 +502,10 @@ export type RolePairInput = {
 
 /** One linked person whose group role and Discord role disagree on one pair. */
 export type OutOfStepMember = {
-  vrchatUserId: string | null
+  vrChatUserId: string | null
   discordUserId: string | null
   name: string | null
-  vrchatRoleName: string | null
+  vrChatRoleName: string | null
   discordRoleName: string | null
   /** vrchat or discord: where they hold the role. */
   heldIn: string
@@ -586,7 +586,7 @@ export type PlannedChange = {
   what: string
   /** vrchat or discord. */
   platform: string
-  vrchatUserId: string | null
+  vrChatUserId: string | null
   discordUserId: string | null
   name: string | null
   roleName: string | null
@@ -3274,7 +3274,7 @@ export type ReportPerson = {
   discordId: string
   name: string | null
   /** For the reported person: the VRChat account linked to them then. */
-  vrchatUserId?: string | null
+  vrChatUserId?: string | null
 }
 
 /** The message a report was made from. Null for a report made with the slash command, or once retention removed it. */
