@@ -3984,6 +3984,43 @@ export type TwitchHealth = {
   limitedUntil: string | null
 }
 
+/** Settings → Spotlight as stored. */
+export type SpotlightSettings = {
+  /** Modbot makes a spotlight draft each week. */
+  on: boolean
+  /** 0 (Sunday) to 6. */
+  day: number
+  /** 0 to 23, in `timeZone`. */
+  hour: number
+  /** An IANA zone name; null is UTC. */
+  timeZone: string | null
+  /** `random` (Modbot picks) or `staff` (staff pick on the Marketing page). */
+  mode: 'random' | 'staff'
+  places: TwitchPostPlaces
+  /** The VRChat group's roles, for choosing who a VRChat post is for. */
+  vrChatRoles: { id: string; name: string }[]
+}
+
+/** What a save of Settings → Spotlight may carry. A field left out keeps what is stored. */
+export type SpotlightSettingsInput = {
+  on?: boolean
+  day?: number
+  hour?: number
+  /** Empty is UTC. */
+  timeZone?: string
+  mode?: 'random' | 'staff'
+  places?: TwitchPostPlaces
+}
+
+/** A spotlight draft waiting for staff to pick its member. */
+export type SpotlightPending = { id: string; week: string; postId: string }
+
+/** What the Marketing page's spotlight chooser shows. `pending` is null when no draft waits. */
+export type SpotlightView = {
+  pending: SpotlightPending | null
+  members: { id: string; name: string }[]
+}
+
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
 export type AiProviderOption = { id: string; label: string; endpoint: string; recommended: boolean }
 
@@ -5167,6 +5204,20 @@ export const api = {
     put<TwitchStream>(`/api/twitch/streams/${encodeURIComponent(streamId)}/event`, { eventId }),
 
   twitchHealth: () => request<TwitchHealth>('/api/twitch/health'),
+
+  // ── Spotlight ───────────────────────────────────────────────────────────────────────────
+
+  spotlightSettings: () => request<SpotlightSettings>('/api/settings/spotlight'),
+
+  /** A field left out keeps what is stored. */
+  setSpotlightSettings: (body: SpotlightSettingsInput) => put<SpotlightSettings>('/api/settings/spotlight', body),
+
+  /** The newest spotlight draft with no member yet, with the members who opted in. */
+  spotlight: () => request<SpotlightView>('/api/spotlight'),
+
+  /** Picks the member for a spotlight draft that has none and fills the draft with their card. */
+  pickSpotlightMember: (id: string, discordUserId: string) =>
+    post<SpotlightPending>(`/api/spotlight/${id}/member`, { discordUserId }),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

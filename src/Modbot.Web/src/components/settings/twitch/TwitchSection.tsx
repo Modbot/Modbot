@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ChannelPicker } from '@/components/discord/ChannelPicker'
-import { RolePicker } from '@/components/discord/RolePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SwitchBank } from '@/components/ui/switch-bank'
 import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError, type TwitchPostPlaces, type TwitchSettings } from '@/lib/api'
-import { useDiscordChannels } from '@/lib/discordLists'
 import { timeOfDay } from '@/lib/format'
 import { placesEqual, TWITCH_WORDS } from '@/lib/twitch'
-import { Checkbox, ConfirmButton, Fact, Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
+import { ConfirmButton, Fact, Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
+import { PostPlacesPicker } from '../PostPlacesPicker'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /**
@@ -199,7 +196,6 @@ function PostCard({ settings, onSaved }: { settings: TwitchSettings; onSaved: (n
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
-  const channels = useDiscordChannels()
 
   const changed =
     title !== settings.postTitle ||
@@ -207,26 +203,6 @@ function PostCard({ settings, onSaved }: { settings: TwitchSettings; onSaved: (n
     minutes.trim() !== String(settings.postAfterMinutes) ||
     hours.trim() !== String(settings.postEveryHours) ||
     !placesEqual(places, settings.places)
-
-  const setDiscord = (change: Partial<NonNullable<TwitchPostPlaces['discord']>>) =>
-    setPlaces((current) => ({
-      ...current,
-      discord: { channelId: null, roleId: null, publish: false, ...current.discord, ...change },
-    }))
-
-  const setVRChat = (change: Partial<NonNullable<TwitchPostPlaces['vrChat']>>) =>
-    setPlaces((current) => ({
-      ...current,
-      vrChat: { visibility: 'group', roleIds: null, notify: false, ...current.vrChat, ...change },
-    }))
-
-  const toggleRole = (id: string, on: boolean) => {
-    const held = places.vrChat?.roleIds ?? []
-    setVRChat({ roleIds: on ? [...held.filter((r) => r !== id), id] : held.filter((r) => r !== id) })
-  }
-
-  const announcement =
-    channels.data?.channels.find((c) => c.id === places.discord?.channelId)?.type === 'announcement'
 
   const save = () => {
     setBusy(true)
@@ -281,89 +257,7 @@ function PostCard({ settings, onSaved }: { settings: TwitchSettings; onSaved: (n
           <NumberField label="Hours between posts" value={hours} min={1} max={168} onChange={setHours} />
         </div>
 
-        <fieldset className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
-          <legend className="mb-1 text-muted-foreground">Where it goes</legend>
-
-          <Checkbox
-            checked={!!places.discord}
-            onChange={(on) =>
-              setPlaces((current) => ({ ...current, discord: on ? { channelId: null, roleId: null, publish: false } : null }))
-            }
-          >
-            Discord
-          </Checkbox>
-          {places.discord && (
-            <div className="flex flex-col gap-3 border-l-(length:--hairline) border-border pl-4">
-              <ChannelPicker
-                label="Channel"
-                value={places.discord.channelId ?? ''}
-                onChange={(id) => setDiscord({ channelId: id || null })}
-                needs={['viewChannel', 'sendMessages', 'readMessageHistory']}
-                allowNone={false}
-              />
-              <RolePicker
-                label="Mention role"
-                value={places.discord.roleId ?? ''}
-                onChange={(id) => setDiscord({ roleId: id || null })}
-                needsMention
-              />
-              {announcement && (
-                <Checkbox checked={places.discord.publish} onChange={(publish) => setDiscord({ publish })}>
-                  Publish to followers
-                </Checkbox>
-              )}
-            </div>
-          )}
-
-          <Checkbox
-            checked={!!places.vrChat}
-            onChange={(on) =>
-              setPlaces((current) => ({ ...current, vrChat: on ? { visibility: 'group', roleIds: null, notify: false } : null }))
-            }
-          >
-            VRChat
-          </Checkbox>
-          {places.vrChat && (
-            <div className="flex flex-col gap-3 border-l-(length:--hairline) border-border pl-4">
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Who sees it</span>
-                <SwitchBank
-                  value={places.vrChat.visibility}
-                  onChange={(visibility) => setVRChat({ visibility })}
-                  label="Who sees it"
-                  size="sm"
-                  options={[
-                    { value: 'group', label: 'Group' },
-                    { value: 'public', label: 'Everyone' },
-                  ]}
-                />
-              </div>
-              {places.vrChat.visibility === 'group' && settings.vrChatRoles.length > 0 && (
-                <fieldset className="flex flex-col gap-1.5">
-                  <legend className="mb-1 text-muted-foreground">Roles</legend>
-                  <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
-                    {settings.vrChatRoles.map((role) => (
-                      <Checkbox
-                        key={role.id}
-                        checked={(places.vrChat?.roleIds ?? []).includes(role.id)}
-                        onChange={(on) => toggleRole(role.id, on)}
-                      >
-                        {role.name}
-                      </Checkbox>
-                    ))}
-                  </div>
-                </fieldset>
-              )}
-              <Checkbox checked={places.vrChat.notify} onChange={(notify) => setVRChat({ notify })}>
-                Notify members
-              </Checkbox>
-            </div>
-          )}
-
-          <Checkbox checked={places.bluesky} onChange={(bluesky) => setPlaces((current) => ({ ...current, bluesky }))}>
-            Bluesky
-          </Checkbox>
-        </fieldset>
+        <PostPlacesPicker places={places} setPlaces={setPlaces} vrChatRoles={settings.vrChatRoles} />
       </div>
     </SettingsCard>
   )

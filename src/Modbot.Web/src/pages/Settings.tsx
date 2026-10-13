@@ -8,6 +8,7 @@ import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { GoogleCalendarSection } from '@/components/settings/google/GoogleCalendarSection'
 import { BlueskySection } from '@/components/settings/bluesky/BlueskySection'
+import { SpotlightSection } from '@/components/settings/SpotlightSection'
 import { TwitchSection } from '@/components/settings/twitch/TwitchSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { AutoModSection } from '@/components/settings/automod/AutoModSection'
@@ -46,6 +47,7 @@ const TABS = [
   { value: 'iam', label: 'People and roles', group: 'People', needs: ['ManageUsers', 'ManageRoles'] },
   { value: 'companions', label: 'Paired companions', group: 'People', needs: ['PairCompanion', 'ManageUsers'] },
   { value: 'profiles', label: 'Member profiles', group: 'People', needs: ['ManageSettings'] },
+  { value: 'spotlight', label: 'Spotlight', group: 'People', needs: ['ManageSettings'] },
   { value: 'purge', label: 'Purge a person', group: 'People', needs: ['Administrator'] },
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
@@ -274,6 +276,8 @@ function Panel({
       return <GoogleCalendarSection />
     case 'bluesky':
       return <BlueskySection />
+    case 'spotlight':
+      return <SpotlightSection />
     case 'twitch':
       return <TwitchSection />
     case 'posts':

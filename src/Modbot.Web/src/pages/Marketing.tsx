@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { PostComposer } from '@/components/marketing/PostComposer'
+import { SpotlightChooser } from '@/components/marketing/SpotlightChooser'
 import { Outcome } from '@/components/settings/fields'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -170,6 +171,8 @@ export function Marketing({ list, onList }: { list: MarketingPage; onList: (page
         <div className="flex-1" />
         {canManage && <Button onClick={newPost}>New post</Button>}
       </div>
+
+      {canManage && <SpotlightChooser version={version} onPicked={() => void load()} />}
 
       <Tabs
         value={tab}
