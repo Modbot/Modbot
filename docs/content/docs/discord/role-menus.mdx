@@ -1,0 +1,84 @@
+---
+title: Role menus
+description: Let members pick their own roles in Discord from a message the bot posts, with buttons or a list. Make a menu, post it, and update it later.
+---
+
+A role menu is a message the bot posts in one of your channels. Members press a button, or pick from a
+list, to get a role. Pressing again takes it back. Use it for roles such as pronouns, game
+groups or ping roles.
+
+Nothing is posted until you press **Post**.
+
+## Make a menu
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Role menus** card. Press **Add role menu**.
+
+| Setting | What it does |
+|---|---|
+| **Name** | What you call the menu on this page, and in the audit log. Members do not see it. |
+| **Channel** | Where the menu is posted. The bot needs to see the channel and send messages in it. Fixed once the menu is posted. |
+| **Message** | The words above the buttons or the list. |
+| **Style** | **Buttons** or **List**. See [Buttons or list](#buttons-or-list). |
+| **Pick one** | See [Pick one](#pick-one). |
+| **Roles** | Up to 25. Each has a **Role**, a **Label** and an optional **Emoji**. |
+
+The **Label** is what the button or the choice says. It starts as the role's name. The arrows on a row
+change its order. Press **Save**.
+
+## Buttons or list
+
+**Buttons** show one button for each role, in rows of five. A member presses a button to get the role,
+and presses it again to give it up.
+
+**List** shows one drop-down list with a choice for each role. A member opens it and picks the roles
+they want.
+
+## Pick one
+
+With **Pick one** on, getting a role takes away the other roles of that menu. A member holds at most
+one of them. The old role is only taken away after the new one went through, so a role the bot cannot
+give never costs a member the one they had.
+
+With it off, a member can hold any number of the menu's roles.
+
+## Post and update
+
+Saving only changes Modbot's copy. Members see nothing new until you press **Post**. This means you can
+build a menu over several visits without anyone seeing it half done.
+
+Once a menu is posted, the button reads **Update**. It rewrites the same message, so the buttons keep
+working. If you save a change and do not press **Update**, the menu is marked **Changed since posted**.
+
+If the message was deleted in Discord, **Update** posts it again.
+
+To move a menu to another channel, delete it and make a new one. **Delete** removes the message from
+Discord as well.
+
+## Roles that cannot be on a menu
+
+| Role | Why |
+|---|---|
+| Any role with Administrator, Manage Server, Manage Roles, Manage Channels, Manage Webhooks, Ban Members, Kick Members, Mention Everyone or Manage Messages | The same permissions the [permission watch](/discord/permission-watch) reports. Anybody could hand themselves a role that powerful. They are left out of the role list, and the server refuses them. |
+| `@everyone` | Everybody has it already. |
+| A role that belongs to a bot or an integration | Discord does not let the bot give it. |
+
+A role can gain one of those permissions after the menu was made. Pressing its button then does
+nothing but say the role is not given out from a menu. The menu does not need fixing for that to
+happen, but you should take the role off it.
+
+Taking a role away is never refused, so a member who holds a role the menu once gave out can always
+hand it back.
+
+## What the bot needs
+
+In **Server Settings → Roles**, the bot's role needs **Manage Roles**, and it must sit **above** every
+role on a menu. A role above the bot's own is marked **Bot cannot assign** in the role list. It stays
+pickable, because the fix is in Discord. A member who presses it is told the bot cannot give it.
+
+## In the audit log
+
+Each role given or taken is recorded as **Discord role given from a role menu** or **Discord role taken
+away from a role menu**, with the member and the menu.
