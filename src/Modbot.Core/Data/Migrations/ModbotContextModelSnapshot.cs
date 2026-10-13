@@ -8228,6 +8228,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_oauth_client_secret_encrypted");
 
+                    b.Property<string>("DiscordPermissionWatchChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_permission_watch_channel_id");
+
+                    b.Property<bool>("DiscordPermissionWatchRemoves")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_permission_watch_removes");
+
                     b.Property<bool>("DiscordPostsOn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
