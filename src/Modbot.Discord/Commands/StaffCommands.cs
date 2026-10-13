@@ -22,7 +22,12 @@ namespace Modbot.Discord.Commands;
 /// </param>
 /// <param name="Target">The VRChat account the command was about.</param>
 /// <param name="DiscordTarget">The Discord account the command was about.</param>
-public sealed record StaffCommandAnswer(DiscordReply Reply, string Outcome, string? Target = null, string? DiscordTarget = null);
+/// <param name="Replied">
+/// The command already sent its reply itself (<c>/ageverified</c>, which deletes the channel after
+/// answering), so the handler records it and sends nothing more.
+/// </param>
+public sealed record StaffCommandAnswer(
+    DiscordReply Reply, string Outcome, string? Target = null, string? DiscordTarget = null, bool Replied = false);
 
 /// <summary>
 /// <c>/note</c>, <c>/watch</c> and <c>/live</c>: the staff commands that are thin wrappers over what

@@ -996,6 +996,28 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Ok);
     }
 
+    /// <summary>Which category each channel the test knows about sits in. A channel not listed sits in none.</summary>
+    public Dictionary<string, string> ChannelCategories { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Channels deleted through <see cref="DeleteCategoryChannelAsync"/>: id, category, reason.</summary>
+    public List<(string ChannelId, string CategoryId, string Reason)> CategoryChannelsDeleted { get; } = [];
+
+    public string? DeleteCategoryChannelError { get; set; }
+
+    public Task<DiscordPostOutcome> DeleteCategoryChannelAsync(
+        string channelId, string categoryId, string reason, CancellationToken ct)
+    {
+        // The real gateway's rule: only a channel sitting directly in the category.
+        if (!ChannelCategories.TryGetValue(channelId, out var inside) || inside != categoryId)
+            return Task.FromResult(DiscordPostOutcome.Failed(DiscordPostOutcome.NotInCategory, permanent: true));
+
+        if (DeleteCategoryChannelError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error));
+
+        CategoryChannelsDeleted.Add((channelId, categoryId, reason));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
     public Task<bool?> TicketThreadExistsAsync(string threadId, CancellationToken ct) =>
         Task.FromResult<bool?>(ThreadExistsUnknown ? null : !GoneThreads.Contains(threadId));
 

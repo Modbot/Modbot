@@ -62,6 +62,7 @@ public sealed class DiscordCommandHandler
     private readonly ProfileCommand? _profile;
     private readonly FindCommand? _find;
     private readonly BirthdayCommand? _birthday;
+    private readonly AgeVerifiedCommand? _ageVerified;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -81,7 +82,8 @@ public sealed class DiscordCommandHandler
         ReportCommand? report = null,
         ProfileCommand? profile = null,
         FindCommand? find = null,
-        BirthdayCommand? birthday = null)
+        BirthdayCommand? birthday = null,
+        AgeVerifiedCommand? ageVerified = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -107,6 +109,7 @@ public sealed class DiscordCommandHandler
         _profile = profile;
         _find = find;
         _birthday = birthday;
+        _ageVerified = ageVerified;
     }
 
     /// <summary>
@@ -249,6 +252,21 @@ public sealed class DiscordCommandHandler
             var done = _gate is null
                 ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
                 : await _gate.RunAsync(call, user, gateway, ct).ConfigureAwait(false);
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
+        }
+        else if (call.CommandName == DiscordCommands.AgeVerified)
+        {
+            var done = _ageVerified is null
+                ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
+                : await _ageVerified.RunAsync(call, user, ct).ConfigureAwait(false);
+
+            // It deleted the channel after answering, so it has answered already: record, say no more.
+            if (done.Replied)
+            {
+                await RecordAsync(call, user, done.Outcome, done.Target, ct, done.DiscordTarget).ConfigureAwait(false);
+                return null;
+            }
 
             (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
         }

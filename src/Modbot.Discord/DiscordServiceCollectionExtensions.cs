@@ -158,6 +158,14 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<EventsCommand>();
         services.AddScoped<GateCommand>();
 
+        // /ageverified: the check itself is the API's (IAgeCheck); the roles and the ticket go through the bot's session.
+        services.AddScoped<AgeVerifiedCommand>();
+        services.AddSingleton<Core.Discord.IDiscordAgeActions>(
+            p => new AgeChecks.DiscordAgeActions(
+                () => p.GetRequiredService<DiscordBotService>().ReadyGateway,
+                p.GetRequiredService<IServiceScopeFactory>(),
+                p.GetRequiredService<Core.Time.IModbotClock>()));
+
         // /remindme counts its own tries too; its messages go out from the calendar's Discord loop.
         services.TryAddKeyedSingleton<MemberCommandLimits>(RemindMeCommand.LimitsKey);
         services.AddScoped<RemindMeCommand>();

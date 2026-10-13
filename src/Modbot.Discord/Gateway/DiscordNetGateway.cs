@@ -2887,6 +2887,9 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         public static readonly ChannelNeed TicketDelete =
             new("delete the ticket", "delete threads", "Manage Threads");
 
+        public static readonly ChannelNeed CategoryDelete =
+            new("delete the channel", "delete channels", "Manage Channels");
+
         public static readonly ChannelNeed Publish =
             new("publish the message on Discord", "publish in that channel", "View Channels, Read Message History and Send Messages");
     }

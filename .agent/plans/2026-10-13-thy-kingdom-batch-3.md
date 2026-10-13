@@ -31,6 +31,9 @@ No new VRChat endpoint, so no rate-limit question.
 User's answer (2026-10-13): a member with no linked account: `/verify` takes their VRChat profile link
 (required then) and gives both the Discord and the VRChat roles (A).
 
+Command names (user, 2026-10-13): the 18+ command is `/ageverified` (staff only, its own Commands-card switch,
+off by default) and the existing `/verify code:` becomes `/verifyaccount` (behaviour unchanged).
+
 ## Shared files (rebase carefully)
 
 | File | Steps |

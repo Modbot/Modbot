@@ -78,6 +78,15 @@ public static class DiscordCommands
     public const string Ban = "ban";
     public const string Kick = "kick";
     public const string Gate = "gate";
+
+    /// <summary>
+    /// <c>/ageverified</c>: the 18+ check, typed in a ticket. Staff only; it sets the flag, gives and
+    /// takes the roles the server chose, and may delete the ticket. Off until the operator turns it on.
+    /// </summary>
+    public const string AgeVerified = "ageverified";
+
+    /// <summary>How the 18+ check was done: one of <see cref="AgeCheckMethods"/>.</summary>
+    public const string AgeMethodOption = "method";
     public const string Events = "events";
     public const string RemindMe = "remindme";
 
@@ -347,6 +356,24 @@ public static class DiscordCommands
                 new DiscordSubcommand(GateLift, "Lift the hold", []),
             ]),
         new(
+            AgeVerified,
+            "Mark a member 18+ verified",
+            [
+                new DiscordCommandOption(MemberOption, "Who", DiscordOptionKind.Member, Required: true),
+                new DiscordCommandOption(
+                    AgeMethodOption,
+                    "How",
+                    DiscordOptionKind.Choice,
+                    Required: true,
+                    Choices:
+                    [
+                        new("Badge", AgeCheckMethods.Badge),
+                        new("Photo ID", AgeCheckMethods.Photo),
+                    ]),
+                new DiscordCommandOption(VRChatOption, "VRChat profile link", DiscordOptionKind.Text, Required: false),
+            ],
+            ShownTo: DiscordShownTo.Moderators),
+        new(
             Event,
             "Calendar events",
             [],
@@ -525,6 +552,7 @@ public static class DiscordCommands
         Ban => ModbotPermissions.Ban,
         Kick => ModbotPermissions.Kick,
         Gate => ModbotPermissions.ManageJoinGate,
+        AgeVerified => ModbotPermissions.EditAgeVerification,
         Event => ModbotPermissions.ManageCalendar,
 
         // The lowest a step of /post needs: reading the list. RequiresFor names the step's own.
@@ -573,7 +601,7 @@ public static class DiscordCommands
     /// <c>/post</c> count as writing, which is the safe way for a list of what somebody may use.
     /// </summary>
     public static bool Writes(string command, string? subcommand = null)
-        => command is Note or Watch or Ban or Kick or Event
+        => command is Note or Watch or Ban or Kick or Event or AgeVerified
             || (command == Gate && subcommand != GateWaiting)
             || (command == Post && subcommand != PostList);
 
@@ -589,6 +617,7 @@ public static class DiscordCommands
         ModbotPermissions.DiscordBan => "Ban on Discord",
         ModbotPermissions.DiscordKick => "Remove from Discord",
         ModbotPermissions.ManageJoinGate => "Manage the join gate",
+        ModbotPermissions.EditAgeVerification => "Edit 18+ verified",
         ModbotPermissions.ViewMembers => "See members",
         ModbotPermissions.ManageCalendar => "Manage calendar",
         ModbotPermissions.ViewCalendar => "See calendar",

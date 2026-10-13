@@ -8287,6 +8287,28 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AgeCheckDeleteTicket")
+                        .HasColumnType("boolean")
+                        .HasColumnName("age_check_delete_ticket");
+
+                    b.PrimitiveCollection<string>("AgeCheckGiveRoleIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("age_check_give_role_ids");
+
+                    b.Property<string>("AgeCheckGroupRoleId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("age_check_group_role_id");
+
+                    b.PrimitiveCollection<string>("AgeCheckRemoveRoleIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("age_check_remove_role_ids");
+
+                    b.Property<string>("AgeCheckTicketCategoryId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("age_check_ticket_category_id");
+
                     b.Property<DateTimeOffset?>("AiAcknowledgedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ai_acknowledged_at");

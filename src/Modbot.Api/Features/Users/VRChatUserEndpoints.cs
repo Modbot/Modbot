@@ -173,7 +173,7 @@ public static class VRChatUserEndpoints
                 if (ModbotAuth.UserIdOf(http.User) is not { } actor)
                     return Results.Forbid();
 
-                await profiles.SetAgeFlagAsync(id, body.Verified, actor, body.Reason, ct);
+                await profiles.SetAgeFlagAsync(id, body.Verified, actor, body.Reason, ct: ct);
 
                 return Results.Ok(await ProfileAsync(id, db, clock, gate, queue, options, ct));
             })
@@ -187,6 +187,50 @@ public static class VRChatUserEndpoints
                 + "carrying the reason given. Setting it again to the value it already has changes "
                 + "nothing and records nothing.")
             .Produces<VRChatUserProfile>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapPost("/age-check", async (
+                HttpContext http,
+                [FromQuery] string id,
+                [FromBody] AgeCheckRequestBody body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] IVRChatGate gate,
+                [FromServices] IAgeCheck check,
+                [FromServices] UserRefreshQueue? queue,
+                [FromServices] UserProfileSyncOptions? options,
+                CancellationToken ct) =>
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                    return Results.BadRequest(new { error = "id is required." });
+
+                if (!AgeCheckMethods.IsKnown(body?.Method))
+                    return Results.BadRequest(new { error = "Pick badge or photo ID." });
+
+                if (ModbotAuth.UserIdOf(http.User) is not { } actor)
+                    return Results.Forbid();
+
+                var answer = await check.RunAsync(new AgeCheckRequest(actor, body!.Method, null, id), ct);
+
+                if (!answer.Done)
+                    return Results.BadRequest(new { error = answer.Text, lines = answer.Lines });
+
+                return Results.Ok(new AgeCheckResult(
+                    await ProfileAsync(id, db, clock, gate, queue, options, ct),
+                    answer.Lines));
+            })
+            .RequiresFlag(ModbotPermissions.EditAgeVerification)
+            .WithName("RunVRChatUserAgeCheck")
+            .WithSummary("Run the 18+ check")
+            .WithDescription(
+                "The 18+ check, as `/ageverified` does it in a ticket: sets the flag, gives and takes the "
+                + "roles the server chose (the Discord ones go to whoever is linked to this VRChat "
+                + "account), and logs the method, the date and the checker, nothing else. `method` is "
+                + "`badge` or `photo`. A role that could not be changed is a line in `lines`; the "
+                + "flag stays set.")
+            .Accepts<AgeCheckRequestBody>("application/json")
+            .Produces<AgeCheckResult>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 

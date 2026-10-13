@@ -112,3 +112,11 @@ public sealed record RefreshRequestResult(string Outcome, DateTimeOffset? LastRe
 /// <param name="Verified">The value to set. Clearing is the decision that needs a reason most.</param>
 /// <param name="Reason">Optional, kept with the fact in the moderator's own words.</param>
 public sealed record SetAgeVerifiedRequest(bool Verified, string? Reason = null);
+
+/// <param name="Method">How the check was done: <c>badge</c> or <c>photo</c>.</param>
+public sealed record AgeCheckRequestBody(string Method);
+
+/// <summary>What the 18+ check came to, from a profile.</summary>
+/// <param name="Profile">The profile as it is now.</param>
+/// <param name="Lines">One sentence each: the headline, then anything that could not be done.</param>
+public sealed record AgeCheckResult(VRChatUserProfile Profile, IReadOnlyList<string> Lines);

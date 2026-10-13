@@ -165,6 +165,8 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
+        services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
         services.TryAddSingleton<Core.Posts.IVRChatPostActions, Core.Posts.NoVRChatPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordMessageReactions, Core.Discord.NoDiscordMessageReactions>();
 
@@ -572,6 +574,7 @@ public static class ApiSurface
 
         // The daily birthday post and the birthday role.
         app.MapDiscordBirthdaySettings();
+        app.MapAgeCheckSettings();
 
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();

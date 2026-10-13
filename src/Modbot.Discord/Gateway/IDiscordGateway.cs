@@ -526,6 +526,9 @@ public sealed class DiscordCommandCall
     /// <summary>The subcommand that was run, or null for a command with none.</summary>
     public string? Subcommand { get; init; }
 
+    /// <summary>The channel or thread the command was run in, when Discord said.</summary>
+    public string? ChannelId { get; init; }
+
     /// <summary>A slash command, or one of the right-click menus.</summary>
     public DiscordCommandKind Kind { get; init; } = DiscordCommandKind.Slash;
 
@@ -714,6 +717,9 @@ public sealed record DiscordPostOutcome(
     bool NotFound = false,
     bool Unclear = false)
 {
+    /// <summary>What <see cref="IDiscordGateway.DeleteCategoryChannelAsync"/> answers for a channel it will not delete.</summary>
+    public const string NotInCategory = "That channel is not inside the chosen category, so Modbot will not delete it.";
+
     public static DiscordPostOutcome Ok { get; } = new(true, null, false);
 
     public static DiscordPostOutcome Posted(string messageId) => new(true, null, false, messageId);
@@ -1541,6 +1547,13 @@ public interface IDiscordGateway : IAsyncDisposable
     /// with <see cref="DiscordPostOutcome.NotFound"/>. Needs Manage Threads.
     /// </summary>
     Task<DiscordPostOutcome> DeleteTicketThreadAsync(string threadId, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes a channel, but only one that sits directly inside the category: never a thread, a
+    /// category, or a channel anywhere else (those come back as a permanent failure with
+    /// <see cref="DiscordPostOutcome.NotInCategory"/>). Needs Manage Channels.
+    /// </summary>
+    Task<DiscordPostOutcome> DeleteCategoryChannelAsync(string channelId, string categoryId, string reason, CancellationToken ct);
 
     /// <summary>Whether a thread is still there: true or false when Discord said, null when it could not be asked.</summary>
     Task<bool?> TicketThreadExistsAsync(string threadId, CancellationToken ct);

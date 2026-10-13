@@ -256,7 +256,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         AgeFlagChange change;
         await using (var context = Database.NewContext())
-            change = await ProfilesFor(context).SetAgeFlagAsync("usr_a", verified: false, moderator, "Wrong person", Ct);
+            change = await ProfilesFor(context).SetAgeFlagAsync("usr_a", verified: false, moderator, "Wrong person", ct: Ct);
 
         Assert.Equal(AgeFlagChange.Cleared, change);
 
@@ -295,7 +295,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         AgeFlagChange change;
         await using (var context = Database.NewContext())
-            change = await ProfilesFor(context).SetAgeFlagAsync("usr_new", verified: true, moderator, null, Ct);
+            change = await ProfilesFor(context).SetAgeFlagAsync("usr_new", verified: true, moderator, null, ct: Ct);
 
         Assert.Equal(AgeFlagChange.Set, change);
 
@@ -308,7 +308,32 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         // Setting it again is not a second decision.
         await using (var context = Database.NewContext())
-            Assert.Equal(AgeFlagChange.Unchanged, await ProfilesFor(context).SetAgeFlagAsync("usr_new", true, moderator, null, Ct));
+            Assert.Equal(AgeFlagChange.Unchanged, await ProfilesFor(context).SetAgeFlagAsync("usr_new", true, moderator, null, ct: Ct));
+    }
+
+    [Fact]
+    public async Task AnAgeCheckWithAMethod_IsLogged_EvenWhenTheFlagWasAlreadySet_AndLeavesTheFlagAlone()
+    {
+        var first = Guid.NewGuid();
+        var checker = Guid.NewGuid();
+
+        await using (var context = Database.NewContext())
+            await ProfilesFor(context).SetAgeFlagAsync("usr_new", verified: true, first, "By hand", ct: Ct);
+
+        AgeFlagChange change;
+        await using (var context = Database.NewContext())
+            change = await ProfilesFor(context).SetAgeFlagAsync("usr_new", true, checker, null, "photo", Ct);
+
+        // The flag was set already, so it is not set again...
+        Assert.Equal(AgeFlagChange.Unchanged, change);
+
+        var row = await UserRowAsync("usr_new");
+        Assert.Equal(first, row!.Is18PlusVerifiedByUserId);
+
+        // ...but the check itself is logged, with its method and its checker.
+        var facts = (await FactsAsync()).Where(f => f.Type == FactType.UserAgeFlagSet).ToList();
+        Assert.Equal(2, facts.Count);
+        Assert.Contains(facts, f => f.ActorId == checker.ToString() && f.Data.Contains("\"photo\"", StringComparison.Ordinal));
     }
 
     // ── Order ───────────────────────────────────────────────────────────────────────────────

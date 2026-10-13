@@ -132,6 +132,36 @@ public sealed partial class DiscordNetGateway
             return DiscordPostOutcome.Ok;
         });
 
+    public Task<DiscordPostOutcome> DeleteCategoryChannelAsync(
+        string channelId, string categoryId, string reason, CancellationToken ct)
+        => InChannelAsync(channelId, ChannelNeed.CategoryDelete, async channel =>
+        {
+            // Only a plain channel directly under the category. A thread has no category of its own,
+            // and a category is not "inside" itself.
+            if (channel is IThreadChannel
+                || channel is ICategoryChannel
+                || channel is not INestedChannel nested
+                || channel is not IGuildChannel guildChannel
+                || ParseId(categoryId) is not { } category
+                || nested.CategoryId != category)
+            {
+                return DiscordPostOutcome.Failed(DiscordPostOutcome.NotInCategory, permanent: true);
+            }
+
+            // Read from the cache when the channel is there; otherwise Discord's own 403 says so.
+            if (_client.GetChannel(guildChannel.Id) is SocketGuildChannel cached
+                && cached.Guild.CurrentUser is { } me
+                && !me.GetPermissions(cached).ManageChannel)
+            {
+                return DiscordPostOutcome.Failed(
+                    $"Could not {ChannelNeed.CategoryDelete.Failed}: the bot may not {ChannelNeed.CategoryDelete.Doing}; give the bot's role {ChannelNeed.CategoryDelete.Gives} in that channel's Permissions in Discord.",
+                    permanent: true);
+            }
+
+            await guildChannel.DeleteAsync(new RequestOptions { AuditLogReason = reason, CancelToken = ct }).ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        });
+
     public async Task<bool?> TicketThreadExistsAsync(string threadId, CancellationToken ct)
     {
         if (ParseId(threadId) is not { } id)

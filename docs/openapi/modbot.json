@@ -13824,6 +13824,124 @@
         ]
       }
     },
+    "/api/settings/age-check": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get 18+ check settings",
+        "description": "The Discord roles the 18+ check gives and takes away, the VRChat group role it gives, whether it deletes the ticket and the category whose channels it may delete. `groupRoles` lists the group's roles for the picker.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetAgeCheckSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgeCheckSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update 18+ check settings",
+        "description": "Change the Discord roles the 18+ check gives (`giveRoleIds`) and takes away (`removeRoleIds`), the VRChat group role it gives (`groupRoleId`, empty for none), whether it deletes the ticket (`deleteTicket`) and the category whose channels it may delete (`ticketCategoryId`, empty for none). A role that holds a dangerous permission cannot be given; a role cannot be in both lists; the Linked and 18+ roles cannot be taken away. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetAgeCheckSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgeCheckSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgeCheckSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-commands": {
       "get": {
         "tags": [
@@ -19524,6 +19642,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VRChatUserProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/vrchat-users/age-check": {
+      "post": {
+        "tags": [
+          "VRChat users"
+        ],
+        "summary": "Run the 18+ check",
+        "description": "The 18+ check, as `/ageverified` does it in a ticket: sets the flag, gives and takes the roles the server chose (the Discord ones go to whoever is linked to this VRChat account), and logs the method, the date and the checker, nothing else. `method` is `badge` or `photo`. A role that could not be changed is a line in `lines`; the flag stays set.\n\nNeeds the `EditAgeVerification` permission.",
+        "operationId": "RunVRChatUserAgeCheck",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgeCheckRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgeCheckResult"
                 }
               }
             }
@@ -36039,6 +36237,137 @@
           "instances": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "AgeCheckGroupRole": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AgeCheckRequestBody": {
+        "required": [
+          "method"
+        ],
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          }
+        }
+      },
+      "AgeCheckResult": {
+        "required": [
+          "profile",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/VRChatUserProfile"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AgeCheckSettingsResponse": {
+        "required": [
+          "giveRoleIds",
+          "removeRoleIds",
+          "groupRoleId",
+          "deleteTicket",
+          "ticketCategoryId",
+          "groupRoles"
+        ],
+        "type": "object",
+        "properties": {
+          "giveRoleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeRoleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deleteTicket": {
+            "type": "boolean"
+          },
+          "ticketCategoryId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgeCheckGroupRole"
+            }
+          }
+        }
+      },
+      "AgeCheckSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "giveRoleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeRoleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deleteTicket": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "ticketCategoryId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

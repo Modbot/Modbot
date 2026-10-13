@@ -78,6 +78,7 @@ public sealed partial class DiscordNetGateway
             (form, _) => answer.ShowFormAsync(form))
         {
             Subcommand = subcommand,
+            ChannelId = command.ChannelId is { } channelId ? Text(channelId) : null,
         };
 
         var handler = CommandReceived;

@@ -27,13 +27,11 @@ public static class AgeCheckMethods
 /// A VRChat profile link or user id. Needed when the Discord member has no linked VRChat account;
 /// ignored in favour of the link when they have one (a different one is refused).
 /// </param>
-/// <param name="ChannelId">The channel the check was typed in; the ticket to delete, if that is switched on.</param>
 public sealed record AgeCheckRequest(
     Guid CheckerId,
     string Method,
     string? DiscordUserId,
-    string? VRChatUser,
-    string? ChannelId = null);
+    string? VRChatUser);
 
 /// <summary>What an 18+ check came to.</summary>
 /// <param name="Done">
@@ -50,8 +48,9 @@ public sealed record AgeCheckAnswer(bool Done, IReadOnlyList<string> Lines)
 
 /// <summary>
 /// The 18+ check: set the flag, give and take the roles the server chose, log method, date and
-/// checker, and delete the ticket if that is switched on. The API implements it; <c>/ageverified</c>
-/// in Discord and the profile button both call it, so they do the same thing.
+/// checker. The API implements it; <c>/ageverified</c> in Discord and the profile button both call
+/// it, so they do the same thing. Deleting the ticket is not part of it: only the command has one,
+/// and it deletes it after the reply is sent.
 /// </summary>
 public interface IAgeCheck
 {
