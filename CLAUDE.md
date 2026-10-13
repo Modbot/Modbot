@@ -73,6 +73,7 @@ would spell that into a channel the app itself keeps behind a sign-in.
 | `docs/` | The documentation site (Next.js and Fumadocs), published at docs.modbot.co: end-user pages in `docs/content/docs/`, the API reference made from `docs/openapi/modbot.json`. See `docs/README.md`. |
 | `explore/` | Scratch tool for probing the live VRChat API. Not part of the product. |
 | `libs/`, `old/` | Gitignored reference clones. Never edit; never import from. |
+| `G:\brain\projects\modbot.md` | The owner's second brain: Modbot's history, decisions and the owner's preferences (also `people/`, `projects/thy-kingdom`). Rules in `~/.claude/rules/brain.md`. |
 
 ## Running the tests
 
