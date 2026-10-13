@@ -25,8 +25,9 @@ public enum CalendarSite
 /// Modbot's own pages, reminders and invites say the shared title.
 /// </para>
 /// <para>
-/// The words are returned with the event's automatic links filled in (<see cref="CalendarAutoLinks"/>),
+/// A description is returned with the event's automatic links filled in (<see cref="CalendarAutoLinks"/>),
 /// from <see cref="CalendarEvent.AutoLinks"/>: what a site is sent, and so what its fingerprint is of.
+/// A title never holds a link (it is shown as it is in many places), so it is returned as typed.
 /// <see cref="OwnTitle"/> and <see cref="OwnDescription"/> are the words as typed.
 /// </para>
 /// </remarks>
@@ -36,14 +37,21 @@ public static class CalendarSiteText
     public static string Title(CalendarEvent calendarEvent, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return CalendarAutoLinks.Fill(Own(OwnTitle(calendarEvent, site)) ?? calendarEvent.Title, calendarEvent.AutoLinks);
+        return Own(OwnTitle(calendarEvent, site)) ?? calendarEvent.Title;
     }
 
     /// <summary>The description <paramref name="site"/> shows for the event as a whole.</summary>
-    public static string Description(CalendarEvent calendarEvent, CalendarSite site)
+    public static string Description(CalendarEvent calendarEvent, CalendarSite site) =>
+        Description(calendarEvent, site, ofADate: false);
+
+    /// <summary>
+    /// The description <paramref name="site"/> shows, for the event as a whole or for one date held apart
+    /// (<paramref name="ofADate"/>): see <see cref="CalendarAutoLinks.For(CalendarEvent, CalendarSite, bool)"/>.
+    /// </summary>
+    public static string Description(CalendarEvent calendarEvent, CalendarSite site, bool ofADate)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return CalendarAutoLinks.Fill(Own(OwnDescription(calendarEvent, site)) ?? calendarEvent.Description, calendarEvent.AutoLinks);
+        return CalendarAutoLinks.Fill(Own(OwnDescription(calendarEvent, site)) ?? calendarEvent.Description, CalendarAutoLinks.For(calendarEvent, site, ofADate));
     }
 
     /// <summary>The site's own title, or null when it says the shared one.</summary>

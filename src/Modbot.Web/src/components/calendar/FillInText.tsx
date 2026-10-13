@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { autoLinkOf, cleanFillInName, fillInMarker, splitFillIns } from '@/lib/calendarFillIns'
+import { autoLinkOf, cleanFillInName, fillInMarker, splitFillIns, withoutLinks } from '@/lib/calendarFillIns'
 import { cn } from '@/lib/utils'
 
 const CHIP_ATTRIBUTE = 'data-fill-in'
@@ -21,11 +21,19 @@ function makeChip(name: string): HTMLElement {
   return chip
 }
 
-/** Draws the text into the box: each blank as a box carrying its name, each line break as a break. */
-function draw(box: HTMLElement, text: string) {
+/**
+ * Draws the text into the box: each blank as a box carrying its name, each line break as a break.
+ * Where links are not allowed (a title), a link's name is drawn as plain words.
+ */
+function draw(box: HTMLElement, text: string, links: boolean) {
   box.replaceChildren()
 
   for (const piece of splitFillIns(text)) {
+    if (piece.kind === 'link' && !links) {
+      box.append(document.createTextNode(piece.name))
+      continue
+    }
+
     if (piece.kind !== 'text') {
       box.append(makeChip(piece.name))
       continue
@@ -73,18 +81,23 @@ function text(box: HTMLElement): string {
  *
  * `onActive` hands the parent a function that puts a new box at the caret (or at the end when the
  * caret has not been in this field), called whenever the field is clicked into.
+ *
+ * `links` is false for a title: it draws no link boxes, takes none from the Links row (that function
+ * answers false), and a link name typed or pasted in stays plain words.
  */
 export function FillInText({
   value,
   onChange,
   label,
   multiline = false,
+  links = true,
   onActive,
 }: {
   value: string
   onChange: (value: string) => void
   label: string
   multiline?: boolean
+  links?: boolean
   onActive?: (insert: (name: string) => boolean) => void
 }) {
   const box = useRef<HTMLDivElement>(null)
@@ -93,10 +106,10 @@ export function FillInText({
 
   useEffect(() => {
     if (box.current && text(box.current) !== value) {
-      draw(box.current, value)
+      draw(box.current, value, links)
       caret.current = null
     }
-  }, [value])
+  }, [value, links])
 
   const remember = () => {
     const selection = window.getSelection()
@@ -110,6 +123,7 @@ export function FillInText({
     const field = box.current
     const clean = cleanFillInName(name)
     if (!field) return false
+    if (!links && autoLinkOf(clean)) return false
     if (clean === '') return true
 
     field.focus()
@@ -156,7 +170,24 @@ export function FillInText({
       }}
       onKeyUp={remember}
       onBlur={remember}
-      onInput={(e) => onChange(text(e.currentTarget))}
+      onInput={(e) => {
+        const typed = text(e.currentTarget)
+        const kept = links ? typed : withoutLinks(typed)
+
+        if (kept !== typed) {
+          // A link name typed or pasted into a title: the brackets go, the words stay.
+          draw(e.currentTarget, kept, links)
+          const selection = window.getSelection()
+          const end = document.createRange()
+          end.selectNodeContents(e.currentTarget)
+          end.collapse(false)
+          selection?.removeAllRanges()
+          selection?.addRange(end)
+          caret.current = null
+        }
+
+        onChange(kept)
+      }}
       onKeyDown={(e) => {
         if (e.key !== 'Enter') return
         e.preventDefault()

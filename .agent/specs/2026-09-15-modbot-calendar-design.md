@@ -1428,22 +1428,38 @@ fill themselves in (step 4) are not here.
   person, fills them. The server reads the same names in `CalendarAutoLinks` (Core); a person who adds
   a fill-in named like one gets the link.
 - **Where they show.** A Links row in the event form (both the template and the event editor) with one
-  button per link, putting it at the caret of the text last clicked into. Title, description and each
-  site's own text are `FillInText` boxes in both editors now, so a link is a box (grey, where a fill-in
-  is the accent colour) and never a code; the details popup and the template list draw them the same
-  way (`FillInShown`).
-- **Filling.** `CalendarAutoLinks.Fill(text, links)` runs on every text a site is sent:
-  `CalendarSiteText.Title`/`Description` (VRChat, Discord, Google), `CalendarRepeat.TitleOf`/
-  `DescriptionOf` (a date's own words too), the Google body's three description branches, and the
-  calendar feed entries (private and public). The addresses come from `CalendarEvent.AutoLinks`, a
+  button per link, putting it at the caret of the description last clicked into (the main description
+  when none was). **Descriptions only (decision 2026-10-13):** a title is shown raw in many places
+  (lists, month/week grids, schedule, reminders, invites, alerts, first-join posts, `/notify`), so a
+  title never holds a link. The title `FillInText` boxes take `links={false}`: they draw no link box,
+  the Links row skips them, and a link name typed or pasted there loses its brackets (`withoutLinks`) and
+  stays plain words. The server refuses it too (`CalendarAutoLinks.HasLink` in `ApplyAll` for the main
+  and the three site titles, and in `ApplyDate` for a date's own title), so a stored title holds no
+  link marker; `CalendarSiteText.Title` and `CalendarRepeat.TitleOf` do no link filling. A fill-in
+  (`{{Host}}`) stays allowed in a title: Use template replaces it before an event exists. Title and
+  description are `FillInText` boxes in both editors, so a link is a box (grey, where a fill-in is the
+  accent colour) and never a code; the details popup and the template list draw them the same way
+  (`FillInShown`).
+- **Filling.** `CalendarAutoLinks.Fill(text, links)` runs on every description a site is sent:
+  `CalendarSiteText.Description` (VRChat, Discord, Google), `CalendarRepeat.DescriptionOf` (a date's
+  own words too), the Google body's three description branches, and the calendar feed entries (private
+  and public). Which addresses a text gets is `CalendarAutoLinks.For(event, site, ofADate)`: **Discord's
+  own texts never hold the Discord event link** (it would link to itself, and a new date's Discord event
+  is made before its own address exists, `CalendarDiscordPublisher.SyncServerEventAsync`), and **a date
+  held apart** (a `CalendarDateChange`: the Google body's `DateFor`, VRChat's `DateFingerprint` and
+  `UpdateDate`, the feed's per-date entries) holds no Discord event address either. The addresses come from `CalendarEvent.AutoLinks`, a
   property that is not stored; a pass that sends texts sets it with `CalendarAutoLinks.ResolveAsync`
   (one read of the events' Google and Discord event places): the Google, Discord and VRChat
   publishers, the VRChat reader (so its "edit waiting to be sent" check fingerprints the same words),
   both feeds and the preview. Left null, every link is left out.
 - **Addresses.** Google event: the place's `GoogleLink` (Google's `htmlLink` from the insert answer),
-  once it is not Removed. Discord event: `https://discord.com/events/<guild>/<id>` of the Discord event
-  place whose `OccurrenceStartsAt` is the date the event is about now (a repeating event's link moves
-  to the next date's event; the old one is being ended). Add our Google calendar: Google's add link for
+  once it is not Removed. Discord event: `https://discord.com/events/<guild>/<id>` of the event's Discord
+  event place that has an `ExternalId`, whichever date it was made for (decision 2026-10-13: on a
+  repeating event the link is the current date's Discord event, and until Discord has ended the old
+  one and made the new one in its pass, the last known address stays, so VRChat and Google never see a
+  gap and each gets exactly one update per date). If Discord ended the old event and could not make
+  the new one yet, the place has no id and the link is left out until it can: the one case that sends
+  an update without it. Add our Google calendar: Google's add link for
   the calendar in Settings, only while Check found it public (`GooglePublic` is `all`). VRChat group
   page: `https://vrchat.com/home/group/<ManagedGroupId>`. The fixed links (a vrc.group address, the
   group's instances) stay typed text, as agreed.
@@ -1454,8 +1470,15 @@ fill themselves in (step 4) are not here.
   sends no per-event link and the next pass, which sees the address, finds a different fingerprint and
   sends the text again by the ordinary update path: one update on each site whose text holds the link
   (VRChat's update is the existing PATCH, no new endpoint). A repeating event's Discord address
-  changes with its date, so a text that holds it is updated once per date. No retry is added; a 429
-  stops sending as always.
+  changes with its date, so the series text that holds it is updated once per date on each site.
+  A date held apart is sent when it is edited and not again when the address moves, because its
+  fingerprint is of text without the Discord address; the other three links in it are stable (the
+  Google event address once known, the calendar and group links from settings). No retry is added;
+  a 429 stops sending as always.
+- **Add our Google calendar.** It is filled only while `Settings.GooglePublic` is `all`. A manual
+  Check that cannot tell (`Found.Public` is null: the sharing list failed or the Check was refused)
+  keeps the last known value (`GoogleCalendarSettingsEndpoints.PublicAfterCheck`), so the link does
+  not flip off and bulk-update every event. A new key or calendar still clears it before any Check.
 - **Limits.** The counters in the form count the stored text, where a link is its name; the address
   sent is longer, and VRChat or Discord may cut or refuse a text that ends up over their limit (the
   existing per-site checks and messages apply).

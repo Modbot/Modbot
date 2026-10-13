@@ -17,9 +17,10 @@ public class CalendarSiteTextRequestTests
         string? discordTitle = null,
         string? discordDescription = null,
         string? googleTitle = null,
-        string? googleDescription = null) =>
+        string? googleDescription = null,
+        string title = "Movie night") =>
         new(
-            "Movie night", description, "2026-10-01T20:00", "2026-10-01T22:00", "Europe/London",
+            title, description, "2026-10-01T20:00", "2026-10-01T22:00", "Europe/London",
             "none", [], null, null, "members", "us", null, null, "film_media",
             [], [], [], "group", false, true, false, false, null, false, 10, false,
             VRChatTitle: vrchatTitle, VRChatDescription: vrchatDescription,
@@ -59,6 +60,34 @@ public class CalendarSiteTextRequestTests
         Assert.Null(e.VRChatTitle);
         Assert.Equal("Discord", e.DiscordTitle);
         Assert.Equal("Google", e.GoogleTitle);
+    }
+
+    [Fact]
+    public void ATitleMayNotHoldALink_ButAFillInAndADescriptionMay()
+    {
+        var e = new CalendarEvent();
+
+        var problems = CalendarEndpoints.ApplyAll(
+            Request(
+                description: "More: {{Google event}}",
+                discordDescription: "Join: {{Discord event}}",
+                title: "Movie {{ google EVENT }}",
+                vrchatTitle: "VRChat {{VRChat group page}}",
+                discordTitle: "Discord {{Add our Google calendar}}",
+                googleTitle: "Google {{Discord event}}"),
+            e);
+
+        Assert.Equal(
+            [
+                "The title can't hold a link. Put links in the description.",
+                "The VRChat title can't hold a link. Put links in the description.",
+                "The Discord title can't hold a link. Put links in the description.",
+                "The Google title can't hold a link. Put links in the description.",
+            ],
+            problems);
+
+        // A fill-in stays allowed in a title: Use template replaces it before an event exists.
+        Assert.Empty(CalendarEndpoints.ApplyAll(Request(title: "Movie with {{Host}}", discordTitle: "{{Host}}"), new CalendarEvent()));
     }
 
     [Fact]

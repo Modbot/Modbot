@@ -12,7 +12,7 @@ namespace Modbot.Core.Calendar;
 /// and the VRChat group's page. A null address is one that does not exist (yet).
 /// </summary>
 /// <param name="GoogleEvent">The event on the Google calendar: known once Google has answered the first insert.</param>
-/// <param name="DiscordEvent">The event's Discord scheduled event, for the date it is about: known once Discord has made it.</param>
+/// <param name="DiscordEvent">The event's Discord scheduled event: the current date's once Discord has made it, the last one's until then.</param>
 /// <param name="AddGoogleCalendar">Google's "add this calendar" page for the server's public calendar.</param>
 /// <param name="VRChatGroupPage">The group's page on vrchat.com.</param>
 public sealed record CalendarLinks(string? GoogleEvent, string? DiscordEvent, string? AddGoogleCalendar, string? VRChatGroupPage)
@@ -61,7 +61,7 @@ public static partial class CalendarAutoLinks
     public static bool IsLink(string name) => Names.Any(n => Key(n) == Key(name));
 
     /// <summary>The links that exist for an event right now.</summary>
-    /// <param name="calendarEvent">The event; the date it is about picks the Discord event.</param>
+    /// <param name="calendarEvent">The event whose places are read.</param>
     /// <param name="settings">The server's settings: the Discord server, the Google calendar, the VRChat group.</param>
     /// <param name="places">The event's places, of which the Google and Discord event ones are read.</param>
     public static CalendarLinks For(CalendarEvent calendarEvent, Settings settings, IEnumerable<CalendarEventPlace> places)
@@ -81,10 +81,12 @@ public static partial class CalendarAutoLinks
             if (place.Place == CalendarPlaces.Google)
                 google = string.IsNullOrWhiteSpace(place.GoogleLink) ? null : place.GoogleLink;
 
-            // The Discord event of the date the event is about now: an earlier date's is being ended.
+            // The Discord event the event has right now, whichever date it was made for: when the date
+            // moves on, Discord ends that one and makes the next in a single pass, and until then the
+            // other sites keep the address they have, so each site is updated once per date -- with the
+            // new address -- and never once without it and again with it.
             if (place.Place == CalendarPlaces.DiscordEvent
                 && place.ExternalId is { Length: > 0 } id
-                && place.OccurrenceStartsAt == CalendarRepeat.Current(calendarEvent).PlannedStartsAt
                 && settings.DiscordGuildId?.Trim() is { Length: > 0 } guild)
             {
                 discord = $"https://discord.com/events/{Uri.EscapeDataString(guild)}/{Uri.EscapeDataString(id)}";
@@ -182,6 +184,32 @@ public static partial class CalendarAutoLinks
         }
 
         return string.Join('\n', kept);
+    }
+
+    /// <summary>
+    /// The event's links as <paramref name="site"/> is sent them (null: Modbot's own pages and feed), for
+    /// the event as a whole or for one date held apart (<paramref name="ofADate"/>). Discord's own texts leave the Discord event out
+    /// (it would link to itself, and a new date's event is made before its address exists). A date's
+    /// own texts leave it out too: they are sent to a site once and again only when they are edited,
+    /// so a Discord address in them would be wrong from the next date on, and putting it in would
+    /// send every such date again each time the date moves on.
+    /// </summary>
+    public static CalendarLinks? For(CalendarEvent calendarEvent, CalendarSite? site, bool ofADate = false)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.AutoLinks is { } links && (site == CalendarSite.Discord || ofADate)
+            ? links with { DiscordEvent = null }
+            : calendarEvent.AutoLinks;
+    }
+
+    /// <summary>Whether <paramref name="text"/> holds one of the four links. A title may not (links go in descriptions).</summary>
+    public static bool HasLink(string? text)
+    {
+        if (string.IsNullOrEmpty(text) || !text.Contains("{{", StringComparison.Ordinal))
+            return false;
+
+        return Marker().Matches(text).Any(m => IsLink(m.Groups["name"].Value));
     }
 
     private static string? AddressOf(string name, CalendarLinks? links)

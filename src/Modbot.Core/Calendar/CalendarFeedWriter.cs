@@ -247,7 +247,7 @@ public static class CalendarFeedWriter
         foreach (var change in calendarEvent.DateChanges.Where(c => !c.Cancelled && !CalendarDates.IsPlain(c, CalendarRepeat.LengthOf(calendarEvent))).OrderBy(c => c.PlannedStartsAt))
         {
             var occurrence = CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(calendarEvent));
-            var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence);
+            var description = CalendarRepeat.DescriptionOf(calendarEvent, occurrence, ofADate: true);
 
             Line(output, "BEGIN:VEVENT");
             Line(output, $"UID:{calendarEvent.Id:D}@modbot");
@@ -321,7 +321,7 @@ public static class CalendarFeedWriter
             location = worldNames.TryGetValue(worldId, out var name) && !string.IsNullOrWhiteSpace(name) ? name : worldId;
 
         return new CalendarFeedEntry(
-            CalendarAutoLinks.Fill(calendarEvent.Title, calendarEvent.AutoLinks),
+            calendarEvent.Title,
             string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : CalendarAutoLinks.Fill(calendarEvent.Description, calendarEvent.AutoLinks),
             location,
             Rule(calendarEvent, CalendarRepeat.ZoneOf(calendarEvent)));

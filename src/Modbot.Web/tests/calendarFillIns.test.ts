@@ -137,3 +137,9 @@ test('automatic links are not blanks to ask for, and stay in the text when a tem
 test('a link typed in other capitals is stored under its own spelling once filled in', () => {
   assert.equal(fillInText('{{add our google calendar}}', {}), '{{Add our Google calendar}}')
 })
+
+test('a link name in a title keeps its words and loses its brackets; a fill-in stays', () => {
+  assert.equal(withoutLinks('Movie {{ google EVENT }} with {{Host}}'), 'Movie Google event with {{Host}}')
+  assert.equal(withoutLinks('{{VRChat group page}}{{Discord event}}'), 'VRChat group pageDiscord event')
+  assert.equal(withoutLinks('Plain title'), 'Plain title')
+})

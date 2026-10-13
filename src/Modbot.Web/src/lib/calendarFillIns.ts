@@ -94,6 +94,15 @@ export function splitFillIns(text: string): Piece[] {
   return pieces
 }
 
+/**
+ * A text with each automatic link's brackets taken off, leaving its name as plain words. A title is
+ * shown as it is in many places and never holds a link, so a link name typed or pasted into one is
+ * kept as plain text.
+ */
+export function withoutLinks(text: string): string {
+  return text.replace(MARKER, (marker, name: string) => autoLinkOf(cleanFillInName(name)) ?? marker)
+}
+
 /** The distinct blanks in some texts, in the order first met, each by the spelling first met. */
 export function fillInsIn(texts: ReadonlyArray<string | null | undefined>): string[] {
   const seen = new Map<string, string>()

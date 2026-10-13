@@ -1604,6 +1604,9 @@ public static class CalendarEndpoints
         if (body.Title?.Trim() is { Length: > CalendarEvent.MaxTitleLength })
             return $"The title is longer than {CalendarEvent.MaxTitleLength} characters.";
 
+        if (CalendarAutoLinks.HasLink(body.Title))
+            return LinkInTitle("title");
+
         if (body.Description?.Trim() is { Length: > CalendarEvent.MaxDescriptionLength })
             return $"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.";
 
@@ -1702,6 +1705,11 @@ public static class CalendarEndpoints
         if (title.Length > CalendarEvent.MaxTitleLength)
             problems.Add($"The title is longer than {CalendarEvent.MaxTitleLength} characters.");
 
+        // Titles are shown as they are in many places (lists, reminders, posts), so they never hold a
+        // link: the Links row puts them in descriptions only.
+        if (CalendarAutoLinks.HasLink(title))
+            problems.Add(LinkInTitle("title"));
+
         var description = body.Description?.Trim() ?? string.Empty;
         if (description.Length > CalendarEvent.MaxDescriptionLength)
             problems.Add($"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.");
@@ -1713,6 +1721,12 @@ public static class CalendarEndpoints
         var discordDescription = OwnText(body.DiscordDescription, target.DiscordDescription, "Discord description", CalendarEvent.MaxDescriptionLength, problems);
         var googleTitle = OwnText(body.GoogleTitle, target.GoogleTitle, "Google title", CalendarEvent.MaxTitleLength, problems);
         var googleDescription = OwnText(body.GoogleDescription, target.GoogleDescription, "Google description", CalendarEvent.MaxDescriptionLength, problems);
+
+        foreach (var (what, ownTitle) in new[] { ("VRChat title", vrchatTitle), ("Discord title", discordTitle), ("Google title", googleTitle) })
+        {
+            if (CalendarAutoLinks.HasLink(ownTitle))
+                problems.Add(LinkInTitle(what));
+        }
 
         // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
         // never sent, so it may stay empty until it is published. VRChat's own description counts.
@@ -1950,6 +1964,8 @@ public static class CalendarEndpoints
     /// A site's own title or description: the trimmed text, null when it is blank (the site says the
     /// shared words), <paramref name="kept"/> when none was sent. Too long is a problem.
     /// </summary>
+    private static string LinkInTitle(string what) => $"The {what} can't hold a link. Put links in the description.";
+
     private static string? OwnText(string? sent, string? kept, string what, int max, List<string> problems)
     {
         if (sent is null)

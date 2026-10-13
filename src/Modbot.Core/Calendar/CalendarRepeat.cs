@@ -275,14 +275,17 @@ public static class CalendarRepeat
     public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return CalendarAutoLinks.Fill(occurrence.Change?.Title is { Length: > 0 } own ? own : calendarEvent.Title, calendarEvent.AutoLinks);
+        return occurrence.Change?.Title is { Length: > 0 } own ? own : calendarEvent.Title;
     }
 
-    /// <summary>The description a date goes out with: its own, or the event's.</summary>
-    public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence)
+    /// <summary>
+    /// The description a date goes out with: its own, or the event's. <paramref name="ofADate"/> is for a
+    /// date written apart from its series, which holds no Discord address (<see cref="CalendarAutoLinks.For"/>).
+    /// </summary>
+    public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, bool ofADate = false)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return CalendarAutoLinks.Fill(occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description, calendarEvent.AutoLinks);
+        return CalendarAutoLinks.Fill(occurrence.Change?.Description is { Length: > 0 } own ? own : calendarEvent.Description, CalendarAutoLinks.For(calendarEvent, null, ofADate));
     }
 
     /// <summary>
@@ -292,7 +295,7 @@ public static class CalendarRepeat
     public static string TitleOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Title is { Length: > 0 } own ? CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks) : CalendarSiteText.Title(calendarEvent, site);
+        return occurrence.Change?.Title is { Length: > 0 } own ? own : CalendarSiteText.Title(calendarEvent, site);
     }
 
     /// <summary>
@@ -302,7 +305,14 @@ public static class CalendarRepeat
     public static string DescriptionOf(CalendarEvent calendarEvent, CalendarOccurrence occurrence, CalendarSite site)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
-        return occurrence.Change?.Description is { Length: > 0 } own ? CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks) : CalendarSiteText.Description(calendarEvent, site);
+
+        // A date held apart is sent once and again only when it is edited, so it never holds the
+        // Discord event's address, which moves on with every date (CalendarAutoLinks.For).
+        var ofADate = occurrence.Change is not null;
+
+        return occurrence.Change?.Description is { Length: > 0 } own
+            ? CalendarAutoLinks.Fill(own, CalendarAutoLinks.For(calendarEvent, site, ofADate))
+            : CalendarSiteText.Description(calendarEvent, site, ofADate);
     }
 
     /// <summary>When an occurrence counts as open: its start, or earlier by the minutes its instance opens early.</summary>

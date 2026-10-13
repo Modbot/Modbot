@@ -117,19 +117,113 @@ public class CalendarAutoLinksTests
     }
 
     [Fact]
-    public void ARemovedPlaceOrAnotherDatesDiscordEventGivesNoAddress()
+    public void ARemovedPlaceGivesNoAddress()
     {
         var e = Event();
-        var another = Place(e, CalendarPlaces.DiscordEvent, "2");
-        another.OccurrenceStartsAt = Sep20.AddDays(-7);
 
         var links = CalendarAutoLinks.For(
             e,
             SettingsWith(),
-            [Place(e, CalendarPlaces.Google, "id1", "https://www.google.com/calendar/event?eid=abc", CalendarPlaceStates.Removed), another]);
+            [
+                Place(e, CalendarPlaces.Google, "id1", "https://www.google.com/calendar/event?eid=abc", CalendarPlaceStates.Removed),
+                Place(e, CalendarPlaces.DiscordEvent, "2", state: CalendarPlaceStates.Removed),
+            ]);
 
         Assert.Null(links.GoogleEvent);
         Assert.Null(links.DiscordEvent);
+    }
+
+    [Fact]
+    public void WhenTheDateMovesOnTheDiscordAddressStaysTheLastOneUntilTheNewEventExists()
+    {
+        // A weekly event whose Discord event is still the one made for the week before: the date has
+        // moved on but Discord has not yet ended that event and made the next. VRChat and Google must
+        // keep the address they have, not be sent a text without it and then another with the new one.
+        var e = CalendarRepeatTests.Event(Sep20, TimeSpan.FromHours(2), CalendarRepeats.Weekly, "UTC", null, "sunday");
+        e.OccurrenceStartsAt = Sep20.AddDays(7);
+
+        var old = Place(e, CalendarPlaces.DiscordEvent, "2");
+        old.OccurrenceStartsAt = Sep20;
+
+        var during = CalendarAutoLinks.For(e, SettingsWith(), [old]);
+        Assert.Equal("https://discord.com/events/1/2", during.DiscordEvent);
+
+        // Discord has made the new date's event: the address moves on, once.
+        old.ExternalId = "3";
+        old.OccurrenceStartsAt = Sep20.AddDays(7);
+
+        Assert.Equal("https://discord.com/events/1/3", CalendarAutoLinks.For(e, SettingsWith(), [old]).DiscordEvent);
+    }
+
+    [Fact]
+    public void DiscordsOwnTextsLeaveTheDiscordEventOut_TheOtherSitesKeepIt()
+    {
+        var e = Event();
+        e.Description = "Come: {{Discord event}}\nMore: {{Google event}}";
+        e.AutoLinks = All;
+
+        Assert.Equal("Come:\nMore: https://www.google.com/calendar/event?eid=abc", CalendarSiteText.Description(e, CalendarSite.Discord));
+        Assert.Equal("Come: https://discord.com/events/1/2\nMore: https://www.google.com/calendar/event?eid=abc", CalendarSiteText.Description(e, CalendarSite.VRChat));
+        Assert.Equal("Come: https://discord.com/events/1/2\nMore: https://www.google.com/calendar/event?eid=abc", CalendarSiteText.Description(e, CalendarSite.Google));
+
+        // A date's own description, on Discord, too.
+        var occurrence = new CalendarOccurrence(Sep20, Sep20.AddHours(2), Sep20, new CalendarDateChange { PlannedStartsAt = Sep20, Description = "Own: {{Discord event}}" });
+        Assert.Equal("Own:", CalendarRepeat.DescriptionOf(e, occurrence, CalendarSite.Discord));
+    }
+
+    [Fact]
+    public void ADateHeldApartHoldsNoDiscordAddress_SoItsFingerprintDoesNotMoveWhenTheDateDoes()
+    {
+        var e = CalendarRepeatTests.Event(Sep20, TimeSpan.FromHours(2), CalendarRepeats.Weekly, "UTC", null, "sunday");
+        e.Description = "Join: {{Discord event}} {{Google event}}";
+
+        var planned = Sep20.AddDays(14);
+        var change = new CalendarDateChange { PlannedStartsAt = planned, Description = "Own: {{Discord event}} {{Google event}}" };
+        var plain = new CalendarDateChange { PlannedStartsAt = planned.AddDays(7), StartsAt = planned.AddDays(7).AddHours(1) };
+
+        var google = new Dictionary<string, string>();
+        string Fingerprint(CalendarDateChange c) => CalendarGoogleBody.DateFor(e, c, google).Fingerprint;
+
+        e.AutoLinks = All with { DiscordEvent = "https://discord.com/events/1/2" };
+        var first = (Fingerprint(change), Fingerprint(plain));
+
+        // The date moves on: Discord has made the next date's event.
+        e.AutoLinks = All with { DiscordEvent = "https://discord.com/events/1/3" };
+        Assert.Equal(first, (Fingerprint(change), Fingerprint(plain)));
+
+        // The text is still sent, with the links that do not move.
+        var date = CalendarGoogleBody.DateFor(e, change, google);
+        Assert.Contains("https://www.google.com/calendar/event?eid=abc", date.Description, StringComparison.Ordinal);
+        Assert.DoesNotContain("discord.com", date.Description, StringComparison.Ordinal);
+
+        // The series as a whole does carry the address, so it is sent once per date.
+        e.AutoLinks = All with { DiscordEvent = "https://discord.com/events/1/2" };
+        var before = CalendarGoogleBody.For(e, google, "Group").Fingerprint("cal");
+        e.AutoLinks = All with { DiscordEvent = "https://discord.com/events/1/3" };
+        Assert.NotEqual(before, CalendarGoogleBody.For(e, google, "Group").Fingerprint("cal"));
+    }
+
+    [Fact]
+    public void TitlesNeverHoldALink_AndAreSentAsTyped()
+    {
+        var e = Event();
+        e.Title = "Movie {{Host}} {{Google event}}";
+        e.GoogleTitle = "Google {{Discord event}}";
+        e.AutoLinks = All;
+
+        Assert.Equal("Movie {{Host}} {{Google event}}", CalendarSiteText.Title(e, CalendarSite.VRChat));
+        Assert.Equal("Google {{Discord event}}", CalendarSiteText.Title(e, CalendarSite.Google));
+        Assert.Equal("Movie {{Host}} {{Google event}}", CalendarRepeat.TitleOf(e, CalendarRepeat.Current(e)));
+    }
+
+    [Fact]
+    public void HasLinkFindsALinkNameInAnyCapitalsOrSpacing_AndNotAFillIn()
+    {
+        Assert.True(CalendarAutoLinks.HasLink("Movie {{Google event}}"));
+        Assert.True(CalendarAutoLinks.HasLink("{{ vrchat  GROUP page }}"));
+        Assert.False(CalendarAutoLinks.HasLink("Movie {{Host}}"));
+        Assert.False(CalendarAutoLinks.HasLink("Google event"));
+        Assert.False(CalendarAutoLinks.HasLink(null));
     }
 
     [Fact]
@@ -164,7 +258,9 @@ public class CalendarAutoLinksTests
         Assert.Equal(
             "More: https://www.google.com/calendar/event?eid=abc\nJoin: https://vrchat.com/home/group/grp_1",
             CalendarSiteText.Description(e, CalendarSite.VRChat));
-        Assert.Equal("Chat: https://discord.com/events/1/2", CalendarSiteText.Description(e, CalendarSite.Discord));
+
+        // Discord's own text never links to itself.
+        Assert.Equal("Chat:", CalendarSiteText.Description(e, CalendarSite.Discord));
 
         // The words as typed are still the markers.
         Assert.Equal("Chat: {{Discord event}}", CalendarSiteText.OwnDescription(e, CalendarSite.Discord));

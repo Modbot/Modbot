@@ -233,6 +233,31 @@ public class GoogleCalendarSettingsTests
         Assert.Equal(JsonValueKind.Null, check.GetProperty("problem").ValueKind);
     }
 
+    /// <summary>
+    /// "Add our Google calendar" in event texts follows what Check found public. A Check that cannot
+    /// tell must keep the last known answer, or the link would go off and every event be sent again.
+    /// </summary>
+    [Fact]
+    public async Task ACheckThatCannotTellKeepsTheLastKnownPublicAnswer()
+    {
+        var (host, google, cookie) = await StartAsync();
+        await using var running = host;
+        var (keyFile, rsa) = FakeGoogle.KeyFile();
+        using var keyPair = rsa;
+        await SetUpAsync(host, cookie, keyFile);
+
+        var first = (await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct))).GetProperty("check");
+        Assert.Equal("all", first.GetProperty("public").GetString());
+
+        google.AclStatus = HttpStatusCode.Forbidden;
+        var second = (await OkAsync(await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, cookie, Ct))).GetProperty("check");
+
+        Assert.Equal("all", second.GetProperty("public").GetString());
+        Assert.Equal("all", GoogleCalendarSettingsEndpoints.PublicAfterCheck("all", null));
+        Assert.Equal("no", GoogleCalendarSettingsEndpoints.PublicAfterCheck("all", "no"));
+        Assert.Null(GoogleCalendarSettingsEndpoints.PublicAfterCheck(null, null));
+    }
+
     /// <summary>CLAUDE.md: never retry a 429. A limit stops every call, Check included, until it ends.</summary>
     [Fact]
     public async Task ALimitStopsEveryCallUntilItEnds()

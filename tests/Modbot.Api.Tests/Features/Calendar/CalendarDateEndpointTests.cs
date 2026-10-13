@@ -101,6 +101,35 @@ public class CalendarDateEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ADatesOwnTitleMayNotHoldALink_ButItsDescriptionMay()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var (id, dates) = await CreateAsync(host, manager, Body(host));
+
+        var second = At(dates[1], "plannedStartsAt");
+        var at = At(dates[1], "startsAt");
+
+        var refused = await host.SendJsonAsync(
+            HttpMethod.Put,
+            $"/api/calendar/events/{id}/dates",
+            new { plannedStartsAt = second, startsAt = at, endsAt = at.AddHours(2), title = "Special {{Google event}}", description = (string?)null },
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+
+        var allowed = await host.SendJsonAsync(
+            HttpMethod.Put,
+            $"/api/calendar/events/{id}/dates",
+            new { plannedStartsAt = second, startsAt = at, endsAt = at.AddHours(2), title = "Special", description = "More: {{Google event}}" },
+            manager,
+            Ct);
+
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+    }
+
+    [Fact]
     public async Task PuttingADateBackAsPlannedLeavesNothingOfItsOwn()
     {
         await using var host = await StartAsync();

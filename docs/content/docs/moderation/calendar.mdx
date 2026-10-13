@@ -1285,18 +1285,33 @@ There are four, each shown as a box with its name:
 | Link | What Modbot puts in its place |
 |---|---|
 | **Google event** | This event on the Google calendar. |
-| **Discord event** | This event's Discord event, for the date it is about. |
+| **Discord event** | This event's Discord event. On a repeating event it is the current date's event. |
 | **Add our Google calendar** | The page that adds the server's Google calendar, once Settings names a calendar that is public. |
 | **VRChat group page** | The group's page on vrchat.com, once a group is set up. |
 
 You never type these in when you use a template: Modbot fills them when the event is sent. They work in
-the title, the description and each site's own text, on every site and in the calendar feed. An event
-is not on Google or Discord until its first publish, so **Google event** and **Discord event** are left
-out of what is sent first; once the address is known the texts are sent again by themselves, the way
-an edit is. A link that cannot exist (no public Google calendar, no group) is left out the same way:
-Modbot also removes the spaces before it, and a line with nothing else on it, so no half-written
+descriptions only (the main description and each site's own description), not in titles: a title is
+shown as it is in lists, reminders and posts, so the Links row does not put a link in one, and a link
+name typed or pasted into a title stays plain words. A fill-in such as **Host** still works in a title.
+Links show on VRChat, Google and in the calendar feed. They are not put in Discord's own text, where
+the **Discord event** link would point at itself, so it is left out there.
+
+An event is not on Google or Discord until its first publish, so **Google event** and **Discord event**
+are left out of what is sent first; once the address is known the texts are sent again by themselves,
+the way an edit is. A link that cannot exist (no public Google calendar, no group) is left out the same
+way: Modbot also removes the spaces before it, and a line with nothing else on it, so no half-written
 sentence is sent. The link to a group's own invite page, or to its instances, is not automatic: type it
 into the text.
+
+On a repeating event, **Discord event** is the Discord event of the current date. Each time the date
+moves on, VRChat and Google are updated once, with the new address; until the new date's Discord event
+exists they keep the address they have, so there is no update without the link in between. A date
+you changed on its own (its own times or words) does not hold the Discord event's address, so it is
+not sent again every time the date moves on.
+
+**Add our Google calendar** follows the **Public** line from the last **Check** in Settings. A Check
+that cannot tell (Google would not list who the calendar is shared with) keeps the answer from before,
+so the link does not disappear and every event is not sent again.
 
 ### Use a template
 

@@ -134,6 +134,8 @@ export function CalendarEventForm({
   const [spareFillIns, setSpareFillIns] = useState<string[]>([])
   const [newFillIn, setNewFillIn] = useState('')
   const [putFillIn, setPutFillIn] = useState<{ insert: (name: string) => boolean } | null>(null)
+  // Where a link goes: the description last clicked into. A title never holds a link.
+  const [putLink, setPutLink] = useState<{ insert: (name: string) => boolean } | null>(null)
   const pictureThumbnails = usePictureThumbnails()
   // The VRChat picture being cropped or uploaded (§15.3). A crop not uploaded yet is uploaded by
   // Save or Schedule first; one on its way up holds the buttons, or the event would save without it.
@@ -355,6 +357,12 @@ export function CalendarEventForm({
   // A fill-in or a link goes where the caret last was; with no text clicked into yet, on the end of the title.
   // The field last clicked into may have gone (a site's own text ticked off): then the title.
   const putIn = (name: string) => {
+    if (autoLinkOf(name)) {
+      // Links go in descriptions only: the one last clicked into, else the end of the main one.
+      if (!putLink?.insert(name)) set('description', input.description + fillInMarker(name))
+      return
+    }
+
     if (!putFillIn?.insert(name)) set('title', input.title + fillInMarker(name))
   }
 
@@ -503,7 +511,13 @@ export function CalendarEventForm({
                   </div>
                 </Section>
                 <Counted label="Title" count={title}>
-                  <FillInText label="Title" value={input.title} onChange={(v) => set('title', v)} onActive={(insert) => setPutFillIn({ insert })} />
+                  <FillInText
+                    label="Title"
+                    links={false}
+                    value={input.title}
+                    onChange={(v) => set('title', v)}
+                    onActive={(insert) => setPutFillIn({ insert })}
+                  />
                 </Counted>
                 <Counted label="Description" count={description}>
                   <FillInText
@@ -511,10 +525,21 @@ export function CalendarEventForm({
                     label="Description"
                     value={input.description}
                     onChange={(v) => set('description', v)}
-                    onActive={(insert) => setPutFillIn({ insert })}
+                    onActive={(insert) => {
+                      setPutFillIn({ insert })
+                      setPutLink({ insert })
+                    }}
                   />
                 </Counted>
-                <OwnText input={input} set={set} onActive={(insert) => setPutFillIn({ insert })} />
+                <OwnText
+                  input={input}
+                  set={set}
+                  onActive={(insert) => setPutFillIn({ insert })}
+                  onActiveText={(insert) => {
+                    setPutFillIn({ insert })
+                    setPutLink({ insert })
+                  }}
+                />
 
                 {categoryChoices.length > 0 && (
                   <Section title="Categories">
@@ -860,11 +885,14 @@ function OwnText({
   input,
   set,
   onActive,
+  onActiveText,
 }: {
   input: CalendarEventInput
   set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
-  /** Hands the form the way to put a fill-in or a link into the text last clicked into. */
+  /** Hands the form the way to put a fill-in into the title last clicked into. */
   onActive: (insert: (name: string) => boolean) => void
+  /** Hands the form the way to put a fill-in or a link into the description last clicked into. */
+  onActiveText: (insert: (name: string) => boolean) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -894,6 +922,7 @@ function OwnText({
           <Counted label={`${site.label} title`} count={counted(input[site.title] ?? '', TITLE_LIMIT)}>
             <FillInText
               label={`${site.label} title`}
+              links={false}
               value={input[site.title] ?? ''}
               onChange={(v) => set(site.title, v)}
               onActive={onActive}
@@ -905,7 +934,7 @@ function OwnText({
               label={`${site.label} description`}
               value={input[site.description] ?? ''}
               onChange={(v) => set(site.description, v)}
-              onActive={onActive}
+              onActive={onActiveText}
             />
           </Counted>
         </div>

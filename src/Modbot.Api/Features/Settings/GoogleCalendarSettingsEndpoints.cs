@@ -312,10 +312,12 @@ public static class GoogleCalendarSettingsEndpoints
 
                 var found = await CheckAsync(settings, calendarId, protector, signIn, google, ct);
 
+                var isPublic = PublicAfterCheck(settings.GooglePublic, found.Public);
+
                 var change = new SettingsChange("googleCalendar")
                     .Field("checkedCalendarName", settings.GoogleCalendarName, found.Name)
                     .Field("checkedCanChangeEvents", settings.GoogleCanChange, found.CanChange)
-                    .Field("checkedPublic", settings.GooglePublic, found.Public)
+                    .Field("checkedPublic", settings.GooglePublic, isPublic)
                     .Field("checkedProblem", settings.GoogleProblem, found.Problem);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -324,7 +326,7 @@ public static class GoogleCalendarSettingsEndpoints
                 settings.GoogleCalendarName = found.Name;
                 settings.GoogleCalendarTimeZone = found.TimeZone;
                 settings.GoogleCanChange = found.CanChange;
-                settings.GooglePublic = found.Public;
+                settings.GooglePublic = isPublic;
                 settings.GoogleProblem = found.Problem;
 
                 if (found.Stop is { } stop)
@@ -488,6 +490,14 @@ public static class GoogleCalendarSettingsEndpoints
         // Modbot's role decides whether it can do its job, and the role came back.
         return new Found(info.Name, info.TimeZone, info.CanChangeEvents, shared.Value, problem);
     }
+
+    /// <summary>
+    /// What a Check leaves as "public": what it found, or the last known answer when it could not tell
+    /// (Google would not list the sharing, or the Check was refused). The "Add our Google calendar" link in
+    /// event texts follows this value, so a Check that could not tell must not turn it off and send
+    /// every event again. A new calendar clears it (<see cref="ClearCheck"/>) before any Check.
+    /// </summary>
+    public static string? PublicAfterCheck(string? known, string? found) => found ?? known;
 
     private static Found Refused(GoogleFailure failure) => new(
         Problem: GoogleErrors.Sentence(failure),

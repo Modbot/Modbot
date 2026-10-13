@@ -237,13 +237,17 @@ public sealed record CalendarGoogleBody(
     /// </summary>
     private static string? TextOf(CalendarEvent calendarEvent, CalendarOccurrence? occurrence)
     {
+        // One date of a series is sent apart from the series' own text and is not sent again when the
+        // Discord event moves on to the next date, so it holds no Discord address (CalendarAutoLinks.For).
+        var links = CalendarAutoLinks.For(calendarEvent, CalendarSite.Google, ofADate: occurrence is not null);
+
         if (occurrence?.Change?.Description is { Length: > 0 } date && !string.IsNullOrWhiteSpace(date))
-            return Escape(CalendarAutoLinks.Fill(date, calendarEvent.AutoLinks).Trim());
+            return Escape(CalendarAutoLinks.Fill(date, links).Trim());
 
         if (CalendarSiteText.OwnDescription(calendarEvent, CalendarSite.Google) is { } own)
-            return CalendarGoogleLinks.Html(CalendarAutoLinks.Fill(own, calendarEvent.AutoLinks).Trim());
+            return CalendarGoogleLinks.Html(CalendarAutoLinks.Fill(own, links).Trim());
 
-        return string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Escape(CalendarAutoLinks.Fill(calendarEvent.Description, calendarEvent.AutoLinks).Trim());
+        return string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Escape(CalendarAutoLinks.Fill(calendarEvent.Description, links).Trim());
     }
 
     /// <summary>
