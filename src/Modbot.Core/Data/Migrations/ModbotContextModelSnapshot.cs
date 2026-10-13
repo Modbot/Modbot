@@ -827,6 +827,75 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("api_key", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Appeal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CaseFileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_file_id");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decided_by_user_id");
+
+                    b.Property<string>("DecidedByUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("decided_by_username");
+
+                    b.Property<DateTimeOffset>("LoggedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logged_at");
+
+                    b.Property<Guid>("LoggedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("logged_by_user_id");
+
+                    b.Property<string>("LoggedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("logged_by_username");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateOnly>("ReceivedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("received_on");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_appeal");
+
+                    b.HasIndex("ReceivedOn")
+                        .HasDatabaseName("ix_appeal_received_on");
+
+                    b.HasIndex("UserId", "ReceivedOn")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_appeal_person");
+
+                    b.ToTable("appeal", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.BanReason", b =>
                 {
                     b.Property<Guid>("Id")

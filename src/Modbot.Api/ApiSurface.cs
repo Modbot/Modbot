@@ -715,6 +715,10 @@ public static class ApiSurface
         // team when they arrive (watching a person design). Nothing here reaches VRChat either.
         Features.Watches.WatchEndpoints.MapWatches(app);
 
+        // Appeals against bans, logged by hand, and the yearly report (batch 3, step G). Staff
+        // only, and nothing here reaches VRChat either.
+        Features.Appeals.AppealEndpoints.MapAppeals(app);
+
         // The people waiting to be let into the group, read from VRChat when a moderator opens
         // the screen, and the two answers to one of them (join requests design). The gate and the
         // fact log resolve optionally here for the same reason they do above.

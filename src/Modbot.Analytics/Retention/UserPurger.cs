@@ -218,6 +218,16 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("platform", (short)platform),
                 new NpgsqlParameter("subject", subjectId));
 
+            // An appeal is staff's record about the person and goes with the rest. Its facts went
+            // above; the year's report counts one fewer, which is what erasing them means.
+            if (platform == FactPlatform.VRChat)
+            {
+                await ExecuteAsync(
+                    "DELETE FROM appeal WHERE user_id = @subject",
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+            }
+
             var dailyTotalsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_daily_total

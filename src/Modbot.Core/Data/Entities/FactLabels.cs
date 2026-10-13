@@ -294,6 +294,8 @@ public static class FactLabels
         [FactType.WatchStarted] = "Watch started",
         [FactType.WatchEnded] = "Watch stopped",
         [FactType.WatchFollowedUp] = "Followed up",
+        [FactType.AppealLogged] = "Appeal logged",
+        [FactType.AppealDecided] = "Appeal decided",
         [FactType.ImportDone] = "Import finished",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

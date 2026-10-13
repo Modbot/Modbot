@@ -54,6 +54,8 @@ public static class AuditShow
         FactType.WatchStarted,
         FactType.WatchEnded,
         FactType.WatchFollowedUp,
+        FactType.AppealLogged,
+        FactType.AppealDecided,
         FactType.ReportCreated,
         FactType.ReportUpdated,
         FactType.ReportWithdrawn,

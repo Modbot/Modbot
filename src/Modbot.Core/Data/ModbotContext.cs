@@ -112,6 +112,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>People a moderator asked to keep an eye on (watching a person design).</summary>
     public DbSet<PersonWatch> PersonWatches => Set<PersonWatch>();
 
+    /// <summary>Bans staff were asked to lift, logged by hand, and how each ended (batch 3, step G).</summary>
+    public DbSet<Appeal> Appeals => Set<Appeal>();
+
     /// <summary>Short notes moderators leave from the companion for staff in the same instance.</summary>
     public DbSet<HeadsUp> HeadsUps => Set<HeadsUp>();
 
@@ -3608,6 +3611,27 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId, e.SetAt })
                 .HasDatabaseName("ix_person_watch_person")
                 .IsDescending(false, false, true);
+        });
+
+        builder.Entity<Appeal>(entity =>
+        {
+            entity.ToTable("appeal");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.Note).HasMaxLength(Appeal.MaxNoteLength);
+            entity.Property(e => e.LoggedByUsername).HasMaxLength(64);
+            entity.Property(e => e.DecidedByUsername).HasMaxLength(64);
+
+            // A person's appeals, newest first, for their profile.
+            entity.HasIndex(e => new { e.UserId, e.ReceivedOn })
+                .HasDatabaseName("ix_appeal_person")
+                .IsDescending(false, true);
+
+            // A year's appeals, for the list and the report.
+            entity.HasIndex(e => e.ReceivedOn).HasDatabaseName("ix_appeal_received_on");
         });
 
         builder.Entity<HeadsUp>(entity =>

@@ -33,6 +33,7 @@ public sealed record LinkedAccount(FactPlatform Platform, string SubjectId, stri
 /// <param name="GiveawayPlaces">Places in a past draw's entrant list that would lose their name and ids.</param>
 /// <param name="ImportRecords">Rows saying a record about them came from an uploaded file.</param>
 /// <param name="Watches">Watches on this account, standing or ended (watching a person design §3).</param>
+/// <param name="Appeals">Appeals logged for this VRChat account, decided or not (batch 3, step G).</param>
 /// <param name="CaseFilesKept">Case files about them, which a purge keeps (evidence storage design §15.1).</param>
 /// <param name="EvidenceFilesKept">Undestroyed evidence files hanging off those case files, which a purge keeps.</param>
 /// <param name="LinkedAccount">Their other account, when a link proves one. A purge does not follow it.</param>
@@ -50,6 +51,7 @@ public sealed record PurgePreview(
     int GiveawayPlaces,
     int ImportRecords,
     int Watches,
+    int Appeals,
     int CaseFilesKept,
     int EvidenceFilesKept,
     LinkedAccount? LinkedAccount);
@@ -129,6 +131,10 @@ public sealed class PurgePreviewer
         var watches = await _db.PersonWatches.AsNoTracking()
             .CountAsync(w => w.SubjectPlatform == platform && w.SubjectId == subjectId, ct);
 
+        var appeals = platform == FactPlatform.VRChat
+            ? await _db.Appeals.AsNoTracking().CountAsync(a => a.UserId == subjectId, ct)
+            : 0;
+
         var (caseFiles, evidenceFiles) = await KeptAsync(platform, subjectId, ct);
 
         return new PurgePreview(
@@ -148,6 +154,7 @@ public sealed class PurgePreviewer
             giveawayPlaces,
             importRecords,
             watches,
+            appeals,
             caseFiles,
             evidenceFiles,
             await LinkedAsync(platform, subjectId, ct));

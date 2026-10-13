@@ -1227,6 +1227,21 @@ public static class FactType
     public const string WatchFollowedUp = "modbot.watch.followed-up";
 
     /// <summary>
+    /// Staff logged an appeal against a ban. Subject is the VRChat account that appealed; the actor
+    /// is whoever logged it. Payload: <c>appealId</c>, <c>receivedOn</c> (a date), <c>caseFileId</c>
+    /// when one was linked, and <c>description</c>, the note or "Appeal received".
+    /// </summary>
+    public const string AppealLogged = "modbot.appeal.add";
+
+    /// <summary>
+    /// An appeal was upheld or turned down. Subject is the account that appealed; the actor is
+    /// whoever decided. Payload: <c>appealId</c>, <c>outcome</c> (<c>upheld</c> or
+    /// <c>turned-down</c>), and <c>description</c>. Upholding does not unban anybody: a ban is lifted
+    /// by its own <c>modbot.action.unban</c>.
+    /// </summary>
+    public const string AppealDecided = "modbot.appeal.decide";
+
+    /// <summary>
     /// An import of old data finished (import design §4.4). Subject is the import id; the actor
     /// is the account that uploaded the file. Payload: the source label, the file name, the
     /// status and the four counts. One per import, never one per record.

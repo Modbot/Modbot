@@ -393,6 +393,10 @@ public static class AuditVisibility
         // belongs with the rest of theirs (watching a person design §3).
         [FactType.WatchStarted] = AuditCategory.Moderation,
         [FactType.WatchEnded] = AuditCategory.Moderation,
+
+        // An appeal is moderation history about the person who made it, like a note.
+        [FactType.AppealLogged] = AuditCategory.Moderation,
+        [FactType.AppealDecided] = AuditCategory.Moderation,
         [FactType.WatchFollowedUp] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
 

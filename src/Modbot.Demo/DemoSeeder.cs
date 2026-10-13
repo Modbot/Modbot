@@ -109,6 +109,7 @@ public sealed class DemoSeeder
         await _db.Reviews.ExecuteDeleteAsync(ct);
         await _db.RepeatOffenders.ExecuteDeleteAsync(ct);
         await _db.PersonWatches.ExecuteDeleteAsync(ct);
+        await _db.Appeals.ExecuteDeleteAsync(ct);
         await _db.ModeratorBaselines.ExecuteDeleteAsync(ct);
 
         await _db.GroupMembers.ExecuteDeleteAsync(ct);
