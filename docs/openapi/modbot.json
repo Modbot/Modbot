@@ -25180,6 +25180,430 @@
         ]
       }
     },
+    "/api/appeals": {
+      "get": {
+        "tags": [
+          "Appeals"
+        ],
+        "summary": "List appeals",
+        "description": "Appeals staff logged, newest received first. `userId` narrows it to one VRChat account, `year` to appeals received in that year, `outcome` (pending, upheld or turned-down) to those that wait or ended that way. Returns at most `limit` (default 50, at most 200); `total` and `waiting` count every match.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "ListAppeals",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Appeals"
+        ],
+        "summary": "Log an appeal",
+        "description": "Writes down that a banned person appealed. `receivedOn` defaults to today and may not be a day to come; `caseFileId` links the ban's case file, which must be about the same person; the note is at most 1000 characters. The appeal is one entry in the moderation log. Nothing is changed on VRChat.\n\nNeeds the `Unban` permission.",
+        "operationId": "LogAppeal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/appeals/{id}/decide": {
+      "post": {
+        "tags": [
+          "Appeals"
+        ],
+        "summary": "Uphold or turn down an appeal",
+        "description": "`outcome` is `upheld` or `turned-down`. Records the decision, who made it and when, once: an appeal that was decided cannot be decided again. Upholding does not unban anybody; lift the ban the usual way.\n\nNeeds the `Unban` permission.",
+        "operationId": "DecideAppeal",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppealView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/appeals/report": {
+      "get": {
+        "tags": [
+          "Appeals"
+        ],
+        "summary": "Get the yearly report",
+        "description": "One calendar year (UTC days; the current year by default): warnings, instance kicks, removals from the group, bans and unbans, summed from the same daily totals the Team page uses, then the appeals received in the year and those upheld and turned down in it. `countedSince` is the first day Modbot has anything counted; a year starting before it is a partial year.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetYearlyReport",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YearlyReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/appeals/report.csv": {
+      "get": {
+        "tags": [
+          "Appeals"
+        ],
+        "summary": "Download the yearly report",
+        "description": "The yearly report for `year` as a CSV file, one row per number.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "DownloadYearlyReport",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/requests": {
       "get": {
         "tags": [
@@ -37891,6 +38315,119 @@
           }
         }
       },
+      "AppealList": {
+        "required": [
+          "appeals",
+          "total",
+          "waiting",
+          "canLog",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "appeals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppealView"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "canLog": {
+            "type": "boolean"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AppealView": {
+        "required": [
+          "id",
+          "userId",
+          "displayName",
+          "receivedOn",
+          "outcome",
+          "caseFileId",
+          "caseFileDate",
+          "note",
+          "loggedAt",
+          "loggedByName",
+          "decidedAt",
+          "decidedByName",
+          "canDecide"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receivedOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "caseFileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "caseFileDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          },
+          "loggedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "loggedByName": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "decidedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canDecide": {
+            "type": "boolean"
+          }
+        }
+      },
       "AuditActor": {
         "required": [
           "platform",
@@ -43260,6 +43797,20 @@
           "value": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "DecideAppealRequest": {
+        "required": [
+          "outcome"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -52880,6 +53431,40 @@
           }
         }
       },
+      "LogAppealRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receivedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "caseFileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "LogFilters": {
         "required": [
           "levels",
@@ -57498,6 +58083,7 @@
           "giveawayPlaces",
           "importRecords",
           "watches",
+          "appeals",
           "caseFilesKept",
           "evidenceFilesKept",
           "linkedAccount"
@@ -57557,6 +58143,10 @@
             "format": "int32"
           },
           "watches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "appeals": {
             "type": "integer",
             "format": "int32"
           },
@@ -58191,6 +58781,26 @@
           "computedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ReportLine": {
+        "required": [
+          "key",
+          "label",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -64329,6 +64939,46 @@
             "default": ""
           }
         }
+      },
+      "YearlyReport": {
+        "required": [
+          "year",
+          "lines",
+          "years",
+          "countedSince",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportLine"
+            }
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "countedSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -64570,6 +65220,10 @@
     {
       "name": "Announcements",
       "x-displayName": "Announcements"
+    },
+    {
+      "name": "Appeals",
+      "x-displayName": "Appeals"
     },
     {
       "name": "Availability",
