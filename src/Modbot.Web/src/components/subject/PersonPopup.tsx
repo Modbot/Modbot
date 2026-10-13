@@ -4,6 +4,7 @@ import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
+import { PersonAppeals } from '@/components/subject/PersonAppeals'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { ProfileDetails, ProfileIdentity, ProfileMark } from '@/components/UserProfileCard'
 import { AccountCard, AccountHistory } from '@/components/subject/AccountSide'
@@ -387,6 +388,7 @@ function Resolved({
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
+        {tab === 'cases' && vrchatId && <PersonAppeals key={live} vrchatId={vrchatId} />}
         {tab === 'flags' && (vrchatId || discordId) && (
           <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
         )}

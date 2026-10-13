@@ -1030,6 +1030,8 @@ export type PurgePreview = {
   importRecords: number
   /** Watches on this account, standing or ended. */
   watches: number
+  /** Appeals logged for this account, decided or not. */
+  appeals: number
   caseFilesKept: number
   evidenceFilesKept: number
   linkedAccount: PurgeLinkedAccount | null

@@ -187,6 +187,7 @@ function Counts({ preview }: { preview: PurgePreview }) {
         <Row label="Places in past draws" value={preview.giveawayPlaces.toLocaleString()} mono />
         <Row label="Imported records" value={preview.importRecords.toLocaleString()} mono />
         <Row label="Watches" value={preview.watches.toLocaleString()} mono />
+        <Row label="Appeals" value={preview.appeals.toLocaleString()} mono />
 
         <h3 className="pt-3 font-medium" style={{ fontSize: 'var(--text-small)' }}>
           Kept

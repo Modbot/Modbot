@@ -1199,6 +1199,22 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Appeals ─────────────────────────────────────────────────────────────────────────────────
+  //
+  // The note is in the first sentence, for the reason a watch's reason is: it is the whole entry.
+  'modbot.appeal.add': (p) => (
+    <>
+      {p.actor} logged an appeal from {p.subject}
+      {p.text('description') && p.text('description') !== 'Appeal received' ? <>: {p.text('description')}</> : null}.
+    </>
+  ),
+
+  'modbot.appeal.decide': (p) => (
+    <>
+      {p.actor} {p.text('outcome') === 'upheld' ? 'upheld' : 'turned down'} the appeal from {p.subject}.
+    </>
+  ),
+
   // ── Evidence ────────────────────────────────────────────────────────────────────────────────
   //
   // Each of these is about a case file, and the "Case file" link after the sentence opens it. The

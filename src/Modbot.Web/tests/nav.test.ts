@@ -148,6 +148,15 @@ test('Reviews sits beside Flags, under the same heading', () => {
   assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
 })
 
+test('Appeals follows Bans, opens with See profiles, and has no g letter', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden)).map((n) => n.id)
+
+  assert.equal(shown.indexOf('appeals'), shown.indexOf('bans') + 1)
+  assert.equal(mayOpen(person('ViewProfile'), 'appeals'), true)
+  assert.equal(mayOpen(person('Unban'), 'appeals'), false)
+  assert.equal(GO_TO_KEYS.appeals, '')
+})
+
 test('Reports follows Reviews, opens with See reports, and has no g letter', () => {
   const shown = NAV.filter((n) => !('hidden' in n && n.hidden)).map((n) => n.id)
 
@@ -166,7 +175,7 @@ test('Community heads the pages from Requests to Availability, each of which nam
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'partners', 'availability'],
+    ['requests', 'people', 'live', 'bans', 'appeals', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'partners', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -284,10 +293,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports, Event categories and Partners: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports, Appeals, Event categories and Partners: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners') continue
+    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })
@@ -440,7 +449,7 @@ test('case and extra spaces do not matter, and nothing typed matches everything'
 
 test('the page list holds what the sidebar and the phone grid show, in NAV order', () => {
   const ids = listedPages(person('ViewAnalytics', 'ViewProfile', 'ViewAuditLog')).map((item) => item.id)
-  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'flags', 'audit', 'analytics-group', 'analytics-server'])
+  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'appeals', 'flags', 'audit', 'analytics-group', 'analytics-server'])
 })
 
 test('the page list leaves out pages that are part of another and pages this person may not open', () => {

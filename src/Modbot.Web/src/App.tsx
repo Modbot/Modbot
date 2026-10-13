@@ -89,6 +89,7 @@ import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
 import { Reviews } from '@/pages/Reviews'
+import { Appeals } from '@/pages/Appeals'
 import { Reports } from '@/pages/Reports'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
@@ -119,6 +120,7 @@ const TITLES: Record<PageId, string> = {
   partners: 'Partners',
   chat: 'Chat',
   bans: 'Bans',
+  appeals: 'Appeals',
   flags: 'Flags',
   audit: 'Audit log',
   integrations: 'Integrations',
@@ -176,6 +178,7 @@ const PATHS: Record<PageId, string> = {
   partners: '/partners',
   chat: '/chat',
   bans: '/bans',
+  appeals: '/appeals',
   flags: '/flags',
   audit: '/audit',
   integrations: '/integrations',
@@ -748,6 +751,7 @@ function Shell({
             <GroupInvites me={me} pathOf={(id) => PATHS[id]} onJoinRequestCount={setJoinRequests} />
           )}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
+          {page === 'appeals' && <Appeals />}
           {page === 'reports' && <Reports me={me} onChanged={refreshReportCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}

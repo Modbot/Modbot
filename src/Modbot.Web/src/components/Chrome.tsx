@@ -20,7 +20,7 @@ import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import {
   Ban, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Ellipsis, Flag, Gift, Globe, Handshake, Hash, Headset,
-  House, Logs, LogOut, Megaphone, Menu, MessageSquare, MessageSquareWarning, Monitor, Moon, Plug, Radio, ScrollText, Search, Settings, Shuffle, Sun, Tags,
+  House, Logs, LogOut, Megaphone, Menu, MessageSquare, MessageSquareWarning, Monitor, Moon, Plug, Radio, Scale, ScrollText, Search, Settings, Shuffle, Sun, Tags,
   Star, UserPlus, UserRound, Users, X, Zap, type LucideIcon,
 } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
@@ -483,6 +483,7 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
   people: Users,
   live: Radio,
   bans: Ban,
+  appeals: Scale,
   flags: Flag,
   reviews: ClipboardCheck,
   reports: MessageSquareWarning,

@@ -71,6 +71,9 @@ export const NAV = [
   // The group's open instances right now and who is in each.
   { id: 'live', label: 'Live', group: 'Community', needs: 'ViewLiveInstances', words: ['voice', 'online', 'instances now'] },
   { id: 'bans', label: 'Bans', group: 'Community', needs: 'ViewAuditLog', words: ['banned', 'ban list', 'unban', 'banned users'] },
+  // Appeals people sent after a ban, and the year's moderation numbers (batch 3). Beside Bans because
+  // an appeal is the other half of one. No `g` letter: all twenty-six are taken.
+  { id: 'appeals', label: 'Appeals', group: 'Community', needs: 'ViewProfile', words: ['appeal', 'yearly report', 'annual report'] },
   // What AI moderation rules flagged. A flag is a note about a person, so it needs ViewProfile;
   // dismissing one needs ReviewTickets, which the page checks for itself.
   { id: 'flags', label: 'Flags', group: 'Community', needs: 'ViewProfile' },
@@ -231,6 +234,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   partners: '',
   chat: 'c',
   bans: 'b',
+  appeals: '',
   flags: 'f',
   audit: 'a',
   integrations: '',
