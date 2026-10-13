@@ -327,8 +327,7 @@ public class PostVRChatEndpointTests(PostgresFixture db) : IAsyncLifetime
         var (_, manager) = await host.SignedInAsync(Manager, Ct);
 
         // 300 times: 41 characters stored, 21 sent. The stored text passes 8000 but what VRChat is sent does not.
-        var marked = string.Join('
-', Enumerable.Repeat("{{time 1792350000 Sun 18 Oct, 20:00 BST}}", 300));
+        var marked = string.Join("\n", Enumerable.Repeat("{{time 1792350000 Sun 18 Oct, 20:00 BST}}", 300));
         Assert.True(marked.Length > Post.MaxTextLength);
         Assert.True(PostEventText.ForSite(PostNetworks.VRChat, marked).Length <= Post.MaxTextLength);
         await CreateAsync(host, manager, Body(host, new { }, text: marked));
