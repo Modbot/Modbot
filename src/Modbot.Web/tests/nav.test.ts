@@ -354,7 +354,7 @@ test('Stats sits beside Now and Chat with no heading, and the Analytics heading 
 })
 
 test('the Stats tabs light Stats and need what Stats needs', () => {
-  for (const id of ['stats-activity', 'stats-moderation'] as const) {
+  for (const id of ['stats-activity', 'stats-moderation', 'stats-regulars'] as const) {
     assert.equal(sidebarEntry(id), 'stats')
     assert.equal(mayOpen(person('ViewAnalytics'), id), true)
     assert.equal(mayOpen(person('ViewMembers'), id), false)
@@ -372,6 +372,7 @@ test('the palette still finds the team and the worlds', () => {
 
   assert.ok(find('team').includes('stats-moderation'))
   assert.ok(find('worlds').includes('stats-activity'))
+  assert.ok(find('came back').includes('stats-regulars'))
 })
 
 test("the VRChat page's Posts and Settings tabs light VRChat and ask for their own permissions", () => {

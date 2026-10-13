@@ -2094,6 +2094,29 @@ export type WorldsAnalytics = {
   generatedAt: string
 }
 
+/** One week of the Regulars tab's chart: `weekStart` is the Monday (UTC). `cameBack` is null until the four weeks after it are over. */
+export type WeekReturn = { weekStart: string; visitors: number; cameBack: number | null }
+
+export type Regular = { userId: string; name: string | null; weeks: number; days: number; lastSeenAt: string }
+
+export type RegularsAnalytics = {
+  from: string
+  to: string
+  weeks: WeekReturn[]
+  /** How many weeks after a visit still count as coming back. */
+  returnWeeks: number
+  /** How many of the latest whole weeks a regular is looked for in, and how many of them they joined. */
+  regularWeeks: number
+  regularNeeds: number
+  regularsFrom: string
+  regularsTo: string
+  regularsTotal: number
+  regulars: Regular[]
+  presenceReports: number
+  coverage: AnalyticsCoverage
+  generatedAt: string
+}
+
 /** 168 buckets, Monday 00:00 UTC first. The page shifts them to the viewer's clock. */
 export type HourOfWeek = { arrivals: number[]; opened: number[] }
 
@@ -5728,6 +5751,7 @@ export const api = {
   setCoverPeople: (people: number) =>
     request<{ people: number }>('/api/analytics/team/people', { method: 'PUT', body: JSON.stringify({ people }) }),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
+  regularsAnalytics: (query: string) => request<RegularsAnalytics>(`/api/analytics/regulars?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
   instanceActivity: (range: MemberCountRange) =>
     request<InstanceActivitySeries>(`/api/analytics/instances/activity?range=${range}`),

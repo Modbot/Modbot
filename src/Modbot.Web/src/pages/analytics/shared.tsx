@@ -29,19 +29,24 @@ export function RangePicker({
   onChange,
   from,
   to,
+  only,
 }: {
   range: Range
   onChange: (r: Range) => void
   from?: string
   to?: string
+  /** Offers just these ranges, for a tab where the short ones cannot show anything. */
+  only?: Range[]
 }) {
+  const ranges = only ? RANGES.filter((r) => only.includes(r.range)) : RANGES
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SwitchBank
         label="Range"
         value={String(range)}
         onChange={(v) => onChange(RANGES.find((r) => String(r.range) === v)!.range)}
-        options={RANGES.map((r) => ({ value: String(r.range), label: r.label }))}
+        options={ranges.map((r) => ({ value: String(r.range), label: r.label }))}
       />
       <span className="flex-1" />
       {from && to && (

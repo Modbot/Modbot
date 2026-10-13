@@ -9,6 +9,7 @@ using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Features.Analytics.Instances;
+using Modbot.Api.Features.Analytics.Regulars;
 using Modbot.Api.Features.Analytics.Server;
 using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Features.Analytics.Worlds;
@@ -297,6 +298,37 @@ public static class AnalyticsEndpoints
                 + "visitors per day per world from daily totals. Time seen and visitors come from "
                 + "presence reports, which exist only while a moderator's companion is in the instance.")
             .Produces<WorldsAnalytics>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/regulars", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromQuery] int? days,
+                [FromQuery] bool? all,
+                [FromQuery] DateOnly? from,
+                [FromQuery] DateOnly? to,
+                CancellationToken ct) =>
+            {
+                var window = await WindowAsync(db, clock, RegularsAnalyticsQuery.Sources, days, all, from, to, ct);
+                if (window.Error is not null) return window.Error;
+
+                return Results.Ok(await new RegularsAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
+            })
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetRegularsAnalytics")
+            .WithSummary("Get regulars and return rate")
+            .WithDescription(
+                "Regulars: do people come back? A visitor in a week is anybody who joined any of the "
+                + "group's instances that week (weeks run Monday to Sunday, UTC). They came back if "
+                + "they joined a group instance again in any of the next four weeks; the week's rate "
+                + "is the ones who came back over the visitors, and `cameBack` is null until those "
+                + "four weeks are over. A regular joined in at least three of the latest four whole "
+                + "weeks; the list is the first 200, most days first, and `regularsTotal` counts them "
+                + "all. Joins come from presence reports, which exist only while a moderator's "
+                + "companion is in the instance, so a person who came back to an instance nobody "
+                + "from the team attended is not counted as coming back.")
+            .Produces<RegularsAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 

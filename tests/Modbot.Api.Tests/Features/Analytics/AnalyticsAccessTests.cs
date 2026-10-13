@@ -20,6 +20,7 @@ public class AnalyticsAccessTests
         "/api/analytics/team",
         "/api/analytics/worlds",
         "/api/analytics/instances",
+        "/api/analytics/regulars",
         "/api/analytics/server",
     ];
 
@@ -33,6 +34,7 @@ public class AnalyticsAccessTests
         "/api/analytics/worlds",
         "/api/analytics/instances",
         "/api/analytics/instances/activity",
+        "/api/analytics/regulars",
         "/api/analytics/server",
     ];
 

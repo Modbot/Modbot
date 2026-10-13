@@ -126,6 +126,7 @@ const TITLES: Record<PageId, string> = {
   stats: 'Stats',
   'stats-activity': 'Stats',
   'stats-moderation': 'Stats',
+  'stats-regulars': 'Stats',
   // Tabs of the VRChat page, so they carry its name, as the sidebar does.
   'analytics-instances': 'VRChat',
   'group-posts': 'VRChat',
@@ -180,6 +181,7 @@ const PATHS: Record<PageId, string> = {
   stats: '/stats/growth',
   'stats-activity': '/stats/activity',
   'stats-moderation': '/stats/moderation',
+  'stats-regulars': '/stats/regulars',
   'analytics-instances': '/analytics/instances',
   'group-posts': '/analytics/group/posts',
   'group-settings': '/analytics/group/settings',
@@ -722,8 +724,8 @@ function Shell({
           {page === 'integrations' && <Integrations me={me} />}
           {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
-          {/* One element for the three tabs, so the page's range stays put while the tab changes. */}
-          {(page === 'stats' || page === 'stats-activity' || page === 'stats-moderation') && (
+          {/* One element for the four tabs, so the page's range stays put while the tab changes. */}
+          {(page === 'stats' || page === 'stats-activity' || page === 'stats-moderation' || page === 'stats-regulars') && (
             <Stats
               me={me}
               pathOf={(id) => PATHS[id]}

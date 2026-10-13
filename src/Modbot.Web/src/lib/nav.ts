@@ -37,6 +37,7 @@ export const NAV = [
   { id: 'stats', label: 'Stats', needs: 'ViewAnalytics', words: ['growth'] },
   { id: 'stats-activity', label: 'Activity stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['worlds'] },
   { id: 'stats-moderation', label: 'Moderation stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['team'] },
+  { id: 'stats-regulars', label: 'Regulars stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['came back', 'return rate', 'visitors'] },
   // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
   //
@@ -233,6 +234,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   stats: 't',
   'stats-activity': 'w',
   'stats-moderation': '',
+  'stats-regulars': '',
   'analytics-instances': 'i',
   'group-posts': '',
   'group-settings': '',

@@ -113,6 +113,31 @@ Live figures: 18 moderators, 845 actions, 1 coverage gap.
 | **How long things wait**: middle waits of join requests, flags and reviews, with a daily line | Middles, not averages: one weekend request must not outweigh a hundred |
 | **Acted on again** (30 days, the repeat-offender kinds) and **Bans lifted** (within 30 days, with the lift reasons) | Team numbers only. Reasons are counted by label, not sorted into "overturned", because each group writes its own list |
 
+### Regulars: do people come back? (added 2026-10-13)
+
+The peer review of a ~4,800-member group asked for one measure above all: of the people who came
+this week, how many came again within a month. Foundation §5.10 named regulars as the question the
+whole analytics section exists for, and it had not been built.
+
+- **Visit:** a join (`vrchat.instance.join`, or presence-observed when a client arrived after the
+  person) in any of the group's instances. The companion's server drops presence for any other
+  group (`EventsHandler`), so no filter by group is needed in the query.
+- **Visitor in week W:** anybody with a visit in week W. Weeks are Monday to Sunday, UTC.
+- **Came back:** a visit in any of the next four weeks, in any group instance (decided with the
+  maintainer, 2026-10-13: any visit, not the same world).
+- **Return rate of W:** came back over visitors. Left out (null) until the four weeks after W are
+  over, so a drawn figure never changes afterwards.
+- **Regular:** a visit in at least 3 of the latest 4 whole weeks; the week under way is not one of
+  the four. Fixed, not a setting: the foundation's configurable rule (§5.10.3) is not built, and a
+  number a moderator can quote and compare month to month was judged worth more than a choice.
+  The panel's heading names the rule, as §5.10.3 asks.
+- **Ranges:** the tab offers 90d and All time only, since a week's rate arrives five weeks late; on
+  7d or 30d it reads 90 days.
+- **Cost:** one pass over the join facts (partition-pruned on `occurred_at`), grouped to one row per
+  person per week in SQL, the next visit found with `LEAD` over that. No migration, no new table.
+- **Limit:** joins come from the companion, so a return to an instance no moderator attended is
+  not seen. The rate is a floor, and the page counts presence reports as the Worlds part does.
+
 ## The This week strips
 
 Both strips are the last seven days, today included, against the seven before, the way

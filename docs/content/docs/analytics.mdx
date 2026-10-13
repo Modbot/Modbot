@@ -1,6 +1,6 @@
 ---
 title: Analytics
-description: The Stats page (Growth, Activity and Moderation), the VRChat and Discord pages' This week, and where the numbers come from.
+description: The Stats page (Growth, Activity, Moderation and Regulars), the VRChat and Discord pages' This week, and where the numbers come from.
 ---
 
 The charts and numbers over time for every part of your community are on one page, **Stats**, at
@@ -11,6 +11,7 @@ the top of the sidebar under **Now** and **Chat**. It has a tab for each questio
 | [**Growth**](#growth) | Is the community growing or shrinking, and what changed? |
 | [**Activity**](#activity) | When is the community busy, and where? |
 | [**Moderation**](#moderation) | Who is doing the moderation work, and when is nobody covering? |
+| [**Regulars**](#regulars) | Do people come back, and who comes every week? |
 
 In each tab, the VRChat group and the Discord server have a part of their own, under their names.
 Nothing adds the two together: a VRChat join and a Discord join are not the same kind of thing.
@@ -38,8 +39,8 @@ tab. Their old addresses, `/analytics/team` and `/analytics/worlds`, open those 
 
 ## Date ranges
 
-Stats has range buttons at the top, shared by its three tabs: **7d**, **30d** (the
-default), **90d** and **All time**. The dates the range covers are shown on the right.
+Stats has range buttons at the top, shared by its tabs: **7d**, **30d** (the
+default), **90d** and **All time**. [Regulars](#regulars) offers only **90d** and **All time**. The dates the range covers are shown on the right.
 
 - Ranges are whole days in UTC, and include today. Today's figures are still filling in.
 - **All time** starts at the first day Modbot has anything recorded.
@@ -298,7 +299,7 @@ The charts about when the community is active are on the [Activity](#activity) t
 ## Stats
 
 The page opens on **Growth**. The tabs are at `/stats/growth`, `/stats/activity` and
-`/stats/moderation`; `g` then `t` opens Stats, and `g` then `w` opens Activity. Each tab starts with
+`/stats/moderation` and `/stats/regulars`; `g` then `t` opens Stats, and `g` then `w` opens Activity. Each tab starts with
 the [**Insights**](/ai/insights) that answer its question, if AI insights are set up.
 
 ### Growth
@@ -594,3 +595,47 @@ hours from VRChat's head counts.
 
 **Moderation actions per day**: bans, kicks, timeouts and messages removed. Without the audit log,
 kicks and removed messages are missing, and the panel says so.
+
+### Regulars
+
+**Do people come back, and who comes every week?**
+
+Only the VRChat group has this tab: it is counted from joins, which Discord does not have in the
+same sense.
+
+The words mean exactly this:
+
+- A **visit** is a join: Modbot's companion saw a person arrive in one of the group's instances,
+  or already there when it arrived.
+- A **visitor** in a week is anybody with a visit in that week. Weeks run Monday to Sunday, in UTC.
+- A visitor **came back** if they have a visit in any of the next four weeks. Any of the group's
+  instances counts, not only the same world or the same kind of instance.
+- The week's **return rate** is the visitors who came back, out of all its visitors.
+- A **regular** joined in at least three of the latest four whole weeks. The week still under way
+  is not one of the four. The numbers three and four are fixed; Modbot does not ask you to choose
+  them.
+
+Because a visit needs four more weeks to be told apart from a person who simply has not come back
+*yet*, a week's return rate is drawn only once those four weeks are over: the latest weeks on the
+chart are five weeks old or more. That is also why the tab offers **90d** and **All time** and not
+the short ranges, and why it reads 90 days when the rest of Stats is on a shorter range.
+
+The stats along the top:
+
+- **Regulars**: how many people are regulars now.
+- **Came back**: the return rate of the latest week that has one, with the week named under it.
+- **Visitors that week**: how many people that rate is out of.
+
+**Visitors who came back, per week** is the rate for each week as a percentage. Point at a week, or
+tap it, for its visitors. A week nobody was seen in has no point.
+
+The regulars are listed below, the most days first, with how many of the four weeks and how many
+different days they joined in, and when they last joined. The name opens the person. The list
+shows the first 200 and says how many there are when there are more.
+
+All of it comes from [presence reports](#presence-reports), so it only sees time a moderator's
+companion was in the instance. A person who came back to an instance nobody from the team attended
+is not counted as having come back, and a regular who mostly joins unattended instances may not
+show. Read the rate as at least that many came back, and treat a week with few visitors as a
+sample. If you have set [data retention](/self-hosting/data-retention) for presence events, weeks
+older than that cannot be counted.

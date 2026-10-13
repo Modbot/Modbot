@@ -8,6 +8,7 @@ import { GroupGrowth, MostOnline } from './GroupStats'
 import { InsightsPanel } from './InsightsPanel'
 import { HEATMAP_ID, InstanceStats } from './InstanceStats'
 import { TeamStats } from './MyTeam'
+import { RegularsStats } from './Regulars'
 import { sectionId } from './sectionId'
 import { ServerActivity, ServerCoverage, ServerGrowth, ServerModeration } from './ServerStats'
 import { CoverageLine, PageMessage, RangePicker, Section } from './shared'
@@ -15,18 +16,23 @@ import { useAnalytics, type Range } from './useAnalytics'
 import { WorldStats } from './Worlds'
 
 /** The Stats page's tabs, one per question, each at an address of its own. */
-export type StatsTab = 'stats' | 'stats-activity' | 'stats-moderation'
+export type StatsTab = 'stats' | 'stats-activity' | 'stats-moderation' | 'stats-regulars'
 
 const TABS: { value: StatsTab; label: string }[] = [
   { value: 'stats', label: 'Growth' },
   { value: 'stats-activity', label: 'Activity' },
   { value: 'stats-moderation', label: 'Moderation' },
+  { value: 'stats-regulars', label: 'Regulars' },
 ]
 
 // The Activity tab's parts, named once for their headings and for the jumps to them.
 const INSTANCES = 'VRChat instances'
 const WORLDS = 'VRChat worlds'
 const DISCORD = 'Discord'
+
+// A week's figure on the Regulars tab is known five weeks after it, so the short ranges would show
+// nothing there; it offers these two, and reads 90 days where the page is on a shorter one.
+const REGULARS_RANGES: Range[] = [90, 'all']
 
 const JUMPS: { label: string; id: string }[] = [
   { label: 'Instances', id: sectionId(INSTANCES) },
@@ -70,6 +76,8 @@ export function Stats({
   const loadServer = useCallback((q: string) => api.serverAnalytics(q), [])
   const loadInstances = useCallback((q: string) => api.instancesAnalytics(q), [])
   const loadWorlds = useCallback((q: string) => api.worldsAnalytics(q), [])
+  const loadRegulars = useCallback((q: string) => api.regularsAnalytics(q), [])
+  const regularsRange: Range = REGULARS_RANGES.includes(range) ? range : 90
   // The Moderation tab's people bar. Until the reader picks one this session the tab reads the
   // group's saved bar, so a change another administrator saved shows on the next read. A reader who
   // may change settings saves their pick and reads the saved bar again; anybody else's pick is their
@@ -85,11 +93,12 @@ export function Stats({
   // A pick being saved, shown on the buttons until the read after the save replaces `over`.
   const [saving, setSaving] = useState<{ people: number; over: unknown } | null>(null)
 
-  const group = useAnalytics(loadGroup, range, tab !== 'stats-moderation')
-  const server = useAnalytics(loadServer, range)
+  const group = useAnalytics(loadGroup, range, tab !== 'stats-moderation' && tab !== 'stats-regulars')
+  const server = useAnalytics(loadServer, range, tab !== 'stats-regulars')
   const instances = useAnalytics(loadInstances, range, tab === 'stats-activity')
   const worlds = useAnalytics(loadWorlds, range, tab === 'stats-activity')
   const team = useAnalytics(loadTeam, range, tab === 'stats-moderation')
+  const regulars = useAnalytics(loadRegulars, regularsRange, tab === 'stats-regulars')
 
   const { data: teamData, reload: reloadTeam } = team
   const choosePeople = useCallback(
@@ -113,13 +122,26 @@ export function Stats({
   const picked = saving && saving.over === teamData ? saving.people : (people ?? undefined)
 
   // The days the picker names: the first VRChat part's, which every part of the tab shares.
-  const shown = tab === 'stats-moderation' ? team.data : tab === 'stats-activity' ? instances.data : group.data
+  const shown =
+    tab === 'stats-moderation'
+      ? team.data
+      : tab === 'stats-activity'
+        ? instances.data
+        : tab === 'stats-regulars'
+          ? regulars.data
+          : group.data
   const links = { me, pathOf }
 
   return (
     <Tabs value={tab} onChange={onTab} tabs={TABS} className="gap-3">
       <div className="flex flex-col gap-4">
-        <RangePicker range={range} onChange={setRange} from={shown?.from} to={shown?.to} />
+        <RangePicker
+          range={tab === 'stats-regulars' ? regularsRange : range}
+          onChange={setRange}
+          from={shown?.from}
+          to={shown?.to}
+          only={tab === 'stats-regulars' ? REGULARS_RANGES : undefined}
+        />
 
         {tab === 'stats-activity' && <Jumps />}
 
@@ -152,6 +174,12 @@ export function Stats({
               {(data) => <ServerActivity data={data} />}
             </Part>
           </>
+        )}
+
+        {tab === 'stats-regulars' && (
+          <Part title="VRChat group" read={regulars}>
+            {(data) => <RegularsStats data={data} />}
+          </Part>
         )}
 
         {tab === 'stats-moderation' && (
