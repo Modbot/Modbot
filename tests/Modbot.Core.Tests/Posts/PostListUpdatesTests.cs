@@ -224,6 +224,18 @@ public class PostListUpdatesTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public void AListThatOnlyGainedEventsIsNotWrittenTwiceOnASiteThatHasItAlready()
+    {
+        var movies = new PostEventLine(Guid.NewGuid(), "Movie night", Friday, "Europe/London", null);
+        var games = new PostEventLine(Guid.NewGuid(), "Games night", Friday.AddDays(1), "Europe/London", null);
+        var change = new PostListChange(October(movies), October(movies, games));
+        var done = PostEventText.ForSite(PostNetworks.VRChat, change.New);
+
+        Assert.Equal(done, PostListUpdates.ForSite(PostNetworks.VRChat, done, [change]));
+        Assert.Equal(done, PostListUpdates.ForSite(PostNetworks.VRChat, PostEventText.ForSite(PostNetworks.VRChat, change.Old), [change]));
+    }
+
+    [Fact]
     public void AListAlreadyRewrittenOnASiteIsNotRewrittenAgain()
     {
         var movies = new PostEventLine(Guid.NewGuid(), "Movie night", Friday, "Europe/London", null);

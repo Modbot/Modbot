@@ -79,8 +79,17 @@ public static partial class PostListUpdates
         {
             var was = PostEventText.ForSite(network, change.Old);
 
-            if (was.Length > 0 && text.Contains(was, StringComparison.Ordinal))
-                text = text.Replace(was, PostEventText.ForSite(network, change.New), StringComparison.Ordinal);
+            if (was.Length == 0 || !text.Contains(was, StringComparison.Ordinal))
+                continue;
+
+            var now = PostEventText.ForSite(network, change.New);
+
+            // A list that only gained events holds the old one at its start. A site that already has
+            // the new list holds the old one too, so swap it only outside the new one: swapped inside
+            // it, the added events would be written a second time.
+            text = now.Contains(was, StringComparison.Ordinal)
+                ? string.Join(now, text.Split(now).Select(part => part.Replace(was, now, StringComparison.Ordinal)))
+                : text.Replace(was, now, StringComparison.Ordinal);
         }
 
         return text;
