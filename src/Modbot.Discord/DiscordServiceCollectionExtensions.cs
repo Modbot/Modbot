@@ -102,6 +102,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkPrompt>();
 
         // The next steps a new member is sent (smart welcome design).
+        services.TryAddSingleton<Welcome.OnboardingCheck>();
         services.AddScoped<Welcome.SmartWelcome>();
 
         // The join gate (join gate design). Its own loop as well; the state is shared by the loop,

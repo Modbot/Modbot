@@ -10,6 +10,8 @@ namespace Modbot.Discord.Gateway;
 /// <param name="AvatarUrl">The picture the server shows for them.</param>
 /// <param name="IsPending">Still to pass membership screening.</param>
 /// <param name="BoostingSince">When they started boosting the server, or null.</param>
+/// <param name="StartedOnboarding">Discord's flag: the member has begun the server's onboarding.</param>
+/// <param name="FinishedOnboarding">Discord's flag: the member has completed the server's onboarding.</param>
 public sealed record DiscordMemberSnapshot(
     string UserId,
     string Username,
@@ -22,7 +24,9 @@ public sealed record DiscordMemberSnapshot(
     string? GlobalName = null,
     string? AvatarUrl = null,
     bool IsPending = false,
-    DateTimeOffset? BoostingSince = null);
+    DateTimeOffset? BoostingSince = null,
+    bool StartedOnboarding = false,
+    bool FinishedOnboarding = false);
 
 /// <summary>One entry of the server's ban list, as Discord gives it: the person and the reason, no date.</summary>
 /// <param name="GlobalName">The name they chose for all of Discord, or null. Untrusted text.</param>

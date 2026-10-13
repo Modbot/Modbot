@@ -26,7 +26,7 @@ can pick the steps itself.
 | Where | Admins choose a direct message from Modbot, a post in a welcome channel, or both |
 | Rules | "If they hold this role, show this step." A step is a short text and an optional link. Up to 3 steps are sent, in the admins' order |
 | Defaults | When fewer than 3 rules match, up to 3 default steps fill the rest, in their order |
-| When | Once per member, when Discord says they finished onboarding. A server with no onboarding: when they join, or when the join gate lets them in |
+| When | Once per member, when Discord says they finished onboarding. A server with no onboarding: when they join. With the join gate on, always after the gate lets them in (user, 2026-10-12: "they can't see anything until they get through the gate"). No setting: Modbot decides from whether the server has onboarding (§3.2) |
 | Default | Off |
 
 Words: the page and the message say "welcome" and "steps". "Onboarding" appears only where it names
@@ -39,9 +39,9 @@ claims the member first (§5) so that however the events race, a member is welco
 
 | Event | Source | Condition |
 |---|---|---|
-| Finished onboarding | `GuildMemberUpdated`: the member's flags (`GuildUserFlags.CompletedOnboarding`) gained that bit | Feature on, member joined after it was switched on (§3.1), not a bot |
-| Joined, server has no onboarding | `UserJoined`, after the join gate and the link prompt have run | Feature on, not a bot, the server's onboarding is off (§3.2), and the join gate did not take them |
-| Let in by the join gate | `GuildMemberUpdated` for a member marked waiting | The gate is no longer holding them: it is not on, or the member now holds its member role |
+| Finished onboarding | `GuildMemberUpdated`: the member's flags (`GuildUserFlags.CompletedOnboarding`) gained that bit | Feature on, member joined after it was switched on (§3.1), not a bot. If the join gate is on and still holds them, they are marked waiting instead (§3.3) |
+| Joined, server has no onboarding | `UserJoined`, after the join gate and the link prompt have run | Feature on, not a bot, no onboarding (§3.2), and the join gate did not take them (if it did, they are marked waiting) |
+| Let in by the join gate | `GuildMemberUpdated` for a member marked waiting | The gate is no longer holding them: it is not on, or the member now holds its member role. Not sent while the member has started onboarding and not finished it (§3.2) |
 
 The gateway intents already include `GuildMembers`, which member updates need; nothing is added. The
 `CompletedOnboarding` bit rides on the same `GUILD_MEMBER_UPDATE` event that carries roles.
@@ -62,11 +62,30 @@ guards replace it:
 
 ### 3.2 Does the server have onboarding
 
-One request (`GET /guilds/{id}/onboarding`, `IGuild.GetOnboardingAsync`), made on a join and only
-when the feature is on. `enabled: false`, or a failed request, count as **no onboarding**: a
-member then gets the welcome on joining. A failed request is therefore a welcome that may come
-before the member has picked roles, never a welcome that is never sent, and it is logged. The
+One request (`GET /guilds/{id}/onboarding`, `IGuild.GetOnboardingAsync`; the answer has `enabled`),
+made only when the feature is on, and **at most once an hour per server** (`OnboardingCheck`, kept
+in memory by server id and shared by every join). Asking per join was a request per new member, which
+a raid would turn into a burst. The request is made with `RetryMode.AlwaysFail` and the caller's
+cancel token, as the bot's other Discord requests are, and a rate-limit refusal is caught and logged,
+never retried (the wait is the cache). The server is the one the bot already holds in memory, so no
+second request fetches it.
+
+`enabled: false`, or a failed request, count as **no onboarding**: a member then gets the welcome on
+joining. A failed request is therefore a welcome that may come before the member has picked roles,
+never a welcome that is never sent, and it is logged. A failed read is kept for five minutes, not
+an hour, so a refusal is not asked again with every join but is not remembered for long. The
 once-per-member claim means the finish-onboarding event cannot send a second one.
+
+**Member flags override the read** (user's idea, 2026-10-12). Discord sets `StartedOnboarding` (8)
+before `CompletedOnboarding` (2) on the member (`GuildUserFlags` in Discord.Net 3.20.1, read from
+the same member events). A member seen with `StartedOnboarding` and without `CompletedOnboarding`
+is treated as being on a server with onboarding whatever the read said: on joining, nothing is sent;
+on being let in by the gate, nothing is sent; the welcome goes out when `CompletedOnboarding`
+arrives. If the read failed and no flag is seen, the fallback above stays.
+
+**Rate limit rule.** The foundation spec's "ask about the rate limit before using a new endpoint"
+(§4.3.4) is about VRChat's undocumented API. This is a documented Discord endpoint, so no clearance
+was needed; the guard is the hourly cache.
 
 ### 3.3 Joining while the join gate is on
 
@@ -74,6 +93,12 @@ once-per-member claim means the finish-onboarding event cannot send a second one
 welcome is not sent on joining but written down as **waiting**. The next member update that shows the
 gate is done with them (§3 table) sends it. If the gate is turned off while someone waits, the
 next update of that member sends it. Nothing is added to the join gate itself.
+
+The gate comes first on the onboarding path too (user, 2026-10-12). When a member finishes
+onboarding and the gate is on and does not yet show its member role on them, the welcome is written
+down as waiting, exactly as above, and the update that lets them in sends it. A member who finishes
+onboarding after the gate let them in is welcomed at once. The gate being on means
+`DiscordGateMode` is `On` with a member role set; any other state counts as done.
 
 ## 4. Picking the steps
 
@@ -151,6 +176,7 @@ and a table `discord_welcome_step` (`kind` is `rule` or `default`, `role_id` for
 | Member's DMs closed | The post goes to the channel when the setting has one; else a `none` fact with the error |
 | Channel missing, or the bot cannot post there | A `none`/`dm` fact with the error; the page's channel picker already warns about permissions |
 | Discord down | Same, with the error; no retry |
+| Onboarding read refused or failed | Counts as no onboarding for five minutes (§3.2), logged; the started-onboarding flag still holds the welcome back for a member who shows it |
 | Member left before the welcome | Discord refuses the DM; recorded as an error |
 | Onboarding roles arrive in a separate update after the flag | The welcome picks steps from the roles it had. **Not verified against live Discord**: localhost has no Discord. If it happens, the fix is a short wait before picking |
 | Two Modbots in one server | Each Modbot answers only the server in its settings, as the rest of the bot does |

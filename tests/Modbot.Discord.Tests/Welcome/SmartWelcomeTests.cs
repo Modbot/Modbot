@@ -58,8 +58,11 @@ public class SmartWelcomeTests
     private static DiscordWelcomeStep Step(string kind, int position, string? role, string text, string? link)
         => new() { Kind = kind, Position = position, RoleId = role, Text = text, Link = link };
 
-    private static DiscordMemberSnapshot Member(string userId, string[] roles, DateTimeOffset? joinedAt = null)
-        => new(userId, "newcomer", "Newcomer", null, false, joinedAt ?? new DateTimeOffset(2026, 9, 13, 11, 0, 0, TimeSpan.Zero), roles, null);
+    private static DiscordMemberSnapshot Member(
+        string userId, string[] roles, DateTimeOffset? joinedAt = null, bool started = false, bool finished = false)
+        => new(
+            userId, "newcomer", "Newcomer", null, false, joinedAt ?? new DateTimeOffset(2026, 9, 13, 11, 0, 0, TimeSpan.Zero), roles, null,
+            StartedOnboarding: started, FinishedOnboarding: finished);
 
     private static async Task<string?> FinishAsync(TestServices services, FakeGateway gateway, DiscordMemberSnapshot member)
     {
@@ -67,11 +70,18 @@ public class SmartWelcomeTests
         return await scope.ServiceProvider.GetRequiredService<SmartWelcome>().FinishedOnboardingAsync(gateway, Guild, member, Ct);
     }
 
-    private static async Task<string?> JoinAsync(TestServices services, FakeGateway gateway, string userId, bool gateHolds = false, bool isBot = false)
+    private static async Task<string?> JoinAsync(
+        TestServices services, FakeGateway gateway, string userId, bool gateHolds = false, bool isBot = false, bool started = false)
     {
         using var scope = services.Scope();
         return await scope.ServiceProvider.GetRequiredService<SmartWelcome>()
-            .JoinedAsync(gateway, new DiscordMemberJoin(Guild, userId, "newcomer", isBot, Member(userId, [])), gateHolds, Ct);
+            .JoinedAsync(gateway, new DiscordMemberJoin(Guild, userId, "newcomer", isBot, Member(userId, [], started: started)), gateHolds, Ct);
+    }
+
+    private static async Task<string?> UpdateAsync(TestServices services, FakeGateway gateway, DiscordMemberSnapshot member)
+    {
+        using var scope = services.Scope();
+        return await scope.ServiceProvider.GetRequiredService<SmartWelcome>().UpdatedAsync(gateway, Guild, member, Ct);
     }
 
     [Fact]
@@ -299,5 +309,124 @@ public class SmartWelcomeTests
 
         await using var check = services.Database.NewContext();
         Assert.False(await check.DiscordWelcomes.AnyAsync(w => w.DiscordUserId == "2016", Ct));
+    }
+
+    [Fact]
+    public async Task GateOn_AMemberWhoFinishedOnboardingWhileHeld_IsWelcomedWhenTheGateLetsThemIn_NotBefore()
+    {
+        await using var services = await SetUpAsync(_db);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGateMode = DiscordGateModes.On;
+            s.DiscordGateMemberRoleId = "850";
+        }, Ct);
+
+        var gateway = new FakeGateway { OnboardingOn = true };
+
+        // Onboarding on: joining sends nothing, held or not.
+        Assert.Null(await JoinAsync(services, gateway, "2017", gateHolds: true));
+
+        // They finish onboarding, but the gate has not let them in: nothing goes out.
+        Assert.Null(await FinishAsync(services, gateway, Member("2017", [], started: true, finished: true)));
+        Assert.Empty(gateway.DirectMessages);
+
+        await using (var context = services.Database.NewContext())
+        {
+            Assert.Equal(DiscordWelcomeStates.Waiting, (await context.DiscordWelcomes.SingleAsync(w => w.DiscordUserId == "2017", Ct)).State);
+        }
+
+        // The gate gives them the member role: now it goes out, once.
+        Assert.Equal("dm", await UpdateAsync(services, gateway, Member("2017", ["850", Artist], started: true, finished: true)));
+        Assert.Null(await UpdateAsync(services, gateway, Member("2017", ["850", Artist], started: true, finished: true)));
+        Assert.Single(gateway.DirectMessages);
+    }
+
+    [Fact]
+    public async Task GateOn_AMemberAlreadyLetIn_IsWelcomedAtOnceOnFinishingOnboarding()
+    {
+        await using var services = await SetUpAsync(_db);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGateMode = DiscordGateModes.On;
+            s.DiscordGateMemberRoleId = "850";
+        }, Ct);
+
+        var gateway = new FakeGateway { OnboardingOn = true };
+
+        Assert.Equal("dm", await FinishAsync(services, gateway, Member("2018", ["850"], started: true, finished: true)));
+        Assert.Single(gateway.DirectMessages);
+    }
+
+    [Fact]
+    public async Task TheOnboardingReadIsKeptForAnHour_ThenAskedAgain()
+    {
+        await using var services = await SetUpAsync(_db);
+        var gateway = new FakeGateway { OnboardingOn = false };
+
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2019"));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2020"));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2021"));
+        Assert.Equal(1, gateway.OnboardingReads);
+
+        services.Clock.Advance(OnboardingCheck.KeepAnswer - TimeSpan.FromMinutes(1));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2022"));
+        Assert.Equal(1, gateway.OnboardingReads);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2023"));
+        Assert.Equal(2, gateway.OnboardingReads);
+    }
+
+    [Fact]
+    public async Task AFailedOnboardingRead_IsKeptForFiveMinutes_NotAskedAgainWithEveryJoin()
+    {
+        await using var services = await SetUpAsync(_db);
+        var gateway = new FakeGateway { OnboardingOn = null };
+
+        // The read failed: no onboarding is assumed, so the welcome goes out on joining.
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2024"));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2025"));
+        Assert.Equal(1, gateway.OnboardingReads);
+
+        services.Clock.Advance(OnboardingCheck.KeepFailure + TimeSpan.FromSeconds(1));
+        Assert.Equal("dm", await JoinAsync(services, gateway, "2026"));
+        Assert.Equal(2, gateway.OnboardingReads);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task TheStartedOnboardingFlag_OverridesAnOffOrFailedRead_AndTheWelcomeWaitsForTheFinish(bool? read)
+    {
+        await using var services = await SetUpAsync(_db);
+        var gateway = new FakeGateway { OnboardingOn = read };
+
+        Assert.Null(await JoinAsync(services, gateway, "2027", started: true));
+        Assert.Empty(gateway.DirectMessages);
+
+        Assert.Equal("dm", await FinishAsync(services, gateway, Member("2027", [], started: true, finished: true)));
+        Assert.Single(gateway.DirectMessages);
+    }
+
+    [Fact]
+    public async Task AMemberHeldByTheGateWhoStartsOnboarding_IsNotWelcomedOnLetIn_UntilTheyFinish()
+    {
+        await using var services = await SetUpAsync(_db);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGateMode = DiscordGateModes.On;
+            s.DiscordGateMemberRoleId = "850";
+        }, Ct);
+
+        // The read said no onboarding, so the welcome is waiting for the gate.
+        var gateway = new FakeGateway { OnboardingOn = false };
+        Assert.Null(await JoinAsync(services, gateway, "2028", gateHolds: true));
+
+        // The gate lets them in, but Discord says they are partway through onboarding.
+        Assert.Null(await UpdateAsync(services, gateway, Member("2028", ["850"], started: true)));
+        Assert.Empty(gateway.DirectMessages);
+
+        Assert.Equal("dm", await UpdateAsync(services, gateway, Member("2028", ["850"], started: true, finished: true)));
+        Assert.Single(gateway.DirectMessages);
     }
 }

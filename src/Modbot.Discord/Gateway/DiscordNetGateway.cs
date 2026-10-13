@@ -1369,19 +1369,22 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 
     public async Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct)
     {
-        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+        // The server is the one the bot already holds in memory: no request to fetch it. Only the
+        // onboarding read goes to Discord, and a refusal is never retried (the caller asks again later).
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
             return null;
 
         try
         {
-            var guild = await _client.Rest.GetGuildAsync(id).ConfigureAwait(false);
-            if (guild is null)
-                return null;
-
-            var onboarding = await guild.GetOnboardingAsync().ConfigureAwait(false);
+            var onboarding = await guild.GetOnboardingAsync(PostOptions(ct)).ConfigureAwait(false);
             return onboarding?.IsEnabled;
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (RateLimitedException)
+        {
+            _log.Warning("Discord is rate limiting the read of whether the server has onboarding");
+            return null;
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             _log.Warning(e, "Could not read whether the Discord server has onboarding");
             return null;
@@ -1847,7 +1850,9 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         user.GlobalName,
         user.GetDisplayAvatarUrl() ?? user.GetDefaultAvatarUrl(),
         user.IsPending ?? false,
-        user.PremiumSince);
+        user.PremiumSince,
+        user.Flags.HasFlag(GuildUserFlags.StartedOnboarding),
+        user.Flags.HasFlag(GuildUserFlags.CompletedOnboarding));
 
     /// <summary>An audit log entry in Modbot's words, or null for a kind Modbot does not record.</summary>
     /// <remarks>

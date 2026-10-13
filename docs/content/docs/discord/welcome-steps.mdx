@@ -43,7 +43,14 @@ only the default steps. If you have no default steps either, nothing is sent.
 | Your server | Sent |
 |---|---|
 | Uses Discord's onboarding | When Discord marks the member as having finished it, so their answers have already given them roles. |
-| Has no onboarding | When the member joins. With the [join gate](/discord/join-gate) on, once the gate lets them in. |
+| Has no onboarding | When the member joins. |
+
+Modbot works out which of the two your server is. There is nothing to set. It asks Discord at most
+once an hour, and a member whom Discord shows as having started onboarding is waited for even if the
+answer said there is none.
+
+With the [join gate](/discord/join-gate) on, nothing is sent until the gate lets the member in. A
+member who finishes onboarding while the gate still holds them is welcomed the moment it lets them in.
 
 Each member is welcomed once. Switching it on welcomes only members who join after that, so
 nobody who is already in the server is greeted.

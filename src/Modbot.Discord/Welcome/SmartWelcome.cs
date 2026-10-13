@@ -33,22 +33,26 @@ public sealed class SmartWelcome
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
     private readonly IModbotClock _clock;
+    private readonly OnboardingCheck _onboarding;
 
     public SmartWelcome(
         ModbotContext db,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
-        IModbotClock clock)
+        IModbotClock clock,
+        OnboardingCheck onboarding)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
         ArgumentNullException.ThrowIfNull(partitions);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(onboarding);
 
         _db = db;
         _facts = facts;
         _partitions = partitions;
         _clock = clock;
+        _onboarding = onboarding;
     }
 
     /// <summary>
@@ -68,9 +72,12 @@ public sealed class SmartWelcome
         if (settings is not { DiscordWelcomeEnabled: true })
             return null;
 
-        // A server with onboarding is welcomed when the member finishes it. A read that failed counts
-        // as no onboarding (design §3.2): a welcome that is early beats one that never comes.
-        if (await gateway.ReadOnboardingOnAsync(member.GuildId, ct).ConfigureAwait(false) == true)
+        // A server with onboarding is welcomed when the member finishes it. The answer is Discord's,
+        // read at most once an hour; a member who has started onboarding settles it whatever the
+        // read said. A read that failed and no flag seen count as no onboarding (design §3.2): a
+        // welcome that is early beats one that never comes.
+        if (member.Member is { StartedOnboarding: true }
+            || await _onboarding.IsOnAsync(gateway, member.GuildId, ct).ConfigureAwait(false) == true)
             return null;
 
         if (gateHolds)
@@ -101,6 +108,14 @@ public sealed class SmartWelcome
         if (settings.DiscordWelcomeStartedAt is not { } started || member.JoinedAt is not { } joined || joined < started)
             return null;
 
+        // The join gate comes first, here too: a member it still holds waits, and the update that
+        // lets them in sends it (design §3.3).
+        if (!GateIsDone(settings, member.RoleIds))
+        {
+            await WaitAsync(member.UserId, ct).ConfigureAwait(false);
+            return null;
+        }
+
         return await SendAsync(gateway, settings, guildId, member.UserId, member.RoleIds, ct).ConfigureAwait(false);
     }
 
@@ -125,15 +140,25 @@ public sealed class SmartWelcome
         if (!waiting)
             return null;
 
-        var gateRole = settings.DiscordGateMemberRoleId;
-        var gateDone = settings.DiscordGateMode != DiscordGateModes.On
-                       || gateRole is null
-                       || member.RoleIds.Contains(gateRole, StringComparer.Ordinal);
+        if (!GateIsDone(settings, member.RoleIds))
+            return null;
 
-        if (!gateDone)
+        // Discord says they are partway through onboarding: the welcome waits for them to finish it,
+        // even when the read said the server has none (design §3.2).
+        if (member.StartedOnboarding && !member.FinishedOnboarding)
             return null;
 
         return await SendAsync(gateway, settings, guildId, member.UserId, member.RoleIds, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The join gate is off, has no member role to give, or has given it to this member.</summary>
+    private static bool GateIsDone(Settings settings, IReadOnlyList<string> roleIds)
+    {
+        var gateRole = settings.DiscordGateMemberRoleId;
+
+        return settings.DiscordGateMode != DiscordGateModes.On
+               || gateRole is null
+               || roleIds.Contains(gateRole, StringComparer.Ordinal);
     }
 
     /// <summary>Up to three steps for a member who holds these roles: matching rules, then defaults (design §4).</summary>

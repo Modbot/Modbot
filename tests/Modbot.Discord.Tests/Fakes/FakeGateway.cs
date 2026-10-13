@@ -938,7 +938,14 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>What the server's onboarding is, as the bot reads it. Null is a read that failed.</summary>
     public bool? OnboardingOn { get; set; }
 
-    public Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct) => Task.FromResult(OnboardingOn);
+    /// <summary>How many times the bot asked Discord whether the server has onboarding.</summary>
+    public int OnboardingReads { get; private set; }
+
+    public Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct)
+    {
+        OnboardingReads++;
+        return Task.FromResult(OnboardingOn);
+    }
 
     public int? Online { get; set; }
 
