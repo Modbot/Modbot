@@ -76,6 +76,9 @@ public static class DiscordServiceCollectionExtensions
         services.AddHostedService<Posts.PostDiscordService>();
         services.AddSingleton<Core.Posts.IDiscordPostActions>(
             p => new Posts.DiscordPostActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+        services.AddScoped<RoleMenus.RoleMenuPress>();
+        services.AddSingleton<Core.Discord.IDiscordRoleMenuActions>(
+            p => new RoleMenus.DiscordRoleMenuActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 
         // The event form's preview of the Discord event and the channel post, from the same
         // builders (calendar design §14).

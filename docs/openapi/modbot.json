@@ -13990,6 +13990,398 @@
         ]
       }
     },
+    "/api/settings/discord-role-menus": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "List role menus",
+        "description": "The role menus Modbot posts in Discord, each with the roles it gives and whether its message is up.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ListDiscordRoleMenus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordRoleMenusResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Add a role menu",
+        "description": "Save a new role menu. It is not posted until Post is called. `style` is buttons or select. Between 1 and 25 roles, each with a label of at most 80 characters on one line and an optional emoji; a role with a dangerous permission is refused.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CreateDiscordRoleMenu",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordRoleMenuBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordRoleMenuView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/discord-role-menus/{id}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change a role menu",
+        "description": "Save changes to a role menu. The posted message is not rewritten until Post is called. A posted menu cannot move to another channel.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordRoleMenu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordRoleMenuBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordRoleMenuView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Delete a role menu",
+        "description": "Delete the role menu and, when it is posted, its message in Discord. Roles members already picked stay with them.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "DeleteDiscordRoleMenu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/discord-role-menus/{id}/post": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Post a role menu",
+        "description": "Post the role menu in its channel, or rewrite its message when it is already up. Needs the Discord bot to be connected and to send messages in the channel.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "PostDiscordRoleMenu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordRoleMenuView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-sync": {
       "get": {
         "tags": [
@@ -43485,6 +43877,162 @@
           }
         }
       },
+      "DiscordRoleMenuBody": {
+        "required": [
+          "name",
+          "channelId",
+          "text",
+          "style",
+          "singleChoice",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "style": {
+            "type": "string"
+          },
+          "singleChoice": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DiscordRoleMenuRoleBody"
+            }
+          }
+        }
+      },
+      "DiscordRoleMenuRoleBody": {
+        "required": [
+          "roleId",
+          "label",
+          "emoji"
+        ],
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordRoleMenuView": {
+        "required": [
+          "id",
+          "name",
+          "channelId",
+          "text",
+          "style",
+          "singleChoice",
+          "roles",
+          "messageId",
+          "postedAt",
+          "changedSincePosted"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "style": {
+            "type": "string"
+          },
+          "singleChoice": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordRoleMenuRoleBody"
+            }
+          },
+          "messageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "changedSincePosted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordRoleMenusResponse": {
+        "required": [
+          "menus",
+          "mostMenus",
+          "mostRoles",
+          "mostNameLength",
+          "mostTextLength",
+          "mostLabelLength"
+        ],
+        "type": "object",
+        "properties": {
+          "menus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordRoleMenuView"
+            }
+          },
+          "mostMenus": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostRoles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostNameLength": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostTextLength": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostLabelLength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "DiscordRoleOption": {
         "required": [
           "id",
@@ -43553,6 +44101,10 @@
             "type": "boolean"
           },
           "botCanMention": {
+            "type": "boolean",
+            "default": false
+          },
+          "dangerous": {
             "type": "boolean",
             "default": false
           }

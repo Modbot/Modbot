@@ -3057,17 +3057,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         return builder.Build();
     }
 
-    /// <summary>A server emoji (<c>&lt;:name:id&gt;</c>) or a Unicode one Discord knows, or null.</summary>
-    private static IEmote? ParseEmoji(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return null;
-
-        if (Emote.TryParse(text, out var custom))
-            return custom;
-
-        return Emoji.TryParse(text, out var unicode) ? unicode : null;
-    }
+    /// <summary>A server emoji (<c>&lt;:name:id&gt;</c>) or a Unicode one, or null when empty.</summary>
+    private static IEmote? ParseEmoji(string? text) => text is null ? null : Emoji(text);
 
     private static bool IsHttps(string? address) =>
         address is { Length: > 0 }

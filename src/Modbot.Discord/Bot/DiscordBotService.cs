@@ -1137,6 +1137,15 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // A role menu's button or drop-down list: gives the role, or takes it back.
+            if (RoleMenus.RoleMenuMessage.IsPress(press.ButtonId))
+            {
+                var menuReply = await scope.ServiceProvider.GetRequiredService<RoleMenus.RoleMenuPress>()
+                    .HandleAsync(ReadyGateway, press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(menuReply, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
             // /event's question and /post's preview (Discord commands design §3.3, steps 7 and 8).
             if (EventCommand.IsButton(press.ButtonId))
             {

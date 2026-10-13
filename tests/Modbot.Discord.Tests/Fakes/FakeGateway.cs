@@ -152,6 +152,41 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
+    /// <summary>Every role menu posted or rewritten: channel, message, text, buttons, drop-down list.</summary>
+    public List<(string ChannelId, string MessageId, string Text, IReadOnlyList<DiscordActionButton> Buttons, DiscordSelectMenu? Select)> MenuPosts { get; } = [];
+
+    public Task<DiscordPostOutcome> PostMenuAsync(
+        string channelId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
+        CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        MenuPosts.Add((channelId, messageId, text, buttons, select));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public Task<DiscordPostOutcome> EditMenuAsync(
+        string channelId,
+        string messageId,
+        string text,
+        IReadOnlyList<DiscordActionButton> buttons,
+        DiscordSelectMenu? select,
+        CancellationToken ct)
+    {
+        var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        MenuPosts.Add((channelId, messageId, text, buttons, select));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
     /// <summary>Every invite pause asked for: server and until when.</summary>
     public List<(string GuildId, DateTimeOffset Until)> InvitePauses { get; } = [];
 

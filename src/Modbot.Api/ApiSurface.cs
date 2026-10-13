@@ -22,6 +22,7 @@ using Modbot.Api.Features.DiscordStaffRoles;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.DiscordReports;
+using Modbot.Api.Features.DiscordRoleMenus;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Mcp;
 using Modbot.Api.Features.DiscordRoutes;
