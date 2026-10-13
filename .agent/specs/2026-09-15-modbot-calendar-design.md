@@ -990,7 +990,7 @@ the end of, and had refused by VRChat at publish time with no word on what was w
 Testers paste links that are not a plain `.png`: a page that shows the picture, a signed CDN link
 with a query string, a host that answers with WebP. A browser cannot read another site's picture
 into a canvas to crop it, and VRChat serves its files only to a signed-in session, so Modbot fetches
-the picture. **`POST /api/calendar/picture-link`** (Manage calendar), body `{ url }`, answers with the
+the picture. **`POST /api/calendar/picture-link`** (See calendar, plus Manage calendar or Manage templates), body `{ url }`, answers with the
 picture's bytes; Discord's event cover (§3.2) is fetched the same way when it is published.
 
 Every fetch is Modbot's server calling an address a person chose, so the guard (`PictureLinks`) is
