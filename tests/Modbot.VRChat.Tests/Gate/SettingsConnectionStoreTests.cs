@@ -138,10 +138,12 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
         await using var read = db.NewContext();
         Assert.False((await read.GetSettingsAsync(Ct)).VRChatPictureUploads);
 
-        var latest = await read.Events.AsNoTracking()
-            .Where(e => e.Type == FactType.SettingsChanged && e.Data.Contains("\"vrchatPictureUploads\"") && e.Data.Contains("\"automatic\""))
+        // The data column is jsonb, which has no LIKE: read the changes of settings and look inside them here.
+        var changes = await read.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.SettingsChanged)
             .OrderByDescending(e => e.Id)
-            .FirstAsync(Ct);
+            .ToListAsync(Ct);
+        var latest = changes.First(e => e.Data.Contains("\"vrchatPictureUploads\"") && e.Data.Contains("\"automatic\""));
         Assert.Null(latest.ActorId);
     }
 

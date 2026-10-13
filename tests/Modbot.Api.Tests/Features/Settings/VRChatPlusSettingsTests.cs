@@ -153,12 +153,13 @@ public class VRChatPlusSettingsTests(PostgresFixture db) : IAsyncLifetime
     private async Task<List<string>> AutomaticSwitchOffsAsync()
     {
         await using var context = db.NewContext();
+        // The data column is jsonb, which has no LIKE: read the changes of settings and look inside them here.
         var rows = await context.Events.AsNoTracking()
-            .Where(e => e.Type == FactType.SettingsChanged && e.Data.Contains("\"vrchatPictureUploads\"") && e.Data.Contains("\"automatic\""))
+            .Where(e => e.Type == FactType.SettingsChanged)
             .Select(e => e.Data)
             .ToListAsync(Ct);
 
-        return rows;
+        return [.. rows.Where(d => d.Contains("\"vrchatPictureUploads\"") && d.Contains("\"automatic\""))];
     }
 
     [Fact]
