@@ -1216,6 +1216,15 @@ when it has one) and never blocks the save. A changed value is checked when
 VRChat is on, and an id the event already holds is kept as it is. VRChat itself
 refuses a bad one at sending.
 
+**Warnings before a save (added 2026-10-13).** Besides refusals, the form looks the event over when
+**Schedule** or **Save** is pressed and shows what it found, with a way to save anyway: VRChat tags
+or language empty while VRChat calendar is on, a title that is no longer the one its template gave,
+and an event with the same title (§16's rule) starting within 15 minutes. **The duplicate check
+reads only stored events**: `POST /api/calendar/same-events` looks at Modbot's own table, which
+already holds the group's VRChat calendar from the last page open or Refresh (§12.1), and never
+reads VRChat itself (§9). The form waits at most 3 seconds for it and saves without the duplicate
+lines after that. Save draft is not looked over.
+
 ### 17.3 Being sent
 
 - **A place being sent says so.** The event's box shows **Sending…**, with a turning mark, for a

@@ -11,8 +11,6 @@ export type CalendarSameEvent = {
 
 export type CalendarSameEvents = {
   matches: CalendarSameEvent[]
-  /** False when VRChat's calendar could not be read, so only Modbot's own events were looked at. */
-  vrChatRead: boolean
 }
 
 /** What the warnings look at: the form as it stands, less the dates. */

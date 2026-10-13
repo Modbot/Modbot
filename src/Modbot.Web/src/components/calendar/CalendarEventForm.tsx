@@ -62,6 +62,9 @@ type Tab = 'details' | 'preview'
 /** How a repeat stops: never, after its last date, or after a number of times. */
 type RepeatEnd = 'never' | 'date' | 'times'
 
+/** How long a save waits for the look at events already at that time, before it goes on without it. */
+const SAME_EVENTS_WAIT_MS = 3000
+
 /** What "After a number of times" starts at. */
 const FIRST_TIMES = 4
 
@@ -265,10 +268,15 @@ export function CalendarEventForm({
   // The lines to show before a save: what the form leaves empty, a title that is not the template's,
   // and an event already at that time. The check for that one failing is no reason to hold the save.
   const warningsFor = async (saving: CalendarEventInput): Promise<string[]> => {
-    const same = await calendarApi
-      .sameEvents(saving.title, saving.startsAt, saving.timeZone, event?.id ?? null)
-      .then((answer) => answer.matches)
-      .catch(() => [])
+    // A slow answer is no answer: the save goes ahead without the duplicate lines.
+    const none = new Promise<never[]>((resolve) => window.setTimeout(() => resolve([]), SAME_EVENTS_WAIT_MS))
+    const same = await Promise.race([
+      calendarApi
+        .sameEvents(saving.title, saving.startsAt, saving.timeZone, event?.id ?? null)
+        .then((answer) => answer.matches)
+        .catch(() => []),
+      none,
+    ])
 
     return saveWarnings(
       {

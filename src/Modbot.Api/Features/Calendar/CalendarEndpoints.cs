@@ -1050,7 +1050,6 @@ public static class CalendarEndpoints
         group.MapPost("/same-events", async (
                 [FromBody] CalendarSameEventRequest? body,
                 [FromServices] ModbotContext db,
-                [FromServices] CalendarVRChatReader reader,
                 CancellationToken ct) =>
             {
                 var zone = CalendarRepeat.FindZone(body?.TimeZone);
@@ -1060,17 +1059,16 @@ public static class CalendarEndpoints
 
                 var startsAt = local.InZoneLeniently(zone).ToDateTimeOffset();
 
-                return Results.Ok(await CalendarSameEvents.FindAsync(db, reader, body.Title, startsAt, body.EventId, ct));
+                return Results.Ok(await CalendarSameEvents.FindAsync(db, body.Title, startsAt, body.EventId, ct));
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("FindSameCalendarEvents")
             .WithSummary("Find events like one about to be saved")
             .WithDescription(
-                "Events in Modbot's calendar, including the ones brought in from VRChat's group calendar, "
-                + "with the same title (as the Discord duplicate finder compares titles) starting at most "
-                + $"{(int)DiscordEventDuplicates.StartsWithin.TotalMinutes} minutes apart. Reads VRChat's calendar around the start first, the "
-                + "way opening the calendar page does, and skips that quietly when VRChat cannot be asked. "
-                + "Changes nothing and never refuses a save.")
+                "Events in Modbot's calendar, including the ones kept from VRChat's group calendar the last "
+                + "time it was read, with the same title (as the Discord duplicate finder compares titles) "
+                + $"starting at most {(int)DiscordEventDuplicates.StartsWithin.TotalMinutes} minutes apart. Reads only what Modbot has stored: "
+                + "VRChat is not asked, so a save never waits on it. Changes nothing and never refuses a save.")
             .Produces<CalendarSameEventsView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
