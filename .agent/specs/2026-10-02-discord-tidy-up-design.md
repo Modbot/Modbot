@@ -73,14 +73,48 @@ Message History; anything stored from before is not shown, since "quiet since th
 **Still reading** (a read-back for the channel or one of its threads is unfinished), else **No
 messages**.
 
-**Order:** no messages, then longest quiet, then still reading, then can't read; Discord's order
-between equals. **Filter:** All channels, or Hide staff-only (`hideStaffOnly=true`).
+**Order:** the API sends no messages, then longest quiet, then still reading, then can't read;
+Discord's order between equals. The page re-sorts that list itself (see Sorting).
+
+**Sorting:** every column sorts, ascending and descending, by clicking its header (Channel, Category,
+Last message, Quiet for), kept in the address as `?sort=quiet-desc`. On a phone, where the table
+becomes a list, a Sort box and a direction button do the same. Rows with nothing to sort by
+(Last message: none, still reading or can't read; Quiet for: still reading or can't read; Category:
+none) always come last, whichever way it runs; a channel with no messages is the longest quiet. The rules
+are pure functions in `lib/discordTidyUp.ts`.
+
+**Filtering:** the page's filter bar, so the choices live in the address (`f=`) and combine:
+
+| Filter | Choices |
+|---|---|
+| Seen by | is / is not, one or more roles (see 3.1) |
+| Quiet for | at least 7, 30, 60, 90, 180 or 365 days |
+| Category | each category, and No category |
+| Type | text, announcement, forum |
+| Status | No messages, Still reading, Can't read |
+| Staff-only | yes / no; offered only with Change settings |
+| Name | search box |
+
+### 3.1 Seen by
+
+The question is what someone holding only that role would see. The rule (`DiscordTidyUp.RoleCanView`)
+combines @everyone's and the role's server-wide permissions; Administrator on either sees everything.
+Otherwise the channel's overwrite for @everyone applies (Deny hides, Allow shows), then the role's
+(same). A synced channel already holds its category's overwrites on Discord's side, so there is no
+separate inheritance step. Member-specific overwrites are not counted: the question is about the role.
+
+Modbot used to keep only whether @everyone can see a channel, so the overwrites are now kept as
+`discord_channel.view_overwrites`, a plain text column listing the roles whose View Channel is Allow
+and the roles whose View Channel is Deny. It is filled from the gateway cache when the bot reads a
+channel, so nothing new is asked of Discord. It is empty until the bot next signs in or resumes, and
+a channel or role not yet read matches neither "is" nor "is not": Seen by narrows to nothing until
+then, rather than guessing.
 
 **Who sees staff-only names:** only someone who also has **Change settings** (`ManageSettings`, the
 permission that guards every Discord setting). A staff-only channel's name can say what the staff talk
 about, and See analytics is given to people who are not staff. Everyone else gets the public channels
 and one line, "N staff-only channels", with nothing about them but the count (`staffOnlyHidden`);
-Hide staff-only changes nothing for them.
+the Staff-only filter changes nothing for them.
 
 **Still reading** is looked up in one query for every unfinished read-back in the server (a thread's
 counts for its channel), not one look per channel.
@@ -99,7 +133,13 @@ retention, when an operator sets one, makes a channel quiet for longer than it r
 ## 4. API
 
 - `GET /api/discord/reports/roles` → `RoleReport`
-- `GET /api/discord/reports/quiet-channels?hideStaffOnly=` → `QuietChannelList`
+- `GET /api/discord/reports/quiet-channels?seenBy=&notSeenBy=` → `QuietChannelList`. Both
+  parameters take role ids and repeat for more: `seenBy` keeps channels at least one of the roles can
+  see, `notSeenBy` channels none of them can see. The answer also carries `roles` and `categories`
+  for the filter pickers, and each row a `categoryId`. `hideStaffOnly` is gone: the Staff-only filter
+  on the page replaces it (the hidden-staff-channel count and the Change settings rule are
+  unchanged). Everything else (quiet for, category, type, status, name, sort) is done by the page on
+  the one list.
 
 Both under See analytics. The rules are a pure class (`DiscordTidyUp`) so they are tested without a
 database.
