@@ -8,8 +8,8 @@ namespace Modbot.Discord.Calendar;
 
 /// <summary>
 /// Runs <see cref="CalendarDiscordPublisher"/> every twenty seconds, only while the bot has a ready
-/// session (calendar design §9), then the event invites' direct messages and members' reminders
-/// (<see cref="EventReminderMessages"/>).
+/// session (calendar design §9), then the event invites' direct messages, members' reminders
+/// (<see cref="EventReminderMessages"/>) and event alerts (<see cref="EventAlertMessages"/>).
 /// </summary>
 /// <remarks>
 /// Its own loop, like the instance announcer, so a server that has taken the bot's Manage Events away
@@ -82,6 +82,23 @@ public sealed class CalendarDiscordService : BackgroundService
                 catch (Exception ex)
                 {
                     _log.Error(ex, "The reminders' Discord pass failed; it will run again");
+                }
+
+                // Alerts for the categories and events members signed up for (/notify, Notify me):
+                // their own rows and their own switch, so a failing reminder pass never holds one back.
+                try
+                {
+                    using var scope = _scopes.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<EventAlertMessages>()
+                        .RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "The alerts' Discord pass failed; it will run again");
                 }
             }
 

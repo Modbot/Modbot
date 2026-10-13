@@ -160,6 +160,7 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddKeyedSingleton<MemberCommandLimits>(NotifyCommand.LimitsKey);
         services.AddScoped<NotifyCommand>();
         services.AddScoped<Calendar.EventReminderMessages>();
+        services.AddScoped<Calendar.EventAlertMessages>();
 
         // /event and /post: the calendar's and the Marketing tab's own code, which the API
         // implements (ICalendarActions, IPostActions), and the questions waiting on a press.

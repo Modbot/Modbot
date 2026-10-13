@@ -1093,4 +1093,89 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
             seeded.Order(StringComparer.Ordinal),
             gateway.Deleted.Select(d => d.MessageId).Order(StringComparer.Ordinal));
     }
+
+    // ── The Notify me button (event alerts design §6) ──────────────────────────────────────
+
+    [Fact]
+    public async Task ThePostCarriesNotifyMe_OnlyWhileAlertsAreOn()
+    {
+        await using var on = await TestServices.CreateAsync(db, Ct);
+        await on.ConfigureAsync(s =>
+        {
+            s.DiscordGuildId = Guild;
+            s.EventAlertsOn = true;
+        }, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(on, TimeSpan.FromDays(1));
+        await RunAsync(on, gateway);
+
+        var message = Assert.Single(gateway.Messages);
+        var button = Assert.Single(gateway.ActionsSent[message.MessageId]);
+        Assert.Equal(Modbot.Discord.Commands.NotifyCommand.ButtonFor(e.Id), button);
+
+        await using var off = await TestServices.CreateAsync(db, Ct);
+        await off.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var quiet = new FakeGateway();
+
+        await AddEventAsync(off, TimeSpan.FromDays(1));
+        await RunAsync(off, quiet);
+
+        Assert.Empty(quiet.ActionsSent[Assert.Single(quiet.Messages).MessageId]);
+    }
+
+    [Fact]
+    public async Task TheFingerprintGainsTheButtonOnlyWhileAlertsAreOn_SoNothingIsEditedForNothing()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s => s.DiscordGuildId = Guild, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromDays(1));
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        // Alerts off: a second pass leaves the post alone.
+        Assert.Empty(gateway.Edits);
+
+        // Turned on: each live post is edited once, with the button.
+        await services.ConfigureAsync(s => s.EventAlertsOn = true, Ct);
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        Assert.Single(gateway.Edits);
+        Assert.Equal(Modbot.Discord.Commands.NotifyCommand.ButtonFor(e.Id), Assert.Single(Assert.Single(gateway.EditActions)));
+
+        // Turned off again: edited once more, without it.
+        await services.ConfigureAsync(s => s.EventAlertsOn = false, Ct);
+        await RunAsync(services, gateway);
+        await RunAsync(services, gateway);
+
+        Assert.Equal(2, gateway.Edits.Count);
+        Assert.Empty(gateway.EditActions[^1]);
+    }
+
+    [Fact]
+    public async Task APostForADateThatHasEnded_CarriesNoButton()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordGuildId = Guild;
+            s.EventAlertsOn = true;
+        }, Ct);
+        var gateway = new FakeGateway();
+
+        var e = await AddEventAsync(services, TimeSpan.FromHours(1), x => x.Repeat = CalendarRepeats.Daily);
+        await RunAsync(services, gateway);
+        Assert.Single(gateway.ActionsSent[Assert.Single(gateway.Messages).MessageId]);
+
+        services.Clock.Advance(TimeSpan.FromHours(3));
+        await ChangeAsync(services, e.Id, x => CalendarTimeline.Advance(x, services.Clock.UtcNow));
+        await RunAsync(services, gateway);
+
+        // The old date's last word takes its button away; the next date's post has one.
+        Assert.Empty(Assert.Single(gateway.EditActions));
+        Assert.Single(gateway.ActionsSent[gateway.Messages[^1].MessageId]);
+    }
 }

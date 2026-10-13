@@ -8,6 +8,7 @@ using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Cards;
+using Modbot.Discord.Commands;
 using Modbot.Discord.Instances;
 using Modbot.Discord.Gateway;
 using Serilog;
@@ -200,6 +201,7 @@ public sealed class CalendarDiscordPublisher
             new CardStyle(publicAddress, settings.ManagedGroupName),
             settings.VRChatImagesProxied,
             _pictures,
+            settings.EventAlertsOn,
             ct);
 
         // Which dates have pinged their role already: every date, not only the latest, so a post
@@ -732,9 +734,15 @@ public sealed class CalendarDiscordPublisher
             string.Join('\n', embed.Fields.Select(f => f.Name + "=" + f.Value)), links.Count > 0 ? links[0].Url : null,
         ];
 
-        // Added only with a role, so a post without one keeps the fingerprint it was sent under and
-        // is not edited again for nothing.
-        var fingerprint = CalendarFingerprint.Of(mention is null ? said : [.. said, mention]);
+        // The Notify me button, only while alerts are on and the date has not ended (event alerts
+        // design §6).
+        var notify = pass.AlertsOn && current.EndsAt > pass.Now;
+        IReadOnlyList<DiscordActionButton>? actions = notify ? [NotifyCommand.ButtonFor(e.Id)] : null;
+
+        // Added only with a role, and only while the button is on, so a post without them keeps the
+        // fingerprint it was sent under and is not edited again for nothing.
+        object?[] parts = mention is null ? said : [.. said, mention];
+        var fingerprint = CalendarFingerprint.Of(notify ? [.. parts, "notify"] : parts);
 
         if (place.ExternalId is not null && place.SentFingerprint == fingerprint)
         {
@@ -764,10 +772,10 @@ public sealed class CalendarDiscordPublisher
 
             outcome = ping
                 ? await pass
-                    .Call(g => g.PostMentioningRoleAsync(channelId!, e.MentionRoleId!.Trim(), [embed], links, files, pass.Ct))
+                    .Call(g => g.PostMentioningRoleAsync(channelId!, e.MentionRoleId!.Trim(), [embed], links, files, actions, pass.Ct))
                     .ConfigureAwait(false)
                 : await pass
-                    .Call(g => g.PostAsync(channelId!, mention, [embed], links, files, pass.Ct))
+                    .Call(g => g.PostAsync(channelId!, mention, [embed], links, files, actions, pass.Ct))
                     .ConfigureAwait(false);
 
             if (outcome is { Sent: true, MessageId: { } posted })
@@ -788,7 +796,7 @@ public sealed class CalendarDiscordPublisher
             var id = place.ExternalId!;
             var inChannel = place.ChannelId ?? channelId!;
             outcome = await pass
-                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, files, pass.Ct))
+                .Call(g => g.EditAsync(inChannel, id, mention, [embed], links, files, actions, pass.Ct))
                 .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the event changes, so a moderator who
@@ -1187,6 +1195,7 @@ public sealed class CalendarDiscordPublisher
         CardStyle style,
         bool showPictures,
         CardPictures pictures,
+        bool alertsOn,
         CancellationToken ct)
     {
         public string? GuildId { get; } = guildId;
@@ -1200,6 +1209,9 @@ public sealed class CalendarDiscordPublisher
 
         /// <summary>The operator's switch for fetching VRChat pictures through this server.</summary>
         public bool ShowPictures { get; } = showPictures;
+
+        /// <summary>Whether event alerts are on, read once for the pass: the channel posts carry the Notify me button while they are.</summary>
+        public bool AlertsOn { get; } = alertsOn;
 
         public DateTimeOffset Now { get; } = now;
 
