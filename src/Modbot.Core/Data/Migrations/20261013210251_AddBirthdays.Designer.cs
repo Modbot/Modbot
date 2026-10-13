@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261013204212_AddBirthdays")]
+    [Migration("20261013210251_AddBirthdays")]
     partial class AddBirthdays
     {
         /// <inheritdoc />
@@ -3473,6 +3473,128 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_discord_sync_state_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChannelId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<string>("ClosedByDiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("closed_by_discord_user_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<string>("DiscordUserName")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_name");
+
+                    b.Property<bool>("HoldsPrivateImages")
+                        .HasColumnType("boolean")
+                        .HasColumnName("holds_private_images");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opened_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("ThreadId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("thread_id");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("type_id");
+
+                    b.Property<string>("TypeName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("type_name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_ticket");
+
+                    b.HasIndex("ThreadId")
+                        .HasDatabaseName("ix_discord_ticket_thread");
+
+                    b.HasIndex("TypeId", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_discord_ticket_open")
+                        .HasFilter("state = 'open'");
+
+                    b.ToTable("discord_ticket", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordTicketType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("HoldsPrivateImages")
+                        .HasColumnType("boolean")
+                        .HasColumnName("holds_private_images");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("OpeningMessage")
+                        .IsRequired()
+                        .HasMaxLength(1500)
+                        .HasColumnType("character varying(1500)")
+                        .HasColumnName("opening_message");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("StaffRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("staff_role_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_ticket_type");
+
+                    b.HasIndex("Position")
+                        .HasDatabaseName("ix_discord_ticket_type_order");
+
+                    b.ToTable("discord_ticket_type", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordWelcome", b =>
@@ -8537,6 +8659,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordStaffRolesOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_staff_roles_on");
+
+                    b.Property<string>("DiscordTicketTranscriptChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_ticket_transcript_channel_id");
 
                     b.Property<string>("DiscordWelcomeChannelId")
                         .HasColumnType("text")
