@@ -114,6 +114,10 @@ public class DemoContainerTests
         builder.Services.AddModbotApi();
         builder.Services.AddWebhookDelivery();
         builder.Services.AddEmailQueue();
+
+        // The host registers the notification pipeline for a demo too, and the "we're live" pass
+        // raises its drafts through it.
+        builder.Services.AddNotifications();
         builder.Services.AddModbotDemo();
 
         // AddModbotVRChatSync is deliberately absent. That is the whole point of the test.
