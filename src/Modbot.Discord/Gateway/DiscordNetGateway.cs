@@ -2849,7 +2849,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         => Buttons(links, actions: null);
 
     /// <summary>
-    /// Link buttons, then action buttons, on one row. An address that is not plain https is left
+    /// Link buttons, then action buttons, filling rows of five. An address that is not plain https is left
     /// off, and so is an action whose id is not Modbot's.
     /// </summary>
     private static MessageComponent Buttons(IReadOnlyList<DiscordLinkButton>? links, IReadOnlyList<DiscordActionButton>? actions)
