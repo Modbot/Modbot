@@ -29,6 +29,7 @@ export function RolePicker({
   needsMention = false,
   hideDangerous = false,
   includeEveryone = false,
+  exclude,
   allowNone = true,
   disabled,
 }: {
@@ -44,6 +45,8 @@ export function RolePicker({
   hideDangerous?: boolean
   /** Offer @everyone. Left out unless asked for. */
   includeEveryone?: boolean
+  /** Role ids to leave out of the list, such as ones already chosen elsewhere. The saved role stays. */
+  exclude?: string[]
   /** Offer "None", which sets an empty string. */
   allowNone?: boolean
   disabled?: boolean
@@ -59,7 +62,13 @@ export function RolePicker({
   }
 
   const options = roles
-    .filter((r) => !r.removed && (includeEveryone || !r.everyone) && !(hideDangerous && r.dangerous))
+    .filter(
+      (r) =>
+        !r.removed &&
+        (includeEveryone || !r.everyone) &&
+        !(hideDangerous && r.dangerous) &&
+        (r.id === value || !exclude?.includes(r.id)),
+    )
     .sort((a, b) => b.position - a.position || a.id.localeCompare(b.id))
     .map((role) => ({
       id: role.id,

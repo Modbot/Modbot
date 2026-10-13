@@ -258,6 +258,7 @@ function MenuEditor({
             allowNone={false}
             needsAssign
             hideDangerous
+            exclude={draft.rows.filter((r) => r.key !== row.key && r.roleId).map((r) => r.roleId)}
           />
           <Field
             label="Label"
