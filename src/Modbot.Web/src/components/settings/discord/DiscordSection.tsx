@@ -13,6 +13,7 @@ import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
 import { ListRolesCard } from './ListRolesCard'
 import { PermissionWatchCard } from './PermissionWatchCard'
+import { RoleMenusCard } from './RoleMenusCard'
 import { SyncCard } from './SyncCard'
 import { WelcomeCard } from './WelcomeCard'
 
@@ -56,6 +57,7 @@ export function DiscordSection({
           <PermissionWatchCard />
           <GalleryPicturesCard />
           <WelcomeCard />
+          <RoleMenusCard />
           <SyncCard />
           {can(me, 'ManageRoles') && can(me, 'ManageUsers') && <StaffRolesCard />}
           <ListRolesCard />

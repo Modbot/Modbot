@@ -17,6 +17,8 @@ function colorOf(role: DiscordRole): string | null {
  * With `needsMention`, roles a mention by the bot would not ping -- not open to mentions, and the
  * bot lacks Mention @everyone, @here and All Roles -- are marked the same way.
  *
+ * With `hideDangerous`, roles holding a permission staff are warned about are left out of the list.
+ *
  * A saved id that is not in the list stays selected and reads as an unknown role.
  */
 export function RolePicker({
@@ -25,6 +27,7 @@ export function RolePicker({
   onChange,
   needsAssign = false,
   needsMention = false,
+  hideDangerous = false,
   includeEveryone = false,
   allowNone = true,
   disabled,
@@ -37,6 +40,8 @@ export function RolePicker({
   needsAssign?: boolean
   /** Mark roles the bot cannot ping. */
   needsMention?: boolean
+  /** Leave out roles holding a permission staff are warned about. */
+  hideDangerous?: boolean
   /** Offer @everyone. Left out unless asked for. */
   includeEveryone?: boolean
   /** Offer "None", which sets an empty string. */
@@ -54,7 +59,7 @@ export function RolePicker({
   }
 
   const options = roles
-    .filter((r) => !r.removed && (includeEveryone || !r.everyone))
+    .filter((r) => !r.removed && (includeEveryone || !r.everyone) && !(hideDangerous && r.dangerous))
     .sort((a, b) => b.position - a.position || a.id.localeCompare(b.id))
     .map((role) => ({
       id: role.id,

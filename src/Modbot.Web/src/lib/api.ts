@@ -421,6 +421,44 @@ export type DiscordWelcomeSettingsInput = {
   defaults: DiscordWelcomeDefault[]
 }
 
+export type DiscordRoleMenuStyle = 'buttons' | 'select'
+
+/** One role on a role menu. */
+export type DiscordRoleMenuRole = { roleId: string; label: string; emoji: string | null }
+
+/** Settings → Discord → Role menus: a message with buttons or a list where members pick roles. */
+export type DiscordRoleMenu = {
+  id: string
+  name: string
+  channelId: string
+  text: string
+  style: DiscordRoleMenuStyle
+  singleChoice: boolean
+  roles: DiscordRoleMenuRole[]
+  /** Null until the menu has been posted. */
+  messageId: string | null
+  postedAt: string | null
+  changedSincePosted: boolean
+}
+
+export type DiscordRoleMenus = {
+  menus: DiscordRoleMenu[]
+  mostMenus: number
+  mostRoles: number
+  mostNameLength: number
+  mostTextLength: number
+  mostLabelLength: number
+}
+
+export type DiscordRoleMenuInput = {
+  name: string
+  channelId: string
+  text: string
+  style: DiscordRoleMenuStyle
+  singleChoice: boolean
+  roles: DiscordRoleMenuRole[]
+}
+
 /** One person at the join gate. */
 export type DiscordGateRow = {
   discordUserId: string
@@ -715,6 +753,8 @@ export type DiscordRole = {
   managed: boolean
   everyone: boolean
   botCanAssign: boolean
+  /** Holds a permission staff are warned about; it cannot go on a role menu. */
+  dangerous: boolean
   removed: boolean
   /** A mention of it by the bot pings: open to mentions, or the bot may mention any role. Missing from an older server. */
   botCanMention?: boolean
@@ -5077,6 +5117,20 @@ export const api = {
 
   setDiscordWelcomeSettings: (body: DiscordWelcomeSettingsInput) =>
     put<DiscordWelcomeSettings>('/api/settings/discord-welcome', body),
+
+  discordRoleMenus: () => request<DiscordRoleMenus>('/api/settings/discord-role-menus'),
+
+  createDiscordRoleMenu: (body: DiscordRoleMenuInput) =>
+    post<DiscordRoleMenu>('/api/settings/discord-role-menus', body),
+
+  setDiscordRoleMenu: (id: string, body: DiscordRoleMenuInput) =>
+    put<DiscordRoleMenu>(`/api/settings/discord-role-menus/${encodeURIComponent(id)}`, body),
+
+  /** Writes the menu's message in Discord, or rewrites the one already there. */
+  postDiscordRoleMenu: (id: string) =>
+    post<DiscordRoleMenu>(`/api/settings/discord-role-menus/${encodeURIComponent(id)}/post`),
+
+  deleteDiscordRoleMenu: (id: string) => del<void>(`/api/settings/discord-role-menus/${encodeURIComponent(id)}`),
 
   /** Who is waiting at the join gate, and whether new joiners are held. */
   discordGate: () => request<DiscordGate>('/api/discord/gate'),
