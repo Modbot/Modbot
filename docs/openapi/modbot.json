@@ -16099,6 +16099,99 @@
         ]
       }
     },
+    "/api/analytics/regulars": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get regulars and return rate",
+        "description": "Regulars: do people come back? A visitor in a week is anybody who joined any of the group's instances that week (weeks run Monday to Sunday, UTC). They came back if they joined a group instance again in any of the next four weeks; the week's rate is the ones who came back over the visitors, and `cameBack` is null until those four weeks are over. A regular joined in at least three of the latest four whole weeks; the list is the first 200, most days first, and `regularsTotal` counts them all. Joins come from presence reports, which exist only while a moderator's companion is in the instance, so a person who came back to an instance nobody from the team attended is not counted as coming back.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetRegularsAnalytics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegularsAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/analytics/instances": {
       "get": {
         "tags": [
@@ -55005,6 +55098,114 @@
           }
         }
       },
+      "Regular": {
+        "required": [
+          "userId",
+          "name",
+          "weeks",
+          "days",
+          "lastSeenAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weeks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RegularsAnalytics": {
+        "required": [
+          "from",
+          "to",
+          "weeks",
+          "returnWeeks",
+          "regularWeeks",
+          "regularNeeds",
+          "regularsFrom",
+          "regularsTo",
+          "regularsTotal",
+          "regulars",
+          "presenceReports",
+          "coverage",
+          "generatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "weeks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeekReturn"
+            }
+          },
+          "returnWeeks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regularWeeks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regularNeeds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regularsFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "regularsTo": {
+            "type": "string",
+            "format": "date"
+          },
+          "regularsTotal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regulars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Regular"
+            }
+          },
+          "presenceReports": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/AnalyticsCoverage"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "RepeatOffenderListResponse": {
         "required": [
           "people",
@@ -60670,6 +60871,31 @@
           "lastWeek": {
             "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "WeekReturn": {
+        "required": [
+          "weekStart",
+          "visitors",
+          "cameBack"
+        ],
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "visitors": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cameBack": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
