@@ -113,6 +113,19 @@ public class PartnerEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AContactOnMoreThanOneLineIsRefused()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ManagePartners, Ct);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/partners", new { name = "Moon Club", contacts = new[] { "Sam\nPat" } }, manager, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("A contact must be on one line.", await ErrorOf(response));
+    }
+
+    [Fact]
     public async Task ABadStatusIsRefused()
     {
         await using var host = await StartAsync();

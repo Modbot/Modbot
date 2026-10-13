@@ -76,12 +76,14 @@ export function LongField({
   value,
   placeholder,
   rows = 3,
+  maxLength,
   onChange,
 }: {
   label: string
   value: string
   placeholder: string
   rows?: number
+  maxLength?: number
   onChange: (v: string) => void
 }) {
   return (
@@ -89,6 +91,7 @@ export function LongField({
       <span className="text-muted-foreground">{label}</span>
       <Textarea
         rows={rows}
+        maxLength={maxLength}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

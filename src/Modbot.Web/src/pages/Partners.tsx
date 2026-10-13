@@ -265,7 +265,7 @@ function PartnerForm({ partner, onClose, onSaved }: { partner: Partner | null; o
             <Field label="Last collab" value={lastCollabNote} maxLength={300} onChange={setLastCollabNote} />
           </div>
 
-          <LongField label="Notes" value={notes} placeholder="" rows={4} onChange={setNotes} />
+          <LongField label="Notes" value={notes} placeholder="" rows={4} maxLength={2000} onChange={setNotes} />
         </div>
       </DialogContent>
     </Dialog>

@@ -222,6 +222,8 @@ public static class PartnerEndpoints
             return $"There can be at most {Partner.MaxContacts} contacts.";
         if (contacts.Any(c => c.Length > Partner.MaxContactLength))
             return $"A contact can be at most {Partner.MaxContactLength} characters.";
+        if (contacts.Any(c => c.Contains('\n') || c.Contains('\r')))
+            return "A contact must be on one line.";
 
         var note = Clean(body.LastCollabNote);
         if (note is { Length: > Partner.MaxCollabNoteLength })
