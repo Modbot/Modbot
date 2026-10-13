@@ -17,7 +17,7 @@ namespace Modbot.Api.Tests.Features.Calendar;
 /// <summary>
 /// The VRChat picture of a calendar event (calendar design §2, added 2026-10-01): uploaded to VRChat
 /// once when it is chosen, never sent again after a 429, refused before VRChat is asked when it is
-/// too big or not a PNG or JPEG, behind Manage calendar, and a fact naming who uploaded it.
+/// too big or not a PNG or JPEG, behind Manage calendar or Manage templates, and a fact naming who uploaded it.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class CalendarPictureTests(PostgresFixture db) : IAsyncLifetime
@@ -92,7 +92,34 @@ public class CalendarPictureTests(PostgresFixture db) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task UploadingNeedsManageCalendar()
+    public async Task ATemplateManagerWhoCanSeeTheCalendarMayUpload()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        var (_, templateManager) = await host.SignedInAsync(
+            ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates, Ct);
+
+        var response = await UploadAsync(host, templateManager, Png());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Single(gate.Calls);
+    }
+
+    [Fact]
+    public async Task ManageTemplatesWithoutSeeCalendarMayNotUpload()
+    {
+        var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
+        await using var host = await StartAsync(gate);
+        var (_, templateManager) = await host.SignedInAsync(ModbotPermissions.ManageTemplates, Ct);
+
+        var response = await UploadAsync(host, templateManager, Png());
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Empty(gate.Calls);
+    }
+
+    [Fact]
+    public async Task UploadingNeedsManageCalendarOrManageTemplates()
     {
         var gate = new FakeVRChatGate().Returns("UploadImage", Uploaded("file_test"));
         await using var host = await StartAsync(gate);

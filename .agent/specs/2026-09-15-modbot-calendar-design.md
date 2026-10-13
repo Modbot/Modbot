@@ -890,8 +890,8 @@ had a way to make, so in practice events reached VRChat without a picture. The m
 two fields apart (a picture link for Discord, a VRChat picture for VRChat) and made the second an
 upload.
 
-- **Uploaded when it is chosen, by its own request**, `POST /api/calendar/vrchat-picture` (Manage
-  calendar), not when the event is saved. Saving stays plain JSON and never waits on VRChat, which is
+- **Uploaded when it is chosen, by its own request**, `POST /api/calendar/vrchat-picture` (See
+  calendar, plus Manage calendar or Manage templates, §20), not when the event is saved. Saving stays plain JSON and never waits on VRChat, which is
   what the rest of the calendar is built on (§3, §9): an upload waits on its own one-a-minute budget
   and can be refused, and a refusal belongs on the picture field, at the moment the picture is
   chosen, not on a save that would then fail as a whole. The answer is the file id; the form puts it
@@ -1369,10 +1369,15 @@ fill themselves in (step 4) are not here.
 - **Who.** `ManageTemplates` — "Manage templates" (bit 59): make, change and delete templates. It is
   apart from Manage calendar on purpose: Manage calendar or Manage templates reads the list
   (`canManage` says whether the caller may also change it), and only Manage templates writes. In no
-  built-in role; Administrator holds it. The template form keeps a Discord picture and crops from a
-  picture link, so `POST /api/calendar/cover` and `POST /api/calendar/picture-link` take See calendar
-  with Manage calendar **or** Manage templates (checked in the handler, as the list is; changed
-  2026-10-13). The VRChat picture upload stays Manage calendar: it puts a file on VRChat.
+  built-in role; Administrator holds it. Somebody with See calendar and Manage templates, and not
+  Manage calendar, uses every part of the template form (user, 2026-10-13: "any part of the
+  template"). So what the form reads or keeps for itself takes See calendar with Manage calendar
+  **or** Manage templates, checked in the handler as the list is: `POST /api/calendar/cover`,
+  `POST /api/calendar/picture-link`, `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds`,
+  `GET /api/calendar/invite-choices`, and `GET /api/discord/channels` and `/roles` (which also stay
+  open to Change settings). Making, changing and publishing events stays Manage calendar, and so do
+  the preview (the template form has no Preview tab) and the World lists page's world search. Picking
+  an invite list on a template still needs See members and See profiles, the Lists rule.
 - **Checks.** A save runs the event's own checks (`ApplyAll`, preview mode) on a made-up first date
   (a Monday in UTC) plus the world-list, role-mention, picture and invite checks, so a template holds
   what an event would, spelled and trimmed the same way. What an event is refused for only when it is

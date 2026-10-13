@@ -51,21 +51,25 @@ public static class CalendarEndpoints
     public const string CoverTooBig = "The picture is larger than 8 MB.";
 
     /// <summary>
-    /// The refusal for a picture helper (<c>cover</c>, <c>picture-link</c>) asked by someone with neither
-    /// Manage calendar nor Manage templates, or null when the caller holds one. The endpoint itself already
-    /// requires See calendar. The template editor keeps these pictures too, so a template manager who
-    /// cannot manage events needs them.
+    /// The refusal for a part of the event form (the picture helpers, the world and staff pickers, the
+    /// Discord channel and role lists) asked by someone with neither Manage calendar nor Manage templates,
+    /// or null when the caller holds one. The endpoint itself already requires See calendar. The template
+    /// editor uses every part of the form, so a template manager who cannot manage events needs them.
+    /// Only for what reads data or keeps a picture for the form; making, changing and publishing events
+    /// stays Manage calendar.
     /// </summary>
-    private static IResult? RefusedWithoutPictureRights(HttpContext http)
+    internal static IResult? RefusedWithoutEditorRights(HttpContext http)
     {
         var held = ModbotAuth.PermissionsOf(http.User);
 
-        return ModbotAuth.Allows(held, ModbotPermissions.ManageCalendar) || ModbotAuth.Allows(held, ModbotPermissions.ManageTemplates)
-            ? null
-            : Results.Json(
-                new { error = "Pictures need Manage calendar or Manage templates." },
-                statusCode: StatusCodes.Status403Forbidden);
+        return HoldsCalendarOrTemplates(held) ? null : Results.Json(
+            new { error = "This needs Manage calendar or Manage templates." },
+            statusCode: StatusCodes.Status403Forbidden);
     }
+
+    /// <summary>Whether <paramref name="held"/> includes Manage calendar or Manage templates.</summary>
+    internal static bool HoldsCalendarOrTemplates(ModbotPermissions held)
+        => ModbotAuth.Allows(held, ModbotPermissions.ManageCalendar) || ModbotAuth.Allows(held, ModbotPermissions.ManageTemplates);
 
     /// <summary>The most staff accounts one event invites, besides the host.</summary>
     public const int MaxInviteStaff = 20;
@@ -736,6 +740,9 @@ public static class CalendarEndpoints
                 [FromServices] VRChatPictureUploads? uploads,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
                 // The operator's switch (Settings, Modbot's VRChat login). Asked before anything is
                 // read from the body or sent to VRChat.
                 var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
@@ -841,12 +848,13 @@ public static class CalendarEndpoints
             })
             // No declared request body, as with imports: the body is a file, and the reference
             // generator cannot draw a sample of one.
-            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("UploadCalendarVRChatPicture")
             .WithSummary("Upload VRChat calendar picture")
             .WithDescription(
                 "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an "
-                + "event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG "
+                + "event's entry on VRChat's calendar. Needs Manage calendar or Manage templates, "
+                + "because the template editor keeps one too. The body is the picture itself: a PNG or JPEG "
                 + "of at most 10 MB, told apart by its first bytes rather than its Content-Type. "
                 + "Answers with the file id VRChat gave it; save that as the event's vrChatImageId. "
                 + "eventId names the event when it is already saved, for the audit log. One request "
@@ -874,7 +882,7 @@ public static class CalendarEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
-                if (RefusedWithoutPictureRights(http) is { } refused)
+                if (RefusedWithoutEditorRights(http) is { } refused)
                     return refused;
 
                 if (http.Request.ContentLength > CalendarCoverPicture.MaxBytes)
@@ -969,7 +977,7 @@ public static class CalendarEndpoints
                 // Optional: the VRChat side is wired by the host, not by the API.
                 [FromServices] Core.Files.IPictures? vrchatPictures,
                 CancellationToken ct) =>
-                RefusedWithoutPictureRights(http) is { } refused
+                RefusedWithoutEditorRights(http) is { } refused
                     ? Task.FromResult(refused)
                     : PictureLinkFetch.AnswerAsync(http, body.Url, db, vrchatPictures, ct))
             .RequiresFlag(ModbotPermissions.ViewCalendar)
@@ -991,9 +999,13 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status502BadGateway);
 
         group.MapGet("/worlds", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
                 var worlds = await db.VRChatWorlds.AsNoTracking()
                     .OrderByDescending(w => w.LastSeenAt)
                     .Take(200)
@@ -1002,11 +1014,12 @@ public static class CalendarEndpoints
 
                 return Results.Ok(worlds);
             })
-            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("ListCalendarWorlds")
             .WithSummary("List worlds for events")
             .WithDescription(
-                "Worlds Modbot knows, most recently seen first, to pick an event's world from.")
+                "Worlds Modbot knows, most recently seen first, to pick an event's world from. "
+                + "Needs Manage calendar or Manage templates, because the template editor picks one too.")
             .Produces<IReadOnlyList<CalendarWorldView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -1031,6 +1044,9 @@ public static class CalendarEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
                 var staff = await db.Users.AsNoTracking()
                     .Where(u => u.DeletedAt == null && !u.IsDisabled)
                     .OrderBy(u => u.Username)
@@ -1052,12 +1068,13 @@ public static class CalendarEndpoints
 
                 return Results.Ok(new CalendarInviteChoicesView(staff, lists));
             })
-            .RequiresFlag(ModbotPermissions.ManageCalendar)
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("ListCalendarInviteChoices")
             .WithSummary("List who an event can invite")
             .WithDescription(
                 "The staff accounts an event can invite as its host and staff, and the saved lists it can "
-                + "invite. Lists are null without See members and See profiles.")
+                + "invite. Lists are null without See members and See profiles. Needs Manage calendar or "
+                + "Manage templates, because the template editor picks them too.")
             .Produces<CalendarInviteChoicesView>()
             .Produces(StatusCodes.Status403Forbidden);
 

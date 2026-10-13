@@ -10613,7 +10613,7 @@
           "Discord"
         ],
         "summary": "List Discord channels",
-        "description": "The Discord server's channels and what the bot may do in each.\n\nNeeds the `ManageSettings` permission.",
+        "description": "The Discord server's channels and what the bot may do in each. Needs Change settings, or See calendar with Manage calendar or Manage templates, because the event form picks a channel.",
         "operationId": "ListDiscordChannels",
         "responses": {
           "200": {
@@ -10663,7 +10663,7 @@
           "Discord"
         ],
         "summary": "List Discord roles",
-        "description": "The Discord server's roles and whether the bot could hand each out.\n\nNeeds the `ManageSettings` permission.",
+        "description": "The Discord server's roles and whether the bot could hand each out. Needs Change settings, or See calendar with Manage calendar or Manage templates, because the event form picks a role to mention.",
         "operationId": "ListDiscordRoles",
         "responses": {
           "200": {
@@ -27247,7 +27247,7 @@
           "Calendar"
         ],
         "summary": "Upload VRChat calendar picture",
-        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" until the operator turns uploads on in Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" while the account is known to have none; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Uploads a picture to VRChat, on the VRChat account Modbot signs in as, for an event's entry on VRChat's calendar. Needs Manage calendar or Manage templates, because the template editor keeps one too. The body is the picture itself: a PNG or JPEG of at most 10 MB, told apart by its first bytes rather than its Content-Type. Answers with the file id VRChat gave it; save that as the event's vrChatImageId. eventId names the event when it is already saved, for the audit log. One request to VRChat, at most one a minute and never retried; a picture that is too big or not a PNG or JPEG is refused before VRChat is asked. Answers 409 \"Picture uploads are off.\" until the operator turns uploads on in Settings, and 409 \"Modbot's VRChat account needs VRChat+ to use pictures.\" while the account is known to have none; VRChat takes the upload only from an account with VRChat+. Modbot keeps none of the bytes.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "UploadCalendarVRChatPicture",
         "parameters": [
           {
@@ -27664,7 +27664,7 @@
           "Calendar"
         ],
         "summary": "List worlds for events",
-        "description": "Worlds Modbot knows, most recently seen first, to pick an event's world from.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "Worlds Modbot knows, most recently seen first, to pick an event's world from. Needs Manage calendar or Manage templates, because the template editor picks one too.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarWorlds",
         "responses": {
           "200": {
@@ -27767,7 +27767,7 @@
           "Calendar"
         ],
         "summary": "List who an event can invite",
-        "description": "The staff accounts an event can invite as its host and staff, and the saved lists it can invite. Lists are null without See members and See profiles.\n\nNeeds the `ManageCalendar` permission.",
+        "description": "The staff accounts an event can invite as its host and staff, and the saved lists it can invite. Lists are null without See members and See profiles. Needs Manage calendar or Manage templates, because the template editor picks them too.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarInviteChoices",
         "responses": {
           "200": {

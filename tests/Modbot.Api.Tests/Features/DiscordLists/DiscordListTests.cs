@@ -10,7 +10,7 @@ namespace Modbot.Api.Tests.Features.DiscordLists;
 
 /// <summary>
 /// The channel and role lists settings pick from: read from Modbot's own tables, only for the
-/// server in settings, and only for somebody who can change the Discord settings.
+/// server in settings, and only for somebody who can change the Discord settings or use the event form.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class DiscordListTests
@@ -198,5 +198,27 @@ public class DiscordListTests
 
         var administrator = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
         Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(path, administrator, Ct)).StatusCode);
+    }
+
+    /// <summary>The event form, and the template editor with it, picks a channel and a role to mention.</summary>
+    [Theory]
+    [InlineData("/api/discord/channels")]
+    [InlineData("/api/discord/roles")]
+    public async Task ACalendarEditorMayReadTheListsToo(string path)
+    {
+        await using var host = await StartAsync(_db);
+        await SeedAsync(host);
+
+        var templateManager = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageTemplates, Ct);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(path, templateManager, Ct)).StatusCode);
+
+        var eventManager = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(path, eventManager, Ct)).StatusCode);
+
+        var viewer = await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(path, viewer, Ct)).StatusCode);
+
+        var templatesOnly = await host.SignedInAsync(ModbotPermissions.ManageTemplates, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(path, templatesOnly, Ct)).StatusCode);
     }
 }

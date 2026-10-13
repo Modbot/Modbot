@@ -76,7 +76,8 @@ public sealed record DiscordRolesResponse(
 /// <remarks>
 /// Read from Modbot's own tables, never from the gateway, so they answer while the bot is offline.
 /// Gated on <see cref="ModbotPermissions.ManageSettings"/>, the permission that saves the Discord
-/// settings these lists are picked for.
+/// settings these lists are picked for. The event form picks a channel and a role too, so somebody
+/// who can see the calendar and holds Manage calendar or Manage templates may read them as well.
 /// </remarks>
 public static class DiscordListEndpoints
 {
@@ -84,14 +85,20 @@ public static class DiscordListEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
+        // The permission is checked in the handlers: Change settings, or See calendar with Manage
+        // calendar or Manage templates. RequiresFlag asks for every flag, never for either of two.
         var group = app.MapGroup("/api/discord")
             .WithTags("Discord")
-            .RequiresFlag(ModbotPermissions.ManageSettings);
+            .RequireAuthorization();
 
         group.MapGet("/channels", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutListRights(http) is { } refused)
+                    return refused;
+
                 var guildId = await GuildIdAsync(db, ct);
                 var server = await ServerAsync(db, guildId, ct);
 
@@ -129,14 +136,20 @@ public static class DiscordListEndpoints
             })
             .WithName("ListDiscordChannels")
             .WithSummary("List Discord channels")
-            .WithDescription("The Discord server's channels and what the bot may do in each.")
+            .WithDescription(
+                "The Discord server's channels and what the bot may do in each. Needs Change settings, "
+                + "or See calendar with Manage calendar or Manage templates, because the event form picks a channel.")
             .Produces<DiscordChannelsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/roles", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
+                if (RefusedWithoutListRights(http) is { } refused)
+                    return refused;
+
                 var guildId = await GuildIdAsync(db, ct);
                 var server = await ServerAsync(db, guildId, ct);
                 var mentionEveryone = server?.BotCanMentionEveryone ?? false;
@@ -169,11 +182,29 @@ public static class DiscordListEndpoints
             })
             .WithName("ListDiscordRoles")
             .WithSummary("List Discord roles")
-            .WithDescription("The Discord server's roles and whether the bot could hand each out.")
+            .WithDescription(
+                "The Discord server's roles and whether the bot could hand each out. Needs Change settings, "
+                + "or See calendar with Manage calendar or Manage templates, because the event form picks a role to mention.")
             .Produces<DiscordRolesResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
+    }
+
+    /// <summary>
+    /// The refusal for somebody who may neither change settings nor use the event form (See calendar with
+    /// Manage calendar or Manage templates), or null when the caller may read the lists.
+    /// </summary>
+    private static IResult? RefusedWithoutListRights(HttpContext http)
+    {
+        var held = ModbotAuth.PermissionsOf(http.User);
+
+        var mayRead = ModbotAuth.Allows(held, ModbotPermissions.ManageSettings)
+            || (ModbotAuth.Allows(held, ModbotPermissions.ViewCalendar) && Calendar.CalendarEndpoints.HoldsCalendarOrTemplates(held));
+
+        return mayRead ? null : Results.Json(
+            new { error = "This needs Change settings, or See calendar with Manage calendar or Manage templates." },
+            statusCode: StatusCodes.Status403Forbidden);
     }
 
     private static async Task<string?> GuildIdAsync(ModbotContext db, CancellationToken ct)
