@@ -401,6 +401,7 @@ public class EventCardOwnFactsTests
         FactType.DiscordRoleRevoked,
         FactType.DiscordMessagesRemoved,
         FactType.DiscordCommandRun,
+        FactType.DiscordMemberGainedPermission,
     };
 
     /// <summary>An unknown name falls back to Discord's mention, never to a bare id.</summary>
@@ -484,5 +485,50 @@ public class EventCardOwnFactsTests
         Assert.Equal("Calendar feed link replaced", card.Title);
         Assert.Equal("The Kingdom", card.AuthorName);
         Assert.DoesNotContain("calendar-feed", Visible(card), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARoleThatGainedAPermission_NamesTheRoleTheWordsAndWhatWasDone()
+    {
+        var card = Card(Fact(
+            FactType.DiscordRoleGainedPermission,
+            new JsonObject { ["name"] = "Head Mod", ["permissions"] = "Administrator", ["action"] = "removed" },
+            FactPlatform.Discord, "300000000000000003", actor: null));
+
+        Assert.Equal("Head Mod", Field(card, "Role"));
+        Assert.Equal("Administrator", Field(card, "Permissions"));
+        Assert.Equal("Permission removed", Field(card, "What happened"));
+    }
+
+    [Fact]
+    public void ARoleWithNoStoredName_IsAMention_NeverABareId()
+    {
+        var card = Card(Fact(
+            FactType.DiscordRoleGainedPermission,
+            new JsonObject { ["permissions"] = "Manage Roles", ["action"] = "kept" },
+            FactPlatform.Discord, "300000000000000003", actor: null));
+
+        Assert.Equal("<@&300000000000000003>", Field(card, "Role"));
+        Assert.Equal("Left as it was", Field(card, "What happened"));
+    }
+
+    [Fact]
+    public void AMemberGivenAWatchedRole_NamesTheRoleAndSaysWhenDiscordRefusedTheRemoval()
+    {
+        var card = Card(Fact(
+            FactType.DiscordMemberGainedPermission,
+            new JsonObject
+            {
+                ["displayName"] = "Ada",
+                ["roleName"] = "Head Mod",
+                ["permissions"] = "Administrator, Manage Messages",
+                ["action"] = "kept",
+                ["error"] = "Missing Permissions",
+            },
+            FactPlatform.Discord, Member, actor: null));
+
+        Assert.Equal("Head Mod", Field(card, "Role"));
+        Assert.Equal("Administrator, Manage Messages", Field(card, "Permissions"));
+        Assert.Equal("Could not remove: Missing Permissions", Field(card, "What happened"));
     }
 }
