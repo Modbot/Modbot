@@ -31,7 +31,7 @@ public class TwitchEndpointsTests
         await context.TwitchStreams.ExecuteDeleteAsync(Ct);
         await context.CalendarDateChanges.ExecuteDeleteAsync(Ct);
         await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-        await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         return await ApiTestHost.StartAsync(_db);
     }

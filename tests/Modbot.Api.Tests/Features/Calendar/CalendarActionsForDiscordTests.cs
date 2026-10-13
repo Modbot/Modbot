@@ -38,7 +38,7 @@ public class CalendarActionsForDiscordTests(PostgresFixture db)
         {
             await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
             await context.CalendarOpenings.ExecuteDeleteAsync(Ct);
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
             var settings = await context.GetSettingsAsync(Ct);
             settings.ManagedGroupId = group ? Group : null;

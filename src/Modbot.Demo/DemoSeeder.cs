@@ -131,7 +131,7 @@ public sealed class DemoSeeder
         await _db.CalendarOpenings.ExecuteDeleteAsync(ct);
         await _db.CalendarEventPlaces.ExecuteDeleteAsync(ct);
         await _db.CalendarOldPosts.ExecuteDeleteAsync(ct);
-        await _db.CalendarEvents.ExecuteDeleteAsync(ct);
+        await _db.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(ct);
         await _db.CalendarFeeds.ExecuteDeleteAsync(ct);
 
         // Entrants and draws cascade from the giveaway, but the demo deletes them by name anyway:

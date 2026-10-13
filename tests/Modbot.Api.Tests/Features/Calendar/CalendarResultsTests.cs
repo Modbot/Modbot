@@ -32,7 +32,7 @@ public class CalendarResultsTests(PostgresFixture db)
         {
             await context.CalendarOpenings.ExecuteDeleteAsync(Ct);
             await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
             var settings = await context.GetSettingsAsync(Ct);
             settings.ManagedGroupId = "grp_1";

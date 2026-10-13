@@ -72,7 +72,7 @@ public sealed class PostListUpdaterTests
     {
         await using var context = _db.NewContext();
         await context.Posts.ExecuteDeleteAsync(Ct);
-        await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         var settings = await context.GetSettingsAsync(Ct);
         settings.PostsPaused = paused;

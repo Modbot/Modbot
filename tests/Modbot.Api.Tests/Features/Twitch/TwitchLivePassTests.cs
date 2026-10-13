@@ -49,7 +49,7 @@ public sealed class TwitchLivePassTests
         await context.TwitchStreams.ExecuteDeleteAsync(Ct);
         await context.CalendarDateChanges.ExecuteDeleteAsync(Ct);
         await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-        await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         var settings = await context.GetSettingsAsync(Ct);
         settings.PostsPaused = false;

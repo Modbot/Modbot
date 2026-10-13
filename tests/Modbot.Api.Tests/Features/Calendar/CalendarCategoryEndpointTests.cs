@@ -26,7 +26,7 @@ public class CalendarCategoryEndpointTests(PostgresFixture db)
     {
         await using (var context = db.NewContext())
         {
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
             await context.CalendarCategories.ExecuteDeleteAsync(Ct);
         }
 

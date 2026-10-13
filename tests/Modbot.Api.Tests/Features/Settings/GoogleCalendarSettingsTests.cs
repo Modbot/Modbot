@@ -437,7 +437,7 @@ public class GoogleCalendarSettingsTests
         {
             await clean.CalendarDateChanges.ExecuteDeleteAsync(Ct);
             await clean.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-            await clean.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await clean.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
         }
 
         var everyone = await AddEventAsync("public", CalendarEventStates.Scheduled);

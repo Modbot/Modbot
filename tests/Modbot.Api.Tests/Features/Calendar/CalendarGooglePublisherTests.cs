@@ -46,7 +46,7 @@ public sealed class CalendarGooglePublisherTests(PostgresFixture db) : IDisposab
         await using var context = db.NewContext();
         await context.CalendarDateChanges.ExecuteDeleteAsync(Ct);
         await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-        await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         var settings = await context.GetSettingsAsync(Ct);
         settings.ManagedGroupName = "Test group";

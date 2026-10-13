@@ -50,7 +50,7 @@ public class CalendarPictureTests(PostgresFixture db) : IAsyncLifetime
     private async Task<ApiTestHost> StartAsync(FakeVRChatGate gate, bool uploads = true, bool switchOn = true)
     {
         await using (var context = db.NewContext())
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         // Off until an operator turns it on, so every test that uploads turns it on first.
         await SetUploadsAsync(switchOn);

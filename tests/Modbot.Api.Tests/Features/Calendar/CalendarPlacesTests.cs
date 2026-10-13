@@ -29,7 +29,7 @@ public class CalendarPlacesTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
         }
 
         return await ApiTestHost.StartAsync(db);

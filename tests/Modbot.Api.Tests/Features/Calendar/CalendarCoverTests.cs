@@ -32,7 +32,7 @@ public class CalendarCoverTests(PostgresFixture db)
     private async Task<ApiTestHost> StartAsync()
     {
         await using (var context = db.NewContext())
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         return await ApiTestHost.StartAsync(db);
     }

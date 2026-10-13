@@ -25,7 +25,7 @@ public class PublicCalendarFeedTests(PostgresFixture db)
     {
         await using (var context = db.NewContext())
         {
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
         }
 
         var host = await ApiTestHost.StartAsync(db);

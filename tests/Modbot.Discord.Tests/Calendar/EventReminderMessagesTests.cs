@@ -829,7 +829,7 @@ public class EventReminderMessagesTests
         await AddReminderAsync(services, e);
 
         await using var context = services.Database.NewContext();
-        await context.CalendarEvents.Where(x => x.Id == e.Id).ExecuteDeleteAsync(Ct);
+        await context.CalendarEvents.IgnoreAutoIncludes().Where(x => x.Id == e.Id).ExecuteDeleteAsync(Ct);
 
         Assert.Empty(await context.EventReminders.ToListAsync(Ct));
     }

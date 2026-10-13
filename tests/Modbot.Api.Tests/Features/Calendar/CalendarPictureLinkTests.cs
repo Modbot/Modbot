@@ -26,7 +26,7 @@ public class CalendarPictureLinkTests(PostgresFixture db)
     private async Task<ApiTestHost> StartAsync(FakeVRChatGate? gate = null)
     {
         await using (var context = db.NewContext())
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
         return await ApiTestHost.StartAsync(db, gate ?? new FakeVRChatGate());
     }

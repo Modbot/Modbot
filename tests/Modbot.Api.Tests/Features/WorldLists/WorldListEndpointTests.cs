@@ -26,7 +26,7 @@ public class WorldListEndpointTests(PostgresFixture db)
     {
         await using (var context = db.NewContext())
         {
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
             await context.WorldLists.ExecuteDeleteAsync(Ct);
             await context.VRChatInstances.Where(i => i.GroupId == GroupId).ExecuteDeleteAsync(Ct);
         }

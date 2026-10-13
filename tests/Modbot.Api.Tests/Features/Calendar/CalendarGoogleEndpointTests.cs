@@ -22,7 +22,7 @@ public class CalendarGoogleEndpointTests(PostgresFixture db)
         {
             await context.CalendarDateChanges.ExecuteDeleteAsync(Ct);
             await context.CalendarEventPlaces.ExecuteDeleteAsync(Ct);
-            await context.CalendarEvents.ExecuteDeleteAsync(Ct);
+            await context.CalendarEvents.IgnoreAutoIncludes().ExecuteDeleteAsync(Ct);
 
             var settings = await context.GetSettingsAsync(Ct);
             settings.GoogleClientEmail = googleReady ? "modbot@test-project.iam.gserviceaccount.com" : null;
