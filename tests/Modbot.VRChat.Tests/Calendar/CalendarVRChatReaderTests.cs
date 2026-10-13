@@ -190,7 +190,8 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         await PublishAsync();
 
         var (_, body) = Assert.Single(VRChat.Calendar.Updates);
-        Assert.True(body.Featured);
+        // Featured is left out of the body while it is still what VRChat reported (2026-10-09), so VRChat keeps it.
+        Assert.Null(Assert.IsType<CalendarUpdateBody>(body).Featured);
         Assert.Equal(60, body.HostEarlyJoinMinutes);
         Assert.Equal(5, body.GuestEarlyJoinMinutes);
     }
