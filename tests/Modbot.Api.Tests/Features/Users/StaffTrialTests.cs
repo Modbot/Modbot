@@ -425,4 +425,151 @@ public class StaffTrialTests
         Assert.False(await db.StaffTrials.AnyAsync(x => x.AccountId == t.Person.Id, Ct));
         Assert.False(await db.StaffTrialItems.AnyAsync(x => x.Answer == "Mine", Ct));
     }
+
+    private static Task<HttpResponseMessage> CloseAsync(ApiTestHost host, string cookie, ModbotUser account)
+        => host.SendJsonAsync(HttpMethod.Post, $"/api/staff-trials/{account.Id}/close", null, cookie, Ct);
+
+    [Fact]
+    public async Task ClosingATrial_StampsItKeepsTheLinesAndWritesAFact()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var t = await StartedTrialAsync(host);
+
+        var closed = await CloseAsync(host, t.Admin, t.Person);
+
+        Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+        var view = await ApiTestHost.BodyOf(closed, Ct);
+        Assert.Equal(host.Clock.UtcNow, view.GetProperty("closedAt").GetDateTimeOffset());
+        Assert.Single(ItemsOf(view, "task"));
+        Assert.Single(await host.FactsAsync(FactType.StaffTrialClosed, t.Person.Id.ToString(), Ct));
+
+        var read = (await ApiTestHost.BodyOf(await ReadAsync(host, t.Admin, t.Person), Ct)).GetProperty("trial");
+        Assert.NotEqual(JsonValueKind.Null, read.GetProperty("closedAt").ValueKind);
+    }
+
+    [Fact]
+    public async Task ClosingATrialTwice_KeepsTheFirstDateAndWritesOneFact()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var t = await StartedTrialAsync(host);
+
+        var first = await ApiTestHost.BodyOf(await CloseAsync(host, t.Admin, t.Person), Ct);
+        host.Clock.Advance(TimeSpan.FromDays(1));
+        var second = await CloseAsync(host, t.Admin, t.Person);
+
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(
+            first.GetProperty("closedAt").GetDateTimeOffset(),
+            (await ApiTestHost.BodyOf(second, Ct)).GetProperty("closedAt").GetDateTimeOffset());
+        Assert.Single(await host.FactsAsync(FactType.StaffTrialClosed, t.Person.Id.ToString(), Ct));
+    }
+
+    [Fact]
+    public async Task ClosingATrial_NeedsManageUsers_AndATrial()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var t = await StartedTrialAsync(host);
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var (noTrial, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await CloseAsync(host, viewer, t.Person)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await CloseAsync(host, t.BuddyCookie, t.Person)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await CloseAsync(host, t.Admin, noTrial)).StatusCode);
+        Assert.Empty(await host.FactsAsync(FactType.StaffTrialClosed, t.Person.Id.ToString(), Ct));
+    }
+
+    [Fact]
+    public async Task ClosingATrial_RefusesAnAccountThatIsNotBelowYourHighestRole()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        const ModbotPermissions lead = ModbotPermissions.ManageUsers | ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
+        var (_, leadCookie) = await host.SignedInAsync(lead, Ct);
+        var (above, _) = await host.SignedInAsync(lead | ModbotPermissions.ViewAnalytics, Ct);
+        var (below, _) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var (buddy, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, admin, above, buddy)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, admin, below, buddy)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await CloseAsync(host, leadCookie, above)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await CloseAsync(host, leadCookie, below)).StatusCode);
+    }
+
+    [Fact]
+    public async Task StartingATrialOnYourOwnAccount_Answers400()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (me, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var (buddy, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        var started = await StartAsync(host, admin, me, buddy);
+
+        Assert.Equal(HttpStatusCode.BadRequest, started.StatusCode);
+        Assert.Empty(await host.FactsAsync(FactType.StaffTrialStarted, me.Id.ToString(), Ct));
+    }
+
+    [Fact]
+    public async Task CanStartAndCanManage_FollowRank_AndNeverOfferYourOwnAccount()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        const ModbotPermissions lead = ModbotPermissions.ManageUsers | ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
+        var (leadUser, leadCookie) = await host.SignedInAsync(lead, Ct);
+        var (peer, _) = await host.SignedInAsync(lead, Ct);
+        var (below, _) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var (buddy, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, admin, peer, buddy)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, admin, below, buddy)).StatusCode);
+
+        var peerRead = await ApiTestHost.BodyOf(await ReadAsync(host, leadCookie, peer), Ct);
+        Assert.False(peerRead.GetProperty("canStart").GetBoolean());
+        Assert.False(peerRead.GetProperty("trial").GetProperty("canManage").GetBoolean());
+
+        var belowRead = await ApiTestHost.BodyOf(await ReadAsync(host, leadCookie, below), Ct);
+        Assert.True(belowRead.GetProperty("canStart").GetBoolean());
+        Assert.True(belowRead.GetProperty("trial").GetProperty("canManage").GetBoolean());
+
+        var ownRead = await ApiTestHost.BodyOf(await ReadAsync(host, leadCookie, leadUser), Ct);
+        Assert.False(ownRead.GetProperty("canStart").GetBoolean());
+    }
+
+    [Fact]
+    public async Task TheReminderChannel_IsSavedWithTheLines_AndBlankTurnsItOff()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ManageUsers, Ct);
+
+        var saved = await host.SendJsonAsync(
+            HttpMethod.Put, SettingsPath, new { tasks = new[] { "A" }, signOffs = new[] { "B" }, reminderChannelId = " 1234567890 " }, manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var read = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, SettingsPath, null, manager, Ct), Ct);
+        Assert.Equal("1234567890", read.GetProperty("reminderChannelId").GetString());
+
+        var off = await host.SendJsonAsync(
+            HttpMethod.Put, SettingsPath, new { tasks = new[] { "A" }, signOffs = new[] { "B" }, reminderChannelId = "  " }, manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+
+        var after = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, SettingsPath, null, manager, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, after.GetProperty("reminderChannelId").ValueKind);
+    }
+
+    [Fact]
+    public async Task MyTrials_LeavesAClosedTrialOutOfTheBuddiesList_ButNotThePersonsOwn()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var t = await StartedTrialAsync(host);
+
+        Assert.Equal(HttpStatusCode.OK, (await CloseAsync(host, t.Admin, t.Person)).StatusCode);
+
+        var asBuddy = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/staff-trials/mine", null, t.BuddyCookie, Ct), Ct);
+        Assert.Empty(asBuddy.GetProperty("asBuddy").EnumerateArray());
+
+        var asPerson = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/staff-trials/mine", null, t.PersonCookie, Ct), Ct);
+        Assert.Equal(t.Person.Id, asPerson.GetProperty("own").GetProperty("accountId").GetGuid());
+    }
 }

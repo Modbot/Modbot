@@ -11,14 +11,14 @@ using Serilog;
 namespace Modbot.Discord.StaffReminders;
 
 /// <param name="Council">Day-30 reminders for the Council's vote sent this pass.</param>
-/// <param name="CheckIns">30-day inactive check-ins sent this pass.</param>
+/// <param name="CheckIns">People listed in the 30-day inactive check-in sent this pass.</param>
 /// <param name="Error">What went wrong with the first post that was not sent, if any.</param>
 public sealed record StaffReminderPass(int Council, int CheckIns, string? Error);
 
 /// <summary>
 /// Posts the two staff reminders in the Discord channel chosen under Settings → People and roles → New staff:
-/// the day-30 reminder for the Council's vote on a new staff member, and the check-in for a staff member who
-/// has been inactive for 30 days.
+/// the day-30 reminder for the Council's vote on a new staff member (one post each), and the check-in for staff
+/// who have been inactive for 30 days (one post listing everyone due).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -45,8 +45,11 @@ public sealed class StaffReminderPoster
     /// <summary>How long without activity makes a check-in due.</summary>
     public static readonly TimeSpan QuietFor = TimeSpan.FromDays(30);
 
-    /// <summary>The most reminders of each kind in one pass, so a first run after the channel is set does not flood it.</summary>
+    /// <summary>The most Council reminders in one pass, so a first run after the channel is set does not flood it.</summary>
     public const int PerPass = 5;
+
+    /// <summary>The most people one check-in post lists; the rest follow in the next pass.</summary>
+    public const int CheckInsPerPost = 40;
 
     /// <summary>The most of the buddy's note a card shows.</summary>
     private const int NoteLength = 900;
@@ -179,11 +182,11 @@ public sealed class StaffReminderPoster
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var posted = 0;
+        var due = new List<(ModbotUser Account, DateTimeOffset LastActive)>();
 
         foreach (var account in quiet)
         {
-            if (posted >= PerPass)
+            if (due.Count >= CheckInsPerPost)
                 break;
 
             var lastActive = await LastActiveAsync(account, now, ct).ConfigureAwait(false);
@@ -191,17 +194,25 @@ public sealed class StaffReminderPoster
             if (lastActive > quietSince || (account.CheckInRemindedAt is { } reminded && lastActive <= reminded))
                 continue;
 
-            var outcome = await gateway.PostAsync(channel, [CheckInCard(account, lastActive, now, style)], ct).ConfigureAwait(false);
-
-            if (!outcome.Sent && !outcome.Unclear)
-                return (posted, Refused(outcome, "a check-in"));
-
-            account.CheckInRemindedAt = now;
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            posted++;
+            due.Add((account, lastActive));
         }
 
-        return (posted, null);
+        if (due.Count == 0)
+            return (0, null);
+
+        // One post for everyone due, so choosing the channel for the first time does not flood it with a card per
+        // long-gone account.
+        var outcome = await gateway.PostAsync(channel, [CheckInCard(due, now, style)], ct).ConfigureAwait(false);
+
+        if (!outcome.Sent && !outcome.Unclear)
+            return (0, Refused(outcome, "the check-ins"));
+
+        foreach (var (account, _) in due)
+            account.CheckInRemindedAt = now;
+
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        return (due.Count, null);
     }
 
     /// <summary>The latest of the account's sign-in, moderation actions and events it was host or staff on.</summary>
@@ -268,19 +279,28 @@ public sealed class StaffReminderPoster
             FooterIconUrl: style.FooterIconUrl);
     }
 
-    /// <summary>The check-in card: who, and when they were last active.</summary>
-    public static DiscordEmbedContent CheckInCard(ModbotUser account, DateTimeOffset lastActive, DateTimeOffset now, CardStyle style)
+    /// <summary>The check-in card: one line for each person, with the day they were last active.</summary>
+    public static DiscordEmbedContent CheckInCard(
+        IReadOnlyList<(ModbotUser Account, DateTimeOffset LastActive)> people, DateTimeOffset now, CardStyle style)
     {
-        ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(people);
         ArgumentNullException.ThrowIfNull(style);
 
+        var lines = people.Select(p =>
+        {
+            var name = CardText.Fit(CardText.EscapeName(p.Account.Username), CardText.MaxNameLength);
+            var url = CardLink.UrlFor(CardSubject.Account, p.Account.Id.ToString(), style.PublicAddress);
+            var shown = url is null ? name : $"[{name}]({url})";
+            return $"{shown}: last active {Day(p.LastActive)}";
+        });
+
         return new DiscordEmbedContent(
-            Title: CardText.Plain($"Check-in: {account.Username}", 256),
-            Description: null,
+            Title: people.Count == 1 ? "Check-in: 1 person" : $"Check-in: {people.Count.ToString(CultureInfo.InvariantCulture)} people",
+            Description: string.Join('\n', lines),
             Color: CardColour.Amber,
-            Fields: [new("Last active", Day(lastActive), Inline: true)],
+            Fields: [],
             Timestamp: now,
-            Url: CardLink.UrlFor(CardSubject.Account, account.Id.ToString(), style.PublicAddress),
+            Url: null,
             Footer: "Inactive for 30 days",
             FooterIconUrl: style.FooterIconUrl);
     }
