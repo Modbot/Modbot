@@ -96,8 +96,17 @@ public sealed class AgeCheck(
                     : (linked, discordId, null);
             }
 
-            return typed is null
-                ? (null, null, "This member has no linked VRChat account. Add their VRChat profile link.")
+            if (typed is null)
+                return (null, null, "This member has no linked VRChat account. Add their VRChat profile link.");
+
+            var owner = await db.DiscordAccountLinks.AsNoTracking()
+                .Where(l => l.VRChatUserId == typed && l.UnlinkedAt == null)
+                .Select(l => l.DiscordUserId)
+                .FirstOrDefaultAsync(ct)
+                .ConfigureAwait(false);
+
+            return owner is not null && !string.Equals(owner, discordId, StringComparison.Ordinal)
+                ? (null, null, "That VRChat account is linked to someone else.")
                 : (typed, discordId, null);
         }
 
@@ -155,6 +164,15 @@ public sealed class AgeCheck(
         foreach (var roleId in remove)
         {
             var name = await NameAsync(roleId, ct).ConfigureAwait(false);
+
+            // The linked roles job gives these back as soon as they are taken away; the settings
+            // refuse them too, but a role can be chosen as the Linked or 18+ role afterwards.
+            if (roleId == settings.DiscordLinkedRoleId || roleId == settings.DiscordEighteenPlusRoleId)
+            {
+                lines.Add($"Did not take away {name}: it is the Linked or the 18+ role.");
+                continue;
+            }
+
             var outcome = await discord.ChangeRoleAsync(guildId, discordId, roleId, add: false, ct).ConfigureAwait(false);
 
             if (!outcome.Done)
@@ -205,6 +223,13 @@ public sealed class AgeCheck(
         if (settings.ManagedGroupId is not { Length: > 0 } groupId)
         {
             lines.Add("Could not give the VRChat group role: no VRChat group is set up yet.");
+            return;
+        }
+
+        // Compared as text: the id is opaque (foundation §3.1.1).
+        if (settings.VRChatSessionUserId is { Length: > 0 } self && string.Equals(self, vrchatId, StringComparison.Ordinal))
+        {
+            lines.Add("Did not give the VRChat group role: that is the account Modbot signs in as.");
             return;
         }
 

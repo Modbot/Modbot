@@ -187,6 +187,47 @@ public class AgeCheckTests
     }
 
     [Fact]
+    public async Task AVRChatProfileLinkedToSomeoneElse_IsRefusedForAnUnlinkedMember()
+    {
+        var (host, discord, gate, checker) = await StartAsync();
+        await using var _ = host;
+
+        var answer = await RunAsync(host, new AgeCheckRequest(checker, AgeCheckMethods.Badge, "556", Linked));
+
+        Assert.False(answer.Done);
+        Assert.Contains(answer.Lines, l => l.Contains("linked to someone else", StringComparison.Ordinal));
+        Assert.Empty(discord.RoleChanges);
+        Assert.Empty(gate.Calls);
+        Assert.Null(await PersonAsync(host, Linked));
+    }
+
+    [Fact]
+    public async Task ARoleThatIsNowTheLinkedRole_IsNotTakenAway()
+    {
+        var (host, discord, _, checker) = await StartAsync(more: s => s.DiscordLinkedRoleId = Waiting);
+        await using var _ = host;
+
+        var answer = await RunAsync(host, new AgeCheckRequest(checker, AgeCheckMethods.Badge, Member, null));
+
+        Assert.True(answer.Done);
+        Assert.DoesNotContain(discord.RoleChanges, c => c.RoleId == Waiting);
+        Assert.Contains(answer.Lines, l => l.Contains("Did not take away Waiting", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TheAccountModbotSignsInAs_DoesNotGetTheGroupRole()
+    {
+        var (host, _, gate, checker) = await StartAsync(more: s => s.VRChatSessionUserId = Linked);
+        await using var _ = host;
+
+        var answer = await RunAsync(host, new AgeCheckRequest(checker, AgeCheckMethods.Badge, Member, null));
+
+        Assert.True(answer.Done);
+        Assert.Empty(gate.Calls);
+        Assert.Contains(answer.Lines, l => l.Contains("signs in as", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task TheProfilesButton_FindsTheLinkedMemberItself()
     {
         var (host, discord, _, checker) = await StartAsync();
