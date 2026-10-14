@@ -638,6 +638,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("figures");
 
+                    b.Property<Guid?>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
                     b.Property<string>("Link")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -664,6 +668,15 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<decimal>("Score")
                         .HasColumnType("numeric")
                         .HasColumnName("score");
+
+                    b.Property<string>("SecondLocation")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("second_location");
+
+                    b.Property<DateTimeOffset?>("SecondTriedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("second_tried_at");
 
                     b.Property<string>("Sensitivity")
                         .IsRequired()
@@ -700,6 +713,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_modbot_alert_discord_waiting")
                         .HasFilter("discord_channel_id IS NOT NULL AND discord_posted_at IS NULL AND discord_error IS NULL");
 
+                    b.HasIndex("InstanceId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_modbot_alert_instance")
+                        .HasFilter("instance_id IS NOT NULL");
+
                     b.HasIndex("Watcher", "At")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_modbot_alert_watcher_at");
@@ -725,6 +743,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("QuietHours")
                         .HasColumnType("integer")
                         .HasColumnName("quiet_hours");
+
+                    b.Property<int?>("SecondInstanceAtPeople")
+                        .HasColumnType("integer")
+                        .HasColumnName("second_instance_at_people");
+
+                    b.Property<int?>("SecondInstanceAtPercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("second_instance_at_percent");
 
                     b.Property<bool>("WriteSentence")
                         .HasColumnType("boolean")
