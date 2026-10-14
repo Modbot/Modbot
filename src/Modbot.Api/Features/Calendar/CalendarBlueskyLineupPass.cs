@@ -118,7 +118,6 @@ public sealed class CalendarBlueskyLineupPass
         var events = await _db.CalendarEvents.AsNoTracking()
             .Where(e => e.DeletedAt == null
                 && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open)
-                && e.PublishToVRChat
                 && e.Visibility == "public")
             .ToListAsync(ct).ConfigureAwait(false);
 

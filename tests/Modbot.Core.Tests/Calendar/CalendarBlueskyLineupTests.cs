@@ -58,10 +58,26 @@ public class CalendarBlueskyLineupTests
         var roles = Public("Role only", Now.AddDays(1));
         roles.VRChatRoleIds = ["grol_1"];
 
-        var notOnVRChat = Public("Not on VRChat", Now.AddDays(1));
-        notOnVRChat.PublishToVRChat = false;
+        // A Discord-only event that was never shown "Visible to" holds the form's default, group.
+        var discordOnlyMembers = Public("Discord only, members", Now.AddDays(1));
+        discordOnlyMembers.PublishToVRChat = false;
+        discordOnlyMembers.PublishToDiscord = true;
+        discordOnlyMembers.Visibility = "group";
 
-        Assert.Empty(Titles(group, roles, notOnVRChat));
+        Assert.Empty(Titles(group, roles, discordOnlyMembers));
+    }
+
+    [Fact]
+    public void AnEventEveryoneCanSeeGoesInWhateverPlacesItGoesTo()
+    {
+        var discordOnly = Public("Discord only", Now.AddDays(1));
+        discordOnly.PublishToVRChat = false;
+        discordOnly.PublishToDiscord = true;
+
+        var nowhere = Public("Calendar only", Now.AddDays(2));
+        nowhere.PublishToVRChat = false;
+
+        Assert.Equal(["Discord only", "Calendar only"], Titles(discordOnly, nowhere));
     }
 
     [Fact]

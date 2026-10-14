@@ -16,9 +16,9 @@ public sealed record LineupDate(DateTimeOffset StartsAt, string Title);
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Which dates.</strong> Every date of the next seven days that everyone can see
-/// (<see cref="CalendarFeedWriter.IsPublic"/>: on VRChat's calendar, visible to Everyone, no role
-/// needed), whether or not the event's Bluesky switch is on. Members-only events never go in. A
+/// <strong>Which dates.</strong> Every date of the next seven days of an event that everyone can see
+/// (<see cref="IsEveryones"/>: visible to Everyone, no role needed), whatever places it goes to and
+/// whether or not its Bluesky switch is on. Members-only events never go in. A
 /// cancelled date, a cancelled event and a deleted one are left out, and a date moved on its own is
 /// where it was moved to (<see cref="CalendarRepeat.Between"/>).
 /// </para>
@@ -38,6 +38,19 @@ public static class CalendarBlueskyLineup
     /// <summary>The post's first line when the group has no name Modbot knows.</summary>
     public const string HeadingWithoutName = "This week's events";
 
+    /// <summary>
+    /// Whether everyone can see the event: its visibility is Everyone and no role is needed. Unlike
+    /// <see cref="CalendarFeedWriter.IsPublic"/> it does not ask for VRChat's calendar, so a Discord-only
+    /// event counts. The form hides <em>Visible to</em> unless VRChat or Google is on, so an event never
+    /// shown it holds the form's own default, <c>group</c>, and stays out.
+    /// </summary>
+    public static bool IsEveryones(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return calendarEvent.Visibility == "public" && calendarEvent.VRChatRoleIds is not { Count: > 0 };
+    }
+
     /// <summary>The dates of the line-up from <paramref name="events"/>: starting at or after <paramref name="from"/> and within <see cref="Ahead"/>, earliest first.</summary>
     /// <param name="events">Events the caller loaded; any that are not live or not public are dropped here too.</param>
     public static IReadOnlyList<LineupDate> DatesOf(IEnumerable<CalendarEvent> events, DateTimeOffset from)
@@ -51,7 +64,7 @@ public static class CalendarBlueskyLineup
         {
             if (calendarEvent.DeletedAt is not null
                 || !CalendarEventStates.IsLive(calendarEvent.State)
-                || !CalendarFeedWriter.IsPublic(calendarEvent))
+                || !IsEveryones(calendarEvent))
             {
                 continue;
             }

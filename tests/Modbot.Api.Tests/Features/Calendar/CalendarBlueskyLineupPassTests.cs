@@ -179,6 +179,17 @@ public sealed class CalendarBlueskyLineupPassTests
         await SetUpAsync();
         await AddEventAsync("Public without chip", TimeSpan.FromDays(1));
         await AddEventAsync("Public with chip", TimeSpan.FromDays(2), e => e.PublishToBluesky = true);
+        await AddEventAsync("Discord only public", TimeSpan.FromDays(2), e =>
+        {
+            e.PublishToVRChat = false;
+            e.PublishToDiscord = true;
+        });
+        await AddEventAsync("Discord only members", TimeSpan.FromDays(1), e =>
+        {
+            e.PublishToVRChat = false;
+            e.PublishToDiscord = true;
+            e.Visibility = "group";
+        });
         await AddEventAsync("Members only", TimeSpan.FromDays(1), e => e.Visibility = "group");
         await AddEventAsync("Needs a role", TimeSpan.FromDays(1), e => e.VRChatRoleIds = ["grol_1"]);
         await AddEventAsync("Cancelled event", TimeSpan.FromDays(1), e => e.State = CalendarEventStates.Cancelled);
@@ -204,6 +215,8 @@ public sealed class CalendarBlueskyLineupPassTests
         var text = Assert.Single(Assert.Single(await LineupsAsync()).Destinations).TextOverride!;
         Assert.Contains("Public without chip", text);
         Assert.Contains("Public with chip", text);
+        Assert.Contains("Discord only public", text);
+        Assert.DoesNotContain("Discord only members", text);
         Assert.DoesNotContain("Members only", text);
         Assert.DoesNotContain("Needs a role", text);
         Assert.DoesNotContain("Cancelled event", text);

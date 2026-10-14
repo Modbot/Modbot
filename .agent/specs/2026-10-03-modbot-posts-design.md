@@ -392,9 +392,11 @@ rule, Posting, Pause all posting, and a 429 never tried again. A failed one show
   with: turning it on never posts for a past time. A time more than `PostRules.LateLimit` (1 h) past
   is skipped, not posted late.
 - **Which dates** (`CalendarBlueskyLineup.DatesOf`): every live date starting in the next seven days
-  from the pass's time that `CalendarFeedWriter.IsPublic` allows (on VRChat's calendar, visible to
-  Everyone, no role), whether or not the event's own Bluesky switch is on. Members-only events and
-  cancelled dates are never in it. A week with no dates gets no post.
+  from the pass's time of an event that is visible to Everyone with no role (`visibility = public`,
+  no `VRChatRoleIds`; not `CalendarFeedWriter.IsPublic`, which also asks for VRChat's calendar), whatever
+  places it goes to and whether or not the event's own Bluesky switch is on. A Discord-only event
+  counts; the form hides "Visible to" unless VRChat or Google is on, so one never shown it keeps the
+  form's default, `group`, and stays out. Members-only events and cancelled dates are never in it. A week with no dates gets no post.
 - **Text**: "This week at <group name>", one `Mon 20:00 Title` line per date (24-hour, the line-up's
   zone), as many as fit in 300 graphemes, then `+N more`, and last the Google calendar's public page
   when that is set up and public (the link card); otherwise no link. No fact record is written when

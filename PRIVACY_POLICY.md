@@ -256,7 +256,7 @@ description, pictures and the pinned post), and writes it back with only the pin
 the next date's post (its address and content id), or removed when no date has a post. A post
 a person pinned by hand is left alone. With **Weekly line-up** on, Modbot also posts once a week
 one post that lists the next seven days: the group's name, and the title and time of each calendar date
-that everyone can see (members-only events and cancelled dates are not in it), and the public page of the
+whose event is visible to **Everyone** (members-only events and cancelled dates are not in it), and the public page of the
 group's Google calendar as a link when there is one. **The post is public on Bluesky, and other services
 copy it**, and it is not changed or deleted when a date changes afterwards. Like the other posts it
 holds no member name, id or head count, and mentions nobody.
