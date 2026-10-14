@@ -184,6 +184,11 @@ wherever you choose to store them. These pages describe what is kept and how it 
   for each person their Discord id, whether the message was sent or could not reach them, when, and Discord's reason if
   it failed, so nobody is ever sent it twice. A [purge](/moderation/purge) deletes that note; no retention window
   touches it. Nothing is sent to Modbot Cloud, and Discord sees the direct messages.
+- [Server snapshots](/discord/snapshots): saved only when staff press **Take snapshot** or turn on a schedule
+  on the **Server snapshots** card in **Settings → Discord**. A snapshot keeps the server's role names, colours
+  and permissions, and the channels' names and what each role may do in them, and who took it. It keeps no
+  members and no member ids. At most 100 are kept. The bot's invite link asks for **Manage Roles** only while
+  **Allow restore** is on. Nothing is sent to Modbot Cloud.
 - [Member milestones](/discord/member-milestones): the count is always on. Modbot keeps, for each person seen in
   an instance where a moderator's Modbot app was present, the dates of the events they came to, when they were last
   seen arriving in a group instance and their latest return, and shows them on the profile. The posts and the
