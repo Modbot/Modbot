@@ -370,8 +370,11 @@ public class VoteCommandTests
         {
             var user = await db.Users.Include(u => u.Roles).SingleAsync(u => u.DiscordUserId == Caller, Ct);
             var roleId = await TestAccounts.RoleForAsync(db, ModbotPermissions.ViewPosts, Ct);
-            user.Roles.Clear();
-            user.Roles.Add(await db.Roles.SingleAsync(r => r.Id == roleId, Ct));
+
+            foreach (var role in user.Roles.ToList())
+                db.Remove(role);
+
+            db.Add(new ModbotUserRole { UserId = user.Id, RoleId = roleId });
             await db.SaveChangesAsync(Ct);
         }
 
