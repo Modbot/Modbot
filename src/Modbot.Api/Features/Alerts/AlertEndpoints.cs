@@ -32,6 +32,7 @@ public static class AlertEndpoints
     public const int DefaultLimit = 20;
     public const int MaxLimit = 100;
     public const int MaxChannelIdLength = 32;
+    public const int MaxSecondInstancePeople = 1000;
 
     /// <summary>How long an alert stays on the card before it is history.</summary>
     public static readonly TimeSpan RecentFor = TimeSpan.FromHours(24);
@@ -139,6 +140,12 @@ public static class AlertEndpoints
                 if (body.QuietHours is < 0 or > AlertWatchers.MaxQuietHours)
                     return Results.BadRequest(new { error = "Choose a quiet time." });
 
+                if (body.SecondInstanceAtPeople is < 1 or > MaxSecondInstancePeople)
+                    return Results.BadRequest(new { error = $"Choose a number of people from 1 to {MaxSecondInstancePeople}." });
+
+                if (body.SecondInstanceAtPercent is < 1 or > 100)
+                    return Results.BadRequest(new { error = "Choose a percent from 1 to 100." });
+
                 foreach (var w in body.Watchers ?? [])
                 {
                     if (!AlertWatchers.IsKnown(w.Watcher))
@@ -154,11 +161,15 @@ public static class AlertEndpoints
                 var change = new SettingsChange("aiAlerts")
                     .Field("discordChannelId", stored.DiscordChannelId, newChannel)
                     .Field("quietHours", stored.QuietHours, body.QuietHours)
-                    .Field("writeSentence", stored.WriteSentence, body.WriteSentence);
+                    .Field("writeSentence", stored.WriteSentence, body.WriteSentence)
+                    .Field("secondInstanceAtPeople", stored.SecondInstanceAtPeople, body.SecondInstanceAtPeople)
+                    .Field("secondInstanceAtPercent", stored.SecondInstanceAtPercent, body.SecondInstanceAtPercent);
 
                 stored.DiscordChannelId = newChannel;
                 stored.QuietHours = body.QuietHours;
                 stored.WriteSentence = body.WriteSentence;
+                stored.SecondInstanceAtPeople = body.SecondInstanceAtPeople;
+                stored.SecondInstanceAtPercent = body.SecondInstanceAtPercent;
 
                 var watches = await WatchesAsync(db, ct);
 
@@ -242,6 +253,8 @@ public static class AlertEndpoints
             settings?.QuietHours ?? AlertWatchers.DefaultQuietHours,
             settings?.WriteSentence ?? true,
             aiOn,
-            watchers);
+            watchers,
+            settings?.SecondInstanceAtPeople,
+            settings?.SecondInstanceAtPercent);
     }
 }

@@ -1864,6 +1864,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DismissedByUsername).HasMaxLength(64);
             entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
             entity.Property(e => e.DiscordError).HasMaxLength(1000);
+            entity.Property(e => e.SecondLocation).HasMaxLength(512);
+
+            // One second-instance alert per instance, ever, even when two copies of Modbot share a database.
+            entity.HasIndex(e => e.InstanceId)
+                .IsUnique()
+                .HasDatabaseName("ux_modbot_alert_instance")
+                .HasFilter("instance_id IS NOT NULL");
 
             // The quiet time asks for the newest alert of one watcher; that is the only lookup that
             // needs an index. "The newest few, whatever the watcher" has no index of its own on

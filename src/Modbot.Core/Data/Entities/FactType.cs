@@ -1166,6 +1166,13 @@ public static class FactType
     public const string InsightAlert = "modbot.insight.alert";
 
     /// <summary>
+    /// A moderator pressed Open second instance on an alert and VRChat made the instance. Subject is
+    /// the alert; the actor is the moderator. Payload: the world and the new location, and the instance
+    /// that was full. World and instance are set to the new instance.
+    /// </summary>
+    public const string SecondInstanceOpened = "modbot.instance.second.open";
+
+    /// <summary>
     /// Somebody asked about a person on the Chat page and the tools read that person's record (AI
     /// chat design §13). Subject is the person who was looked at; the actor is the moderator who
     /// asked. One per question, however many tools ran; the question itself is never stored here.

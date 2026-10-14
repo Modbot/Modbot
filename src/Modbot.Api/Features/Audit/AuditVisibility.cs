@@ -292,6 +292,7 @@ public static class AuditVisibility
         [FactType.AiLimitReached] = AuditCategory.Operational,
         [FactType.UserPurged] = AuditCategory.Operational,
         [FactType.InsightAlert] = AuditCategory.Operational,
+        [FactType.SecondInstanceOpened] = AuditCategory.Operational,
 
         // A review of a moderator's pattern being opened and closed is moderation history about
         // that moderator (spec 5.8.5: resolutions are recorded as facts, so "this was reviewed and

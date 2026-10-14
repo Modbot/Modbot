@@ -62,6 +62,37 @@ stretches, or three weeks for the weekly watcher.
 your own normal busiest instance — twice that at **Low**, half again at **Normal**, level with it at
 **High** — with no moderator's client in it.
 
+## Open a second instance
+
+A separate alert, set by two numbers instead of a sensitivity. It tells you an instance is full enough
+that it is time to open another, and gives staff a button to do it.
+
+Under **Settings** → **AI** → **Alerts**, the **Second instance** card has two boxes. Leave one empty to
+leave it off.
+
+- **Alert at people** — alert when one open instance of your group holds this many people.
+- **Alert at percent of capacity** — alert when one holds this share of its world's capacity, as VRChat
+  reports it. A world whose capacity Modbot does not know never reaches a percent; use **Alert at
+  people** for it.
+
+If you fill in both, whichever line is reached first raises the alert.
+
+An instance alerts **once, for its whole life**. If it empties and fills again, there is no second
+alert about the same instance. Nothing here needs AI, and the alert carries no sentence.
+
+In Discord the alert has an **Open second instance** button. Pressing it opens one more group instance
+of the same world, with the same group access and region as the full one, and answers you with a
+**Join** link. It needs a Modbot account linked to your Discord account and VRChat, with the **Manage
+calendar** permission — the one that lets you open an event's instance from Modbot. It uses the same
+VRChat limit as opening an event's instance: one instance every 5 seconds. If VRChat says to slow
+down, press the button again a few seconds later; Modbot does not retry on its own.
+
+Only one second instance is opened per alert. A second press, by you or anyone else, gives the same
+**Join** link back. Each instance opened this way is written to the event log as **Second instance
+opened**, with who pressed.
+
+The alert shows in Modbot with the others, under **Unusual activity**.
+
 ## Sensitivity
 
 Each watcher is **Off**, **Low**, **Normal** or **High**.
@@ -105,7 +136,8 @@ The **Alerts** card:
 - **AI sentence** — whether the model writes one sentence on each alert. Turning it off does not
   turn alerts off.
 
-The **What is watched** card has one control per watcher.
+The **What is watched** card has one control per watcher. The **Second instance** card has the two
+boxes described above.
 
 Alert sentences are real AI requests and count towards spend under **Insights** on
 [Limits and spend](/ai/limits-and-spend). They are made like every other AI call: with the feature's
@@ -118,6 +150,9 @@ sentence, and the call log says why.
 
 Every 15 minutes. An hour-long stretch ends on the quarter-hour, so an alert reaches you within
 about 15 minutes of the thing it is about.
+
+**Open a second instance** is checked every minute, against head counts Modbot updates every 30
+seconds.
 
 **Fewer active members** is checked once a day, because it counts whole days and cannot change
 inside one.

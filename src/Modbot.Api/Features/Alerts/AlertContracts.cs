@@ -75,18 +75,26 @@ public sealed record AlertWatchSettings(
 
 /// <param name="QuietHours">How long the same watcher stays quiet after an alert, unless it gets much worse.</param>
 /// <param name="AiOn">Whether AI is switched on. Alerts go out with their figures either way.</param>
+/// <param name="SecondInstanceAtPeople">Alert to open a second instance at this many people in one instance. Null is off.</param>
+/// <param name="SecondInstanceAtPercent">The same at this share of the world's capacity, as VRChat reports it. Null is off.</param>
 public sealed record AlertSettingsResponse(
     string? DiscordChannelId,
     int QuietHours,
     bool WriteSentence,
     bool AiOn,
-    IReadOnlyList<AlertWatchSettings> Watchers);
+    IReadOnlyList<AlertWatchSettings> Watchers,
+    int? SecondInstanceAtPeople,
+    int? SecondInstanceAtPercent);
 
 public sealed record AlertWatchUpdate(string Watcher, string Sensitivity);
 
 /// <param name="Watchers">Watchers left out keep what they had.</param>
+/// <param name="SecondInstanceAtPeople">1 to <see cref="AlertEndpoints.MaxSecondInstancePeople"/>, or null for off.</param>
+/// <param name="SecondInstanceAtPercent">1 to 100, or null for off.</param>
 public sealed record AlertSettingsUpdate(
     string? DiscordChannelId,
     int QuietHours,
     bool WriteSentence,
-    IReadOnlyList<AlertWatchUpdate>? Watchers);
+    IReadOnlyList<AlertWatchUpdate>? Watchers,
+    int? SecondInstanceAtPeople = null,
+    int? SecondInstanceAtPercent = null);

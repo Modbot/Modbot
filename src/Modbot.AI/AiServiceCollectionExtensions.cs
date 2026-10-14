@@ -54,6 +54,7 @@ public static class AiServiceCollectionExtensions
         // turns one on, so a pass is one small read.
         services.AddScoped<AlertFigureReader>();
         services.AddScoped<AlertChecker>();
+        services.AddScoped<SecondInstanceChecker>();
 
         // The AI half of AutoMod (AutoMod design §4): topic checks and pictures plug into the
         // engine in Modbot.Moderation through IAiRuleChecker. Registered plainly, not TryAdd, so

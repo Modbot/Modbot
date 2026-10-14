@@ -4691,6 +4691,7 @@ export type AlertWatcher =
   | 'instance-filling'
   | 'instance-unwatched'
   | 'active-drop'
+  | 'instance-second'
 
 export type AlertSensitivity = 'off' | 'low' | 'normal' | 'high'
 
@@ -4734,6 +4735,10 @@ export type AiAlertSettings = {
   writeSentence: boolean
   aiOn: boolean
   watchers: AlertWatchSettings[]
+  /** Alert once an instance holds this many people. Null is off. */
+  secondInstanceAtPeople: number | null
+  /** Alert once an instance holds this share of its world's capacity. Null is off. */
+  secondInstanceAtPercent: number | null
 }
 
 export type AiAlertSettingsInput = {
@@ -4741,6 +4746,8 @@ export type AiAlertSettingsInput = {
   quietHours: number
   writeSentence: boolean
   watchers: { watcher: AlertWatcher; sensitivity: AlertSensitivity }[]
+  secondInstanceAtPeople: number | null
+  secondInstanceAtPercent: number | null
 }
 
 /** One API key as the list shows it. Never the key itself. */

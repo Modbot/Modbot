@@ -97,7 +97,9 @@ public sealed class AlertPoster
 
             var outcome = alert.Watcher == AlertWatchers.DiscordJoins && spikeButtons is not null
                 ? await gateway.PostWithActionsAsync(alert.DiscordChannelId!, null, [Card(alert, style)], null, spikeButtons, ct).ConfigureAwait(false)
-                : await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, style)], ct).ConfigureAwait(false);
+                : alert.Watcher == AlertWatchers.InstanceSecond
+                    ? await gateway.PostWithActionsAsync(alert.DiscordChannelId!, null, [Card(alert, style)], null, SecondInstanceButtons(alert), ct).ConfigureAwait(false)
+                    : await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, style)], ct).ConfigureAwait(false);
 
             if (outcome.Sent)
             {
@@ -138,6 +140,14 @@ public sealed class AlertPoster
         return buttons;
     }
 
+    /// <summary>Open second instance, under an alert that asks for one.</summary>
+    public static IReadOnlyList<DiscordActionButton> SecondInstanceButtons(Alert alert)
+    {
+        ArgumentNullException.ThrowIfNull(alert);
+
+        return [new(SecondInstanceButton.Label, SecondInstanceButton.For(alert.Id), DiscordButtonStyle.Main)];
+    }
+
     public static DiscordEmbedContent Card(Alert alert, string? publicAddress)
         => Card(alert, new CardStyle(publicAddress, FooterIconUrl: BrandIcon.For(publicAddress)));
 
@@ -150,6 +160,9 @@ public sealed class AlertPoster
     {
         ArgumentNullException.ThrowIfNull(alert);
         ArgumentNullException.ThrowIfNull(style);
+
+        if (alert.Watcher == AlertWatchers.InstanceSecond)
+            return SecondInstanceCard(alert, style);
 
         var counts = AlertWatchers.Counts(alert.Watcher);
         var fields = new List<DiscordEmbedField>
@@ -168,6 +181,50 @@ public sealed class AlertPoster
             Url: LinkTo(alert, style.PublicAddress),
             Footer: alert.Model is null ? "Unusual activity" : $"Unusual activity · {alert.Model}",
             FooterIconUrl: style.FooterIconUrl);
+    }
+
+    /// <summary>
+    /// The card for a full instance: where, how many people are in it, and the head count that raised the
+    /// alert. No window and no "normally": it is a line the operator set, not a change from normal.
+    /// </summary>
+    private static DiscordEmbedContent SecondInstanceCard(Alert alert, CardStyle style)
+    {
+        var counts = AlertWatchers.Counts(alert.Watcher);
+        var fields = new List<DiscordEmbedField>();
+
+        if (WhereOf(alert) is { Length: > 0 } where)
+            fields.Add(new("Where", CardText.Plain(where, 256), Inline: true));
+
+        fields.Add(new("Now", $"{Number(alert.Now)} {counts}", Inline: true));
+        fields.Add(new("Alert at", $"{Number(alert.Normal)} {counts}", Inline: true));
+
+        return new DiscordEmbedContent(
+            Title: CardText.Plain(AlertWatchers.Label(alert.Watcher), 256),
+            Description: null,
+            Color: Amber,
+            Fields: fields,
+            Timestamp: alert.At,
+            Url: LinkTo(alert, style.PublicAddress),
+            Footer: "Instance full",
+            FooterIconUrl: style.FooterIconUrl);
+    }
+
+    /// <summary>The world named in the alert's figures, or null.</summary>
+    private static string? WhereOf(Alert alert)
+    {
+        try
+        {
+            using var figures = System.Text.Json.JsonDocument.Parse(alert.Figures);
+
+            return figures.RootElement.TryGetProperty("where", out var where)
+                && where.ValueKind == System.Text.Json.JsonValueKind.String
+                ? where.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The alert's page in Modbot, when the deployment's public address is set.</summary>

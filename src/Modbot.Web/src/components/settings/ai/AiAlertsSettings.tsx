@@ -9,7 +9,7 @@ import {
   type AlertSensitivity,
   type DiscordChannelPermission,
 } from '@/lib/api'
-import { Outcome, Placeholder } from '../fields'
+import { NumberField, Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { dateTime } from '@/components/charts/format'
 import { lengthOfTime } from '@/lib/format'
@@ -86,6 +86,8 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
   const [watchers, setWatchers] = useState<Record<string, AlertSensitivity>>(() =>
     Object.fromEntries(stored.watchers.map((w) => [w.watcher, w.sensitivity])),
   )
+  const [atPeople, setAtPeople] = useState(stored.secondInstanceAtPeople?.toString() ?? '')
+  const [atPercent, setAtPercent] = useState(stored.secondInstanceAtPercent?.toString() ?? '')
 
   const [saving, setSaving] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
@@ -105,6 +107,8 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
           watcher: w.watcher,
           sensitivity: watchers[w.watcher] ?? 'off',
         })),
+        secondInstanceAtPeople: wholeNumber(atPeople),
+        secondInstanceAtPercent: wholeNumber(atPercent),
       })
       .then((next) => {
         setSaved(card)
@@ -187,6 +191,19 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
           ))}
         </div>
       </SettingsCard>
+
+      <SettingsCard title="Second instance" span={12} footer={footer('second')}>
+        <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+          <NumberField label="Alert at people" value={atPeople} min={1} max={1000} onChange={setAtPeople} />
+          <NumberField label="Alert at percent of capacity" value={atPercent} min={1} max={100} onChange={setAtPercent} />
+        </div>
+      </SettingsCard>
     </>
   )
+}
+
+/** A box left empty is off. */
+function wholeNumber(text: string): number | null {
+  const n = Number.parseInt(text, 10)
+  return Number.isFinite(n) ? n : null
 }

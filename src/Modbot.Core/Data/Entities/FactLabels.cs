@@ -287,6 +287,7 @@ public static class FactLabels
         [FactType.PartitionCreated] = "Partition created",
         [FactType.AiLimitReached] = "AI spend limit reached",
         [FactType.InsightAlert] = "Unusual activity",
+        [FactType.SecondInstanceOpened] = "Second instance opened",
         [FactType.ChatLookup] = "Asked about in chat",
         [FactType.UserPurged] = "User data purged",
         [FactType.NoteAdded] = "Note added",

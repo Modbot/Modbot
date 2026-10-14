@@ -66,6 +66,24 @@ public class Alert
 
     /// <summary>Set when posting failed for good; the poster does not try again.</summary>
     public string? DiscordError { get; set; }
+
+    /// <summary>
+    /// The instance an <see cref="AlertWatchers.InstanceSecond"/> alert is about: Modbot's own id for it.
+    /// Null for every other watcher. One alert per instance, ever.
+    /// </summary>
+    public Guid? InstanceId { get; set; }
+
+    /// <summary>
+    /// When somebody pressed Open second instance and Modbot started asking VRChat for one. Set before
+    /// the request goes out, so a second press sees it; cleared again when VRChat certainly made nothing.
+    /// </summary>
+    public DateTimeOffset? SecondTriedAt { get; set; }
+
+    /// <summary>Where the second instance is, once VRChat made it.</summary>
+    public string? SecondLocation { get; set; }
+
+    /// <summary>The staff account that pressed the button.</summary>
+    public Guid? SecondOpenedByUserId { get; set; }
 }
 
 /// <summary>One watcher's settings. One row per watcher.</summary>
@@ -107,6 +125,18 @@ public class AlertSettings
     /// over and a second copy of Modbot does not double the work.
     /// </summary>
     public DateTimeOffset? LastCheckedAt { get; set; }
+
+    /// <summary>
+    /// Alert once an open instance holds this many people. Null is off. Works beside
+    /// <see cref="SecondInstanceAtPercent"/>: either one is enough.
+    /// </summary>
+    public int? SecondInstanceAtPeople { get; set; }
+
+    /// <summary>
+    /// Alert once an open instance holds this share of its world's capacity, as VRChat reports it. Null
+    /// is off. A world whose capacity is unknown never reaches it.
+    /// </summary>
+    public int? SecondInstanceAtPercent { get; set; }
 }
 
 /// <summary>The four settings a watcher can be on.</summary>
@@ -171,6 +201,12 @@ public static class AlertWatchers
     /// <summary>Fewer active members this week than in the four weeks before.</summary>
     public const string ActiveDrop = "active-drop";
 
+    /// <summary>
+    /// An open instance reached the head count the operator set, so it is time for a second one. Not in
+    /// <see cref="All"/>: it has no sensitivity, and its two numbers live in the shared settings.
+    /// </summary>
+    public const string InstanceSecond = "instance-second";
+
     /// <summary>Hours the same watcher stays quiet after an alert, unless it gets much worse.</summary>
     public const int DefaultQuietHours = 6;
 
@@ -205,6 +241,7 @@ public static class AlertWatchers
         InstanceFilling => "An instance filling up",
         InstanceUnwatched => "Nobody watching a busy instance",
         ActiveDrop => "Fewer active members",
+        InstanceSecond => "Open a second instance",
         _ => watcher,
     };
 
@@ -221,6 +258,7 @@ public static class AlertWatchers
         InstanceFilling => "people in the instance",
         InstanceUnwatched => "people in the instance",
         ActiveDrop => "active members",
+        InstanceSecond => "people in the instance",
         _ => "",
     };
 }

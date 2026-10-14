@@ -400,6 +400,13 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.PlaceStore>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<Calendar.CalendarFacts>()));
+        services.AddScoped<Core.Discord.ISecondInstances>(provider => new Instances.SecondInstanceOpener(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Data.PlaceStore>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
         services.AddScoped<Calendar.CalendarInviter>(provider => new Calendar.CalendarInviter(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),

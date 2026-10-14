@@ -38242,7 +38242,9 @@
           "quietHours",
           "writeSentence",
           "aiOn",
-          "watchers"
+          "watchers",
+          "secondInstanceAtPeople",
+          "secondInstanceAtPercent"
         ],
         "type": "object",
         "properties": {
@@ -38267,6 +38269,20 @@
             "items": {
               "$ref": "#/components/schemas/AlertWatchSettings"
             }
+          },
+          "secondInstanceAtPeople": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "secondInstanceAtPercent": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -38300,6 +38316,20 @@
             "items": {
               "$ref": "#/components/schemas/AlertWatchUpdate"
             }
+          },
+          "secondInstanceAtPeople": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "secondInstanceAtPercent": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },

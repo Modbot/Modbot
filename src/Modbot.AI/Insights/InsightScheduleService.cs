@@ -52,6 +52,11 @@ public sealed class InsightScheduleService : BackgroundService
 
                 if (alerts > 0)
                     _log.LogInformation("Raised {Count} unusual-activity alert(s).", alerts);
+
+                var second = await scope.ServiceProvider.GetRequiredService<SecondInstanceChecker>().RunAsync(stoppingToken);
+
+                if (second > 0)
+                    _log.LogInformation("Raised {Count} second-instance alert(s).", second);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

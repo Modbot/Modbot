@@ -109,6 +109,8 @@ function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
 
 /** "43 joins, normally 4 · 13:00–14:00" -- the figure, normal, and the stretch. */
 function figure(alert: Alert): string {
+  if (alert.watcher === 'instance-second') return `${number(alert.now)} ${alert.counts}, alert at ${number(alert.normal)}`
+
   const counts = alert.counts ? ` ${alert.counts}` : ''
   return `${number(alert.now)}${counts}, normally ${number(alert.normal)} · ${stretch(alert)}`
 }

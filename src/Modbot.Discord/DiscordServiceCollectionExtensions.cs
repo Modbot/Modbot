@@ -116,6 +116,7 @@ public static class DiscordServiceCollectionExtensions
         // the buttons and the API's actions, so one change to a person's row happens at a time.
         services.TryAddSingleton<Gate.JoinGateState>();
         services.AddScoped<Gate.JoinGate>();
+        services.AddScoped<Alerts.SecondInstancePress>();
         services.AddHostedService<Gate.JoinGateService>();
         services.AddSingleton<IJoinGateActions, Gate.JoinGateActions>();
 

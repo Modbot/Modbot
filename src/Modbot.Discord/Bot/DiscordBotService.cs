@@ -1137,6 +1137,15 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // Open second instance, under an alert that says an instance is full.
+            if (Alerts.SecondInstanceButton.Is(press.ButtonId))
+            {
+                var secondReply = await scope.ServiceProvider.GetRequiredService<Alerts.SecondInstancePress>()
+                    .PressAsync(press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(secondReply, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
             // A role menu's button or drop-down list: gives the role, or takes it back.
             if (RoleMenus.RoleMenuMessage.IsPress(press.ButtonId))
             {

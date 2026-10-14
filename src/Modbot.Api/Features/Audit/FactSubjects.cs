@@ -186,6 +186,7 @@ public static class FactSubjects
         // A rule that paused itself, and a watcher that saw something unusual. Neither is anybody.
         [FactType.AutoModRulePaused] = SubjectKind.Other,
         [FactType.InsightAlert] = SubjectKind.Other,
+        [FactType.SecondInstanceOpened] = SubjectKind.Other,
         [FactType.BanReasonsChanged] = SubjectKind.Other,
         [FactType.SyncFailed] = SubjectKind.Other,
         [FactType.RateLimitColdStop] = SubjectKind.Other,
