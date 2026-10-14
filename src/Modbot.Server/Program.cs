@@ -443,6 +443,10 @@ try
     // and does nothing more until Twitch is set up and the poll is on.
     builder.Services.AddTwitchLive();
 
+    // Asks Patreon for each new patron's Discord account and, once a day, for every current patron.
+    // Reads the settings row and does nothing more until Patreon is on and its keys are saved.
+    builder.Services.AddPatreonCatchUp();
+
     // Makes the member spotlight draft once a week (spotlight design). Reads the settings row and
     // does nothing more while the spotlight is off.
     builder.Services.AddSpotlight();

@@ -35,6 +35,9 @@ public static class SupporterLimits
     /// <summary>The longest the verification token may be.</summary>
     public const int MostTokenLength = 200;
 
+    /// <summary>The longest a Patreon client key or token may be.</summary>
+    public const int MostKeyLength = 500;
+
     /// <summary>The most tiers kept.</summary>
     public const int MostTiers = 50;
 
@@ -150,6 +153,12 @@ public class Supporter
     public DateTimeOffset? TryAgainAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>Patreon's id for the member, kept so Patreon can be asked for their Discord account. Null for Ko-fi and for a patron seen before this was kept.</summary>
+    public string? PatreonMemberId { get; set; }
+
+    /// <summary>When Patreon was last asked for this patron's Discord account. Null until it has been: the lookup is then waiting.</summary>
+    public DateTimeOffset? DiscordLookupAt { get; set; }
 }
 
 /// <summary>

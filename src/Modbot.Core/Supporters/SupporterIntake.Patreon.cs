@@ -27,7 +27,9 @@ namespace Modbot.Core.Supporters;
 /// pledge deleted on the charge's own date is not mistaken for a repeat of the charge.
 /// </para>
 /// <para>
-/// Patreon's message names no Discord account, so a new patron waits to be matched by staff.
+/// A webhook message names no Discord account, so a new patron waits for the lookup that asks Patreon
+/// (<see cref="PatreonCatchUp"/>) or for staff. A message that carries the user's connected apps names it, and
+/// the account is matched with Ko-fi's rules: one another supporter already has stays unmatched for staff.
 /// </para>
 /// </remarks>
 public sealed partial class SupporterIntake
@@ -39,10 +41,14 @@ public sealed partial class SupporterIntake
     /// <param name="trigger">Patreon's name for what happened, such as <c>members:pledge:create</c>; may be null.</param>
     /// <param name="now">The moment it came in.</param>
     /// <param name="ct">Cancels the work.</param>
-    public Task<SupporterIntakeOutcome> TakePatreonAsync(PatreonMessage message, string? trigger, DateTimeOffset now, CancellationToken ct = default)
-        => TakePatreonAsync(message, trigger, now, true, ct);
+    /// <param name="discordKnown">
+    /// The message was fetched from Patreon with the user's connected apps, so it already says whether the patron has a
+    /// Discord account and asking Patreon again would add nothing.
+    /// </param>
+    public Task<SupporterIntakeOutcome> TakePatreonAsync(PatreonMessage message, string? trigger, DateTimeOffset now, CancellationToken ct = default, bool discordKnown = false)
+        => TakePatreonAsync(message, trigger, now, discordKnown, true, ct);
 
-    private async Task<SupporterIntakeOutcome> TakePatreonAsync(PatreonMessage message, string? trigger, DateTimeOffset now, bool mayRetry, CancellationToken ct)
+    private async Task<SupporterIntakeOutcome> TakePatreonAsync(PatreonMessage message, string? trigger, DateTimeOffset now, bool discordKnown, bool mayRetry, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(message);
 
@@ -79,7 +85,20 @@ public sealed partial class SupporterIntake
         // A message that says active but whose last charge is older than the one already taken is a late or
         // replayed one: it must neither extend the month nor bring back roles that came off. Only its charge
         // is written down, below.
-        var late = standing == PatreonStanding.Active && supporter is not null && charged is { } lateCharge && lateCharge < supporter.LastPaidAt;
+        // It is judged against the newest charge written down, not against the supporter's last-paid time,
+        // which for a patron with no charge yet is only the moment they came in.
+        DateTimeOffset? newestCharge = null;
+
+        if (standing == PatreonStanding.Active && supporter is not null && charged is not null)
+        {
+            var supporterId = supporter.Id;
+            newestCharge = await db.SupporterPayments
+                .Where(p => p.SupporterId == supporterId)
+                .MaxAsync(p => (DateTimeOffset?)p.PaidAt, ct)
+                .ConfigureAwait(false);
+        }
+
+        var late = charged is { } lateCharge && newestCharge is { } newest && lateCharge < newest;
 
         if (standing == PatreonStanding.Active && !late)
         {
@@ -96,6 +115,7 @@ public sealed partial class SupporterIntake
                     FirstPaidAt = charged ?? now,
                     LastPaidAt = charged ?? now,
                     PaidThrough = DateTimeOffset.MinValue,
+                    PatreonMemberId = memberId,
                 };
                 db.Supporters.Add(supporter);
             }
@@ -122,7 +142,7 @@ public sealed partial class SupporterIntake
 
             if (charged is { } chargedAt)
             {
-                if (chargedAt >= supporter.LastPaidAt || isNew)
+                if (isNew || newestCharge is null || chargedAt >= newestCharge)
                     supporter.LastPaidAt = chargedAt;
 
                 if (chargedAt < supporter.FirstPaidAt)
@@ -164,6 +184,27 @@ public sealed partial class SupporterIntake
         // Every way through the above leaves a supporter: a new patron was made, anybody else was found.
         ArgumentNullException.ThrowIfNull(supporter);
 
+        supporter.PatreonMemberId ??= memberId;
+
+        // Patreon names the account the patron connected, as Ko-fi's link does, and is matched the same way:
+        // an account another supporter already has stays with them, and the patron waits for staff.
+        if (!late)
+        {
+            if (message.DiscordUserId is { Length: > 0 and <= MostDiscordIdLength } discordId
+                && supporter.DiscordUserId != discordId
+                && !await db.Supporters.AnyAsync(s => s.Id != supporter.Id && s.Provider == SupporterProviders.Patreon && s.DiscordUserId == discordId, ct).ConfigureAwait(false))
+            {
+                // The role Modbot gave the old account is taken back from it, so remember whose it was.
+                if (supporter.GivenDiscordRoleId is not null && supporter.DiscordUserId is not null)
+                    supporter.GivenDiscordUserId ??= supporter.DiscordUserId;
+
+                supporter.DiscordUserId = discordId;
+            }
+        }
+
+        if (discordKnown)
+            supporter.DiscordLookupAt ??= now;
+
         // A charge is written down once; the supporter was brought up to date above either way.
         if (charged is { } chargeDate)
         {
@@ -199,7 +240,7 @@ public sealed partial class SupporterIntake
             // The same message arrived twice at once, or another one made the same new patron or tier
             // first: read what it wrote and apply this one on top. Patreon was answered and will not resend it.
             if (mayRetry)
-                return await TakePatreonAsync(message, trigger, now, false, ct).ConfigureAwait(false);
+                return await TakePatreonAsync(message, trigger, now, discordKnown, false, ct).ConfigureAwait(false);
 
             throw;
         }

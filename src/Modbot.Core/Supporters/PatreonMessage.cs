@@ -60,6 +60,26 @@ public sealed class PatreonMessage
         }
     }
 
+    /// <summary>
+    /// The Discord account the patron connected to Patreon, when the message carries their user with
+    /// its <c>social_connections</c>: <c>social_connections.discord.user_id</c>. Null when it is not there.
+    /// </summary>
+    [JsonIgnore]
+    public string? DiscordUserId
+    {
+        get
+        {
+            var userId = Data?.Relationships?.User?.Data?.Id;
+
+            if (userId is null)
+                return null;
+
+            var user = Included?.FirstOrDefault(r => r.Type == "user" && r.Id == userId);
+
+            return user?.Attributes?.DiscordUserId;
+        }
+    }
+
     /// <summary>When the last charge was tried, whatever its outcome, or null if there was none.</summary>
     [JsonIgnore]
     public DateTimeOffset? LastChargeDate
@@ -141,6 +161,89 @@ public sealed class PatreonAttributes
 
     [JsonPropertyName("amount_cents")]
     public long? AmountCents { get; set; }
+
+    /// <summary>A user's connected apps and the account on each, as Patreon sends them; only Discord's is read.</summary>
+    [JsonPropertyName("social_connections")]
+    public JsonElement? SocialConnections { get; set; }
+
+    /// <summary>
+    /// The Discord account in <see cref="SocialConnections"/>: its <c>discord.user_id</c>, as text. Null when the patron
+    /// connected none, or when it does not read as an id.
+    /// </summary>
+    [JsonIgnore]
+    public string? DiscordUserId
+    {
+        get
+        {
+            if (SocialConnections is not { ValueKind: JsonValueKind.Object } connections
+                || !connections.TryGetProperty("discord", out var discord)
+                || discord.ValueKind != JsonValueKind.Object
+                || !discord.TryGetProperty("user_id", out var id))
+            {
+                return null;
+            }
+
+            var text = id.ValueKind switch
+            {
+                JsonValueKind.String => id.GetString(),
+                JsonValueKind.Number => id.GetRawText(),
+                _ => null,
+            };
+
+            return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        }
+    }
+}
+
+/// <summary>One page of Patreon's list of a campaign's members: the members, what they point to, and where the next page is.</summary>
+public sealed class PatreonMembersPage
+{
+    [JsonPropertyName("data")]
+    public List<PatreonResource>? Data { get; set; }
+
+    [JsonPropertyName("included")]
+    public List<PatreonResource>? Included { get; set; }
+
+    [JsonPropertyName("meta")]
+    public PatreonPageMeta? Meta { get; set; }
+
+    /// <summary>The page as JSON, or null when it is not one Modbot can read.</summary>
+    public static PatreonMembersPage? Parse(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<PatreonMembersPage>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Patreon's cursor for the next page, or null on the last one.</summary>
+    [JsonIgnore]
+    public string? NextCursor => Meta?.Pagination?.Cursors?.Next is { Length: > 0 } next ? next : null;
+
+    /// <summary>One member of this page as a message the intake takes, with everything the page includes beside it.</summary>
+    public PatreonMessage MessageFor(PatreonResource member) => new() { Data = member, Included = Included };
+}
+
+public sealed class PatreonPageMeta
+{
+    [JsonPropertyName("pagination")]
+    public PatreonPagination? Pagination { get; set; }
+}
+
+public sealed class PatreonPagination
+{
+    [JsonPropertyName("cursors")]
+    public PatreonCursors? Cursors { get; set; }
+}
+
+public sealed class PatreonCursors
+{
+    [JsonPropertyName("next")]
+    public string? Next { get; set; }
 }
 
 public sealed class PatreonRelationships

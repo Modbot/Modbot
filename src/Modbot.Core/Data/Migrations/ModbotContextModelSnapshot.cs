@@ -9683,15 +9683,55 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("onboarding_complete");
 
+                    b.Property<string>("PatreonAccessTokenEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_access_token_encrypted");
+
+                    b.Property<string>("PatreonCampaignId")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_campaign_id");
+
+                    b.Property<DateTimeOffset?>("PatreonCatchUpAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("patreon_catch_up_at");
+
+                    b.Property<DateTimeOffset?>("PatreonCatchUpDueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("patreon_catch_up_due_at");
+
+                    b.Property<string>("PatreonCatchUpProblem")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_catch_up_problem");
+
+                    b.Property<string>("PatreonClientIdEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_client_id_encrypted");
+
+                    b.Property<string>("PatreonClientSecretEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_client_secret_encrypted");
+
                     b.Property<bool>("PatreonOn")
                         .HasColumnType("boolean")
                         .HasColumnName("patreon_on");
+
+                    b.Property<string>("PatreonRefreshTokenEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("patreon_refresh_token_encrypted");
 
                     b.Property<int>("PatreonRolesOffDays")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasDefaultValue(3)
                         .HasColumnName("patreon_roles_off_days");
+
+                    b.Property<DateTimeOffset?>("PatreonStoppedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("patreon_stopped_until");
+
+                    b.Property<DateTimeOffset?>("PatreonTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("patreon_token_expires_at");
 
                     b.Property<string>("PatreonWebhookSecretEncrypted")
                         .HasColumnType("text")
@@ -10276,6 +10316,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("DiscordLookupAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_lookup_at");
+
                     b.Property<string>("DiscordUserId")
                         .HasColumnType("text")
                         .HasColumnName("discord_user_id");
@@ -10313,6 +10357,11 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset>("PaidThrough")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_through");
+
+                    b.Property<string>("PatreonMemberId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("patreon_member_id");
 
                     b.Property<string>("PayerId")
                         .IsRequired()

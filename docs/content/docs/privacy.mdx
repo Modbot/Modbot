@@ -194,7 +194,10 @@ wherever you choose to store them. These pages describe what is kept and how it 
   Modbot a message when a pledge is made, changed or ended and when a charge goes through or fails. For each patron
   Modbot keeps the name they pledged under, their tier, their Discord account when matched, when they were charged,
   which roles it gave, and Patreon's member id with the date of each charge. Their email address is never read or
-  stored. A [purge](/moderation/purge) deletes the supporter matched to that Discord account; no retention window
+  stored. If you save the four keys of a Patreon client, Modbot also asks Patreon for each new patron's Discord
+  account (the one the patron connected to Patreon) and, once a day, for every patron of your first campaign, and
+  keeps the campaign's id, when your access token runs out and when the last catch-up finished. Those requests go to
+  Patreon only and carry your own tokens and Patreon's own ids; the keys are kept encrypted. A [purge](/moderation/purge) deletes the supporter matched to that Discord account; no retention window
   touches it. Nothing is sent to Modbot Cloud, and Discord sees the direct message and the roles.
 - [Account links](/discord/account-links): the tab shows only counts. When staff press **Start reminder**, the bot
   sends each Discord member who has not linked one direct message with the link page, one every 30 seconds, and keeps

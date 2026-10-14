@@ -15620,7 +15620,7 @@
           "Settings"
         ],
         "summary": "Update supporter settings",
-        "description": "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page or the webhook secret from Patreon's (kept encrypted, never returned), set how many days after the paid month ends each site's supporters lose the roles (0 to 365, or -1 for never) and set the thank-you message. Neither can be switched on without its token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page, the webhook secret from Patreon's and the four keys of the Patreon client (client id, client secret, creator access token, creator refresh token), all kept encrypted and never returned; saving a new key starts the Patreon catch-up over. Set how many days after the paid month ends each site's supporters lose the roles (0 to 365, or -1 for never) and set the thank-you message. Neither can be switched on without its token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetSupporterSettings",
         "requestBody": {
           "content": {
@@ -67703,7 +67703,13 @@
           "patreonWebhookAddress",
           "kofiRolesOffDays",
           "patreonRolesOffDays",
-          "mostRolesOffDays"
+          "mostRolesOffDays",
+          "patreonClientIdStored",
+          "patreonClientSecretStored",
+          "patreonAccessTokenStored",
+          "patreonRefreshTokenStored",
+          "patreonCatchUpAt",
+          "patreonCatchUpProblem"
         ],
         "type": "object",
         "properties": {
@@ -67749,6 +67755,31 @@
           "mostRolesOffDays": {
             "type": "integer",
             "format": "int32"
+          },
+          "patreonClientIdStored": {
+            "type": "boolean"
+          },
+          "patreonClientSecretStored": {
+            "type": "boolean"
+          },
+          "patreonAccessTokenStored": {
+            "type": "boolean"
+          },
+          "patreonRefreshTokenStored": {
+            "type": "boolean"
+          },
+          "patreonCatchUpAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "patreonCatchUpProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -67803,6 +67834,30 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "patreonClientId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patreonClientSecret": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patreonAccessToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patreonRefreshToken": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

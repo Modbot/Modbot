@@ -2533,6 +2533,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.GivenVRChatRoleId).HasColumnType("text");
             entity.Property(e => e.GivenVRChatUserId).HasColumnType("text");
             entity.Property(e => e.Problem).HasMaxLength(300);
+            entity.Property(e => e.PatreonMemberId).HasMaxLength(64);
 
             // A payment from the same person finds their row again.
             entity.HasIndex(e => new { e.Provider, e.PayerId }).IsUnique().HasDatabaseName("ux_supporter_payer");

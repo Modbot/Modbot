@@ -23,6 +23,12 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="KofiRolesOffDays">Days after a Ko-fi supporter's paid month ends that the roles come off; -1 is never.</param>
 /// <param name="PatreonRolesOffDays">Days after a Patreon supporter's paid month ends (or a declined charge) that the roles come off; -1 is never.</param>
 /// <param name="MostRolesOffDays">The most days either setting may give.</param>
+/// <param name="PatreonClientIdStored">Whether the Patreon client id is saved.</param>
+/// <param name="PatreonClientSecretStored">Whether the Patreon client secret is saved.</param>
+/// <param name="PatreonAccessTokenStored">Whether the creator access token is saved.</param>
+/// <param name="PatreonRefreshTokenStored">Whether the creator refresh token is saved.</param>
+/// <param name="PatreonCatchUpAt">When the daily catch-up of every current patron last got to the end; null until it has.</param>
+/// <param name="PatreonCatchUpProblem">Why the last catch-up or Discord lookup did not work, as a sentence; null when it did.</param>
 public sealed record SupporterSettingsResponse(
     bool KofiOn,
     bool TokenStored,
@@ -34,13 +40,23 @@ public sealed record SupporterSettingsResponse(
     string? PatreonWebhookAddress,
     int KofiRolesOffDays,
     int PatreonRolesOffDays,
-    int MostRolesOffDays);
+    int MostRolesOffDays,
+    bool PatreonClientIdStored,
+    bool PatreonClientSecretStored,
+    bool PatreonAccessTokenStored,
+    bool PatreonRefreshTokenStored,
+    DateTimeOffset? PatreonCatchUpAt,
+    string? PatreonCatchUpProblem);
 
 /// <summary>A change to Settings → Supporters. A field left out is not changed.</summary>
 /// <param name="VerificationToken">The token from Ko-fi's webhook page. Left out or empty keeps the saved one.</param>
 /// <param name="PatreonWebhookSecret">The secret from Patreon's webhook page. Left out or empty keeps the saved one.</param>
 /// <param name="KofiRolesOffDays">Days after a Ko-fi supporter's paid month ends that the roles come off, 0 to 365, or -1 for never.</param>
 /// <param name="PatreonRolesOffDays">Days after a Patreon supporter's paid month ends (or a declined charge) that the roles come off, 0 to 365, or -1 for never.</param>
+/// <param name="PatreonClientId">The client id of the Patreon client. Left out or empty keeps the saved one.</param>
+/// <param name="PatreonClientSecret">The client secret of the Patreon client. Left out or empty keeps the saved one.</param>
+/// <param name="PatreonAccessToken">The creator's access token. Left out or empty keeps the saved one.</param>
+/// <param name="PatreonRefreshToken">The creator's refresh token. Left out or empty keeps the saved one.</param>
 public sealed record SupporterSettingsUpdate(
     bool? KofiOn,
     string? VerificationToken,
@@ -48,7 +64,11 @@ public sealed record SupporterSettingsUpdate(
     bool? PatreonOn = null,
     string? PatreonWebhookSecret = null,
     int? KofiRolesOffDays = null,
-    int? PatreonRolesOffDays = null);
+    int? PatreonRolesOffDays = null,
+    string? PatreonClientId = null,
+    string? PatreonClientSecret = null,
+    string? PatreonAccessToken = null,
+    string? PatreonRefreshToken = null);
 
 /// <summary>
 /// Settings → Supporters: whether Ko-fi's payment messages and Patreon's membership messages are taken
@@ -98,6 +118,17 @@ public static class SupporterSettingsEndpoints
                 if (secret is not null && (secret.Length > SupporterLimits.MostTokenLength || secret.Any(char.IsWhiteSpace)))
                     return Results.BadRequest(new { error = "This is not a webhook secret." });
 
+                var keys = new[]
+                {
+                    Key(body.PatreonClientId),
+                    Key(body.PatreonClientSecret),
+                    Key(body.PatreonAccessToken),
+                    Key(body.PatreonRefreshToken),
+                };
+
+                if (keys.Any(k => k is not null && (k.Length > SupporterLimits.MostKeyLength || k.Any(char.IsWhiteSpace))))
+                    return Results.BadRequest(new { error = "This is not a Patreon key." });
+
                 var thanks = body.ThanksText?.Trim();
 
                 if (thanks is { Length: > SupporterLimits.MostThanksLength })
@@ -123,6 +154,12 @@ public static class SupporterSettingsEndpoints
                 if (patreonOnAfter && secret is null && string.IsNullOrEmpty(settings.PatreonWebhookSecretEncrypted))
                     return Results.BadRequest(new { error = "Save the webhook secret first." });
 
+                var clientIdChanged = keys[0] is not null && keys[0] != protector.Unprotect(settings.PatreonClientIdEncrypted);
+                var clientSecretChanged = keys[1] is not null && keys[1] != protector.Unprotect(settings.PatreonClientSecretEncrypted);
+                var accessTokenChanged = keys[2] is not null && keys[2] != protector.Unprotect(settings.PatreonAccessTokenEncrypted);
+                var refreshTokenChanged = keys[3] is not null && keys[3] != protector.Unprotect(settings.PatreonRefreshTokenEncrypted);
+                var keysChanged = clientIdChanged || clientSecretChanged || accessTokenChanged || refreshTokenChanged;
+
                 var kofiDaysAfter = body.KofiRolesOffDays ?? settings.KofiRolesOffDays;
                 var patreonDaysAfter = body.PatreonRolesOffDays ?? settings.PatreonRolesOffDays;
                 var thanksAfter = thanks is null ? settings.SupporterThanksText : (thanks.Length > 0 ? thanks : null);
@@ -132,6 +169,10 @@ public static class SupporterSettingsEndpoints
                     .Secret("kofiVerificationToken", tokenChanged)
                     .Field("patreonOn", settings.PatreonOn, patreonOnAfter)
                     .Secret("patreonWebhookSecret", secretChanged)
+                    .Secret("patreonClientId", clientIdChanged)
+                    .Secret("patreonClientSecret", clientSecretChanged)
+                    .Secret("patreonAccessToken", accessTokenChanged)
+                    .Secret("patreonRefreshToken", refreshTokenChanged)
                     .Field("kofiRolesOffDays", settings.KofiRolesOffDays, kofiDaysAfter)
                     .Field("patreonRolesOffDays", settings.PatreonRolesOffDays, patreonDaysAfter)
                     .Field("thanksText", settings.SupporterThanksText, thanksAfter);
@@ -147,6 +188,26 @@ public static class SupporterSettingsEndpoints
                 settings.PatreonOn = patreonOnAfter;
                 if (secretChanged)
                     settings.PatreonWebhookSecretEncrypted = protector.Protect(secret!);
+                if (clientIdChanged)
+                    settings.PatreonClientIdEncrypted = protector.Protect(keys[0]!);
+                if (clientSecretChanged)
+                    settings.PatreonClientSecretEncrypted = protector.Protect(keys[1]!);
+                if (accessTokenChanged)
+                    settings.PatreonAccessTokenEncrypted = protector.Protect(keys[2]!);
+                if (refreshTokenChanged)
+                    settings.PatreonRefreshTokenEncrypted = protector.Protect(keys[3]!);
+
+                // New keys start over: the age of a pasted token is not known, its campaign may be another, and
+                // the catch-up runs at once to show whether they work.
+                if (keysChanged)
+                {
+                    settings.PatreonTokenExpiresAt = null;
+                    settings.PatreonCampaignId = null;
+                    settings.PatreonCatchUpDueAt = null;
+                    settings.PatreonCatchUpProblem = null;
+                    settings.PatreonStoppedUntil = null;
+                }
+
                 settings.KofiRolesOffDays = kofiDaysAfter;
                 settings.PatreonRolesOffDays = patreonDaysAfter;
                 settings.SupporterThanksText = thanksAfter;
@@ -160,8 +221,9 @@ public static class SupporterSettingsEndpoints
             .WithName("SetSupporterSettings")
             .WithSummary("Update supporter settings")
             .WithDescription(
-                "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page or the webhook secret from "
-                + "Patreon's (kept encrypted, never returned), set how many days after the paid month ends each site's supporters lose the "
+                "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page, the webhook secret from "
+                + "Patreon's and the four keys of the Patreon client (client id, client secret, creator access token, creator refresh token), "
+                + "all kept encrypted and never returned; saving a new key starts the Patreon catch-up over. Set how many days after the paid month ends each site's supporters lose the "
                 + "roles (0 to 365, or -1 for never) and set the thank-you message. Neither can be switched on without its "
                 + "token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be "
                 + "added again from the new link.")
@@ -172,6 +234,8 @@ public static class SupporterSettingsEndpoints
 
         return app;
     }
+
+    private static string? Key(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     private static SupporterSettingsResponse View(Core.Data.Entities.Settings settings)
         => new(
@@ -185,5 +249,11 @@ public static class SupporterSettingsEndpoints
             string.IsNullOrWhiteSpace(settings.PublicAddress) ? null : settings.PublicAddress.Trim().TrimEnd('/') + PatreonWebhookEndpoint.Path,
             settings.KofiRolesOffDays,
             settings.PatreonRolesOffDays,
-            SupporterLimits.MostRolesOffDays);
+            SupporterLimits.MostRolesOffDays,
+            !string.IsNullOrEmpty(settings.PatreonClientIdEncrypted),
+            !string.IsNullOrEmpty(settings.PatreonClientSecretEncrypted),
+            !string.IsNullOrEmpty(settings.PatreonAccessTokenEncrypted),
+            !string.IsNullOrEmpty(settings.PatreonRefreshTokenEncrypted),
+            settings.PatreonCatchUpAt,
+            settings.PatreonCatchUpProblem);
 }

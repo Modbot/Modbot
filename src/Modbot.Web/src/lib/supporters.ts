@@ -62,6 +62,15 @@ export type SupporterSettings = {
   /** Days after the paid month ends (or a declined charge) that Patreon supporters lose the roles; -1 is never. */
   patreonRolesOffDays: number
   mostRolesOffDays: number
+  /** Whether each of the four Patreon client keys is saved; the keys themselves are never sent back. */
+  patreonClientIdStored: boolean
+  patreonClientSecretStored: boolean
+  patreonAccessTokenStored: boolean
+  patreonRefreshTokenStored: boolean
+  /** When the daily catch-up of every current patron last got to the end; null until it has. */
+  patreonCatchUpAt: string | null
+  /** Why the last catch-up or Discord lookup did not work, as a sentence; null when it did. */
+  patreonCatchUpProblem: string | null
 }
 
 export type SupporterSettingsInput = {
@@ -70,6 +79,10 @@ export type SupporterSettingsInput = {
   thanksText?: string
   patreonOn?: boolean
   patreonWebhookSecret?: string
+  patreonClientId?: string
+  patreonClientSecret?: string
+  patreonAccessToken?: string
+  patreonRefreshToken?: string
   kofiRolesOffDays?: number
   patreonRolesOffDays?: number
 }

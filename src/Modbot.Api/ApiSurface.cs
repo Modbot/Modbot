@@ -180,6 +180,8 @@ public static class ApiSurface
         // Supporter perks: Ko-fi's payment messages are taken in here; the bot's job gives the roles and is woken by the signal.
         services.TryAddSingleton<Core.Supporters.SupporterSignal>();
         services.TryAddScoped<Core.Supporters.SupporterIntake>();
+        Core.Supporters.PatreonServices.AddPatreon(services);
+        services.TryAddScoped<Core.Supporters.PatreonCatchUp>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
         services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
         services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
@@ -344,6 +346,18 @@ public static class ApiSurface
     public static IServiceCollection AddTwitchLive(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.Twitch.TwitchLiveService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Asks Patreon for each new patron's Discord account and, once a day, for every current patron (Patreon
+    /// design, step 2). Reads the settings row every half minute and does nothing more until Patreon is on
+    /// and its keys are saved.
+    /// </summary>
+    public static IServiceCollection AddPatreonCatchUp(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new Features.Supporters.PatreonCatchUpService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }

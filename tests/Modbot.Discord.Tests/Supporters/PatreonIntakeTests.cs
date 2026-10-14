@@ -502,4 +502,83 @@ public class PatreonIntakeTests
         Assert.Equal(2, await db.Supporters.CountAsync(Ct));
         Assert.Equal(2, await db.SupporterTiers.CountAsync(Ct));
     }
+
+    [Fact]
+    public async Task ThePatronsFirstRealCharge_DatedBeforeTheMomentTheyCameIn_IsNotTakenForALateOne()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+
+        // A pledge with no charge yet: the supporter is made at "now", with no charge written down.
+        await TakeAsync(services, Message(charge: null), "members:pledge:create");
+
+        // Their first charge is dated a little before that moment. It is the first charge, not an older one than a charge already taken.
+        var outcome = await TakeAsync(services, Message(charge: Charged), "members:update");
+
+        Assert.Equal(SupporterIntake.Taken, outcome.Result);
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(Charged, supporter.LastPaidAt);
+        Assert.Equal(Charged, supporter.FirstPaidAt);
+        Assert.Equal(Charged.AddMonths(1), supporter.PaidThrough);
+        Assert.Equal(1, await db.SupporterPayments.CountAsync(Ct));
+    }
+
+    private static PatreonMessage WithDiscord(string? connections)
+    {
+        var json = """
+            {"data":{"id":"member-1","type":"member","attributes":{"patron_status":"active_patron","full_name":"Sam Patron","last_charge_date":"2026-01-01T00:00:00.000+00:00","last_charge_status":"Paid"},
+              "relationships":{"currently_entitled_tiers":{"data":[{"id":"gold"}]},"user":{"data":{"id":"u-1","type":"user"}}}},
+             "included":[{"id":"gold","type":"tier","attributes":{"title":"Gold","amount_cents":1500}},
+                         {"id":"u-1","type":"user","attributes":{"social_connections":@CONNECTIONS@}}]}
+            """.Replace("@CONNECTIONS@", connections ?? "null", StringComparison.Ordinal);
+
+        return PatreonMessage.Parse(System.Text.Encoding.UTF8.GetBytes(json)) ?? throw new InvalidOperationException("Not a message.");
+    }
+
+    [Theory]
+    [InlineData("""{"discord":{"user_id":"123456789"}}""", "123456789")]
+    [InlineData("""{"discord":{"user_id":123456789}}""", "123456789")]
+    [InlineData("""{"discord":null,"twitter":{"user_id":"5"}}""", null)]
+    [InlineData("""{"twitter":{"user_id":"5"}}""", null)]
+    [InlineData("null", null)]
+    [InlineData(null, null)]
+    public void TheDiscordAccountIsReadFromTheUsersConnectedApps(string? connections, string? expected)
+        => Assert.Equal(expected, WithDiscord(connections).DiscordUserId);
+
+    [Fact]
+    public async Task AMessageThatNamesTheDiscordAccount_MatchesThePatronToIt()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+
+        await TakeAsync(services, WithDiscord("""{"discord":{"user_id":"555"}}"""));
+
+        await using var db = services.Database.NewContext();
+        Assert.Equal("555", (await db.Supporters.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
+    }
+
+    [Fact]
+    public async Task AMessageThatNamesAnAccountAnotherPatronHas_LeavesThePatronNotMatched()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+
+        await TakeAsync(services, Message(member: "member-0", charge: Charged));
+
+        await using (var db = services.Database.NewContext())
+        {
+            var first = await db.Supporters.SingleAsync(Ct);
+            first.DiscordUserId = "555";
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await TakeAsync(services, WithDiscord("""{"discord":{"user_id":"555"}}"""));
+
+        await using var read = services.Database.NewContext();
+        var second = await read.Supporters.AsNoTracking().SingleAsync(s => s.PatreonMemberId == "member-1", Ct);
+        Assert.Null(second.DiscordUserId);
+        Assert.Equal(SupporterStates.Active, second.State);
+    }
 }
+

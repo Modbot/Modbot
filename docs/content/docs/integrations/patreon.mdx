@@ -8,9 +8,14 @@ When somebody pledges, Modbot gives them the **Discord role** and the **VRChat g
 for their tier and sends them a thank-you message. When the pledge ends, or a charge is declined,
 Modbot takes the roles back.
 
-Patreon calls Modbot, not the other way round. This page covers the webhook, which is all Modbot needs
-from Patreon to count patrons. Your Modbot must be reachable from the internet at the **Public
-address** in **Settings**, **Server**, because Patreon sends each message to it.
+Patreon calls Modbot when a pledge changes: that is the webhook, and it is all Modbot needs to count
+patrons. Your Modbot must be reachable from the internet at the **Public address** in **Settings**,
+**Server**, because Patreon sends each message to it.
+
+Patreon's message does not say which Discord account a patron is. For that Modbot also asks Patreon,
+with a Patreon client you register once (see [Register a Patreon client](#register-a-patreon-client)). With it, Modbot
+looks up each new patron's Discord account, and once a day reads every current patron, which brings in
+patrons from before Modbot and anything a webhook that never arrived left out.
 
 You set it up in **Settings**, **Patreon**, and look after the tiers and people on the **Supporters**
 page (**Community**), which lists Ko-fi and Patreon supporters together and shows which site each came
@@ -34,6 +39,34 @@ and nothing in it is read.
 
 These steps come from Patreon's published webhook documentation and have not been checked against
 Patreon's current screens.
+
+## Register a Patreon client
+
+1. Signed in to Patreon as the creator, open Patreon's developer portal and go to **Clients & API Keys**.
+2. Click **Create Client**. Give it a name and a description, set the **API version** to **2**, and give
+   the redirect URI your Modbot's public address. Modbot never sends anybody there; Patreon only asks for one.
+3. Save it. Patreon shows four keys: **Client ID**, **Client Secret**, **Creator's Access Token** and
+   **Creator's Refresh Token**.
+4. In Modbot, under **Settings**, **Patreon**, **Patreon client**, paste each into its box and click
+   **Save**. The page shows **Saved** beside each and never shows them again. They are kept encrypted.
+5. Within half a minute Modbot reads your patrons for the first time. **Last catch-up** shows when it
+   finished, or **Problem** says why it could not.
+
+The creator's tokens read your own campaign. Modbot uses them for three requests only: the list of your campaigns
+(it keeps the first one's id), a campaign's members with their tiers and the apps each connected to Patreon,
+and one member at a time. It never changes anything on Patreon.
+
+Patreon's access token runs out after about a month. Modbot asks Patreon for a new one with the refresh token a few
+days before it does, and saves the new pair; the first time, it does so at once, because the age of a pasted token
+is not known. Saving a new key starts over: the campaign is found again and the catch-up runs at once.
+
+Modbot sends Patreon at most one request a second. If Patreon answers that Modbot is asking too much, Modbot does
+not ask again: it stops for at least 15 minutes (longer if Patreon says so), shows **Patreon is limiting Modbot's
+requests** under **Last catch-up**, and tries again after that. If a key is refused, **Problem** says which kind, and
+the catch-up tries again the next day, or as soon as you save a new key.
+
+These steps come from Patreon's published API documentation and have not been checked against Patreon's current
+screens.
 
 ## Tiers and roles
 
@@ -69,10 +102,16 @@ Modbot only takes back roles it gave itself. A role you gave by hand is never to
 
 ## Matching a patron to their Discord account
 
-Roles need a Discord account, and Patreon's message does not say which one. A new patron shows as
-**Not matched** on the **Supporters** page until staff press **Match**, search for their name in the
-Discord server and press **Match** again. Their later charges match by themselves. A patron is told
-from another by Patreon's member id, which does not change when they change their email address.
+Roles need a Discord account, and Patreon's message does not say which one. A new patron is looked up
+within half a minute: Modbot asks Patreon for the apps the patron connected to their Patreon account, and takes
+their Discord account from it. The daily catch-up asks again for every patron who still has none, so a patron
+who connects Discord later is matched by the next one.
+
+Patreon only reports a Discord account for a patron who connected one to their Patreon account. Anybody else, and
+anybody whose account another supporter already has, shows as **Not matched** on the **Supporters** page until
+staff press **Match**, search for their name in the Discord server and press **Match** again. Their later charges
+match by themselves. A patron is told from another by Patreon's member id, which does not change when they change
+their email address.
 
 The VRChat group role goes to the VRChat account linked to their Discord account (see
 [Account links](/discord/account-links)). A supporter with no linked VRChat account shows
@@ -90,6 +129,9 @@ link.
 
 For each patron: the name they pledged under, their tier, their Discord account once matched, when
 they were charged, which roles Modbot gave, and Patreon's member id with the date of each charge. Their
-**email address is never read or stored**. The webhook secret is kept encrypted and never shown again.
+**email address is never read or stored**; of what the patron connected to Patreon, only the Discord account is read.
+For the catch-up: your campaign's id, when your access token runs out, and when the last catch-up finished. The
+webhook secret and the four client keys are kept encrypted and never shown again.
+The only requests Modbot sends to Patreon carry your own keys and tokens, or a campaign's or a member's id.
 Nothing is sent to Modbot Cloud. A [purge](/moderation/purge) deletes the supporter matched to that
 Discord account, with their payments; no retention window touches it.

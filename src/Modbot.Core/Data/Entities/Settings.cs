@@ -854,6 +854,45 @@ public class Settings
     public string? PatreonWebhookSecretEncrypted { get; set; }
 
     /// <summary>
+    /// The client id of the Patreon client the owner registered, encrypted like every other secret.
+    /// Needed to ask Patreon for a new access token. Never returned by the API.
+    /// </summary>
+    public string? PatreonClientIdEncrypted { get; set; }
+
+    /// <summary>The client secret of that Patreon client, encrypted. Never returned by the API.</summary>
+    public string? PatreonClientSecretEncrypted { get; set; }
+
+    /// <summary>
+    /// The creator's access token, encrypted: what Modbot asks Patreon for each patron's Discord account and
+    /// the daily list of patrons with. Replaced when Modbot asks Patreon for a new one. Never returned by the API.
+    /// </summary>
+    public string? PatreonAccessTokenEncrypted { get; set; }
+
+    /// <summary>The creator's refresh token, encrypted. Patreon gives a new one with each new access token. Never returned by the API.</summary>
+    public string? PatreonRefreshTokenEncrypted { get; set; }
+
+    /// <summary>When the saved access token runs out, as Patreon said when it gave it. Null for one pasted in, whose age is not known.</summary>
+    public DateTimeOffset? PatreonTokenExpiresAt { get; set; }
+
+    /// <summary>The id of the creator's first Patreon campaign, found with the access token and kept. Null until found.</summary>
+    public string? PatreonCampaignId { get; set; }
+
+    /// <summary>Nothing is sent to Patreon before this moment: Patreon limited Modbot (never retried).</summary>
+    public DateTimeOffset? PatreonStoppedUntil { get; set; }
+
+    /// <summary>When the daily catch-up of every current patron last got to the end. Null until it has.</summary>
+    public DateTimeOffset? PatreonCatchUpAt { get; set; }
+
+    /// <summary>When the next catch-up is due: a day after the last one, or sooner after a problem. Null is now, which a newly saved key makes it.</summary>
+    public DateTimeOffset? PatreonCatchUpDueAt { get; set; }
+
+    /// <summary>
+    /// Why the last catch-up or Discord lookup did not work, as a sentence. Null when it did. While it is set
+    /// Patreon is not asked for anything but the catch-up, when it is due.
+    /// </summary>
+    public string? PatreonCatchUpProblem { get; set; }
+
+    /// <summary>
     /// How many days after a Ko-fi supporter's paid month is up the roles come off, or
     /// <see cref="SupporterLimits.RolesNeverOff"/> for never. 3 to start.
     /// </summary>
