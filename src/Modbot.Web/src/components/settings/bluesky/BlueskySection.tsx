@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { api, ApiError, type BlueskySettings } from '@/lib/api'
 import { timeOfDay } from '@/lib/format'
 import { ConfirmButton, Fact, Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
@@ -46,6 +47,7 @@ export function BlueskySection() {
           <AccountCard settings={data} onSaved={setData} />
           {(data.canPost || data.posting) && <PostingCard settings={data} onSaved={setData} />}
           {(data.canPost || data.posting) && <PinCard settings={data} onSaved={setData} />}
+          {(data.canPost || data.posting) && <LineupCard settings={data} onSaved={setData} />}
           <TagsCard settings={data} onSaved={setData} />
         </>
       )}
@@ -279,6 +281,110 @@ function PinCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (n
       <Switch checked={settings.pinNextEvent} disabled={busy} onChange={setPin}>
         Pin the next event
       </Switch>
+    </SettingsCard>
+  )
+}
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+const HOURS = Array.from({ length: 24 }, (_, h) => h)
+
+function zones(): string[] {
+  try {
+    return Intl.supportedValuesOf('timeZone')
+  } catch {
+    return []
+  }
+}
+
+/** Weekly line-up: once a week the next seven days' public dates go out as one post. */
+function LineupCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (next: BlueskySettings) => void }) {
+  const [on, setOn] = useState(settings.lineupOn)
+  const [day, setDay] = useState(settings.lineupDay)
+  const [hour, setHour] = useState(settings.lineupHour)
+  const [timeZone, setTimeZone] = useState(settings.lineupTimeZone ?? '')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const zoneList = useMemo(() => zones(), [])
+
+  const changed =
+    on !== settings.lineupOn ||
+    day !== settings.lineupDay ||
+    hour !== settings.lineupHour ||
+    timeZone !== (settings.lineupTimeZone ?? '')
+
+  const save = () => {
+    setBusy(true)
+    setSaved(null)
+    setProblem(null)
+
+    api
+      .setBlueskySettings({ lineupOn: on, lineupDay: day, lineupHour: hour, lineupTimeZone: timeZone })
+      .then((next) => {
+        onSaved(next)
+        setSaved('Saved.')
+      })
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard
+      title="Weekly line-up"
+      footer={
+        <>
+          <Button type="button" size="xs" disabled={busy || !changed} onClick={save}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          <Outcome tone="ok">{saved}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Switch checked={on} onChange={setOn}>
+          Weekly line-up
+        </Switch>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="text-muted-foreground">Day</span>
+            <Select value={String(day)} onChange={(d) => setDay(Number(d))} aria-label="Day of the week">
+              {WEEKDAYS.map((name, i) => (
+                <option key={name} value={i}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </label>
+
+          <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="text-muted-foreground">At</span>
+            <Select value={String(hour)} onChange={(h) => setHour(Number(h))} aria-label="Time">
+              {HOURS.map((h) => (
+                <option key={h} value={h}>
+                  {`${String(h).padStart(2, '0')}:00`}
+                </option>
+              ))}
+            </Select>
+          </label>
+
+          <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="text-muted-foreground">Time zone</span>
+            <Select value={timeZone} onChange={setTimeZone} aria-label="Time zone">
+              <option value="">UTC</option>
+              {timeZone && !zoneList.includes(timeZone) && <option value={timeZone}>{timeZone}</option>}
+              {zoneList.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </div>
+      </div>
     </SettingsCard>
   )
 }

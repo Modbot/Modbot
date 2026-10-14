@@ -4374,6 +4374,14 @@ export type BlueskySettings = {
   postTags: string
   /** Modbot keeps the next calendar date's post pinned on the account's profile. */
   pinNextEvent: boolean
+  /** Modbot posts the week's line-up once a week. */
+  lineupOn: boolean
+  /** The day of the week it is posted, 0 (Sunday) to 6. */
+  lineupDay: number
+  /** The hour of that day, 0 to 23, in `lineupTimeZone`. */
+  lineupHour: number
+  /** The IANA zone the day and hour are in, and the times in the post. Null is UTC. */
+  lineupTimeZone: string | null
 }
 
 /** What the last Twitch Check found (Twitch design). */
@@ -5807,6 +5815,11 @@ export const api = {
     posting?: boolean
     postTags?: string
     pinNextEvent?: boolean
+    lineupOn?: boolean
+    lineupDay?: number
+    lineupHour?: number
+    /** An IANA zone name; empty for UTC. */
+    lineupTimeZone?: string
   }) =>
     put<BlueskySettings>('/api/settings/bluesky', body),
 
