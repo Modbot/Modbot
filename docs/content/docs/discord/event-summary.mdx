@@ -1,0 +1,64 @@
+---
+title: Monthly event summary
+description: Post one card a month in a Discord channel that shows how each event did the month before, with the average interested on Discord, interested on VRChat and how many came.
+---
+
+Once a month, Modbot posts a card in a channel you pick that says how the events did the month before. It is for
+your staff: it shows whether regular events are drawing more or fewer people. The same figures, date by date, are on
+the [event's page](/moderation/calendar#an-events-dates-over-time).
+
+## Turn it on
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Monthly event summary** card.
+
+| Setting | What it does |
+|---|---|
+| **On** | Posts the summary once a month. Off to start. |
+| **Summary channel** | Where the summary goes. Pick a staff channel. |
+
+Press **Save monthly event summary**. Turning it on never posts for a month that is already over: the first summary
+is for the first whole month that ends after you turned it on.
+
+## The permissions the bot needs
+
+In the summary channel the bot needs **View Channels**, **Send Messages** and **Embed Links**.
+
+## The summary
+
+One card, titled with the month ("Events in September 2026"), with a field for each event that had a date that
+month. The events with the most dates come first.
+
+| Line | What it shows |
+|---|---|
+| **Dates** | How many dates of the event had a count or an opened instance that month. |
+| **Average interested on Discord** | The average of the Discord event's interested number when each date started. |
+| **Average interested on VRChat** | The average of the VRChat event's interested number when each date started. |
+| **Average came** | The average number of people seen at the dates' instances. |
+
+- A line is left out when no date that month had that figure.
+- A long list is cut at 24 events and ends with how many more there were.
+- Months are counted in UTC.
+- Modbot does not compare a month with the one before it, and it does not warn you when a number drops.
+- A month in which no event had a count or an opened instance gets no post.
+
+## When it posts
+
+Modbot posts the summary soon after the month turns over. It posts one summary for each month, however often Modbot
+restarts. If Discord asks the bot to wait, Modbot tries again a short while later. If Discord refuses the post, Modbot
+does not send it again, and the card shows what went wrong.
+
+## Who it counts
+
+The interested numbers are the ones Discord and VRChat show for the event on the day it started. **Came** counts only
+the people in instances where a moderator's Modbot app was present, so the numbers can be lower than the real
+turnout. A date from before Modbot started keeping these numbers has none.
+
+## What Modbot keeps
+
+For each date of an event, the Discord and VRChat interested numbers and when each was read, and the month the
+last summary was posted for, so it is not posted twice. These are counts: nobody is named. Nothing about the
+summary is sent to Modbot Cloud. What leaves your server is the post in your channel, through Discord. It names
+events, not people, and a [purge](/moderation/purge) does not remove it.

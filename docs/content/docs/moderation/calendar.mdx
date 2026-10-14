@@ -193,6 +193,33 @@ times nobody was seen are left out.
 
 The numbers are not posted anywhere. They show only on this page.
 
+### An event's dates over time
+
+**Every date of this event**, under **How it went**, opens the event's page at `/calendar/series/` and its
+id. It shows how the event did over time, one row for each date, newest first, and the same figures as a line chart.
+You need **See analytics** as well as **See calendar**. One page covers all the dates of one event, so a
+repeating event is one page and two separate events are two.
+
+| Figure | What it counts |
+|---|---|
+| **Interested on Discord** | The number Discord shows as interested in the event's Discord event when the date started. |
+| **Interested on VRChat** | The number VRChat shows as interested in the event on the group calendar when the date started. |
+| **Came** | The people a moderator's [desktop client](/companion/install) saw arrive in the date's instance. |
+| **Most at once** | The most people in the date's instance at one moment. |
+
+Above the chart, the page gives the average of each figure over the dates that have it.
+
+- The interested numbers are read once, when the date starts, and kept. A date from before Modbot kept them
+  shows **—**.
+- **Came** counts only the people seen where a moderator's Modbot app was. It can be lower than the real turnout, and
+  a date nobody was seen at shows **—**.
+- A date missing one figure is skipped on that line of the chart, and the line carries on.
+- The page lists at most the latest 100 dates.
+- Nothing warns you when a number drops.
+
+Staff can also get the averages for the month before posted in a channel, as a
+[monthly event summary](/discord/event-summary).
+
 ### Past events
 
 **Past events**, under the calendar, lists every time an event ran in the last 90 days: the event,
