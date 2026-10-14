@@ -68,6 +68,14 @@ public class VoteTests
         var host = await ReadSurfaceTestHost.StartAsync(db, configure: s => s.AddSingleton<IDiscordVoteActions>(discord));
         await host.ResetAsync(Ct);
 
+        // ResetAsync does not clear votes, and the class's database keeps what the tests before wrote.
+        await using (var clear = db.NewContext())
+        {
+            await clear.VotePicks.ExecuteDeleteAsync(Ct);
+            await clear.VoteOptions.ExecuteDeleteAsync(Ct);
+            await clear.Votes.ExecuteDeleteAsync(Ct);
+        }
+
         using (var scope = host.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
