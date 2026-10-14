@@ -129,7 +129,7 @@ public static class CalendarPreviews
         var blueskyPicture = calendarEvent.CoverPictureId is { } coverId
             && await db.CalendarCoverPictures.AsNoTracking()
                 .Where(c => c.Id == coverId)
-                .Select(c => c.BlueskyBytes != null || c.Bytes.Length <= BlueskyText.CardPictureMaxBytes)
+                .Select(c => c.BlueskyBytes != null || c.Bytes.Length <= BlueskyText.PictureMaxBytes)
                 .FirstOrDefaultAsync(ct);
 
         return new CalendarPreviewResult(

@@ -959,7 +959,7 @@ public static class CalendarEndpoints
                 if (RefusedWithoutEditorRights(http) is { } refused)
                     return refused;
 
-                if (http.Request.ContentLength > BlueskyText.CardPictureMaxBytes)
+                if (http.Request.ContentLength > BlueskyText.PictureMaxBytes)
                 {
                     return Results.Json(
                         new { error = BlueskyPictureTooBig },
@@ -967,11 +967,11 @@ public static class CalendarEndpoints
                 }
 
                 if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-                    limit.MaxRequestBodySize = BlueskyText.CardPictureMaxBytes + 1;
+                    limit.MaxRequestBodySize = BlueskyText.PictureMaxBytes + 1;
 
                 var bytes = await ReadPictureAsync(http.Request.Body, http.Request.ContentLength, ct);
 
-                if (bytes.Length > BlueskyText.CardPictureMaxBytes)
+                if (bytes.Length > BlueskyText.PictureMaxBytes)
                 {
                     return Results.Json(
                         new { error = BlueskyPictureTooBig },

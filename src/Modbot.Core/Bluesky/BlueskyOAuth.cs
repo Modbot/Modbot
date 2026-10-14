@@ -148,7 +148,7 @@ public sealed class BlueskyOAuth(IHttpClientFactory http, ISecretProtector prote
 
     /// <summary>
     /// The narrowest scopes that post: <c>putRecord</c> needs both create and update on the post
-    /// collection, a delete needs delete, and the card picture needs an image blob. The profile's
+    /// collection, a delete needs delete, and the picture needs an image blob. The profile's
     /// create and update are for pinning a post on it (Pin the next event): a sign-in made before
     /// that was added lacks it, and the pin waits until Sign in with Bluesky is done again.
     /// </summary>

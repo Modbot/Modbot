@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   blankPost,
-  blueskyCardPictureWanted,
+  blueskyPictureWanted,
   blueskyCount,
   blueskyText,
   graphemes,
@@ -385,7 +385,7 @@ test('the Bluesky counter says 300 and turns red past it, or past 3000 bytes', (
   assert.deepEqual(blueskyCount({ ...input, text: families }), { label: 'Bluesky 121 / 300', over: true })
 })
 
-test("a ticked Bluesky sends its section, its own text only when ticked, and the card picture only for the post's picture", () => {
+test("a ticked Bluesky sends its section, its own text only when ticked, and the copy of the picture only for the post's picture", () => {
   const input = { ...blankPost(now, 'UTC'), pictureId: 'pic-1' }
   assert.equal(requestOf(input, false).bluesky, null)
 
@@ -394,8 +394,8 @@ test("a ticked Bluesky sends its section, its own text only when ticked, and the
 
   const stale = { ...ticked, pictureId: 'pic-2' }
   assert.deepEqual(requestOf(stale, false).bluesky, { text: null, cardPictureId: null, cardPictureFrom: null })
-  assert.equal(blueskyCardPictureWanted(stale), true)
-  assert.equal(blueskyCardPictureWanted(ticked), false)
+  assert.equal(blueskyPictureWanted(stale), true)
+  assert.equal(blueskyPictureWanted(ticked), false)
 
   const own = { ...ticked, bluesky: { ...ticked.bluesky, ownText: true, text: 'Mine' } }
   assert.equal(requestOf(own, false).bluesky?.text, 'Mine')

@@ -229,7 +229,7 @@ public class PostDestination
 
     /// <summary>
     /// The site's own copy of the post's picture, kept in <c>calendar_cover_picture</c> beside it:
-    /// Bluesky's card picture, a small JPEG the browser made (posts design §4.2c). Null for none.
+    /// Bluesky's copy of the picture, a small JPEG the browser made (posts design §4.2c). Null for none.
     /// A real column rather than a word in <see cref="Options"/>, so the hourly picture sweep sees
     /// that a post still uses it.
     /// </summary>
@@ -342,7 +342,7 @@ public sealed record VRChatPostOptions(
 
 /// <summary>A Bluesky destination's own choices (posts design §4.2c), stored as JSON in <see cref="PostDestination.Options"/>.</summary>
 /// <param name="PictureId">
-/// The post's picture the card picture (<see cref="PostDestination.SitePictureId"/>) was made from,
+/// The post's picture the copy for Bluesky (<see cref="PostDestination.SitePictureId"/>) was made from,
 /// so a picture changed since is not sent.
 /// </param>
 /// <param name="Cid">The post's content id on Bluesky, once it went out, as Bluesky answered or as read back.</param>

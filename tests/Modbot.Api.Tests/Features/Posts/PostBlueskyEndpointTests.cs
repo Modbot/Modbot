@@ -12,7 +12,7 @@ namespace Modbot.Api.Tests.Features.Posts;
 /// <summary>
 /// The Marketing tab's Bluesky posts (posts design §4.2c): the Bluesky section and what it saves,
 /// the 300-character limit counted the way Bluesky counts, the preview being what the sender sends,
-/// the card picture kept only as a copy of the post's picture, Try again reading back first, Delete
+/// the copy of the picture kept only as a copy of the post's picture, Try again reading back first, Delete
 /// on Bluesky (on the account in Settings only), and no Edit.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
@@ -226,7 +226,7 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task TheCardPictureIsKeptOnlyAsACopyOfThePostsPicture()
+    public async Task ThePictureCopyIsKeptOnlyAsACopyOfThePostsPicture()
     {
         var (host, _, cookie) = await StartAsync();
         await using var running = host;
@@ -240,7 +240,7 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
         Assert.Equal(copy, kept.GetProperty("destinations")[0].GetProperty("bluesky").GetProperty("cardPictureId").GetGuid());
         Assert.Equal(JsonValueKind.Null, dropped.GetProperty("destinations")[0].GetProperty("bluesky").GetProperty("cardPictureId").ValueKind);
 
-        var big = await PictureAsync(BlueskyText.CardPictureMaxBytes + 1);
+        var big = await PictureAsync(BlueskyText.PictureMaxBytes + 1);
         var tooBig = await host.SendJsonAsync(HttpMethod.Post, "/api/posts", Body(host, new { cardPictureId = big, cardPictureFrom = picture }, pictureId: picture), cookie, Ct);
         Assert.Contains("The Bluesky picture is larger than 1 MB.", await ProblemsAsync(tooBig));
     }

@@ -351,7 +351,7 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   another handle, ends a sign-in with Bluesky.
   - **Scopes**: `atproto repo:app.bsky.feed.post?action=create&action=update&action=delete
     repo:app.bsky.actor.profile?action=create&action=update blob:image/*` (`putRecord` needs both
-    create and update in the reference server; the card picture is an image blob; the profile pair is
+    create and update in the reference server; the picture is an image blob; the profile pair is
     for Pin the next event, added 2026-10-14: a sign-in made before that lacks it and the pin fails
     with Bluesky's refusal until Sign in with Bluesky is done again). A sign-in server that answers `invalid_scope` is asked once more with
     `atproto transition:generic`. The client document lists both. **Whether bsky.social takes the

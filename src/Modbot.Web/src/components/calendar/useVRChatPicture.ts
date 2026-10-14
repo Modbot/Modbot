@@ -1,6 +1,6 @@
 import { calendarApi, CALENDAR_COVER_MAX_BYTES, VRCHAT_PICTURE_MAX_BYTES } from '@/lib/calendar'
 import { smallJpeg } from '@/lib/pictureFiles'
-import { BLUESKY_CARD_PICTURE_MAX_BYTES } from '@/lib/postRules'
+import { BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { DISCORD_COVER_ASPECT, VRCHAT_PICTURE_ASPECT, vrchatFileIdInLink } from '@/lib/eventPicture'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { useCroppedPicture, type CroppedPicture } from './useCroppedPicture'
@@ -67,7 +67,7 @@ export function useDiscordCover({
       // still saved: its Bluesky posts then go with the cover itself when it is under 1 MB, else
       // with their link card only.
       try {
-        await calendarApi.uploadCoverBlueskyCopy(coverId, await smallJpeg(file, BLUESKY_CARD_PICTURE_MAX_BYTES))
+        await calendarApi.uploadCoverBlueskyCopy(coverId, await smallJpeg(file, BLUESKY_PICTURE_MAX_BYTES))
       } catch {
         // Nothing to say: the cover is what was asked for.
       }

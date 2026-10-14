@@ -17,8 +17,8 @@ namespace Modbot.Core.Calendar;
 /// whole grapheme and with an ellipsis, so the post fits Bluesky's 300 graphemes. Title, time, world
 /// and link are never cut. The link is Google Calendar's page for the event, else the VRChat group's
 /// page; the Discord event is left out because its address is the current date's, not this one's
-/// (<see cref="CalendarAutoLinks.For"/>). Bluesky shows a picture only with a link card, so an event
-/// with neither link has a post without the picture.
+/// (<see cref="CalendarAutoLinks.For"/>). The event's cover goes with the post as a full picture whether
+/// or not the post has a link, and the link stays clickable in the text.
 /// </para>
 /// <para>
 /// An event's own Bluesky title and description (<see cref="CalendarEvent.BlueskyTitle"/>,

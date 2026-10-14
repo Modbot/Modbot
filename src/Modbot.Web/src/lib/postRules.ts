@@ -319,8 +319,8 @@ export const POST_TITLE_MAX = 200
  */
 export const VRCHAT_TEXT_CEILING = 8000
 
-/** The largest picture Modbot sends Bluesky: the server's `BlueskyText.CardPictureMaxBytes`. */
-export const BLUESKY_CARD_PICTURE_MAX_BYTES = 1_000_000
+/** The largest picture Modbot sends Bluesky: the server's `BlueskyText.PictureMaxBytes`. */
+export const BLUESKY_PICTURE_MAX_BYTES = 1_000_000
 
 export const NETWORK_LABEL: Record<PostNetwork, string> = {
   discord: 'Discord',
@@ -659,7 +659,7 @@ export function blueskyCount(input: Pick<PostInput, 'title' | 'text' | 'bluesky'
 }
 
 /** Whether a small copy of the post's picture still has to be made for Bluesky. */
-export function blueskyCardPictureWanted(input: Pick<PostInput, 'pictureId' | 'bluesky'>): boolean {
+export function blueskyPictureWanted(input: Pick<PostInput, 'pictureId' | 'bluesky'>): boolean {
   return input.bluesky.on && input.pictureId !== null && input.bluesky.cardPictureFrom !== input.pictureId
 }
 

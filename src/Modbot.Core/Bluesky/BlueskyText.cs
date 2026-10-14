@@ -48,7 +48,7 @@ public static partial class BlueskyText
     public const int TagLimit = 64;
 
     /// <summary>The most a Bluesky picture may be: the size the small copy is made to, under what Bluesky takes.</summary>
-    public const int CardPictureMaxBytes = 1_000_000;
+    public const int PictureMaxBytes = 1_000_000;
 
     /// <summary>The longest card description sent.</summary>
     public const int CardDescriptionLimit = 300;

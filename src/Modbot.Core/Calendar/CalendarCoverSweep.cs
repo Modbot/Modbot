@@ -11,7 +11,7 @@ namespace Modbot.Core.Calendar;
 /// <remarks>
 /// A picture is uploaded when Upload is pressed, before the event or post is saved, so a form closed
 /// without saving leaves one behind. Once it is a day old -- long enough for any form still open --
-/// and no live event, no template, no post and no post's site copy (Bluesky's card picture) points at it, it is
+/// and no live event, no template, no post and no post's site copy (Bluesky's copy of the picture) points at it, it is
 /// deleted. A post keeps its picture whatever its
 /// state: a cancelled one can be duplicated, and a sent one is shown with it. The calendar's schedule loop runs this once an hour
 /// (<see cref="Every"/>), so nothing waits on somebody uploading again.

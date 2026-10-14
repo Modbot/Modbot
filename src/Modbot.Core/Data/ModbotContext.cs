@@ -3093,7 +3093,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Error).HasMaxLength(1024);
             entity.Property(e => e.MissingPermission).HasMaxLength(128);
 
-            // The site's own copy of the post's picture (Bluesky's small card picture): kept with
+            // The site's own copy of the post's picture (Bluesky's small copy of the picture): kept with
             // the other post pictures, and a picture deleted leaves the destination with none.
             entity.HasOne<CalendarCoverPicture>()
                 .WithMany()

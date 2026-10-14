@@ -253,7 +253,7 @@ internal static class PostRequests
 
     /// <summary>
     /// The Bluesky section (posts design §4.2c): its own text, the 300-character and 3000-byte limits
-    /// counted the way Bluesky counts, and the card picture. The account is the one in Settings when
+    /// counted the way Bluesky counts, and the copy of the picture. The account is the one in Settings when
     /// the post is saved. The picture is kept only when it is a small enough copy of the post's
     /// own picture; Bluesky shows it in full in place of a link card.
     /// </summary>
@@ -292,7 +292,7 @@ internal static class PostRequests
         if (!BlueskyText.Fits(sent))
             problems.Add(BlueskyText.TooLong);
 
-        Guid? cardPicture = null;
+        Guid? pictureCopy = null;
 
         if (section.CardPictureId is { } copy && pictureId is { } picture && section.CardPictureFrom == picture)
         {
@@ -301,18 +301,18 @@ internal static class PostRequests
                 .Select(c => (int?)c.Bytes.Length)
                 .FirstOrDefaultAsync(ct);
 
-            if (size is > BlueskyText.CardPictureMaxBytes)
+            if (size is > BlueskyText.PictureMaxBytes)
                 problems.Add("The Bluesky picture is larger than 1 MB.");
             else if (size is not null)
-                cardPicture = copy;
+                pictureCopy = copy;
         }
 
         return new CheckedBluesky(
             did,
             ownText,
             sent,
-            cardPicture,
-            cardPicture is null ? null : pictureId,
+            pictureCopy,
+            pictureCopy is null ? null : pictureId,
             BlueskyPostRecord.CardFor(title, sent));
     }
 
@@ -709,7 +709,7 @@ internal static class PostRequests
                     if (d.Network == PostNetworks.VRChat)
                         row["title"] = d.TitleOverride;
 
-                    // Bluesky's card picture, the small copy of the post's.
+                    // Bluesky's copy of the picture, the small one made from the post's.
                     if (d.Network == PostNetworks.Bluesky)
                         row["cardPictureId"] = d.SitePictureId?.ToString();
 

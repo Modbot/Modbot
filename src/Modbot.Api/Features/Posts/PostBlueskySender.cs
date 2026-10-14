@@ -427,7 +427,7 @@ public sealed class PostBlueskySender
                 .FirstOrDefaultAsync(pass.Ct).ConfigureAwait(false);
 
             // The small copy made in the browser, or the picture itself when that is small enough.
-            var bytes = picture?.BlueskyBytes ?? (picture is not null && picture.Bytes.Length <= BlueskyText.CardPictureMaxBytes ? picture.Bytes : null);
+            var bytes = picture?.BlueskyBytes ?? (picture is not null && picture.Bytes.Length <= BlueskyText.PictureMaxBytes ? picture.Bytes : null);
 
             if (bytes is not null)
             {

@@ -118,7 +118,7 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
     }
 
     /// <summary>
-    /// <c>uploadBlob</c>: the card picture. The answer is the blob reference the post's card carries.
+    /// <c>uploadBlob</c>: the picture. The answer is the blob reference the post's picture carries.
     /// The same bytes give the same reference, so sending it again is safe.
     /// </summary>
     public async Task<BlueskyResult<JsonObject>> UploadBlobAsync(BlueskyAccess access, byte[] bytes, string contentType, CancellationToken ct)

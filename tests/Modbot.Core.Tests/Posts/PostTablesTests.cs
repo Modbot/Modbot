@@ -195,11 +195,11 @@ public class PostTablesTests(PostgresFixture db)
     }
 
     /// <summary>
-    /// The sweep keeps a site's own copy of a post's picture too: Bluesky's small card picture, which
+    /// The sweep keeps a site's own copy of a post's picture too: Bluesky's small copy of the picture, which
     /// lives on the destination, not the post (posts design §4.2c).
     /// </summary>
     [Fact]
-    public async Task TheSweepKeepsBlueskysCardPicture()
+    public async Task TheSweepKeepsBlueskysCopyOfThePicture()
     {
         var copy = Guid.NewGuid();
 
@@ -231,9 +231,9 @@ public class PostTablesTests(PostgresFixture db)
         Assert.True(await read.CalendarCoverPictures.AnyAsync(c => c.Id == copy, Ct));
     }
 
-    /// <summary>A card picture deleted under a destination leaves it with none, as a post's own picture does.</summary>
+    /// <summary>A copy of the picture deleted under a destination leaves it with none, as a post's own picture does.</summary>
     [Fact]
-    public async Task ACardPictureDeletedLeavesTheDestinationWithNone()
+    public async Task ACopyOfThePictureDeletedLeavesTheDestinationWithNone()
     {
         var copy = Guid.NewGuid();
 

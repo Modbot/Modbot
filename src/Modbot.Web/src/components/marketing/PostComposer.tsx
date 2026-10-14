@@ -19,8 +19,8 @@ import { useDiscordChannels } from '@/lib/discordLists'
 import { useCanManageSettings } from '@/lib/manageSettings'
 import { smallJpeg } from '@/lib/pictureFiles'
 import {
-  BLUESKY_CARD_PICTURE_MAX_BYTES,
-  blueskyCardPictureWanted,
+  BLUESKY_PICTURE_MAX_BYTES,
+  blueskyPictureWanted,
   blueskyCount,
   blueskyText,
   discordCount,
@@ -62,7 +62,7 @@ const ASPECT: Record<Shape, number | null> = { wide: 16 / 9, square: 1, whole: n
 type VRChatPictureSent = { imageId: string; pictureId: string }
 
 /** The small copy of a post's picture made for Bluesky, and the picture it was made from. */
-type BlueskyCardPicture = { cardPictureId: string; cardPictureFrom: string }
+type BlueskyPictureCopy = { cardPictureId: string; cardPictureFrom: string }
 
 /**
  * Writing a post, or changing one before it goes (posts design §4.3).
@@ -157,11 +157,11 @@ export function PostComposer({
   // Bluesky is sent a picture of at most 1,000,000 bytes, so a small JPEG copy of the
   // post's picture is made here, in the browser, and kept beside it: once per picture, the making
   // itself kept so a second ask waits on the first.
-  const blueskyMakes = useRef(new Map<string, Promise<BlueskyCardPicture | null>>())
+  const blueskyMakes = useRef(new Map<string, Promise<BlueskyPictureCopy | null>>())
   const [blueskyErrors, setBlueskyErrors] = useState<Record<string, string>>({})
   const [blueskyMaking, setBlueskyMaking] = useState(false)
 
-  const makeBlueskyPicture = (pictureId: string): Promise<BlueskyCardPicture | null> => {
+  const makeBlueskyPicture = (pictureId: string): Promise<BlueskyPictureCopy | null> => {
     const making = blueskyMakes.current.get(pictureId)
     if (making) return making
 
@@ -172,7 +172,7 @@ export function PostComposer({
         if (!response.ok) throw new Error('Could not read the picture.')
         return response.blob()
       })
-      .then((picture) => smallJpeg(picture, BLUESKY_CARD_PICTURE_MAX_BYTES))
+      .then((picture) => smallJpeg(picture, BLUESKY_PICTURE_MAX_BYTES))
       .then((jpeg) => postsApi.uploadPicture(jpeg))
       .then(({ pictureId: copy }) => {
         const made = { cardPictureId: copy, cardPictureFrom: pictureId }
@@ -191,7 +191,7 @@ export function PostComposer({
   }
 
   // Only when the tick or the picture changes; the function itself is new every render.
-  const wantsBlueskyPicture = blueskyCardPictureWanted(input)
+  const wantsBlueskyPicture = blueskyPictureWanted(input)
   useEffect(() => {
     if (wantsBlueskyPicture && input.pictureId) void makeBlueskyPicture(input.pictureId)
   }, [wantsBlueskyPicture, input.pictureId])
@@ -260,7 +260,7 @@ export function PostComposer({
       }
 
       // Bluesky's small copy of it, the same way: made once, here, and a failure stops the save.
-      if (blueskyCardPictureWanted(saving)) {
+      if (blueskyPictureWanted(saving)) {
         const made = await makeBlueskyPicture(id)
         if (!made) {
           setBusy(false)
@@ -276,7 +276,7 @@ export function PostComposer({
         if (sent) saving = { ...saving, vrChat: { ...saving.vrChat, imageId: sent.imageId, imagePictureId: sent.pictureId } }
       }
 
-      if (input.pictureId && blueskyCardPictureWanted(saving) && blueskyMakes.current.has(input.pictureId)) {
+      if (input.pictureId && blueskyPictureWanted(saving) && blueskyMakes.current.has(input.pictureId)) {
         // Bluesky's copy still being made is waited for, so the post goes with it.
         const made = await blueskyMakes.current.get(input.pictureId)
         if (made) saving = { ...saving, bluesky: { ...saving.bluesky, ...made } }
