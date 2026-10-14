@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.TestSupport;
