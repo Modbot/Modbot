@@ -144,18 +144,36 @@ it). Under that is VRChat's row of tabs, in VRChat's order:
 | **Banned Users** | The **Bans** page. |
 
 A tab is left out when you may not open the page it leads to, the same as the sidebar. **VRChat**
-stays lit in the sidebar on every one of its own tabs.
+stays lit in the sidebar on every one of its own tabs. The command palette finds the page as
+**VRChat**, and its address is `/analytics/group`.
+
+The banner is drawn on **Overview** only. On the other tabs the header shrinks to one line, the icon,
+the name and the counts, so the list the tab is opened for stays near the top of the screen. **Events**,
+**Members** and **Banned Users** are pages of their own: opened from this row, each has the group's
+header above it and the tab marked, and opened from the sidebar the same page looks as it always has.
+The group's name, icon, banner and counts are what Modbot last read from VRChat, about every five
+minutes.
+
+The page shows the **Managed group** chosen in **Settings**, **Modbot's VRChat login**, and changes
+it as that VRChat account. Reading the page needs **See analytics**;
+what each tab changes needs the permission it names below.
 
 ### Overview
 
-Under the header: the next event on the calendar, the group's **Languages** and **Links**, and
-**About this group** (the description and rules).
+Under the header, in this order:
 
-**About this group** folds away: press its heading. Your browser remembers whether you left it
-folded; it starts open.
+- **Right now**: the group's open instances as tiles, each opening the instance. It is there with
+  **See live instances**. With none open it says **No group instances open**.
+- **Upcoming event**: the next event on the calendar, with its picture, time and world, opening the
+  event on the [Calendar](/moderation/calendar). It is there with **See calendar**. With nothing
+  planned it says **No upcoming events**, and **Create event** opens a new event form for anyone with
+  **Manage calendar**.
+- **Languages** and **Links**, side by side.
+- **About this group** (the description) and **Rules**, side by side. A card with nothing in it says
+  **None added**.
 
 With **Edit the group's profile**
-([roles and permissions](/accounts/roles-and-permissions#edit-the-groups-profile)), each of the three
+([roles and permissions](/accounts/roles-and-permissions#edit-the-groups-profile)), each of the four
 cards has a pencil that opens its editor in place. **Save** sends the change to VRChat; **Cancel**
 puts it back. The limits are VRChat's:
 
@@ -163,8 +181,11 @@ puts it back. The limits are VRChat's:
 - **Links**: at most 3, each a web address starting with `https://` or `http://`.
 - **Description**: at most 250 characters. The **Rules** have no limit of Modbot's own.
 
-Everything else on this page asks VRChat nothing when you open it: it is what Modbot last read,
-about every five minutes.
+**Upcoming event** is the one card that can ask VRChat when you open the page: it reads your group's
+VRChat calendar for this month, and for next month when nothing is left this month, so an event made on
+vrchat.com shows here too. See [Events made on VRChat](/moderation/calendar#events-made-on-vrchat).
+Everything else on this page asks VRChat nothing when you open it: **Right now**, the header and the
+other cards are what Modbot last read or keeps, about every five minutes.
 
 ### Posts
 
