@@ -41,6 +41,11 @@ namespace Modbot.Discord.Commands;
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
 /// <c>/event</c>, Manage posts for <c>/post new</c> and See posts for <c>/post list</c>
 /// (<see cref="RequiresFor"/>).
+/// <see cref="Vote"/> is for event hosts too and needs Manage posts: it takes the channel
+/// (<see cref="VoteChannelOption"/>), optionally a role that may vote (<see cref="VoteRoleOption"/>) and
+/// two yes/no choices, <see cref="VoteShowCountsOption"/> and <see cref="VoteShowWhoOption"/>, both off
+/// when left out; a form then asks for the question and the options. It is off until the operator
+/// turns it on.
 /// <see cref="VerifyAccount"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
 /// not hold Timeout Members, and it tells nobody anything without a right code.

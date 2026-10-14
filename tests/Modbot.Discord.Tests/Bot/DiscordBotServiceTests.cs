@@ -148,8 +148,8 @@ public class DiscordBotServiceTests
 
         Assert.Equal(2, gateway.RegisterCalls);
         Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
-        // Events, reminders, /report, /profile, /find, /birthday, /ageverified, /term, /rule and Report to mods are off by default too, and /notify follows the alerts.
-        Assert.Equal(DiscordCommands.All.Count - 11, services.Status.Snapshot().CommandsRegistered);
+        // Events, reminders, /report, /profile, /find, /birthday, /ageverified, /term, /rule, /vote and Report to mods are off by default too, and /notify follows the alerts.
+        Assert.Equal(DiscordCommands.All.Count - 12, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
         await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);
@@ -206,7 +206,7 @@ public class DiscordBotServiceTests
 
         Assert.Equal(
             DiscordCommands.All
-                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Find or DiscordCommands.Birthday or DiscordCommands.AgeVerified or DiscordCommands.Term or DiscordCommands.Rule or DiscordCommands.Notify))
+                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Find or DiscordCommands.Birthday or DiscordCommands.AgeVerified or DiscordCommands.Term or DiscordCommands.Rule or DiscordCommands.Vote or DiscordCommands.Notify))
                 .Select(c => c.Name),
             gateway.RegisteredCommands.Select(c => c.Name));
 
