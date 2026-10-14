@@ -648,6 +648,14 @@ export const calendarApi = {
       body: picture,
       headers: { 'content-type': 'image/jpeg' },
     }),
+  /** The ids of covers an event uses that Bluesky has no copy of and could not be sent as they are. */
+  coversNeedingBlueskyCopy: () => http.request<{ coverIds: string[] }>(`${base}/covers/needing-bluesky-copy`),
+  /** A kept cover's picture, as it was uploaded. */
+  coverPicture: async (coverId: string): Promise<Blob> => {
+    const response = await fetch(coverAddress(coverId))
+    if (!response.ok) throw new ApiError(response.status, `The server answered ${response.status}.`, null)
+    return response.blob()
+  },
   inviteChoices: (forTemplate = false) =>
     http.request<CalendarInviteChoices>(`${base}/invite-choices${forTemplate ? '?template=true' : ''}`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),

@@ -50,6 +50,7 @@ import {
   viewTitle,
   type CalendarViewName,
 } from '@/lib/calendarGrid'
+import { makeMissingCoverCopies } from '@/lib/calendarCoverCopies'
 import { firstView, rememberView } from '@/lib/calendarView'
 import { timeOfDay } from '@/lib/format'
 import { addToGoogleLink } from '@/lib/googleCalendar'
@@ -57,6 +58,8 @@ import { changesCalendar } from '@/lib/liveRules'
 import { go, useLocation } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { useLiveVersion } from '@/lib/useLiveVersion'
+import { smallJpeg } from '@/lib/pictureFiles'
+import { BLUESKY_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { PageMessage } from '@/pages/analytics/shared'
 
 const VIEWS: { value: CalendarViewName; label: string }[] = [
@@ -176,6 +179,28 @@ export function Calendar({ me }: { me: CurrentUser }) {
   useEffect(() => {
     void readVRChat(false)
   }, [readVRChat])
+
+  // Covers chosen before Bluesky had its own copy get one made here, quietly, once the calendar has
+  // shown: an editor's browser is what has an image library.
+  const canMakeCopies = canAny(me, ['ManageCalendar', 'ManageTemplates'])
+  const shown = data !== null
+
+  useEffect(() => {
+    if (!canMakeCopies || !shown) return
+
+    let cancelled = false
+    void makeMissingCoverCopies({
+      missing: () => calendarApi.coversNeedingBlueskyCopy().then((r) => r.coverIds),
+      picture: calendarApi.coverPicture,
+      smallCopy: (picture) => smallJpeg(picture, BLUESKY_PICTURE_MAX_BYTES),
+      keep: calendarApi.uploadCoverBlueskyCopy,
+      stopped: () => cancelled,
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [canMakeCopies, shown])
 
   const now = useNow(skew)
 

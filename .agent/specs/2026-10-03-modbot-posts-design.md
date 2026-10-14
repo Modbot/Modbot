@@ -303,6 +303,11 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   `putRecord`. A calendar date's picture is the event's cover, whose row also keeps the Bluesky copy
   (`bluesky_bytes`, put with `PUT /api/calendar/cover/{id}/bluesky`); a cover with no copy goes as
   itself when it is 1,000,000 bytes or smaller, else the post keeps its link card with no picture.
+  Covers chosen before the copy existed are caught up by the browser: when an editor opens the
+  Calendar page, it reads `GET /api/calendar/covers/needing-bluesky-copy` (covers a not-deleted
+  event uses, with no copy, over 1,000,000 bytes or not a JPEG; at most 20, newest first), then one
+  at a time fetches each cover, makes the copy with `smallJpeg` and puts it. Silent; a failure is
+  tried again on the next visit. There is no server picture library.
   A post with no picture and a link gets the card Modbot builds for the first link: title the post's
   title (or the link's host), description empty, no picture. Lexicon checked 2026-10-14
   (`app.bsky.feed.post` embed union; `app.bsky.embed.images`: at most 4 images, `alt` required,

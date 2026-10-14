@@ -167,6 +167,80 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.Forbidden, (await UploadBlueskyCopyAsync(host, viewer, cover, jpeg)).StatusCode);
     }
 
+    private static async Task<Guid> UploadedJpegAsync(ApiTestHost host, string cookie, int length)
+    {
+        var bytes = new byte[length];
+        new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 }.CopyTo(bytes, 0);
+
+        var request = host.Authenticated(HttpMethod.Post, Path, cookie);
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        var response = await host.Client.SendAsync(request, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await ApiTestHost.BodyOf(response, Ct)).GetProperty("coverId").GetGuid();
+    }
+
+    private static async Task<(HttpStatusCode Status, List<Guid> Ids)> NeedingCopyAsync(ApiTestHost host, string cookie)
+    {
+        var response = await host.Client.SendAsync(
+            host.Authenticated(HttpMethod.Get, "/api/calendar/covers/needing-bluesky-copy", cookie), Ct);
+
+        if (response.StatusCode != HttpStatusCode.OK)
+            return (response.StatusCode, []);
+
+        var ids = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("coverIds")
+            .EnumerateArray().Select(e => e.GetGuid()).ToList();
+        return (response.StatusCode, ids);
+    }
+
+    [Fact]
+    public async Task OnlyCoversAnEventUsesThatHaveNoCopyAndNeedOneAreListed()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        var bigPng = await UploadedAsync(host, manager);
+        await using (var context = db.NewContext())
+            await context.CalendarCoverPictures.Where(c => c.Id == bigPng)
+                .ExecuteUpdateAsync(c => c.SetProperty(x => x.Bytes, Png(1_000_001)), Ct);
+
+        var smallPng = await UploadedAsync(host, manager);
+        var bigJpeg = await UploadedJpegAsync(host, manager, 1_000_001);
+        var smallJpeg = await UploadedJpegAsync(host, manager, 500_000);
+        var hasCopy = await UploadedAsync(host, manager);
+        Assert.Equal(HttpStatusCode.NoContent, (await UploadBlueskyCopyAsync(host, manager, hasCopy, [0xFF, 0xD8, 0xFF, 1])).StatusCode);
+        var unused = await UploadedAsync(host, manager);
+
+        foreach (var cover in new[] { bigPng, smallPng, bigJpeg, smallJpeg, hasCopy })
+            await CreateAsync(host, manager, cover);
+
+        var (status, ids) = await NeedingCopyAsync(host, manager);
+
+        Assert.Equal(HttpStatusCode.OK, status);
+        // A big picture and a PNG need a copy; a small JPEG, a cover with a copy and one no event uses do not.
+        Assert.Equal(new[] { bigPng, smallPng, bigJpeg }.Order(), ids.Order());
+        Assert.DoesNotContain(unused, ids);
+
+        // Once the copy is kept, the cover drops out of the list.
+        Assert.Equal(HttpStatusCode.NoContent, (await UploadBlueskyCopyAsync(host, manager, bigPng, [0xFF, 0xD8, 0xFF, 1])).StatusCode);
+        Assert.DoesNotContain(bigPng, (await NeedingCopyAsync(host, manager)).Ids);
+    }
+
+    [Fact]
+    public async Task AtMostTwentyCoversAreListedAndSomeoneWhoCannotEditIsRefused()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+
+        for (var i = 0; i < CalendarEndpoints.MaxCoversNeedingBlueskyCopy + 2; i++)
+            await CreateAsync(host, manager, await UploadedAsync(host, manager));
+
+        Assert.Equal(CalendarEndpoints.MaxCoversNeedingBlueskyCopy, (await NeedingCopyAsync(host, manager)).Ids.Count);
+
+        var viewer = (await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct)).Cookie;
+        Assert.Equal(HttpStatusCode.Forbidden, (await NeedingCopyAsync(host, viewer)).Status);
+    }
+
     [Fact]
     public async Task SomethingThatIsNotAPictureIsRefused()
     {

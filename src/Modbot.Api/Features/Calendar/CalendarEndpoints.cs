@@ -52,6 +52,9 @@ public static class CalendarEndpoints
     public const string CoverTooBig = "The picture is larger than 8 MB.";
     public const string BlueskyPictureTooBig = "The Bluesky picture is larger than 1 MB.";
 
+    /// <summary>The most covers one call lists as needing a Bluesky copy.</summary>
+    public const int MaxCoversNeedingBlueskyCopy = 20;
+
     /// <summary>
     /// The refusal for a part of the event form (the picture helpers, the world and staff pickers, the
     /// Discord channel and role lists) asked by someone with neither Manage calendar nor Manage templates,
@@ -999,6 +1002,37 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status413PayloadTooLarge);
+
+        // Covers chosen before the Bluesky copy existed: the calendar page's browser makes their copies.
+        group.MapGet("/covers/needing-bluesky-copy", async (
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
+                // A small JPEG goes to Bluesky as itself, so only the others need a copy.
+                var ids = await db.CalendarCoverPictures.AsNoTracking()
+                    .Where(c => c.BlueskyBytes == null
+                        && (c.ContentType != "image/jpeg" || c.Bytes.Length > BlueskyText.PictureMaxBytes)
+                        && db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null))
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => c.Id)
+                    .Take(MaxCoversNeedingBlueskyCopy)
+                    .ToListAsync(ct);
+
+                return Results.Ok(new { coverIds = ids });
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("ListCalendarCoversNeedingBlueskyCopy")
+            .WithSummary("List covers without a Bluesky picture")
+            .WithDescription(
+                "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that "
+                + "Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, "
+                + "newest first. Needs Manage calendar or Manage templates. Changes nothing.")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/covers/{id:guid}", async (
                 HttpContext http,
