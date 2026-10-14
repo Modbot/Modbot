@@ -105,11 +105,13 @@ export function PasswordField({
   label,
   value,
   mono,
+  placeholder,
   onChange,
 }: {
   label: string
   value: string
   mono?: boolean
+  placeholder?: string
   onChange: (v: string) => void
 }) {
   return (
@@ -117,6 +119,7 @@ export function PasswordField({
       <span className="text-muted-foreground">{label}</span>
       <Input
         type="password"
+        placeholder={placeholder}
         className={cn(mono && 'font-mono')}
         autoComplete="new-password"
         value={value}

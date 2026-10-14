@@ -186,8 +186,21 @@ function AccountCard({ settings, onSaved }: { settings: BlueskySettings; onSaved
       ) : (
         <Fact label="App password" value={settings.appPasswordStored ? 'Saved' : 'Not set'} />
       )}
-      <Field label="Handle" mono value={handle} maxLength={253} onChange={setTypedHandle} />
-      <PasswordField label="App password" mono value={password} onChange={setPassword} />
+      <Field
+        label="Handle"
+        mono
+        value={handle}
+        maxLength={253}
+        placeholder="yourname.bsky.social"
+        onChange={setTypedHandle}
+      />
+      <PasswordField
+        label="App password"
+        mono
+        value={password}
+        placeholder="xxxx-xxxx-xxxx-xxxx"
+        onChange={setPassword}
+      />
 
       {result && !result.problem && (
         <div className="grid gap-3 sm:grid-cols-2">
