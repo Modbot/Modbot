@@ -23,6 +23,7 @@ using Modbot.Api.Features.DiscordStaffRoles;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.DiscordReports;
+using Modbot.Api.Features.DiscordInvites;
 using Modbot.Api.Features.DiscordRoleMenus;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Mcp;
@@ -164,6 +165,7 @@ public static class ApiSurface
         services.TryAddSingleton<IDiscordTicketPanel, NoDiscordTicketPanel>();
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordInviteActions, Core.Discord.NoDiscordInviteActions>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
         services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
         services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
@@ -597,6 +599,7 @@ public static class ApiSurface
 
         // Messages with buttons or a drop-down list that give people roles.
         app.MapDiscordRoleMenus();
+        app.MapDiscordInvites();
 
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).

@@ -347,6 +347,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MessageEdited += OnMessageEditedAsync;
         gateway.MessagesDeleted += OnMessagesDeletedAsync;
         gateway.MemberJoined += RecordMemberJoinedAsync;
+        gateway.MemberJoined += TrackInviteAsync;
+        gateway.InviteCreated += OnInviteCreatedAsync;
+        gateway.InviteDeleted += OnInviteDeletedAsync;
         gateway.MemberLeft += OnMemberLeftAsync;
         gateway.MemberUpdated += OnMemberUpdatedAsync;
         gateway.MemberUpdated += WelcomeWaitingMemberAsync;
@@ -411,6 +414,7 @@ public sealed class DiscordBotService : BackgroundService
             _log.Information("Discord bot connected; {Count} commands registered on the guild", _commandsRegistered);
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
+        await StartInviteCountsAsync(gateway, guildId).ConfigureAwait(false);
         StartReading(signedIn: true);
     }
 
@@ -657,6 +661,51 @@ public sealed class DiscordBotService : BackgroundService
             member,
             _gateway?.ReadMemberCount(join.GuildId),
             ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>Works out which invite a new member used (invite tracking). Bots and other servers are left out.</summary>
+    private async Task TrackInviteAsync(DiscordMemberJoin join)
+    {
+        if (!IsOurServer(join.GuildId) || _gateway is not { } gateway)
+            return;
+
+        await InvitesAsync("work out which invite a new member used", (tracker, ct) => tracker.JoinedAsync(gateway, join, ct)).ConfigureAwait(false);
+    }
+
+    private Task OnInviteCreatedAsync(string guildId, DiscordInviteSnapshot invite)
+        => IsOurServer(guildId)
+            ? InvitesAsync("store a new invite", (tracker, ct) => tracker.MadeAsync(invite, ct))
+            : Task.CompletedTask;
+
+    private Task OnInviteDeletedAsync(string guildId, string code)
+        => IsOurServer(guildId)
+            ? InvitesAsync("mark an invite gone", (tracker, ct) => tracker.RemovedAsync(code, ct))
+            : Task.CompletedTask;
+
+    /// <summary>
+    /// Starts the invite counts from Discord's own on a new session: whoever joined while the bot was
+    /// away cannot be placed afterwards. A bot without Manage Server reads nothing, and says so on the
+    /// Invites tab, not here.
+    /// </summary>
+    private async Task StartInviteCountsAsync(IDiscordGateway gateway, string guildId)
+    {
+        var read = await gateway.ReadInvitesAsync(guildId, CancellationToken.None).ConfigureAwait(false);
+        if (read.Ok)
+            await InvitesAsync("start counting invite uses", (tracker, ct) => tracker.ReadAsync(read.Invites, resetCounts: true, ct)).ConfigureAwait(false);
+    }
+
+    private async Task InvitesAsync(string what, Func<Invites.InviteTracker, CancellationToken, Task> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            await work(scope.ServiceProvider.GetRequiredService<Invites.InviteTracker>(), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
     }
 
     private Task OnMemberLeftAsync(string guildId, string userId)
@@ -1401,6 +1450,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MessageEdited -= OnMessageEditedAsync;
         gateway.MessagesDeleted -= OnMessagesDeletedAsync;
         gateway.MemberJoined -= RecordMemberJoinedAsync;
+        gateway.MemberJoined -= TrackInviteAsync;
+        gateway.InviteCreated -= OnInviteCreatedAsync;
+        gateway.InviteDeleted -= OnInviteDeletedAsync;
         gateway.MemberLeft -= OnMemberLeftAsync;
         gateway.MemberUpdated -= OnMemberUpdatedAsync;
         gateway.MemberUpdated -= WelcomeWaitingMemberAsync;

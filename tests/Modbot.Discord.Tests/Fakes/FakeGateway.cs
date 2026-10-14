@@ -202,6 +202,41 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Ok);
     }
 
+    /// <summary>The server's invites as Discord reports them now. Tests change the counts to stand for people joining.</summary>
+    public List<DiscordInviteSnapshot> Invites { get; } = [];
+
+    /// <summary>Set to make reading invites fail as if the bot lacked Manage Server.</summary>
+    public bool InvitesRefused { get; set; }
+
+    /// <summary>Every invite made through <see cref="CreateInviteAsync"/>: channel and reason.</summary>
+    public List<(string ChannelId, string Reason)> InvitesMade { get; } = [];
+
+    public event Func<string, DiscordInviteSnapshot, Task>? InviteCreated;
+
+    public event Func<string, string, Task>? InviteDeleted;
+
+    public Task<DiscordInviteRead> ReadInvitesAsync(string guildId, CancellationToken ct)
+        => Task.FromResult(InvitesRefused
+            ? DiscordInviteRead.Failed("The bot needs Manage Server to read the server's invites.", missingPermission: true)
+            : new DiscordInviteRead([.. Invites], null, false));
+
+    public Task<DiscordInviteMade> CreateInviteAsync(string guildId, string channelId, string reason, CancellationToken ct)
+    {
+        if (InvitesRefused)
+            return Task.FromResult(DiscordInviteMade.Failed("The bot needs Create Invite in that channel.", missingPermission: true));
+
+        InvitesMade.Add((channelId, reason));
+        var invite = new DiscordInviteSnapshot($"made{InvitesMade.Count}", 0, 0, channelId, null, null);
+        Invites.Add(invite);
+        return Task.FromResult(new DiscordInviteMade(invite, null, false));
+    }
+
+    public Task RaiseInviteCreatedAsync(string guildId, DiscordInviteSnapshot invite)
+        => InviteCreated?.Invoke(guildId, invite) ?? Task.CompletedTask;
+
+    public Task RaiseInviteDeletedAsync(string guildId, string code)
+        => InviteDeleted?.Invoke(guildId, code) ?? Task.CompletedTask;
+
     public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
         => RoleAsync(true, guildId, userId, roleId);
 

@@ -79,6 +79,13 @@ public static class DiscordServiceCollectionExtensions
         services.AddSingleton<Core.Posts.IDiscordPostActions>(
             p => new Posts.DiscordPostActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
         services.AddScoped<RoleMenus.RoleMenuPress>();
+
+        // Which invite each new member used, and the Invites tab's read and make (invite tracking).
+        services.AddScoped<Invites.InviteTracker>();
+        services.AddSingleton<Core.Discord.IDiscordInviteActions>(
+            p => new Invites.DiscordInviteActions(
+                () => p.GetRequiredService<DiscordBotService>().ReadyGateway,
+                p.GetRequiredService<IServiceScopeFactory>()));
         services.AddSingleton<Core.Discord.IDiscordRoleMenuActions>(
             p => new RoleMenus.DiscordRoleMenuActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 

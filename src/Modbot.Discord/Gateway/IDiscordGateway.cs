@@ -764,6 +764,34 @@ public sealed record DiscordDisconnect(
 /// </param>
 public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool MessageContent = true, string? GuildId = null);
 
+/// <summary>
+/// An invite to the server, as Discord reports it: the link's code and how many times it has been used.
+/// </summary>
+/// <param name="MaxUses">How many uses the invite allows, or 0 for no limit.</param>
+/// <param name="IsVanity">The server's vanity link, which Discord reports apart from the others.</param>
+public sealed record DiscordInviteSnapshot(
+    string Code,
+    int Uses,
+    int MaxUses,
+    string? ChannelId,
+    string? InviterId,
+    DateTimeOffset? CreatedAt,
+    bool IsVanity = false);
+
+/// <summary>What reading the server's invites came to. <see cref="MissingPermission"/> is Manage Server.</summary>
+public sealed record DiscordInviteRead(IReadOnlyList<DiscordInviteSnapshot> Invites, string? Error, bool MissingPermission)
+{
+    public bool Ok => Error is null;
+
+    public static DiscordInviteRead Failed(string error, bool missingPermission = false) => new([], error, missingPermission);
+}
+
+/// <summary>What making an invite came to. <see cref="MissingPermission"/> is Create Invite in the channel.</summary>
+public sealed record DiscordInviteMade(DiscordInviteSnapshot? Invite, string? Error, bool MissingPermission)
+{
+    public static DiscordInviteMade Failed(string error, bool missingPermission = false) => new(null, error, missingPermission);
+}
+
 /// <summary>Somebody joined a server the bot is in.</summary>
 /// <param name=Member>The member as they joined -- name, roles, join time -- for recording the join.</param>
 public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot, DiscordMemberSnapshot? Member = null);
@@ -1022,6 +1050,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <see cref="DiscordGatewayOptions.MemberEvents"/>.
     /// </summary>
     event Func<DiscordMemberJoin, Task>? MemberJoined;
+
+    /// <summary>An invite was made in the server: its guild id and the invite. Needs Manage Server.</summary>
+    event Func<string, DiscordInviteSnapshot, Task>? InviteCreated;
+
+    /// <summary>An invite was deleted, expired or used up: its guild id and code. Needs Manage Server.</summary>
+    event Func<string, string, Task>? InviteDeleted;
 
     /// <summary>
     /// Every channel and role in the server as the session holds them, or null when the bot is
@@ -1364,6 +1398,18 @@ public interface IDiscordGateway : IAsyncDisposable
     /// is kept.
     /// </summary>
     Task<DiscordPostOutcome> PauseInvitesAsync(string guildId, DateTimeOffset until, CancellationToken ct);
+
+    /// <summary>
+    /// Reads the server's invites with their use counts, and its vanity link when it has one. Needs
+    /// Manage Server; without it the answer names the permission.
+    /// </summary>
+    Task<DiscordInviteRead> ReadInvitesAsync(string guildId, CancellationToken ct);
+
+    /// <summary>
+    /// Makes an invite to <paramref name="channelId"/> that never expires and has no use limit. Needs
+    /// Create Invite in that channel.
+    /// </summary>
+    Task<DiscordInviteMade> CreateInviteAsync(string guildId, string channelId, string reason, CancellationToken ct);
 
     // ── Server events (calendar design §3.2) ─────────────────────────────────────────────
     //

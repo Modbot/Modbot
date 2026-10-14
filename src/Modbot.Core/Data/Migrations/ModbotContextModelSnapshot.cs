@@ -2640,6 +2640,95 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("discord_gate_entry", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordInviteJoin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("InviteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invite_id");
+
+                    b.Property<DateTimeOffset>("JoinedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_invite_join");
+
+                    b.HasIndex("InviteId")
+                        .HasDatabaseName("ix_discord_invite_join_invite");
+
+                    b.HasIndex("JoinedAt")
+                        .HasDatabaseName("ix_discord_invite_join_at");
+
+                    b.ToTable("discord_invite_join", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordInviteLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<DateTimeOffset?>("GoneAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("gone_at");
+
+                    b.Property<string>("InviterId")
+                        .HasColumnType("text")
+                        .HasColumnName("inviter_id");
+
+                    b.Property<bool>("IsVanity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_vanity");
+
+                    b.Property<bool>("MadeByModbot")
+                        .HasColumnType("boolean")
+                        .HasColumnName("made_by_modbot");
+
+                    b.Property<int>("MaxUses")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_uses");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Uses")
+                        .HasColumnType("integer")
+                        .HasColumnName("uses");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_invite");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_discord_invite_code");
+
+                    b.ToTable("discord_invite", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordLinkCode", b =>
                 {
                     b.Property<string>("DiscordUserId")
@@ -11031,6 +11120,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasForeignKey("WorldListId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_calendar_template_world_lists_world_list_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordInviteJoin", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.DiscordInviteLink", null)
+                        .WithMany()
+                        .HasForeignKey("InviteId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_discord_invite_join_discord_invite_invite_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordListRole", b =>

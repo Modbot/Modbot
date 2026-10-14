@@ -54,7 +54,10 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
 
         // Reactions, for giveaways people enter by reacting (giveaways design §4.2). Not
         // privileged, so it needs nothing switched on in the Developer Portal.
-        | GatewayIntents.GuildMessageReactions;
+        | GatewayIntents.GuildMessageReactions
+
+        // Invites being made and going, for invite tracking. Not privileged either.
+        | GatewayIntents.GuildInvites;
 
     private readonly DiscordSocketClient _client;
     private readonly ILogger _log;
@@ -122,6 +125,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.GuildUpdated += OnGuildUpdated;
         _client.GuildMemberUpdated += OnGuildMemberUpdated;
         _client.UserJoined += OnUserJoined;
+        _client.InviteCreated += OnInviteCreated;
+        _client.InviteDeleted += OnInviteDeleted;
 
         _client.MessageReceived += OnMessageReceived;
         _client.MessageUpdated += OnMessageUpdated;
@@ -1725,6 +1730,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         _client.RoleDeleted -= OnRoleDeleted;
         _client.GuildUpdated -= OnGuildUpdated;
         _client.GuildMemberUpdated -= OnGuildMemberUpdated;
+        _client.InviteCreated -= OnInviteCreated;
+        _client.InviteDeleted -= OnInviteDeleted;
         _client.UserJoined -= OnUserJoined;
         _client.MessageReceived -= OnMessageReceived;
         _client.MessageUpdated -= OnMessageUpdated;

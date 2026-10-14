@@ -306,6 +306,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The roles on each role menu.</summary>
     public DbSet<DiscordRoleMenuRole> DiscordRoleMenuRoles => Set<DiscordRoleMenuRole>();
 
+    /// <summary>The Discord server's invite links and its vanity link, with the use count Modbot last accounted for.</summary>
+    public DbSet<DiscordInviteLink> DiscordInviteLinks => Set<DiscordInviteLink>();
+
+    /// <summary>Each person who joined the Discord server, with the invite they used when that was clear.</summary>
+    public DbSet<DiscordInviteJoin> DiscordInviteJoins => Set<DiscordInviteJoin>();
+
     /// <summary>
     /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
     /// deletes change the row, and a deleted message keeps it.
@@ -2366,6 +2372,38 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Emoji).HasMaxLength(DiscordRoleMenuLimits.MostEmojiLength);
 
             entity.HasIndex(e => new { e.MenuId, e.Position }).HasDatabaseName("ix_discord_role_menu_role_order");
+        });
+
+        builder.Entity<DiscordInviteLink>(entity =>
+        {
+            entity.ToTable("discord_invite");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Code).HasColumnType("text");
+            entity.Property(e => e.Name).HasMaxLength(DiscordInviteLimits.MostNameLength);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.InviterId).HasColumnType("text");
+
+            // A join finds its invite by the code Discord reports, and a code is one invite.
+            entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName("ix_discord_invite_code");
+        });
+
+        builder.Entity<DiscordInviteJoin>(entity =>
+        {
+            entity.ToTable("discord_invite_join");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.UserId).HasColumnType("text");
+
+            // The invite stays when its row is read for a name; joins are never lost with it.
+            entity.HasOne<DiscordInviteLink>()
+                .WithMany()
+                .HasForeignKey(j => j.InviteId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // The page reads joins by day.
+            entity.HasIndex(e => e.JoinedAt).HasDatabaseName("ix_discord_invite_join_at");
+            entity.HasIndex(e => e.InviteId).HasDatabaseName("ix_discord_invite_join_invite");
         });
 
         builder.Entity<DiscordTicketType>(entity =>
