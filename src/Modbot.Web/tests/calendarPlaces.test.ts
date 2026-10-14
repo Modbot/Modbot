@@ -6,7 +6,6 @@ import {
   BLUESKY_BEFORE_CHOICES,
   counted,
   countedGraphemes,
-  cutGraphemes,
   DEFAULT_BLUESKY_BEFORE,
   DESCRIPTION_LIMIT,
   DESTINATION_LABEL,
@@ -290,13 +289,11 @@ test('Post it offers the server’s four times, and a day before is the start', 
   assert.equal(DEFAULT_BLUESKY_BEFORE, 1440)
 })
 
-test('Bluesky’s own text is counted and cut in graphemes, as Bluesky counts', () => {
+test('Bluesky’s own text is counted in graphemes, as Bluesky counts', () => {
   const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}'
 
   assert.deepEqual(countedGraphemes(`${family}ab`, 300), { label: '3 / 300', over: false })
   assert.equal(countedGraphemes('a'.repeat(301), 300).over, true)
-  assert.equal(cutGraphemes(`${family}${family}ab`, 2), `${family}${family}`)
-  assert.equal(cutGraphemes('abc', 10), 'abc')
 })
 
 test('the form has an Event tab and one for each service that is on, in a fixed order', () => {

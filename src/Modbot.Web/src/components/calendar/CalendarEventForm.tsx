@@ -47,7 +47,7 @@ import {
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
-import { countOf, OWN_TEXT, ownKeysWithText, textShown, type OwnKey } from '@/lib/calendarOwnText'
+import { countOf, OWN_TEXT, ownKeysWithText, placeholderOf, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import { cn } from '@/lib/utils'
 import type { CardEditing, CardField } from './CardText'
@@ -476,6 +476,7 @@ export function CalendarEventForm({
           setPutFillIn({ insert })
           if (!isTitle) setPutLink({ insert })
         },
+        placeholder: placeholderOf(input, key, edited),
         count: countOf(key, value, edited.has(key)),
         asked: textShown(asked, key, NO_OWN_TEXT),
       }

@@ -58,7 +58,8 @@ export type PreviewAnswer = { preview: CalendarPreview | null; error: string | n
 /**
  * The server's drawing of the event as `input` holds it (calendar design §14.2), asked again each
  * time `input` is a new object; null asks for nothing. The form holds this, so the last answer is
- * still on screen when a tab is left and come back to, and an old answer stays until the new one is in.
+ * still on screen when a tab is left and come back to, and an old answer stays until the new one is in,
+ * or, when the new one is an error, beside it.
  */
 export function usePreviewAnswer(eventId: string | null, input: CalendarEventInput | null): PreviewAnswer {
   const [answer, setAnswer] = useState<PreviewAnswer>({ preview: null, error: null })
@@ -74,7 +75,8 @@ export function usePreviewAnswer(eventId: string | null, input: CalendarEventInp
         if (!cancelled) setAnswer({ preview, error: null })
       })
       .catch((e: unknown) => {
-        if (!cancelled) setAnswer({ preview: null, error: e instanceof ApiError ? e.message : 'Could not draw the preview.' })
+        // The last good drawing stays, so a card's boxes do not vanish while a text is over its limit.
+        if (!cancelled) setAnswer((last) => ({ preview: last.preview, error: e instanceof ApiError ? e.message : 'Could not draw the preview.' }))
       })
 
     return () => {
@@ -116,11 +118,12 @@ export function EventPreview({
    */
   discordPicture?: ReactNode
 }) {
-  if (error) return <Outcome tone="problem">{error}</Outcome>
+  if (!preview && error) return <Outcome tone="problem">{error}</Outcome>
   if (!preview) return <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Loading…</p>
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-4', places.length === 1 && '[&_h3]:sr-only')} style={{ fontSize: 'var(--text-small)' }}>
+      {error && <Outcome tone="problem">{error}</Outcome>}
       {places.includes('discordEvent') && preview.discordEvent && (
         <DiscordEventCard event={preview.discordEvent} picture={discordPicture} editing={editing} />
       )}

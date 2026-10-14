@@ -92,6 +92,7 @@ export function FillInText({
   multiline = false,
   links = true,
   onActive,
+  placeholder = '',
   className,
 }: {
   value: string
@@ -100,6 +101,8 @@ export function FillInText({
   multiline?: boolean
   links?: boolean
   onActive?: (insert: (name: string) => boolean) => void
+  /** Muted words drawn in the box while it is empty. */
+  placeholder?: string
   /** Classes laid over the box's own, to sit it inside something else (a service's card). */
   className?: string
 }) {
@@ -161,7 +164,9 @@ export function FillInText({
       contentEditable
       suppressContentEditableWarning
       spellCheck
+      data-placeholder={placeholder || undefined}
       className={cn(
+        placeholder !== '' && 'empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
         'block w-full min-w-0 rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 text-base outline-none selection:bg-primary selection:text-primary-foreground md:text-(length:--text-base)',
         'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
         multiline ? 'min-h-[calc(var(--control-h)*2.4)] whitespace-pre-wrap [overflow-wrap:anywhere]' : 'h-(--control-h) overflow-hidden whitespace-nowrap',
@@ -190,6 +195,8 @@ export function FillInText({
           caret.current = null
         }
 
+        // A browser leaves a line break in a box emptied by deleting; the box must be truly empty to show its placeholder.
+        if (kept === '') e.currentTarget.replaceChildren()
         onChange(kept)
       }}
       onKeyDown={(e) => {

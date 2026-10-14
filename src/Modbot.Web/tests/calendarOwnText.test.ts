@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { around, countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, postAround, textShown, type OwnKey } from '../src/lib/calendarOwnText.ts'
+import { around, countOf, OWN_KEYS, OWN_TEXT, ownKeysWithText, placeholderOf, postAround, textShown, type OwnKey } from '../src/lib/calendarOwnText.ts'
 
 /**
  * A service's own words, edited in place on its card (calendar design §2.1, step 2b): which fields a
@@ -40,6 +40,14 @@ test('a box with words of its own shows them, and follows nothing', () => {
 
 test('a box emptied to be retyped stays empty', () => {
   assert.equal(textShown(event, 'vrChatTitle', new Set<OwnKey>(['vrChatTitle'])), '')
+})
+
+test('an emptied box shows the event’s words muted, since a blank own text sends them', () => {
+  const emptied = new Set<OwnKey>(['vrChatTitle'])
+  assert.equal(placeholderOf(event, 'vrChatTitle', emptied), 'Movie night')
+  assert.equal(placeholderOf({ ...event, title: 'Night with {{Host}}' }, 'vrChatTitle', emptied), 'Night with Host')
+  assert.equal(placeholderOf(event, 'vrChatTitle', none), '')
+  assert.equal(placeholderOf({ ...event, vrChatTitle: 'Mine' }, 'vrChatTitle', emptied), '')
 })
 
 test('the form starts with the own fields that hold words', () => {

@@ -1,6 +1,7 @@
 // A service's own title and description, edited in place on its card (calendar design §2.1, 2b). Nothing
 // here talks to the server or the page, so the Node test runner can load this file as it is.
 import type { CalendarEventInput } from './calendar.ts'
+import { splitFillIns } from './calendarFillIns.ts'
 import { BLUESKY_DESCRIPTION_LIMIT, counted, countedGraphemes, DESCRIPTION_LIMIT, TITLE_LIMIT, type CalendarServiceTab } from './calendarPlaces.ts'
 
 /** The fields of the form that hold a service's own words. */
@@ -41,6 +42,16 @@ export function textShown(input: Pick<CalendarEventInput, OwnKey | 'title' | 'de
   const own = input[key] ?? ''
   if (edited.has(key) || own.trim() !== '') return own
   return isTitle(key) ? input.title : input.description
+}
+
+/**
+ * What an edited box that holds no words stands for: a service with no words of its own is sent the
+ * event's, so they show muted in the empty box, blanks as their names. Nothing when the box has words.
+ */
+export function placeholderOf(input: Pick<CalendarEventInput, OwnKey | 'title' | 'description'>, key: OwnKey, edited: ReadonlySet<OwnKey>): string {
+  if (!edited.has(key) || (input[key] ?? '').trim() !== '') return ''
+  const eventWords = isTitle(key) ? input.title : input.description
+  return splitFillIns(eventWords).map((piece) => (piece.kind === 'text' ? piece.text : piece.name)).join('')
 }
 
 /** The counter beside a card's field, in the service's own limit; red only for words the service owns. */

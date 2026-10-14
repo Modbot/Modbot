@@ -287,18 +287,6 @@ export function graphemeCount(text: string): number {
   return n
 }
 
-/** `text` cut to at most `limit` graphemes, never in the middle of one. */
-export function cutGraphemes(text: string, limit: number): string {
-  let out = ''
-  let n = 0
-  for (const { segment } of segmenter.segment(text)) {
-    if (n === limit) break
-    out += segment
-    n++
-  }
-  return out
-}
-
 /** "12 / 300" for a Bluesky text, and whether it is over: the same as `counted`, in graphemes. */
 export function countedGraphemes(text: string, limit: number): { label: string; over: boolean } {
   const length = graphemeCount(text.trim())

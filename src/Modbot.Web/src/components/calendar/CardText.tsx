@@ -10,6 +10,8 @@ export type CardField = {
   /** Hands the form the way to put a fill-in or a link at the caret of this field. */
   onActive: (insert: (name: string) => boolean) => void
   count: { label: string; over: boolean }
+  /** The event's words, shown muted while the box is emptied and the service is sent them anyway. */
+  placeholder: string
   /** The words the server was last asked about: what its drawing is of, for the lines it adds around them. */
   asked: string
 }
@@ -52,6 +54,7 @@ export function CardText({
         value={field.value}
         onChange={field.onChange}
         onActive={field.onActive}
+        placeholder={field.placeholder}
         className={cn(IN_CARD, multiline && 'min-h-[2.5em]', className)}
       />
       <span
