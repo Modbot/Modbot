@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014002913_AddEventRecaps")]
+    [Migration("20261014005352_AddEventRecaps")]
     partial class AddEventRecaps
     {
         /// <inheritdoc />
@@ -8293,6 +8293,28 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer")
                         .HasColumnName("id");
+
+                    b.Property<bool>("AgeCheckDeleteTicket")
+                        .HasColumnType("boolean")
+                        .HasColumnName("age_check_delete_ticket");
+
+                    b.PrimitiveCollection<string>("AgeCheckGiveRoleIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("age_check_give_role_ids");
+
+                    b.Property<string>("AgeCheckGroupRoleId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("age_check_group_role_id");
+
+                    b.PrimitiveCollection<string>("AgeCheckRemoveRoleIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("age_check_remove_role_ids");
+
+                    b.Property<string>("AgeCheckTicketCategoryId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("age_check_ticket_category_id");
 
                     b.Property<DateTimeOffset?>("AiAcknowledgedAt")
                         .HasColumnType("timestamp with time zone")
