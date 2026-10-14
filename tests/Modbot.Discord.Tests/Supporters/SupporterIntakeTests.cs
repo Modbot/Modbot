@@ -47,6 +47,21 @@ public class SupporterIntakeTests
     }
 
     [Fact]
+    public async Task TwoDifferentPaymentsFromTheSameNewPayerAtOnceAreBothCounted()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+
+        var outcomes = await Task.WhenAll(
+            TakeAsync(services, Payment("one", discord: "5001")),
+            TakeAsync(services, Payment("two", discord: "5001")));
+
+        Assert.All(outcomes, o => Assert.Equal(SupporterIntake.Taken, o.Result));
+        await using var db = services.Database.NewContext();
+        Assert.Single(await db.Supporters.AsNoTracking().ToListAsync(Ct));
+        Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
+    }
+
+    [Fact]
     public async Task APaymentThatIsNotMonthlyIsIgnored()
     {
         await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);

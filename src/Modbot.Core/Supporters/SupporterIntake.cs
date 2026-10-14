@@ -35,7 +35,10 @@ public sealed class SupporterIntake(ModbotContext db)
     private const int MostDiscordIdLength = 40;
 
     /// <summary>Takes in one Ko-fi payment message. The caller has already checked the verification token.</summary>
-    public async Task<SupporterIntakeOutcome> TakeKofiAsync(KofiPayment payment, DateTimeOffset now, CancellationToken ct = default)
+    public Task<SupporterIntakeOutcome> TakeKofiAsync(KofiPayment payment, DateTimeOffset now, CancellationToken ct = default)
+        => TakeKofiAsync(payment, now, true, ct);
+
+    private async Task<SupporterIntakeOutcome> TakeKofiAsync(KofiPayment payment, DateTimeOffset now, bool mayRetry, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(payment);
 
@@ -137,9 +140,18 @@ public sealed class SupporterIntake(ModbotContext db)
         }
         catch (DbUpdateException)
         {
-            // The same message arrived twice at once and the other one won.
             db.ChangeTracker.Clear();
-            return new SupporterIntakeOutcome(Repeat, null);
+
+            // The same message arrived twice at once and the other one won.
+            if (await db.SupporterPayments.AnyAsync(p => p.Provider == SupporterProviders.Kofi && p.Code == code, ct).ConfigureAwait(false))
+                return new SupporterIntakeOutcome(Repeat, null);
+
+            // A different payment from the same new payer (or the same new tier) won: read what it wrote
+            // and count this one against it. Ko-fi was answered and will not send it again.
+            if (mayRetry)
+                return await TakeKofiAsync(payment, now, false, ct).ConfigureAwait(false);
+
+            throw;
         }
 
         return new SupporterIntakeOutcome(Taken, supporter.Id);

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -59,19 +60,30 @@ public static class KofiWebhookEndpoint
                 if (http.Request.ContentLength is > MostBytes)
                     return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
 
+                // The cap holds for every body, chunked or not: the server stops reading at the limit.
+                if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                    limit.MaxRequestBodySize = MostBytes;
+
                 string? json;
 
-                if (http.Request.HasFormContentType)
+                try
                 {
-                    var form = await http.Request.ReadFormAsync(ct);
-                    json = form["data"].ToString();
+                    if (http.Request.HasFormContentType)
+                    {
+                        var form = await http.Request.ReadFormAsync(ct);
+                        json = form["data"].ToString();
+                    }
+                    else
+                    {
+                        using var reader = new StreamReader(http.Request.Body);
+                        var buffer = new char[MostBytes];
+                        var read = await reader.ReadBlockAsync(buffer, ct);
+                        json = new string(buffer, 0, read);
+                    }
                 }
-                else
+                catch (BadHttpRequestException e) when (e.StatusCode == StatusCodes.Status413PayloadTooLarge)
                 {
-                    using var reader = new StreamReader(http.Request.Body);
-                    var buffer = new char[MostBytes];
-                    var read = await reader.ReadBlockAsync(buffer, ct);
-                    json = new string(buffer, 0, read);
+                    return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
                 }
 
                 if (KofiPayment.Parse(json) is not { } payment)

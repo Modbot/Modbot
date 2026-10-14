@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -32,7 +33,8 @@ public sealed record SupporterPass(int Given, int Taken, int Thanked, int Left, 
 /// </para>
 /// <para>
 /// <strong>Only roles Modbot gave are taken away.</strong> They are written on the supporter's row
-/// when given. A role somebody gave by hand, or that a supporter held before, is never touched.
+/// when given, and only when Modbot added them: a role the person already holds (given by hand, or by Ko-fi's
+/// own Discord link) is not recorded, so it is never taken. That is judged from the roles Modbot last saw.
 /// </para>
 /// <para>
 /// <strong>The roles come off three days after the paid month is up.</strong> Ko-fi sends no message
@@ -56,6 +58,9 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
 
     public const int MaxThanksPerPass = 3;
 
+    /// <summary>The length of the <c>supporter.problem</c> column.</summary>
+    public const int MostProblemLength = 300;
+
     public static readonly TimeSpan TryAgainAfter = TimeSpan.FromMinutes(10);
 
     private const string RoleReason = "Modbot: supporter perks";
@@ -76,11 +81,10 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
         var groupId = string.IsNullOrWhiteSpace(settings.ManagedGroupId) ? null : settings.ManagedGroupId;
         var now = clock.UtcNow;
 
-        // Everybody who holds roles or should: the supporters who are paid up and matched, and anybody
-        // whose roles are still to be taken back.
+        // Everybody who is paid up (matched or not, so a lapsed one is marked ended either way), and
+        // anybody whose roles are still to be taken back.
         var supporters = await db.Supporters
-            .Where(s => s.DiscordUserId != null
-                && (s.State == SupporterStates.Active || s.GivenDiscordRoleId != null || s.GivenVRChatRoleId != null))
+            .Where(s => s.State == SupporterStates.Active || s.GivenDiscordRoleId != null || s.GivenVRChatRoleId != null)
             .OrderBy(s => s.UpdatedAt)
             .ToListAsync(ct)
             .ConfigureAwait(false);
@@ -95,6 +99,15 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
 
+        // What the matched supporters hold in the server now, as Modbot last saw it.
+        var matchedIds = supporters.Where(s => s.DiscordUserId != null).Select(s => s.DiscordUserId!).Distinct().ToList();
+        var heldInServer = (await db.DiscordMembers.AsNoTracking()
+                .Where(m => m.GuildId == guildId && m.LeftAt == null && matchedIds.Contains(m.UserId))
+                .Select(m => new { m.UserId, m.Roles })
+                .ToListAsync(ct)
+                .ConfigureAwait(false))
+            .ToDictionary(m => m.UserId, m => RoleIds(m.Roles), StringComparer.Ordinal);
+
         var tally = new Tally();
 
         foreach (var supporter in supporters)
@@ -103,6 +116,13 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             {
                 supporter.State = SupporterStates.Ended;
                 supporter.UpdatedAt = now;
+            }
+
+            // Nobody to give roles to until they are matched; only the lapse above applies.
+            if (supporter.DiscordUserId is null)
+            {
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                continue;
             }
 
             var tier = supporter.State == SupporterStates.Active && supporter.TierId is { } tierId
@@ -115,9 +135,19 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
                 ? null
                 : await db.LinkedVRChatUserIdAsync(supporter.DiscordUserId!, ct).ConfigureAwait(false);
 
-            var discordOutOfStep = supporter.GivenDiscordRoleId != wantDiscord;
-            var vrchatOutOfStep = supporter.GivenVRChatRoleId != (wantUser is null ? null : wantVRChat)
+            // A role they already hold was not given by Modbot, so Modbot neither records nor later takes it.
+            var heldDiscord = wantDiscord is not null
+                && heldInServer.TryGetValue(supporter.DiscordUserId, out var serverRoles)
+                && serverRoles.Contains(wantDiscord);
+            var discordOutOfStep = supporter.GivenDiscordRoleId != wantDiscord
+                && !(heldDiscord && supporter.GivenDiscordRoleId is null);
+
+            var vrchatDiffers = supporter.GivenVRChatRoleId != (wantUser is null ? null : wantVRChat)
                 || supporter.GivenVRChatUserId != wantUser;
+            var heldVRChat = vrchatDiffers && wantUser is not null && wantVRChat is not null
+                && await HoldsGroupRoleAsync(groupId!, wantUser, wantVRChat, ct).ConfigureAwait(false);
+            var vrchatOutOfStep = vrchatDiffers
+                && !(heldVRChat && supporter.GivenVRChatRoleId is null && supporter.GivenVRChatUserId is null);
 
             if (discordOutOfStep || vrchatOutOfStep)
             {
@@ -134,12 +164,12 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
                 var notInServer = false;
 
                 if (discordOutOfStep)
-                    (problem, notInServer) = await ChangeDiscordAsync(gateway, guildId, supporter, wantDiscord, roles, tally, ct).ConfigureAwait(false);
+                    (problem, notInServer) = await ChangeDiscordAsync(gateway, guildId, supporter, wantDiscord, heldDiscord, roles, tally, ct).ConfigureAwait(false);
 
                 if (vrchatOutOfStep && problem is null)
-                    problem = await ChangeVRChatAsync(supporter, wantVRChat, wantUser, tally, ct).ConfigureAwait(false);
+                    problem = await ChangeVRChatAsync(supporter, wantVRChat, wantUser, heldVRChat, tally, ct).ConfigureAwait(false);
 
-                supporter.Problem = problem;
+                supporter.Problem = Clip(problem);
                 supporter.TryAgainAt = problem is null && !notInServer ? null : now + TryAgainAfter;
                 supporter.UpdatedAt = now;
 
@@ -171,6 +201,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
         string guildId,
         Supporter supporter,
         string? want,
+        bool alreadyHeld,
         IReadOnlyDictionary<string, DiscordRole> roles,
         Tally tally,
         CancellationToken ct)
@@ -191,7 +222,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             supporter.GivenDiscordRoleId = null;
         }
 
-        if (want is not null && supporter.GivenDiscordRoleId != want)
+        if (want is not null && supporter.GivenDiscordRoleId != want && !alreadyHeld)
         {
             // A role the bot cannot assign is named here instead of discovered as a refusal each time.
             if (roles.TryGetValue(want, out var role) && !role.BotCanAssign)
@@ -219,7 +250,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
 
     /// <summary>The same for the group role, on the VRChat account linked to the supporter's Discord account.</summary>
     private async Task<string?> ChangeVRChatAsync(
-        Supporter supporter, string? wantRole, string? wantUser, Tally tally, CancellationToken ct)
+        Supporter supporter, string? wantRole, string? wantUser, bool alreadyHeld, Tally tally, CancellationToken ct)
     {
         var wantNothing = wantUser is null || wantRole is null;
 
@@ -243,7 +274,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             supporter.GivenVRChatUserId = null;
         }
 
-        if (!wantNothing && supporter.GivenVRChatRoleId is null)
+        if (!wantNothing && supporter.GivenVRChatRoleId is null && !alreadyHeld)
         {
             var outcome = await vrchat.GiveGroupRoleAsync(wantUser!, wantRole!, ct).ConfigureAwait(false);
 
@@ -256,6 +287,30 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
         }
 
         return null;
+    }
+
+    /// <summary>Whether the person already holds the group role, as the group's member list last said.</summary>
+    private async Task<bool> HoldsGroupRoleAsync(string groupId, string userId, string roleId, CancellationToken ct)
+    {
+        var json = await db.GroupMembers.AsNoTracking()
+            .Where(m => m.GroupId == groupId && m.UserId == userId && m.LeftAt == null)
+            .Select(m => m.Roles)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return json is not null && RoleIds(json).Contains(roleId);
+    }
+
+    private static HashSet<string> RoleIds(string json)
+    {
+        try
+        {
+            return (JsonSerializer.Deserialize<string[]>(json) ?? []).ToHashSet(StringComparer.Ordinal);
+        }
+        catch (JsonException)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
     }
 
     private async Task ThankAsync(
@@ -296,10 +351,14 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
         if (outcome.Sent)
             tally.Thanked++;
         else if (supporter.Problem is null)
-            supporter.Problem = outcome.DirectMessagesClosed
+            supporter.Problem = Clip(outcome.DirectMessagesClosed
                 ? "The thank-you was not sent: they do not accept direct messages from the server."
-                : "The thank-you was not sent: " + (outcome.Error ?? "Discord refused it.");
+                : "The thank-you was not sent: " + (outcome.Error ?? "Discord refused it."));
     }
+
+    /// <summary>The column holds <see cref="MostProblemLength"/> characters; a longer refusal would fail the save on every pass.</summary>
+    private static string? Clip(string? text)
+        => text is { Length: > MostProblemLength } ? text[..MostProblemLength] : text;
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 

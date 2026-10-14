@@ -177,6 +177,64 @@ public class SupporterRolesTests
     }
 
     [Fact]
+    public async Task ARoleThePersonAlreadyHoldsIsNotRecorded_SoItIsNeverTakenBack()
+    {
+        // Held already (by hand, or from Ko-fi's own Discord link): Discord's add would say Ok, but Modbot gave nothing.
+        await using var setup = await SetUpAsync(linkVRChat: false);
+        await SyncSetUp.LinkAsync(setup.Services, VRChatUser, Member, [SyncSetUp.GroupRole], [SyncSetUp.DiscordRole], Ct);
+        var gateway = new FakeGateway();
+
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(0, pass.Given);
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Empty(setup.Services.VRChat.Actions);
+        var supporter = await ReadAsync(setup);
+        Assert.Null(supporter.GivenDiscordRoleId);
+        Assert.Null(supporter.GivenVRChatRoleId);
+        Assert.Null(supporter.GivenVRChatUserId);
+
+        // The month runs out: nothing was given, so nothing is taken.
+        setup.Services.Clock.Advance(TimeSpan.FromDays(90));
+        var later = await PassAsync(setup.Services, gateway);
+        Assert.Equal(0, later.Taken);
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Empty(setup.Services.VRChat.Actions);
+        Assert.Equal(SupporterStates.Ended, (await ReadAsync(setup)).State);
+    }
+
+    [Fact]
+    public async Task ARoleHeldByHandIsGivenOnceItIsGone()
+    {
+        await using var setup = await SetUpAsync(linkVRChat: false);
+        await SyncSetUp.LinkAsync(setup.Services, VRChatUser, Member, [], [SyncSetUp.DiscordRole], Ct);
+        var gateway = new FakeGateway();
+
+        await PassAsync(setup.Services, gateway);
+        Assert.Empty(gateway.RoleChanges);
+
+        await SyncSetUp.SetServerRolesAsync(setup.Services, Member, [], Ct);
+        await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(SyncSetUp.DiscordRole, (await ReadAsync(setup)).GivenDiscordRoleId);
+        Assert.Single(gateway.RoleChanges);
+    }
+
+    [Fact]
+    public async Task ASupporterWithNoDiscordAccountIsEndedWhenTheMonthRunsOut()
+    {
+        await using var setup = await SetUpAsync(paidDaysAgo: 90);
+        await using (var db = setup.Services.Database.NewContext())
+        {
+            await db.Supporters.ExecuteUpdateAsync(u => u.SetProperty(s => s.DiscordUserId, (string?)null), Ct);
+        }
+
+        await PassAsync(setup.Services, new FakeGateway());
+
+        Assert.Equal(SupporterStates.Ended, (await ReadAsync(setup)).State);
+    }
+
+    [Fact]
     public async Task ARefusedRoleIsShownOnTheSupporter_AndNotTriedAgainAtOnce()
     {
         await using var setup = await SetUpAsync();
