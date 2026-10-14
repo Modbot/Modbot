@@ -124,6 +124,11 @@ function named(name: string | null | undefined, kind: string): React.ReactNode {
   return name ? <>the {kind} “{name}”</> : `a ${kind}`
 }
 
+/** "added", "changed", "deleted" or "moved", as the Terms and rules facts record it; anything else reads "changed". */
+function doneTo(action: string | null): string {
+  return action === 'added' || action === 'deleted' || action === 'moved' ? action : 'changed'
+}
+
 /**
  * A Discord voice channel by name, or the general phrase when Modbot never learned it.
  *
@@ -1908,6 +1913,24 @@ const SENTENCES: Record<string, Sentence> = {
       {p.actor} deleted the partner<Quoted value={p.text('name')} />.
     </>
   ),
+
+  // ── Terms and rules ─────────────────────────────────────────────────────────────────────────
+  'modbot.term.change': (p) => (
+    <>
+      {p.actor} {doneTo(p.text('action'))} the term<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.rule.change': (p) => {
+    const number = p.entry.data?.['number']
+
+    return (
+      <>
+        {p.actor} {doneTo(p.text('action'))} the rule<Quoted value={p.text('title')} />
+        {p.text('action') === 'moved' && typeof number === 'number' ? <> to number {number}</> : null}.
+      </>
+    )
+  },
 
   // A Discord role a saved list gave or took (roles from lists design §7).
   'modbot.list.role.give': (p) => (

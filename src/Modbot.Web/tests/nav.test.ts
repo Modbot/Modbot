@@ -175,7 +175,7 @@ test('Community heads the pages from Requests to Availability, each of which nam
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'appeals', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'partners', 'availability'],
+    ['requests', 'people', 'live', 'bans', 'appeals', 'flags', 'reviews', 'reports', 'audit', 'calendar', 'event-categories', 'world-lists', 'marketing', 'giveaways', 'lists', 'terms-and-rules', 'partners', 'availability'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
@@ -293,10 +293,10 @@ test('every page shown as part of another points at one in the sidebar', () => {
   }
 })
 
-test('every page in the sidebar has a go-to chord, but Reports, Appeals, Event categories and Partners: all twenty-six letters are taken', () => {
+test('every page in the sidebar has a go-to chord, but Reports, Appeals, Event categories, Partners and Terms and rules: all twenty-six letters are taken', () => {
   for (const item of NAV) {
     if ('hidden' in item && item.hidden) continue
-    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals') continue
+    if (item.id === 'reports' || item.id === 'event-categories' || item.id === 'partners' || item.id === 'appeals' || item.id === 'terms-and-rules') continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
 })
@@ -449,7 +449,7 @@ test('case and extra spaces do not matter, and nothing typed matches everything'
 
 test('the page list holds what the sidebar and the phone grid show, in NAV order', () => {
   const ids = listedPages(person('ViewAnalytics', 'ViewProfile', 'ViewAuditLog')).map((item) => item.id)
-  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'appeals', 'flags', 'audit', 'analytics-group', 'analytics-server'])
+  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'appeals', 'flags', 'audit', 'terms-and-rules', 'analytics-group', 'analytics-server'])
 })
 
 test('the page list leaves out pages that are part of another and pages this person may not open', () => {
@@ -582,12 +582,22 @@ test('Partners opens with Manage partners alone, and sits just before Availabili
   assert.equal(mayOpen(person('ViewCalendar', 'ManageSettings'), 'partners'), false)
 })
 
+test('Terms and rules opens for anybody signed in, and sits between Lists and Partners', () => {
+  const community = NAV.filter((n) => 'group' in n && n.group === 'Community').map((n) => n.id)
+
+  assert.equal(community.indexOf('terms-and-rules'), community.indexOf('lists') + 1)
+  assert.equal(community.indexOf('partners'), community.indexOf('terms-and-rules') + 1)
+  assert.equal(community.indexOf('partners'), community.indexOf('availability') - 1)
+  assert.equal(mayOpen(person(), 'terms-and-rules'), true)
+  assert.equal(mayOpen(person('ManagePartners'), 'terms-and-rules'), true)
+})
+
 test('somebody who may only enter their times still gets the Community heading and the page', () => {
   const rows = sidebarRows(person('EnterAvailability'))
 
   assert.deepEqual(
     rows.map((r) => (r.kind === 'heading' ? r.label : r.item.id)),
-    ['now', 'Community', 'availability'],
+    ['now', 'Community', 'terms-and-rules', 'availability'],
   )
 })
 
