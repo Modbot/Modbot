@@ -10136,10 +10136,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
 
-                    b.Property<Guid>("StartedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("started_by_id");
-
                     b.HasKey("Id")
                         .HasName("pk_staff_trial");
 

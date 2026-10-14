@@ -183,6 +183,65 @@ public class StaffTrialTests
         Assert.Equal(HttpStatusCode.Forbidden, remove.StatusCode);
     }
 
+    /// <summary>Test accounts rank by how many permissions they hold (see RoleOrderTests).</summary>
+    [Fact]
+    public async Task StartingChangingTheBuddyAndRemoving_OnlyReachAccountsBelowYourHighestRole()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        const ModbotPermissions lead = ModbotPermissions.ManageUsers | ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile;
+        var (_, leadCookie) = await host.SignedInAsync(lead, Ct);
+        var (peer, _) = await host.SignedInAsync(lead, Ct);
+        var (above, _) = await host.SignedInAsync(lead | ModbotPermissions.ViewAnalytics, Ct);
+        var (below, _) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var (buddy, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+        var (other, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        // Not below the lead: refused to start, with the sentence the other account actions use.
+        foreach (var outranking in new[] { peer, above })
+        {
+            var refused = await StartAsync(host, leadCookie, outranking, buddy);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Contains("You can only change accounts below your highest role.", await refused.Content.ReadAsStringAsync(Ct));
+
+            // An administrator starts it; the lead can then neither change its buddy nor take it off.
+            Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, admin, outranking, buddy)).StatusCode);
+
+            var change = await host.SendJsonAsync(
+                HttpMethod.Put, $"/api/staff-trials/{outranking.Id}/buddy", new { buddyId = other.Id }, leadCookie, Ct);
+            Assert.Equal(HttpStatusCode.Forbidden, change.StatusCode);
+
+            var remove = await host.SendJsonAsync(HttpMethod.Delete, $"/api/staff-trials/{outranking.Id}", null, leadCookie, Ct);
+            Assert.Equal(HttpStatusCode.Forbidden, remove.StatusCode);
+        }
+
+        // Below the lead: allowed.
+        Assert.Equal(HttpStatusCode.OK, (await StartAsync(host, leadCookie, below, buddy)).StatusCode);
+
+        var changed = await host.SendJsonAsync(
+            HttpMethod.Put, $"/api/staff-trials/{below.Id}/buddy", new { buddyId = other.Id }, leadCookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+
+        var removed = await host.SendJsonAsync(HttpMethod.Delete, $"/api/staff-trials/{below.Id}", null, leadCookie, Ct);
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+    }
+
+    [Fact]
+    public async Task TwoStartsAtOnce_AnswerOneOkAndOne409()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var (person, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+        var (buddy, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
+
+        var results = await Task.WhenAll(
+            StartAsync(host, admin, person, buddy),
+            StartAsync(host, admin, person, buddy));
+
+        Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.Conflict));
+    }
+
     [Fact]
     public async Task ChangingTheBuddy_KeepsTheSignOffsAndWritesAFact()
     {

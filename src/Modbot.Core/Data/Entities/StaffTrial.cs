@@ -57,9 +57,6 @@ public class StaffTrial
     /// <summary>When the trial began. Day 30 counts from here.</summary>
     public DateTimeOffset StartedAt { get; set; }
 
-    /// <summary>The Modbot account that started it.</summary>
-    public Guid StartedById { get; set; }
-
     /// <summary>What the buddy wrote about how the trial went. Null until they write something.</summary>
     public string? BuddyNote { get; set; }
 

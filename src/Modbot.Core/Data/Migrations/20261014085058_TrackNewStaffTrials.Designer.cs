@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014083437_TrackNewStaffTrials")]
+    [Migration("20261014085058_TrackNewStaffTrials")]
     partial class TrackNewStaffTrials
     {
         /// <inheritdoc />
@@ -10138,10 +10138,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
-
-                    b.Property<Guid>("StartedById")
-                        .HasColumnType("uuid")
-                        .HasColumnName("started_by_id");
 
                     b.HasKey("Id")
                         .HasName("pk_staff_trial");

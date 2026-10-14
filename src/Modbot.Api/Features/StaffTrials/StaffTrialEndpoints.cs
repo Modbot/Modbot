@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.People;
+using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
+using Npgsql;
 
 namespace Modbot.Api.Features.StaffTrials;
 
@@ -146,6 +149,7 @@ public static class StaffTrialEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -156,6 +160,9 @@ public static class StaffTrialEndpoints
                 var account = await db.Users.FirstOrDefaultAsync(u => u.Id == body.AccountId, ct);
                 if (account is null || account.IsDeleted)
                     return Results.NotFound(new { error = "That account does not exist." });
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, account.Id, ct) is { } outranked)
+                    return outranked;
 
                 if (await BuddyProblemAsync(db, account.Id, body.BuddyId, ct) is { } problem)
                     return problem;
@@ -172,7 +179,6 @@ public static class StaffTrialEndpoints
                     AccountId = account.Id,
                     BuddyId = buddy.Id,
                     StartedAt = clock.UtcNow,
-                    StartedById = actor!.Value.Id,
                 };
 
                 var position = 0;
@@ -186,7 +192,16 @@ public static class StaffTrialEndpoints
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.StaffTrials.Add(trial);
-                await db.SaveChangesAsync(ct);
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+                {
+                    // Two starts at once: the other one got there first.
+                    return Results.Conflict(new { error = "That account already has a trial." });
+                }
 
                 await facts.RecordAsync(
                     FactType.StaffTrialStarted,
@@ -215,6 +230,7 @@ public static class StaffTrialEndpoints
                 [FromBody] StaffTrialBuddyBody body,
                 [FromServices] ModbotContext db,
                 [FromServices] AccountFacts facts,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -225,6 +241,9 @@ public static class StaffTrialEndpoints
                 var trial = await LoadAsync(db, accountId, ct);
                 if (trial is null)
                     return Results.NotFound(new { error = "That account has no trial." });
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, accountId, ct) is { } outranked)
+                    return outranked;
 
                 if (trial.BuddyId == body.BuddyId)
                     return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
@@ -265,6 +284,7 @@ public static class StaffTrialEndpoints
                 HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] AccountFacts facts,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 if (!Manages(http))
@@ -273,6 +293,9 @@ public static class StaffTrialEndpoints
                 var trial = await LoadAsync(db, accountId, ct);
                 if (trial is null)
                     return Results.NotFound(new { error = "That account has no trial." });
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, accountId, ct) is { } outranked)
+                    return outranked;
 
                 var account = await db.Users.FirstAsync(u => u.Id == accountId, ct);
                 var buddyName = await db.Users.Where(u => u.Id == trial.BuddyId).Select(u => u.Username).FirstOrDefaultAsync(ct);

@@ -31,7 +31,6 @@ namespace Modbot.Core.Data.Migrations
                     account_id = table.Column<Guid>(type: "uuid", nullable: false),
                     buddy_id = table.Column<Guid>(type: "uuid", nullable: false),
                     started_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    started_by_id = table.Column<Guid>(type: "uuid", nullable: false),
                     buddy_note = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: true),
                     buddy_note_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },

@@ -29,7 +29,9 @@ given, so answers and sign-offs never end up under a different wording.
 Open the new member's popup, go to the **Account** tab and press **Start checklist** (you need
 **Manage users**). Pick a **Buddy** from the accounts that are turned on, which can be anyone but the
 new member. Modbot copies the current lines, stores today as the start date and records it in the
-audit log. An account has at most one checklist.
+audit log. An account has at most one checklist. Like the other account actions, starting, changing the buddy
+and removing only work on accounts whose highest role is below yours (an administrator can do it for anyone),
+and on your own account.
 
 On a started checklist, someone with **Manage users** can change the buddy or **Remove** the
 checklist. Changing the buddy keeps the sign-offs already given. Removing deletes the lines, the
@@ -41,12 +43,12 @@ answers, the sign-offs and the note.
 |---|---|---|---|
 | The new member | Yes, only they | No, never their own | Yes |
 | The buddy | No | Yes | Yes |
-| Someone with **Manage users** | No | Yes, in the buddy's place, so a buddy who has left does not hold the trial up | Yes, if they may also see the **Account** tab |
-| Anyone else who may see the **Account** tab | No | No | Yes |
+| Someone with **Manage users** | No | Yes, in the buddy's place, so a buddy who has left does not hold the trial up | Yes |
+| Someone with **See the operational log** | No | No | Yes |
 
 The tasks are the new member's own words, so only people with a reason to see them can read them:
-the new member, their buddy, and people who can open the person's **Account** tab. Everyone else
-gets nothing back.
+the new member, their buddy, and people with **Manage users** or **See the operational log**. Everyone
+else gets nothing back.
 
 ## For the new member
 
