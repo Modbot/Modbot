@@ -14503,6 +14503,124 @@
         ]
       }
     },
+    "/api/settings/discord-snapshots": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get server snapshot settings",
+        "description": "How often Modbot saves a snapshot of the Discord server, and whether restoring from one is allowed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordSnapshotSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update server snapshot settings",
+        "description": "Set the schedule (`off`, `weekly`, `every-two-weeks` or `monthly`) and whether restoring is allowed. While restoring is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link. Turning the schedule on takes the first snapshot within ten minutes.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordSnapshotSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSnapshotSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-milestones": {
       "get": {
         "tags": [
@@ -15982,6 +16100,621 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "List server snapshots",
+        "description": "The saved snapshots of the Discord server's roles and channels, newest first, with the schedule and when the next one is due.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "ListDiscordSnapshots",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Take a snapshot now",
+        "description": "Saves the Discord server's roles, channels and permissions as they are now. Needs the bot connected. At most 100 are kept; past that, delete one first.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "TakeDiscordSnapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotRow"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots/{id}": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Get a snapshot",
+        "description": "Every role and channel in the snapshot, with its permissions in words.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetDiscordSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Delete a snapshot",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "DeleteDiscordSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots/{id}/download": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Download a snapshot as a file",
+        "description": "The snapshot as a JSON file: roles and channels, each permission set as its number and in words.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "DownloadDiscordSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots/compare": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Compare two snapshots",
+        "description": "What changed in roles and channels from the snapshot `from` to the snapshot `to`, or to the server as it is now when `to` is `now`. Roles and channels are told apart by their Discord id, so a rename shows as a change.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "CompareDiscordSnapshots",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotCompareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots/{id}/restore-preview": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Show what a restore would change",
+        "description": "Works out, from the server as it is now, exactly what putting one role's or one channel's permissions back from the snapshot would change. Changes nothing.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "PreviewDiscordSnapshotRestore",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSnapshotRestoreBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotRestorePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/snapshots/{id}/restore": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Put a role's or a channel's permissions back",
+        "description": "Puts one role's server-wide permissions, or one channel's permissions for roles, back to what the snapshot has. Needs Restore turned on in Settings, the bot connected and Manage Roles. The body carries the fingerprint from the preview; if the server no longer gives the same change the answer is 409. Settings for single members in a channel are left alone. Recorded in the audit log.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "RestoreDiscordSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSnapshotRestoreBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSnapshotRestoreResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -48989,6 +49722,441 @@
           }
         }
       },
+      "DiscordSnapshotChannelView": {
+        "required": [
+          "id",
+          "name",
+          "type",
+          "categoryId",
+          "position",
+          "nsfw",
+          "overwrites"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "nsfw": {
+            "type": "boolean"
+          },
+          "overwrites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordSnapshotOverwriteView"
+            }
+          }
+        }
+      },
+      "DiscordSnapshotCompareResponse": {
+        "required": [
+          "fromId",
+          "fromTakenAt",
+          "toId",
+          "toTakenAt",
+          "toNow",
+          "changes",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "fromId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fromTakenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "toId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "toTakenAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "toNow": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SnapshotChange"
+            }
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordSnapshotDetail": {
+        "required": [
+          "id",
+          "takenAt",
+          "scheduled",
+          "takenBy",
+          "guildName",
+          "roles",
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "takenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "takenBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "guildName": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordSnapshotRoleView"
+            }
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordSnapshotChannelView"
+            }
+          }
+        }
+      },
+      "DiscordSnapshotOverwriteView": {
+        "required": [
+          "roleId",
+          "roleName",
+          "allow",
+          "allowNames",
+          "deny",
+          "denyNames"
+        ],
+        "type": "object",
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "allow": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "allowNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deny": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "denyNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DiscordSnapshotRestoreBody": {
+        "required": [
+          "kind",
+          "targetId",
+          "fingerprint"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordSnapshotRestorePreview": {
+        "required": [
+          "kind",
+          "targetId",
+          "name",
+          "lines",
+          "problem",
+          "missingPermission",
+          "nothingToChange",
+          "fingerprint"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "missingPermission": {
+            "type": "boolean"
+          },
+          "nothingToChange": {
+            "type": "boolean"
+          },
+          "fingerprint": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscordSnapshotRestoreResponse": {
+        "required": [
+          "done",
+          "error",
+          "missingPermission",
+          "applied",
+          "lines"
+        ],
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "missingPermission": {
+            "type": "boolean"
+          },
+          "applied": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DiscordSnapshotRoleView": {
+        "required": [
+          "id",
+          "name",
+          "color",
+          "position",
+          "permissions",
+          "permissionNames",
+          "hoisted",
+          "mentionable",
+          "managed",
+          "everyone"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "position": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "permissions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "permissionNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hoisted": {
+            "type": "boolean"
+          },
+          "mentionable": {
+            "type": "boolean"
+          },
+          "managed": {
+            "type": "boolean"
+          },
+          "everyone": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordSnapshotRow": {
+        "required": [
+          "id",
+          "takenAt",
+          "scheduled",
+          "takenBy",
+          "roleCount",
+          "channelCount"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "takenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "takenBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "channelCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DiscordSnapshotSettingsResponse": {
+        "required": [
+          "schedule",
+          "restoreOn"
+        ],
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "type": "string"
+          },
+          "restoreOn": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordSnapshotSettingsUpdate": {
+        "required": [
+          "schedule",
+          "restoreOn"
+        ],
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "type": "string"
+          },
+          "restoreOn": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordSnapshotsResponse": {
+        "required": [
+          "snapshots",
+          "schedule",
+          "nextDue",
+          "restoreOn",
+          "mostKept"
+        ],
+        "type": "object",
+        "properties": {
+          "snapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordSnapshotRow"
+            }
+          },
+          "schedule": {
+            "type": "string"
+          },
+          "nextDue": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "restoreOn": {
+            "type": "boolean"
+          },
+          "mostKept": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "DiscordSyncSettingsUpdate": {
         "required": [
           "roleSyncOn",
@@ -64037,6 +65205,36 @@
           "RateLimitedByVRChat",
           "SignInLimitReached"
         ]
+      },
+      "SnapshotChange": {
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "what",
+          "details"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "what": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "SpotlightMemberView": {
         "required": [
