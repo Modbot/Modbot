@@ -1,4 +1,4 @@
 {
   "title": "Discord",
-  "pages": ["index", "bot-setup", "acting-from-discord", "event-channels", "instance-announcements", "account-linking", "join-gate", "permission-watch", "welcome-steps", "role-menus", "votes", "birthdays", "event-recaps", "event-summary", "member-milestones", "terms-and-rules", "age-check", "gallery-pictures", "tickets", "role-and-ban-sync", "staff-roles", "roles-from-lists", "messages-and-analytics", "members", "tidy-up", "invites"]
+  "pages": ["index", "bot-setup", "acting-from-discord", "event-channels", "instance-announcements", "account-linking", "join-gate", "permission-watch", "welcome-steps", "role-menus", "votes", "birthdays", "event-recaps", "event-summary", "member-milestones", "terms-and-rules", "age-check", "gallery-pictures", "tickets", "role-and-ban-sync", "staff-roles", "roles-from-lists", "messages-and-analytics", "members", "tidy-up", "invites", "account-links"]
 }
