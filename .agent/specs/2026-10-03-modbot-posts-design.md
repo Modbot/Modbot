@@ -46,7 +46,7 @@ channel card edited in place are not posts, because they are rewritten whenever 
 | `send_at` timestamptz null | When it goes. "Now" is saved as the time of saving. A draft may keep a planned time. |
 | `time_zone` text | The zone the time was picked in: the browser's, or the event's for event posts (decision 13). |
 | `event_id` uuid null | Set for event posts, and for a post linked to an event. |
-| `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); `twitch_live` (Twitch design) and `instance_live` (§8, Live posts) for posts Modbot makes about something outside the calendar; null for hand-written posts. |
+| `kind` text null | `announced`, `reminder`, `live`, `cancelled` for posts the calendar makes (step 4); `event_date` for a calendar event's Bluesky post, one per date (added 2026-10-14, see step 4); `twitch_live` (Twitch design) and `instance_live` (§8, Live posts) for posts Modbot makes about something outside the calendar; null for hand-written posts. |
 | `external_key` text null | What a post of a kind is about outside Modbot: for `twitch_live`, the Twitch stream id; for `instance_live`, the group instance's id (added 2026-10-13). Null on every other post (added 2026-10-07, Twitch design). |
 | `date_starts_at` timestamptz null | The date a reminder, live or one-date cancel post is about (step 4). |
 | `keep_updated` bool | Modbot edits the post on Discord and VRChat when an event in one of its lists changes (§8). Kept only while the text holds a list. |
@@ -582,6 +582,14 @@ uploads, removing the Bluesky account.
   shared first-join check, Cancelled only where Announced posted); a planner step in
   `CalendarService`; the first-join posts and the cancel line move onto posts, the cancel line with
   `remove_at`; Announced texts editable per site (decision 8); the event's picture (decision 9).
+  - **Changed 2026-10-14 for Bluesky:** a calendar event with Bluesky on no longer uses
+    Announced, Reminder or Cancelled. It makes one post per date, kind `event_date`, with
+    `event_id` and `date_starts_at` set, sent a chosen time before the date (1 hour, 1 day, 3 days
+    or 1 week) by `CalendarBlueskyPlanner`. A change to what the post says deletes it on Bluesky
+    and posts it again under a new key; a cancelled date, a cancelled or deleted event, or Bluesky
+    turned off deletes it and posts none. An event made or changed inside its lead time, before the
+    date starts, is posted at once, with `send_at` set to now so the sender's late rule does not
+    refuse it. The other sites keep the plan above.
 - **Live posts (2026-10-13)**: a "We're live" VRChat group post for a group instance, made by
   `LivePostPass` (a pass every 30 seconds, `LivePostService`) once the group instance poll counts
   somebody in it. Kind `instance_live`, `external_key` the instance's id, so the unique index above
