@@ -1,0 +1,70 @@
+---
+title: New staff checklist
+description: Give each new staff member a checklist with a buddy. The new mod fills in written tasks themselves, the buddy signs off the rest and writes a note, and the lines are set per server.
+---
+
+The new staff checklist follows one new staff member through their trial. It holds a **buddy**, a
+start date, **tasks** the new member answers in writing, and **buddy sign-off** lines the buddy ticks
+off. It sits on the person's profile, on the **Account** tab of their [popup](/moderation/popups).
+Both lists of lines are yours to set, per server.
+
+## Setting the lines
+
+Under **Settings → People and roles → New staff** (you need **Manage users**), the **New staff
+checklist** card has two boxes, one line each:
+
+- **Tasks, one per line:** things the new member does and writes an answer to, such as "Read the
+  rules and write down the three you think matter most."
+- **Buddy sign-off, one per line:** things the buddy confirms, such as "Has joined a moderation
+  shift."
+
+Press **Save checklist**. Blank lines are dropped. A server can have up to 30 lines of each kind, and
+a line is at most 300 characters. Saving is recorded in the audit log as a settings change.
+
+A change reaches trials started after it. A trial that has already started keeps the lines it was
+given, so answers and sign-offs never end up under a different wording.
+
+## Starting a checklist
+
+Open the new member's popup, go to the **Account** tab and press **Start checklist** (you need
+**Manage users**). Pick a **Buddy** from the accounts that are turned on, which can be anyone but the
+new member. Modbot copies the current lines, stores today as the start date and records it in the
+audit log. An account has at most one checklist.
+
+On a started checklist, someone with **Manage users** can change the buddy or **Remove** the
+checklist. Changing the buddy keeps the sign-offs already given. Removing deletes the lines, the
+answers, the sign-offs and the note.
+
+## Who does what
+
+| | Fills in the tasks | Signs off and writes the buddy note | Reads the checklist |
+|---|---|---|---|
+| The new member | Yes, only they | No, never their own | Yes |
+| The buddy | No | Yes | Yes |
+| Someone with **Manage users** | No | Yes, in the buddy's place, so a buddy who has left does not hold the trial up | Yes, if they may also see the **Account** tab |
+| Anyone else who may see the **Account** tab | No | No | Yes |
+
+The tasks are the new member's own words, so only people with a reason to see them can read them:
+the new member, their buddy, and people who can open the person's **Account** tab. Everyone else
+gets nothing back.
+
+## For the new member
+
+Your own checklist is on your **Account** page, under **Your new staff checklist**. Write an answer
+to each task and press **Save answer**. You can change an answer later. An empty answer clears it.
+An answer is at most 4000 characters. You can see the buddy's sign-offs and note but not change them.
+
+## For the buddy
+
+The checklists of the people you are buddy to are on your **Account** page too. Press **Sign off** on
+a line when it is done, and **Take back** to undo it. Under **Buddy note**, write how the trial went
+and press **Save note**; it is at most 4000 characters. Each sign-off shows who gave it and when.
+
+## What Modbot writes down
+
+The [audit log](/moderation/audit-log) records a checklist being started, the buddy being changed, a
+line being signed off or taken back, and a checklist being removed, each under the new member's
+account. Written answers and the buddy note are not copied into the log.
+
+Answers, sign-offs and the note are kept with the checklist. They are deleted when the checklist is
+removed and when the account is [deleted](/accounts/staff-accounts#deleting-an-account).
