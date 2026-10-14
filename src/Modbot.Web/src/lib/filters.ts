@@ -26,6 +26,8 @@ export type FilterKind =
   | 'date'
   /** Yes or no. */
   | 'yesno'
+  /** One moment: a day and a time, held as an ISO instant. */
+  | 'moment'
 
 export type FilterOperator =
   /** Choice: any of the values. Id: exactly this. */
@@ -42,6 +44,8 @@ export type FilterOperator =
   | 'between'
   | 'yes'
   | 'no'
+  /** Moment: at this instant. The chip's property says the rest ("Here at"). */
+  | 'at'
 
 export type FilterOption = {
   value: string
@@ -58,6 +62,8 @@ export type FilterProperty = {
   id: string
   label: string
   kind: FilterKind
+  /** Whether the chip may be added again, each one narrowing further. Default false: one chip per property. */
+  repeatable?: boolean
   /** Choice: the values to pick from. */
   options?: FilterOption[]
   /** Choice: whether more than one value may be picked. Default true. */
@@ -93,6 +99,8 @@ export function operatorsFor(property: FilterProperty): FilterOperator[] {
       return ['after', 'before', 'between']
     case 'yesno':
       return ['yes', 'no']
+    case 'moment':
+      return ['at']
   }
 }
 
@@ -115,7 +123,26 @@ export function operatorWords(operator: FilterOperator, valueCount: number): str
       return 'yes'
     case 'no':
       return 'no'
+    case 'at':
+      return ''
   }
+}
+
+/**
+ * A moment as the value of a `datetime-local` box: the viewer's own clock to the minute, which is
+ * what they will read the chip in. Empty for a value that is not an instant.
+ */
+export function toLocalInput(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return ''
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())}T${two(at.getHours())}:${two(at.getMinutes())}`
+}
+
+/** What a `datetime-local` box holds, back as an ISO instant; null for an empty or unreadable box. */
+export function fromLocalInput(text: string): string | null {
+  const at = new Date(text)
+  return text && !Number.isNaN(at.getTime()) ? at.toISOString() : null
 }
 
 // ── The address ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +266,15 @@ export function useFilters(
 /** The chip for one property, if any. */
 export function chipFor(chips: FilterChip[], property: string): FilterChip | undefined {
   return chips.find((c) => c.property === property)
+}
+
+/** The instants of every chip of a repeatable moment property, in the order they were added; values that are not instants are left out. */
+export function moments(chips: FilterChip[], property: string): string[] {
+  return chips
+    .filter((c) => c.property === property)
+    .flatMap((c) => c.values.slice(0, 1))
+    .filter((v) => !Number.isNaN(Date.parse(v)))
+    .map((v) => new Date(v).toISOString())
 }
 
 /** A yes/no chip as a boolean, or undefined when the property is not filtered. */

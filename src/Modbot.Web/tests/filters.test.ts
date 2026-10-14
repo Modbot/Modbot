@@ -1,6 +1,21 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { atStart, dateRange, decodeChip, encodeChip, isFiltered, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
+import {
+  atStart,
+  dateRange,
+  decodeChip,
+  encodeChip,
+  fromLocalInput,
+  isFiltered,
+  moments,
+  operatorsFor,
+  operatorWords,
+  readChips,
+  sameChips,
+  toLocalInput,
+  writeChips,
+  type FilterChip,
+} from '../src/lib/filters.ts'
 import {
   AUDIT_DEFAULTS,
   auditAddress,
@@ -12,6 +27,7 @@ import {
   memberView,
   PEOPLE_DEFAULTS,
   peopleQueryFrom,
+  withHereAt,
 } from '../src/lib/pageFilters.ts'
 
 test('a chip survives the trip through the address, commas in values included', () => {
@@ -270,4 +286,77 @@ test('the pinned chips and the When chip make a query the audit log would, and a
   const address = auditAddress(chips)
   assert.ok(address.startsWith('/audit?'))
   assert.deepEqual(readChips(new URLSearchParams(address.slice('/audit?'.length))), chips)
+})
+
+const here = (at: string): FilterChip => ({ property: 'hereAt', operator: 'at', values: [at] })
+const notHere = (at: string): FilterChip => ({ property: 'notHereAt', operator: 'at', values: [at] })
+
+test('one Here at chip asks for the people who were there at that moment', () => {
+  const query = peopleQueryFrom([here('2026-10-11T21:44:00.000Z')])
+
+  assert.deepEqual(query.hereAt, ['2026-10-11T21:44:00.000Z'])
+  assert.equal(query.notHereAt, undefined)
+})
+
+test('several Here at chips, and Not here at chips, each ask for their own moment, in the order added', () => {
+  const query = peopleQueryFrom([
+    here('2026-10-11T21:40:00Z'),
+    notHere('2026-10-11T21:50:00Z'),
+    here('2026-10-11T21:30:00Z'),
+    notHere('2026-10-11T22:00:00Z'),
+  ])
+
+  // Written back as instants, so the server reads one spelling however a link wrote it.
+  assert.deepEqual(query.hereAt, ['2026-10-11T21:40:00.000Z', '2026-10-11T21:30:00.000Z'])
+  assert.deepEqual(query.notHereAt, ['2026-10-11T21:50:00.000Z', '2026-10-11T22:00:00.000Z'])
+})
+
+test('a moment that is not an instant asks for nothing, and no moments leave the query as it was', () => {
+  const query = peopleQueryFrom([here('yesterday')])
+  assert.equal(query.hereAt, undefined)
+
+  assert.deepEqual(moments([here('2026-10-11T21:40:00Z'), here('nonsense')], 'hereAt'), ['2026-10-11T21:40:00.000Z'])
+  assert.equal(peopleQueryFrom(PEOPLE_DEFAULTS).hereAt, undefined)
+})
+
+test('a click on the chart adds a Here at chip for that instant, once', () => {
+  const at = new Date(Date.UTC(2026, 9, 11, 21, 44, 30)).toISOString()
+
+  const once = withHereAt(PEOPLE_DEFAULTS, at)
+  assert.deepEqual(once, [{ property: 'hereAt', operator: 'at', values: ['2026-10-11T21:44:30.000Z'] }])
+
+  // A second click on the same point changes nothing; another point is one more chip.
+  assert.equal(withHereAt(once, at), once)
+  assert.equal(withHereAt(once, '2026-10-11T22:10:00Z').length, 2)
+
+  // Chips already there stay, and the new one goes after them.
+  const narrowed: FilterChip[] = [{ property: 'eighteenPlus', operator: 'yes', values: [] }]
+  assert.deepEqual(withHereAt(narrowed, at).map((c) => c.property), ['eighteenPlus', 'hereAt'])
+})
+
+test('chips of one repeatable property all survive the address, and are told apart by their moment', () => {
+  const chips = [here('2026-10-11T21:40:00.000Z'), here('2026-10-11T21:30:00.000Z'), notHere('2026-10-11T22:00:00.000Z')]
+
+  const params = new URLSearchParams()
+  writeChips(params, chips)
+  assert.deepEqual(readChips(new URLSearchParams(params.toString())), chips)
+
+  // A colon and a plus sign are in every instant; they must not come back changed.
+  assert.deepEqual(decodeChip(encodeChip(chips[0])), chips[0])
+
+  assert.ok(sameChips(chips, [chips[2], chips[1], chips[0]]))
+  assert.ok(!sameChips(chips, [chips[0], chips[0], chips[2]]))
+})
+
+test('a moment has one operator with no word, so its chip reads "Here at | time"', () => {
+  assert.deepEqual(operatorsFor({ id: 'hereAt', label: 'Here at', kind: 'moment', repeatable: true }), ['at'])
+  assert.equal(operatorWords('at', 1), '')
+})
+
+test('the time box and the chip agree: a local time goes in and the same instant comes out', () => {
+  const instant = '2026-07-15T21:44:00.000Z'
+  assert.equal(fromLocalInput(toLocalInput(instant)), instant)
+
+  assert.equal(toLocalInput('nonsense'), '')
+  assert.equal(fromLocalInput(''), null)
 })

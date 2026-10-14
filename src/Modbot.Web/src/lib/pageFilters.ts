@@ -1,5 +1,5 @@
 import type { AuditRequest, DiscordMemberQuery, PeopleQuery } from './api.ts'
-import { chipFor, dateRange, writeChips, yesNo, type FilterChip } from './filters.ts'
+import { chipFor, dateRange, moments, writeChips, yesNo, type FilterChip } from './filters.ts'
 
 /**
  * What each page's chips ask the server. Pure, so a test can check that a chip becomes the
@@ -166,7 +166,20 @@ export function peopleQueryFrom(chips: FilterChip[]): Omit<PeopleQuery, 'search'
     representing: yesNo(chips, 'representing'),
     joinedFrom: joined.from,
     joinedTo: joined.to,
+    // Only an instance's list may be asked these; the page that reads them leaves them out of any other.
+    hereAt: moments(chips, 'hereAt').length ? moments(chips, 'hereAt') : undefined,
+    notHereAt: moments(chips, 'notHereAt').length ? moments(chips, 'notHereAt') : undefined,
   }
+}
+
+/**
+ * The People tab of an instance popup is told "who was there at this moment" by a click on its
+ * chart: the chips with one more "Here at", unless that moment is already one.
+ */
+export function withHereAt(chips: FilterChip[], instant: string): FilterChip[] {
+  const at = new Date(instant).toISOString()
+  if (moments(chips, 'hereAt').includes(at)) return chips
+  return [...chips, { property: 'hereAt', operator: 'at', values: [at] }]
 }
 
 /**

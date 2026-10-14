@@ -189,8 +189,29 @@ hearing nothing for a long time) or **Open now** with when it was last seen.
     turn on dashed lines for **Members** and for each trust rank, counting the people a moderator's
     companion saw there against today's membership and rank; the tooltip lists every line whether or
     not it is drawn.
-- **People**: **Who was seen in this instance**, with **Time seen**, **Arrivals**, **First seen**
-  and **Last seen** for each person.
+- **People**: **Who was seen in this instance**: the [People](/moderation/people) list narrowed to
+  the people a moderator's client saw in this instance, one row each. **Arrived** is their first
+  arrival, **Left** their last leave, and **Visits** how many times they came; a time is marked
+  **Already there** when the moderator's client found them in the instance and did not see them
+  arrive, and **Not seen leaving** when nobody saw them go (their **Left** is then the last report
+  from the instance). The search, sort and every filter on the People page work here too, and
+  **Here at** and **Not here at** are added for working out who was there at a moment: pick a
+  day and a time and press **Apply**. Add as many as you like; a person must match every one, so
+  **Here at** 9:30 PM and **Here at** 9:50 PM is everybody who was there at both times, and **Here
+  at** 9:30 PM with **Not here at** 9:50 PM is the people who left in between. Someone counts as
+  there at a moment if any of their visits covers it. The chips last until you close the popup
+  and are not part of the page address.
+  - **Clicking the chart**: a click on a point of **People over time** adds a **Here at** chip for
+    that moment and opens this tab, so the list of who was there just before a drop is one click
+    away. Add **Not here at** from **Filter** for a moment after the drop to see who was there
+    before it and not after.
+  - **When a moderator crashes**: while a moderator's client is gone it sees nobody leave. When it
+    comes back it lists who is in the instance, and anybody it had listed who is not in that list
+    is counted as having left when the client went away, the last moment that moderator vouched
+    for them. If another moderator's client kept watching and still saw them afterwards, they
+    stay. A person nobody saw leave is shown as **Not seen leaving**.
+  - Who was there comes only from the reports of moderators' Modbot apps (the
+    [companion](/companion/install)). Nobody a moderator's client did not see is in the list.
 - **Activity**: **What happened in this instance**: the audit log narrowed to this instance, with
   the same filter chips as the [Audit log](/moderation/audit-log) page; **When** starts on the
   days the instance ran. **Open in Audit log** opens the page with the same chips. Where

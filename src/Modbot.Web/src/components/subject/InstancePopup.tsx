@@ -14,6 +14,7 @@ import {
 import { HeadCount } from '@/components/HeadCount'
 import { InstanceNextGame } from '@/components/calendar/NextGame'
 import { AuditLogList } from '@/components/audit/AuditLogList'
+import { PeopleBrowser } from '@/components/people/PeopleBrowser'
 import { InstanceWorld } from '@/components/subject/InstanceWorld'
 import { BriefButton } from '@/components/subject/Brief'
 import { offersBriefs } from '@/lib/briefs'
@@ -33,12 +34,12 @@ import {
   PopupTabs,
 } from '@/components/subject/shared'
 import { INSTANCE_TABS, type InstanceTab as Tab } from '@/components/subject/tabs'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { useLoad } from '@/lib/useLoad'
 import type { FilterChip } from '@/lib/filters'
-import { AUDIT_DEFAULTS, auditAddress, instanceChips, instanceRunChip } from '@/lib/pageFilters'
+import { usePageState } from '@/lib/listPage'
+import { AUDIT_DEFAULTS, auditAddress, instanceChips, instanceRunChip, PEOPLE_DEFAULTS, withHereAt } from '@/lib/pageFilters'
 import { followLink } from '@/lib/router'
 import { usePhoneLayout } from '@/lib/phoneLayout'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
@@ -76,6 +77,10 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   const [tab, setTab] = useOpeningTab<Tab>('overview', INSTANCE_TABS)
   const [tabsAt, openFromAbove, pick] = useOpenFromAbove(setTab)
   const allowed = can(me, 'ViewAnalytics')
+
+  // The People tab's chips live here, not in the tab, so a click on the chart can set one and open
+  // the tab. Kept until the popup closes, like the Activity tab's.
+  const [peopleChips, setPeopleChips] = useState<FilterChip[]>(PEOPLE_DEFAULTS)
 
   // Read again when something happens in this instance. The stream names instances by VRChat's number,
   // which is only known once the instance has loaded, so the number is kept where the callback can
@@ -146,14 +151,26 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
         ]}
       >
         {data && tab === 'overview' && (
-          <Overview view={data} phone={phone} live={live} onMore={pick} canSeeCalendar={can(me, 'ViewCalendar')} />
+          <Overview
+            view={data}
+            phone={phone}
+            live={live}
+            onMore={pick}
+            onHereAt={(instant) => {
+              setPeopleChips((chips) => withHereAt(chips, instant))
+              pick('people')
+            }}
+            canSeeCalendar={can(me, 'ViewCalendar')}
+          />
         )}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
           <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
             <EmptyRow>You do not have permission to see this.</EmptyRow>
           </Panel>
         )}
-        {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
+        {data?.canSeeWhoWasThere && tab === 'people' && (
+          <People view={data} me={me} chips={peopleChips} onChange={setPeopleChips} live={live} />
+        )}
         {data?.canSeeWhoWasThere && tab === 'logs' && <Activity view={data} me={me} />}
         {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
       </PopupTabs>
@@ -267,12 +284,15 @@ function Overview({
   phone,
   live,
   onMore,
+  onHereAt,
   canSeeCalendar,
 }: {
   view: InstanceView
   phone: boolean
   live: number
   onMore: (tab: Tab) => void
+  /** A click on the chart: who was there at that moment, in the People tab. */
+  onHereAt: (instant: string) => void
   /** Next game shows for an open instance of an event that picks from a world list. */
   canSeeCalendar: boolean
 }) {
@@ -295,7 +315,7 @@ function Overview({
 
       {view.canSeeWhoWasThere && <Joins view={view} />}
 
-      <PeopleOverTime view={view} />
+      <PeopleOverTime view={view} onHereAt={onHereAt} />
 
       <InstanceWorld id={view.instance.id} live={live} />
 
@@ -366,8 +386,11 @@ function Joins({ view }: { view: InstanceView }) {
  * members, and how many hold each trust rank. Those come from presence facts, so they need the
  * same permission as the People tab and exist only while a companion was in the instance. Off by
  * default; the tooltip lists them either way.
+ *
+ * A click on a point opens the People tab narrowed to who was there at that moment. Only with the
+ * People tab's permission, since the tab is what it opens.
  */
-function PeopleOverTime({ view }: { view: InstanceView }) {
+function PeopleOverTime({ view, onHereAt }: { view: InstanceView; onHereAt: (instant: string) => void }) {
   const from = Date.parse(view.instance.openedAt)
   const to = Date.parse(view.instance.closedAt ?? view.now)
   const span = to - from
@@ -403,7 +426,15 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
       <div className="flex flex-col gap-2">
         {rows.length > 0 && <ToggleLegend items={legend} onToggle={toggle} />}
         <ChartFrame height={chartHeight.regular} empty={rows.length === 0} emptyText="No head counts yet.">
-          <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+          <LineChart
+            data={rows}
+            margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
+            // The label is the row's `at`, in milliseconds: the point the tooltip is showing.
+            onClick={view.canSeeWhoWasThere ? (state) => {
+              const at = Number(state.activeLabel)
+              if (state.activeLabel !== undefined && Number.isFinite(at)) onHereAt(new Date(at).toISOString())
+            } : undefined}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="at"
@@ -490,41 +521,41 @@ function ReadingTooltip({
   return <ChartTooltip title={readingTime(Number(label))} rows={list} />
 }
 
-function People({ view }: { view: InstanceView }) {
+/**
+ * Who was in the instance: the People page's list, narrowed to this run. One row per person, with
+ * when they first arrived, when they last left and how many times they came, and the filters the
+ * People page has plus "Here at" and "Not here at", which can be added again for each moment.
+ * Chips changed here last until the popup closes, and are not written to the address, which
+ * belongs to the page under the popup.
+ */
+function People({
+  view,
+  me,
+  chips,
+  onChange,
+  live,
+}: {
+  view: InstanceView
+  me: CurrentUser
+  chips: FilterChip[]
+  onChange: (chips: FilterChip[]) => void
+  live: number
+}) {
+  const at = usePageState()
+  const starts = useMemo(() => [PEOPLE_DEFAULTS], [])
+
   return (
     <Panel title="Who was seen in this instance" flush>
-      {view.people.length === 0 ? (
-        <EmptyRow>Nobody seen.</EmptyRow>
-      ) : (
-        <Table
-          head={
-            <>
-              <Th>Person</Th>
-              <Th className="text-right">Time seen</Th>
-              <Th className="text-right">Arrivals</Th>
-              <Th>First seen</Th>
-              <Th>Last seen</Th>
-            </>
-          }
-        >
-          {view.people.map((p) => (
-            <Tr key={p.userId}>
-              <Td>
-                <SubjectLink id={p.userId} name={p.displayName} />
-                {p.displayName && (
-                  <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-                    {p.userId}
-                  </div>
-                )}
-              </Td>
-              <Td className="text-right font-mono">{minutes(p.minutesSeen)}</Td>
-              <Td className="text-right font-mono">{p.arrivals}</Td>
-              <Td className="font-mono text-muted-foreground">{dateTime(p.firstSeenAt)}</Td>
-              <Td className="font-mono text-muted-foreground">{dateTime(p.lastSeenAt)}</Td>
-            </Tr>
-          ))}
-        </Table>
-      )}
+      <PeopleBrowser
+        me={me}
+        chips={chips}
+        starts={starts}
+        onChange={onChange}
+        at={at}
+        place="popup"
+        instance={view.instance.id}
+        live={live}
+      />
     </Panel>
   )
 }

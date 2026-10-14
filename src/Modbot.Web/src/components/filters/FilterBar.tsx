@@ -8,18 +8,22 @@ import { SwitchBank } from '@/components/ui/switch-bank'
 import { EmptyRow } from '@/components/PanelGrid'
 import {
   atStart,
+  fromLocalInput,
   operatorsFor,
   operatorWords,
   type FilterChip,
   type FilterOperator,
   type FilterOption,
   type FilterProperty,
+  toLocalInput,
 } from '@/lib/filters'
+import { dateTime } from '@/lib/format'
 import { useShortcuts } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 
 /**
- * The filter bar: one chip per property, an add control, and a clear control.
+ * The filter bar: one chip per property (a repeatable property may have several), an add control,
+ * and a clear control.
  *
  * Linear's shape (research 2026-09-16): press the button or `f`, pick a property by name, pick
  * values; the chip reads `property · operator · values`, its operator and its values can each be
@@ -90,12 +94,18 @@ export function FilterBar({
       : []),
   ])
 
-  const replace = (next: FilterChip) =>
-    onChange(chips.some((c) => c.property === next.property)
-      ? chips.map((c) => (c.property === next.property ? next : c))
-      : [...chips, next])
+  // A chip is told apart by its place in the list, since a repeatable property has more than one.
+  const replaceAt = (index: number, next: FilterChip) => onChange(chips.map((c, i) => (i === index ? next : c)))
 
-  const remove = (property: string) => onChange(chips.filter((c) => c.property !== property))
+  const remove = (index: number) => onChange(chips.filter((_, i) => i !== index))
+
+  // A new chip of a repeatable property is one more; any other replaces the property's chip.
+  const addChip = (next: FilterChip) =>
+    onChange(
+      !byId.get(next.property)?.repeatable && chips.some((c) => c.property === next.property)
+        ? chips.map((c) => (c.property === next.property ? next : c))
+        : [...chips, next],
+    )
 
   return (
     <div ref={bar} className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
@@ -110,17 +120,26 @@ export function FilterBar({
 
       {/* No box of its own from `md` up, so the chips sit in the bar exactly as they always have. */}
       <div className={cn('contents', folded && 'max-md:hidden')}>
-        {chips.map((chip) => {
+        {chips.map((chip, index) => {
           const property = byId.get(chip.property)
           if (!property) return null
-          return <Chip key={chip.property} property={property} chip={chip} onChange={replace} onRemove={() => remove(chip.property)} />
+          return (
+            <Chip
+              // A repeatable property's chips share the property, so their place in the list is the key.
+              key={property.repeatable ? `${chip.property}#${index}` : chip.property}
+              property={property}
+              chip={chip}
+              onChange={(next) => replaceAt(index, next)}
+              onRemove={() => remove(index)}
+            />
+          )
         })}
 
         <AddFilter
           open={adding}
           onOpenChange={setAdding}
-          properties={properties.filter((p) => !chips.some((c) => c.property === p.id))}
-          onAdd={replace}
+          properties={properties.filter((p) => p.repeatable || !chips.some((c) => c.property === p.id))}
+          onAdd={addChip}
           // Beside "Filter 2" on a phone, a second "Filter" would read as the same button.
           phoneLabel={chips.length > 0 ? 'Add' : undefined}
         />
@@ -164,7 +183,9 @@ function Chip({
   const operators = operatorsFor(property)
   const [editing, setEditing] = useState(false)
 
-  const labels = chip.values.map((v) => property.options?.find((o) => o.value === v)?.label ?? v)
+  const labels = chip.values.map((v) =>
+    property.kind === 'moment' ? (Number.isNaN(Date.parse(v)) ? v : dateTime(v)) : (property.options?.find((o) => o.value === v)?.label ?? v),
+  )
   const shown = labels.length > 3 ? `${labels.slice(0, 3).join(', ')} +${labels.length - 3}` : labels.join(', ')
 
   const nextOperator = () => {
@@ -187,9 +208,12 @@ function Chip({
           {operatorWords(chip.operator, chip.values.length)}
         </button>
       ) : (
-        <span className="flex shrink-0 items-center px-2 whitespace-nowrap text-muted-foreground">
-          {operatorWords(chip.operator, chip.values.length)}
-        </span>
+        // A moment says it all in its property ("Here at"), so its operator has no word and no cell.
+        operatorWords(chip.operator, chip.values.length) !== '' && (
+          <span className="flex shrink-0 items-center px-2 whitespace-nowrap text-muted-foreground">
+            {operatorWords(chip.operator, chip.values.length)}
+          </span>
+        )
       )}
 
       {property.kind !== 'yesno' && (
@@ -213,7 +237,7 @@ function Chip({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Remove the ${property.label} filter`}
+        aria-label={`Remove the ${property.label} filter${property.repeatable ? `: ${shown}` : ''}`}
         className="px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground phone:min-w-(--control-h)"
       >
         <X className="mx-auto size-3.5" />
@@ -354,7 +378,9 @@ function ValueEditor({
   const operator = chip?.operator ?? operators[0]
   const values = chip?.values ?? []
 
-  const [typed, setTyped] = useState(property.kind === 'id' || property.kind === 'text' ? (values[0] ?? '') : '')
+  const [typed, setTyped] = useState(
+    property.kind === 'id' || property.kind === 'text' ? (values[0] ?? '') : property.kind === 'moment' ? toLocalInput(values[0] ?? '') : '',
+  )
   const [cursor, setCursor] = useState(0)
 
   if (property.kind === 'search') {
@@ -376,6 +402,36 @@ function ValueEditor({
             {answer === 'yes' ? 'Yes' : 'No'}
           </Row>
         ))}
+      </Panel>
+    )
+  }
+
+  if (property.kind === 'moment') {
+    const apply = () => {
+      const instant = fromLocalInput(typed)
+      if (!instant) return
+      onChange({ property: property.id, operator: operators[0], values: [instant] })
+      onDone()
+    }
+
+    return (
+      <Panel>
+        <div className="flex items-center gap-1 p-1">
+          <Input
+            autoFocus
+            type="datetime-local"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                apply()
+              }
+            }}
+            aria-label={property.label}
+          />
+          <Button onClick={apply}>Apply</Button>
+        </div>
       </Panel>
     )
   }
