@@ -34,6 +34,18 @@ namespace Modbot.Core.Data.Migrations
                     table.PrimaryKey("pk_supporter_code", x => x.discord_user_id);
                 });
 
+            // One account belongs to one supporter per site from now on. Should two rows already share
+            // an account, the newest payer keeps it and the others go back to Not matched for staff.
+            migrationBuilder.Sql("""
+                UPDATE supporter s SET discord_user_id = NULL
+                WHERE s.discord_user_id IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM supporter n
+                    WHERE n.provider = s.provider
+                      AND n.discord_user_id = s.discord_user_id
+                      AND (n.last_paid_at, n.id) > (s.last_paid_at, s.id));
+                """);
+
             migrationBuilder.CreateIndex(
                 name: "ux_supporter_discord_user",
                 table: "supporter",

@@ -12,6 +12,7 @@ using Modbot.Core.Discord;
 using Modbot.Core.Supporters;
 using Modbot.Core.Time;
 using Modbot.VRChat.Sync;
+using Npgsql;
 
 namespace Modbot.Api.Features.Supporters;
 
@@ -284,7 +285,17 @@ public static class SupporterEndpoints
                 supporter.Problem = null;
                 supporter.TryAgainAt = null;
                 supporter.UpdatedAt = clock.UtcNow;
-                await db.SaveChangesAsync(ct);
+
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                }
+                catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+                {
+                    // Two matches at once: the other one got the account first.
+                    return Results.Conflict(new { error = "Another supporter is already matched to that account." });
+                }
+
                 await new SettingsChange("supporters")
                     .Field($"{supporter.Name}.discordUserId", before, discordUserId)
                     .RecordAsync(http, ct);
