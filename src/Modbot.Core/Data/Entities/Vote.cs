@@ -52,6 +52,20 @@ public class Vote
     /// </summary>
     public string? RoleId { get; set; }
 
+    /// <summary>
+    /// The message shows how many people picked each option while the vote is open, and is
+    /// rewritten after picks. Off: the counts appear when the vote is closed.
+    /// </summary>
+    public bool ShowCounts { get; set; }
+
+    /// <summary>
+    /// On: nobody sees who picked what, on the page or in Discord. Off: the Modbot page lists who
+    /// picked each option (Discord never does). Modbot keeps each person's pick either way, to
+    /// allow one vote each and changes; this only decides whether it is shown. Set when the vote
+    /// is made and never switched off afterwards.
+    /// </summary>
+    public bool Anonymous { get; set; } = true;
+
     /// <summary>One of <see cref="VoteStatuses"/>.</summary>
     public string Status { get; set; } = VoteStatuses.Open;
 

@@ -31,6 +31,7 @@ using Modbot.Api.Features.DiscordRoutes;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
+using Modbot.Api.Features.Votes;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Files;
 using Modbot.Api.Features.Flags;
@@ -166,6 +167,8 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
         services.TryAddSingleton<Core.Discord.IDiscordInviteActions, Core.Discord.NoDiscordInviteActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordVoteActions, Core.Discord.NoDiscordVoteActions>();
+        services.TryAddScoped<Core.Votes.VoteService>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
         services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
         services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
@@ -601,6 +604,9 @@ public static class ApiSurface
         // Messages with buttons or a drop-down list that give people roles.
         app.MapDiscordRoleMenus();
         app.MapDiscordInvites();
+
+        // Votes: a question with a button for each option, posted in a channel.
+        app.MapVotes();
 
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).

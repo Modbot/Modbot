@@ -32,6 +32,13 @@ public interface IDiscordVoteActions
     Task<VoteSiteOutcome> PostAsync(Vote vote, CancellationToken ct = default);
 
     /// <summary>
+    /// Rewrites the open vote's message with the count for each option, keeping the buttons. A
+    /// message that was already rewritten with the result is left as it is.
+    /// </summary>
+    /// <param name="counts">The picks for each option, by option id.</param>
+    Task<VoteSiteOutcome> RefreshAsync(Vote vote, IReadOnlyDictionary<Guid, int> counts, CancellationToken ct = default);
+
+    /// <summary>
     /// Rewrites the vote's message with the result and takes the buttons away.
     /// </summary>
     /// <param name="counts">The picks for each option, by option id.</param>
@@ -45,6 +52,9 @@ public interface IDiscordVoteActions
 public sealed class NoDiscordVoteActions : IDiscordVoteActions
 {
     public Task<VoteSiteOutcome> PostAsync(Vote vote, CancellationToken ct = default)
+        => Task.FromResult(VoteSiteOutcome.Offline);
+
+    public Task<VoteSiteOutcome> RefreshAsync(Vote vote, IReadOnlyDictionary<Guid, int> counts, CancellationToken ct = default)
         => Task.FromResult(VoteSiteOutcome.Offline);
 
     public Task<VoteSiteOutcome> ShowResultAsync(Vote vote, IReadOnlyDictionary<Guid, int> counts, CancellationToken ct = default)

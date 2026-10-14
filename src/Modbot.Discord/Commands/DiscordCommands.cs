@@ -163,6 +163,12 @@ public static class DiscordCommands
     /// <summary>The role a person must hold to vote, when it is not everybody.</summary>
     public const string VoteRoleOption = "only_for";
 
+    /// <summary>Yes: the message shows the count for each option while the vote is open. Off when left out.</summary>
+    public const string VoteShowCountsOption = "show_counts";
+
+    /// <summary>Yes: the Modbot page shows who picked each option. Left out, the vote is anonymous.</summary>
+    public const string VoteShowWhoOption = "show_who_voted";
+
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
 
@@ -445,6 +451,8 @@ public static class DiscordCommands
             [
                 new DiscordCommandOption(VoteChannelOption, "Where to post the vote", DiscordOptionKind.Channel, Required: true),
                 new DiscordCommandOption(VoteRoleOption, "Only people with this role can vote", DiscordOptionKind.Role, Required: false),
+                new DiscordCommandOption(VoteShowCountsOption, "Show the count for each option while the vote is open", DiscordOptionKind.YesNo, Required: false),
+                new DiscordCommandOption(VoteShowWhoOption, "Staff can see who picked what on the Modbot page", DiscordOptionKind.YesNo, Required: false),
             ],
             ShownTo: DiscordShownTo.EventHosts),
         new(

@@ -11,6 +11,12 @@ namespace Modbot.Discord.Votes;
 /// <param name="readyGateway">The bot's session while it is ready, or null.</param>
 public sealed class DiscordVoteActions(Func<IDiscordGateway?> readyGateway) : IDiscordVoteActions
 {
+    // A count refresh and the closing rewrite of one message must not cross: a refresh that landed
+    // after the result would put the buttons back. Messages already closed here are never
+    // refreshed, and the two edits take turns.
+    private readonly SemaphoreSlim _edits = new(1, 1);
+    private readonly HashSet<string> _closed = [];
+
     public async Task<VoteSiteOutcome> PostAsync(Vote vote, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(vote);
@@ -35,12 +41,56 @@ public sealed class DiscordVoteActions(Func<IDiscordGateway?> readyGateway) : ID
         if (readyGateway() is not { } gateway)
             return VoteSiteOutcome.Offline;
 
-        // No buttons: the same edit takes both the buttons and the lists away.
-        var outcome = await gateway
-            .EditWithActionsAsync(vote.ChannelId, vote.MessageId, null, [VoteMessage.Closed(vote, counts)], null, null, ct)
-            .ConfigureAwait(false);
+        lock (_closed)
+            _closed.Add(vote.MessageId);
 
-        return Result(outcome);
+        await _edits.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            // No buttons: the same edit takes both the buttons and the lists away.
+            var outcome = await gateway
+                .EditWithActionsAsync(vote.ChannelId, vote.MessageId, null, [VoteMessage.Closed(vote, counts)], null, null, ct)
+                .ConfigureAwait(false);
+
+            return Result(outcome);
+        }
+        finally
+        {
+            _edits.Release();
+        }
+    }
+
+    public async Task<VoteSiteOutcome> RefreshAsync(Vote vote, IReadOnlyDictionary<Guid, int> counts, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(vote);
+        ArgumentNullException.ThrowIfNull(counts);
+
+        if (readyGateway() is not { } gateway)
+            return VoteSiteOutcome.Offline;
+
+        await _edits.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            lock (_closed)
+            {
+                if (_closed.Contains(vote.MessageId))
+                    return VoteSiteOutcome.Ok();
+            }
+
+            var open = VoteMessage.Open(vote, counts);
+
+            var outcome = VoteMessage.Lists(vote) is { Count: > 0 } lists
+                ? await gateway.EditWithListsAsync(vote.ChannelId, vote.MessageId, null, [open], lists, ct).ConfigureAwait(false)
+                : await gateway.EditWithActionsAsync(vote.ChannelId, vote.MessageId, null, [open], null, VoteMessage.Buttons(vote), ct).ConfigureAwait(false);
+
+            return Result(outcome);
+        }
+        finally
+        {
+            _edits.Release();
+        }
     }
 
     public async Task<VoteSiteOutcome> DeleteAsync(string channelId, string messageId, CancellationToken ct = default)

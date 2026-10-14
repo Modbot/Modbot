@@ -58,6 +58,7 @@ public sealed class DiscordCommandHandler
     private readonly RemindMeCommand? _remind;
     private readonly EventCommand? _event;
     private readonly PostCommand? _post;
+    private readonly VoteCommand? _vote;
     private readonly ReportCommand? _report;
     private readonly ProfileCommand? _profile;
     private readonly FindCommand? _find;
@@ -87,7 +88,8 @@ public sealed class DiscordCommandHandler
         BirthdayCommand? birthday = null,
         AgeVerifiedCommand? ageVerified = null,
         TermCommand? term = null,
-        RuleCommand? rule = null)
+        RuleCommand? rule = null,
+        VoteCommand? vote = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -116,6 +118,7 @@ public sealed class DiscordCommandHandler
         _ageVerified = ageVerified;
         _term = term;
         _rule = rule;
+        _vote = vote;
     }
 
     /// <summary>
@@ -298,6 +301,18 @@ public sealed class DiscordCommandHandler
                 : await _post.RunAsync(call, user, ct).ConfigureAwait(false);
 
             // A form is not a finished step, so it is not recorded: the form's own press is.
+            if (done is null)
+                return null;
+
+            (reply, outcome, target, discordTarget) = (done.Reply, done.Outcome, done.Target, done.DiscordTarget);
+        }
+        else if (call.CommandName == DiscordCommands.Vote)
+        {
+            var done = _vote is null
+                ? new StaffCommandAnswer(DiscordReply.Say(Interactions.StaffInteractionHandler.NotSetUpMessage), "refused")
+                : await _vote.RunAsync(call, user, ct).ConfigureAwait(false);
+
+            // The form is not a finished step, so it is not recorded: sending the form is.
             if (done is null)
                 return null;
 

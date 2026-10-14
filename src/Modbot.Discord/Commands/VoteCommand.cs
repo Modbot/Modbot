@@ -18,9 +18,10 @@ namespace Modbot.Discord.Commands;
 /// <para>
 /// For event hosts: Modbot asks Manage posts, like <c>/post new</c>, and the caller's Modbot account
 /// needs a VRChat link because it writes. The command takes the channel and, if the vote is not for
-/// everybody, the role; it answers with a form for the question and the options, one to a line. The
-/// channel and the role ride in the form's id, which Discord hands back unchanged, so nothing is
-/// kept waiting in memory.
+/// everybody, the role, and two yes/no choices (show counts while open, show who voted; both off
+/// when left out, which makes the vote anonymous). It answers with a form for the question and the
+/// options, one to a line. The channel, the role and the choices ride in the form's id, which
+/// Discord hands back unchanged, so nothing is kept waiting in memory.
 /// </para>
 /// <para>
 /// Sending the form posts the vote at once. Making and posting it is the same code the Modbot page
@@ -33,7 +34,10 @@ public sealed class VoteCommand(
     IModbotClock clock,
     VoteService? votes = null)
 {
-    /// <summary>The form's id is this, then the channel, a colon and the role (<c>0</c> for none).</summary>
+    /// <summary>
+    /// The form's id is this, then the channel, the role (<c>0</c> for none), show counts and
+    /// anonymous (<c>1</c> or <c>0</c> each), apart by colons.
+    /// </summary>
     public const string FormPrefix = DiscordActionButton.Prefix + "form:vote:";
 
     public const string QuestionField = "question";
@@ -45,14 +49,16 @@ public sealed class VoteCommand(
     public static bool IsForm(string formId) => formId.StartsWith(FormPrefix, StringComparison.Ordinal);
 
     /// <summary>The form: the question on one line and the options, one to a line. Public for tests.</summary>
-    public static DiscordForm Form(string channelId, string? roleId)
+    public static DiscordForm Form(string channelId, string? roleId, bool showCounts = false, bool anonymous = true)
         => new(
             "Ask members to vote",
-            FormPrefix + channelId + ":" + (roleId ?? "0"),
+            FormPrefix + channelId + ":" + (roleId ?? "0") + ":" + Bit(showCounts) + ":" + Bit(anonymous),
             [
                 new DiscordFormField(QuestionField, "Question", DiscordFormFieldKind.ShortText, Required: true, MaxLength: VoteLimits.MostQuestionLength),
                 new DiscordFormField(OptionsField, "Options, one on each line", DiscordFormFieldKind.LongText, Required: true, MaxLength: 4000),
             ]);
+
+    private static string Bit(bool on) => on ? "1" : "0";
 
     /// <summary>Opens the form and returns null; every refusal returns the answer.</summary>
     public async Task<StaffCommandAnswer?> RunAsync(DiscordCommandCall call, ModbotUser user, CancellationToken ct)
@@ -71,7 +77,13 @@ public sealed class VoteCommand(
 
         try
         {
-            await call.ShowFormAsync(Form(channel, string.IsNullOrEmpty(role) ? null : role), ct).ConfigureAwait(false);
+            var form = Form(
+                channel,
+                string.IsNullOrEmpty(role) ? null : role,
+                showCounts: call.Flag(DiscordCommands.VoteShowCountsOption),
+                anonymous: !call.Flag(DiscordCommands.VoteShowWhoOption));
+
+            await call.ShowFormAsync(form, ct).ConfigureAwait(false);
             return null;
         }
         catch (InvalidOperationException)
@@ -86,14 +98,15 @@ public sealed class VoteCommand(
     {
         ArgumentNullException.ThrowIfNull(submit);
 
-        var rest = submit.FormId[FormPrefix.Length..];
-        var colon = rest.IndexOf(':', StringComparison.Ordinal);
+        var parts = submit.FormId[FormPrefix.Length..].Split(':');
 
-        if (colon <= 0 || colon == rest.Length - 1)
+        if (parts.Length != 4 || parts[0].Length == 0 || parts[1].Length == 0)
             return DiscordReply.Say("Modbot does not know that form.");
 
-        var channel = rest[..colon];
-        var role = rest[(colon + 1)..] is { } r && r != "0" ? r : null;
+        var channel = parts[0];
+        var role = parts[1] != "0" ? parts[1] : null;
+        var showCounts = parts[2] == "1";
+        var anonymous = parts[3] != "0";
 
         var about = new JsonObject { ["channel"] = channel };
 
@@ -118,7 +131,7 @@ public sealed class VoteCommand(
         if (votes is null)
             return DiscordReply.Say(StaffInteractionHandler.NotSetUpMessage);
 
-        var draft = new VoteDraft(submit.Text(QuestionField), channel, VoteService.Lines(submit.Text(OptionsField)), role);
+        var draft = new VoteDraft(submit.Text(QuestionField), channel, VoteService.Lines(submit.Text(OptionsField)), role, showCounts, anonymous);
         var made = await votes.CreateAsync(draft, user!.Id, ct).ConfigureAwait(false);
 
         if (made.Vote is not { } vote)
@@ -129,6 +142,8 @@ public sealed class VoteCommand(
 
         about["voteId"] = vote.Id.ToString();
         about["options"] = vote.Options.Count;
+        about["showCounts"] = vote.ShowCounts;
+        about["anonymous"] = vote.Anonymous;
         await RecordAsync(submit.DiscordUserId, user, "done", about, ct).ConfigureAwait(false);
 
         return DiscordReply.Say($"Vote posted in <#{channel}> with {vote.Options.Count.ToString(CultureInfo.InvariantCulture)} options.");

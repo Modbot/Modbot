@@ -1211,6 +1211,15 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // A vote's option button or drop-down list: saves the member's choice, or changes it.
+            if (Votes.VoteMessage.IsPress(press.ButtonId))
+            {
+                var voteReply = await scope.ServiceProvider.GetRequiredService<Votes.VotePress>()
+                    .HandleAsync(press, CancellationToken.None).ConfigureAwait(false);
+                await press.ReplyAsync(voteReply, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
             // /event's question and /post's preview (Discord commands design §3.3, steps 7 and 8).
             if (EventCommand.IsButton(press.ButtonId))
             {
@@ -1362,6 +1371,15 @@ public sealed class DiscordBotService : BackgroundService
                 var written = await scope.ServiceProvider.GetRequiredService<PostCommand>()
                     .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
                 await submit.ReplyAsync(written, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            // /vote's form: the question and the options.
+            if (VoteCommand.IsForm(submit.FormId))
+            {
+                var voted = await scope.ServiceProvider.GetRequiredService<VoteCommand>()
+                    .HandleFormAsync(submit, CancellationToken.None).ConfigureAwait(false);
+                await submit.ReplyAsync(voted, CancellationToken.None).ConfigureAwait(false);
                 return;
             }
 

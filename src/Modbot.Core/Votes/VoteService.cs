@@ -8,7 +8,15 @@ namespace Modbot.Core.Votes;
 
 /// <summary>What somebody wants to ask: the question, where, the options, and who may answer.</summary>
 /// <param name="RoleId">The Discord role a person must hold to vote, or null for anybody in the server.</param>
-public sealed record VoteDraft(string Question, string ChannelId, IReadOnlyList<string> Options, string? RoleId);
+/// <param name="ShowCounts">The message shows the count for each option while the vote is open.</param>
+/// <param name="Anonymous">Nobody sees who picked what.</param>
+public sealed record VoteDraft(
+    string Question,
+    string ChannelId,
+    IReadOnlyList<string> Options,
+    string? RoleId,
+    bool ShowCounts = false,
+    bool Anonymous = true);
 
 /// <summary>What making a vote came to: the vote, or what was wrong in words for the person.</summary>
 /// <param name="BotOffline">The vote was fine but the bot has no session, so nothing was posted.</param>
@@ -119,6 +127,8 @@ public sealed class VoteService(ModbotContext db, IModbotClock clock, IDiscordVo
             Question = clean.Question,
             ChannelId = clean.ChannelId,
             RoleId = clean.RoleId,
+            ShowCounts = clean.ShowCounts,
+            Anonymous = clean.Anonymous,
             CreatedBy = createdBy,
             CreatedAt = clock.UtcNow,
         };

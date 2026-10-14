@@ -20,8 +20,12 @@ namespace Modbot.Discord.Votes;
 /// <strong>One vote for each person.</strong> The table holds one row for each person on a vote
 /// (a unique key), so a second press changes the row and two quick presses cannot count twice.
 /// </para>
+/// <para>
+/// <strong>Counts on the message.</strong> On a vote that shows counts, a new or changed pick asks
+/// the <see cref="VoteRefresher"/> to rewrite the message; it batches the asks.
+/// </para>
 /// </remarks>
-public sealed class VotePress(ModbotContext db, IModbotClock clock)
+public sealed class VotePress(ModbotContext db, IModbotClock clock, VoteRefresher? refresher = null)
 {
     public const string GoneMessage = "That vote is gone.";
     public const string ClosedMessage = "This vote is closed.";
@@ -69,7 +73,12 @@ public sealed class VotePress(ModbotContext db, IModbotClock clock)
         {
             try
             {
-                return DiscordReply.Say(await SaveAsync(vote, option, press.DiscordUserId, ct).ConfigureAwait(false));
+                var (said, changed) = await SaveAsync(vote, option, press.DiscordUserId, ct).ConfigureAwait(false);
+
+                if (changed && vote.ShowCounts)
+                    refresher?.Request(vote.Id);
+
+                return DiscordReply.Say(said);
             }
             catch (DbUpdateException) when (attempt == 0)
             {
@@ -78,7 +87,7 @@ public sealed class VotePress(ModbotContext db, IModbotClock clock)
         }
     }
 
-    private async Task<string> SaveAsync(Vote vote, VoteOption option, string discordUserId, CancellationToken ct)
+    private async Task<(string Said, bool Changed)> SaveAsync(Vote vote, VoteOption option, string discordUserId, CancellationToken ct)
     {
         var pick = await db.VotePicks
             .FirstOrDefaultAsync(p => p.VoteId == vote.Id && p.DiscordUserId == discordUserId, ct)
@@ -95,11 +104,11 @@ public sealed class VotePress(ModbotContext db, IModbotClock clock)
             });
 
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            return $"You voted for “{option.Label}”.";
+            return ($"You voted for “{option.Label}”.", true);
         }
 
         if (pick.OptionId == option.Id)
-            return $"You already voted for “{option.Label}”.";
+            return ($"You already voted for “{option.Label}”.", false);
 
         var was = vote.Options.FirstOrDefault(o => o.Id == pick.OptionId)?.Label;
 
@@ -107,9 +116,9 @@ public sealed class VotePress(ModbotContext db, IModbotClock clock)
         pick.VotedAt = clock.UtcNow;
         await db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return was is null
+        return (was is null
             ? $"You voted for “{option.Label}”."
-            : $"Changed your vote from “{was}” to “{option.Label}”.";
+            : $"Changed your vote from “{was}” to “{option.Label}”.", true);
     }
 
     private async Task<string> OnlyForAsync(string roleId, CancellationToken ct)

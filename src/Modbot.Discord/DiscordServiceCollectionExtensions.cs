@@ -89,6 +89,14 @@ public static class DiscordServiceCollectionExtensions
         services.AddSingleton<Core.Discord.IDiscordRoleMenuActions>(
             p => new RoleMenus.DiscordRoleMenuActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 
+        // Votes: the buttons on a vote's message, /vote, and the code that posts and closes a vote.
+        services.TryAddScoped<Core.Votes.VoteService>();
+        services.AddScoped<Votes.VotePress>();
+        services.TryAddSingleton<Votes.VoteRefresher>();
+        services.AddScoped<VoteCommand>();
+        services.AddSingleton<Core.Discord.IDiscordVoteActions>(
+            p => new Votes.DiscordVoteActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
         // The event form's preview of the Discord event and the channel post, from the same
         // builders (calendar design §14).
         services.AddSingleton<Core.Calendar.ICalendarDiscordPreview, Calendar.CalendarDiscordPreviewer>();

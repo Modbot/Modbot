@@ -2425,6 +2425,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.MessageId).HasColumnType("text");
             entity.Property(e => e.RoleId).HasColumnType("text");
             entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.ShowCounts).HasDefaultValue(false);
+            entity.Property(e => e.Anonymous).HasDefaultValue(true);
 
             // A press finds its vote by id; the page lists them newest first.
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_vote_created");

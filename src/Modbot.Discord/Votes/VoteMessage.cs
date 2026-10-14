@@ -68,14 +68,31 @@ public static class VoteMessage
 
     private static IEnumerable<VoteOption> Ordered(Vote vote) => vote.Options.OrderBy(o => o.Position);
 
-    /// <summary>The question, and who may vote. Mentions are off, so the role is shown and not pinged.</summary>
-    public static DiscordEmbedContent Open(Vote vote)
+    /// <summary>
+    /// The question, who may vote and, on a vote that shows counts, the count for each option in the
+    /// buttons' order. Mentions are off, so the role is shown and not pinged. Never who voted.
+    /// </summary>
+    /// <param name="counts">The picks for each option; an option missing from it has none.</param>
+    public static DiscordEmbedContent Open(Vote vote, IReadOnlyDictionary<Guid, int>? counts = null)
     {
         ArgumentNullException.ThrowIfNull(vote);
 
+        var parts = new List<string>();
+
+        if (vote.RoleId is { } role)
+            parts.Add($"For <@&{role}> only");
+
+        if (vote.ShowCounts)
+        {
+            parts.Add(DiscordCommandHandler.WholeLines(
+                Ordered(vote).Select(o => $"**{CardText.EscapeName(o.Label)}**: "
+                    + (counts?.GetValueOrDefault(o.Id) ?? 0).ToString(CultureInfo.InvariantCulture)),
+                4000));
+        }
+
         return new DiscordEmbedContent(
             CardText.Plain(vote.Question, 256),
-            vote.RoleId is { } role ? $"For <@&{role}> only" : null,
+            parts.Count == 0 ? null : string.Join("\n\n", parts),
             CardColour.Violet,
             [],
             null,
