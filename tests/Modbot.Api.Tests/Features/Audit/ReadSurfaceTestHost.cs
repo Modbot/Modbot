@@ -258,6 +258,8 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.DiscordChannels.ExecuteDeleteAsync(ct);
         await context.DiscordReadBacks.ExecuteDeleteAsync(ct);
         await context.DiscordRoleMenus.ExecuteDeleteAsync(ct);
+        await context.DiscordInviteJoins.ExecuteDeleteAsync(ct);
+        await context.DiscordInviteLinks.ExecuteDeleteAsync(ct);
         await context.DiscordRoles.ExecuteDeleteAsync(ct);
         await context.DiscordServers.ExecuteDeleteAsync(ct);
         await context.DiscordMembers.ExecuteDeleteAsync(ct);
