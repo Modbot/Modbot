@@ -89,6 +89,30 @@ public sealed class VotePress(ModbotContext db, IModbotClock clock, VoteRefreshe
 
     private async Task<(string Said, bool Changed)> SaveAsync(Vote vote, VoteOption option, string discordUserId, CancellationToken ct)
     {
+        // The vote row is held shared until the pick is saved: closing writes that row, so it waits
+        // for presses already past this check, and a press that starts after the close has
+        // committed sees "closed". The count in the closed message is then every pick there is.
+        await using var transaction = await db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        var status = (await db.Database
+            .SqlQuery<string>($"SELECT status AS \"Value\" FROM vote WHERE id = {vote.Id} FOR SHARE")
+            .ToListAsync(ct)
+            .ConfigureAwait(false))
+            .FirstOrDefault();
+
+        if (status is null)
+            return (GoneMessage, false);
+
+        if (status != VoteStatuses.Open)
+            return (ClosedMessage, false);
+
+        var result = await SaveLockedAsync(vote, option, discordUserId, ct).ConfigureAwait(false);
+        await transaction.CommitAsync(ct).ConfigureAwait(false);
+        return result;
+    }
+
+    private async Task<(string Said, bool Changed)> SaveLockedAsync(Vote vote, VoteOption option, string discordUserId, CancellationToken ct)
+    {
         var pick = await db.VotePicks
             .FirstOrDefaultAsync(p => p.VoteId == vote.Id && p.DiscordUserId == discordUserId, ct)
             .ConfigureAwait(false);

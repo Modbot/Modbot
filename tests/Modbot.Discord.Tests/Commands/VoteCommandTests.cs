@@ -138,11 +138,11 @@ public class VoteCommandTests
         var vote = DiscordCommands.All.Single(c => c.Name == DiscordCommands.Vote);
 
         Assert.Equal(
-            [DiscordCommands.VoteChannelOption, DiscordCommands.VoteRoleOption, DiscordCommands.VoteShowCountsOption, DiscordCommands.VoteShowWhoOption],
+            [DiscordCommands.VoteChannelOption, DiscordCommands.VoteRoleOption, DiscordCommands.VoteShowCountsOption, DiscordCommands.VoteAnonymousOption],
             vote.Options.Select(o => o.Name));
         Assert.Equal([true, false, false, false], vote.Options.Select(o => o.Required));
         Assert.Equal("show_counts", DiscordCommands.VoteShowCountsOption);
-        Assert.Equal("show_who_voted", DiscordCommands.VoteShowWhoOption);
+        Assert.Equal("anonymous", DiscordCommands.VoteAnonymousOption);
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class VoteCommandTests
             (DiscordCommands.VoteChannelOption, Channel),
             (DiscordCommands.VoteRoleOption, Regulars),
             (DiscordCommands.VoteShowCountsOption, "true"),
-            (DiscordCommands.VoteShowWhoOption, "true")));
+            (DiscordCommands.VoteAnonymousOption, "false")));
 
         Assert.Null(reply);
         var form = Assert.Single(recorder.Forms);
@@ -236,7 +236,7 @@ public class VoteCommandTests
     }
 
     [Fact]
-    public async Task Choices_answered_no_are_the_same_as_left_out()
+    public async Task Choices_answered_the_default_way_are_the_same_as_left_out()
     {
         await using var services = await SetUpAsync(_db);
         var recorder = new Recorder();
@@ -246,7 +246,7 @@ public class VoteCommandTests
             recorder,
             (DiscordCommands.VoteChannelOption, Channel),
             (DiscordCommands.VoteShowCountsOption, "false"),
-            (DiscordCommands.VoteShowWhoOption, "false")));
+            (DiscordCommands.VoteAnonymousOption, "true")));
 
         Assert.Equal(VoteCommand.FormPrefix + $"{Channel}:0:0:1", Assert.Single(recorder.Forms).Id);
     }

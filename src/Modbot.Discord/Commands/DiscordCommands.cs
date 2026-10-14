@@ -43,8 +43,8 @@ namespace Modbot.Discord.Commands;
 /// (<see cref="RequiresFor"/>).
 /// <see cref="Vote"/> is for event hosts too and needs Manage posts: it takes the channel
 /// (<see cref="VoteChannelOption"/>), optionally a role that may vote (<see cref="VoteRoleOption"/>) and
-/// two yes/no choices, <see cref="VoteShowCountsOption"/> and <see cref="VoteShowWhoOption"/>, both off
-/// when left out; a form then asks for the question and the options. It is off until the operator
+/// two yes/no choices, <see cref="VoteShowCountsOption"/> (off when left out) and <see cref="VoteAnonymousOption"/>
+/// (on when left out); a form then asks for the question and the options. It is off until the operator
 /// turns it on.
 /// <see cref="VerifyAccount"/> is how a staff member proves their Discord account with a code from their
 /// account page (Discord account linking design §14); it is for everybody because staff often do
@@ -171,8 +171,8 @@ public static class DiscordCommands
     /// <summary>Yes: the message shows the count for each option while the vote is open. Off when left out.</summary>
     public const string VoteShowCountsOption = "show_counts";
 
-    /// <summary>Yes: the Modbot page shows who picked each option. Left out, the vote is anonymous.</summary>
-    public const string VoteShowWhoOption = "show_who_voted";
+    /// <summary>Yes (when left out): nobody sees who picked what. No: the Modbot page shows who picked each option.</summary>
+    public const string VoteAnonymousOption = "anonymous";
 
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
@@ -457,7 +457,7 @@ public static class DiscordCommands
                 new DiscordCommandOption(VoteChannelOption, "Where to post the vote", DiscordOptionKind.Channel, Required: true),
                 new DiscordCommandOption(VoteRoleOption, "Only people with this role can vote", DiscordOptionKind.Role, Required: false),
                 new DiscordCommandOption(VoteShowCountsOption, "Show the count for each option while the vote is open", DiscordOptionKind.YesNo, Required: false),
-                new DiscordCommandOption(VoteShowWhoOption, "Staff can see who picked what on the Modbot page", DiscordOptionKind.YesNo, Required: false),
+                new DiscordCommandOption(VoteAnonymousOption, "Nobody sees who picked what (default yes); no lets staff see it on the Modbot page", DiscordOptionKind.YesNo, Required: false),
             ],
             ShownTo: DiscordShownTo.EventHosts),
         new(

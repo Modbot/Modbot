@@ -15,7 +15,12 @@ public sealed class DiscordVoteActions(Func<IDiscordGateway?> readyGateway) : ID
     // after the result would put the buttons back. Messages already closed here are never
     // refreshed, and the two edits take turns.
     private readonly SemaphoreSlim _edits = new(1, 1);
+    // Only the latest few are kept: a refresh already past its check of the database can only be
+    // for a vote closed moments ago, and the refresher itself skips any vote the database says is
+    // closed, so a long list would only grow.
+    private const int MostClosedKept = 100;
     private readonly HashSet<string> _closed = [];
+    private readonly Queue<string> _closedOrder = new();
 
     public async Task<VoteSiteOutcome> PostAsync(Vote vote, CancellationToken ct = default)
     {
@@ -42,7 +47,15 @@ public sealed class DiscordVoteActions(Func<IDiscordGateway?> readyGateway) : ID
             return VoteSiteOutcome.Offline;
 
         lock (_closed)
-            _closed.Add(vote.MessageId);
+        {
+            if (_closed.Add(vote.MessageId))
+            {
+                _closedOrder.Enqueue(vote.MessageId);
+
+                if (_closedOrder.Count > MostClosedKept)
+                    _closed.Remove(_closedOrder.Dequeue());
+            }
+        }
 
         await _edits.WaitAsync(ct).ConfigureAwait(false);
 

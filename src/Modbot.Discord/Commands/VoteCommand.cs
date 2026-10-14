@@ -18,8 +18,8 @@ namespace Modbot.Discord.Commands;
 /// <para>
 /// For event hosts: Modbot asks Manage posts, like <c>/post new</c>, and the caller's Modbot account
 /// needs a VRChat link because it writes. The command takes the channel and, if the vote is not for
-/// everybody, the role, and two yes/no choices (show counts while open, show who voted; both off
-/// when left out, which makes the vote anonymous). It answers with a form for the question and the
+/// everybody, the role, and two yes/no choices (show counts while open, off when left out; anonymous, on
+/// when left out). It answers with a form for the question and the
 /// options, one to a line. The channel, the role and the choices ride in the form's id, which
 /// Discord hands back unchanged, so nothing is kept waiting in memory.
 /// </para>
@@ -81,7 +81,7 @@ public sealed class VoteCommand(
                 channel,
                 string.IsNullOrEmpty(role) ? null : role,
                 showCounts: call.Flag(DiscordCommands.VoteShowCountsOption),
-                anonymous: !call.Flag(DiscordCommands.VoteShowWhoOption));
+                anonymous: !string.Equals(call.Option(DiscordCommands.VoteAnonymousOption), "false", StringComparison.OrdinalIgnoreCase));
 
             await call.ShowFormAsync(form, ct).ConfigureAwait(false);
             return null;
