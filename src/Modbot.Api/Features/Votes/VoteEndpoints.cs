@@ -43,8 +43,10 @@ public sealed record VoteView(
     IReadOnlyList<VoteOptionView> Options,
     string? MessageProblem);
 
+/// <param name="CanManage">The caller may post and close votes (Manage posts).</param>
 public sealed record VotesResponse(
     IReadOnlyList<VoteView> Votes,
+    bool CanManage,
     int MostOptions,
     int MostQuestionLength,
     int MostLabelLength);
@@ -81,6 +83,7 @@ public static class VoteEndpoints
         var group = app.MapGroup("/api/votes").WithTags("Votes");
 
         group.MapGet("", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] VoteService votes,
                 CancellationToken ct) =>
@@ -96,6 +99,7 @@ public static class VoteEndpoints
 
                 return Results.Ok(new VotesResponse(
                     [.. found.Select(v => View(v, counts, voters, null))],
+                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManagePosts),
                     VoteLimits.MostOptions,
                     VoteLimits.MostQuestionLength,
                     VoteLimits.MostLabelLength));

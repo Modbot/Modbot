@@ -92,6 +92,7 @@ import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
 import { Reviews } from '@/pages/Reviews'
 import { Appeals } from '@/pages/Appeals'
+import { Votes } from '@/pages/Votes'
 import { Reports } from '@/pages/Reports'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
@@ -117,6 +118,7 @@ const TITLES: Record<PageId, string> = {
   'marketing-sent': 'Marketing',
   'marketing-drafts': 'Marketing',
   'marketing-failed': 'Marketing',
+  votes: 'Votes',
   giveaways: 'Giveaways',
   lists: 'Lists',
   availability: 'Availability',
@@ -177,6 +179,7 @@ const PATHS: Record<PageId, string> = {
   'marketing-sent': '/marketing/sent',
   'marketing-drafts': '/marketing/drafts',
   'marketing-failed': '/marketing/failed',
+  votes: '/votes',
   giveaways: '/giveaways',
   lists: '/lists',
   availability: '/availability',
@@ -708,6 +711,7 @@ function Shell({
           {(page === 'marketing' || page === 'marketing-sent' || page === 'marketing-drafts' || page === 'marketing-failed') && (
             <Marketing list={page} onList={(list) => navigate(PATHS[list])} />
           )}
+          {page === 'votes' && <Votes />}
           {page === 'giveaways' && <Giveaways />}
           {page === 'lists' && <Lists />}
           {page === 'availability' && <Availability me={me} />}

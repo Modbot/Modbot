@@ -300,7 +300,7 @@ public sealed class UserPurger : IUserPurger
             // still held keeps only that role, with no month and day, as when a member takes their
             // birthday off: the next birthday pass takes the role back and deletes the row, which it
             // could not do for a row that is already gone.
-            var whoseBirthday = platform == FactPlatform.Discord
+            var theirDiscordAccount = platform == FactPlatform.Discord
                 ? "discord_user_id = @subject"
                 : """
                   discord_user_id IN (
@@ -309,12 +309,20 @@ public sealed class UserPurger : IUserPurger
                   """;
 
             await ExecuteAsync(
-                $"UPDATE member_birthday SET month = 0, day = 0 WHERE role_given_id IS NOT NULL AND {whoseBirthday}",
+                $"UPDATE member_birthday SET month = 0, day = 0 WHERE role_given_id IS NOT NULL AND {theirDiscordAccount}",
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
             await ExecuteAsync(
-                $"DELETE FROM member_birthday WHERE role_given_id IS NULL AND {whoseBirthday}",
+                $"DELETE FROM member_birthday WHERE role_given_id IS NULL AND {theirDiscordAccount}",
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
+            // Their picks on votes name their Discord account (for a VRChat account, the one linked to
+            // it now). The vote itself and the counts stay; the person's pick goes, so their count
+            // falls by one the next time the page or the message is rewritten.
+            await ExecuteAsync(
+                $"DELETE FROM vote_pick WHERE {theirDiscordAccount}",
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 

@@ -110,6 +110,9 @@ export const NAV = [
   { id: 'marketing-failed', label: 'Failed posts', needs: 'ViewPosts', hidden: true, under: 'marketing' },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
+  // Votes members answer with a button in a Discord channel, and how each one stands (batch 4).
+  // After Giveaways; it needs See posts like Marketing. No `g` letter.
+  { id: 'votes', label: 'Votes', group: 'Community', needs: 'ViewPosts', words: ['poll', 'vote', 'question'] },
   // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
   // design). After Giveaways, whose rules they are. Needs See members and See profiles both: a
   // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is
@@ -238,6 +241,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'marketing-sent': '',
   'marketing-drafts': '',
   'marketing-failed': '',
+  votes: '',
   giveaways: 'p',
   lists: 'u',
   availability: 'z',
