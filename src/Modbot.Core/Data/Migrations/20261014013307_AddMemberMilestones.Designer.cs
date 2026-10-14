@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014012138_AddMemberMilestones")]
+    [Migration("20261014013307_AddMemberMilestones")]
     partial class AddMemberMilestones
     {
         /// <inheritdoc />
@@ -4803,6 +4803,43 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("giveaway_post", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GlossaryTerm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Meaning")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("meaning");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.PrimitiveCollection<string[]>("OtherNames")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("other_names");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_glossary_term");
+
+                    b.ToTable("glossary_term", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.GroupAutoInvite", b =>
                 {
                     b.Property<string>("UserId")
@@ -8383,6 +8420,45 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_saved_list");
 
                     b.ToTable("saved_list", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ServerRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1500)
+                        .HasColumnType("character varying(1500)")
+                        .HasColumnName("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_server_rule");
+
+                    b.HasIndex("Position")
+                        .HasDatabaseName("ix_server_rule_position");
+
+                    b.ToTable("server_rule", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.Settings", b =>
