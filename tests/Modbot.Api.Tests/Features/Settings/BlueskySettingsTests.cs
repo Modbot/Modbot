@@ -356,6 +356,33 @@ public class BlueskySettingsTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task PinTheNextEventIsKeptAndAudited_AndASaveThatNamesItNotLeavesItBe()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var off = await OkAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
+        Assert.False(off.GetProperty("pinNextEvent").GetBoolean());
+
+        var on = await OkAsync(await SaveAsync(host, cookie, new { pinNextEvent = true }));
+        Assert.True(on.GetProperty("pinNextEvent").GetBoolean());
+
+        var kept = await OkAsync(await SaveAsync(host, cookie, new { postTags = "#VRChat" }));
+        Assert.True(kept.GetProperty("pinNextEvent").GetBoolean());
+
+        var facts = await host.FactsAsync(FactType.SettingsChanged, "settings", Ct);
+        Assert.Contains(
+            facts.Select(ApiTestHost.DataOf),
+            d => d.GetProperty("setting").GetString() == "bluesky" && d.GetProperty("changed").TryGetProperty("blueskyPinNextEvent", out _));
+
+        var back = await OkAsync(await SaveAsync(host, cookie, new { pinNextEvent = false }));
+        Assert.False(back.GetProperty("pinNextEvent").GetBoolean());
+
+        await using var context = db.NewContext();
+        Assert.False((await context.GetSettingsAsync(Ct)).BlueskyPinNextEvent);
+    }
+
+    [Fact]
     public async Task MoreThanFiveTagsOrOneTooLongIsRefused_AndNothingIsSaved()
     {
         var (host, _, cookie) = await StartAsync();

@@ -69,8 +69,11 @@ your Modbot from the internet to sign it in, and only an `https://` address with
    **Sign-in: Bluesky**, the account and whether it is marked as automated, as **Check** does.
 
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
-making and deleting posts, and uploading the link card's picture. If Bluesky does not offer that
-yet, Modbot asks for what an app password can do instead.
+making and deleting posts, pinning a post on the account's profile, and uploading the link card's
+picture. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
+
+**A sign-in made before pinning was added cannot pin.** Click **Sign in with Bluesky** again once, so
+Bluesky asks you to allow the profile too. Posting is not affected. An app password already allows it.
 
 **One way of signing in at a time.** Signing in with Bluesky forgets a saved app password, and
 saving an app password ends the sign-in with Bluesky.
@@ -148,6 +151,21 @@ to be on Bluesky; without one there is no reply. See
 A post shows a picture only with a link card, so the event's cover picture goes only when the post
 has a link, and only when it is 1 MB or smaller.
 
+### Pin the next event
+
+Under **Settings**, **Bluesky**, the **Pin the next event** switch (shown once Check has passed) keeps
+the post of the next date pinned on the account's profile. Of the dates whose post is on Bluesky, it
+pins the one that starts first and has not ended. When that date ends it pins the next date's post, and
+when no later date has a post it takes the pin off. A pass looks at the profile at most once every 15
+minutes unless something changed, and only while **Posting** is on and **Pause all posting** is off.
+
+**A post you pinned by hand stays.** Modbot pins only while nothing is pinned or while the pinned post is
+one Modbot made. Unpin yours on Bluesky and Modbot pins the next date's post at its next look. Modbot
+changes nothing else on the profile: it writes the profile back as it read it, only if nobody saved it
+in between, with just the pinned post changed. Pinning and unpinning are recorded as
+**Post pinned** and **Post unpinned**. Turning the switch off leaves
+the pin where it is.
+
 ## Remove
 
 **Remove** asks first, then forgets the handle, the app password or the sign-in with Bluesky, and
@@ -179,6 +197,7 @@ and never sends the request again before then.
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
 | A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
+| The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 
 **Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,

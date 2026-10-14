@@ -145,8 +145,18 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
     /// at that key (Bluesky design §3.4, fact 20). Something there answers <see cref="BlueskyProblem.InvalidSwap"/>;
     /// the very same record answers as done.
     /// </summary>
-    public async Task<BlueskyResult<BlueskyRecordRef>> PutRecordAsync(
-        BlueskyAccess access, string repo, string collection, string rkey, JsonObject record, CancellationToken ct)
+    public Task<BlueskyResult<BlueskyRecordRef>> PutRecordAsync(
+        BlueskyAccess access, string repo, string collection, string rkey, JsonObject record, CancellationToken ct) =>
+        ReplaceRecordAsync(access, repo, collection, rkey, record, swapCid: null, ct);
+
+    /// <summary>
+    /// <c>putRecord</c> that replaces the record read with content id <paramref name="swapCid"/>: made
+    /// only if that is still what is at the key, so a change made meanwhile is not written over
+    /// (<see cref="BlueskyProblem.InvalidSwap"/>). A null <paramref name="swapCid"/> sends
+    /// <c>swapRecord: null</c>, which makes the record only if nothing is there. The profile pin uses it.
+    /// </summary>
+    public async Task<BlueskyResult<BlueskyRecordRef>> ReplaceRecordAsync(
+        BlueskyAccess access, string repo, string collection, string rkey, JsonObject record, string? swapCid, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(access);
 
@@ -157,7 +167,7 @@ public sealed class BlueskyClient(IHttpClientFactory http, IModbotClock clock)
             ["rkey"] = rkey,
             ["record"] = record.DeepClone(),
             // Null, sent as null: "only if nothing is at this key". Left out, it would replace.
-            ["swapRecord"] = null,
+            ["swapRecord"] = swapCid,
         };
 
         var answer = await SendAsync(HttpMethod.Post, access.Server, "com.atproto.repo.putRecord", access, () => Json(body), signingIn: false, ct).ConfigureAwait(false);

@@ -451,6 +451,8 @@ public static class AuditVisibility
         [FactType.PostFailed] = AuditCategory.Operational,
         [FactType.PostEdited] = AuditCategory.Operational,
         [FactType.PostRemoved] = AuditCategory.Operational,
+        [FactType.PostPinned] = AuditCategory.Operational,
+        [FactType.PostUnpinned] = AuditCategory.Operational,
         [FactType.PostPictureUploaded] = AuditCategory.Operational,
 
         // Twitch: the poll's own records. Live updates reach somebody with See live instances

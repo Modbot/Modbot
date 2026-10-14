@@ -179,6 +179,8 @@ public static class FactSubjects
         [FactType.PostFailed] = SubjectKind.Other,
         [FactType.PostEdited] = SubjectKind.Other,
         [FactType.PostRemoved] = SubjectKind.Other,
+        [FactType.PostPinned] = SubjectKind.Other,
+        [FactType.PostUnpinned] = SubjectKind.Other,
         [FactType.PostPictureUploaded] = SubjectKind.Other,
 
         // The subject is the Twitch stream's id: the channel's own, public, about nobody.

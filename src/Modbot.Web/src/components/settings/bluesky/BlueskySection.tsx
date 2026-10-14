@@ -45,6 +45,7 @@ export function BlueskySection() {
         <>
           <AccountCard settings={data} onSaved={setData} />
           {(data.canPost || data.posting) && <PostingCard settings={data} onSaved={setData} />}
+          {(data.canPost || data.posting) && <PinCard settings={data} onSaved={setData} />}
           <TagsCard settings={data} onSaved={setData} />
         </>
       )}
@@ -252,6 +253,31 @@ function PostingCard({ settings, onSaved }: { settings: BlueskySettings; onSaved
     <SettingsCard title="Posting" footer={<Outcome tone="problem">{problem}</Outcome>}>
       <Switch checked={settings.posting} disabled={busy || (!settings.posting && !settings.canPost)} onChange={setPosting}>
         Posting
+      </Switch>
+    </SettingsCard>
+  )
+}
+
+/** Pin the next event: Modbot keeps the next calendar date's post pinned on the account's profile. */
+function PinCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (next: BlueskySettings) => void }) {
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const setPin = (pinNextEvent: boolean) => {
+    setBusy(true)
+    setProblem(null)
+
+    api
+      .setBlueskySettings({ pinNextEvent })
+      .then(onSaved)
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard title="Profile" footer={<Outcome tone="problem">{problem}</Outcome>}>
+      <Switch checked={settings.pinNextEvent} disabled={busy} onChange={setPin}>
+        Pin the next event
       </Switch>
     </SettingsCard>
   )

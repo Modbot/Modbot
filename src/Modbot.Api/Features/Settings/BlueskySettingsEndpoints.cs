@@ -26,6 +26,7 @@ namespace Modbot.Api.Features.Settings;
 /// </param>
 /// <param name="SignedInWithBluesky">The account was signed in with Bluesky's own sign-in page, not an app password.</param>
 /// <param name="PostTags">The tags every calendar post ends with after its categories' tags: <c>#VRChat #Karaoke</c>. Empty for none.</param>
+/// <param name="PinNextEvent">Modbot keeps the next calendar date's post pinned on the account's profile.</param>
 public sealed record BlueskySettingsView(
     string? Handle,
     bool AppPasswordStored,
@@ -36,7 +37,8 @@ public sealed record BlueskySettingsView(
     DateTimeOffset? SignInAfter,
     bool SignInWithBluesky = false,
     bool SignedInWithBluesky = false,
-    string PostTags = "");
+    string PostTags = "",
+    bool PinNextEvent = false);
 
 /// <param name="Handle">The handle to sign in as, with or without the <c>@</c>. Null or empty uses the stored one.</param>
 public sealed record BlueskySignInRequest(string? Handle = null);
@@ -58,7 +60,9 @@ public sealed record BlueskyCheckView(DateTimeOffset At, string? Handle, string?
 /// empty keeps the stored one. Anything else is refused with "Use an app password.".
 /// </param>
 /// <param name="Posting">Turn posting to Bluesky on or off. Null keeps it. On needs a Check that passed.</param>
-public sealed record BlueskySettingsUpdate(string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null);
+/// <param name="PinNextEvent">Turn pinning the next calendar date's post on the profile on or off. Null keeps it.</param>
+public sealed record BlueskySettingsUpdate(
+    string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null, bool? PinNextEvent = null);
 
 /// <summary>
 /// Settings → Bluesky (Bluesky design §3.1, posts design §4.2c): the handle, the app password, Check,
@@ -164,12 +168,14 @@ public static class BlueskySettingsEndpoints
                 var postingAfter = body.Posting ?? postingBefore;
                 var tagsBefore = settings.BlueskyPostTags ?? string.Empty;
                 var tagsChanged = postTags is not null && postTags != tagsBefore;
+                var pinBefore = settings.BlueskyPinNextEvent;
+                var pinAfter = body.PinNextEvent ?? pinBefore;
 
                 // Posting goes on only over a Check that passed for this very handle and app password.
                 if (postingAfter && !postingBefore && (handleChanged || passwordChanged || !PostSites.BlueskyReady(settings)))
                     return Results.BadRequest(new { error = CheckFirst });
 
-                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore)
+                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore && pinAfter == pinBefore)
                     return Results.Ok(View(settings, clock.UtcNow));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -184,6 +190,10 @@ public static class BlueskySettingsEndpoints
                     settings.BlueskyServer = null;
                     settings.BlueskySessionEncrypted = null;
                     settings.BlueskyOAuthSignedIn = false;
+
+                    // The pin was on the old account's profile.
+                    settings.BlueskyPinnedUri = null;
+                    settings.BlueskyPinCheckedAt = null;
                 }
 
                 if (passwordChanged)
@@ -208,12 +218,21 @@ public static class BlueskySettingsEndpoints
                 if (tagsChanged)
                     settings.BlueskyPostTags = postTags!.Length == 0 ? null : postTags;
 
+                if (pinAfter != pinBefore)
+                {
+                    settings.BlueskyPinNextEvent = pinAfter;
+
+                    // Turned on, the profile is looked at on the next pass.
+                    settings.BlueskyPinCheckedAt = null;
+                }
+
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", handleBefore, settings.BlueskyHandle)
                     .Secret("blueskyAppPassword", passwordChanged)
                     .Field("blueskySignedInWithBluesky", oauthBefore, settings.BlueskyOAuthSignedIn)
                     .Field("blueskyPosting", postingBefore, postingAfter)
-                    .Field("blueskyPostTags", tagsBefore, settings.BlueskyPostTags ?? string.Empty);
+                    .Field("blueskyPostTags", tagsBefore, settings.BlueskyPostTags ?? string.Empty)
+                    .Field("blueskyPinNextEvent", pinBefore, pinAfter);
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
@@ -225,7 +244,7 @@ public static class BlueskySettingsEndpoints
             .WithSummary("Update Bluesky settings")
             .WithDescription(
                 "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, "
-                + "at most 5, each at most 64 characters; empty clears them), or any of them. Only an app password is "
+                + "at most 5, each at most 64 characters; empty clears them), PinNextEvent (keep the next calendar date's post pinned on the profile), or any of them. Only an app password is "
                 + "taken (four groups of four letters or digits, made in Bluesky's settings); anything "
                 + "else is refused with \"Use an app password.\". It is kept encrypted and never returned. "
                 + "Saving the handle or the app password clears what the last Check found, and posts wait "
@@ -497,6 +516,7 @@ public static class BlueskySettingsEndpoints
             signInAfter,
             BlueskyOAuth.Offered(settings.PublicAddress),
             settings.BlueskyOAuthSignedIn,
-            settings.BlueskyPostTags ?? string.Empty);
+            settings.BlueskyPostTags ?? string.Empty,
+            settings.BlueskyPinNextEvent);
     }
 }

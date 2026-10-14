@@ -136,6 +136,7 @@ public static class ApiSurface
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyPlanner>();
         services.TryAddScoped<Features.Calendar.CalendarBlueskyFirstJoin>();
+        services.TryAddScoped<Features.Calendar.CalendarBlueskyPin>();
         services.TryAddScoped<Core.Posts.IBlueskyPostActions, Core.Bluesky.BlueskyPostActions>();
 
         // Keep updated (posts design §8): the pass is scoped, the window it keeps is one for the

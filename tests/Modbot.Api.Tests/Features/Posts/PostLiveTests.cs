@@ -19,7 +19,7 @@ public class PostLiveTests
         foreach (var type in new[]
         {
             FactType.PostCreated, FactType.PostChanged, FactType.PostCancelled, FactType.PostSent,
-            FactType.PostFailed, FactType.PostEdited, FactType.PostRemoved,
+            FactType.PostFailed, FactType.PostEdited, FactType.PostRemoved, FactType.PostPinned, FactType.PostUnpinned,
         })
         {
             Assert.True(scope.CanSee(LiveKinds.Fact, type), type);

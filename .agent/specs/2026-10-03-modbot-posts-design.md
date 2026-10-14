@@ -342,8 +342,10 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   `/settings?bluesky=<word>#bluesky`. One way of signing in at a time: saving an app password, or
   another handle, ends a sign-in with Bluesky.
   - **Scopes**: `atproto repo:app.bsky.feed.post?action=create&action=update&action=delete
-    blob:image/*` (`putRecord` needs both create and update in the reference server; the card
-    picture is an image blob). A sign-in server that answers `invalid_scope` is asked once more with
+    repo:app.bsky.actor.profile?action=create&action=update blob:image/*` (`putRecord` needs both
+    create and update in the reference server; the card picture is an image blob; the profile pair is
+    for Pin the next event, added 2026-10-14: a sign-in made before that lacks it and the pin fails
+    with Bluesky's refusal until Sign in with Bluesky is done again). A sign-in server that answers `invalid_scope` is asked once more with
     `atproto transition:generic`. The client document lists both. **Whether bsky.social takes the
     narrow scopes is unchecked.**
   - **DPoP**: every call with a sign-in-with-Bluesky token goes as `Authorization: DPoP` with a
@@ -602,6 +604,22 @@ uploads, removing the Bluesky account.
     waiting or checking makes the pass wait); a refused reply's error is copied to the opening.
     Text: "We're live in <world>." and a link, the instance's join link when Who can join is
     Anyone, else the group page. Nothing is made while Posting is off or posting is paused.
+  - **Added 2026-10-14, Pin the next event:** `settings.bluesky_pin_next_event` (Settings → Bluesky,
+    audited). `CalendarBlueskyPin` runs in the Bluesky loop after the sender. Target: of the
+    Posted event-date posts on the account (date started within 7 days) the one with the earliest
+    date that has not ended (the date as `CalendarRepeat.StartingAt` has it, so a moved date counts
+    by its new end; deleted or not-live events and posts without a content id are skipped), or none.
+    Target equal to `bluesky_pinned_uri` asks Bluesky nothing; after a look that changed nothing or
+    failed, `bluesky_pin_checked_at` holds the next look off for 15 minutes (the placeholder for a
+    rate limit nobody measured for `getRecord`/`putRecord` on the profile; NOT MEASURED).
+    Otherwise the profile record is read; a pinned post that is not one Modbot recorded
+    (`post_destination.external_id`) or `bluesky_pinned_uri` is a hand pin and is left alone (user
+    answer A). Else the record is written back whole with only `pinnedPost` changed (`strongRef`
+    uri and cid, or removed), `putRecord` with `swapRecord` set to the cid read, so a profile saved
+    meanwhile answers `InvalidSwap` and is read again later. 429 stops the lane (`StopAsync`), an
+    ended token is expired once. Facts `modbot.post.pin` and `modbot.post.unpin` (operational,
+    subject the post). Turning the switch off leaves the pin; changing the account forgets the
+    pinned address.
 - **Live posts (2026-10-13)**: a "We're live" VRChat group post for a group instance, made by
   `LivePostPass` (a pass every 30 seconds, `LivePostService`) once the group instance poll counts
   somebody in it. Kind `instance_live`, `external_key` the instance's id, so the unique index above

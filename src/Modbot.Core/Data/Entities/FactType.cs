@@ -919,6 +919,19 @@ public static class FactType
     public const string PostRemoved = "modbot.post.remove";
 
     /// <summary>
+    /// Modbot pinned a post on the group's Bluesky profile (Pin the next event). No actor. The subject is
+    /// the post. Payload: title, network, link, external id.
+    /// </summary>
+    public const string PostPinned = "modbot.post.pin";
+
+    /// <summary>
+    /// Modbot took its pinned post off the group's Bluesky profile: the date ended and no later one has
+    /// a post, or the next date's post took its place (then <c>PostPinned</c> follows). No actor.
+    /// Payload: title, network, link, external id, reason.
+    /// </summary>
+    public const string PostUnpinned = "modbot.post.unpin";
+
+    /// <summary>
     /// A post's picture was uploaded to VRChat, on the account Modbot signs in as, for a VRChat group
     /// post (posts design §3.6). The subject is the picture Modbot keeps, not a post: one may not be
     /// saved yet. Payload: the VRChat file id, the size and the type.

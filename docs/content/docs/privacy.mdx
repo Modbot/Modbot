@@ -287,6 +287,10 @@ wherever you choose to store them. These pages describe what is kept and how it 
   reply under the date's post when the first person is in the instance: "We're live in" the world's
   name and a link to join the instance (when anyone may join) or to the group's page on vrchat.com,
   with the address and content id of the post it answers. No member name, id or head count is in it.
+  With **Pin the next event** on, Modbot also reads the account's profile record on Bluesky (its name,
+  description, pictures and pinned post) and writes it back with only the pinned post changed: the next
+  date's post (its address and content id), or none when no date has a post. A post someone pinned by
+  hand is left alone. The profile is public.
   With **Sign in with Bluesky** (only when your Modbot has a public `https://` address), there is no
   app password: Modbot finds the account the same way, then asks the sign-in server the account's own
   server names for a sign-in, with the handle and Modbot's public address, and sends you to Bluesky's

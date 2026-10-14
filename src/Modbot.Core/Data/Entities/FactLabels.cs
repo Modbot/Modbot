@@ -246,6 +246,8 @@ public static class FactLabels
         [FactType.PostFailed] = "Post failed",
         [FactType.PostEdited] = "Post edited",
         [FactType.PostRemoved] = "Post deleted",
+        [FactType.PostPinned] = "Post pinned",
+        [FactType.PostUnpinned] = "Post unpinned",
         [FactType.PostPictureUploaded] = "Post picture uploaded to VRChat",
         [FactType.TwitchOnline] = "Went live on Twitch",
         [FactType.TwitchUpdated] = "Twitch stream changed",

@@ -1867,6 +1867,18 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.post.pin': (p) => (
+    <>
+      The post<Quoted value={p.text('title')} /> was pinned on {siteName(p.text('network'))}.
+    </>
+  ),
+
+  'modbot.post.unpin': (p) => (
+    <>
+      The post<Quoted value={p.text('title')} /> was unpinned on {siteName(p.text('network'))}.
+    </>
+  ),
+
   'modbot.post.picture.upload': (p) => <>{p.actor} uploaded a post picture to VRChat.</>,
 
   // ── Twitch (Twitch design) ──────────────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ public class BlueskyOAuthTests
         var scopes = document["scope"]!.GetValue<string>().Split(' ');
         Assert.Contains("atproto", scopes);
         Assert.Contains("repo:app.bsky.feed.post?action=create&action=update&action=delete", scopes);
+        Assert.Contains("repo:app.bsky.actor.profile?action=create&action=update", scopes);
         Assert.Contains("blob:image/*", scopes);
         Assert.Contains("transition:generic", scopes);
 

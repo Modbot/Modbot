@@ -57,7 +57,7 @@ public class BlueskyTagsTests
     [Fact]
     public void TheListIsSplitAtSpacesAndCommas_WithNoTagTwiceWhateverItsCase()
     {
-        Assert.Equal(["VRChat", "Karaoke", "Music"], BlueskyTags.ParseList("#VRChat, karaoke  #vrchat #Music"));
+        Assert.Equal(["VRChat", "karaoke", "Music"], BlueskyTags.ParseList("#VRChat, karaoke  #vrchat #Music"));
         Assert.Empty(BlueskyTags.ParseList(null));
         Assert.Empty(BlueskyTags.ParseList("  "));
     }

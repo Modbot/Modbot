@@ -97,6 +97,24 @@ public sealed class FakeBluesky : HttpMessageHandler
 
     public int Puts { get; private set; }
 
+    /// <summary>The post pinned on the profile (a <c>strongRef</c>), or null for none. A put to the profile sets it.</summary>
+    public JsonObject? PinnedPost { get; set; }
+
+    /// <summary>The profile's content id now: a put to the profile has to name it (<c>swapRecord</c>) and moves it on.</summary>
+    public string ProfileCid { get; private set; } = "bafy-profile";
+
+    /// <summary>The last record put to the profile, as sent.</summary>
+    public JsonObject? LastProfilePut { get; private set; }
+
+    /// <summary>How many puts to the profile were made.</summary>
+    public int ProfilePuts { get; private set; }
+
+    /// <summary>Somebody saves the profile right after the next read of it: the content id read is no longer the current one. Once.</summary>
+    public bool ProfileChangesAfterNextRead { get; set; }
+
+    /// <summary>A put to the profile is refused with this status (a sign-in without the profile right), while set.</summary>
+    public HttpStatusCode? ProfilePutStatus { get; set; }
+
     // --- Sign-in with Bluesky (OAuth) ---
 
     /// <summary>The nonce the sign-in server wants in DPoP proofs now. Changing it makes the next proof stale.</summary>
@@ -293,11 +311,14 @@ public sealed class FakeBluesky : HttpMessageHandler
         if (Authorised(bearer) is { } refused)
             return refused;
 
-        Puts++;
-
         var sent = JsonNode.Parse(body ?? "{}") as JsonObject ?? new JsonObject();
         var key = sent["rkey"]?.GetValue<string>() ?? string.Empty;
         var record = sent["record"] as JsonObject ?? new JsonObject();
+
+        if (sent["collection"]?.GetValue<string>() == "app.bsky.actor.profile")
+            return PutProfile(sent, record);
+
+        Puts++;
 
         if (PutAnswer?.Invoke(key, record) is { } scripted)
             return scripted;
@@ -325,6 +346,23 @@ public sealed class FakeBluesky : HttpMessageHandler
         return Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.feed.post/{key}", ["cid"] = $"bafy-{key}" });
     }
 
+    private HttpResponseMessage PutProfile(JsonObject sent, JsonObject record)
+    {
+        if (ProfilePutStatus is { } status)
+            return Json(status, Error("Forbidden", "Missing the profile scope"));
+
+        // Replaces the profile only if it is still the one the caller read.
+        if (sent["swapRecord"]?.GetValue<string>() != ProfileCid)
+            return Json(HttpStatusCode.BadRequest, Error("InvalidSwap", "Record was at " + ProfileCid));
+
+        ProfilePuts++;
+        LastProfilePut = (JsonObject)record.DeepClone();
+        PinnedPost = record["pinnedPost"] is JsonObject pinned ? (JsonObject)pinned.DeepClone() : null;
+        ProfileCid = "bafy-profile-" + ProfilePuts;
+
+        return Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.actor.profile/self", ["cid"] = ProfileCid });
+    }
+
     private HttpResponseMessage GetRecord(Uri uri)
     {
         var collection = Query(uri, "collection");
@@ -336,7 +374,18 @@ public sealed class FakeBluesky : HttpMessageHandler
             if (Automated)
                 value["labels"] = new JsonObject { ["$type"] = "com.atproto.label.defs#selfLabels", ["values"] = new JsonArray(new JsonObject { ["val"] = "bot" }) };
 
-            return Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.actor.profile/self", ["cid"] = "bafy-profile", ["value"] = value });
+            if (PinnedPost is not null)
+                value["pinnedPost"] = PinnedPost.DeepClone();
+
+            var answer = Json(HttpStatusCode.OK, new JsonObject { ["uri"] = $"at://{Did}/app.bsky.actor.profile/self", ["cid"] = ProfileCid, ["value"] = value });
+
+            if (ProfileChangesAfterNextRead)
+            {
+                ProfileChangesAfterNextRead = false;
+                ProfileCid += "-saved-by-a-person";
+            }
+
+            return answer;
         }
 
         if (GetAnswer?.Invoke(key) is { } scripted)
