@@ -42,6 +42,7 @@ public static class DiscordInvite
 
         if (!string.IsNullOrWhiteSpace(settings.DiscordLinkedRoleId)
             || !string.IsNullOrWhiteSpace(settings.DiscordEighteenPlusRoleId)
+            || !string.IsNullOrWhiteSpace(settings.MilestoneRegularRoleId)
             || settings.DiscordRoleSyncOn)
         {
             permissions |= ManageRoles;

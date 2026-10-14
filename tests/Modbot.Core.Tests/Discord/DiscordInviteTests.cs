@@ -50,6 +50,22 @@ public class DiscordInviteTests
     }
 
     [Fact]
+    public void ARegularRoleIsSet_ManageRolesIsAskedFor()
+    {
+        var settings = new Settings { MilestoneRegularRoleId = "100" };
+
+        Assert.Equal(DiscordInvite.ManageRoles, DiscordInvite.PermissionsFor(settings) & DiscordInvite.ManageRoles);
+    }
+
+    [Fact]
+    public void NoRegularRole_ManageRolesIsNotAskedFor()
+    {
+        var settings = new Settings { MilestoneRegularRoleId = null };
+
+        Assert.Equal(0, DiscordInvite.PermissionsFor(settings) & DiscordInvite.ManageRoles);
+    }
+
+    [Fact]
     public void CreatePublicThreads_IsDiscordsBitThirtyFive()
         => Assert.Equal(1L << 35, DiscordInvite.CreatePublicThreads);
 
