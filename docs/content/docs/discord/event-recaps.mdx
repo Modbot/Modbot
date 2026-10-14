@@ -1,0 +1,64 @@
+---
+title: Event recaps
+description: Post a recap in a Discord channel when an event's instance has closed, with who came, the most people there at once, a photo thread and the next date.
+---
+
+When the instance Modbot opened for a [calendar](/moderation/calendar) event has closed, Modbot posts a recap
+in a channel you pick. Each date of an event that repeats gets its own recap.
+
+## Turn it on
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+Open **Settings → Discord** and find the **Event recaps** card.
+
+| Setting | What it does |
+|---|---|
+| **On** | Posts a recap for each event instance that closes. Off to start. |
+| **Recap channel** | Where the recap goes. |
+
+Press **Save event recaps**. Turning it on never posts for an instance that closed before: only instances that
+close after you turned it on get a recap.
+
+## The permissions the bot needs
+
+In the recap channel the bot needs **View Channels**, **Send Messages**, **Embed Links**, **Read Message History**
+and **Create Public Threads**. Without **Create Public Threads** the recap still goes up, but with no photo
+thread, and the card says so. The **Bot invite link** in
+[Setting up the bot](/discord/bot-setup#permissions-the-bot-needs) asks for **Create Public Threads** once event
+recaps are on; open the link again after you turn them on to give the bot the new permission.
+
+## The recap
+
+One post in the channel, as a card with the event's title:
+
+| Part | What it shows |
+|---|---|
+| **Came** | How many people were seen at the instance, with their names below, as VRChat shows them. |
+| **Most at once** | The most people in the instance at one time. |
+| **Next date** | When the event happens next, as a Discord time, so everyone sees their own time zone. Left out when the event does not repeat again, or is cancelled. |
+| **Photo thread** | A public thread started on the post, named after the event and the date, for people to share their pictures. |
+
+- A long list of names is cut short and ends with how many more came.
+- The names are text on a card, so nobody is pinged.
+- A date nobody was seen at, with no head count, gets no recap.
+
+## When it posts
+
+Modbot posts the recap when the group's instance list no longer shows the instance. If it never sees the
+instance close, it posts 12 hours after the date was due to end.
+
+A date gets one recap, however often Modbot restarts. If Discord asks the bot to wait, Modbot tries again a
+short while later. If Discord refuses the post, Modbot does not send it again, and the card shows what went wrong.
+
+## Who it counts
+
+Turnout counts only the people in instances where a moderator's Modbot app was present. Somebody who was in the
+instance while no moderator's Modbot was there is not counted, so the numbers can be lower than the real turnout.
+
+## What Modbot keeps
+
+For each date, the time its recap was posted, so it is not posted twice. The people and the head count come from
+what Modbot already keeps about the instance. Nothing about recaps is sent to Modbot Cloud. What leaves your server
+is the post and its thread in your channel, through Discord.
