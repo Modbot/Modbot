@@ -25,11 +25,18 @@ namespace Modbot.Api.Features.Places;
 /// while a moderator's companion is in the instance.
 /// </para>
 /// <para>
-/// The world and instance filters are written into the statement rather than passed as optional
-/// parameters, because they are part of the key the sessions are grouped by and narrowing on them
-/// cannot change any session's shape. The person filter is applied at the end instead: narrowing
+/// The world filter is written into the statement rather than passed as an optional parameter,
+/// because it is part of the key the sessions are grouped by and narrowing on it cannot change any
+/// session's shape. The person filter is applied at the end instead: narrowing
 /// to one person first would make "the last report from that instance" mean "the last report about
 /// that person", and every session they were not seen to leave would close early.
+/// </para>
+/// <para>
+/// <strong>The instance reads do not use that statement.</strong> They work from the reports
+/// themselves (<see cref="CompanionGaps"/>), so that when the moderator reporting an instance crashed
+/// and came back, the people missing from their new roster count as having left when the gap began.
+/// The world, person and visit figures still use the statement, so in an instance a client crashed in,
+/// the instance's figures and its world's can differ.
 /// </para>
 /// </remarks>
 public sealed class PresenceCounts(ModbotContext db)
@@ -37,7 +44,7 @@ public sealed class PresenceCounts(ModbotContext db)
     private readonly AnalyticsSql _sql = new(db);
 
     /// <summary>
-    /// Sessions, from the presence reports, narrowed to a world or an instance where asked.
+    /// Sessions, from the presence reports, narrowed to a world where asked.
     /// </summary>
     /// <remarks>
     /// The window bounds are always real instants — all of recorded history is expressed as the
@@ -48,7 +55,7 @@ public sealed class PresenceCounts(ModbotContext db)
     /// change none of that person's sessions, and "the last report from that instance" still counts
     /// everybody's reports there, so this narrows the read without changing any answer about them.
     /// </param>
-    private static string Sessions(bool byWorld, bool byInstance, bool bySubjectsInstances = false) => $"""
+    private static string Sessions(bool byWorld, bool bySubjectsInstances = false) => $"""
         WITH p AS (
             SELECT e.world_id, e.instance_id, e.subject_id, e.occurred_at, e.id,
                    CASE WHEN e.type = @leave THEN 0 ELSE 1 END AS here
@@ -57,7 +64,6 @@ public sealed class PresenceCounts(ModbotContext db)
               AND e.occurred_at >= @from AND e.occurred_at < @to
               AND e.world_id IS NOT NULL AND e.instance_id IS NOT NULL
               {(byWorld ? "AND e.world_id = @world" : "")}
-              {(byInstance ? "AND e.instance_id = @instance" : "")}
               {(bySubjectsInstances ? SubjectsInstances : "")}
         ),
         changes AS (
@@ -203,7 +209,7 @@ public sealed class PresenceCounts(ModbotContext db)
         CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byInstance: false)}
+            {Sessions(byWorld: false)}
             SELECT world_id,
                    (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(DISTINCT subject_id)::int AS visitors,
@@ -226,7 +232,7 @@ public sealed class PresenceCounts(ModbotContext db)
     /// <summary>Everything recorded about one world, over all of recorded history.</summary>
     public async Task<PlaceCounts> ForWorldAsync(string worldId, CancellationToken ct)
     {
-        var sql = $"{Sessions(byWorld: true, byInstance: false)}\n{Totals}";
+        var sql = $"{Sessions(byWorld: true)}\n{Totals}";
 
         var rows = await _sql.ReadAsync(
             sql, r => ReadCounts(r, 0), ct, [.. Everything(), ("world", worldId)]);
@@ -245,61 +251,86 @@ public sealed class PresenceCounts(ModbotContext db)
     /// </remarks>
     public async Task<PlaceCounts> ForInstanceAsync(InstanceLife instance, CancellationToken ct)
     {
-        var sql = $"{Sessions(byWorld: true, byInstance: true)}\n{Totals}";
-        var rows = await _sql.ReadAsync(sql, r => ReadCounts(r, 0), ct, InstanceParameters(instance));
+        var stays = await StaysInInstanceAsync(instance, ct);
+        if (stays.Count == 0)
+            return PlaceCounts.Nothing;
 
-        return rows.Count > 0 ? rows[0] : PlaceCounts.Nothing;
+        return new PlaceCounts(
+            MinutesOf(stays),
+            stays.Select(s => s.UserId).Distinct(StringComparer.Ordinal).Count(),
+            stays.Count,
+            stays.Max(s => s.Ended));
     }
 
     /// <summary>Who was seen in one instance, longest first.</summary>
     public async Task<IReadOnlyList<PersonSeen>> PeopleInInstanceAsync(InstanceLife instance, CancellationToken ct)
-    {
-        var sql = $"""
-            {Sessions(byWorld: true, byInstance: true)}
-            SELECT subject_id,
-                   (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
-                   COUNT(*)::int AS arrivals,
-                   MIN(started) AS first_seen_at,
-                   MAX(ended) AS last_seen_at
-            FROM sessions
-            WHERE change = 1
-            GROUP BY subject_id
-            ORDER BY minutes DESC, subject_id
-            """;
-
-        return await _sql.ReadAsync(
-            sql,
-            r => new PersonSeen(
-                r.GetString(0),
+        => (await StaysInInstanceAsync(instance, ct))
+            .GroupBy(s => s.UserId, StringComparer.Ordinal)
+            .Select(g => new PersonSeen(
+                g.Key,
                 null,
-                Math.Round(r.GetDecimal(1), 1),
-                r.GetInt32(2),
-                AnalyticsSql.InstantOf(r, 3),
-                AnalyticsSql.InstantOf(r, 4)),
-            ct,
-            InstanceParameters(instance));
-    }
+                MinutesOf(g),
+                g.Count(),
+                g.Min(s => s.Started),
+                g.Max(s => s.Ended)))
+            .OrderByDescending(p => p.MinutesSeen)
+            .ThenBy(p => p.UserId, StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>
     /// Every session in one instance -- who, from when, until when -- oldest first, for counting who
     /// was present at each moment (<see cref="PeoplePresentSeries"/>).
     /// </summary>
     public async Task<IReadOnlyList<PresenceSession>> SessionsInInstanceAsync(InstanceLife instance, CancellationToken ct)
+        => (await StaysInInstanceAsync(instance, ct))
+            .Select(s => new PresenceSession(s.UserId, s.Started, s.Ended))
+            .ToList();
+
+    /// <summary>
+    /// Every stay in one instance -- who, from when, until when, and whether their arrival and leave
+    /// were seen -- oldest first, with the stretches a moderator's client was gone mended
+    /// (<see cref="CompanionGaps"/>).
+    /// </summary>
+    /// <remarks>
+    /// The one place the instance reads get their sessions from. The SQL above cannot tell a
+    /// moderator's client that crashed from one that is simply quiet, so the instance reads work from
+    /// the reports themselves. The world and person figures still use <see cref="Sessions"/>; in an
+    /// instance a client crashed in, the instance's figures and its world's can therefore differ.
+    /// </remarks>
+    public async Task<IReadOnlyList<PresenceStay>> StaysInInstanceAsync(InstanceLife instance, CancellationToken ct)
     {
-        var sql = $"""
-            {Sessions(byWorld: true, byInstance: true)}
-            SELECT subject_id, started, ended
-            FROM sessions
-            WHERE change = 1
-            ORDER BY started, ended, subject_id
+        const string Sql = """
+            SELECT e.id, e.type, e.subject_id, e.occurred_at, e.data->>'deviceId'
+            FROM modbot_event e
+            WHERE e.type = ANY(@types)
+              AND e.occurred_at >= @from AND e.occurred_at < @to
+              AND e.world_id = @world AND e.instance_id = @instance
+            ORDER BY e.occurred_at, e.id
             """;
 
-        return await _sql.ReadAsync(
-            sql,
-            r => new PresenceSession(r.GetString(0), AnalyticsSql.InstantOf(r, 1), AnalyticsSql.InstantOf(r, 2)),
+        var reports = await _sql.ReadAsync(
+            Sql,
+            r => new PresenceReport(
+                r.GetInt64(0),
+                r.GetString(1),
+                r.IsDBNull(2) ? null : r.GetString(2),
+                AnalyticsSql.InstantOf(r, 3),
+                r.IsDBNull(4) ? null : r.GetString(4)),
             ct,
-            InstanceParameters(instance));
+            ("types", (string[])[.. AnalyticsSql.PresenceTypes, FactType.InstanceLogStopped]),
+            // Inclusive of the moment the instance opened and of the moment it was last known to exist:
+            // a presence report stamped on either boundary belongs to this instance.
+            ("from", instance.OpenedAt),
+            ("to", instance.EndsAt.AddSeconds(1)),
+            ("world", instance.WorldId),
+            ("instance", instance.Number));
+
+        return CompanionGaps.Stays(reports);
     }
+
+    /// <summary>Minutes of people-time in some stays, to a tenth.</summary>
+    private static decimal MinutesOf(IEnumerable<PresenceStay> stays)
+        => Math.Round(stays.Sum(s => (decimal)(s.Ended - s.Started).Ticks) / TimeSpan.TicksPerSecond / 60m, 1);
 
     /// <summary>
     /// One person's own figures, over all of recorded history: time seen, where, and how often.
@@ -307,7 +338,7 @@ public sealed class PresenceCounts(ModbotContext db)
     public async Task<PersonCounts> ForPersonAsync(string userId, CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byInstance: false, bySubjectsInstances: true)}
+            {Sessions(byWorld: false, bySubjectsInstances: true)}
             SELECT (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(DISTINCT world_id)::int AS worlds,
                    COUNT(DISTINCT (world_id, instance_id))::int AS instances,
@@ -423,14 +454,6 @@ public sealed class PresenceCounts(ModbotContext db)
         ("to", to),
     ];
 
-    private static (string Name, object? Value)[] InstanceParameters(InstanceLife instance) =>
-    [
-        // Inclusive of the moment the instance opened and of the moment it was last known to exist:
-        // a presence report stamped on either boundary belongs to this instance.
-        .. Window(instance.OpenedAt, instance.EndsAt.AddSeconds(1)),
-        ("world", instance.WorldId),
-        ("instance", instance.Number),
-    ];
 }
 
 /// <summary>
