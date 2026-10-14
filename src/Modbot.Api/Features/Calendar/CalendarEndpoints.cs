@@ -55,6 +55,9 @@ public static class CalendarEndpoints
     /// <summary>The most covers one call lists as needing a Bluesky copy.</summary>
     public const int MaxCoversNeedingBlueskyCopy = 20;
 
+    /// <summary>The most ids of that call's <c>skip</c> that are read; the rest are ignored.</summary>
+    public const int MaxSkippedCoversNeedingBlueskyCopy = 100;
+
     /// <summary>
     /// The refusal for a part of the event form (the picture helpers, the world and staff pickers, the
     /// Discord channel and role lists) asked by someone with neither Manage calendar nor Manage templates,
@@ -1015,7 +1018,7 @@ public static class CalendarEndpoints
 
                 // Covers the browser has already tried this visit are left out, so one it cannot
                 // convert does not hold the front of the list.
-                var tried = skip ?? [];
+                var tried = (skip ?? []).Take(MaxSkippedCoversNeedingBlueskyCopy).ToArray();
 
                 // A small JPEG goes to Bluesky as itself, so only the others need a copy.
                 var ids = await db.CalendarCoverPictures.AsNoTracking()
@@ -1036,7 +1039,7 @@ public static class CalendarEndpoints
             .WithDescription(
                 "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that "
                 + "Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, "
-                + "newest first, leaving out the ids in skip. Needs Manage calendar or Manage templates. "
+                + "newest first, leaving out the first 100 ids in skip. Needs Manage calendar or Manage templates. "
                 + "Changes nothing.")
             .Produces<CalendarCoversNeedingCopyView>()
             .Produces(StatusCodes.Status403Forbidden);

@@ -12,47 +12,52 @@ export interface CoverCopyParts {
   stopped: () => boolean
 }
 
+/** Asks per visit; the server lists 20 each, so this is at most 100 covers. */
+export const COVER_COPY_ROUNDS = 5
+
+/** The most failed ids sent as `skip`, the server's `MaxSkippedCoversNeedingBlueskyCopy`. */
+export const COVER_COPY_MAX_SKIP = 100
+
 /**
- * The covers tried since the page was opened, kept or not. A cover that failed is left out of the next
- * asks, so one the browser cannot convert does not sit at the front of the list and hide the rest; a
- * reload tries it again.
+ * The covers that failed since the page was opened. They are left out of the next asks, so one the
+ * browser cannot convert does not sit at the front of the list and hide the rest; a reload tries them
+ * again. A kept cover is not here: the server stops listing it.
  */
-const tried = new Set<string>()
+const failed = new Set<string>()
 
 /**
  * Covers chosen before the Bluesky copy existed have none, and a cover over 1 MB then posts with only
  * the link card. This makes the missing copies one at a time, in the browser, with the same code a new
  * cover uses. Silent: a cover that fails is skipped and tried again after a reload. Asks again after
- * each batch (the server lists 20 at most) until nothing is left. Answers with how many copies were
- * kept. `already` holds the ids to leave out; the page's own set is the default.
+ * each batch of 20, at most `COVER_COPY_ROUNDS` times, so a visit does a bounded amount of work.
+ * Answers with how many copies were kept. `skipped` holds the failed ids; the page's own set is the
+ * default.
  */
-export async function makeMissingCoverCopies(parts: CoverCopyParts, already: Set<string> = tried): Promise<number> {
+export async function makeMissingCoverCopies(parts: CoverCopyParts, skipped: Set<string> = failed): Promise<number> {
   let kept = 0
 
-  for (;;) {
+  for (let round = 0; round < COVER_COPY_ROUNDS; round++) {
     let ids: string[]
 
     try {
-      ids = await parts.missing([...already])
+      ids = await parts.missing([...skipped].slice(0, COVER_COPY_MAX_SKIP))
     } catch {
       return kept
     }
 
-    // Each id is added below whatever happens to it, so the next ask is a different list.
-    const fresh = ids.filter((id) => !already.has(id))
-    if (fresh.length === 0) return kept
+    if (ids.length === 0) return kept
 
-    for (const id of fresh) {
+    for (const id of ids) {
       if (parts.stopped()) return kept
-
-      already.add(id)
 
       try {
         await parts.keep(id, await parts.smallCopy(await parts.picture(id)))
         kept++
       } catch {
-        // Left for after a reload.
+        skipped.add(id)
       }
     }
   }
+
+  return kept
 }

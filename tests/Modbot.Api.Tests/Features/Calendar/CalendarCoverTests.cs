@@ -249,6 +249,11 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.Equal(2, rest.Count);
         Assert.Empty(rest.Intersect(first));
 
+        // Only the first 100 skip ids are read: the 20 after them are listed again.
+        var filler = Enumerable.Range(0, CalendarEndpoints.MaxSkippedCoversNeedingBlueskyCopy).Select(_ => Guid.NewGuid());
+        var (_, beyond) = await NeedingCopyAsync(host, manager, [.. filler, .. first]);
+        Assert.Equal(first.Order(), beyond.Order());
+
         var viewer = (await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct)).Cookie;
         Assert.Equal(HttpStatusCode.Forbidden, (await NeedingCopyAsync(host, viewer)).Status);
     }

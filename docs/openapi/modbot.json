@@ -33418,7 +33418,7 @@
           "Calendar"
         ],
         "summary": "List covers without a Bluesky picture",
-        "description": "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, newest first, leaving out the ids in skip. Needs Manage calendar or Manage templates. Changes nothing.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, newest first, leaving out the first 100 ids in skip. Needs Manage calendar or Manage templates. Changes nothing.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarCoversNeedingBlueskyCopy",
         "parameters": [
           {

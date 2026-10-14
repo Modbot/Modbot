@@ -114,16 +114,55 @@ test('twenty covers that cannot be converted do not hide the ones behind them', 
 
   assert.equal(kept, 3)
   assert.deepEqual(log.filter((line) => line.startsWith('keep')), ['keep old1', 'keep old2', 'keep old3'])
-  // The second ask leaves out the twenty tried, and a third finds nothing left.
+  // The second ask leaves out the twenty that failed (not the ones kept), and a third finds nothing left.
   assert.equal(skipped[0].length, 0)
   assert.equal(skipped[1].length, 20)
-  assert.equal(tried.size, 23)
+  assert.equal(skipped[2].length, 20)
+  assert.equal(skipped.length, 3)
+  assert.equal(tried.size, 20)
 })
 
-test('a cover tried before is not tried again in the same visit', async () => {
+test('a cover that failed before is left out', async () => {
   const log: string[] = []
 
   await makeMissingCoverCopies(parts({}, log), new Set(['a']))
 
   assert.deepEqual(log, ['picture b', 'keep b'])
+})
+
+test('a visit stops after five asks, a hundred covers', async () => {
+  const all = Array.from({ length: 150 }, (_, i) => `c${i}`)
+  let asks = 0
+  const base = parts({}, [], all)
+
+  const kept = await makeMissingCoverCopies(
+    {
+      ...base,
+      missing: (skip) => {
+        asks++
+        return base.missing(skip)
+      },
+    },
+    new Set(),
+  )
+
+  assert.equal(kept, 100)
+  assert.equal(asks, 5)
+})
+
+test('no more than a hundred failed ids are sent to leave out', async () => {
+  const many = new Set(Array.from({ length: 150 }, (_, i) => `x${i}`))
+  let sent = -1
+
+  await makeMissingCoverCopies(
+    parts({
+      missing: async (skip) => {
+        sent = skip.length
+        return []
+      },
+    }),
+    many,
+  )
+
+  assert.equal(sent, 100)
 })
