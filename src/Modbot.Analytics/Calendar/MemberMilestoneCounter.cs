@@ -185,7 +185,7 @@ public sealed class MemberMilestoneCounter
         // One row for each person and day: the first and the last arrival that day.
         var days = await _db.Database.SqlQueryRaw<VisitDay>(
             """
-            SELECT e.subject_id AS "UserId", MIN(e.occurred_at) AS "First", MAX(e.occurred_at) AS "Last"
+            SELECT e.subject_id AS user_id, MIN(e.occurred_at) AS first_at, MAX(e.occurred_at) AS last_at
             FROM modbot_event e
             WHERE e.type = ANY(@types) AND e.occurred_at >= @from AND e.occurred_at < @until
             GROUP BY e.subject_id, date_trunc('day', e.occurred_at AT TIME ZONE 'UTC')
@@ -214,14 +214,14 @@ public sealed class MemberMilestoneCounter
 
                 foreach (var day in person)
                 {
-                    if (last is { } before && day.First - before >= backAfter)
+                    if (last is { } before && day.FirstAt - before >= backAfter)
                     {
-                        backAt = day.First;
-                        backDays = (int)Math.Floor((day.First - before).TotalDays);
+                        backAt = day.FirstAt;
+                        backDays = (int)Math.Floor((day.FirstAt - before).TotalDays);
                     }
 
-                    if (last is null || day.Last > last)
-                        last = day.Last;
+                    if (last is null || day.LastAt > last)
+                        last = day.LastAt;
                 }
 
                 if (last == row?.LastVisitAt)
@@ -268,8 +268,8 @@ public sealed class MemberMilestoneCounter
     {
         public string UserId { get; set; } = string.Empty;
 
-        public DateTimeOffset First { get; set; }
+        public DateTimeOffset FirstAt { get; set; }
 
-        public DateTimeOffset Last { get; set; }
+        public DateTimeOffset LastAt { get; set; }
     }
 }
