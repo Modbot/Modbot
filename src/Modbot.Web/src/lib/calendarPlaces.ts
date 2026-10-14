@@ -163,15 +163,6 @@ export function googleChip(
   }
 }
 
-/**
- * Whether the form shows "Visible to": while the VRChat calendar is on, or Google Calendar, which
- * also goes by it. A Google chip held back by "Members only" shows it too, since "Visible to" is
- * what lets it be ticked.
- */
-export function showsVisibleTo(input: { publishToVRChat: boolean }, google: GoogleChip): boolean {
-  return input.publishToVRChat || google.on || google.note === 'membersOnly'
-}
-
 /** The places an event, or the form's input, is ticked for, in the chips' order. */
 export function wantedPlaces(
   e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen' | 'publishToBluesky'>,

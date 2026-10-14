@@ -118,6 +118,38 @@ public class CalendarBlueskyLineupTests
     }
 
     [Fact]
+    public void TheListUsesTheEventsPlainTitle_NotTheBlueskyOneThatMayBeAOneOffPromoLine()
+    {
+        var e = Public("Karaoke", Now.AddDays(1));
+        e.BlueskyTitle = "Tonight only: free snacks!";
+
+        Assert.Equal(["Karaoke"], Titles(e));
+    }
+
+    [Fact]
+    public void ALinkInATitleIsLeftOut_SoTheCalendarPageIsTheOnlyLinkAndTheCard()
+    {
+        const string page = "https://calendar.google.com/calendar/embed?src=group";
+        var e = Public("Karaoke https://evil.example/x night", Now.AddDays(1));
+
+        var dates = CalendarBlueskyLineup.DatesOf([e], Now);
+        var text = CalendarBlueskyLineup.TextOf("Group", dates, DateTimeZone.Utc, page);
+
+        Assert.Equal(["Karaoke night"], dates.Select(d => d.Title));
+        Assert.Equal(page, BlueskyText.CardLink(text));
+    }
+
+    [Fact]
+    public void TheListStartsAtTheTimeGiven_SoALatePostStillCoversThePlannedWeek()
+    {
+        var planned = Now.AddHours(-1);
+        var startedInTheGap = Public("In the gap", Now.AddMinutes(-30));
+        var pastTheWeek = Public("Past the week", planned.AddDays(7).AddMinutes(30));
+
+        Assert.Equal(["In the gap"], CalendarBlueskyLineup.DatesOf([startedInTheGap, pastTheWeek], planned).Select(d => d.Title));
+    }
+
+    [Fact]
     public void ADateMovedOnItsOwnIsWhereItWasMovedTo()
     {
         var e = Public("Karaoke", Now.AddDays(2));

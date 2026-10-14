@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using NodaTime;
 using Modbot.Core.Bluesky;
 using Modbot.Core.Data.Entities;
@@ -27,10 +28,11 @@ public sealed record LineupDate(DateTimeOffset StartsAt, string Title);
 /// in the line-up's zone on a 24-hour clock), and the calendar page's address last when the group has
 /// a public one, which gives the post its link card. Bluesky stops at 300 graphemes
 /// (<see cref="BlueskyText.Fits"/>): as many dates as fit are listed, then <c>+N more</c>. A title
-/// is cut only when not even the first date fits with it whole.
+/// is cut only when not even the first date fits with it whole. A link in a title is left out, so the
+/// calendar page's address is the only link and the card is made for it.
 /// </para>
 /// </remarks>
-public static class CalendarBlueskyLineup
+public static partial class CalendarBlueskyLineup
 {
     /// <summary>How far ahead the line-up looks.</summary>
     public static readonly TimeSpan Ahead = TimeSpan.FromDays(7);
@@ -41,8 +43,8 @@ public static class CalendarBlueskyLineup
     /// <summary>
     /// Whether everyone can see the event: its visibility is Everyone and no role is needed. Unlike
     /// <see cref="CalendarFeedWriter.IsPublic"/> it does not ask for VRChat's calendar, so a Discord-only
-    /// event counts. The form hides <em>Visible to</em> unless VRChat or Google is on, so an event never
-    /// shown it holds the form's own default, <c>group</c>, and stays out.
+    /// event counts. The form always shows <em>Visible to</em> and starts a new event as <c>group</c>, so
+    /// an event is in the line-up only once someone sets it to Everyone.
     /// </summary>
     public static bool IsEveryones(CalendarEvent calendarEvent)
     {
@@ -75,8 +77,10 @@ public static class CalendarBlueskyLineup
                 if (occurrence.StartsAt < from || occurrence.StartsAt >= to)
                     continue;
 
-                var title = PostTexts.TidyTitle(CalendarRepeat.TitleOf(calendarEvent, occurrence, CalendarSite.Bluesky))
-                    ?? PostTexts.TidyTitle(calendarEvent.Title)
+                // The plain title (the date's own, else the event's), not the Bluesky one, which may be a
+                // one-off promo line. A link in it is dropped: the card is made for the first link in the
+                // text, and that must be the calendar page, never something a title carries.
+                var title = PostTexts.TidyTitle(Links().Replace(CalendarRepeat.TitleOf(calendarEvent, occurrence), string.Empty))
                     ?? string.Empty;
 
                 dates.Add(new LineupDate(occurrence.StartsAt, title));
@@ -149,6 +153,9 @@ public static class CalendarBlueskyLineup
             ? GoogleCalendarIds.PublicPageLink(settings.GoogleCalendarId!, settings.GoogleCalendarTimeZone)
             : null;
     }
+
+    [GeneratedRegex(@"\s*https?://\S*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex Links();
 
     private static string Compose(string heading, IEnumerable<string> lines, int more, string? link)
     {

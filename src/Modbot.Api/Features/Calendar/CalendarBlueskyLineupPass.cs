@@ -121,7 +121,8 @@ public sealed class CalendarBlueskyLineupPass
                 && e.Visibility == "public")
             .ToListAsync(ct).ConfigureAwait(false);
 
-        var dates = CalendarBlueskyLineup.DatesOf(events, now);
+        // From the planned time, not from now, so a post made a little late still covers the planned week.
+        var dates = CalendarBlueskyLineup.DatesOf(events, moment);
 
         if (dates.Count == 0)
         {

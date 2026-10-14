@@ -35,7 +35,6 @@ import {
   googleTicked,
   isSetUp,
   missingChannel,
-  showsVisibleTo,
   TAB_LABEL,
   tabsFor,
   TITLE_LIMIT,
@@ -95,7 +94,7 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
  * is on. A ticked place that cannot work as things are set up says "Not set up" beside its
  * chip, linking to where it is set up. Google Calendar says "Not set up" whether ticked or not, and
  * "Members only" for an event only members see, which it never takes (Google Calendar design §3.8);
- * "Visible to" sits under Where, as both it and the VRChat calendar go by it. The chips and the
+ * "Visible to" sits under Where, always shown, as the VRChat calendar, Google Calendar and the Bluesky weekly line-up go by it. The chips and the
  * event's own fields are on the Event tab. Each place that is on has a tab of its own, with its
  * own fields and a card of the event the way that place would show it (the calendar feed has none:
  * it always uses the event's text). The buttons are pinned under the form, so a phone never scrolls
@@ -919,14 +918,12 @@ export function CalendarEventForm({
                       <option value="public">Anyone</option>
                     </Select>
                   </Labelled>
-                  {showsVisibleTo(input, google) && (
-                    <Labelled label="Visible to">
-                      <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
-                        <option value="group">Group</option>
-                        <option value="public">Everyone</option>
-                      </Select>
-                    </Labelled>
-                  )}
+                  <Labelled label="Visible to">
+                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
+                      <option value="group">Group</option>
+                      <option value="public">Everyone</option>
+                    </Select>
+                  </Labelled>
                   <Labelled label="Region">
                     <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
                       <option value="us">US West</option>

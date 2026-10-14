@@ -232,7 +232,8 @@ off. We keep these events for 365 days.
 
 **To Bluesky, if the group connected an account.** Nothing is sent until someone with permission to
 change settings saves a handle and an app password and turns **Posting** on. Then a post that has
-Bluesky ticked, and a calendar event with its **Bluesky** chip on, are posted on that account. For a
+Bluesky ticked, and a calendar event with its **Bluesky** chip on, are posted on that account (the weekly
+line-up, below, is the one post that does not need a chip). For a
 calendar event, Modbot makes one post for each of the event's dates, a set time before the date
 starts (1 hour, 1 day, 3 days or 1 week, as chosen on the event). It sends Bluesky the post's text:
 the event's title, the date's time, the world's name when there is one, the description, tags (one for each of the event's
@@ -256,7 +257,8 @@ description, pictures and the pinned post), and writes it back with only the pin
 the next date's post (its address and content id), or removed when no date has a post. A post
 a person pinned by hand is left alone. With **Weekly line-up** on, Modbot also posts once a week
 one post that lists the next seven days: the group's name, and the title and time of each calendar date
-whose event is visible to **Everyone** (members-only events and cancelled dates are not in it), and the public page of the
+whose event is visible to **Everyone**, whether or not its **Bluesky** chip is on and including a public
+event that goes only to Discord (members-only events and cancelled dates are not in it), and the public page of the
 group's Google calendar as a link when there is one. **The post is public on Bluesky, and other services
 copy it**, and it is not changed or deleted when a date changes afterwards. Like the other posts it
 holds no member name, id or head count, and mentions nobody.

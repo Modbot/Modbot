@@ -17,7 +17,6 @@ import {
   missingChannel,
   notSetUp,
   placeLines,
-  showsVisibleTo,
   TAB_LABEL,
   tabsFor,
   TITLE_LIMIT,
@@ -246,18 +245,6 @@ test('a saved event keeps its own tick, and a chip clicked off stays off', () =>
 test('an older server that says nothing about Google marks nothing on the chip', () => {
   assert.equal(googleChip({ visibility: 'public' }, null, { vrChat: true, discord: true }, true).note, null)
   assert.equal(googleChip({ visibility: 'public' }, null, null, true).note, null)
-})
-
-test('Visible to shows with the VRChat calendar, with Google Calendar, and while Members only holds Google back', () => {
-  const vrchatOff = { publishToVRChat: false }
-
-  assert.equal(showsVisibleTo({ publishToVRChat: true }, googleChip({ visibility: 'group' }, null, googleOff, true)), true)
-  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'public' }, null, googleReady, true)), true)
-  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'group' }, null, googleReady, true)), true)
-
-  // Neither: nothing goes by it.
-  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'public', publishToGoogle: false }, null, googleReady, false)), false)
-  assert.equal(showsVisibleTo(vrchatOff, googleChip({ visibility: 'group' }, null, googleOff, true)), false)
 })
 
 test('the Google Calendar chip comes after the calendar feed', () => {

@@ -395,8 +395,9 @@ rule, Posting, Pause all posting, and a 429 never tried again. A failed one show
   from the pass's time of an event that is visible to Everyone with no role (`visibility = public`,
   no `VRChatRoleIds`; not `CalendarFeedWriter.IsPublic`, which also asks for VRChat's calendar), whatever
   places it goes to and whether or not the event's own Bluesky switch is on. A Discord-only event
-  counts; the form hides "Visible to" unless VRChat or Google is on, so one never shown it keeps the
-  form's default, `group`, and stays out. Members-only events and cancelled dates are never in it. A week with no dates gets no post.
+  counts: the form always shows "Visible to" (changed 2026-10-14; it used to hide it unless VRChat or
+  Google was on, which left a Discord-only event no way to be Everyone), and a new event starts as
+  `group`. Members-only events and cancelled dates are never in it. A week with no dates gets no post.
 - **Text**: "This week at <group name>", one `Mon 20:00 Title` line per date (24-hour, the line-up's
   zone), as many as fit in 300 graphemes, then `+N more`, and last the Google calendar's public page
   when that is set up and public (the link card); otherwise no link. No fact record is written when
