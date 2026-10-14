@@ -366,6 +366,7 @@ public class WholePersonLookupTests
             .Order(StringComparer.Ordinal);
         Assert.Equal(
             [
+                DiscordCommands.AgeVerified,
                 DiscordCommands.Ban,
                 DiscordCommands.Event,
                 DiscordCommands.Gate,
