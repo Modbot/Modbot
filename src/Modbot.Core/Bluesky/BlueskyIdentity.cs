@@ -43,9 +43,16 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
     private static readonly string[] ReservedEndings =
         [".local", ".arpa", ".invalid", ".localhost", ".internal", ".example", ".onion", ".alt", ".test"];
 
+    /// <summary>The Bluesky ending a short handle gets: <c>ourgroup</c> is <c>ourgroup.bsky.social</c>.</summary>
+    public const string DefaultEnding = ".bsky.social";
+
+    /// <summary>The start of a pasted profile link, once <c>https://</c> is taken off.</summary>
+    private const string ProfileLink = "bsky.app/profile/";
+
     /// <summary>
-    /// A handle as Modbot keeps it: trimmed, a leading <c>@</c> dropped, lower case. Null when what
-    /// is left is not a handle by the handle spec's rules.
+    /// A handle as Modbot keeps it: trimmed, a leading <c>@</c> dropped, a pasted
+    /// <c>bsky.app/profile/…</c> link cut down to its handle, <c>.bsky.social</c> added to a handle
+    /// with no dot, lower case. Null when what is left is not a handle by the handle spec's rules.
     /// </summary>
     public static string? NormaliseHandle(string? typed)
     {
@@ -55,6 +62,29 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
         var handle = typed.Trim();
         if (handle.StartsWith('@'))
             handle = handle[1..];
+
+        foreach (var scheme in new[] { "https://", "http://" })
+        {
+            if (handle.StartsWith(scheme, StringComparison.OrdinalIgnoreCase))
+            {
+                handle = handle[scheme.Length..];
+                break;
+            }
+        }
+
+        if (handle.StartsWith(ProfileLink, StringComparison.OrdinalIgnoreCase))
+        {
+            handle = handle[ProfileLink.Length..];
+            var end = handle.IndexOfAny(['/', '?', '#']);
+            if (end >= 0)
+                handle = handle[..end];
+        }
+
+        if (handle.Length == 0)
+            return null;
+
+        if (!handle.Contains('.', StringComparison.Ordinal))
+            handle += DefaultEnding;
 
         handle = handle.ToLowerInvariant();
 

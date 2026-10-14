@@ -94,6 +94,19 @@ public class BlueskySettingsTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AShortHandleIsSavedWithBlueskysEnding()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var saved = await SaveAsync(host, cookie, new { handle = "OurGroup" });
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var read = await OkAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
+        Assert.Equal("ourgroup.bsky.social", read.GetProperty("handle").GetString());
+    }
+
+    [Fact]
     public async Task AHandleThatIsNotOneIsRefused()
     {
         var (host, _, cookie) = await StartAsync();

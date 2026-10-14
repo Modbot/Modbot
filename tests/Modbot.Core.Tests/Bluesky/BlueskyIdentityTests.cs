@@ -19,6 +19,11 @@ public class BlueskyIdentityTests
     [InlineData("@OurGroup.bsky.social", "ourgroup.bsky.social")]
     [InlineData("  ourgroup.com ", "ourgroup.com")]
     [InlineData("xn--bcher-kva.example.org", "xn--bcher-kva.example.org")]
+    [InlineData("ourgroup", "ourgroup.bsky.social")]
+    [InlineData("@OurGroup", "ourgroup.bsky.social")]
+    [InlineData("https://bsky.app/profile/ourgroup.bsky.social/", "ourgroup.bsky.social")]
+    [InlineData("bsky.app/profile/ourgroup", "ourgroup.bsky.social")]
+    [InlineData("https://bsky.app/profile/OurGroup.com?x=1", "ourgroup.com")]
     public void AHandleIsTidied(string typed, string kept)
     {
         Assert.Equal(kept, BlueskyIdentity.NormaliseHandle(typed));
@@ -26,7 +31,11 @@ public class BlueskyIdentityTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("ourgroup")]
+    [InlineData("@")]
+    [InlineData("bsky.app/profile/")]
+    [InlineData("https://bsky.app/profile/did:plc:abcdefghijklmnopqrstuvwx")]
+    [InlineData("https://example.com/profile/ourgroup")]
+    [InlineData("our_group")]
     [InlineData("our group.bsky.social")]
     [InlineData("-ourgroup.bsky.social")]
     [InlineData("ourgroup.bsky.social/evil")]
