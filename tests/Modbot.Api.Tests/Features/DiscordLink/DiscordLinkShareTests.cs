@@ -127,6 +127,7 @@ public class DiscordLinkShareTests
         Assert.True(view.LinkingSetUp);
 
         Assert.False(view.Reminder.Running);
+        Assert.Null(view.Reminder.StoppedBecause);
         Assert.Equal(3, view.Reminder.Waiting);
         Assert.Equal(0, view.Reminder.Sent);
         Assert.Equal(30, view.Reminder.SecondsBetween);
@@ -223,5 +224,33 @@ public class DiscordLinkShareTests
 
         // Only d4 has never been asked.
         Assert.Equal(1, view.Reminder.Waiting);
+    }
+
+    [Fact]
+    public async Task EveryoneRemindedAppearsSomewhere_AndTheTabSaysWhenDiscordStoppedIt()
+    {
+        await using var host = await StartAsync();
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var at = host.Clock.UtcNow;
+            context.DiscordLinkNudges.AddRange(
+                new DiscordLinkNudge { DiscordUserId = "d2", State = DiscordLinkNudgeStates.Sending, CreatedAt = at.AddMinutes(-3) },
+                new DiscordLinkNudge { DiscordUserId = "d3", State = DiscordLinkNudgeStates.Unclear, CreatedAt = at.AddMinutes(-2), Error = "Timed out." },
+                new DiscordLinkNudge { DiscordUserId = "d4", State = DiscordLinkNudgeStates.RateLimited, CreatedAt = at.AddMinutes(-1), Error = "Discord is rate limiting the bot." });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var view = await host.GetJsonAsync<DiscordLinkShareResponse>(Url, cookie, Ct);
+
+        // A claim with no answer and an unclear answer are both "not confirmed"; the one Discord turned away is not reached.
+        Assert.Equal(2, view.Reminder.NotConfirmed);
+        Assert.Equal(1, view.Reminder.NotReached);
+        Assert.Equal(0, view.Reminder.Sent);
+        Assert.Equal(0, view.Reminder.Waiting);
+        Assert.Equal("Discord is rate limiting the bot.", view.Reminder.StoppedBecause);
     }
 }

@@ -36,12 +36,14 @@ Press **Start reminder** to begin and **Stop reminder** to stop it. The panel sh
 | **Would be sent** / **Left to send** | How many members it would reach now, or how many are left of those it began with. |
 | **Sent, ever** | Members it has been sent to. |
 | **Not reached, ever** | Members Discord would not let it reach, because their direct messages are closed or the account is gone. |
+| **Not confirmed, ever** | Members whose message may or may not have arrived: Discord timed out or failed on its side, or Modbot stopped before it heard back. |
 | **Last sent** | When the latest message went out. |
 
 How it behaves:
 
 - **Slow on purpose.** One message goes out every 30 seconds, because a burst of direct messages from
-  a bot is what Discord punishes. A server with 3,000 members to remind takes about a day.
+  a bot is what Discord punishes. A server with 3,000 members to remind takes about a day. The pace is
+  kept from the time of the last message, so restarting Modbot does not send one at once.
 - **Once per person, ever.** Modbot keeps a note for each member it has reminded, or tried to. Stopping
   and starting again, or starting it again next year, never sends the same person a second reminder.
   A member whose direct messages are closed is marked **Not reached** and is not tried again.
@@ -50,8 +52,13 @@ How it behaves:
   [welcome button](#the-welcome-button) instead.
 - **Not for the linked, bots or people who left.** A member who unlinked since is reminded once like
   anyone else.
-- **It stops by itself** when everyone has been dealt with. If Discord is having trouble, Modbot gives
-  the member back and tries again on the next turn.
+- **Never sent again, whatever happened.** If Discord times out or fails on its side, the message may
+  already have arrived, so the member is counted under **Not confirmed** and is not tried again. A
+  missed reminder is better than a second one.
+- **It stops by itself** when everyone has been dealt with. It also stops, at once, if Discord asks the
+  bot to slow down: the tab says **The reminder stopped** with Discord's words, the member it was
+  about to message is counted under **Not reached** and is not tried again, and nothing goes out until
+  you press **Start reminder** again.
 - **Start is refused** when linking is not set up, no Discord server is saved, or nobody is waiting.
 
 Each message is recorded as **Asked to link on Discord**, and starting or stopping the reminder is in

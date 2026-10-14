@@ -21,16 +21,26 @@ namespace Modbot.Api.Features.DiscordLink;
 /// </param>
 /// <param name="Sent">Members it has been sent to, ever.</param>
 /// <param name="NotReached">Members Discord would not let it reach, ever. They are not asked again.</param>
+/// <param name="NotConfirmed">
+/// Members whose message may or may not have arrived: Discord did not say, or Modbot stopped before it
+/// heard. They are not asked again.
+/// </param>
 /// <param name="LastSentAt">When the latest one went out.</param>
 /// <param name="SecondsBetween">The wait between two messages.</param>
+/// <param name="StoppedBecause">
+/// Why it is not running, when it stopped by itself on Discord's say-so (Discord asked the bot to
+/// slow down). Null otherwise.
+/// </param>
 public sealed record DiscordLinkReminderView(
     bool Running,
     DateTimeOffset? StartedAt,
     int Waiting,
     int Sent,
     int NotReached,
+    int NotConfirmed,
     DateTimeOffset? LastSentAt,
-    int SecondsBetween);
+    int SecondsBetween,
+    string? StoppedBecause);
 
 /// <summary>What share of the VRChat group and of the Discord server has linked, and the reminder.</summary>
 /// <param name="GroupMembers">People in the VRChat group now.</param>
@@ -190,8 +200,25 @@ public static class DiscordLinkShareEndpoints
         }
 
         var sent = await db.DiscordLinkNudges.AsNoTracking().CountAsync(n => n.State == DiscordLinkNudgeStates.Sent, ct);
-        var notReached = await db.DiscordLinkNudges.AsNoTracking().CountAsync(n => n.State == DiscordLinkNudgeStates.NotReached, ct);
+        var notReached = await db.DiscordLinkNudges.AsNoTracking()
+            .CountAsync(n => n.State == DiscordLinkNudgeStates.NotReached || n.State == DiscordLinkNudgeStates.RateLimited, ct);
+        var notConfirmed = await db.DiscordLinkNudges.AsNoTracking()
+            .CountAsync(n => n.State == DiscordLinkNudgeStates.Sending || n.State == DiscordLinkNudgeStates.Unclear, ct);
         var lastSent = await db.DiscordLinkNudges.AsNoTracking().MaxAsync(n => n.SentAt, ct);
+
+        // Said while it is stopped and the newest message was the one Discord turned away.
+        string? stoppedBecause = null;
+
+        if (settings.DiscordLinkNudgeStartedAt is null)
+        {
+            var newest = await db.DiscordLinkNudges.AsNoTracking()
+                .OrderByDescending(n => n.CreatedAt)
+                .Select(n => new { n.State, n.Error })
+                .FirstOrDefaultAsync(ct);
+
+            if (newest?.State == DiscordLinkNudgeStates.RateLimited)
+                stoppedBecause = newest.Error ?? "Discord asked Modbot to slow down.";
+        }
 
         return new DiscordLinkShareResponse(
             groupMembers,
@@ -205,7 +232,9 @@ public static class DiscordLinkShareEndpoints
                 waiting,
                 sent,
                 notReached,
+                notConfirmed,
                 lastSent,
-                (int)LinkNudgeQueue.Gap.TotalSeconds));
+                (int)LinkNudgeQueue.Gap.TotalSeconds,
+                stoppedBecause));
     }
 }

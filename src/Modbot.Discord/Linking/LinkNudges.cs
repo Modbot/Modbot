@@ -23,8 +23,17 @@ public enum LinkNudgeStep
     /// <summary>One member could not be reached, and will not be asked again.</summary>
     NotReached,
 
-    /// <summary>Nothing was sent this turn and the next turn tries again.</summary>
+    /// <summary>Somebody else claimed the same member a moment before, so nothing was sent this turn.</summary>
     Retry,
+
+    /// <summary>The last message went out less than <see cref="LinkNudgeQueue.Gap"/> ago, so this turn waits.</summary>
+    TooSoon,
+
+    /// <summary>Discord did not say whether the message arrived. The member is not asked again.</summary>
+    Unclear,
+
+    /// <summary>Discord asked the bot to slow down: the reminder stopped, and staff start it again when they choose.</summary>
+    RateLimited,
 
     /// <summary>Everyone was dealt with and the reminder stopped itself.</summary>
     Finished,
@@ -32,15 +41,19 @@ public enum LinkNudgeStep
 
 /// <summary>
 /// Sends the one-time reminder to link a VRChat account, to Discord members who have not (account
-/// links). Staff start it; it sends one direct message per turn, and the service that calls it takes
-/// a turn every <see cref="LinkNudgeQueue.Gap"/>.
+/// links). Staff start it; it sends one direct message per turn, and no turn sends before
+/// <see cref="LinkNudgeQueue.Gap"/> has passed since the last claim, whichever instance of Modbot sent it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <strong>Once per person, ever.</strong> A member is claimed with a row in <c>discord_link_nudge</c>
 /// before the message goes, and the row stays whatever Discord answered, so starting the job again
-/// asks nobody twice. Only a failure that says nothing about the member (Discord being down) gives the
-/// claim back.
+/// asks nobody twice. A claim is never given back, not even for a timeout or an error on Discord's
+/// side: the message may have arrived, and a second one is worse than a missed one.
+/// </para>
+/// <para>
+/// When Discord asks the bot to slow down (HTTP 429) the job stops itself and says so on the tab. It
+/// is never retried (the spec's rule for 429s: cold stop); staff start it again when they choose.
 /// </para>
 /// <para>
 /// Only members who were already in the server when staff started it are reminded: a newcomer is
@@ -106,6 +119,15 @@ public sealed class LinkNudges
             return LinkNudgeStep.Finished;
         }
 
+        // The pace comes from the table, not from a timer in this process: a restart does not send at
+        // once, and a second instance does not double the rate.
+        var last = await _db.DiscordLinkNudges.AsNoTracking()
+            .MaxAsync(n => (DateTimeOffset?)n.CreatedAt, ct)
+            .ConfigureAwait(false);
+
+        if (last is { } lastAt && _clock.UtcNow - lastAt < LinkNudgeQueue.Gap)
+            return LinkNudgeStep.TooSoon;
+
         var row = new DiscordLinkNudge
         {
             DiscordUserId = next.UserId,
@@ -135,23 +157,41 @@ public sealed class LinkNudges
             .SendDirectMessageAsync(next.UserId, MessageText(serverName), [new DiscordLinkButton(LinkPrompt.ButtonLabel, page)], ct)
             .ConfigureAwait(false);
 
-        // A refusal that is about Discord, not about the member, gives the claim back for the next turn.
-        if (!outcome.Sent && !outcome.DirectMessagesClosed && !outcome.Permanent && !outcome.NotFound && !outcome.Unclear)
+        // Whatever Discord answered, the member is not asked again. What it was decides the state, and
+        // whether the job goes on.
+        LinkNudgeStep step;
+
+        if (outcome.Sent)
         {
-            _db.DiscordLinkNudges.Remove(row);
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            return LinkNudgeStep.Retry;
+            row.State = DiscordLinkNudgeStates.Sent;
+            row.SentAt = _clock.UtcNow;
+            step = LinkNudgeStep.Sent;
+        }
+        else if (outcome.RateLimited)
+        {
+            row.State = DiscordLinkNudgeStates.RateLimited;
+            row.Error = Short(outcome.Error ?? "Discord asked Modbot to slow down.");
+            settings.DiscordLinkNudgeStartedAt = null;
+            step = LinkNudgeStep.RateLimited;
+        }
+        else if (outcome.DirectMessagesClosed || outcome.Permanent || outcome.NotFound)
+        {
+            row.State = DiscordLinkNudgeStates.NotReached;
+            row.Error = Short(outcome.Error ?? "Discord refused the message.");
+            step = LinkNudgeStep.NotReached;
+        }
+        else
+        {
+            row.State = DiscordLinkNudgeStates.Unclear;
+            row.Error = Short(outcome.Error ?? "Discord did not say whether the message arrived.");
+            step = LinkNudgeStep.Unclear;
         }
 
-        var reached = outcome.Sent || outcome.Unclear;
-        row.State = reached ? DiscordLinkNudgeStates.Sent : DiscordLinkNudgeStates.NotReached;
-        row.SentAt = reached ? _clock.UtcNow : null;
-        row.Error = reached ? null : Short(outcome.Error ?? "Discord refused the message.");
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        await RecordAsync(next.UserId, next.Username, reached, row.Error, ct).ConfigureAwait(false);
+        await RecordAsync(next.UserId, next.Username, outcome.Sent || step == LinkNudgeStep.Unclear, row.Error, ct).ConfigureAwait(false);
 
-        return reached ? LinkNudgeStep.Sent : LinkNudgeStep.NotReached;
+        return step;
     }
 
     private static string Short(string text) => text.Length <= 300 ? text : text[..300];

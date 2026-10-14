@@ -1402,6 +1402,14 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             return new DiscordPostOutcome(
                 false, "That member does not accept direct messages.", Permanent: true, DirectMessagesClosed: true);
         }
+        catch (RateLimitedException)
+        {
+            return DiscordPostOutcome.TooManyRequests("Discord is rate limiting the bot.");
+        }
+        catch (HttpException e) when (e.HttpCode == HttpStatusCode.TooManyRequests)
+        {
+            return DiscordPostOutcome.TooManyRequests("Discord is rate limiting the bot.");
+        }
         catch (HttpException e)
         {
             var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;

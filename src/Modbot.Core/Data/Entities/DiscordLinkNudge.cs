@@ -3,13 +3,22 @@ namespace Modbot.Core.Data.Entities;
 /// <summary>What became of the link reminder sent to one member, as stored in <see cref="DiscordLinkNudge.State"/>.</summary>
 public static class DiscordLinkNudgeStates
 {
-    /// <summary>Claimed, and the message is on its way. Never tried again, whatever came of it.</summary>
+    /// <summary>
+    /// Claimed, and the message is on its way. Never tried again, whatever came of it: a row left in
+    /// this state means Modbot stopped before it heard back, and nobody knows whether it arrived.
+    /// </summary>
     public const string Sending = "sending";
 
     public const string Sent = "sent";
 
     /// <summary>Discord refused: their direct messages are closed, or the account is gone.</summary>
     public const string NotReached = "not-reached";
+
+    /// <summary>Discord did not say whether the message arrived (it timed out or failed on its side). Never tried again.</summary>
+    public const string Unclear = "unclear";
+
+    /// <summary>Discord asked the bot to slow down, so the message was not sent and the reminder stopped. Never tried again by itself.</summary>
+    public const string RateLimited = "rate-limited";
 }
 
 /// <summary>

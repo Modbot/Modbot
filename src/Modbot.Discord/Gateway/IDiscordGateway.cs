@@ -718,7 +718,8 @@ public sealed record DiscordPostOutcome(
     string? MessageId = null,
     bool DirectMessagesClosed = false,
     bool NotFound = false,
-    bool Unclear = false)
+    bool Unclear = false,
+    bool RateLimited = false)
 {
     /// <summary>What <see cref="IDiscordGateway.DeleteCategoryChannelAsync"/> answers for a channel it will not delete.</summary>
     public const string NotInCategory = "That channel is not inside the chosen category, so Modbot will not delete it.";
@@ -732,6 +733,9 @@ public sealed record DiscordPostOutcome(
 
     /// <summary>No clear answer: the message may or may not be in the channel.</summary>
     public static DiscordPostOutcome NoClearAnswer(string error) => new(false, error, false, Unclear: true);
+
+    /// <summary>Discord asked the bot to slow down (HTTP 429). Nothing was sent, and nothing should be tried again soon.</summary>
+    public static DiscordPostOutcome TooManyRequests(string error) => new(false, error, false, RateLimited: true);
 }
 
 /// <summary>Why a gateway session ended, as the library reported it.</summary>

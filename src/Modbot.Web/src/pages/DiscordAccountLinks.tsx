@@ -142,6 +142,7 @@ function Reminder({
   return (
     <>
       {!data.linkingSetUp && <Notice tone="warn">Account linking is not set up.</Notice>}
+      {reminder.stoppedBecause && <Notice tone="warn">{`The reminder stopped: ${reminder.stoppedBecause}`}</Notice>}
 
       <Panel
         title="Link reminder"
@@ -188,6 +189,10 @@ function Reminder({
           <Tr>
             <Td>Not reached, ever</Td>
             <Td className="text-right font-mono">{reminder.notReached.toLocaleString()}</Td>
+          </Tr>
+          <Tr>
+            <Td>Not confirmed, ever</Td>
+            <Td className="text-right font-mono">{reminder.notConfirmed.toLocaleString()}</Td>
           </Tr>
           <Tr>
             <Td>Last sent</Td>

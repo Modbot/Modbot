@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Linking;
 using Modbot.Discord.Tests.Fakes;
@@ -59,8 +60,12 @@ public class LinkNudgesTests
         await db.SaveChangesAsync(Ct);
     }
 
-    private static async Task<LinkNudgeStep> TurnAsync(TestServices services, FakeGateway gateway)
+    /// <summary>One turn, a fresh scope each time as the service takes it. By default the 30 second gap has passed since the last one.</summary>
+    private static async Task<LinkNudgeStep> TurnAsync(TestServices services, FakeGateway gateway, bool gapPassed = true)
     {
+        if (gapPassed)
+            services.Clock.Advance(LinkNudgeQueue.Gap);
+
         using var scope = services.Scope();
         return await scope.ServiceProvider.GetRequiredService<LinkNudges>().SendNextAsync(gateway, Ct);
     }
@@ -191,33 +196,85 @@ public class LinkNudgesTests
     }
 
     [Fact]
-    public async Task ADiscordOutage_GivesTheClaimBack_SoTheMemberIsTriedOnTheNextTurn()
+    public async Task AFailureOnDiscordsSide_IsNeverRetried_BecauseTheMessageMayHaveArrived()
     {
         await using var services = await SetUpAsync(_db);
         await AddMemberAsync(services, "3401");
+        await AddMemberAsync(services, "3402");
         var gateway = new FakeGateway { NextDirectMessageOutcome = DiscordPostOutcome.Failed("Discord is down.") };
 
-        Assert.Equal(LinkNudgeStep.Retry, await TurnAsync(services, gateway));
+        Assert.Equal(LinkNudgeStep.Unclear, await TurnAsync(services, gateway));
         Assert.Empty(gateway.DirectMessages);
-        Assert.Empty(await RowsAsync(services));
 
+        var row = Assert.Single(await RowsAsync(services));
+        Assert.Equal("3401", row.DiscordUserId);
+        Assert.Equal(DiscordLinkNudgeStates.Unclear, row.State);
+        Assert.Equal("Discord is down.", row.Error);
+
+        // The next turn goes to the next member; the first is not tried again, however often it runs.
         Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway));
-        Assert.Equal("3401", Assert.Single(gateway.DirectMessages).UserId);
-        Assert.Single(await RowsAsync(services));
+        Assert.Equal("3402", Assert.Single(gateway.DirectMessages).UserId);
+        Assert.Equal(LinkNudgeStep.Finished, await TurnAsync(services, gateway));
     }
 
     [Fact]
-    public async Task AnUnclearAnswer_CountsAsSent_SoTheMemberIsNeverAskedTwice()
+    public async Task AnUnclearAnswer_IsKeptAsUnclear_NotAsSent_AndNeverRetried()
     {
         await using var services = await SetUpAsync(_db);
         await AddMemberAsync(services, "3501");
         var gateway = new FakeGateway { NextDirectMessageOutcome = DiscordPostOutcome.NoClearAnswer("Timed out.") };
 
-        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway));
+        Assert.Equal(LinkNudgeStep.Unclear, await TurnAsync(services, gateway));
+
+        Assert.Equal(DiscordLinkNudgeStates.Unclear, Assert.Single(await RowsAsync(services)).State);
+        Assert.Equal(LinkNudgeStep.Finished, await TurnAsync(services, gateway));
+        Assert.Empty(gateway.DirectMessages);
+    }
+
+    [Fact]
+    public async Task WhenDiscordSaysSlowDown_TheJobStopsAtOnce_TheMemberIsNotRetried_AndTheTabSaysWhy()
+    {
+        await using var services = await SetUpAsync(_db);
+        await AddMemberAsync(services, "3801");
+        await AddMemberAsync(services, "3802");
+        var gateway = new FakeGateway { NextDirectMessageOutcome = DiscordPostOutcome.TooManyRequests("Discord is rate limiting the bot.") };
+
+        Assert.Equal(LinkNudgeStep.RateLimited, await TurnAsync(services, gateway));
+        Assert.Empty(gateway.DirectMessages);
 
         var row = Assert.Single(await RowsAsync(services));
-        Assert.Equal(DiscordLinkNudgeStates.Sent, row.State);
-        Assert.Equal(LinkNudgeStep.Finished, await TurnAsync(services, gateway));
+        Assert.Equal(DiscordLinkNudgeStates.RateLimited, row.State);
+        Assert.Equal("Discord is rate limiting the bot.", row.Error);
+
+        await using (var check = services.Database.NewContext())
+            Assert.Null((await check.Settings.AsNoTracking().SingleAsync(s => s.Id == 1, Ct)).DiscordLinkNudgeStartedAt);
+
+        // Nothing goes out until staff start it again, and then the member who was turned away is not retried.
+        Assert.Equal(LinkNudgeStep.Off, await TurnAsync(services, gateway));
+
+        await services.ConfigureAsync(s => s.DiscordLinkNudgeStartedAt = services.Clock.UtcNow, Ct);
+        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway));
+        Assert.Equal("3802", Assert.Single(gateway.DirectMessages).UserId);
+    }
+
+    [Fact]
+    public async Task NothingIsSent_UntilThirtySecondsAfterTheLastClaim_ReadFromTheTable()
+    {
+        await using var services = await SetUpAsync(_db);
+        await AddMemberAsync(services, "3901");
+        await AddMemberAsync(services, "3902");
+        var gateway = new FakeGateway();
+
+        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway));
+
+        // Each turn takes its own scope and instance, as a restart or a second Modbot would.
+        services.Clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.Equal(LinkNudgeStep.TooSoon, await TurnAsync(services, gateway, gapPassed: false));
+        Assert.Single(gateway.DirectMessages);
+
+        services.Clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway, gapPassed: false));
+        Assert.Equal(["3901", "3902"], gateway.DirectMessages.Select(d => d.UserId));
     }
 
     [Fact]

@@ -2568,8 +2568,12 @@ export type DiscordLinkReminder = {
   waiting: number
   sent: number
   notReached: number
+  /** Messages that may or may not have arrived: Discord did not say, or Modbot stopped before it heard. */
+  notConfirmed: number
   lastSentAt: string | null
   secondsBetween: number
+  /** Why it stopped by itself, when Discord asked the bot to slow down. */
+  stoppedBecause: string | null
 }
 
 /** The Discord page's Account links tab. */

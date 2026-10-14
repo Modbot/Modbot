@@ -47494,8 +47494,10 @@
           "waiting",
           "sent",
           "notReached",
+          "notConfirmed",
           "lastSentAt",
-          "secondsBetween"
+          "secondsBetween",
+          "stoppedBecause"
         ],
         "type": "object",
         "properties": {
@@ -47521,6 +47523,10 @@
             "type": "integer",
             "format": "int32"
           },
+          "notConfirmed": {
+            "type": "integer",
+            "format": "int32"
+          },
           "lastSentAt": {
             "type": [
               "null",
@@ -47531,6 +47537,12 @@
           "secondsBetween": {
             "type": "integer",
             "format": "int32"
+          },
+          "stoppedBecause": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
