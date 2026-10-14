@@ -34,6 +34,26 @@ public class DiscordInviteTests
     }
 
     [Fact]
+    public void EventRecapsAreOn_CreatePublicThreadsIsAskedFor()
+    {
+        var settings = new Settings { EventRecapsOn = true };
+
+        Assert.Equal(DiscordInvite.CreatePublicThreads, DiscordInvite.PermissionsFor(settings) & DiscordInvite.CreatePublicThreads);
+    }
+
+    [Fact]
+    public void EventRecapsAreOff_CreatePublicThreadsIsNotAskedFor()
+    {
+        var settings = new Settings { EventRecapsOn = false };
+
+        Assert.Equal(0, DiscordInvite.PermissionsFor(settings) & DiscordInvite.CreatePublicThreads);
+    }
+
+    [Fact]
+    public void CreatePublicThreads_IsDiscordsBitThirtyFive()
+        => Assert.Equal(1L << 35, DiscordInvite.CreatePublicThreads);
+
+    [Fact]
     public void AttachFiles_IsDiscordsBitFifteen()
         => Assert.Equal(0x8000, DiscordInvite.AttachFiles);
 }

@@ -24,6 +24,7 @@ public static class DiscordInvite
     public const long ReadMessageHistory = 1L << 16;
     public const long ManageGuild = 1L << 5;
     public const long ManageRoles = 1L << 28;
+    public const long CreatePublicThreads = 1L << 35;
 
     /// <summary>The permissions the bot needs with these settings.</summary>
     public static long PermissionsFor(Settings settings)
@@ -54,6 +55,11 @@ public static class DiscordInvite
                 ? RemoveMembers
                 : BanMembers;
         }
+
+        // The event recap starts a photo thread on its post, which needs this permission; the post
+        // itself needs nothing beyond the base set.
+        if (settings.EventRecapsOn)
+            permissions |= CreatePublicThreads;
 
         // The join gate gives the member role, removes people who do not finish when the operator
         // set a removal time, and pauses invites only when the operator allowed it (join gate
