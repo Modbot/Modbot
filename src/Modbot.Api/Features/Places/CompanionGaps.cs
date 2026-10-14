@@ -35,8 +35,9 @@ namespace Modbot.Api.Features.Places;
 /// <strong>A restatement drops only the people no other moderator reported alongside it.</strong>
 /// When two moderators restate together, the fact writer keeps only the first report of each person
 /// within its dedup window and throws the second moderator's copy away, so that moderator's
-/// restatement reaches the database as a few stragglers. Someone another moderator reported within
-/// that window of the restatement is therefore still here, and stays on this moderator's list.
+/// restatement reaches the database as a few stragglers. Someone another moderator reported after
+/// the gap began, and no later than the dedup window past the restatement's last report, is
+/// therefore still here, and stays on this moderator's list.
 /// </para>
 /// <para>
 /// Pure: no database and no clock, so the rule can be read and tested on its own.
@@ -90,10 +91,15 @@ public static class CompanionGaps
         {
             foreach (var drop in watch.Drops)
             {
+                // A moderator whose own log stopped at the very instant of the drop was still
+                // watching up to it, so a span ending there covers it -- unless that moderator
+                // lost the same person at the same instant (their own restatement left them out
+                // too), when nobody is left to vouch.
                 var vouched = perDevice
                     .Where((_, position) => position != index)
                     .Any(others => others.Vouched.TryGetValue(drop.UserId, out var spans)
-                        && spans.Any(s => s.From <= drop.At && drop.At < s.Until));
+                        && spans.Any(s => s.From <= drop.At && drop.At <= s.Until)
+                        && !others.Drops.Any(d => d.UserId == drop.UserId && d.At == drop.At));
 
                 if (!vouched)
                     events.Add(new Step(drop.At, drop.AfterId, true, drop.UserId, FactType.InstanceLeft, false));
@@ -174,6 +180,8 @@ public static class CompanionGaps
 
         PresenceReport? previous = null;
         PresenceReport? stopped = null;
+        DateTimeOffset? lastBurstEnd = null;
+        DateTimeOffset? restatementFrom = null;
         var index = 0;
 
         while (index < reports.Count)
@@ -185,6 +193,7 @@ public static class CompanionGaps
                 CloseAll(report.At);
                 stopped = report;
                 previous = report;
+                lastBurstEnd = null;
                 index++;
                 continue;
             }
@@ -231,21 +240,37 @@ public static class CompanionGaps
 
             if (gap is { } start)
             {
-                var from = burst[0].At - window;
+                // The reports the fact writer threw away can sit anywhere in the restatement, not
+                // only in the span of the ones that survived, so another moderator's report counts
+                // from the moment the gap began (not from before it: that would be a twin of this
+                // client's own earlier report). A run of stragglers more than the burst allowance
+                // apart is read as several bursts; a burst that follows the last one closely, with
+                // no stop between, is the same restatement and counts from where that one began.
+                var continues = stopped is null
+                    && lastBurstEnd is { } ended
+                    && burst[0].At - ended <= RestatementSpan;
+
+                var after = continues && restatementFrom is { } run ? run : start.At;
                 var to = burst[^1].At + window;
+
+                restatementFrom = after;
 
                 foreach (var userId in roster.Where(u => !inBurst.Contains(u)).Order(StringComparer.Ordinal))
                 {
                     // Reported by another moderator around this restatement: this one's copy was
                     // most likely thrown away as a duplicate, not left out.
                     if (reported.TryGetValue(userId, out var by)
-                        && by.Any(b => b.Device != device && b.At >= from && b.At <= to))
+                        && by.Any(b => b.Device != device && b.At > after && b.At <= to))
                         keptByOthers.Add(userId);
                     else
                         drops.Add(new Drop(userId, start.At, start.Id));
                 }
 
                 CloseAll(start.At);
+            }
+            else
+            {
+                restatementFrom = null;
             }
 
             roster.Clear();
@@ -255,12 +280,16 @@ public static class CompanionGaps
                 open.TryAdd(member.SubjectId!, member.At);
             }
 
+            // Kept people are open again from the start of the restatement, so the stretch between
+            // the gap's start and now stays unvouched by this client: another moderator may be the
+            // only one who saw them in it.
             foreach (var userId in keptByOthers)
             {
                 roster.Add(userId);
                 open.TryAdd(userId, burst[0].At);
             }
 
+            lastBurstEnd = burst[^1].At;
             previous = burst[^1];
             stopped = null;
             index = next;
@@ -287,6 +316,9 @@ public static class CompanionGaps
             }
         }
     }
+
+    /// <summary>How soon after one run of "already here" reports another still counts as the same restatement.</summary>
+    private static readonly TimeSpan RestatementSpan = TimeSpan.FromMinutes(1);
 
     private sealed record Drop(string UserId, DateTimeOffset At, long AfterId);
 

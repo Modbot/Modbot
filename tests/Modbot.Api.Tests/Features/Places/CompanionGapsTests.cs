@@ -220,6 +220,9 @@ public class CompanionGapsTests
             Seen("usr_c", At(0, 2)),
             Seen("usr_d", At(0, 3)),
             Joined("usr_mod1", At(0, 4)),
+            // The second client arrives a minute later, outside the dedup window of the first one's
+            // reports, so its list is recorded in full. Had it arrived within five seconds, the
+            // fact writer would have thrown the copies away and only its own join would be here.
             Seen("usr_a", At(1), "d2"),
             Seen("usr_b", At(1, 1), "d2"),
             Seen("usr_c", At(1, 2), "d2"),
@@ -227,8 +230,9 @@ public class CompanionGapsTests
             Joined("usr_mod2", At(1, 4), "d2"),
             Stopped("usr_mod1", At(10)),
             Stopped("usr_mod2", At(10), "d2"),
-            // Both come back at once: the first one's list is kept, the second one's is thrown away
-            // as duplicates and only its own join survives.
+            // Both come back at once: the first one's list is kept, the second one's copies of Ada
+            // and Bea (within five seconds of the first's) are thrown away as duplicates and only
+            // its own join survives.
             Seen("usr_a", At(20)),
             Seen("usr_b", At(20, 1)),
             Joined("usr_mod1", At(20, 2)),
@@ -248,5 +252,163 @@ public class CompanionGapsTests
             var stay = StayOf(stays, who);
             Assert.Equal((At(10), false), (stay.Ended, stay.LeaveSeen));
         }
+    }
+
+    /// <summary>
+    /// The second moderator's restatement is a long roster and only its tail survived the fact writer.
+    /// Ada was early in it, so her copy was thrown away as a twin of the first moderator's report,
+    /// which is more than five seconds before the first surviving report. She is still there.
+    /// </summary>
+    [Fact]
+    public void ADuplicateEarlyInALongRestatement_IsStillKept()
+    {
+        var stays = CompanionGaps.Stays(
+        [
+            Seen("usr_a", At(0)),
+            Joined("usr_mod1", At(0, 1)),
+            Seen("usr_a", At(1), "d2"),
+            Seen("usr_p1", At(1, 1), "d2"),
+            Seen("usr_p2", At(1, 2), "d2"),
+            Seen("usr_p3", At(1, 3), "d2"),
+            Joined("usr_mod2", At(1, 4), "d2"),
+            Stopped("usr_mod1", At(10)),
+            Stopped("usr_mod2", At(10), "d2"),
+            Seen("usr_a", At(20)),
+            Joined("usr_mod1", At(20, 1)),
+            // The second moderator's reports up to 20:11 were thrown away as twins of the first's;
+            // these are what is left of its restatement.
+            Seen("usr_p2", At(20, 12), "d2"),
+            Seen("usr_p3", At(20, 13), "d2"),
+            Joined("usr_mod2", At(20, 14), "d2"),
+        ]);
+
+        var a = StayOf(stays, "usr_a");
+        Assert.Equal((At(0), At(20, 14), false), (a.Started, a.Ended, a.LeaveSeen));
+
+        var p1 = StayOf(stays, "usr_p1");
+        Assert.Equal((At(10), false), (p1.Ended, p1.LeaveSeen));
+    }
+
+    /// <summary>
+    /// The surviving stragglers are so far apart that they read as two runs. Ada, kept by the first
+    /// run because the first moderator reported her, is not dropped by the second.
+    /// </summary>
+    [Fact]
+    public void SparseStragglers_SplitIntoTwoRuns_DoNotLetTheSecondDropWhoTheFirstKept()
+    {
+        var stays = CompanionGaps.Stays(
+        [
+            Seen("usr_a", At(0)),
+            Joined("usr_mod1", At(0, 1)),
+            Seen("usr_a", At(1), "d2"),
+            Seen("usr_p1", At(1, 1), "d2"),
+            Seen("usr_p2", At(1, 2), "d2"),
+            Stopped("usr_mod1", At(10)),
+            Stopped("usr_mod2", At(10), "d2"),
+            Seen("usr_a", At(20)),
+            Joined("usr_mod1", At(20, 1)),
+            Seen("usr_p1", At(20, 5), "d2"),
+            Seen("usr_p2", At(20, 30), "d2"),
+        ]);
+
+        var a = StayOf(stays, "usr_a");
+        Assert.Equal((At(0), At(20, 30), false), (a.Started, a.Ended, a.LeaveSeen));
+    }
+
+    /// <summary>
+    /// A restatement thirty minutes after a long roster, with nothing of the first overlapping it:
+    /// everybody in the first roster the second leaves out left in the gap, from the first roster's
+    /// last report.
+    /// </summary>
+    [Fact]
+    public void ARestatementLongAfterALongRoster_DropsEveryoneItLeavesOut()
+    {
+        var first = Enumerable.Range(0, 45)
+            .Select(i => Seen($"usr_{i:00}", At(0).AddMilliseconds(700 * i)))
+            .ToList();
+
+        var stays = CompanionGaps.Stays(
+        [
+            .. first,
+            Seen("usr_00", At(30)),
+            Seen("usr_01", At(30, 1)),
+        ]);
+
+        Assert.Equal(45, stays.Count);
+        Assert.Equal((first[^1].At, false), (StayOf(stays, "usr_44").Ended, StayOf(stays, "usr_44").LeaveSeen));
+        Assert.Equal(At(30, 1), StayOf(stays, "usr_00").Ended);
+    }
+
+    /// <summary>
+    /// The dedup window is a setting. The first moderator lists Ada ten seconds after the second
+    /// moderator's only surviving report: a window of two seconds does not make that a twin of
+    /// anything, so Ada was lost at the gap and comes back; a window of ten does, so she stays.
+    /// </summary>
+    [Fact]
+    public void ADifferentDedupWindow_ChangesWhoCountsAsTheSameReport()
+    {
+        PresenceReport[] Reports() =>
+        [
+            Seen("usr_a", At(0)),
+            Joined("usr_mod1", At(0, 1)),
+            Seen("usr_a", At(1), "d2"),
+            Joined("usr_mod2", At(1, 1), "d2"),
+            Stopped("usr_mod1", At(9)),
+            Stopped("usr_mod2", At(10), "d2"),
+            Joined("usr_mod2", At(20, 4), "d2"),
+            Seen("usr_a", At(20, 10)),
+            Joined("usr_mod1", At(20, 11)),
+        ];
+
+        Assert.Equal(2, CompanionGaps.Stays(Reports(), TimeSpan.FromSeconds(2)).Count(s => s.UserId == "usr_a"));
+        Assert.Single(CompanionGaps.Stays(Reports(), TimeSpan.FromSeconds(10)), s => s.UserId == "usr_a");
+    }
+
+    /// <summary>
+    /// Both moderators' logs stopped at 10:00. The first one's restatement leaves Ada out and the
+    /// second one's keeps her, and the second was watching up to that very instant, so she is not
+    /// dropped.
+    /// </summary>
+    [Fact]
+    public void AModeratorWhoStoppedAtTheSameInstant_StillVouchesForTheDrop()
+    {
+        var stays = CompanionGaps.Stays(
+        [
+            Seen("usr_a", At(0)),
+            Joined("usr_mod1", At(0, 1)),
+            Seen("usr_a", At(1), "d2"),
+            Joined("usr_mod2", At(1, 1), "d2"),
+            Stopped("usr_mod1", At(10)),
+            Stopped("usr_mod2", At(10), "d2"),
+            Joined("usr_mod1", At(20)),
+            Seen("usr_a", At(21), "d2"),
+            Joined("usr_mod2", At(21, 1), "d2"),
+        ]);
+
+        var a = StayOf(stays, "usr_a");
+        Assert.Equal((At(0), At(21, 1), false), (a.Started, a.Ended, a.LeaveSeen));
+    }
+
+    /// <summary>
+    /// Both moderators stopped at 10:00 and neither one's restatement lists Ada: nobody is left to
+    /// vouch for her, so she left at 10:00.
+    /// </summary>
+    [Fact]
+    public void TwoModeratorsWhoBothLoseAPersonAtTheSameInstant_DropThem()
+    {
+        var stays = CompanionGaps.Stays(
+        [
+            Seen("usr_a", At(0)),
+            Joined("usr_mod1", At(0, 1)),
+            Seen("usr_a", At(1), "d2"),
+            Joined("usr_mod2", At(1, 1), "d2"),
+            Stopped("usr_mod1", At(10)),
+            Stopped("usr_mod2", At(10), "d2"),
+            Joined("usr_mod1", At(20)),
+            Seen("usr_mod2", At(21), "d2"),
+        ]);
+
+        var a = StayOf(stays, "usr_a");
+        Assert.Equal((At(10), false), (a.Ended, a.LeaveSeen));
     }
 }
