@@ -435,12 +435,14 @@ public sealed record CalendarPreviewRequest(Guid? EventId, CalendarEventRequest 
 /// <param name="VRChat">What VRChat's calendar is sent.</param>
 /// <param name="Feed">What a phone or desktop calendar reads from the calendar feed.</param>
 /// <param name="Google">What the Google calendar in Settings is sent (added 2026-10-03).</param>
+/// <param name="Bluesky">The Bluesky post for the event's current date (added 2026-10-14).</param>
 public sealed record CalendarPreviewView(
     Modbot.Core.Calendar.CalendarDiscordEventPreview? DiscordEvent,
     Modbot.Core.Calendar.CalendarChannelPostPreview? ChannelPost,
     CalendarVRChatPreviewView VRChat,
     CalendarFeedPreviewView Feed,
-    CalendarGooglePreviewView? Google = null);
+    CalendarGooglePreviewView? Google = null,
+    Modbot.Api.Features.Posts.BlueskyPostPreview? Bluesky = null);
 
 /// <summary>
 /// What the Google calendar is sent for the event, read out of the body the Google loop sends
