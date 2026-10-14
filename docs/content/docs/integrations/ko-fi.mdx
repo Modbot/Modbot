@@ -1,0 +1,99 @@
+---
+title: Ko-fi supporters
+description: Giving supporters a Discord role and a VRChat group role for the tier they pay at, thanking them, and taking the roles back when a monthly payment stops.
+---
+
+Modbot can give your Ko-fi supporters their perks. When somebody pays monthly, Modbot gives them the
+**Discord role** and the **VRChat group role** you chose for their tier and sends them a thank-you
+message. When a monthly payment does not come, Modbot takes the roles back.
+
+Ko-fi calls Modbot, not the other way round. Modbot never signs in to Ko-fi and never asks Ko-fi for
+anything, so the only thing it needs from Ko-fi is a **verification token**. Your Modbot must be
+reachable from the internet at the **Public address** in **Settings**, **Server**, because Ko-fi sends
+each payment to it.
+
+You set it up in **Settings**, **Ko-fi**, and look after the tiers and people on the **Supporters**
+page (**Community**). Both need
+[**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+## Set it up
+
+1. In Ko-fi, open your page's settings, **API**, and find the **Webhooks** section. Copy the
+   **Verification Token**.
+2. In Modbot, go to **Settings**, **Ko-fi**. Paste the token into **Verification token** and click
+   **Save**. The page shows **Verification token: Saved**, and never shows it again. It is kept
+   encrypted.
+3. Copy the **Webhook address** shown on that page into Ko-fi's **Webhook URL** box and save it there.
+   The address is built from your Modbot's public address. If it says **Public address not set**, set
+   the public address first.
+4. Turn the **Ko-fi** switch on. Until it is on, the address answers as if it were not there.
+5. Ko-fi has a button to send a test message. Use it, then look at the **Supporters** page.
+
+A message with the wrong token is refused. Nothing else about a message is trusted until its token
+matches.
+
+Ko-fi's field names (the tier's name, the kind of payment, the Discord account) come from published
+descriptions of the webhook, and the **Discord account** field has not been checked against a live
+payload from Ko-fi. If supporters you know are in your server show up as **Not matched**, the
+[matching](#matching-a-supporter-to-their-discord-account) below still works.
+
+## Tiers and roles
+
+On the **Supporters** page, each tier has a **Discord role** and a **VRChat group role**. Either can
+be left empty.
+
+- A tier appears by itself the first time a payment names it, with no roles. Pick its roles to start
+  giving them. You can also add a tier by hand with the name Ko-fi uses for it.
+- Changing a tier's roles applies to everyone on it within a minute.
+- A tier cannot be deleted while paid-up supporters are on it.
+
+Only a **monthly** payment counts. A one-off donation, a shop order or a commission is answered and
+ignored.
+
+## The three-day rule
+
+Ko-fi sends nothing when a monthly payment stops. So Modbot counts instead. A payment covers a month.
+If the next one has not come **3 days after that month is up**, the supporter's state becomes **Ended**
+and Modbot takes back the roles it gave. The page shows **Roles end** for each supporter. A payment that
+arrives late, after the roles came off, gives them back.
+
+Modbot only takes back roles it gave itself. A role you gave by hand is never touched.
+
+## Matching a supporter to their Discord account
+
+Roles need a Discord account. Modbot finds it two ways:
+
+- **Ko-fi's Discord link.** A supporter who connected their Discord account in Ko-fi is matched as soon
+  as they pay.
+- **The code on their receipt.** Anybody else shows as **Not matched**. They give staff the
+  **transaction id** from their Ko-fi receipt. Type it into the search box on the **Supporters** page
+  to find them, press **Match**, search for their name in the Discord server and press **Match**
+  again.
+
+The VRChat group role goes to the VRChat account linked to their Discord account (see
+[Account links](/discord/account-links)). A supporter with no linked VRChat account shows
+**No linked VRChat**; their Discord role is given, and the VRChat role follows when they link.
+
+## The thank-you message
+
+The message is a direct message on Discord, sent once, the first time a supporter has a Discord
+account and a tier. It is set in **Settings**, **Ko-fi**. `{name}` becomes their name and `{tier}`
+the tier's name. Leave it empty to send none. A supporter who changes tier is thanked again. If
+somebody does not accept direct messages from the server, the page shows that on their row.
+
+## Permissions
+
+Giving a Discord role needs the **Manage Roles** permission, and the bot's own role must sit above the
+roles it gives. The VRChat side uses Modbot's own VRChat login, which needs the group permission to give
+and take away roles; a refusal from VRChat is shown on the supporter's row. The **Bot invite link** asks for Manage Roles while
+Ko-fi is on. A bot added earlier has to be added again from the new link.
+
+A role the bot cannot give is marked in the picker, and a refusal is shown on the supporter's row.
+
+## What Modbot keeps
+
+For each supporter: the name they paid under, their tier, their Discord account, when they paid, which
+roles Modbot gave, and the transaction ids of their payments. Their **email address is never stored**:
+Modbot keeps only a one-way fingerprint of it, to tell one person's payments from another's. Nothing
+is sent to Modbot Cloud. A [purge](/moderation/purge) deletes the supporter matched to that Discord
+account, with their payments; no retention window touches it.
