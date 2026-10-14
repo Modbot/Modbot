@@ -331,6 +331,80 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// Which invite a member joined the Discord server with (invite tracking) names their Discord
+    /// account and the time, so a purge takes it -- for the Discord account, and for the VRChat account
+    /// it is linked to -- and leaves everybody else's and the invite itself.
+    /// </summary>
+    [Fact]
+    public async Task TheInviteTheyJoinedWith_Goes_ForTheDiscordAccountAndItsLinkedVRChatAccount()
+    {
+        const string DiscordSubject = "7101";
+        const string DiscordBystander = "7102";
+
+        var invite = new DiscordInviteLink { Code = "linktree", Name = "Linktree", FirstSeenAt = Start };
+
+        async Task SetUpAsync()
+        {
+            await using var setup = Database.NewContext();
+            await setup.DiscordInviteJoins.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.DiscordInviteLinks.AnyAsync(i => i.Id == invite.Id, Ct))
+                setup.DiscordInviteLinks.Add(invite);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            setup.DiscordInviteJoins.AddRange(
+                new DiscordInviteJoin { UserId = DiscordSubject, JoinedAt = Start, InviteId = invite.Id },
+                new DiscordInviteJoin { UserId = DiscordSubject, JoinedAt = Start.AddDays(1), InviteId = null },
+                new DiscordInviteJoin { UserId = DiscordBystander, JoinedAt = Start, InviteId = invite.Id });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(2, result.InviteJoinsDeleted);
+        }
+
+        await using (var read = Database.NewContext())
+        {
+            Assert.Equal(DiscordBystander, Assert.Single(await read.DiscordInviteJoins.AsNoTracking().ToListAsync(Ct)).UserId);
+            Assert.Single(await read.DiscordInviteLinks.AsNoTracking().ToListAsync(Ct));
+        }
+
+        // The same, asked about the VRChat account the Discord one is linked to.
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+            Assert.Equal(2, result.InviteJoinsDeleted);
+        }
+
+        await using var again = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await again.DiscordInviteJoins.AsNoTracking().ToListAsync(Ct)).UserId);
+
+        // And the record of the purge counts them, naming nobody.
+        var record = await again.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.UserPurged)
+            .OrderByDescending(e => e.Id)
+            .FirstAsync(Ct);
+        Assert.Contains("\"inviteJoins\": 2", record.Data, StringComparison.Ordinal);
+        Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// A purge takes the birthday a member set (a Discord purge, or a VRChat one through the linked
     /// account) and leaves everybody else's. A row whose birthday role is still held stays with no
     /// month and day, so the next birthday pass can take the role back and delete it.

@@ -65,6 +65,7 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// <param name="EventInvitesDeleted">Rows on events' invite queues (calendar auto-invite design §8).</param>
 /// <param name="EventRemindersDeleted">Reminders they asked for with <c>/remindme</c>, whatever their state (Discord commands design §3.5).</param>
 /// <param name="MemberReportsDeleted">Member reports they made and reports made about them, whatever their state (Discord commands design §3.4).</param>
+/// <param name="InviteJoinsDeleted">Rows saying which invite a Discord account joined with, and when (invite tracking).</param>
 /// <param name="EventAlertsDeleted">
 /// Event alert rows that named them: their sign-ups, their choice of way and the alerts queued for
 /// them (event alerts design §7). Added together; the record names nobody.
@@ -79,7 +80,8 @@ public sealed record PurgeResult(
     int EventInvitesDeleted = 0,
     int EventRemindersDeleted = 0,
     int MemberReportsDeleted = 0,
-    int EventAlertsDeleted = 0);
+    int EventAlertsDeleted = 0,
+    int InviteJoinsDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -331,6 +333,21 @@ public sealed class UserPurger : IUserPurger
                     new NpgsqlParameter("subject", subjectId));
             }
 
+            // Which invite they joined the Discord server with (invite tracking) holds their Discord
+            // account and the time. For a VRChat account, the Discord account linked to it now, as
+            // with reminders. The invite and its other joins stay.
+            var inviteJoinsDeleted = await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM discord_invite_join WHERE user_id = @subject"
+                    : """
+                      DELETE FROM discord_invite_join
+                      WHERE user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // Event alerts name a Discord account three ways (event alerts design §7): what they
             // signed up for, their choice of way, and the alerts queued or sent to them. For a
             // VRChat account, the Discord account linked to it now, as with reminders.
@@ -477,7 +494,7 @@ public sealed class UserPurger : IUserPurger
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
             var result = new PurgeResult(
-                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted, reportsDeleted, alertsDeleted);
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked, invitesDeleted, remindersDeleted, reportsDeleted, alertsDeleted, inviteJoinsDeleted);
 
             await RecordAsync(platform, actor, result, ct);
 
@@ -607,6 +624,7 @@ public sealed class UserPurger : IUserPurger
             ["eventReminders"] = result.EventRemindersDeleted,
             ["memberReports"] = result.MemberReportsDeleted,
             ["eventAlerts"] = result.EventAlertsDeleted,
+            ["inviteJoins"] = result.InviteJoinsDeleted,
         };
 
         if (actor is not null)

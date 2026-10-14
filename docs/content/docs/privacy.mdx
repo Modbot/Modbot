@@ -153,6 +153,13 @@ wherever you choose to store them. These pages describe what is kept and how it 
   VRChat shows them, so nobody is pinged, with the head count and the next date, and a public thread is started on it.
   Modbot keeps only the time the recap was posted, for each date. Nothing is sent to Modbot Cloud. Discord sees the
   post and the thread.
+- [Invite tracking](/discord/invites): off until you turn on **On** on the **Invite tracking** card in
+  **Settings → Discord**. Once on, when somebody joins your Discord server Modbot compares the use counts of the
+  server's invites and keeps which invite they joined with (or that it could not tell), with their Discord id
+  and the time they joined. It also keeps each invite's code, the name staff gave it, who made it and whether it
+  is gone. The page shows only counts per source, never who joined. The bot's invite link asks for **Manage
+  Server** and **Create Invite** only while it is on. A [purge](/moderation/purge) deletes a person's joins;
+  no retention window touches them. Nothing is sent to Modbot Cloud.
 - [Member milestones](/discord/member-milestones): the count is always on. Modbot keeps, for each person seen in
   an instance where a moderator's Modbot app was present, the dates of the events they came to, when they were last
   seen arriving in a group instance and their latest return, and shows them on the profile. The posts and the
