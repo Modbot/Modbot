@@ -285,6 +285,10 @@ public sealed record CalendarVRChatPictureView(string FileId);
 /// <param name="CoverId">Save it as the event's <c>coverPictureId</c>.</param>
 public sealed record CalendarCoverView(Guid CoverId);
 
+/// <summary>Covers an event uses that Bluesky has no copy of and could not be sent as they are.</summary>
+/// <param name="CoverIds">At most 20, newest first.</param>
+public sealed record CalendarCoversNeedingCopyView(IReadOnlyList<Guid> CoverIds);
+
 /// <summary>A picture link to fetch for the form's crop box.</summary>
 /// <param name="Url">An https link: a picture, a page with a picture, or a VRChat file link.</param>
 public sealed record CalendarPictureLinkRequest(string? Url);

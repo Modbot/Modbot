@@ -180,10 +180,16 @@ public class CalendarCoverTests(PostgresFixture db)
         return (await ApiTestHost.BodyOf(response, Ct)).GetProperty("coverId").GetGuid();
     }
 
-    private static async Task<(HttpStatusCode Status, List<Guid> Ids)> NeedingCopyAsync(ApiTestHost host, string cookie)
+    private static async Task<(HttpStatusCode Status, List<Guid> Ids)> NeedingCopyAsync(
+        ApiTestHost host, string cookie, params Guid[] skip)
     {
+        var query = string.Join("&", skip.Select(id => $"skip={id}"));
         var response = await host.Client.SendAsync(
-            host.Authenticated(HttpMethod.Get, "/api/calendar/covers/needing-bluesky-copy", cookie), Ct);
+            host.Authenticated(
+                HttpMethod.Get,
+                "/api/calendar/covers/needing-bluesky-copy" + (query.Length > 0 ? "?" + query : ""),
+                cookie),
+            Ct);
 
         if (response.StatusCode != HttpStatusCode.OK)
             return (response.StatusCode, []);
@@ -235,7 +241,13 @@ public class CalendarCoverTests(PostgresFixture db)
         for (var i = 0; i < CalendarEndpoints.MaxCoversNeedingBlueskyCopy + 2; i++)
             await CreateAsync(host, manager, await UploadedAsync(host, manager));
 
-        Assert.Equal(CalendarEndpoints.MaxCoversNeedingBlueskyCopy, (await NeedingCopyAsync(host, manager)).Ids.Count);
+        var (_, first) = await NeedingCopyAsync(host, manager);
+        Assert.Equal(CalendarEndpoints.MaxCoversNeedingBlueskyCopy, first.Count);
+
+        // Leaving out the ones already tried brings up the rest, so none holds the front for good.
+        var (_, rest) = await NeedingCopyAsync(host, manager, [.. first]);
+        Assert.Equal(2, rest.Count);
+        Assert.Empty(rest.Intersect(first));
 
         var viewer = (await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct)).Cookie;
         Assert.Equal(HttpStatusCode.Forbidden, (await NeedingCopyAsync(host, viewer)).Status);

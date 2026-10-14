@@ -190,7 +190,7 @@ export function Calendar({ me }: { me: CurrentUser }) {
 
     let cancelled = false
     void makeMissingCoverCopies({
-      missing: () => calendarApi.coversNeedingBlueskyCopy().then((r) => r.coverIds),
+      missing: (skip) => calendarApi.coversNeedingBlueskyCopy(skip).then((r) => r.coverIds),
       picture: calendarApi.coverPicture,
       smallCopy: (picture) => smallJpeg(picture, BLUESKY_PICTURE_MAX_BYTES),
       keep: calendarApi.uploadCoverBlueskyCopy,

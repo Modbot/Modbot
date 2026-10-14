@@ -648,8 +648,11 @@ export const calendarApi = {
       body: picture,
       headers: { 'content-type': 'image/jpeg' },
     }),
-  /** The ids of covers an event uses that Bluesky has no copy of and could not be sent as they are. */
-  coversNeedingBlueskyCopy: () => http.request<{ coverIds: string[] }>(`${base}/covers/needing-bluesky-copy`),
+  /** The ids of covers an event uses that Bluesky has no copy of and could not be sent as they are, leaving out `skip`. */
+  coversNeedingBlueskyCopy: (skip: string[]) =>
+    http.request<{ coverIds: string[] }>(
+      `${base}/covers/needing-bluesky-copy${skip.length ? `?${skip.map((id) => `skip=${encodeURIComponent(id)}`).join('&')}` : ''}`,
+    ),
   /** A kept cover's picture, as it was uploaded. */
   coverPicture: async (coverId: string): Promise<Blob> => {
     const response = await fetch(coverAddress(coverId))

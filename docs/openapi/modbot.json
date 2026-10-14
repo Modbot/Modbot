@@ -33418,11 +33418,31 @@
           "Calendar"
         ],
         "summary": "List covers without a Bluesky picture",
-        "description": "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, newest first. Needs Manage calendar or Manage templates. Changes nothing.\n\nNeeds the `ViewCalendar` permission.",
+        "description": "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, newest first, leaving out the ids in skip. Needs Manage calendar or Manage templates. Changes nothing.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "ListCalendarCoversNeedingBlueskyCopy",
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarCoversNeedingCopyView"
+                }
+              }
+            }
           },
           "403": {
             "description": "Forbidden",
@@ -44794,6 +44814,21 @@
           "coverId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "CalendarCoversNeedingCopyView": {
+        "required": [
+          "coverIds"
+        ],
+        "type": "object",
+        "properties": {
+          "coverIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

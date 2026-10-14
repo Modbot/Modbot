@@ -1006,23 +1006,29 @@ public static class CalendarEndpoints
         // Covers chosen before the Bluesky copy existed: the calendar page's browser makes their copies.
         group.MapGet("/covers/needing-bluesky-copy", async (
                 HttpContext http,
+                [FromQuery] Guid[]? skip,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
                 if (RefusedWithoutEditorRights(http) is { } refused)
                     return refused;
 
+                // Covers the browser has already tried this visit are left out, so one it cannot
+                // convert does not hold the front of the list.
+                var tried = skip ?? [];
+
                 // A small JPEG goes to Bluesky as itself, so only the others need a copy.
                 var ids = await db.CalendarCoverPictures.AsNoTracking()
                     .Where(c => c.BlueskyBytes == null
                         && (c.ContentType != "image/jpeg" || c.Bytes.Length > BlueskyText.PictureMaxBytes)
+                        && !tried.Contains(c.Id)
                         && db.CalendarEvents.Any(e => e.CoverPictureId == c.Id && e.DeletedAt == null))
                     .OrderByDescending(c => c.CreatedAt)
                     .Select(c => c.Id)
                     .Take(MaxCoversNeedingBlueskyCopy)
                     .ToListAsync(ct);
 
-                return Results.Ok(new { coverIds = ids });
+                return Results.Ok(new CalendarCoversNeedingCopyView(ids));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("ListCalendarCoversNeedingBlueskyCopy")
@@ -1030,8 +1036,9 @@ public static class CalendarEndpoints
             .WithDescription(
                 "The ids of covers that a not-deleted event uses, that have no Bluesky copy, and that "
                 + "Bluesky could not be sent as they are (over 1,000,000 bytes, or not a JPEG). At most 20, "
-                + "newest first. Needs Manage calendar or Manage templates. Changes nothing.")
-            .Produces(StatusCodes.Status200OK)
+                + "newest first, leaving out the ids in skip. Needs Manage calendar or Manage templates. "
+                + "Changes nothing.")
+            .Produces<CalendarCoversNeedingCopyView>()
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/covers/{id:guid}", async (
