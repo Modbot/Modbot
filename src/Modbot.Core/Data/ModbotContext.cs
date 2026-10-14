@@ -2533,8 +2533,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // A payment from the same person finds their row again.
             entity.HasIndex(e => new { e.Provider, e.PayerId }).IsUnique().HasDatabaseName("ux_supporter_payer");
 
-            // The pass looks up a person's Discord account, and the purge erases by it.
-            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_supporter_discord_user");
+            // The pass looks up a person's Discord account, and the purge erases by it. One account
+            // belongs to one supporter, so two payments at once cannot both claim it.
+            entity.HasIndex(e => new { e.Provider, e.DiscordUserId }).IsUnique().HasDatabaseName("ux_supporter_discord_user");
 
             // A tier with supporters on it is not deleted (the endpoint says so); if it ever goes, they lose the tier.
             entity.HasOne<SupporterTier>().WithMany().HasForeignKey(e => e.TierId).OnDelete(DeleteBehavior.SetNull);

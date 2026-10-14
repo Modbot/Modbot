@@ -406,6 +406,20 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // A supporter staff moved off this account may still name it as the one Modbot gave a role to.
+            // The account is gone, so there is no role left to take back and nothing left that names it.
+            await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "UPDATE supporter SET given_discord_user_id = NULL, given_discord_role_id = NULL WHERE given_discord_user_id = @subject"
+                    : """
+                      UPDATE supporter SET given_discord_user_id = NULL, given_discord_role_id = NULL
+                      WHERE given_discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
             // The code they got from /supporter-code is theirs too, and is counted with the supporter.
             supportersDeleted += await ExecuteAsync(
                 platform == FactPlatform.Discord

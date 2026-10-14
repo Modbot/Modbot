@@ -131,7 +131,14 @@ public sealed class SupporterIntake(ModbotContext db)
             if (discordId is not null
                 && (codeId is null || supporter.DiscordUserId is null)
                 && !await db.Supporters.AnyAsync(s => s.Id != supporter.Id && s.Provider == SupporterProviders.Kofi && s.DiscordUserId == discordId, ct).ConfigureAwait(false))
+            {
+                // The role Modbot gave the old account is taken back from it, so remember whose it was
+                // (a role given before this was kept went to the account they are on now).
+                if (supporter.GivenDiscordRoleId is not null && supporter.DiscordUserId != discordId)
+                    supporter.GivenDiscordUserId ??= supporter.DiscordUserId;
+
                 supporter.DiscordUserId = discordId;
+            }
 
             // A new tier, or a comeback after the roles came off, is worth saying thank you for again.
             if (isNew || tierChanged || (wasEnded && supporter.State == SupporterStates.Active))
