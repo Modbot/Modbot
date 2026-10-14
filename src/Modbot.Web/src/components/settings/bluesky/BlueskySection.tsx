@@ -79,6 +79,14 @@ function useSignInResult() {
   return result
 }
 
+/** The handle as the server keeps it: no @, a pasted bsky.app/profile link cut to its handle, `.bsky.social` added to a handle with no dot, lower case. */
+function shortHandle(typed: string): string {
+  let handle = typed.trim().replace(/^@/, '').replace(/^https?:\/\//i, '')
+  if (/^bsky\.app\/profile\//i.test(handle)) handle = handle.slice('bsky.app/profile/'.length).split(/[/?#]/)[0]
+  if (handle !== '' && !handle.includes('.')) handle += '.bsky.social'
+  return handle.toLowerCase()
+}
+
 function AccountCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (next: BlueskySettings) => void }) {
   // Null until somebody types, so the field follows the stored handle after a save and after Remove.
   const [typedHandle, setTypedHandle] = useState<string | null>(null)
@@ -91,7 +99,7 @@ function AccountCard({ settings, onSaved }: { settings: BlueskySettings; onSaved
   const signInAfter = useStillAhead(settings.signInAfter)
 
   const handle = typedHandle ?? settings.handle ?? ''
-  const changed = handle.trim().replace(/^@/, '').toLowerCase() !== (settings.handle ?? '') || password.trim() !== ''
+  const changed = shortHandle(handle) !== (settings.handle ?? '') || password.trim() !== ''
 
   const run = (kind: 'saving' | 'checking' | 'removing', call: () => Promise<BlueskySettings>, done?: string) => {
     setBusy(kind)

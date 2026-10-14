@@ -44,7 +44,7 @@ public sealed partial class BlueskyIdentity(IHttpClientFactory http)
         [".local", ".arpa", ".invalid", ".localhost", ".internal", ".example", ".onion", ".alt", ".test"];
 
     /// <summary>The Bluesky ending a short handle gets: <c>ourgroup</c> is <c>ourgroup.bsky.social</c>.</summary>
-    public const string DefaultEnding = ".bsky.social";
+    private const string DefaultEnding = ".bsky.social";
 
     /// <summary>The start of a pasted profile link, once <c>https://</c> is taken off.</summary>
     private const string ProfileLink = "bsky.app/profile/";
