@@ -468,6 +468,70 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// A purge takes the row saying a Discord account was welcomed (or is waiting for the join gate to
+    /// be) -- for the Discord account, and for the VRChat account it is linked to -- and leaves
+    /// everybody else's.
+    /// </summary>
+    [Fact]
+    public async Task TheWelcomeTheyWereGiven_Goes_ForTheDiscordAccountAndItsLinkedVRChatAccount()
+    {
+        const string DiscordSubject = "7301";
+        const string DiscordBystander = "7302";
+
+        async Task SetUpAsync()
+        {
+            await using var setup = Database.NewContext();
+            await setup.DiscordWelcomes.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            setup.DiscordWelcomes.AddRange(
+                new DiscordWelcome { DiscordUserId = DiscordSubject, State = DiscordWelcomeStates.Sent, CreatedAt = Start, SentAt = Start },
+                new DiscordWelcome { DiscordUserId = DiscordBystander, State = DiscordWelcomeStates.Waiting, CreatedAt = Start });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(1, result.WelcomesDeleted);
+        }
+
+        await using (var read = Database.NewContext())
+            Assert.Equal(DiscordBystander, Assert.Single(await read.DiscordWelcomes.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+
+        // The same, asked about the VRChat account the Discord one is linked to.
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+            Assert.Equal(1, result.WelcomesDeleted);
+        }
+
+        await using var again = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await again.DiscordWelcomes.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+
+        var record = await again.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.UserPurged)
+            .OrderByDescending(e => e.Id)
+            .FirstAsync(Ct);
+        Assert.Contains("\"welcomes\": 1", record.Data, StringComparison.Ordinal);
+        Assert.DoesNotContain(DiscordSubject, record.Data, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// A purge takes the birthday a member set (a Discord purge, or a VRChat one through the linked
     /// account) and leaves everybody else's. A row whose birthday role is still held stays with no
     /// month and day, so the next birthday pass can take the role back and delete it.
