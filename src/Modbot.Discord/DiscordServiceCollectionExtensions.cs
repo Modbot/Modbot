@@ -88,6 +88,11 @@ public static class DiscordServiceCollectionExtensions
             p => new Invites.DiscordInviteActions(
                 () => p.GetRequiredService<DiscordBotService>().ReadyGateway,
                 p.GetRequiredService<IServiceScopeFactory>()));
+        // Server snapshots: the page's read of the roles and channels, and putting permissions back.
+        services.AddSingleton<Core.Discord.IDiscordSnapshotActions>(
+            p => new Snapshots.DiscordSnapshotActions(
+                () => p.GetRequiredService<DiscordBotService>().ReadyGateway,
+                p.GetRequiredService<IServiceScopeFactory>()));
         services.AddSingleton<Core.Discord.IDiscordRoleMenuActions>(
             p => new RoleMenus.DiscordRoleMenuActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
 

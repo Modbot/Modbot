@@ -245,6 +245,7 @@ public static class AuditVisibility
         [FactType.StaffRolesHeld] = AuditCategory.Operational,
         [FactType.StaffRolesApplied] = AuditCategory.Operational,
         [FactType.StaffRolesNoMemberUpdates] = AuditCategory.Operational,
+        [FactType.DiscordSnapshotRestored] = AuditCategory.Operational,
         [FactType.ApiKeyCreated] = AuditCategory.Operational,
         [FactType.ApiKeyRevoked] = AuditCategory.Operational,
         [FactType.McpConnected] = AuditCategory.Operational,

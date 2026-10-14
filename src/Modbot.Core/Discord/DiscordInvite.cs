@@ -68,6 +68,11 @@ public static class DiscordInvite
         if (settings.DiscordInviteTrackingOn)
             permissions |= ManageGuild | CreateInvite;
 
+        // Putting a role's or a channel's permissions back from a snapshot changes roles and channel
+        // settings, which needs Manage Roles. Taking and reading snapshots needs nothing more.
+        if (settings.DiscordSnapshotRestoreOn)
+            permissions |= ManageRoles;
+
         // The join gate gives the member role, removes people who do not finish when the operator
         // set a removal time, and pauses invites only when the operator allowed it (join gate
         // design §11), and only while it is On: Watch only does nothing in Discord, so it asks for

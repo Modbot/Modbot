@@ -315,6 +315,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each person who joined the Discord server, with the invite they used when that was clear.</summary>
     public DbSet<DiscordInviteJoin> DiscordInviteJoins => Set<DiscordInviteJoin>();
 
+    /// <summary>Saved pictures of the Discord server's roles and channels with their permissions.</summary>
+    public DbSet<DiscordSnapshot> DiscordSnapshots => Set<DiscordSnapshot>();
+
     /// <summary>Questions Modbot posts in Discord for members to vote on, open or closed.</summary>
     public DbSet<Vote> Votes => Set<Vote>();
 
@@ -601,6 +604,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // Off, for the row that exists already as much as for a new one.
             entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);
+            entity.Property(e => e.DiscordSnapshotSchedule).HasMaxLength(16).HasDefaultValue(DiscordSnapshotSchedules.Off);
 
             // Off, and sent as a direct message, for the row that exists already.
             entity.Property(e => e.DiscordWelcomeVia).HasMaxLength(16).HasDefaultValue(DiscordWelcomeWhere.DirectMessage);
@@ -2472,6 +2476,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasOne<Vote>().WithMany().HasForeignKey(e => e.VoteId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<VoteOption>().WithMany().HasForeignKey(e => e.OptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DiscordSnapshot>(entity =>
+        {
+            entity.ToTable("discord_snapshot");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.TakenBy).HasMaxLength(100);
+            entity.Property(e => e.Content).HasColumnType("jsonb");
+
+            // The page lists them newest first.
+            entity.HasIndex(e => e.TakenAt).HasDatabaseName("ix_discord_snapshot_taken");
         });
 
         builder.Entity<DiscordTicketType>(entity =>

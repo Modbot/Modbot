@@ -1025,6 +1025,12 @@ const SENTENCES: Record<string, Sentence> = {
       {typeof p.entry.data?.given === 'number' ? <> and giving {p.entry.data.given}</> : null}.
     </>
   ),
+  'modbot.discord.snapshot.restore': (p) => (
+    <>
+      {p.actor} put the permissions of {p.text('kind') === 'channel' ? 'the channel' : 'the role'}{' '}
+      {named(p.text('name'), p.text('kind') === 'channel' ? 'channel' : 'role')} back from a server snapshot.
+    </>
+  ),
   'modbot.role.discord.no-member-updates': () => (
     <>Modbot stopped giving Modbot roles from Discord roles: it isn't receiving member updates from Discord.</>
   ),

@@ -1444,6 +1444,34 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<DiscordInviteMade> CreateInviteAsync(string guildId, string channelId, string reason, CancellationToken ct);
 
+    // ── Server snapshots ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads every role and channel with its permissions from the session's own picture of the
+    /// server, with what the bot itself may do. Needs no permission and makes no request; null when
+    /// the bot is not in that server.
+    /// </summary>
+    Core.Discord.ServerStructure? ReadStructure(string guildId);
+
+    /// <summary>
+    /// Sets a role's server-wide permissions. Needs Manage Roles, and a role below the bot's highest.
+    /// </summary>
+    Task<Core.Discord.DiscordEditResult> SetRolePermissionsAsync(
+        string guildId, string roleId, long permissions, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Sets a channel's own permissions for each role in <paramref name="set"/> and removes them for
+    /// each role in <paramref name="removeRoleIds"/>. Settings for single members are not touched.
+    /// Needs Manage Roles.
+    /// </summary>
+    Task<Core.Discord.DiscordEditResult> SetChannelOverwritesAsync(
+        string guildId,
+        string channelId,
+        IReadOnlyList<Core.Discord.SnapshotOverwriteSet> set,
+        IReadOnlyList<string> removeRoleIds,
+        string reason,
+        CancellationToken ct);
+
     // ── Server events (calendar design §3.2) ─────────────────────────────────────────────
     //
     // All three need Manage Events. The outcome's MessageId carries Discord's event id.

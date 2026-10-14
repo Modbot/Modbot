@@ -107,6 +107,7 @@ public static class FactSubjects
         [FactType.StaffRolesHeld] = SubjectKind.Other,
         [FactType.StaffRolesApplied] = SubjectKind.Other,
         [FactType.StaffRolesNoMemberUpdates] = SubjectKind.Other,
+        [FactType.DiscordSnapshotRestored] = SubjectKind.Other,
         [FactType.ApiKeyCreated] = SubjectKind.Other,
         [FactType.ApiKeyRevoked] = SubjectKind.Other,
         [FactType.WebhookCreated] = SubjectKind.Other,

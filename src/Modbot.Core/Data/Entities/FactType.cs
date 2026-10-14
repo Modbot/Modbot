@@ -528,6 +528,14 @@ public static class FactType
     public const string StaffRolesApplied = "modbot.role.discord.apply";
     public const string StaffRolesNoMemberUpdates = "modbot.role.discord.no-member-updates";
 
+    /// <summary>
+    /// Somebody put a Discord role's or channel's permissions back from a server snapshot. The subject is
+    /// the snapshot. Payload: <c>kind</c> (<c>role</c> or <c>channel</c>), <c>targetId</c>, <c>name</c>,
+    /// <c>changes</c> (what was changed, one sentence each), <c>applied</c> and, when Discord stopped it
+    /// part-way, <c>error</c>.
+    /// </summary>
+    public const string DiscordSnapshotRestored = "modbot.discord.snapshot.restore";
+
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
 

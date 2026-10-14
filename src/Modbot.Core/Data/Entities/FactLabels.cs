@@ -149,6 +149,7 @@ public static class FactLabels
         [FactType.StaffRolesHeld] = "Roles from Discord stopped",
         [FactType.StaffRolesApplied] = "Roles from Discord applied",
         [FactType.StaffRolesNoMemberUpdates] = "Roles from Discord stopped: no member updates",
+        [FactType.DiscordSnapshotRestored] = "Discord permissions restored from a snapshot",
         [FactType.ApiKeyCreated] = "API key created",
         [FactType.ApiKeyRevoked] = "API key revoked",
         [FactType.McpConnected] = "AI app connected",

@@ -455,6 +455,10 @@ try
     // small table every five minutes while birthdays are off.
     builder.Services.AddBirthdays();
 
+    // Saves a snapshot of the Discord server's roles and channels on the schedule Settings chooses. Reads the
+    // settings row every ten minutes while the schedule is off.
+    builder.Services.AddServerSnapshots();
+
     // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();

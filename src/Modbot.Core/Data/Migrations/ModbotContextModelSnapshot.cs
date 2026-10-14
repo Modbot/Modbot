@@ -3563,6 +3563,47 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("discord_server", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ChannelCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("channel_count");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("content");
+
+                    b.Property<int>("RoleCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_count");
+
+                    b.Property<bool>("Scheduled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("scheduled");
+
+                    b.Property<DateTimeOffset>("TakenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("taken_at");
+
+                    b.Property<string>("TakenBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("taken_by");
+
+                    b.HasKey("Id")
+                        .HasName("pk_discord_snapshot");
+
+                    b.HasIndex("TakenAt")
+                        .HasDatabaseName("ix_discord_snapshot_taken");
+
+                    b.ToTable("discord_snapshot", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordStaffRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9156,6 +9197,18 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordRoleSyncOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_role_sync_on");
+
+                    b.Property<bool>("DiscordSnapshotRestoreOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_snapshot_restore_on");
+
+                    b.Property<string>("DiscordSnapshotSchedule")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("off")
+                        .HasColumnName("discord_snapshot_schedule");
 
                     b.Property<bool>("DiscordStaffRolesOn")
                         .HasColumnType("boolean")

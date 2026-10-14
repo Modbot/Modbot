@@ -811,6 +811,20 @@ public class Settings
     /// </summary>
     public bool DiscordInviteTrackingOn { get; set; }
 
+    // --- Server snapshots in Discord ---
+
+    /// <summary>
+    /// How often Modbot saves a snapshot of the server's roles and channels by itself, one of
+    /// <see cref="DiscordSnapshotSchedules"/>. Off by default; a snapshot can always be taken by hand.
+    /// </summary>
+    public string DiscordSnapshotSchedule { get; set; } = DiscordSnapshotSchedules.Off;
+
+    /// <summary>
+    /// Whether staff can put a role's or a channel's permissions back from a snapshot. Off to start,
+    /// since it needs Manage Roles, which the bot's link asks for only while this is on.
+    /// </summary>
+    public bool DiscordSnapshotRestoreOn { get; set; }
+
     // --- Event recaps in Discord ---
 
     /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>

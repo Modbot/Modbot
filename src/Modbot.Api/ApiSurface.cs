@@ -24,6 +24,7 @@ using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.DiscordReports;
 using Modbot.Api.Features.DiscordInvites;
+using Modbot.Api.Features.DiscordSnapshots;
 using Modbot.Api.Features.DiscordRoleMenus;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Mcp;
@@ -154,6 +155,9 @@ public static class ApiSurface
         // Birthdays in Discord: the pass is scoped; its timer is the host's, with AddBirthdays.
         services.TryAddScoped<Features.Birthdays.BirthdayPass>();
 
+        // Server snapshots on a schedule: the pass is scoped; its timer is the host's, with AddServerSnapshots.
+        services.TryAddScoped<DiscordSnapshotPass>();
+
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
@@ -167,6 +171,7 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Posts.IDiscordPostActions, Core.Posts.NoDiscordPostActions>();
         services.TryAddSingleton<Core.Discord.IDiscordRoleMenuActions, Core.Discord.NoDiscordRoleMenuActions>();
         services.TryAddSingleton<Core.Discord.IDiscordInviteActions, Core.Discord.NoDiscordInviteActions>();
+        services.TryAddSingleton<Core.Discord.IDiscordSnapshotActions, Core.Discord.NoDiscordSnapshotActions>();
         services.TryAddSingleton<Core.Discord.IDiscordVoteActions, Core.Discord.NoDiscordVoteActions>();
         services.TryAddScoped<Core.Votes.VoteService>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
@@ -357,6 +362,14 @@ public static class ApiSurface
     public static IServiceCollection AddBirthdays(this IServiceCollection services)
     {
         services.AddHostedService(sp => new Features.Birthdays.BirthdayService(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+        return services;
+    }
+
+    /// <summary>Saves a snapshot of the Discord server's roles and channels on the schedule Settings chooses (server snapshots).</summary>
+    public static IServiceCollection AddServerSnapshots(this IServiceCollection services)
+    {
+        services.AddHostedService(sp => new DiscordSnapshotService(
             sp.GetRequiredService<IServiceScopeFactory>()));
         return services;
     }
@@ -588,6 +601,7 @@ public static class ApiSurface
         app.MapDiscordEventRecapSettings();
         app.MapDiscordEventSummarySettings();
         app.MapDiscordInviteTrackingSettings();
+        app.MapDiscordSnapshotSettings();
 
         // Member milestones: the posts and the Regular role.
         app.MapDiscordMilestoneSettings();
@@ -605,6 +619,7 @@ public static class ApiSurface
         // Messages with buttons or a drop-down list that give people roles.
         app.MapDiscordRoleMenus();
         app.MapDiscordInvites();
+        app.MapDiscordSnapshots();
 
         // What share of the group and the server has linked, and the one-time reminder to link.
         app.MapDiscordLinkShare();

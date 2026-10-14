@@ -256,6 +256,46 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Every invite made through <see cref="CreateInviteAsync"/>: channel and reason.</summary>
     public List<(string ChannelId, string Reason)> InvitesMade { get; } = [];
 
+
+    /// <summary>What <see cref="ReadStructure"/> answers; null for a bot that is not in the server.</summary>
+    public Modbot.Core.Discord.ServerStructure? Structure { get; set; }
+
+    /// <summary>Every role whose permissions were set through <see cref="SetRolePermissionsAsync"/>.</summary>
+    public List<(string RoleId, long Permissions, string Reason)> RolesSet { get; } = [];
+
+    /// <summary>Every channel changed through <see cref="SetChannelOverwritesAsync"/>.</summary>
+    public List<(string ChannelId, IReadOnlyList<Modbot.Core.Discord.SnapshotOverwriteSet> Set, IReadOnlyList<string> Removed)> ChannelsSet { get; } = [];
+
+    /// <summary>What the next change in Discord comes back as, when it should fail.</summary>
+    public Modbot.Core.Discord.DiscordEditResult? EditRefused { get; set; }
+
+    public Modbot.Core.Discord.ServerStructure? ReadStructure(string guildId) => Structure;
+
+    public Task<Modbot.Core.Discord.DiscordEditResult> SetRolePermissionsAsync(
+        string guildId, string roleId, long permissions, string reason, CancellationToken ct)
+    {
+        if (EditRefused is { } refused)
+            return Task.FromResult(refused);
+
+        RolesSet.Add((roleId, permissions, reason));
+        return Task.FromResult(Modbot.Core.Discord.DiscordEditResult.Ok(1));
+    }
+
+    public Task<Modbot.Core.Discord.DiscordEditResult> SetChannelOverwritesAsync(
+        string guildId,
+        string channelId,
+        IReadOnlyList<Modbot.Core.Discord.SnapshotOverwriteSet> set,
+        IReadOnlyList<string> removeRoleIds,
+        string reason,
+        CancellationToken ct)
+    {
+        if (EditRefused is { } refused)
+            return Task.FromResult(refused);
+
+        ChannelsSet.Add((channelId, set, removeRoleIds));
+        return Task.FromResult(Modbot.Core.Discord.DiscordEditResult.Ok(set.Count + removeRoleIds.Count));
+    }
+
     public event Func<string, DiscordInviteSnapshot, Task>? InviteCreated;
 
     public event Func<string, string, Task>? InviteDeleted;
