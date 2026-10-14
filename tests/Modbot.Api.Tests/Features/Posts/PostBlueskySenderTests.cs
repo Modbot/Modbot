@@ -441,6 +441,50 @@ public sealed class PostBlueskySenderTests
         Assert.Equal(0, _bluesky.Puts);
     }
 
+    private const string ParentUri = "at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/app.bsky.feed.post/3l4pqjzzyde2a";
+
+    private Task<(Guid PostId, Guid DestinationId)> AddParentAsync(string state = PostDestinationStates.Posted) =>
+        AddPostAsync(shape: (_, d) =>
+        {
+            d.State = state;
+            d.ExternalId = ParentUri;
+            d.ClientKey = "3l4pqjzzyde2a";
+            d.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Cid: "bafy-parent"));
+        });
+
+    [Fact]
+    public async Task AReplyGoesUnderThePostItAnswers()
+    {
+        await SetUpAsync();
+        var (_, parentId) = await AddParentAsync();
+        var (_, replyId) = await AddPostAsync(shape: (_, d) => d.ReplyToId = parentId);
+
+        var pass = await PassAsync();
+
+        Assert.Equal(1, pass.Sent);
+        var reply = Assert.Single(PutRecords())["record"]!["reply"]!;
+        Assert.Equal(ParentUri, reply["root"]!["uri"]!.GetValue<string>());
+        Assert.Equal("bafy-parent", reply["root"]!["cid"]!.GetValue<string>());
+        Assert.Equal(ParentUri, reply["parent"]!["uri"]!.GetValue<string>());
+        Assert.Equal("bafy-parent", reply["parent"]!["cid"]!.GetValue<string>());
+        Assert.Equal(PostDestinationStates.Posted, (await DestinationAsync(replyId)).State);
+    }
+
+    [Fact]
+    public async Task AReplyWhoseParentIsGoneIsNotSent()
+    {
+        await SetUpAsync();
+        var (_, parentId) = await AddParentAsync(PostDestinationStates.Removed);
+        var (_, replyId) = await AddPostAsync(shape: (_, d) => d.ReplyToId = parentId);
+
+        await PassAsync();
+
+        var failed = await DestinationAsync(replyId);
+        Assert.Equal(PostDestinationStates.Failed, failed.State);
+        Assert.Equal(PostBlueskySender.ReplyParentGone, failed.Error);
+        Assert.Equal(0, _bluesky.Puts);
+    }
+
     [Fact]
     public async Task APostMoreThanAnHourLateIsNotSent()
     {

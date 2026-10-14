@@ -181,6 +181,9 @@ function EventBody({
           {event.opening.firstJoinVRChatPostError && (
             <div className="text-destructive">{event.opening.firstJoinVRChatPostError}</div>
           )}
+          {event.opening.firstJoinBlueskyPostError && (
+            <div className="text-destructive">{event.opening.firstJoinBlueskyPostError}</div>
+          )}
         </div>
       )}
 

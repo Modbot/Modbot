@@ -9,6 +9,9 @@ namespace Modbot.Core.Bluesky;
 /// <param name="Description">The card's line under the title. May be empty.</param>
 public sealed record BlueskyCard(string Uri, string Title, string Description);
 
+/// <summary>The post a reply answers: its address and content id, as Bluesky gave them.</summary>
+public sealed record BlueskyReplyTo(string Uri, string Cid);
+
 /// <summary>
 /// The post record Modbot puts at its key (Bluesky design §3.4, §3.5): the text, its links and tags,
 /// the time, and the link card with its picture.
@@ -32,7 +35,9 @@ public static class BlueskyPostRecord
 
     /// <summary>The record, ready for <c>putRecord</c>.</summary>
     /// <param name="thumb">The card picture's blob, as <c>uploadBlob</c> answered, or null for a card with none.</param>
-    public static JsonObject Build(string text, DateTimeOffset createdAt, BlueskyCard? card, JsonObject? thumb)
+    /// <param name="replyTo">The post this one answers, or null for a post of its own. Modbot replies only to its own top-level posts, so that post is both the root and the parent.</param>
+    public static JsonObject Build(
+        string text, DateTimeOffset createdAt, BlueskyCard? card, JsonObject? thumb, BlueskyReplyTo? replyTo = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -46,6 +51,15 @@ public static class BlueskyPostRecord
         var facets = BlueskyText.Facets(text);
         if (facets.Count > 0)
             record["facets"] = BlueskyText.FacetsJson(facets);
+
+        if (replyTo is not null)
+        {
+            record["reply"] = new JsonObject
+            {
+                ["root"] = new JsonObject { ["uri"] = replyTo.Uri, ["cid"] = replyTo.Cid },
+                ["parent"] = new JsonObject { ["uri"] = replyTo.Uri, ["cid"] = replyTo.Cid },
+            };
+        }
 
         if (card is not null)
         {

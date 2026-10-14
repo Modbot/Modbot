@@ -55,6 +55,7 @@ public sealed class PostBlueskySender
     public const string Unreachable = "Could not reach Bluesky.";
     public const string NoText = "The post has no text.";
     public const string AccountChanged = "That Bluesky account is not the one in Settings.";
+    public const string ReplyParentGone = "The post this answers is no longer on Bluesky.";
     public const string KeyTaken = "Bluesky says this post is already there, but could not show it.";
 
     private readonly ModbotContext _db;
@@ -377,6 +378,23 @@ public sealed class PostBlueskySender
             return;
         }
 
+        // A reply goes under the post it answers, which must still be on Bluesky.
+        BlueskyReplyTo? replyTo = null;
+        if (destination.ReplyToId is { } parentId)
+        {
+            var parent = await _db.PostDestinations.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == parentId, pass.Ct).ConfigureAwait(false);
+
+            if (parent is not { State: PostDestinationStates.Posted, ExternalId: { Length: > 0 } parentUri }
+                || PostTexts.BlueskyOptionsOf(parent).Cid is not { Length: > 0 } parentCid)
+            {
+                await FailAsync(pass, post, destination, ReplyParentGone, mayBeSent: false).ConfigureAwait(false);
+                return;
+            }
+
+            replyTo = new BlueskyReplyTo(parentUri, parentCid);
+        }
+
         var signIn = await _session.AccessAsync(_db, prove: false, pass.Ct).ConfigureAwait(false);
         if (signIn.Access is not { } access)
         {
@@ -422,7 +440,7 @@ public sealed class PostBlueskySender
         }
 
         // createdAt is this send's own time: feeds sort by it (fact 21).
-        var record = BlueskyPostRecord.Build(text, pass.Now, card, thumb);
+        var record = BlueskyPostRecord.Build(text, pass.Now, card, thumb, replyTo);
 
         var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);

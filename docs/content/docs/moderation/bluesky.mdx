@@ -138,6 +138,13 @@ five, such as `#VRChat #Karaoke`; type `#` or leave it out, split them with spac
 any tag changes the words of every post that carries it, so the posts of dates that have not started and
 are already up are deleted and posted again. See [Tags](/moderation/calendar#tags).
 
+When the first person is in the instance of a date whose event has **Announce on Bluesky when the first
+person joins** ticked, Modbot replies under that date's post: *We're live in* and the world's name, then a
+link (the instance's join link when **Who can join** is **Anyone**, otherwise your VRChat group's page).
+The reply is in [**Marketing**](/moderation/marketing) too and is sent once. It needs the date's post
+to be on Bluesky; without one there is no reply. See
+[Announce when the first person joins](/moderation/calendar#announce-when-the-first-person-joins).
+
 A post shows a picture only with a link card, so the event's cover picture goes only when the post
 has a link, and only when it is 1 MB or smaller.
 
@@ -171,6 +178,7 @@ and never sends the request again before then.
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
 | A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 
 **Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,

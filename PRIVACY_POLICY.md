@@ -245,7 +245,11 @@ version when there is one; deleting it removes it from Bluesky, not from copies 
 a post,** and a post mentions nobody. Modbot keeps each post's address on Bluesky and the start of
 the date it is about in its own database, so that a restart never posts a date twice and the right
 post is the one deleted. The operator can stop it with **Posting**, **Pause all posting** or by
-removing the account, which also forgets the app password.
+removing the account, which also forgets the app password. With **Announce on Bluesky when the first
+person joins** ticked on an event, Modbot also posts one reply under the date's post when the first person
+is in the instance: "We're live in" the world's name and a link to join the instance (when anyone may join)
+or to the group's page on vrchat.com, with the address and content id of the post it answers. It
+contains no member name, id or head count, and is public like the post.
 
 **Where the operator points it.** Modbot can post events to Discord channels the operator picks, send
 emails, call webhooks the operator sets up, and keep a copy of its logs in a Seq server the operator

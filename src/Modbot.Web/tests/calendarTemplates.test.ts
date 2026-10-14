@@ -45,6 +45,7 @@ const input: CalendarEventInput = {
   inviteListId: null,
   announceFirstJoinInDiscord: false,
   announceFirstJoinInVRChat: false,
+  announceFirstJoinOnBluesky: false,
   mentionRoleId: null,
   coverPictureId: null,
   vrChatTitle: 'Movies in VRChat',

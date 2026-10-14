@@ -45,6 +45,8 @@ export type CalendarOpening = {
   firstJoinDiscordPostError?: string | null
   /** What VRChat said when the group post for the first person was refused. */
   firstJoinVRChatPostError?: string | null
+  /** Why no Bluesky reply was made for the first person, or what Bluesky said when it refused it. */
+  firstJoinBlueskyPostError?: string | null
   /** VRChat gave no clear answer, and Modbot is looking for an instance it may have made. */
   checking?: boolean
   /** VRChat made the instance, whether or not Modbot has it on record yet. */
@@ -158,6 +160,7 @@ export type CalendarEvent = {
   inviteListName?: string | null
   announceFirstJoinInDiscord?: boolean
   announceFirstJoinInVRChat?: boolean
+  announceFirstJoinOnBluesky?: boolean
   /** Null before any invites were queued for the current time. */
   invites?: CalendarInvites | null
   /** The Discord role the channel post mentions, pinged once per date; null for none. */
@@ -462,6 +465,7 @@ export type CalendarEventInput = {
   inviteListId: string | null
   announceFirstJoinInDiscord: boolean
   announceFirstJoinInVRChat: boolean
+  announceFirstJoinOnBluesky: boolean
   /** The Discord role the channel post mentions; null for none. */
   mentionRoleId: string | null
   /** The picture cropped for Discord (calendar design §15.4): the event cover and the post picture. */
@@ -789,6 +793,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     inviteListId: null,
     announceFirstJoinInDiscord: false,
     announceFirstJoinInVRChat: false,
+    announceFirstJoinOnBluesky: false,
     mentionRoleId: null,
     coverPictureId: null,
     vrChatTitle: '',
@@ -848,6 +853,7 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     inviteListId: event.inviteListId ?? null,
     announceFirstJoinInDiscord: event.announceFirstJoinInDiscord ?? false,
     announceFirstJoinInVRChat: event.announceFirstJoinInVRChat ?? false,
+    announceFirstJoinOnBluesky: event.announceFirstJoinOnBluesky ?? false,
     mentionRoleId: event.mentionRoleId ?? null,
     coverPictureId: event.coverPictureId ?? null,
     // Left out by an older server, and then left as the event has it.

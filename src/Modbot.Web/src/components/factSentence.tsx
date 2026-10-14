@@ -2707,6 +2707,7 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   inviteList: 'the invite list',
   announceFirstJoinInDiscord: { toggle: 'the Discord post when the first person joins' },
   announceFirstJoinInVRChat: { toggle: 'the VRChat post when the first person joins' },
+  announceFirstJoinOnBluesky: { toggle: 'the Bluesky reply when the first person joins' },
 }
 
 const GIVEAWAY_FIELDS: Record<string, Say> = {

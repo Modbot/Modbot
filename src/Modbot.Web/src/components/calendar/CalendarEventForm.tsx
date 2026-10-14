@@ -277,6 +277,8 @@ export function CalendarEventForm({
     draft,
     // Off with the channel post it needs, rather than a refusal for a box that cannot be ticked.
     announceFirstJoinInDiscord: input.announceFirstJoinInDiscord && input.postToChannel && input.channelId !== null,
+    // The reply goes under the date's Bluesky post, so it is off with Bluesky.
+    announceFirstJoinOnBluesky: input.announceFirstJoinOnBluesky && !!input.publishToBluesky,
   })
 
   // "Pick from a list" with no list chosen would save as an event with no world at all.
@@ -1162,6 +1164,13 @@ function InviteFields({
         </Checkbox>
         <Checkbox checked={input.announceFirstJoinInVRChat} onChange={(v) => set('announceFirstJoinInVRChat', v)}>
           Announce in VRChat when the first person joins
+        </Checkbox>
+        <Checkbox
+          checked={input.announceFirstJoinOnBluesky && !!input.publishToBluesky}
+          disabled={!input.publishToBluesky}
+          onChange={(v) => set('announceFirstJoinOnBluesky', v)}
+        >
+          Announce on Bluesky when the first person joins
         </Checkbox>
       </div>
     </>

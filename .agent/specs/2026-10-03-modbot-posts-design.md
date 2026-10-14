@@ -590,6 +590,18 @@ uploads, removing the Bluesky account.
     turned off deletes it and posts none. An event made or changed inside its lead time, before the
     date starts, is posted at once, with `send_at` set to now so the sender's late rule does not
     refuse it. The other sites keep the plan above.
+  - **Added 2026-10-14, the "We're live" reply:** an event with `announce_first_join_on_bluesky`
+    gets one reply under a date's post when the first person is in the instance.
+    `CalendarBlueskyFirstJoin` (run in the Bluesky loop before the sender) makes an ordinary post,
+    kind `live`, `event_id` and `date_starts_at` as the date's, whose Bluesky destination has
+    `reply_to_id` set to the date post's destination; the sender sends it like any post, with
+    `reply` root and parent both the date post's address and content id (read at send time; a
+    parent no longer Posted fails the reply). The unique index on `(event_id, kind, date_starts_at)`
+    keeps it to one. `calendar_opening.first_join_bluesky_posted_at` is written first; a date with
+    no Posted date post leaves `first_join_bluesky_post_error` and no reply (a date post still
+    waiting or checking makes the pass wait); a refused reply's error is copied to the opening.
+    Text: "We're live in <world>." and a link, the instance's join link when Who can join is
+    Anyone, else the group page. Nothing is made while Posting is off or posting is paused.
 - **Live posts (2026-10-13)**: a "We're live" VRChat group post for a group instance, made by
   `LivePostPass` (a pass every 30 seconds, `LivePostService`) once the group instance poll counts
   somebody in it. Kind `instance_live`, `external_key` the instance's id, so the unique index above

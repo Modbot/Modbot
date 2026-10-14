@@ -13,7 +13,8 @@ namespace Modbot.Api.Features.Posts;
 /// Its own loop, apart from Discord's and VRChat's, so Bluesky posts go whether or not the bot is
 /// connected or VRChat is signed in, and a limit from Bluesky stops nothing else. A pass with Bluesky
 /// not set up, or Posting off, reads the settings row and the waiting rows and nothing more. Each pass
-/// first lets <see cref="CalendarBlueskyPlanner"/> make and take down the posts of calendar events.
+/// first lets <see cref="CalendarBlueskyPlanner"/> make and take down the posts of calendar events, and
+/// <see cref="CalendarBlueskyFirstJoin"/> make the "We're live" replies.
 /// </remarks>
 public sealed class PostBlueskyService : BackgroundService
 {
@@ -45,6 +46,10 @@ public sealed class PostBlueskyService : BackgroundService
 
                 // The events' posts are made and taken down first, so the sender sends what they made.
                 await scope.ServiceProvider.GetRequiredService<CalendarBlueskyPlanner>()
+                    .RunOnceAsync(stoppingToken).ConfigureAwait(false);
+
+                // So are the replies for a first join, which the sender then sends.
+                await scope.ServiceProvider.GetRequiredService<CalendarBlueskyFirstJoin>()
                     .RunOnceAsync(stoppingToken).ConfigureAwait(false);
 
                 await scope.ServiceProvider.GetRequiredService<PostBlueskySender>()

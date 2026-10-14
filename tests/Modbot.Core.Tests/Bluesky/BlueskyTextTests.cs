@@ -181,6 +181,22 @@ public class BlueskyTextTests
     }
 
     [Fact]
+    public void AReplyNamesThePostItAnswersAsBothRootAndParent_AndAPostOfItsOwnHasNoReply()
+    {
+        var own = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, thumb: null);
+        Assert.False(own.ContainsKey("reply"));
+
+        var reply = BlueskyPostRecord.Build(
+            "We're live.", DateTimeOffset.UnixEpoch, card: null, thumb: null, new BlueskyReplyTo("at://did:plc:x/app.bsky.feed.post/abc", "bafy-abc"));
+
+        foreach (var name in new[] { "root", "parent" })
+        {
+            Assert.Equal("at://did:plc:x/app.bsky.feed.post/abc", reply["reply"]![name]!["uri"]!.GetValue<string>());
+            Assert.Equal("bafy-abc", reply["reply"]![name]!["cid"]!.GetValue<string>());
+        }
+    }
+
+    [Fact]
     public void BlueskyGetsTheTitleOnItsOwnLine_ThenTheText_OrItsOwnTextAlone()
     {
         var post = new Post { Title = "Movie night", Text = "Friday at eight.\r\nBring snacks." };

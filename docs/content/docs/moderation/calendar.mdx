@@ -650,6 +650,7 @@ Shown while the **Open the instance** chip is on. It needs a world, or a world l
 | **Staff** | Staff accounts Modbot invites after the host. |
 | **Announce in Discord when the first person joins** | Posts once in the **Channel** when the first person is in the instance. Can only be ticked with **Post to channel** and a channel. |
 | **Announce in VRChat when the first person joins** | Posts once in your VRChat group's posts when the first person is in the instance. |
+| **Announce on Bluesky when the first person joins** | Replies once under the date's [Bluesky post](#bluesky) when the first person is in the instance. Can only be ticked with **Bluesky** on. |
 
 When the instance opens early, the event counts as **Open** from that moment, not from the start
 time.
@@ -1063,11 +1064,16 @@ As soon as VRChat counts somebody in the instance, Modbot posts once each time t
   title and a **Join** button, from your server's Modbot bot;
 - with **Announce in VRChat when the first person joins**, in your VRChat group's posts, from your
   group's Modbot VRChat account: the event's title, *… has started.* and the join link. It is visible
-  to the group, and VRChat does **not** notify members about it.
+  to the group, and VRChat does **not** notify members about it;
+- with **Announce on Bluesky when the first person joins**, as a reply under that date's Bluesky post:
+  *We're live in* and the world's name, then a link. The link joins the instance when **Who can join**
+  is **Anyone**, and goes to your VRChat group's page otherwise. A date with no Bluesky post
+  gets no reply. The reply is sent like any Bluesky post, so **Posting**, **Pause all posting**
+  and Bluesky's rate limit apply to it.
 
 For a draft a host approves, or for instances that are not an event's, see [**Live posts**](/moderation/marketing#live-posts) in **Settings**, **Posts**.
 
-If Discord or VRChat refuses, the event shows what it said under **Instance**, and Modbot does not try
+If Discord, VRChat or Bluesky refuses, or there was no Bluesky post to reply to, the event shows what it said under **Instance**, and Modbot does not try
 again for that time.
 
 ## The calendar feed
