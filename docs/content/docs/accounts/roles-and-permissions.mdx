@@ -202,7 +202,7 @@ Name: `ViewCalendar`
   [What an event did](/moderation/calendar#what-an-event-did).
 - The **World lists** page, and the next game during an event. See
   [World lists](/moderation/world-lists).
-- The **Event categories** page. See [Event categories](/moderation/calendar#event-categories).
+- The **Event categories** page. See [Event categories](/moderation/event-categories).
 
 Not in the built-in Moderator or Viewer roles.
 
@@ -502,7 +502,7 @@ Name: `EditGroupProfile`
   page's **Overview**.
 - Opens the **VRChat** page's **Settings** tab and changes everything on it: the group's name,
   description, rules, languages, links and who can join. See
-  [Analytics](/analytics#settings).
+  [The VRChat group page](/analytics/vrchat-group#settings).
 
 Each change goes to VRChat as Modbot's VRChat account, which needs the matching group permission in
 the group's roles on VRChat. Every change is written to the audit log with who made it.
@@ -516,7 +516,7 @@ Not in the built-in Moderator or Viewer roles.
 Name: `ManageGroupPosts`
 
 - Posts in the group on VRChat, changes a post and deletes one, from the **VRChat** page's
-  **Posts** tab. See [Analytics](/analytics#posts).
+  **Posts** tab. See [The VRChat group page](/analytics/vrchat-group#posts).
 
 Reading the posts needs only **See analytics**. Not in the built-in Moderator or Viewer roles.
 
@@ -526,7 +526,7 @@ Name: `ManageGroupRoles`
 
 - Opens **Roles** under the **VRChat** page's **Settings** tab, and creates, changes and deletes the
   group's roles on VRChat: their names, descriptions and permissions. See
-  [Analytics](/analytics#roles).
+  [The VRChat group page](/analytics/vrchat-group#roles).
 - Gives a member one of the group's roles, or takes one away, through the API
   (`PUT` and `DELETE /api/group/members/{userId}/roles/{roleId}`).
 
@@ -541,7 +541,7 @@ Not in the built-in Moderator or Viewer roles.
 Name: `ManageGroupInvites`
 
 - Opens the **VRChat** page's **Invites** tab, which lists the people the group has invited who have
-  not answered yet, and cancels an invite. See [Analytics](/analytics#invites).
+  not answered yet, and cancels an invite. See [The VRChat group page](/analytics/vrchat-group#invites).
 - Invites a person to the group through the API (`POST /api/group/invites`), at most one invite every
   thirty seconds across the whole Modbot, [auto-invites](/moderation/auto-invites) included.
 
@@ -553,7 +553,7 @@ built-in Moderator or Viewer roles.
 Name: `ManageGroupGallery`
 
 - Removes an image from one of the group's galleries on VRChat, from the **VRChat** page's
-  **Gallery** tab. See [Analytics](/analytics#gallery).
+  **Gallery** tab. See [The VRChat group page](/analytics/vrchat-group#gallery).
 - Adds a picture members posted in Discord to a gallery, or declines it. See
   [Gallery pictures](/discord/gallery-pictures).
 
@@ -567,7 +567,7 @@ Name: `ManageCalendar`
 - Plan, change, cancel and delete events on the **Calendar** page. An event can publish to VRChat's
   calendar and Discord in the group's name and open a group instance by itself.
 - See and replace the calendar feed link. See [Calendar](/moderation/calendar).
-- Make, rename and delete event categories. See [Event categories](/moderation/calendar#event-categories).
+- Make, rename and delete event categories. See [Event categories](/moderation/event-categories).
 - Make, change and delete world lists; **Pick again** on an event's date; **Next game** and **Pick
   another** during an event. See [World lists](/moderation/world-lists).
 

@@ -32,9 +32,9 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | Turn the [public feed](#the-public-feed) on or off, and copy its address | **Manage calendar** and **See calendar** |
 | See [what each event did](#what-an-event-did) and **Past events** | **See calendar** and [**See analytics**](/accounts/roles-and-permissions#see-analytics) |
 | See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
-| See the [**Event categories**](#event-categories) page | **See calendar** |
+| See the [**Event categories**](/moderation/event-categories) page | **See calendar** |
 | Make, rename and delete event categories | **Manage calendar** and **See calendar** |
-| Change the [event alerts](#event-alerts) settings | **Manage calendar** and **See calendar** |
+| Change the [event alerts](/moderation/event-categories#event-alerts) settings | **Manage calendar** and **See calendar** |
 | See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
@@ -418,7 +418,7 @@ use the shared title.
 
 ### Categories
 
-Shown once at least one [event category](#event-categories) exists. Tick any number of them, or none.
+Shown once at least one [event category](/moderation/event-categories) exists. Tick any number of them, or none.
 They belong to Modbot: VRChat and Google never hear of them, and VRChat's own **VRChat category** stays
 as it was, under [VRChat calendar](#vrchat-calendar). They show on the Discord event and the channel
 post.
@@ -804,7 +804,7 @@ When the **Discord event** chip is on, Modbot makes an event in the server set a
 (**Settings**, **Discord**, **Bot**). The bot needs the **Create Events** and **Manage Events** permissions in that server.
 
 - It has the title, description, start and end, and the picture link (or the world's picture) as its
-  cover. When the event has [categories](#event-categories), its description starts with a line such as
+  cover. When the event has [categories](/moderation/event-categories), its description starts with a line such as
   **Categories: Karaoke, Movie night**. If the picture cannot be fetched, the event is made without a cover.
 - **Before the instance opens**, its location is the world's name.
 - **When the event opens**, Modbot starts the Discord event. If Modbot opened the instance for it,
@@ -839,7 +839,7 @@ as [instance announcements](/discord/instance-announcements).
 - The card shows your group's name, the title, the description, **When** and **Ends** (as Discord
   times, so everyone sees their own time zone), **World**, **Who can join**, **Region**, and the
   picture link or the world's picture.
-- With [categories](#event-categories), a **Category** or **Categories** field lists them, in
+- With [categories](/moderation/event-categories), a **Category** or **Categories** field lists them, in
   alphabetical order.
 - **World** opens the world's page on vrchat.com, which anyone can open. (Modbot's own world page
   needs a Modbot sign-in, which your members do not have.)
@@ -1225,82 +1225,7 @@ which opens the event on Google, **Failed** with Google's own words and **Try ag
 
 ## Event categories
 
-VRChat gives an event one category from a fixed list. **Event categories**, under **Community** in
-the sidebar, are your own: **Karaoke**, **Open mic**, **Movie night**, whatever your events are. An
-event can carry any number of them.
-
-| To do this | Use |
-|---|---|
-| Make one | **New category**, a name of up to 40 characters. Two categories cannot have the same name, whatever the letter case. |
-| Rename one | **Rename**. Every event that carries it shows the new name, and Discord's posts follow on their next update. |
-| Delete one | **Delete**. Events that carried it keep everything else, and Discord's posts drop its name on their next update. |
-
-Each category shows how many events carry it, not counting events that were deleted. With none made
-the page says **No categories.** Making, renaming and deleting are in the
-[operational log](/moderation/audit-log). Categories are picked on the event form, under
-[Categories](#categories).
-
-The page's address is `/event-categories`, and the command palette finds it as **Event categories**,
-or by words such as **karaoke** or **labels**. With **See calendar** the page lists the categories and
-nothing more; **New category**, **Rename**, **Delete** and the **Alerts** card below appear only with
-**Manage calendar**. Deleting asks you to confirm and says how many events carry the category.
-
-Nothing on this page asks VRChat or Discord anything. The places an event goes pick up a new or
-changed name the next time they update the event.
-
-## Event alerts
-
-Members of your Discord server can sign up for a category and be told shortly before an event that
-carries it starts. Alerts are off until someone with **Manage calendar** turns them on, in the
-**Alerts** card at the top of the **Event categories** page.
-
-| Setting | What it does |
-|---|---|
-| **On** | The master switch. Off (the default), nothing is queued or sent, the **Notify me** button comes off the channel posts and `/notify` is not registered in Discord. |
-| **Direct message** | Members can be told by direct message. On by default. |
-| **Ping** | Members can be told by a post in a channel that mentions them. Off by default. Turning it on needs a channel; **Ping channel** appears when it is on. |
-| **Minutes before** | How long before the start an alert goes: 5 to 1,440. 60 by default. |
-
-**Save alerts** saves all five together. Each setting that changed is in the
-[operational log](/moderation/audit-log).
-
-### How members sign up
-
-- **`/notify`** opens a form with the categories to tick. The ones a member already ticked stay
-  ticked. When both ways are on, the form also asks how to be told: **Direct message** or
-  **Ping in a channel**. Sending it replaces the member's sign-ups with what is ticked; nothing
-  ticked takes them all off. The form lists up to 25 categories, the first 25 by name.
-- **Notify me** is a button under each event's channel post, there only while alerts are on. Pressed,
-  it signs the member up for the categories the event carries, or for that one event when it has
-  none. Pressed again by a member who is already signed up for all of that, it takes the sign-ups off.
-
-Both answer only the member who used them. Nobody needs a Modbot account.
-
-### What goes out
-
-- **One alert per member per event date.** A member signed up through several categories of one
-  event is told once. A repeating event alerts for each date, once.
-- **Direct message:** **Title** starts, the time in the member's own time zone and how long until
-  it starts, with a **Join** link where [`/events`](/discord/bot-setup#slash-commands) would show one.
-- **Ping:** one post in the channel you picked with the same words, mentioning the members who
-  chose ping. A long list is split into several posts.
-- A member whose way is switched off in the settings is told the other way when that is on, and
-  otherwise not at all.
-- **Cancelled and deleted** events send nothing, and an alert still waiting for one is dropped. A date
-  cancelled on its own sends nothing either.
-- **Moving an event.** An event that happens once alerts once, even if its start moves after
-  the alert went. A date that moves before the alert is queued is alerted at its new time.
-- **Members who left** the server are skipped.
-- **A closed direct message** is not tried again. Nothing else is retried either: an alert that
-  Discord refuses is counted as failed.
-- Turning alerts off leaves the waiting ones where they are. They go if alerts are turned on again
-  before the event starts, and are dropped after.
-
-Each finished alert is one entry, **Event alert sent**, in the
-[operational log](/moderation/audit-log). It names the event and the date and counts what
-happened: how many went by direct message, how many by ping, how many had direct messages closed,
-how many failed and how many were skipped. Closed and failed are counted separately. It names no
-member. [Privacy](/privacy) says what is kept.
+Event categories, and the alerts members sign up for, have their own page: [Event categories](/moderation/event-categories).
 
 ## Templates
 
@@ -1337,7 +1262,7 @@ the title, the description and each site's own text, and you delete it like a le
 may stand in as many texts as you like. Names do not mind capitals or extra spaces, and are at most 40
 characters.
 
-The template form also shows the [**Categories**](#event-categories) you made in Modbot, so a template
+The template form also shows the [**Categories**](/moderation/event-categories) you made in Modbot, so a template
 keeps them. A category deleted since is left out when the template is used.
 
 ### Automatic links
@@ -1541,10 +1466,10 @@ entries (you need **See the operational log** to see them):
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 | **Event template made**, **Event template changed**, **Event template deleted** | Someone made, edited or deleted a [template](#templates). |
 | **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
-| **Event category made** | Someone made an [event category](#event-categories). |
+| **Event category made** | Someone made an [event category](/moderation/event-categories). |
 | **Event category renamed** | Someone renamed one. Shows the name before. |
 | **Event category deleted** | Someone deleted one. Shows how many events carried it. |
-| **Event alert sent** | Members were told before an [event](#event-alerts). Shows how many by direct message and by ping, how many direct messages were closed, how many failed and how many were skipped, never who. |
+| **Event alert sent** | Members were told before an [event](/moderation/event-categories#event-alerts). Shows how many by direct message and by ping, how many direct messages were closed, how many failed and how many were skipped, never who. |
 
 Each invite is recorded too, about the person who was invited, with the moderation entries (you need
 **See the audit log**):

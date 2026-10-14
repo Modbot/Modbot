@@ -1,0 +1,175 @@
+---
+title: The VRChat group page
+description: The VRChat page, which shows your group the way vrchat.com does, with its tabs, Overview cards, Posts, Gallery, Invites, Settings and Roles, and what each needs.
+---
+
+## The group's header and tabs
+
+The page opens the way your group's own page on vrchat.com does: the banner, the icon, the group's
+name, how many members are online and in the group, and the group code (**Copy group code** copies
+it). Under that is VRChat's row of tabs, in VRChat's order:
+
+| Tab | Opens |
+|---|---|
+| **Overview** | This page. |
+| **Posts** | The group's posts, at `/analytics/group/posts`. See [Posts](#posts). |
+| **Events** | The [Calendar](/moderation/calendar). |
+| **Instances** | The [Instances](/analytics#instances) page, at `/analytics/instances`. |
+| **Gallery** | The group's galleries, at `/analytics/group/gallery`. See [Gallery](#gallery). |
+| **Members** | The **Members** view of the [People](/moderation/people) page. |
+| **Invites** | The invites the group has sent, at `/analytics/group/invites`. See [Invites](#invites). |
+| **Settings** | The group's settings, at `/analytics/group/settings`. See [Settings](#settings). |
+| **Banned Users** | The **Bans** page. |
+
+A tab is left out when you may not open the page it leads to, the same as the sidebar. **VRChat**
+stays lit in the sidebar on every one of its own tabs. The command palette finds the page as
+**VRChat**, and its address is `/analytics/group`.
+
+The banner is drawn on **Overview** only. On the other tabs the header shrinks to one line, the icon,
+the name and the counts, so the list the tab is opened for stays near the top of the screen. **Events**,
+**Members** and **Banned Users** are pages of their own: opened from this row, each has the group's
+header above it and the tab marked, and opened from the sidebar the same page looks as it always has.
+The group's name, icon, banner and counts are what Modbot last read from VRChat, about every five
+minutes.
+
+The page shows the **Managed group** chosen in **Settings**, **Modbot's VRChat login**, and changes
+it as that VRChat account. Reading the page needs **See analytics**;
+what each tab changes needs the permission it names below.
+
+## Overview
+
+Under the header, in this order:
+
+- **Right now**: the group's open instances as tiles, each opening the instance. It is there with
+  **See live instances**. With none open it says **No group instances open**.
+- **Upcoming event**: the next event on the calendar, with its picture, time and world, opening the
+  event on the [Calendar](/moderation/calendar). It is there with **See calendar**. With nothing
+  planned it says **No upcoming events**, and **Create event** opens a new event form for anyone with
+  **Manage calendar**.
+- **Languages** and **Links**, side by side.
+- **About this group** (the description) and **Rules**, side by side. A card with nothing in it says
+  **None added**.
+
+With **Edit the group's profile**
+([roles and permissions](/accounts/roles-and-permissions#edit-the-groups-profile)), each of the four
+cards has a pencil that opens its editor in place. **Save** sends the change to VRChat; **Cancel**
+puts it back. The limits are VRChat's:
+
+- **Languages**: at most 3, picked from VRChat's list.
+- **Links**: at most 3, each a web address starting with `https://` or `http://`.
+- **Description**: at most 250 characters. The **Rules** have no limit of Modbot's own.
+
+**Upcoming event** is the one card that can ask VRChat when you open the page: it reads your group's
+VRChat calendar for this month, and for next month when nothing is left this month, so an event made on
+vrchat.com shows here too. See [Events made on VRChat](/moderation/calendar#events-made-on-vrchat).
+Everything else on this page asks VRChat nothing when you open it: **Right now**, the header and the
+other cards are what Modbot last read or keeps, about every five minutes.
+
+## Posts
+
+The group's posts, newest first, with who wrote each, when, its picture if it has one, and who can
+see it: **Everyone**, **Members only**, or the roles it is limited to. Modbot reads them from VRChat
+when you open the tab, turn a page or press **Refresh**, and at no other time.
+
+With **Manage group posts**:
+
+- **New post**: a title, the text, **Who can see it** (**Members only** or **Everyone**), for a
+  members-only post **Only these roles** if it is for some roles, and **Notify members** to have
+  VRChat tell them.
+- The pencil on a post changes its title, text and who can see it. Members are not notified again,
+  and the post keeps its picture.
+- The bin deletes it, after you confirm.
+
+Posting a picture is not possible from Modbot yet.
+
+## Gallery
+
+The group's galleries, and the images in one of them, newest first, with who submitted each. An
+image still waiting for approval is marked **Pending**. With more than one gallery, the list at the
+top picks which one you see. Modbot reads the images from VRChat when you open the tab, pick a
+gallery, turn a page or press **Refresh**, and at no other time; the list of galleries comes with
+what Modbot already reads about the group every five minutes.
+
+The **Show** list at the top switches between **All images** and **Waiting for approval**, which asks
+VRChat for the images nobody has approved yet.
+
+With **Manage the group gallery**
+([roles and permissions](/accounts/roles-and-permissions#manage-the-group-gallery)), the bin on an
+image removes it from the gallery, after you confirm.
+
+**Pictures from Discord** lists the pictures members posted in the channel chosen for them, with
+**Add** (to the gallery picked in **Add to**) and **Decline**. Reading the list asks VRChat nothing.
+See [Gallery pictures](/discord/gallery-pictures).
+
+## Invites
+
+The people the group has invited who have not answered yet, newest first, with the day each was
+invited. Modbot reads them from VRChat when you open the tab, turn a page or press **Refresh**, and
+at no other time. **Cancel invite** takes one back, after you confirm.
+
+The tab needs **Manage group invites**
+([roles and permissions](/accounts/roles-and-permissions#manage-group-invites)).
+
+## Settings
+
+Everything about the group VRChat lets an admin change on its website, in one form: **Name**
+(3 to 64 characters), **Description**, **Rules**, **Languages**, **Links** and **Who can join**
+(**Anyone can join**, **Anyone can ask to join**, **Invite only** or **Closed**). **Save** sends only
+what you changed; **Cancel** puts the form back. The tab needs **Edit the group's profile**.
+
+Across the top of Settings are **General** (the form above), **Roles** and **Logs**, which opens the
+[audit log](/moderation/audit-log). Each is there only if you may open it.
+
+### Roles
+
+Every role the group has, in VRChat's order, with its description and how many permissions it has.
+**Default** marks the role every member has; **Modbot** marks a role Modbot's own VRChat account
+holds. Modbot reads the roles from VRChat when you open the tab or press **Refresh**, and at no
+other time.
+
+- **New role**: a name, a description, and its **Permissions**, each named the way VRChat's own role
+  editor names it.
+- The pencil on a role changes its name, description and permissions. **Save** sends only what you
+  changed.
+- The bin deletes the role, after you confirm. Everyone who had it loses it. The default role has
+  no bin: VRChat does not let it be deleted.
+
+Roles needs **Manage group roles**
+([roles and permissions](/accounts/roles-and-permissions#manage-group-roles)). Someone with that and
+not **Edit the group's profile** finds the **Settings** tab opens at Roles.
+
+The group's icon and banner cannot be changed from Modbot yet. Change them on vrchat.com.
+
+## When VRChat says no
+
+Every **Save**, post, delete, removal and cancel is one request to VRChat, sent as Modbot's VRChat
+account. If VRChat refuses, the editor stays open and shows VRChat's own message; nothing is changed
+and nothing is tried again. The usual reason is that Modbot's VRChat account lacks the group
+permission for it, and then Modbot says which one, the roles the account has, and links to the
+group's Roles page on vrchat.com:
+
+| What you did | The VRChat permission it needs |
+|---|---|
+| Change the profile or settings | Manage Group Data |
+| Post, change or delete a post | Manage Group Announcement |
+| Create, change or delete a role | Manage Group Roles |
+| See or cancel sent invites | Manage Group Invites |
+| Add or remove a gallery image | Manage Group Galleries |
+
+If VRChat is limiting how fast Modbot may ask, try again later.
+
+Every change VRChat accepts is written to the [audit log](/moderation/audit-log) with who made it:
+**Group profile changed** (each field, with what it was and what it became), **Posted in the
+group**, **Group post changed**, **Group post deleted**, **Group role created**, **Group role
+changed** (each field, with what it was and what it became), **Group role deleted**, **Group invite
+cancelled** (on the invited person's history), **Gallery image added** and **Gallery image removed**.
+
+## This week
+
+Under the overview cards, **This week** has four numbers for the last seven days, today included:
+
+- **New members**, **Left** and **Join requests**, each against the seven days before.
+- **Most online at once**: the most of the group's members in VRChat at the same moment this week,
+  with when it happened. It has no figure from last week beside it: a peak is one moment.
+
+Press **This week** to open [Stats](/analytics#stats).
