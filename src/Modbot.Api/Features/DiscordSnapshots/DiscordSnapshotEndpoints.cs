@@ -168,7 +168,7 @@ public static class DiscordSnapshotEndpoints
                     return Results.Json(new { error = read.Error }, statusCode: StatusCodes.Status503ServiceUnavailable);
 
                 var saved = await DiscordSnapshotStore.SaveAsync(
-                    db, clock, structure.Content, scheduled: false, Actor.Of(http)?.Username, ct);
+                    db, clock, structure.Content, Actor.Of(http)?.Username, ct);
 
                 return Results.Ok(new DiscordSnapshotRow(
                     saved.Id, saved.TakenAt, saved.Scheduled, saved.TakenBy, saved.RoleCount, saved.ChannelCount));

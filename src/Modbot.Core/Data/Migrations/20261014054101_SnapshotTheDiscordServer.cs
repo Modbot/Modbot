@@ -11,6 +11,12 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "discord_snapshot_claimed_at",
+                table: "settings",
+                type: "timestamp with time zone",
+                nullable: true);
+
             migrationBuilder.AddColumn<bool>(
                 name: "discord_snapshot_restore_on",
                 table: "settings",
@@ -54,6 +60,10 @@ namespace Modbot.Core.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "discord_snapshot");
+
+            migrationBuilder.DropColumn(
+                name: "discord_snapshot_claimed_at",
+                table: "settings");
 
             migrationBuilder.DropColumn(
                 name: "discord_snapshot_restore_on",

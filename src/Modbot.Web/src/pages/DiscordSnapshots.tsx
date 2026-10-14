@@ -475,7 +475,18 @@ function Restore({ data }: { data: DiscordSnapshotsResponse }) {
 
         {preview?.problem && <Notice tone="warn">{preview.problem}</Notice>}
 
-        {preview && !preview.problem && preview.nothingToChange && <EmptyRow>Nothing to change.</EmptyRow>}
+        {preview && !preview.problem && preview.nothingToChange && (
+          <>
+            {preview.lines.length > 0 && (
+              <ul className="flex flex-col gap-1">
+                {preview.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            )}
+            <EmptyRow>Nothing to change.</EmptyRow>
+          </>
+        )}
 
         {preview && !preview.problem && !preview.nothingToChange && (
           <div className="flex flex-col gap-3">

@@ -9198,6 +9198,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("discord_role_sync_on");
 
+                    b.Property<DateTimeOffset?>("DiscordSnapshotClaimedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_snapshot_claimed_at");
+
                     b.Property<bool>("DiscordSnapshotRestoreOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_snapshot_restore_on");

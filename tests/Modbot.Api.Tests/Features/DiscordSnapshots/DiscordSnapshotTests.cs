@@ -474,4 +474,68 @@ public class DiscordSnapshotTests
         Assert.Equal(DiscordSnapshotLimits.MostScheduledKept, await context.DiscordSnapshots.CountAsync(s => s.Scheduled, Ct));
         Assert.True(await context.DiscordSnapshots.AnyAsync(s => s.Id == byHand.Id, Ct));
     }
+
+    [Fact]
+    public async Task Pass_WhileAnotherModbotHoldsTheClaim_TakesNothing_ThenTakesOverFromOneThatStopped()
+    {
+        var (host, discord) = await StartAsync(_db, schedule: DiscordSnapshotSchedules.Weekly);
+        await using var _ = host;
+        using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var pass = PassFor(host, discord, context);
+
+        await context.Settings.ExecuteUpdateAsync(
+            u => u.SetProperty(s => s.DiscordSnapshotClaimedAt, (DateTimeOffset?)host.Clock.UtcNow), Ct);
+
+        Assert.False(await pass.RunOnceAsync(Ct));
+        Assert.Equal(0, await context.DiscordSnapshots.CountAsync(Ct));
+
+        host.Clock.Advance(TimeSpan.FromMinutes(6));
+
+        Assert.True(await pass.RunOnceAsync(Ct));
+        Assert.Equal(1, await context.DiscordSnapshots.CountAsync(Ct));
+        Assert.Null((await context.Settings.AsNoTracking().SingleAsync(Ct)).DiscordSnapshotClaimedAt);
+    }
+
+    private static async Task SeedAsync(ModbotContext context, ReadSurfaceTestHost host, int byHand, int scheduled)
+    {
+        for (var i = 0; i < byHand + scheduled; i++)
+        {
+            context.DiscordSnapshots.Add(new DiscordSnapshot
+            {
+                TakenAt = host.Clock.UtcNow.AddDays(-(i + 20)),
+                Scheduled = i >= byHand,
+            });
+        }
+
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task Pass_WithOneHundredKept_DropsTheOldestScheduledOnesToStayAtOneHundred()
+    {
+        var (host, discord) = await StartAsync(_db, schedule: DiscordSnapshotSchedules.Weekly);
+        await using var _ = host;
+        using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        await SeedAsync(context, host, byHand: 90, scheduled: 10);
+
+        Assert.True(await PassFor(host, discord, context).RunOnceAsync(Ct));
+
+        Assert.Equal(DiscordSnapshotLimits.MostKept, await context.DiscordSnapshots.CountAsync(Ct));
+        Assert.Equal(90, await context.DiscordSnapshots.CountAsync(s => !s.Scheduled, Ct));
+    }
+
+    [Fact]
+    public async Task Pass_WithOneHundredTakenByHand_TakesNothing()
+    {
+        var (host, discord) = await StartAsync(_db, schedule: DiscordSnapshotSchedules.Weekly);
+        await using var _ = host;
+        using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        await SeedAsync(context, host, byHand: DiscordSnapshotLimits.MostKept, scheduled: 0);
+
+        Assert.False(await PassFor(host, discord, context).RunOnceAsync(Ct));
+        Assert.Equal(DiscordSnapshotLimits.MostKept, await context.DiscordSnapshots.CountAsync(Ct));
+    }
 }

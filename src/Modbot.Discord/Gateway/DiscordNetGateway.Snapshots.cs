@@ -126,7 +126,9 @@ public sealed partial class DiscordNetGateway
         catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
         {
             return DiscordEditResult.Failed(
-                "Discord refused: the bot needs Manage Roles in that channel.", applied, missingPermission: true);
+                "Discord refused: the bot needs Manage Roles, and can only allow or deny in a channel what it has there itself.",
+                applied,
+                missingPermission: true);
         }
         catch (HttpException e)
         {

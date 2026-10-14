@@ -19,8 +19,10 @@ nothing is taken, and the next check tries again. The tab shows the schedule and
 due.
 
 Modbot keeps at most 100 snapshots. The schedule keeps its 24 newest and deletes older scheduled ones
-as it takes new ones; snapshots taken by hand are never deleted by the schedule. Past 100, **Take
-snapshot** is refused until you delete one. **Delete** asks you to confirm.
+as it takes new ones; when 100 are kept it deletes the oldest scheduled one to make room. Snapshots
+taken by hand are never deleted by the schedule: if all 100 were taken by hand, the schedule takes
+none until you delete one. Past 100, **Take snapshot** is refused until you delete one. **Delete**
+asks you to confirm.
 
 ## What a snapshot holds
 
@@ -54,7 +56,8 @@ restore would make, one line each. Nothing has changed yet. Press **Restore** to
 
 - For a role, a restore sets the role's server-wide permissions to the snapshot's.
 - For a channel, a restore sets the channel's settings for each role to the snapshot's, and removes
-  the settings for roles the snapshot did not have. A role that is gone from the server is skipped.
+  the settings for roles the snapshot did not have. A role that is gone from the server is skipped,
+  and if that is all there is to do, the preview says **Nothing to change.**
 - It never makes a deleted role or channel again, never renames or moves anything, and never touches
   the settings for a single member.
 - If the server changed between the preview and the press, the restore is refused with a message and
@@ -75,8 +78,8 @@ channel and every line of the change.
 |---|---|
 | **Manage Roles** | Putting a role's permissions back, and a channel's settings for roles. Taking snapshots and comparing need no extra permission. |
 
-Discord only lets the bot change roles below its own highest role, and only give permissions the bot
-has itself. When a restore cannot be made for one of those reasons, the preview says what is
+Discord only lets the bot change roles below its own highest role, and only allow, deny or give
+permissions the bot has itself. When a restore cannot be made for one of those reasons, the preview says what is
 missing. The bot's invite link asks for Manage Roles only while **Allow restore** is on; after you
 turn it on, open the **Bot invite link** again to give the bot the permission. See
 [Permissions the bot needs](/discord/bot-setup#permissions-the-bot-needs).

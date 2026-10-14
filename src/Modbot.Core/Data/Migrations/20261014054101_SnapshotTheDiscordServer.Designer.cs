@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014051818_SnapshotTheDiscordServer")]
+    [Migration("20261014054101_SnapshotTheDiscordServer")]
     partial class SnapshotTheDiscordServer
     {
         /// <inheritdoc />
@@ -9130,6 +9130,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordRoleSyncOn")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_role_sync_on");
+
+                    b.Property<DateTimeOffset?>("DiscordSnapshotClaimedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_snapshot_claimed_at");
 
                     b.Property<bool>("DiscordSnapshotRestoreOn")
                         .HasColumnType("boolean")

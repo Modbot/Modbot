@@ -30,7 +30,11 @@ public sealed record SnapshotRestorePlan(
     IReadOnlyList<string> Remove,
     bool MissingPermission = false)
 {
-    public bool NothingToChange => Problem is null && Lines.Count == 0;
+    /// <summary>
+    /// Nothing to put back. A line can still be there for a role that is gone, which is left alone, so for a
+    /// channel this counts the changes to send, not the lines.
+    /// </summary>
+    public bool NothingToChange => Problem is null && (RolePermissions is null ? Set.Count + Remove.Count == 0 : Lines.Count == 0);
 }
 
 /// <summary>
@@ -97,7 +101,7 @@ public static class ServerSnapshotCompare
         if (before.Mentionable != after.Mentionable)
             details.Add($"Anyone can mention it: {YesNo(before.Mentionable)} to {YesNo(after.Mentionable)}");
 
-        details.AddRange(PermissionLines("Permissions", before.Permissions, after.Permissions));
+        details.AddRange(PermissionLines("Permissions", "gained", "lost", before.Permissions, after.Permissions));
         return details;
     }
 
@@ -138,8 +142,8 @@ public static class ServerSnapshotCompare
                 continue;
             }
 
-            details.AddRange(PermissionLines($"{name}: allowed", old.Allow, overwrite.Allow));
-            details.AddRange(PermissionLines($"{name}: denied", old.Deny, overwrite.Deny));
+            details.AddRange(PermissionLines($"{name}:", "now allowed", "no longer allowed", old.Allow, overwrite.Allow));
+            details.AddRange(PermissionLines($"{name}:", "now denied", "no longer denied", old.Deny, overwrite.Deny));
         }
 
         foreach (var overwrite in before.Overwrites.Where(o => !now.ContainsKey(o.RoleId)))
@@ -152,16 +156,16 @@ public static class ServerSnapshotCompare
     /// Says what a set of permissions gained and lost: "Permissions gained: A, B" and "Permissions lost: C",
     /// each only when there is something to say.
     /// </summary>
-    private static IEnumerable<string> PermissionLines(string label, long before, long after)
+    private static IEnumerable<string> PermissionLines(string label, string gainedWord, string lostWord, long before, long after)
     {
         var gained = after & ~before;
         var lost = before & ~after;
 
         if (gained != 0)
-            yield return $"{label} gained: {DiscordPermissionNames.Line(gained)}";
+            yield return $"{label} {gainedWord}: {DiscordPermissionNames.Line(gained)}";
 
         if (lost != 0)
-            yield return $"{label} lost: {DiscordPermissionNames.Line(lost)}";
+            yield return $"{label} {lostWord}: {DiscordPermissionNames.Line(lost)}";
     }
 
     private static string Describe(long allow, long deny)
@@ -283,6 +287,7 @@ public static class ServerSnapshotCompare
         var set = new List<SnapshotOverwriteSet>();
         var remove = new List<string>();
         var print = new List<string>();
+        var missing = 0L;
 
         foreach (var overwrite in saved.Overwrites)
         {
@@ -304,9 +309,12 @@ public static class ServerSnapshotCompare
             }
             else
             {
-                lines.AddRange(PermissionLines($"{name}: allowed", current.Allow, overwrite.Allow));
-                lines.AddRange(PermissionLines($"{name}: denied", current.Deny, overwrite.Deny));
+                lines.AddRange(PermissionLines($"{name}:", "will allow", "will stop allowing", current.Allow, overwrite.Allow));
+                lines.AddRange(PermissionLines($"{name}:", "will deny", "will stop denying", current.Deny, overwrite.Deny));
             }
+
+            // Discord lets the bot allow or deny in a channel only what it holds itself.
+            missing |= ((overwrite.Allow & ~(current?.Allow ?? 0)) | (overwrite.Deny & ~(current?.Deny ?? 0))) & ~live.BotPermissions;
 
             set.Add(new SnapshotOverwriteSet(overwrite.RoleId, overwrite.Allow, overwrite.Deny));
             print.Add($"{overwrite.RoleId}:{current?.Allow}:{current?.Deny}>{overwrite.Allow}:{overwrite.Deny}");
@@ -320,7 +328,15 @@ public static class ServerSnapshotCompare
         }
 
         var changes = set.Count + remove.Count;
-        string? problem = changes > 0 && !live.BotCanManageRoles ? "The bot needs Manage Roles." : null;
+        string? problem = null;
+
+        if (changes > 0)
+        {
+            if (!live.BotCanManageRoles)
+                problem = "The bot needs Manage Roles.";
+            else if ((live.BotPermissions & (1L << 3)) == 0 && missing != 0)
+                problem = $"The bot cannot give what it does not have itself: {DiscordPermissionNames.Line(missing)}.";
+        }
 
         return new SnapshotRestorePlan(
             SnapshotChangeKinds.Channel,

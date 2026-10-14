@@ -94,8 +94,8 @@ public class ServerSnapshotCompareTests
 
         var change = Assert.Single(ServerSnapshotCompare.Compare(from, to));
 
-        Assert.Contains("Mod: allowed lost: View Channel", change.Details);
-        Assert.Contains("Mod: denied gained: View Channel", change.Details);
+        Assert.Contains("Mod: no longer allowed: View Channel", change.Details);
+        Assert.Contains("Mod: now denied: View Channel", change.Details);
     }
 
     [Fact]
@@ -224,6 +224,33 @@ public class ServerSnapshotCompareTests
 
         Assert.Empty(plan.Set);
         Assert.Contains("Mod: left alone, the role is gone from the server", plan.Lines);
+
+        // A line that only says something was left alone is not a change to send.
+        Assert.True(plan.NothingToChange);
+    }
+
+    [Fact]
+    public void PlanChannel_AllowingWhatTheBotLacks_IsRefusedBeforeAnythingIsSent()
+    {
+        var snapshot = Content([Role("r1", "Mod")], [Channel("c1", "staff", [new SnapshotOverwrite("r1", SendMessages, 0)])]);
+        var live = Content([Role("r1", "Mod")], [Channel("c1", "staff")]);
+
+        var plan = ServerSnapshotCompare.PlanChannel(snapshot, Live(live, botPermissions: ManageRoles), "c1");
+
+        Assert.Contains("Send Messages", plan.Problem);
+        Assert.True(plan.MissingPermission);
+    }
+
+    [Fact]
+    public void PlanChannel_AllowingWhatTheBotHas_IsNotRefused()
+    {
+        var snapshot = Content([Role("r1", "Mod")], [Channel("c1", "staff", [new SnapshotOverwrite("r1", SendMessages, 0)])]);
+        var live = Content([Role("r1", "Mod")], [Channel("c1", "staff")]);
+
+        var plan = ServerSnapshotCompare.PlanChannel(snapshot, Live(live, botPermissions: ManageRoles | SendMessages), "c1");
+
+        Assert.Null(plan.Problem);
+        Assert.Equal(["Mod: will allow: Send Messages"], plan.Lines);
     }
 
     [Fact]

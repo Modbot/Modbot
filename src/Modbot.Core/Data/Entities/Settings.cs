@@ -825,6 +825,13 @@ public class Settings
     /// </summary>
     public bool DiscordSnapshotRestoreOn { get; set; }
 
+    /// <summary>
+    /// When a Modbot began saving a scheduled snapshot, held only while it does and cleared after. A
+    /// second Modbot on the same database that finds it set (and recent) leaves the snapshot to the first,
+    /// so one due moment gives one snapshot.
+    /// </summary>
+    public DateTimeOffset? DiscordSnapshotClaimedAt { get; set; }
+
     // --- Event recaps in Discord ---
 
     /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>
