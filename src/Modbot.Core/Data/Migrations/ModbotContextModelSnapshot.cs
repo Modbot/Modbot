@@ -9481,6 +9481,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("instance_end_entries_started_at");
 
+                    b.Property<bool>("KofiOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("kofi_on");
+
+                    b.Property<string>("KofiVerificationTokenEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("kofi_verification_token_encrypted");
+
                     b.Property<bool>("LivePostAuto")
                         .HasColumnType("boolean")
                         .HasColumnName("live_post_auto");
@@ -9790,6 +9798,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("spotlight_time_zone");
+
+                    b.Property<string>("SupporterThanksText")
+                        .HasColumnType("text")
+                        .HasColumnName("supporter_thanks_text");
 
                     b.Property<string>("SyncPacing")
                         .HasColumnType("jsonb")
@@ -10219,6 +10231,190 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_modbot_storage_day");
 
                     b.ToTable("modbot_storage_day", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Supporter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("FirstPaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_paid_at");
+
+                    b.Property<string>("GivenDiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("given_discord_role_id");
+
+                    b.Property<string>("GivenVRChatRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("given_vr_chat_role_id");
+
+                    b.Property<string>("GivenVRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("given_vr_chat_user_id");
+
+                    b.Property<DateTimeOffset>("LastPaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_paid_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset>("PaidThrough")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_through");
+
+                    b.Property<string>("PayerId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("payer_id");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("problem");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("provider");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset?>("ThanksSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("thanks_sent_at");
+
+                    b.Property<Guid?>("TierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tier_id");
+
+                    b.Property<DateTimeOffset?>("TryAgainAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("try_again_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supporter");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_supporter_discord_user");
+
+                    b.HasIndex("TierId")
+                        .HasDatabaseName("ix_supporter_tier_id");
+
+                    b.HasIndex("Provider", "PayerId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_supporter_payer");
+
+                    b.ToTable("supporter", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SupporterPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("provider");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<Guid>("SupporterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supporter_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supporter_payment");
+
+                    b.HasIndex("SupporterId")
+                        .HasDatabaseName("ix_supporter_payment_supporter");
+
+                    b.HasIndex("Provider", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_supporter_payment_code");
+
+                    b.ToTable("supporter_payment", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SupporterTier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DiscordRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_role_id");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("provider");
+
+                    b.Property<string>("VRChatRoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("vr_chat_role_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supporter_tier");
+
+                    b.HasIndex("Provider", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_supporter_tier_key");
+
+                    b.ToTable("supporter_tier", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.TwitchStream", b =>
@@ -11873,6 +12069,25 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_staff_trial_item_staff_trial_trial_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Supporter", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.SupporterTier", null)
+                        .WithMany()
+                        .HasForeignKey("TierId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_supporter_supporter_tier_tier_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SupporterPayment", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Supporter", null)
+                        .WithMany()
+                        .HasForeignKey("SupporterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_supporter_payment_supporter_supporter_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.TwitchStream", b =>
