@@ -133,7 +133,10 @@ export function EventPreview({
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} editing={editing} />}
       {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} editing={editing} />}
       {places.includes('bluesky') && preview.bluesky && (
-        <BlueskyPost post={preview.bluesky} body={editing && <BlueskyBody post={preview.bluesky} editing={editing} />} />
+        <div className="flex flex-col gap-1.5">
+          <BlueskyPost post={preview.bluesky} body={editing && <BlueskyBody post={preview.bluesky} editing={editing} />} />
+          {editing && <UseEventText editing={editing} />}
+        </div>
       )}
     </div>
   )
