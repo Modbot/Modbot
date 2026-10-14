@@ -1,0 +1,85 @@
+---
+title: Member milestones
+description: Count the events each person came to, mark their first event, when they became a Regular and when they came back on their profile, and optionally post each moment in Discord and give a Regular role.
+---
+
+Modbot counts the events each person came to and shows it on their profile. Three moments stand out: the
+person's first event, the event that makes them a Regular, and a return after a long time away. Each can also be
+posted in a Discord channel, and a Regular can be given a Discord role.
+
+## What counts
+
+An event counted is one date of a [calendar](/moderation/calendar) event that Modbot opened an instance for. A date
+is counted once its instance has closed, and a person counts once for each date, however often they joined.
+
+A return is any visit to one of the group's instances, not only an event. The visit counts as a return when the
+person had not been seen in the group's instances for the number of days in **Welcome back after days** or more.
+A person's first visit is never a return.
+
+Modbot counts only the people in instances where a moderator's Modbot app was present. Somebody who was in the
+instance while no moderator's Modbot was there is not counted, so the numbers can be lower than the real turnout.
+Counting starts from the oldest history Modbot has, so people are counted for events from before you set this up.
+
+A Regular here means somebody who came to the number of events you set. It is not the same as the
+[Regulars page](/analytics#regulars), which looks at weeks.
+
+## On the profile
+
+The **Milestones** panel on a person's profile, for staff with **View audit log**, shows:
+
+| Line | Meaning |
+|---|---|
+| **Came to N events** | How many events they came to. |
+| **Nth event on a date** | The date of the event that was their first moment. |
+| **Regular since a date** | The date of the event that made them a Regular. |
+| **Back after N days on a date** | The latest return after a long time away. |
+
+The panel needs no setting and is hidden for somebody with no event and no return. Changing the numbers changes
+the lines straight away, with no new count.
+
+## Settings
+
+You need the **Change settings** permission. Open **Settings → Discord** and find the **Member milestones** card.
+
+| Setting | What it does |
+|---|---|
+| **First event number** | The event number that is a person's first moment. Starts at 1. |
+| **Regular at event number** | The event number that makes a person a Regular. Starts at 5. |
+| **Welcome back after days** | How many days away make a visit a return. Starts at 60. |
+| **Post channel** | Where the posts go. |
+| **Post first events**, **Post new Regulars**, **Post welcome backs** | Which moments get a post. All off to start. |
+| **Regular role** | The Discord role given to a Regular. None to start. |
+
+Press **Save member milestones**.
+
+## The posts
+
+Each moment has its own switch and posts in the one channel you pick. A post is a card that names everyone who
+reached that moment since the last one, as VRChat shows them, so forty people at a first event make one post. The
+names are text on a card, so nobody is pinged.
+
+Turning a post or the role on never acts for people who had reached the moment before. Only moments reached after
+you turned it on are posted, and a moment is posted once for a person. If Discord asks the bot to wait, Modbot tries
+again a short while later. If Discord refuses a post, Modbot does not send it again, and the card shows what went
+wrong.
+
+In the channel the bot needs **View Channels**, **Send Messages** and **Embed Links**.
+
+## The Regular role
+
+Modbot gives the role to a Regular who has a linked Discord account ([Account linking](/discord/account-linking))
+and is still in the server. It never takes the role away. The role must be one the bot can give, and the card
+refuses a role that holds a permission the [permission watch](/discord/permission-watch) tells staff about.
+
+The bot needs **Manage Roles**, and its own role must sit above the Regular role. The **Bot invite link** in
+[Setting up the bot](/discord/bot-setup#permissions-the-bot-needs) asks for **Manage Roles** once a Regular role is
+saved; open the link again after you choose one.
+
+## What Modbot keeps
+
+For each person and date they came to, the VRChat user id, the event and the date. For each person, the time they
+were last seen arriving in a group instance, the latest return, and which moments were already dealt with so
+nothing is posted twice. Nothing about member milestones is sent to Modbot Cloud. What leaves your server is the
+posts and the role, through Discord.
+
+A [purge](/moderation/purge) removes all of this for the person, but can't remove a post already in Discord.

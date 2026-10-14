@@ -141,12 +141,11 @@ role and channel settings.
 | Permission | Needed for |
 |---|---|
 | **View Channels** | Everything the bot reads or posts. |
-| **Send Messages** | Event posts, instance announcements, calendar posts, insights, and the backup channel for account linking. |
-| **Embed Links** | Event posts, instance announcements and insights, which are sent as cards. |
-| **Attach Files** | Pictures on cards (when Modbot fetches VRChat pictures) and on [Marketing](/moderation/marketing) posts, which are sent as files. |
+| **Send Messages** | Event posts, instance announcements, calendar posts, insights, [member milestone](/discord/member-milestones) posts, and the backup channel for account linking. |
+| **Embed Links** | Event posts, instance announcements, insights and member milestone posts, which are sent as cards. || **Attach Files** | Pictures on cards (when Modbot fetches VRChat pictures) and on [Marketing](/moderation/marketing) posts, which are sent as files. |
 | **Read Message History** | Reading back each channel's older messages, and updating instance announcement cards. |
 | **View Audit Log** | Knowing *who* banned, kicked, timed out or changed somebody's roles, and catching up on what happened while the bot was offline. |
-| **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking, turn on [role sync](/discord/role-and-ban-sync) or [lists that give roles](/discord/roles-from-lists), or turn on the [join gate](/discord/join-gate). The bot's own role must also sit above the roles it gives or changes, and the gate's **Member role**. |
+| **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking, turn on [role sync](/discord/role-and-ban-sync) or [lists that give roles](/discord/roles-from-lists), choose a **Regular role** for [member milestones](/discord/member-milestones), or turn on the [join gate](/discord/join-gate). The bot's own role must also sit above the roles it gives or changes, and the gate's **Member role**. |
 | **Ban Members** | Only if you copy group bans into Discord ([ban sync](/discord/role-and-ban-sync)), or ban a Discord member from Modbot (**Ban** in the web app, or `/ban`). Reading the server's ban list needs this or **View Audit Log**. The invite link asks for it only when ban sync copies bans as bans. |
 | **Kick Members** | Only if ban sync copies bans as removals, you remove a Discord member from Modbot (**Remove from Discord**, or `/kick`), or the [join gate](/discord/join-gate) removes people who do not finish (**Remove after** is not **Never**). |
 | **Manage Server** | Only if the [join gate](/discord/join-gate) may pause your server's invites (**Allow pausing invites**). |
@@ -157,7 +156,7 @@ role and channel settings.
 | **Manage Messages** and **Timeout Members** | Only if you set [AutoMod rules](/moderation/automod) to delete messages or time people out. The invite link Modbot builds does not ask for these. |
 
 The **Bot invite link** asks for View Channels, Send Messages, Embed Links, Attach Files, Read Message History and
-View Audit Log. It adds Manage Roles once a linked role or 18+ role is saved, role sync is on or the join gate is
+View Audit Log. It adds Manage Roles once a linked role, 18+ role or member milestones Regular role is saved, role sync is on or the join gate is
 turned on, Ban Members or Kick Members once ban sync copies bans into Discord, Kick Members once the join gate removes people, Manage Server once it may pause
 invites, and Create Public Threads once event recaps are on. If you turn on a
 feature later that needs more, open the link again to give the bot the new permission.
