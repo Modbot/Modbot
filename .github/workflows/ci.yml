@@ -263,6 +263,11 @@ jobs:
       # neither can fail the job (the Test step's own result decides that). A suite stopped for
       # running over its time limit writes no file, since xUnit writes it at the end. Each job
       # keeps its own files under its own artifact name (two artifacts may not share one).
+      - name: Failed tests
+        if: failure()
+        continue-on-error: true
+        run: python3 .github/scripts/failed-tests.py test-results >> "$GITHUB_STEP_SUMMARY" || true
+
       - name: Slowest tests
         if: always()
         continue-on-error: true
