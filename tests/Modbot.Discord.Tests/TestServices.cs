@@ -62,6 +62,9 @@ public sealed class TestServices : IAsyncDisposable
     /// <summary>What <c>/post</c> asked the API's post code to do.</summary>
     public FakePostActions Posts { get; private init; } = new();
 
+    /// <summary>What votes asked the bot's side to post, refresh and close.</summary>
+    public FakeVoteActions Votes { get; private init; } = new();
+
     public static async Task<TestServices> CreateAsync(PostgresFixture fixture, CancellationToken ct)
     {
         var database = await IsolatedDatabase.CreateAsync(fixture, ct);
@@ -73,11 +76,19 @@ public sealed class TestServices : IAsyncDisposable
         var staff = new FakeStaffActions();
         var calendar = new FakeCalendarActions();
         var posts = new FakePostActions();
+        var votes = new FakeVoteActions();
 
         var services = new ServiceCollection();
         services.AddSingleton<Modbot.Core.Discord.IStaffActions>(staff);
         services.AddSingleton<Modbot.Core.Calendar.ICalendarActions>(calendar);
         services.AddSingleton<Modbot.Core.Posts.IPostActions>(posts);
+        services.AddSingleton<Modbot.Core.Discord.IDiscordVoteActions>(votes);
+        services.AddScoped<Modbot.Core.Votes.VoteService>();
+        services.AddScoped<Modbot.Discord.Votes.VotePress>();
+        services.AddScoped<VoteCommand>();
+        services.AddSingleton(p => new Modbot.Discord.Votes.VoteRefresher(
+            p.GetRequiredService<IServiceScopeFactory>(),
+            TimeSpan.FromMilliseconds(50)));
         services.AddSingleton<Modbot.Discord.Interactions.PendingConfirmations<PendingDateCancel, Modbot.Core.Calendar.CalendarCancelAnswer>>();
         services.AddSingleton<Modbot.Discord.Interactions.PendingConfirmations<PendingPost, Modbot.Core.Posts.PostNowAnswer>>();
         services.AddScoped<EventCommand>();
@@ -168,6 +179,7 @@ public sealed class TestServices : IAsyncDisposable
             Staff = staff,
             Calendar = calendar,
             Posts = posts,
+            Votes = votes,
         };
 
         // Facts in these tests all fall around the fake clock's month.
