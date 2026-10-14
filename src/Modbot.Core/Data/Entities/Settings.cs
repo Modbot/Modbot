@@ -989,6 +989,12 @@ public class Settings
     /// </summary>
     public DateTimeOffset? DiscordLinkNudgeStartedAt { get; set; }
 
+    /// <summary>
+    /// When staff last started the link reminder; kept after it stops. The tab says "The reminder
+    /// stopped" for a message Discord turned away only if nobody started it again since.
+    /// </summary>
+    public DateTimeOffset? DiscordLinkNudgeLastStartedAt { get; set; }
+
     // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
     //
     // Three switches, all off, because each one is a different decision. Turning any of them on

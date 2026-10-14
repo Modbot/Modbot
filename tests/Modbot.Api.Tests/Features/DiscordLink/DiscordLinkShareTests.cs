@@ -253,4 +253,35 @@ public class DiscordLinkShareTests
         Assert.Equal(0, view.Reminder.Waiting);
         Assert.Equal("Discord is rate limiting the bot.", view.Reminder.StoppedBecause);
     }
+
+    [Fact]
+    public async Task TheStoppedNotice_GoesAway_OnceItWasStartedAgainAndStoppedByHand()
+    {
+        await using var host = await StartAsync();
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            context.DiscordLinkNudges.Add(new DiscordLinkNudge
+            {
+                DiscordUserId = "d4",
+                State = DiscordLinkNudgeStates.RateLimited,
+                CreatedAt = host.Clock.UtcNow.AddMinutes(-1),
+                Error = "Discord is rate limiting the bot.",
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var staff = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
+        Assert.Equal("Discord is rate limiting the bot.", (await host.GetJsonAsync<DiscordLinkShareResponse>(Url, staff, Ct)).Reminder.StoppedBecause);
+
+        // Started again, then stopped before anything went out: the old notice does not come back.
+        Assert.Equal(HttpStatusCode.OK, (await host.PostJsonAsync(Url + "/reminder/start", null, staff, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.PostJsonAsync(Url + "/reminder/stop", null, staff, Ct)).StatusCode);
+
+        var view = await host.GetJsonAsync<DiscordLinkShareResponse>(Url, staff, Ct);
+        Assert.False(view.Reminder.Running);
+        Assert.Null(view.Reminder.StoppedBecause);
+    }
 }

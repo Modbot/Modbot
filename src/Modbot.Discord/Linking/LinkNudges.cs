@@ -26,7 +26,7 @@ public enum LinkNudgeStep
     /// <summary>Somebody else claimed the same member a moment before, so nothing was sent this turn.</summary>
     Retry,
 
-    /// <summary>The last message went out less than <see cref="LinkNudgeQueue.Gap"/> ago, so this turn waits.</summary>
+    /// <summary>The last message went out less than <see cref="LinkNudgeQueue.Gap"/> ago (<see cref="LinkNudgeQueue.AfterRateLimit"/> if Discord turned it away), so this turn waits.</summary>
     TooSoon,
 
     /// <summary>Discord did not say whether the message arrived. The member is not asked again.</summary>
@@ -122,10 +122,15 @@ public sealed class LinkNudges
         // The pace comes from the table, not from a timer in this process: a restart does not send at
         // once, and a second instance does not double the rate.
         var last = await _db.DiscordLinkNudges.AsNoTracking()
-            .MaxAsync(n => (DateTimeOffset?)n.CreatedAt, ct)
+            .OrderByDescending(n => n.CreatedAt)
+            .Select(n => new { n.CreatedAt, n.State })
+            .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        if (last is { } lastAt && _clock.UtcNow - lastAt < LinkNudgeQueue.Gap)
+        // After Discord asked the bot to slow down it waits much longer, so a restart does not send into the same wait.
+        var wait = last?.State == DiscordLinkNudgeStates.RateLimited ? LinkNudgeQueue.AfterRateLimit : LinkNudgeQueue.Gap;
+
+        if (last is not null && _clock.UtcNow - last.CreatedAt < wait)
             return LinkNudgeStep.TooSoon;
 
         var row = new DiscordLinkNudge

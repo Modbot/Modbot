@@ -118,6 +118,7 @@ public static class DiscordLinkShareEndpoints
 
                     await using var transaction = await db.Database.BeginTransactionAsync(ct);
                     settings.DiscordLinkNudgeStartedAt = now;
+                    settings.DiscordLinkNudgeLastStartedAt = now;
                     await db.SaveChangesAsync(ct);
                     await change.RecordAsync(http, ct);
                     await transaction.CommitAsync(ct);
@@ -206,17 +207,19 @@ public static class DiscordLinkShareEndpoints
             .CountAsync(n => n.State == DiscordLinkNudgeStates.Sending || n.State == DiscordLinkNudgeStates.Unclear, ct);
         var lastSent = await db.DiscordLinkNudges.AsNoTracking().MaxAsync(n => n.SentAt, ct);
 
-        // Said while it is stopped and the newest message was the one Discord turned away.
+        // Said while it is stopped and the newest message was the one Discord turned away, unless it
+        // was started again since (then it was stopped by hand before anything went out).
         string? stoppedBecause = null;
 
         if (settings.DiscordLinkNudgeStartedAt is null)
         {
             var newest = await db.DiscordLinkNudges.AsNoTracking()
                 .OrderByDescending(n => n.CreatedAt)
-                .Select(n => new { n.State, n.Error })
+                .Select(n => new { n.State, n.Error, n.CreatedAt })
                 .FirstOrDefaultAsync(ct);
 
-            if (newest?.State == DiscordLinkNudgeStates.RateLimited)
+            if (newest?.State == DiscordLinkNudgeStates.RateLimited
+                && (settings.DiscordLinkNudgeLastStartedAt is not { } startedSince || startedSince < newest.CreatedAt))
                 stoppedBecause = newest.Error ?? "Discord asked Modbot to slow down.";
         }
 

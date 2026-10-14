@@ -15,6 +15,12 @@ public static class LinkNudgeQueue
     public static readonly TimeSpan Gap = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// The wait after Discord asked the bot to slow down. Staff can start the reminder again at once, but
+    /// it sends nothing until this has passed, so a restart does not run into the same wait again.
+    /// </summary>
+    public static readonly TimeSpan AfterRateLimit = TimeSpan.FromMinutes(10);
+
+    /// <summary>
     /// The members still to be reminded: in the server since before <paramref name="startedAt"/>, no
     /// bot, no active link, and never reminded.
     /// </summary>

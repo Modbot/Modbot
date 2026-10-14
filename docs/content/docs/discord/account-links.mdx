@@ -43,7 +43,7 @@ How it behaves:
 
 - **Slow on purpose.** One message goes out every 30 seconds, because a burst of direct messages from
   a bot is what Discord punishes. A server with 3,000 members to remind takes about a day. The pace is
-  kept from the time of the last message, so restarting Modbot does not send one at once.
+  kept from the last reminder, so restarting Modbot does not send one at once.
 - **Once per person, ever.** Modbot keeps a note for each member it has reminded, or tried to. Stopping
   and starting again, or starting it again next year, never sends the same person a second reminder.
   A member whose direct messages are closed is marked **Not reached** and is not tried again.
@@ -58,7 +58,8 @@ How it behaves:
 - **It stops by itself** when everyone has been dealt with. It also stops, at once, if Discord asks the
   bot to slow down: the tab says **The reminder stopped** with Discord's words, the member it was
   about to message is counted under **Not reached** and is not tried again, and nothing goes out until
-  you press **Start reminder** again.
+  you press **Start reminder** again. After that, nothing goes out until 10 minutes have passed since
+  that message, even if you start it at once, so it does not run into the same wait.
 - **Start is refused** when linking is not set up, no Discord server is saved, or nobody is waiting.
 
 Each message is recorded as **Asked to link on Discord**, and starting or stopping the reminder is in

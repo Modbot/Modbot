@@ -253,7 +253,15 @@ public class LinkNudgesTests
         Assert.Equal(LinkNudgeStep.Off, await TurnAsync(services, gateway));
 
         await services.ConfigureAsync(s => s.DiscordLinkNudgeStartedAt = services.Clock.UtcNow, Ct);
-        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway));
+
+        // Started again at once, it still waits: the ordinary 30 seconds is too short after Discord asked it to slow down.
+        Assert.Equal(LinkNudgeStep.TooSoon, await TurnAsync(services, gateway));
+        services.Clock.Advance(LinkNudgeQueue.AfterRateLimit - LinkNudgeQueue.Gap - TimeSpan.FromSeconds(1));
+        Assert.Equal(LinkNudgeStep.TooSoon, await TurnAsync(services, gateway, gapPassed: false));
+        Assert.Empty(gateway.DirectMessages);
+
+        services.Clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal(LinkNudgeStep.Sent, await TurnAsync(services, gateway, gapPassed: false));
         Assert.Equal("3802", Assert.Single(gateway.DirectMessages).UserId);
     }
 

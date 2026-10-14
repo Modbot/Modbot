@@ -12,6 +12,12 @@ namespace Modbot.Core.Data.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<DateTimeOffset>(
+                name: "discord_link_nudge_last_started_at",
+                table: "settings",
+                type: "timestamp with time zone",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "discord_link_nudge_started_at",
                 table: "settings",
                 type: "timestamp with time zone",
@@ -45,6 +51,10 @@ namespace Modbot.Core.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "discord_link_nudge");
+
+            migrationBuilder.DropColumn(
+                name: "discord_link_nudge_last_started_at",
+                table: "settings");
 
             migrationBuilder.DropColumn(
                 name: "discord_link_nudge_started_at",

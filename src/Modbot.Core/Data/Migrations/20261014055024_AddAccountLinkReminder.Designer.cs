@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014051247_AddAccountLinkReminder")]
+    [Migration("20261014055024_AddAccountLinkReminder")]
     partial class AddAccountLinkReminder
     {
         /// <inheritdoc />
@@ -9077,6 +9077,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DiscordLinkBackupChannelId")
                         .HasColumnType("text")
                         .HasColumnName("discord_link_backup_channel_id");
+
+                    b.Property<DateTimeOffset?>("DiscordLinkNudgeLastStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_link_nudge_last_started_at");
 
                     b.Property<DateTimeOffset?>("DiscordLinkNudgeStartedAt")
                         .HasColumnType("timestamp with time zone")

@@ -9107,6 +9107,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_link_backup_channel_id");
 
+                    b.Property<DateTimeOffset?>("DiscordLinkNudgeLastStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_link_nudge_last_started_at");
+
                     b.Property<DateTimeOffset?>("DiscordLinkNudgeStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("discord_link_nudge_started_at");
