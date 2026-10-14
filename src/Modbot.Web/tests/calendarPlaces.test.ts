@@ -19,6 +19,8 @@ import {
   notSetUp,
   placeLines,
   showsVisibleTo,
+  TAB_LABEL,
+  tabsFor,
   TITLE_LIMIT,
   wantedPlaces,
 } from '../src/lib/calendarPlaces.ts'
@@ -295,4 +297,17 @@ test('Bluesky’s own text is counted and cut in graphemes, as Bluesky counts', 
   assert.equal(countedGraphemes('a'.repeat(301), 300).over, true)
   assert.equal(cutGraphemes(`${family}${family}ab`, 2), `${family}${family}`)
   assert.equal(cutGraphemes('abc', 10), 'abc')
+})
+
+test('the form has an Event tab and one for each service that is on, in a fixed order', () => {
+  assert.deepEqual(tabsFor(() => false), ['event'])
+  assert.deepEqual(tabsFor(() => true), ['event', 'vrchat', 'discordEvent', 'channelPost', 'googleCalendar', 'bluesky'])
+  assert.deepEqual(tabsFor((place) => place === 'bluesky' || place === 'vrchat'), ['event', 'vrchat', 'bluesky'])
+})
+
+test('the tabs are named Event, VRChat, Discord event, Discord post, Google and Bluesky', () => {
+  assert.deepEqual(
+    tabsFor(() => true).map((tab) => TAB_LABEL[tab]),
+    ['Event', 'VRChat', 'Discord event', 'Discord post', 'Google', 'Bluesky'],
+  )
 })

@@ -296,10 +296,10 @@ drew.
 <Step>
 ### Fill it in
 
-Pick [where it goes](#where-it-goes) with the chips at the top, then fill in the fields under
-**Details**. Every field is described below. Only **Title** is required, plus a world if the
-instance should open by itself, and a channel if **Discord channel post** is on. **Preview** shows
-the event the way each place will show it.
+Pick [where it goes](#where-it-goes) with the chips on the **Event** tab, then fill in its fields.
+Every field is described below. Only **Title** is required, plus a world if the instance should
+open by itself, and a channel if **Discord channel post** is on. Each place that is on gets a
+[tab of its own](#the-tabs), with its settings and the event the way that place will show it.
 </Step>
 <Step>
 ### Save it
@@ -309,7 +309,8 @@ the event the way each place will show it.
   **Drafts** and click **Schedule** later.
 - **Cancel** leaves without saving.
 
-The buttons stay at the bottom of the form while you scroll, on a phone too. When you edit an event
+The buttons stay at the bottom of the form while you scroll, and are the same on every tab, on a
+phone too. When you edit an event
 that is already scheduled, **Save** takes the place of **Schedule** and **Save draft**.
 
 **Schedule** and **Save** first look the event over. If something looks off, the form stays open and
@@ -338,7 +339,7 @@ reloading the page.
 
 ### Where it goes
 
-The chips at the top of the form say where the event goes. A chip that is on has a tick.
+The chips at the top of the **Event** tab say where the event goes. A chip that is on has a tick.
 
 | Chip | What it does | Its own settings |
 |---|---|---|
@@ -350,7 +351,7 @@ The chips at the top of the form say where the event goes. A chip that is on has
 | **Bluesky** | [Posts each date on Bluesky](#bluesky) a set time before it starts. Off for a new event. | [Bluesky](#bluesky-settings-on-the-form) |
 | **Open the instance** | [Opens a group instance](#opening-the-instance) before each start. | [Open the instance](#open-the-instance) |
 
-A place's own settings only show while its chip is on.
+A place's tab only shows while its chip is on.
 
 **Not set up.** A chip that is on but cannot work yet says **Not set up** beside it. Click it to open
 the setting that is missing, in a new tab, so what you typed stays:
@@ -373,21 +374,36 @@ You can still save an event with a place that is not set up. Nothing is sent the
 up; then Modbot catches up by itself. The event shows the same **Not set up** where that place would
 be, and so does [Health](#on-health).
 
-### Preview
+### The tabs
 
-**Preview**, next to **Details**, shows the event the way each place that is on will show it:
+The form has an **Event** tab, then one tab for each place that is on: **VRChat**, **Discord event**,
+**Discord post**, **Google** and **Bluesky**. A tab shows only while its chip is on. The calendar feed
+has no tab; it always uses the event's own text. On a phone the row of tabs scrolls sideways. Saving
+works from any tab. When a save is stopped by a field on another tab (the world list, or a picture
+that did not upload), the form jumps to the tab with that field.
+
+| Tab | What is on it |
+|---|---|
+| **Event** | The chips, **Title**, **Description**, **Own text**, the fill-ins and links, **Categories**, **When**, **Where**, **Picture link**, and **Open the instance** while its chip is on. |
+| **VRChat** | The card, then the [VRChat calendar](#vrchat-calendar) settings. |
+| **Discord event** | The card, then the [Discord picture](#the-discord-picture). |
+| **Discord post** | The card, then the [Discord channel post](#discord-channel-post) settings. |
+| **Google** | The card. |
+| **Bluesky** | The post, then [Bluesky](#bluesky-settings-on-the-form)'s **Post it**. |
+
+A place's card shows the event the way that place will show it. It is read when the tab opens, and
+drawn again a moment after the form changes. You cannot type in it yet; change the text on the **Event**
+tab.
 
 - **Discord event**: the cover, the time, the title, the location and the description, cut to
   Discord's 100 and 1,000 characters. The location is the world's name (or **VRChat** with no world);
   the join address only appears while an instance Modbot opened is open.
-- **Discord channel post**: the card as it will be posted, with the times in your own time, and
+- **Discord post**: the card as it will be posted, with the times in your own time, and
   the role it mentions above it, if you picked one.
-- **VRChat calendar**: exactly what is sent to VRChat: the title, time, repeat, category, who can see
+- **VRChat**: exactly what is sent to VRChat: the title, time, repeat, category, who can see
   it, languages, platforms, tags, picture id, whether members are notified, and the description.
   VRChat may change some characters after it gets them.
-- **Calendar feed**: what a phone or desktop calendar shows: the title, time, repeat, location,
-  the calendar's name and the notes.
-- **Google Calendar**: what goes on your Google calendar: the title, the time in the event's own
+- **Google**: what goes on your Google calendar: the title, the time in the event's own
   time zone, the repeat in words, the location, the calendar's name and the description with the
   world's name and page under it. Links typed in Google's own description show as plain words here. A padlock beside the title means only the people the calendar is
   shared with will see it, because **Check** found the calendar is not public, or shows the public
@@ -395,7 +411,7 @@ be, and so does [Health](#on-health).
 - **Bluesky**: the post for the event's next date, as Bluesky will show it: the account's name, the
   text, the link card with its picture, and how many of Bluesky's 300 characters it uses.
 
-The preview is made by the same code that sends the event, so it matches what goes out. It does not
+A card is made by the same code that sends the event, so it matches what goes out. It does not
 save anything or send anything to VRChat, Discord or Google. It can draw an event that is not finished yet,
 with no title or no channel, but shows the error instead if something would be refused, such as a
 title that is too long.
@@ -473,7 +489,7 @@ months**.
 
 ### VRChat calendar
 
-Shown while the **VRChat calendar** chip is on.
+On the **VRChat** tab, while the **VRChat calendar** chip is on.
 
 | Field | Notes |
 |---|---|
@@ -517,14 +533,14 @@ day. Modbot fetches the link again each time it updates the Discord event, so us
 
 ### The Discord picture
 
-Shown while the **Discord event** or **Discord channel post** chip is on. Discord shows an event's
+On the **Discord event** tab, or on the **Discord post** tab while the **Discord event** chip is off. Discord shows an event's
 cover in a wide 2.5:1 strip, so a picture made for VRChat's calendar loses its top and bottom there.
 **Discord picture** lets you choose which part shows.
 
 - **Choose picture**, or give a **Picture link**: the picture opens in a crop box in Discord's shape.
   A picture chosen here or under **VRChat picture** opens in both crop boxes, each in its own shape.
-- Drag the box, and use **Size**. The **Preview** tab shows the Discord event and the channel post
-  with the crop, before anything is uploaded.
+- Drag the box, and use **Size**. The cards on the **Discord event** and **Discord post** tabs
+  show the crop, before anything is uploaded.
 - **Upload** keeps the cropped picture in Modbot. From then on Discord gets it as the event's cover
   and on the channel post, instead of the picture link. Pressing **Save** or **Schedule** with a crop
   still open uploads it first.
@@ -570,7 +586,7 @@ With it on:
 - **Choose picture** and pick any picture your browser can open (PNG, JPEG, WebP, AVIF, GIF, and
   more). Or give a **Picture link** in this form: its picture opens the same way.
 - **The picture opens in a crop box** in the shape VRChat's calendar uses, 16:9. Drag the box to
-  choose the part to keep, and use **Size** to make it larger or smaller. The **Preview** tab shows
+  choose the part to keep, and use **Size** to make it larger or smaller. The card on the **VRChat** tab shows
   the cropped picture before anything is uploaded.
 - **Upload** sends the cropped picture to VRChat, as a PNG (or a JPEG if a PNG would be over
   **10 MB**), and a small copy of it shows in the form once VRChat has it. Pressing **Save** or
@@ -609,14 +625,14 @@ Who uploaded which picture, and for which event, is in the [audit log](#in-the-a
 
 ### Discord channel post
 
-Shown while the **Discord channel post** chip is on.
+On the **Discord post** tab, while the **Discord channel post** chip is on.
 
 | Field | Notes |
 |---|---|
 | **Channel** | Required. A channel where the bot is missing View Channels, Send Messages or Embed Links is marked **Missing** followed by what it lacks. |
 | **Mention role** | Optional, **None** to start with. A role to ping when the post goes up, such as **@GameNight**. See [Mentioning a role](#mentioning-a-role). |
 
-The **Discord event** has no settings of its own.
+The **Discord event** has no settings of its own besides the [Discord picture](#the-discord-picture).
 
 ### Open the instance
 
@@ -1269,7 +1285,7 @@ has a link, and only when the picture is no bigger than 1 MB. Otherwise the post
 
 ### Bluesky settings on the form
 
-The **Bluesky** section appears while the chip is on, with **Post it**, and the **Own text** tick
+The **Bluesky** tab appears while the chip is on, with **Post it**, and the **Own text** tick
 described under [Title and description](#title-and-description).
 
 ### Changes, cancelling and deleting
@@ -1317,8 +1333,8 @@ with its title and length. Anyone with **Manage calendar** or **Manage templates
 Only **Manage templates** shows **New template**, **Edit** and **Delete**.
 
 **New template** and **Edit** open the event form with a **Name** above the title, **Length** under
-**When**, and **Save** and **Cancel** at the bottom. There is no **Preview**, no **Schedule** or
-**Save draft**, and a repeat can end **Never** or **After a number of times**. A template can be saved
+**When**, and **Save** and **Cancel** at the bottom. It has the same tabs as the event form, with the cards drawn for a
+made-up start. There is no **Schedule** or **Save draft**, and a repeat can end **Never** or **After a number of times**. A template can be saved
 half filled in: the title, the channel and the world may stay empty, and an event made from it is
 refused for them instead. The rest is checked as it is for an event. Modbot asks **Delete “…”?** before
 it deletes a template. Events already made from a template do not change when it does.

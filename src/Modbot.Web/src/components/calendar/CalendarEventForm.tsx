@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
@@ -39,13 +39,17 @@ import {
   isSetUp,
   missingChannel,
   showsVisibleTo,
+  TAB_LABEL,
+  tabsFor,
   TITLE_LIMIT,
   type CalendarDestination,
   type CalendarReady,
+  type CalendarServiceTab,
+  type CalendarTab,
 } from '@/lib/calendarPlaces'
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
-import { fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
+import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
@@ -62,13 +66,14 @@ import { DiscordPictureField, VRChatPictureField } from './VRChatPictureField'
 const OTHER_WORLD = '__other__'
 const FROM_LIST = '__list__'
 
-type Tab = 'details' | 'preview'
-
 /** How a repeat stops: never, after its last date, or after a number of times. */
 type RepeatEnd = 'never' | 'date' | 'times'
 
 /** How long a save waits for the look at events already at that time, before it goes on without it. */
 const SAME_EVENTS_WAIT_MS = 3000
+
+/** How long a card waits for the form to stop changing before it is drawn again. */
+const PREVIEW_WAIT_MS = 400
 
 /** What "After a number of times" starts at. */
 const FIRST_TIMES = 4
@@ -88,9 +93,11 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
  * its chip is on. A ticked place that cannot work as things are set up says "Not set up" beside its
  * chip, linking to where it is set up. Google Calendar says "Not set up" whether ticked or not, and
  * "Members only" for an event only members see, which it never takes (Google Calendar design §3.8);
- * "Visible to" sits under Where, as both it and the VRChat calendar go by it. Preview draws the
- * event the way each place that is on would show it. The buttons are pinned under the form, so a
- * phone never scrolls them away.
+ * "Visible to" sits under Where, as both it and the VRChat calendar go by it. The chips and the
+ * event's own fields are on the Event tab. Each place that is on has a tab of its own, with its
+ * own fields and a card of the event the way that place would show it (the calendar feed has none:
+ * it always uses the event's text). The buttons are pinned under the form, so a phone never scrolls
+ * them away.
  */
 export function CalendarEventForm({
   event,
@@ -170,12 +177,12 @@ export function CalendarEventForm({
   const [error, setError] = useState<string[] | null>(null)
   // What a save found worth a second look, one line each. The next save of the same form goes through.
   const [warnings, setWarnings] = useState<string[]>([])
-  const [tab, setTab] = useState<Tab>('details')
+  const [tab, setTab] = useState<CalendarTab>('event')
   // Kept apart from the input, so "On a date" stays picked while its date is still empty.
   const [repeatEnd, setRepeatEnd] = useState<RepeatEnd>(() =>
     input.repeatTimes !== null ? 'times' : input.repeatUntil !== null ? 'date' : 'never',
   )
-  // What Preview draws: the form as it was when Preview was opened.
+  // What the cards draw: the form as it was when a service's tab was opened, or a moment after the last change.
   const [shown, setShown] = useState<CalendarEventInput | null>(null)
 
   useEffect(() => {
@@ -303,7 +310,7 @@ export function CalendarEventForm({
   const save = async (draft: boolean) => {
     if (listMissing) {
       setListMissed(true)
-      setTab('details')
+      openTab('event')
       return
     }
 
@@ -332,7 +339,7 @@ export function CalendarEventForm({
 
       if (!fileId) {
         setBusy(false)
-        setTab('details')
+        openTab('vrchat')
         return
       }
 
@@ -344,7 +351,7 @@ export function CalendarEventForm({
 
       if (!coverId) {
         setBusy(false)
-        setTab('details')
+        openTab(input.publishToDiscord ? 'discordEvent' : 'channelPost')
         return
       }
 
@@ -369,11 +376,6 @@ export function CalendarEventForm({
       .then(onSaved)
       .catch((e: unknown) => setError(e instanceof ApiError ? problemsOf(e) : ['Could not save the event.']))
       .finally(() => setBusy(false))
-  }
-
-  const pickTab = (next: Tab) => {
-    if (next === 'preview') setShown(body(false))
-    setTab(next)
   }
 
   const isDraft = !event || event.state === 'draft'
@@ -411,6 +413,63 @@ export function CalendarEventForm({
   ) : null
   const on = (place: CalendarDestination) =>
     place === 'feed' || (place === 'googleCalendar' ? google.on : !!input[DESTINATION_SWITCH[place]])
+
+  const tabs = tabsFor(on)
+  // The chip of the tab being shown cannot go off from there; a Google tick that goes off with its setting can.
+  const active: CalendarTab = tabs.includes(tab) ? tab : 'event'
+
+  // The form as the server is asked to draw it. A template has no dates: its end follows its length.
+  const previewInput: CalendarEventInput = template
+    ? { ...body(false), endsAt: addMinutes(input.startsAt, length) }
+    : body(false)
+  const previewKey = JSON.stringify(previewInput)
+  const shownKey = useRef('')
+
+  // A service's tab draws its card from the form as it is when the tab opens.
+  const openTab = (next: CalendarTab) => {
+    if (next !== 'event' && previewKey !== shownKey.current) {
+      shownKey.current = previewKey
+      setShown(previewInput)
+    }
+
+    setTab(next)
+  }
+
+  // Fields sit beside the card they change, so the card follows them once typing stops.
+  useEffect(() => {
+    if (active === 'event' || previewKey === shownKey.current) return
+
+    const timer = window.setTimeout(() => {
+      shownKey.current = previewKey
+      setShown(JSON.parse(previewKey) as CalendarEventInput)
+    }, PREVIEW_WAIT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [active, previewKey])
+
+  const card = (place: CalendarServiceTab) =>
+    shown && (
+      <EventPreview
+        key={place}
+        eventId={event?.id ?? null}
+        input={shown}
+        places={[place]}
+        vrchatPicture={vrchatPreview}
+        discordPicture={discordPreview}
+      />
+    )
+
+  // Discord's picture is cropped on the Discord event's tab, or on the post's when there is no event.
+  const coverField = (
+    <DiscordPictureField
+      picture={discordCover}
+      value={input.coverPictureId}
+      link={input.imageUrl}
+      onChange={(id) => set('coverPictureId', id)}
+      onFile={chooseEverywhere}
+    />
+  )
+
   const title = counted(input.title, TITLE_LIMIT)
   const description = counted(input.description, DESCRIPTION_LIMIT)
 
@@ -460,7 +519,7 @@ export function CalendarEventForm({
         foot={
           <DialogFoot>
             {error && (
-              <span role="alert" className="mr-auto flex min-w-0 basis-full flex-col sm:basis-auto">
+              <span role="alert" className="mr-auto flex min-w-0 basis-full flex-col [overflow-wrap:anywhere] sm:basis-auto">
                 {error.map((line) => (
                   <Outcome key={line} tone="problem">
                     {line}
@@ -469,7 +528,7 @@ export function CalendarEventForm({
               </span>
             )}
             {!error && warnings.length > 0 && (
-              <span role="status" className="mr-auto flex min-w-0 basis-full flex-col text-warn sm:basis-auto" style={{ fontSize: 'var(--text-small)' }}>
+              <span role="status" className="mr-auto flex min-w-0 basis-full flex-col text-warn [overflow-wrap:anywhere] sm:basis-auto" style={{ fontSize: 'var(--text-small)' }}>
                 {warnings.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
@@ -490,473 +549,453 @@ export function CalendarEventForm({
           </DialogFoot>
         }
       >
-        <div className="flex flex-col gap-4">
-          <div role="group" aria-label="Where it goes" className="flex flex-wrap gap-2">
-            {DESTINATIONS.map((place) => (
-              <span key={place} className="inline-flex items-center gap-1.5">
-                <Chip
-                  on={on(place)}
-                  disabled={place === 'feed' || (place === 'googleCalendar' && google.disabled)}
-                  onClick={() => {
-                    if (place === 'googleCalendar') set('publishToGoogle', !google.on)
-                    else if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
-                  }}
-                >
-                  {on(place) && <Check className="size-3.5" />}
-                  {DESTINATION_LABEL[place]}
-                </Chip>
-                {place === 'googleCalendar' ? (
-                  google.note === 'notSetUp' ? (
-                    <NotSetUp place="googleCalendar" newTab />
-                  ) : (
-                    google.note === 'membersOnly' && (
-                      <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                        Members only
-                      </span>
-                    )
-                  )
-                ) : place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
-                  <NotSetUp place={place} newTab />
-                ) : (
-                  // The channel is picked in its own section, just below.
-                  place === 'channelPost' &&
-                  missingChannel(input) && (
-                    <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                      Not set up
-                    </span>
-                  )
-                )}
-              </span>
-            ))}
-          </div>
+        <Tabs
+          value={active}
+          onChange={openTab}
+          tabs={tabs.map((value) => ({ value, label: TAB_LABEL[value] }))}
+          panelClassName="overflow-visible pt-4"
+        >
+          {active === 'event' ? (
+            <div className="flex min-w-0 flex-col gap-4">
+              <div role="group" aria-label="Where it goes" className="flex flex-wrap gap-2">
+                {DESTINATIONS.map((place) => (
+                  <span key={place} className="inline-flex items-center gap-1.5">
+                    <Chip
+                      on={on(place)}
+                      disabled={place === 'feed' || (place === 'googleCalendar' && google.disabled)}
+                      onClick={() => {
+                        if (place === 'googleCalendar') set('publishToGoogle', !google.on)
+                        else if (place !== 'feed') set(DESTINATION_SWITCH[place], !input[DESTINATION_SWITCH[place]])
+                      }}
+                    >
+                      {on(place) && <Check className="size-3.5" />}
+                      {DESTINATION_LABEL[place]}
+                    </Chip>
+                    {place === 'googleCalendar' ? (
+                      google.note === 'notSetUp' ? (
+                        <NotSetUp place="googleCalendar" newTab />
+                      ) : (
+                        google.note === 'membersOnly' && (
+                          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                            Members only
+                          </span>
+                        )
+                      )
+                    ) : place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
+                      <NotSetUp place={place} newTab />
+                    ) : (
+                      // The channel is picked in its own section, just below.
+                      place === 'channelPost' &&
+                      missingChannel(input) && (
+                        <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+                          Not set up
+                        </span>
+                      )
+                    )}
+                  </span>
+                ))}
+              </div>
 
-          <Tabs
-            value={tab}
-            onChange={pickTab}
-            tabs={[
-              { value: 'details', label: 'Details' },
-              { value: 'preview', label: 'Preview' },
-            ]}
-            panelClassName="overflow-visible pt-4"
-            rowClassName={template ? 'hidden' : undefined}
-          >
-            {tab === 'preview' && shown ? (
-              <EventPreview
-                eventId={event?.id ?? null}
-                input={shown}
-                places={DESTINATIONS.filter(on)}
-                vrchatPicture={vrchatPreview}
-                discordPicture={discordPreview}
-              />
-            ) : (
-              <div className="flex flex-col gap-4">
-                {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
-                {template && (
-                  <Section title="Fill-ins">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {fillIns.map((name) => (
-                        <Button key={fillInKey(name)} size="sm" variant="outline" onClick={() => addFillIn(name)}>
-                          {name}
-                        </Button>
-                      ))}
-                      <Input
-                        className="w-44"
-                        aria-label="New fill-in"
-                        value={newFillIn}
-                        onChange={(e) => setNewFillIn(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return
-                          e.preventDefault()
-                          addFillIn(newFillIn)
-                        }}
-                      />
-                      <Button size="sm" variant="outline" disabled={cleanFillInName(newFillIn) === ''} onClick={() => addFillIn(newFillIn)}>
-                        Add
-                      </Button>
-                    </div>
-                  </Section>
-                )}
-                <Section title="Links">
+              {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
+              {template && (
+                <Section title="Fill-ins">
                   <div className="flex flex-wrap items-center gap-2">
-                    {AUTO_LINKS.map((link) => (
-                      <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
-                        {link}
+                    {fillIns.map((name) => (
+                      <Button key={fillInKey(name)} size="sm" variant="outline" onClick={() => addFillIn(name)}>
+                        {name}
                       </Button>
                     ))}
+                    <Input
+                      className="w-44"
+                      aria-label="New fill-in"
+                      value={newFillIn}
+                      onChange={(e) => setNewFillIn(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return
+                        e.preventDefault()
+                        addFillIn(newFillIn)
+                      }}
+                    />
+                    <Button size="sm" variant="outline" disabled={cleanFillInName(newFillIn) === ''} onClick={() => addFillIn(newFillIn)}>
+                      Add
+                    </Button>
                   </div>
                 </Section>
-                <Counted label="Title" count={title}>
-                  <FillInText
-                    label="Title"
-                    links={false}
-                    value={input.title}
-                    onChange={(v) => set('title', v)}
-                    onActive={(insert) => setPutFillIn({ insert })}
-                  />
-                </Counted>
-                <Counted label="Description" count={description}>
-                  <FillInText
-                    multiline
-                    label="Description"
-                    value={input.description}
-                    onChange={(v) => set('description', v)}
-                    onActive={(insert) => {
-                      setPutFillIn({ insert })
-                      setPutLink({ insert })
-                    }}
-                  />
-                </Counted>
-                <OwnText
-                  input={input}
-                  set={set}
+              )}
+              <Section title="Links">
+                <div className="flex flex-wrap items-center gap-2">
+                  {AUTO_LINKS.map((link) => (
+                    <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
+                      {link}
+                    </Button>
+                  ))}
+                </div>
+              </Section>
+              <Counted label="Title" count={title}>
+                <FillInText
+                  label="Title"
+                  links={false}
+                  value={input.title}
+                  onChange={(v) => set('title', v)}
                   onActive={(insert) => setPutFillIn({ insert })}
-                  onActiveText={(insert) => {
+                />
+              </Counted>
+              <Counted label="Description" count={description}>
+                <FillInText
+                  multiline
+                  label="Description"
+                  value={input.description}
+                  onChange={(v) => set('description', v)}
+                  onActive={(insert) => {
                     setPutFillIn({ insert })
                     setPutLink({ insert })
                   }}
                 />
+              </Counted>
+              <OwnText
+                input={input}
+                set={set}
+                onActive={(insert) => setPutFillIn({ insert })}
+                onActiveText={(insert) => {
+                  setPutFillIn({ insert })
+                  setPutLink({ insert })
+                }}
+              />
 
-                {categoryChoices.length > 0 && (
-                  <Section title="Categories">
-                    <div role="group" aria-label="Categories" className="flex flex-wrap gap-2">
-                      {categoryChoices.map((c) => (
-                        <Chip key={c.id} on={input.categoryIds.includes(c.id)} onClick={() => toggle('categoryIds', c.id)}>
-                          {input.categoryIds.includes(c.id) && <Check className="size-3.5" />}
-                          {c.name}
-                        </Chip>
-                      ))}
-                    </div>
-                  </Section>
-                )}
-
-                <Section title="When">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {template ? (
-                      <Labelled label="Length">
-                        <span className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={168}
-                            className="w-20"
-                            aria-label="Hours"
-                            value={splitLength(length).hours}
-                            onChange={(e) => setLength(joinLength(Number(e.target.value), splitLength(length).minutes))}
-                          />
-                          <span>h</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={59}
-                            className="w-20"
-                            aria-label="Minutes"
-                            value={splitLength(length).minutes}
-                            onChange={(e) => setLength(joinLength(splitLength(length).hours, Number(e.target.value)))}
-                          />
-                          <span>min</span>
-                        </span>
-                      </Labelled>
-                    ) : (
-                      <>
-                        <Labelled label="Starts">
-                          <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
-                        </Labelled>
-                        <Labelled label="Ends">
-                          <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
-                        </Labelled>
-                        <Labelled label="Time zone">
-                          <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
-                            {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
-                            {zones.map((z) => (
-                              <option key={z} value={z}>
-                                {z}
-                              </option>
-                            ))}
-                          </Select>
-                        </Labelled>
-                      </>
-                    )}
-                    <Labelled label="Repeat">
-                      <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
-                        <option value="none">Does not repeat</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                      </Select>
-                    </Labelled>
+              {categoryChoices.length > 0 && (
+                <Section title="Categories">
+                  <div role="group" aria-label="Categories" className="flex flex-wrap gap-2">
+                    {categoryChoices.map((c) => (
+                      <Chip key={c.id} on={input.categoryIds.includes(c.id)} onClick={() => toggle('categoryIds', c.id)}>
+                        {input.categoryIds.includes(c.id) && <Check className="size-3.5" />}
+                        {c.name}
+                      </Chip>
+                    ))}
                   </div>
+                </Section>
+              )}
 
-                  {input.repeat === 'weekly' && (
-                    <div className="flex flex-wrap gap-3">
-                      {DAYS.map((d) => (
-                        <Checkbox key={d.value} checked={input.repeatDays.includes(d.value)} onChange={() => toggle('repeatDays', d.value)}>
-                          {d.label}
-                        </Checkbox>
-                      ))}
-                    </div>
-                  )}
-
-                  {input.repeat !== 'none' && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Labelled label="Every">
-                        <span className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={52}
-                            className="w-20"
-                            value={input.repeatEvery}
-                            onChange={(e) => set('repeatEvery', Number(e.target.value))}
-                          />
-                          <span>{REPEAT_UNIT[input.repeat][input.repeatEvery === 1 ? 0 : 1]}</span>
-                        </span>
+              <Section title="When">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {template ? (
+                    <Labelled label="Length">
+                      <span className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={168}
+                          className="w-20"
+                          aria-label="Hours"
+                          value={splitLength(length).hours}
+                          onChange={(e) => setLength(joinLength(Number(e.target.value), splitLength(length).minutes))}
+                        />
+                        <span>h</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={59}
+                          className="w-20"
+                          aria-label="Minutes"
+                          value={splitLength(length).minutes}
+                          onChange={(e) => setLength(joinLength(splitLength(length).hours, Number(e.target.value)))}
+                        />
+                        <span>min</span>
+                      </span>
+                    </Labelled>
+                  ) : (
+                    <>
+                      <Labelled label="Starts">
+                        <Input type="datetime-local" value={input.startsAt} onChange={(e) => set('startsAt', e.target.value)} />
                       </Labelled>
                       <Labelled label="Ends">
-                        <Select value={repeatEnd} onChange={(v) => pickRepeatEnd(v as RepeatEnd)} aria-label="Ends">
-                          <option value="never">Never</option>
-                          {!template && <option value="date">On a date</option>}
-                          <option value="times">After a number of times</option>
+                        <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
+                      </Labelled>
+                      <Labelled label="Time zone">
+                        <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
+                          {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
+                          {zones.map((z) => (
+                            <option key={z} value={z}>
+                              {z}
+                            </option>
+                          ))}
                         </Select>
                       </Labelled>
-                      {repeatEnd === 'date' && (
-                        <Labelled label="Last date">
-                          <Input
-                            type="date"
-                            value={input.repeatUntil ?? ''}
-                            onChange={(e) => set('repeatUntil', e.target.value || null)}
-                          />
-                        </Labelled>
-                      )}
-                      {repeatEnd === 'times' && (
-                        <Labelled label="Times">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={500}
-                            className="w-28"
-                            value={input.repeatTimes ?? ''}
-                            onChange={(e) => set('repeatTimes', e.target.value === '' ? null : Number(e.target.value))}
-                          />
-                        </Labelled>
-                      )}
-                    </div>
+                    </>
                   )}
-                </Section>
+                  <Labelled label="Repeat">
+                    <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
+                      <option value="none">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </Select>
+                  </Labelled>
+                </div>
 
-                <Section title="Where">
+                {input.repeat === 'weekly' && (
+                  <div className="flex flex-wrap gap-3">
+                    {DAYS.map((d) => (
+                      <Checkbox key={d.value} checked={input.repeatDays.includes(d.value)} onChange={() => toggle('repeatDays', d.value)}>
+                        {d.label}
+                      </Checkbox>
+                    ))}
+                  </div>
+                )}
+
+                {input.repeat !== 'none' && (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Labelled label="World">
-                      <Select
-                        aria-label="World"
-                        value={worldChoice}
-                        onChange={(v) => {
-                          if (v === FROM_LIST) {
-                            setTypedWorld(false)
-                            setPickingList(true)
-                            // A world typed or picked before is not this event's world any more.
-                            set('worldId', null)
-                            return
-                          }
+                    <Labelled label="Every">
+                      <span className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={52}
+                          className="w-20"
+                          value={input.repeatEvery}
+                          onChange={(e) => set('repeatEvery', Number(e.target.value))}
+                        />
+                        <span>{REPEAT_UNIT[input.repeat][input.repeatEvery === 1 ? 0 : 1]}</span>
+                      </span>
+                    </Labelled>
+                    <Labelled label="Ends">
+                      <Select value={repeatEnd} onChange={(v) => pickRepeatEnd(v as RepeatEnd)} aria-label="Ends">
+                        <option value="never">Never</option>
+                        {!template && <option value="date">On a date</option>}
+                        <option value="times">After a number of times</option>
+                      </Select>
+                    </Labelled>
+                    {repeatEnd === 'date' && (
+                      <Labelled label="Last date">
+                        <Input
+                          type="date"
+                          value={input.repeatUntil ?? ''}
+                          onChange={(e) => set('repeatUntil', e.target.value || null)}
+                        />
+                      </Labelled>
+                    )}
+                    {repeatEnd === 'times' && (
+                      <Labelled label="Times">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={500}
+                          className="w-28"
+                          value={input.repeatTimes ?? ''}
+                          onChange={(e) => set('repeatTimes', e.target.value === '' ? null : Number(e.target.value))}
+                        />
+                      </Labelled>
+                    )}
+                  </div>
+                )}
+              </Section>
 
-                          setPickingList(false)
-                          set('worldListId', null)
-
-                          if (v === OTHER_WORLD) {
-                            setTypedWorld(true)
-                            return
-                          }
-
+              <Section title="Where">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Labelled label="World">
+                    <Select
+                      aria-label="World"
+                      value={worldChoice}
+                      onChange={(v) => {
+                        if (v === FROM_LIST) {
                           setTypedWorld(false)
-                          set('worldId', v || null)
+                          setPickingList(true)
+                          // A world typed or picked before is not this event's world any more.
+                          set('worldId', null)
+                          return
+                        }
+
+                        setPickingList(false)
+                        set('worldListId', null)
+
+                        if (v === OTHER_WORLD) {
+                          setTypedWorld(true)
+                          return
+                        }
+
+                        setTypedWorld(false)
+                        set('worldId', v || null)
+                      }}
+                    >
+                      <option value="">None</option>
+                      {worlds.map((w) => (
+                        <option key={w.worldId} value={w.worldId}>
+                          {w.name ?? w.worldId}
+                        </option>
+                      ))}
+                      <option value={OTHER_WORLD}>World id</option>
+                      <option value={FROM_LIST}>Pick from a list</option>
+                    </Select>
+                  </Labelled>
+                  {worldChoice === FROM_LIST && (
+                    <Labelled label="World list">
+                      <Select
+                        aria-label="World list"
+                        value={input.worldListId ?? ''}
+                        onChange={(v) => {
+                          // The list picks the world, date by date: a fixed world left over would be stale.
+                          setInput((current) => ({ ...current, worldListId: v || null, worldId: null }))
                         }}
                       >
-                        <option value="">None</option>
-                        {worlds.map((w) => (
-                          <option key={w.worldId} value={w.worldId}>
-                            {w.name ?? w.worldId}
+                        <option value="">—</option>
+                        {lists.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
                           </option>
                         ))}
-                        <option value={OTHER_WORLD}>World id</option>
-                        <option value={FROM_LIST}>Pick from a list</option>
+                      </Select>
+                      {listMissed && listMissing && (
+                        <span role="alert" className="text-destructive">
+                          Pick a list
+                        </span>
+                      )}
+                    </Labelled>
+                  )}
+                  {worldChoice === OTHER_WORLD && (
+                    <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
+                  )}
+                  <Labelled label="Who can join">
+                    <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
+                      <option value="members">Group members</option>
+                      <option value="plus">Members and their friends</option>
+                      <option value="public">Anyone</option>
+                    </Select>
+                  </Labelled>
+                  {showsVisibleTo(input, google) && (
+                    <Labelled label="Visible to">
+                      <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
+                        <option value="group">Group</option>
+                        <option value="public">Everyone</option>
                       </Select>
                     </Labelled>
-                    {worldChoice === FROM_LIST && (
-                      <Labelled label="World list">
-                        <Select
-                          aria-label="World list"
-                          value={input.worldListId ?? ''}
-                          onChange={(v) => {
-                            // The list picks the world, date by date: a fixed world left over would be stale.
-                            setInput((current) => ({ ...current, worldListId: v || null, worldId: null }))
-                          }}
-                        >
-                          <option value="">—</option>
-                          {lists.map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}
-                            </option>
-                          ))}
-                        </Select>
-                        {listMissed && listMissing && (
-                          <span role="alert" className="text-destructive">
-                            Pick a list
-                          </span>
-                        )}
-                      </Labelled>
-                    )}
-                    {worldChoice === OTHER_WORLD && (
-                      <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
-                    )}
-                    <Labelled label="Who can join">
-                      <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
-                        <option value="members">Group members</option>
-                        <option value="plus">Members and their friends</option>
-                        <option value="public">Anyone</option>
+                  )}
+                  <Labelled label="Region">
+                    <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
+                      <option value="us">US West</option>
+                      <option value="use">US East</option>
+                      <option value="eu">Europe</option>
+                      <option value="jp">Japan</option>
+                    </Select>
+                  </Labelled>
+                </div>
+                <Field
+                  label="Picture link"
+                  value={input.imageUrl ?? ''}
+                  placeholder="https://"
+                  onChange={(v) =>
+                    // A link from VRChat fills the VRChat picture too (§15.1).
+                    setInput((current) => {
+                      const imageUrl = v.trim() || null
+                      return {
+                        ...current,
+                        imageUrl,
+                        vrChatImageId: pictureFollowingLink(current.imageUrl, imageUrl, current.vrChatImageId),
+                      }
+                    })
+                  }
+                />
+              </Section>
+
+              {input.autoOpen && (
+                <Section title={DESTINATION_LABEL.instance}>
+                  <Labelled label="Minutes early">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={120}
+                      className="w-28"
+                      value={input.openMinutesBefore}
+                      onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
+                    />
+                  </Labelled>
+                  <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={set} />
+                </Section>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-4">
+              {card(active)}
+              {active === 'vrchat' && (
+                <Section>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Labelled label="VRChat category">
+                      <Select value={input.category} onChange={(v) => set('category', v)} aria-label="VRChat category">
+                        {categories.map((c) => (
+                          <option key={c} value={c}>
+                            {CATEGORY_LABEL[c] ?? c}
+                          </option>
+                        ))}
                       </Select>
                     </Labelled>
-                    {showsVisibleTo(input, google) && (
-                      <Labelled label="Visible to">
-                        <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
-                          <option value="group">Group</option>
-                          <option value="public">Everyone</option>
-                        </Select>
-                      </Labelled>
-                    )}
-                    <Labelled label="Region">
-                      <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
-                        <option value="us">US West</option>
-                        <option value="use">US East</option>
-                        <option value="eu">Europe</option>
-                        <option value="jp">Japan</option>
-                      </Select>
-                    </Labelled>
-                  </div>
-                  <Field
-                    label="Picture link"
-                    value={input.imageUrl ?? ''}
-                    placeholder="https://"
-                    onChange={(v) =>
-                      // A link from VRChat fills the VRChat picture too (§15.1).
-                      setInput((current) => {
-                        const imageUrl = v.trim() || null
-                        return {
-                          ...current,
-                          imageUrl,
-                          vrChatImageId: pictureFollowingLink(current.imageUrl, imageUrl, current.vrChatImageId),
-                        }
-                      })
-                    }
-                  />
-                  {discordOn && (
-                    <DiscordPictureField
-                      picture={discordCover}
-                      value={input.coverPictureId}
+                    <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
+                    <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
+                    <VRChatPictureField
+                      uploads={pictureUploads}
+                      plus={vrchatPlus}
+                      picture={vrchatPicture}
+                      thumbnails={pictureThumbnails}
+                      value={input.vrChatImageId}
+                      saved={event?.vrChatImageId ?? null}
                       link={input.imageUrl}
-                      onChange={(id) => set('coverPictureId', id)}
+                      onChange={(id) => set('vrChatImageId', id)}
                       onFile={chooseEverywhere}
                     />
-                  )}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {platforms.map((p) => (
+                      <Checkbox key={p} checked={input.platforms.includes(p)} onChange={() => toggle('platforms', p)}>
+                        {PLATFORM_LABEL[p] ?? p}
+                      </Checkbox>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
+                      Notify group members
+                    </Checkbox>
+                    <Checkbox checked={input.featured} onChange={(v) => set('featured', v)}>
+                      Featured
+                    </Checkbox>
+                  </div>
                 </Section>
-
-                {input.publishToVRChat && (
-                  <Section title={DESTINATION_LABEL.vrchat}>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Labelled label="VRChat category">
-                        <Select value={input.category} onChange={(v) => set('category', v)} aria-label="VRChat category">
-                          {categories.map((c) => (
-                            <option key={c} value={c}>
-                              {CATEGORY_LABEL[c] ?? c}
-                            </option>
-                          ))}
-                        </Select>
-                      </Labelled>
-                      <Field label="Languages" value={languages} placeholder="eng, jpn" onChange={setLanguages} />
-                      <Field label="Tags" value={tags} placeholder="" onChange={setTags} />
-                      <VRChatPictureField
-                        uploads={pictureUploads}
-                        plus={vrchatPlus}
-                        picture={vrchatPicture}
-                        thumbnails={pictureThumbnails}
-                        value={input.vrChatImageId}
-                        saved={event?.vrChatImageId ?? null}
-                        link={input.imageUrl}
-                        onChange={(id) => set('vrChatImageId', id)}
-                        onFile={chooseEverywhere}
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {platforms.map((p) => (
-                        <Checkbox key={p} checked={input.platforms.includes(p)} onChange={() => toggle('platforms', p)}>
-                          {PLATFORM_LABEL[p] ?? p}
-                        </Checkbox>
+              )}
+              {active === 'discordEvent' && coverField}
+              {active === 'channelPost' && (
+                <Section>
+                  {!input.publishToDiscord && coverField}
+                  <ChannelPicker
+                    label="Channel"
+                    value={input.channelId ?? ''}
+                    onChange={(id) => set('channelId', id || null)}
+                    needs={['viewChannel', 'sendMessages', 'embedLinks']}
+                    allowNone={false}
+                  />
+                  <RolePicker
+                    label="Mention role"
+                    value={input.mentionRoleId ?? ''}
+                    onChange={(id) => set('mentionRoleId', id || null)}
+                    needsMention
+                  />
+                </Section>
+              )}
+              {active === 'bluesky' && (
+                <Section>
+                  <Labelled label="Post it">
+                    <Select
+                      value={String(input.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE)}
+                      onChange={(v) => set('blueskyPostBeforeMinutes', Number(v))}
+                      aria-label="Post it"
+                    >
+                      {BLUESKY_BEFORE_CHOICES.map((c) => (
+                        <option key={c.minutes} value={c.minutes}>
+                          {c.label}
+                        </option>
                       ))}
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      <Checkbox checked={input.notifyMembers} onChange={(v) => set('notifyMembers', v)}>
-                        Notify group members
-                      </Checkbox>
-                      <Checkbox checked={input.featured} onChange={(v) => set('featured', v)}>
-                        Featured
-                      </Checkbox>
-                    </div>
-                  </Section>
-                )}
-
-                {input.publishToBluesky && (
-                  <Section title={DESTINATION_LABEL.bluesky}>
-                    <Labelled label="Post it">
-                      <Select
-                        value={String(input.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE)}
-                        onChange={(v) => set('blueskyPostBeforeMinutes', Number(v))}
-                        aria-label="Post it"
-                      >
-                        {BLUESKY_BEFORE_CHOICES.map((c) => (
-                          <option key={c.minutes} value={c.minutes}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </Labelled>
-                  </Section>
-                )}
-
-                {input.postToChannel && (
-                  <Section title={DESTINATION_LABEL.channelPost}>
-                    <ChannelPicker
-                      label="Channel"
-                      value={input.channelId ?? ''}
-                      onChange={(id) => set('channelId', id || null)}
-                      needs={['viewChannel', 'sendMessages', 'embedLinks']}
-                      allowNone={false}
-                    />
-                    <RolePicker
-                      label="Mention role"
-                      value={input.mentionRoleId ?? ''}
-                      onChange={(id) => set('mentionRoleId', id || null)}
-                      needsMention
-                    />
-                  </Section>
-                )}
-
-                {input.autoOpen && (
-                  <Section title={DESTINATION_LABEL.instance}>
-                    <Labelled label="Minutes early">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={120}
-                        className="w-28"
-                        value={input.openMinutesBefore}
-                        onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
-                      />
-                    </Labelled>
-                    <InviteFields input={input} choices={choices} listName={event?.inviteListName ?? null} set={set} />
-                  </Section>
-                )}
-              </div>
-            )}
-          </Tabs>
-        </div>
+                    </Select>
+                  </Labelled>
+                </Section>
+              )}
+            </div>
+          )}
+        </Tabs>
       </DialogContent>
     </Dialog>
   )
@@ -1055,7 +1094,7 @@ function Counted({
   children: React.ReactNode
 }) {
   return (
-    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+    <label className="flex min-w-0 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="flex items-baseline justify-between gap-2">
         <span className="text-muted-foreground">{label}</span>
         <span className={cn('font-mono', count.over ? 'text-destructive' : 'text-muted-foreground')}>{count.label}</span>
@@ -1153,10 +1192,10 @@ function InviteFields({
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-3 border-t border-t-(length:--hairline) pt-3">
-      <legend className="pr-2 font-label">{title}</legend>
+      {title && <legend className="pr-2 font-label">{title}</legend>}
       {children}
     </fieldset>
   )
@@ -1164,7 +1203,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+    <label className="flex min-w-0 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
       {children}
     </label>

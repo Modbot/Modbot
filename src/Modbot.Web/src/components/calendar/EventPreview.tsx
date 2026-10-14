@@ -15,6 +15,7 @@ import { DESTINATION_LABEL, type CalendarDestination } from '@/lib/calendarPlace
 import { discordPieces, discordTime } from '@/lib/discordText'
 import { googleRepeatWords } from '@/lib/googleCalendar'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { cn } from '@/lib/utils'
 
 const when = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
@@ -49,9 +50,10 @@ function spanIn(startsAt: string, endsAt: string, timeZone: string): string {
 }
 
 /**
- * The form's Preview: the event drawn the way each place it goes would show it, by the server from
- * the code that sends it (calendar design §14.2). Read once when it opens; the form's fields are not
- * on screen while it is, so nothing can change under it.
+ * A service's card in the form: the event drawn the way that place would show it, by the server from
+ * the code that sends it (calendar design §14.2). Read when its tab opens, and again a moment after
+ * the form changes; the old card stays on screen until the new one is in. With one place there is one
+ * card, and its heading is the tab's name, so it is left to screen readers.
  */
 export function EventPreview({
   eventId,
@@ -62,7 +64,7 @@ export function EventPreview({
 }: {
   eventId: string | null
   input: CalendarEventInput
-  /** The chips that are on, the feed among them, in the chips' order. */
+  /** The places to draw, in the chips' order. */
   places: CalendarDestination[]
   /**
    * VRChat's picture as the form has it: a crop not uploaded yet, or the set picture when the page
@@ -84,7 +86,9 @@ export function EventPreview({
     calendarApi
       .preview(eventId, input)
       .then((p) => {
-        if (!cancelled) setPreview(p)
+        if (cancelled) return
+        setPreview(p)
+        setError(null)
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not draw the preview.')
@@ -99,7 +103,7 @@ export function EventPreview({
   if (!preview) return <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Loading…</p>
 
   return (
-    <div className="flex flex-col gap-4" style={{ fontSize: 'var(--text-small)' }}>
+    <div className={cn('flex min-w-0 flex-col gap-4', places.length === 1 && '[&_h3]:sr-only')} style={{ fontSize: 'var(--text-small)' }}>
       {places.includes('discordEvent') && preview.discordEvent && (
         <DiscordEventCard event={preview.discordEvent} picture={discordPicture} />
       )}
@@ -107,7 +111,6 @@ export function EventPreview({
         <ChannelPostCard post={preview.channelPost} picture={discordPicture} />
       )}
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
-      {places.includes('feed') && <FeedCard entry={preview.feed} />}
       {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} />}
       {places.includes('bluesky') && preview.bluesky && <BlueskyPost post={preview.bluesky} />}
     </div>
@@ -198,7 +201,7 @@ function ChannelPostCard({
           className="flex flex-col gap-2 rounded-sm border-(length:--hairline) border-l-4 bg-card p-3"
           style={{ borderLeftColor: colour }}
         >
-          {post.groupName && <div className="font-medium">{post.groupName}</div>}
+          {post.groupName && <div className="font-medium [overflow-wrap:anywhere]">{post.groupName}</div>}
           <div className="font-label [overflow-wrap:anywhere]">
             {post.titleLink ? (
               <a href={post.titleLink} target="_blank" rel="noreferrer" className="text-[#00a8fc] hover:underline">
@@ -223,7 +226,7 @@ function ChannelPostCard({
             (post.pictureUrl && (
               <img src={vrchatMedia(post.pictureUrl)} alt="" className="max-h-64 w-full rounded-sm object-cover" loading="lazy" />
             ))}
-          {post.footer && <div className="text-muted-foreground">{post.footer}</div>}
+          {post.footer && <div className="text-muted-foreground [overflow-wrap:anywhere]">{post.footer}</div>}
         </div>
         {post.buttons.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -233,7 +236,7 @@ function ChannelPostCard({
                 href={b.url}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-sm border-(length:--hairline) bg-muted px-3 py-1 font-medium"
+                className="rounded-sm border-(length:--hairline) bg-muted px-3 py-1 font-medium [overflow-wrap:anywhere]"
               >
                 {b.label}
               </a>
@@ -306,23 +309,6 @@ function VRChatCard({ entry, picture }: { entry: CalendarPreview['vrChat']; pict
         <Row label="Notify group members">{entry.notify ? 'Yes' : 'No'}</Row>
         <Row label="Featured">{entry.featured ? 'Yes' : 'No'}</Row>
         {entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>}
-      </div>
-    </Place>
-  )
-}
-
-function FeedCard({ entry }: { entry: CalendarPreview['feed'] }) {
-  return (
-    <Place place="feed">
-      <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
-        <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-          {entry.title}
-        </div>
-        <Row label="When">{span(entry.startsAt, entry.endsAt)}</Row>
-        <Row label="Repeats">{entry.repeat && <span className="font-mono">{entry.repeat}</span>}</Row>
-        <Row label="Location">{entry.location}</Row>
-        <Row label="Calendar">{entry.calendarName}</Row>
-        {entry.notes && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.notes}</p>}
       </div>
     </Place>
   )

@@ -39,6 +39,29 @@ export const DESTINATION_LABEL: Record<CalendarDestination, string> = {
   instance: 'Open the instance',
 }
 
+/** The places that have a tab of their own in the event form: every one with text to show. The feed has none. */
+export type CalendarServiceTab = 'vrchat' | 'discordEvent' | 'channelPost' | 'googleCalendar' | 'bluesky'
+
+/** The event form's tabs: the event's own, then one for each service. */
+export type CalendarTab = 'event' | CalendarServiceTab
+
+/** The services' tabs in the order they show. */
+export const SERVICE_TABS: readonly CalendarServiceTab[] = ['vrchat', 'discordEvent', 'channelPost', 'googleCalendar', 'bluesky']
+
+export const TAB_LABEL: Record<CalendarTab, string> = {
+  event: 'Event',
+  vrchat: 'VRChat',
+  discordEvent: 'Discord event',
+  channelPost: 'Discord post',
+  googleCalendar: 'Google',
+  bluesky: 'Bluesky',
+}
+
+/** The tabs to show: Event, and a service's tab only while its chip is on. */
+export function tabsFor(on: (place: CalendarServiceTab) => boolean): CalendarTab[] {
+  return ['event', ...SERVICE_TABS.filter(on)]
+}
+
 /** The switch on the event behind each chip. */
 export const DESTINATION_SWITCH: Record<
   CalendarSwitchable,
