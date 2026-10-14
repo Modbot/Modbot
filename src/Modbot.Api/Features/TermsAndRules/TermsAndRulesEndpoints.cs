@@ -168,11 +168,12 @@ public static class TermsAndRulesEndpoints
                 [FromServices] AccountFacts facts,
                 CancellationToken ct) =>
             {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, TermsLock, ct);
+
                 var term = await db.GlossaryTerms.FirstOrDefaultAsync(t => t.Id == id, ct);
                 if (term is null)
                     return Results.NotFound();
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.GlossaryTerms.Remove(term);
                 await db.SaveChangesAsync(ct);
@@ -333,6 +334,9 @@ public static class TermsAndRulesEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, RulesLock, ct);
+
                 var rules = await InOrderAsync(db.ServerRules, ct);
                 var rule = rules.FirstOrDefault(r => r.Id == id);
                 if (rule is null)
@@ -350,7 +354,6 @@ public static class TermsAndRulesEndpoints
 
                 rule.UpdatedAt = clock.UtcNow;
 
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
                 await db.SaveChangesAsync(ct);
 
                 await facts.RecordAsync(
@@ -442,11 +445,12 @@ public static class TermsAndRulesEndpoints
                 [FromServices] AccountFacts facts,
                 CancellationToken ct) =>
             {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, RulesLock, ct);
+
                 var rule = await db.ServerRules.FirstOrDefaultAsync(r => r.Id == id, ct);
                 if (rule is null)
                     return Results.NotFound();
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.ServerRules.Remove(rule);
                 await db.SaveChangesAsync(ct);
