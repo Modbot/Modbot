@@ -10604,6 +10604,139 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("vrchat_world", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Vote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Anonymous")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("anonymous");
+
+                    b.Property<string>("ChannelId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("MessageId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("question");
+
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text")
+                        .HasColumnName("role_id");
+
+                    b.Property<bool>("ShowCounts")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("show_counts");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vote");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_vote_created");
+
+                    b.ToTable("vote", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VoteOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("label");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<Guid>("VoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vote_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vote_option");
+
+                    b.HasIndex("VoteId", "Position")
+                        .HasDatabaseName("ix_vote_option_order");
+
+                    b.ToTable("vote_option", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VotePick", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("DiscordUserId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<Guid>("OptionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("option_id");
+
+                    b.Property<Guid>("VoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vote_id");
+
+                    b.Property<DateTimeOffset>("VotedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("voted_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_vote_pick");
+
+                    b.HasIndex("OptionId")
+                        .HasDatabaseName("ix_vote_pick_option_id");
+
+                    b.HasIndex("VoteId", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_vote_pick_person");
+
+                    b.HasIndex("VoteId", "OptionId")
+                        .HasDatabaseName("ix_vote_pick_option");
+
+                    b.ToTable("vote_pick", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.Webhook", b =>
                 {
                     b.Property<Guid>("Id")
@@ -11482,6 +11615,33 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_twitch_stream_calendar_events_event_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VoteOption", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Vote", null)
+                        .WithMany("Options")
+                        .HasForeignKey("VoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vote_option_vote_vote_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VotePick", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.VoteOption", null)
+                        .WithMany()
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vote_pick_vote_option_option_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.Vote", null)
+                        .WithMany()
+                        .HasForeignKey("VoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_vote_pick_vote_vote_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.WebhookDelivery", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.Webhook", null)
@@ -11582,6 +11742,11 @@ namespace Modbot.Core.Data.Migrations
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Vote", b =>
                 {
                     b.Navigation("Options");
                 });
