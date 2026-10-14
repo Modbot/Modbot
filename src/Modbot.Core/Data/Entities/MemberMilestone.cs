@@ -31,9 +31,9 @@ public class EventAttendee
     public DateTimeOffset OccurrenceStartsAt { get; set; }
 
     /// <summary>
-    /// When Modbot counted the date. A moment is new when the person reached its number after the
-    /// milestones were last turned on, with a date that was counted and began after then: a date counted
-    /// late still counts as it was found, and history counted for the first time is never new.
+    /// When the date ended, or when Modbot counted it if that came first. A moment is new when the person
+    /// reached its number after the milestones were last turned on, with a date that ended after then:
+    /// an event that was running at that time counts, and history counted for the first time never does.
     /// </summary>
     public DateTimeOffset CountedAt { get; set; }
 }

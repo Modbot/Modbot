@@ -40,11 +40,11 @@ public class MemberMilestonePostTests(PostgresFixture db)
         }, Ct);
 
     /// <summary>
-    /// A person's dates counted, each one at the moment given. The dates began shortly before that, or
-    /// at <paramref name="began"/> when the counter is catching up on old history.
+    /// A person's dates counted, each one ended at the moment given (which is what the counter writes as
+    /// the time of a date). The dates began ten minutes before that, or at <paramref name="began"/>.
     /// </summary>
     private static async Task CameAsync(
-        TestServices services, string userId, string name, int dates, DateTimeOffset countedAt, DateTimeOffset? began = null)
+        TestServices services, string userId, string name, int dates, DateTimeOffset endedAt, DateTimeOffset? began = null)
     {
         await using var context = services.Database.NewContext();
 
@@ -54,8 +54,8 @@ public class MemberMilestonePostTests(PostgresFixture db)
             {
                 UserId = userId,
                 EventId = Guid.CreateVersion7(),
-                OccurrenceStartsAt = (began ?? countedAt - TimeSpan.FromMinutes(10)) - TimeSpan.FromMinutes(i),
-                CountedAt = countedAt,
+                OccurrenceStartsAt = (began ?? endedAt - TimeSpan.FromMinutes(10)) - TimeSpan.FromMinutes(i),
+                CountedAt = endedAt,
             });
         }
 
@@ -302,6 +302,34 @@ public class MemberMilestonePostTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task TheRegularRole_IsNotHeldBackByAMissingMark_WhenTheMemberListShowsThemInTheServer()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services, s => s.MilestoneRegularRoleId = RegularRole);
+
+        await LinkedAsync(services, "usr_a");
+        await CameAsync(services, "usr_a", "Ada", 5, services.Clock.UtcNow);
+
+        await using (var context = services.Database.NewContext())
+        {
+            var now = services.Clock.UtcNow;
+            context.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "Server", RefreshedAt = now, UpdatedAt = now, MembersListedAt = now });
+            await context.SaveChangesAsync(Ct);
+
+            // Found missing an hour ago; the member list shows them in the server now.
+            await context.DiscordAccountLinks
+                .Where(l => l.VRChatUserId == "usr_a")
+                .ExecuteUpdateAsync(set => set.SetProperty(l => l.NotInServerAt, now - TimeSpan.FromHours(1)), Ct);
+        }
+
+        await RunAsync(services, gateway);
+
+        Assert.Equal((true, Guild, DiscordUser, RegularRole), Assert.Single(gateway.RoleChanges));
+    }
+
+    [Fact]
     public async Task TheRegularRole_ReachesALinkedRegular_EvenWhenManyUnlinkedOnesSortBeforeThem()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);
@@ -353,8 +381,8 @@ public class MemberMilestonePostTests(PostgresFixture db)
 
         await TurnOnAsync(services);
 
-        // Five old dates, found and counted only now.
-        await CameAsync(services, "usr_a", "Ada", 5, services.Clock.UtcNow, began: services.Clock.UtcNow - TimeSpan.FromDays(200));
+        // Five old dates, found and counted only now: they ended long before the milestones were turned on.
+        await CameAsync(services, "usr_a", "Ada", 5, services.Clock.UtcNow - TimeSpan.FromDays(200));
 
         Assert.Equal(0, await RunAsync(services, gateway));
         Assert.Empty(gateway.Messages);
@@ -368,12 +396,28 @@ public class MemberMilestonePostTests(PostgresFixture db)
 
         await TurnOnAsync(services, s => s.MilestonePostFirst = false);
 
-        await CameAsync(services, "usr_a", "Ada", 4, services.Clock.UtcNow, began: services.Clock.UtcNow - TimeSpan.FromDays(200));
+        await CameAsync(services, "usr_a", "Ada", 4, services.Clock.UtcNow - TimeSpan.FromDays(200));
         Assert.Equal(0, await RunAsync(services, gateway));
 
         await CameAsync(services, "usr_a", "Ada", 1, services.Clock.UtcNow);
 
         Assert.Equal(1, await RunAsync(services, gateway));
         Assert.Equal("Now a Regular", Assert.Single(Assert.Single(gateway.Messages).Embeds).Title);
+    }
+
+    [Fact]
+    public async Task AnEventRunningWhenTurnedOn_IsAMoment_WhenItEndsAfterwards()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services);
+
+        // Began before the milestones were turned on (an hour and a half ago), ended after (half an hour ago).
+        var now = services.Clock.UtcNow;
+        await CameAsync(services, "usr_a", "Ada", 1, now - TimeSpan.FromMinutes(30), began: now - TimeSpan.FromMinutes(90));
+
+        Assert.Equal(1, await RunAsync(services, gateway));
+        Assert.Equal("Came to their 1st event", Assert.Single(Assert.Single(gateway.Messages).Embeds).Title);
     }
 }

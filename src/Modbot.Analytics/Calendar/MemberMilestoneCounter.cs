@@ -118,13 +118,13 @@ public sealed class MemberMilestoneCounter
                 await _db.Database.ExecuteSqlRawAsync(
                     """
                     INSERT INTO event_attendee (user_id, event_id, occurrence_starts_at, counted_at)
-                    SELECT u, @event, @occurrence, @now FROM unnest(@users) AS u
+                    SELECT u, @event, @occurrence, @endedAt FROM unnest(@users) AS u
                     ON CONFLICT DO NOTHING
                     """,
                     [
                         new NpgsqlParameter("event", opening.EventId),
                         new NpgsqlParameter("occurrence", opening.OccurrenceStartsAt.ToUniversalTime()),
-                        new NpgsqlParameter("now", now.ToUniversalTime()),
+                        new NpgsqlParameter("endedAt", (endsAt < now ? endsAt : now).ToUniversalTime()),
                         new NpgsqlParameter("users", turnout.People.ToArray()),
                     ],
                     ct).ConfigureAwait(false);
@@ -185,6 +185,10 @@ public sealed class MemberMilestoneCounter
                 .Where(s => s.Id == 1 && (s.MilestoneVisitsReadTo == null || s.MilestoneVisitsReadTo < end))
                 .ExecuteUpdateAsync(set => set.SetProperty(s => s.MilestoneVisitsReadTo, end), ct)
                 .ConfigureAwait(false);
+
+            // The update went round the tracked row; read it again so the next pass on this context
+            // sees where the read stopped.
+            await _db.Entry(settings).ReloadAsync(ct).ConfigureAwait(false);
 
             start = end;
         }

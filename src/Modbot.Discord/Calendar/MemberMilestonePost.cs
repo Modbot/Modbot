@@ -238,9 +238,9 @@ public sealed class MemberMilestonePost
 
     /// <summary>
     /// People whose count of events reached <paramref name="number"/> after <paramref name="from"/>: they
-    /// have that many, and had fewer when the milestones were turned on. A date counts as old when it was
-    /// counted before then or began before then, so the history the counter catches up on after the
-    /// milestones are turned on is never a moment. Without those whose moment is already dealt with.
+    /// have that many, and had fewer when the milestones were turned on. A date counts as old when it ended
+    /// (or was due to end) before then, so the history the counter catches up on after the milestones are
+    /// turned on is never a moment, while an event that was running at that time is. Without those whose moment is already dealt with.
     /// </summary>
     /// <remarks>
     /// Only people with a new date are looked at, and their dates counted, so a pass does not read every
@@ -253,7 +253,7 @@ public sealed class MemberMilestonePost
     {
         var dates = _db.EventAttendees.AsNoTracking();
 
-        var fresh = dates.Where(a => a.CountedAt >= from && a.OccurrenceStartsAt >= from);
+        var fresh = dates.Where(a => a.CountedAt >= from);
 
         fresh = moment switch
         {
@@ -266,10 +266,16 @@ public sealed class MemberMilestonePost
         {
             var skipUntil = now - NotInServerWait;
 
-            fresh = fresh.Where(a => _db.DiscordAccountLinks.Any(l => l.VRChatUserId == a.UserId
-                && l.UnlinkedAt == null
-                && (l.NotInServerAt == null || l.NotInServerAt < skipUntil)
-                && !_db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt != null)));
+            // With the member list read, being listed in the server is the answer, so a person seen
+            // again is not kept waiting for the day a missing mark lasts (as the linked roles do).
+            fresh = await ListedAsync(guildId, ct).ConfigureAwait(false)
+                ? fresh.Where(a => _db.DiscordAccountLinks.Any(l => l.VRChatUserId == a.UserId
+                    && l.UnlinkedAt == null
+                    && _db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt == null)))
+                : fresh.Where(a => _db.DiscordAccountLinks.Any(l => l.VRChatUserId == a.UserId
+                    && l.UnlinkedAt == null
+                    && (l.NotInServerAt == null || l.NotInServerAt < skipUntil)
+                    && !_db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt != null)));
         }
 
         var people = fresh.Select(a => a.UserId).Distinct();
@@ -277,12 +283,18 @@ public sealed class MemberMilestonePost
         return await dates
             .Where(a => people.Contains(a.UserId))
             .GroupBy(a => a.UserId)
-            .Where(g => g.Count() >= number && g.Count(a => a.CountedAt < from || a.OccurrenceStartsAt < from) < number)
+            .Where(g => g.Count() >= number && g.Count(a => a.CountedAt < from) < number)
             .OrderBy(g => g.Key)
             .Select(g => g.Key)
             .Take(PerPass)
             .ToListAsync(ct).ConfigureAwait(false);
     }
+
+    private async Task<bool> ListedAsync(string? guildId, CancellationToken ct)
+        => await _db.DiscordServers.AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Select(s => s.MembersListedAt)
+            .FirstOrDefaultAsync(ct).ConfigureAwait(false) is not null;
 
     private Task<int> EnsureRowsAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
         => _db.Database.ExecuteSqlRawAsync(
@@ -350,10 +362,12 @@ public sealed class MemberMilestonePost
 
         var skipUntil = now - NotInServerWait;
 
+        var listed = await ListedAsync(guildId, ct).ConfigureAwait(false);
+
         var links = await _db.DiscordAccountLinks.AsNoTracking()
             .Where(l => ids.Contains(l.VRChatUserId)
                 && l.UnlinkedAt == null
-                && (l.NotInServerAt == null || l.NotInServerAt < skipUntil))
+                && (listed || l.NotInServerAt == null || l.NotInServerAt < skipUntil))
             .Select(l => new { l.VRChatUserId, l.DiscordUserId })
             .ToListAsync(ct).ConfigureAwait(false);
 

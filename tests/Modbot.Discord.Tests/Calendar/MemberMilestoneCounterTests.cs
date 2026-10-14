@@ -121,6 +121,25 @@ public class MemberMilestoneCounterTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ADateCountedLate_IsKeptAtTheTimeItEnded()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+
+        var openedAt = services.Clock.UtcNow;
+        var instanceId = await OpenedAsync(services);
+        await ArrivedAsync(services, "usr_a", openedAt, inEvent: true);
+
+        services.Clock.Advance(TimeSpan.FromHours(5));
+        await CloseAsync(services, instanceId);
+
+        await using var context = services.Database.NewContext();
+        Assert.Equal(1, await new MemberMilestoneCounter(context, services.Clock).CountDatesAsync(Ct));
+
+        var row = await context.EventAttendees.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(openedAt + TimeSpan.FromHours(2), row.CountedAt);
+    }
+
+    [Fact]
     public async Task TwoCopiesOfModbotCountingTheSameDate_LeaveEachPersonOnce()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);
