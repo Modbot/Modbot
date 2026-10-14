@@ -41,6 +41,7 @@ namespace Modbot.Api.Features.Calendar;
 /// </param>
 /// <param name="AnnounceFirstJoinInDiscord">Post once in the channel post's channel when the first person is in the instance.</param>
 /// <param name="AnnounceFirstJoinInVRChat">Post once in the VRChat group's posts when the first person is in the instance.</param>
+/// <param name="AnnounceFirstJoinOnBluesky">Reply under the date's Bluesky post when the first person is in the instance.</param>
 /// <param name="MentionRoleId">
 /// A Discord role the channel post mentions, pinged once per date when the date's post first goes
 /// up; null for none. Must be a role in the server that the bot may mention, and never @everyone.
@@ -123,16 +124,24 @@ public sealed record CalendarEventRequest(
     bool? PublishToBluesky = null,
     string? BlueskyTitle = null,
     string? BlueskyDescription = null,
-    int? BlueskyPostBeforeMinutes = null);
+    int? BlueskyPostBeforeMinutes = null,
+    bool AnnounceFirstJoinOnBluesky = false);
 
 /// <summary>A category made in Modbot, by the id an event holds it by.</summary>
 public sealed record CalendarCategoryView(Guid Id, string Name);
 
 /// <summary>A category as a person saves it.</summary>
-public sealed record CalendarCategoryRequest(string Name);
+/// <param name="BlueskyTag">
+/// The tag Bluesky posts of events with this category end with, with or without the <c>#</c>. Empty
+/// is none. The tag the name makes counts as no choice at all, so a rename changes it. Null keeps what
+/// the category has (a new category: the name's).
+/// </param>
+public sealed record CalendarCategoryRequest(string Name, string? BlueskyTag = null);
 
 /// <param name="UsedBy">Events, not deleted, that carry it.</param>
-public sealed record CalendarCategoryDetailView(Guid Id, string Name, int UsedBy);
+/// <param name="BlueskyTag">The tag Bluesky posts end with, without the <c>#</c>. Empty for none.</param>
+/// <param name="BlueskyTagIsOwn">The tag was set on the category rather than made from its name.</param>
+public sealed record CalendarCategoryDetailView(Guid Id, string Name, int UsedBy, string BlueskyTag = "", bool BlueskyTagIsOwn = false);
 
 /// <param name="CanManage">The account may make, rename and delete categories.</param>
 public sealed record CalendarCategoriesView(IReadOnlyList<CalendarCategoryDetailView> Categories, bool CanManage);
@@ -212,6 +221,7 @@ public sealed record CalendarTryAgainRequest(DateTimeOffset? PlannedStartsAt);
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>
 /// <param name="FirstJoinDiscordPostError">What Discord said when the post for the first person was refused.</param>
 /// <param name="FirstJoinVRChatPostError">What VRChat said when the group post for the first person was refused.</param>
+/// <param name="FirstJoinBlueskyPostError">Why the Bluesky reply for the first person was not made, or what Bluesky said when it refused it.</param>
 /// <param name="Checking">
 /// VRChat gave no clear answer to the attempt, and Modbot is looking for an instance it may have
 /// made. Open now is refused meanwhile.
@@ -227,7 +237,8 @@ public sealed record CalendarOpeningView(
     string? FirstJoinDiscordPostError = null,
     string? FirstJoinVRChatPostError = null,
     bool Checking = false,
-    bool InstanceMade = false);
+    bool InstanceMade = false,
+    string? FirstJoinBlueskyPostError = null);
 
 /// <summary>One date of an event.</summary>
 /// <param name="PlannedStartsAt">
@@ -372,7 +383,8 @@ public sealed record CalendarEventView(
     bool PublishToBluesky = false,
     int BlueskyPostBeforeMinutes = 1440,
     string? BlueskyTitle = null,
-    string? BlueskyDescription = null);
+    string? BlueskyDescription = null,
+    bool AnnounceFirstJoinOnBluesky = false);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>

@@ -228,7 +228,7 @@ public static partial class EventCard
     private static readonly HashSet<string> CalendarSwitches = new(StringComparer.Ordinal)
     {
         "notifyMembers", "publishToVRChat", "publishToDiscord", "postToChannel", "autoOpen",
-        "announceFirstJoinInDiscord", "announceFirstJoinInVRChat",
+        "announceFirstJoinInDiscord", "announceFirstJoinInVRChat", "announceFirstJoinOnBluesky",
     };
 
     /// <summary>
@@ -381,6 +381,7 @@ public static partial class EventCard
         "inviteList" => "Invite list",
         "announceFirstJoinInDiscord" => "Announce in Discord when the first person joins",
         "announceFirstJoinInVRChat" => "Announce in VRChat when the first person joins",
+        "announceFirstJoinOnBluesky" => "Announce on Bluesky when the first person joins",
         _ => PlainName(key),
     };
 }

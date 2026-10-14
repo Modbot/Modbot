@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Users;
+using Modbot.Core.Bluesky;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -43,7 +44,7 @@ public static class CalendarCategoryEndpoints
                     .ToDictionaryAsync(g => g.Id, g => g.Events, ct);
 
                 return Results.Ok(new CalendarCategoriesView(
-                    [.. categories.Select(c => new CalendarCategoryDetailView(c.Id, c.Name, used.GetValueOrDefault(c.Id)))],
+                    [.. categories.Select(c => DetailOf(c, used.GetValueOrDefault(c.Id)))],
                     ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageCalendar)));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
@@ -67,11 +68,16 @@ public static class CalendarCategoryEndpoints
                 if (await NameProblemAsync(db, name, except: null, ct) is { } problem)
                     return Results.BadRequest(new { error = problem });
 
+                var tag = TagFor(name, body.BlueskyTag, keep: null, out var tagProblem);
+                if (tagProblem is not null)
+                    return Results.BadRequest(new { error = tagProblem });
+
                 var now = clock.UtcNow;
                 var category = new CalendarCategory
                 {
                     Id = Guid.CreateVersion7(),
                     Name = name,
+                    BlueskyTag = tag,
                     CreatedByUserId = ModbotAuth.UserIdOf(http.User),
                     CreatedAt = now,
                     UpdatedAt = now,
@@ -83,11 +89,15 @@ public static class CalendarCategoryEndpoints
                 await db.SaveChangesAsync(ct);
 
                 await facts.RecordAsync(
-                    FactType.CalendarCategoryCreated, category.Id.ToString(), Actor.Of(http), new JsonObject { ["name"] = name }, ct);
+                    FactType.CalendarCategoryCreated,
+                    category.Id.ToString(),
+                    Actor.Of(http),
+                    new JsonObject { ["name"] = name, ["blueskyTag"] = BlueskyTags.ForCategory(name, tag) },
+                    ct);
 
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(new CalendarCategoryDetailView(category.Id, category.Name, 0));
+                return Results.Ok(DetailOf(category, 0));
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CreateCalendarCategory")
@@ -117,26 +127,37 @@ public static class CalendarCategoryEndpoints
                     return Results.BadRequest(new { error = problem });
 
                 var before = category.Name;
+                var tagBefore = BlueskyTags.ForCategory(before, category.BlueskyTag);
 
-                if (before != name)
+                // Kept as it is when none was sent. A tag that is the name's own stays "made from the name".
+                var tag = TagFor(name, body.BlueskyTag, keep: category.BlueskyTag, out var tagProblem);
+                if (tagProblem is not null)
+                    return Results.BadRequest(new { error = tagProblem });
+
+                if (before != name || tag != category.BlueskyTag)
                 {
                     await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                     category.Name = name;
+                    category.BlueskyTag = tag;
                     category.UpdatedAt = clock.UtcNow;
                     await db.SaveChangesAsync(ct);
 
-                    await facts.RecordAsync(
-                        FactType.CalendarCategoryChanged,
-                        category.Id.ToString(),
-                        Actor.Of(http),
-                        new JsonObject { ["name"] = name, ["before"] = before },
-                        ct);
+                    var tagAfter = BlueskyTags.ForCategory(name, tag);
+
+                    var change = new JsonObject { ["name"] = name, ["before"] = before };
+                    if (tagAfter != tagBefore)
+                    {
+                        change["blueskyTag"] = tagAfter;
+                        change["blueskyTagBefore"] = tagBefore;
+                    }
+
+                    await facts.RecordAsync(FactType.CalendarCategoryChanged, category.Id.ToString(), Actor.Of(http), change, ct);
 
                     await transaction.CommitAsync(ct);
                 }
 
-                return Results.Ok(new CalendarCategoryDetailView(category.Id, category.Name, await UsedByAsync(db, id, ct)));
+                return Results.Ok(DetailOf(category, await UsedByAsync(db, id, ct)));
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("UpdateCalendarCategory")
@@ -185,6 +206,32 @@ public static class CalendarCategoryEndpoints
             .Produces(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    private static CalendarCategoryDetailView DetailOf(CalendarCategory category, int usedBy) =>
+        new(category.Id, category.Name, usedBy, BlueskyTags.ForCategory(category.Name, category.BlueskyTag), category.BlueskyTag is not null);
+
+    /// <summary>
+    /// The tag to keep for a category named <paramref name="name"/> when <paramref name="typed"/> was
+    /// sent: null keeps <paramref name="keep"/>; the tag the name makes is kept as null, so a rename
+    /// carries it along; empty is none.
+    /// </summary>
+    internal static string? TagFor(string name, string? typed, string? keep, out string? problem)
+    {
+        problem = null;
+
+        if (typed is null)
+            return keep;
+
+        var tag = BlueskyTags.Clean(typed);
+
+        if (BlueskyTags.IsTooLong(tag))
+        {
+            problem = BlueskyTags.TooLong;
+            return keep;
+        }
+
+        return tag == BlueskyTags.FromName(name) ? null : tag;
     }
 
     /// <summary>What is wrong with a category's name, or null. <paramref name="except"/> is the category being renamed.</summary>

@@ -69,7 +69,8 @@ public static class CalendarBlueskyText
     /// The whole text of the post for <paramref name="occurrence"/>.
     /// </summary>
     /// <param name="worldName">The world's name, or null when the event has none or Modbot has only its id.</param>
-    public static string For(CalendarEvent calendarEvent, CalendarOccurrence occurrence, string? worldName)
+    /// <param name="tags">The tags the post ends with, most wanted first (<see cref="TagsOf"/>). Dropped from the end when they do not fit.</param>
+    public static string For(CalendarEvent calendarEvent, CalendarOccurrence occurrence, string? worldName, IEnumerable<string>? tags = null)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
@@ -115,7 +116,26 @@ public static class CalendarBlueskyText
             }
         }
 
-        return text;
+        return tags is null ? text : BlueskyTags.Append(text, tags);
+    }
+
+    /// <summary>
+    /// The tags an event's post ends with: its categories' tags in the order of the categories' names,
+    /// then the ones set for every post.
+    /// </summary>
+    /// <param name="everyPost">Settings → Bluesky, "Tags on every post", as kept.</param>
+    public static IReadOnlyList<string> TagsOf(CalendarEvent calendarEvent, string? everyPost)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        return
+        [
+            .. calendarEvent.Categories
+                .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(c => BlueskyTags.ForCategory(c.Name, c.BlueskyTag))
+                .Where(t => t.Length > 0),
+            .. BlueskyTags.ParseList(everyPost),
+        ];
     }
 
     /// <summary>

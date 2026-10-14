@@ -74,6 +74,7 @@ public static class CalendarEventFields
             ["inviteList"] = e.InviteListId?.ToString(),
             ["announceFirstJoinInDiscord"] = e.AnnounceFirstJoinInDiscord,
             ["announceFirstJoinInVRChat"] = e.AnnounceFirstJoinInVRChat,
+            ["announceFirstJoinOnBluesky"] = e.AnnounceFirstJoinOnBluesky,
         };
     }
 }

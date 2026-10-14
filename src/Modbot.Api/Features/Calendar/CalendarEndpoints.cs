@@ -2040,6 +2040,7 @@ public static class CalendarEndpoints
         target.InviteListId = body.InviteListId;
         target.AnnounceFirstJoinInDiscord = body.AnnounceFirstJoinInDiscord;
         target.AnnounceFirstJoinInVRChat = body.AnnounceFirstJoinInVRChat;
+        target.AnnounceFirstJoinOnBluesky = body.AnnounceFirstJoinOnBluesky;
 
         // The start's own day is always one of a weekly event's days, so every place agrees on the
         // first occurrence.
@@ -2283,7 +2284,8 @@ public static class CalendarEndpoints
                         opening.FirstJoinDiscordPostError,
                         opening.FirstJoinVRChatPostError,
                         opening.Checking,
-                        opening.Location is not null),
+                        opening.Location is not null,
+                        opening.FirstJoinBlueskyPostError),
                 occurrences,
                 e.CancelledAt,
                 e.WorldListId,
@@ -2317,7 +2319,8 @@ public static class CalendarEndpoints
                 e.PublishToBluesky,
                 e.BlueskyPostBeforeMinutes,
                 e.BlueskyTitle,
-                e.BlueskyDescription);
+                e.BlueskyDescription,
+                e.AnnounceFirstJoinOnBluesky);
         })];
     }
 

@@ -53,6 +53,7 @@ public sealed record CalendarTemplateFields(
     Guid? InviteListId,
     bool AnnounceFirstJoinInDiscord,
     bool AnnounceFirstJoinInVRChat,
+    bool AnnounceFirstJoinOnBluesky,
     string? VRChatTitle,
     string? VRChatDescription,
     string? DiscordTitle,

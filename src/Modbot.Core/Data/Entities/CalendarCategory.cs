@@ -21,9 +21,18 @@ public class CalendarCategory
 {
     public const int MaxNameLength = 40;
 
+    /// <summary>The most characters kept for a tag typed on a category: Bluesky takes 64 graphemes, which can be more characters.</summary>
+    public const int MaxBlueskyTagLength = 256;
+
     public Guid Id { get; set; }
 
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The tag an event's Bluesky post ends with, without the <c>#</c>. Null is the one the name makes
+    /// (<see cref="Modbot.Core.Bluesky.BlueskyTags.FromName"/>), so a rename changes it; empty is none.
+    /// </summary>
+    public string? BlueskyTag { get; set; }
 
     /// <summary>The account that made it. Null once that account is gone.</summary>
     public Guid? CreatedByUserId { get; set; }

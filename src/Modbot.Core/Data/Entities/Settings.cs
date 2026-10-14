@@ -505,6 +505,24 @@ public class Settings
     public bool BlueskyPostingOn { get; set; }
 
     /// <summary>
+    /// The tags every calendar post ends with after its categories' tags, as typed and cleaned
+    /// (<see cref="Modbot.Core.Bluesky.BlueskyTags.Write"/>): <c>#VRChat #Karaoke</c>. Null or empty for none.
+    /// </summary>
+    public string? BlueskyPostTags { get; set; }
+
+    /// <summary>
+    /// Keep the next calendar date's Bluesky post pinned on the account's profile. A post a person
+    /// pinned by hand is left alone.
+    /// </summary>
+    public bool BlueskyPinNextEvent { get; set; }
+
+    /// <summary>The address of the post Modbot last pinned or unpinned for, so a pass with nothing to change asks Bluesky nothing. Null when Modbot has none pinned.</summary>
+    public string? BlueskyPinnedUri { get; set; }
+
+    /// <summary>When Modbot last looked at the profile's pin and left it as it was or could not change it: the next look waits.</summary>
+    public DateTimeOffset? BlueskyPinCheckedAt { get; set; }
+
+    /// <summary>
     /// No call goes to the account's server before this: set when Bluesky answers with a rate limit,
     /// to the time it says the limit resets, and kept here so a restart cannot cut the wait short.
     /// Never retried early (CLAUDE.md).

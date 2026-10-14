@@ -3249,6 +3249,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.Name).HasMaxLength(CalendarCategory.MaxNameLength);
+            entity.Property(e => e.BlueskyTag).HasMaxLength(CalendarCategory.MaxBlueskyTagLength);
         });
 
         builder.Entity<CalendarDateChange>(entity =>
@@ -3410,6 +3411,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.FirstJoinDiscordPostError).HasMaxLength(1024);
             entity.Property(e => e.FirstJoinVRChatPostedAt).HasColumnName("first_join_vrchat_posted_at");
             entity.Property(e => e.FirstJoinVRChatPostError).HasMaxLength(1024).HasColumnName("first_join_vrchat_post_error");
+            entity.Property(e => e.FirstJoinBlueskyPostError).HasMaxLength(1024);
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

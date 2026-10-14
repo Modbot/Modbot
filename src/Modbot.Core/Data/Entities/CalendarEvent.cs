@@ -277,6 +277,9 @@ public class CalendarEvent
     /// <summary>Post once in the VRChat group's posts when the first person is in the instance.</summary>
     public bool AnnounceFirstJoinInVRChat { get; set; }
 
+    /// <summary>Reply under the date's Bluesky post when the first person is in the instance.</summary>
+    public bool AnnounceFirstJoinOnBluesky { get; set; }
+
     /// <summary>Whether opening the instance also invites anybody.</summary>
     public bool InvitesAnybody => InviteHostUserId is not null || InviteStaffUserIds.Count > 0 || InviteListId is not null;
 
@@ -654,6 +657,15 @@ public class CalendarOpening
 
     /// <summary>What VRChat said when the group post was refused.</summary>
     public string? FirstJoinVRChatPostError { get; set; }
+
+    /// <summary>
+    /// The same for the reply under the date's Bluesky post: written when the reply was made, which
+    /// the Bluesky sender then sends like any post.
+    /// </summary>
+    public DateTimeOffset? FirstJoinBlueskyPostedAt { get; set; }
+
+    /// <summary>Why no reply was made, or what Bluesky said when it refused the reply.</summary>
+    public string? FirstJoinBlueskyPostError { get; set; }
 
     /// <summary>
     /// When the recap of this occurrence was dealt with, posted or left out because nobody was seen:
