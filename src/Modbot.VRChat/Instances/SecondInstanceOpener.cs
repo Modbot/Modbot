@@ -113,7 +113,7 @@ public sealed class SecondInstanceOpener : ISecondInstances
         var claimed = await _db.Alerts
             .Where(a => a.Id == alertId && a.SecondLocation == null && (a.SecondTriedAt == null || a.SecondTriedAt < stale))
             .ExecuteUpdateAsync(
-                u => u.SetProperty(a => a.SecondTriedAt, now).SetProperty(a => a.SecondOpenedByUserId, by.UserId), ct)
+                u => u.SetProperty(a => a.SecondTriedAt, now), ct)
             .ConfigureAwait(false);
 
         if (claimed == 0)
@@ -174,7 +174,7 @@ public sealed class SecondInstanceOpener : ISecondInstances
     private async Task GiveBackAsync(Guid alertId, CancellationToken ct)
         => await _db.Alerts.Where(a => a.Id == alertId && a.SecondLocation == null)
             .ExecuteUpdateAsync(
-                u => u.SetProperty(a => a.SecondTriedAt, (DateTimeOffset?)null).SetProperty(a => a.SecondOpenedByUserId, (Guid?)null), ct)
+                u => u.SetProperty(a => a.SecondTriedAt, (DateTimeOffset?)null), ct)
             .ConfigureAwait(false);
 
     private async Task OpenedAsync(Alert alert, VRChatInstance full, string location, StaffMember by, CancellationToken ct)

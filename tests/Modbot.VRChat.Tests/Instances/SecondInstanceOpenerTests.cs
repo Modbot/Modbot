@@ -125,8 +125,8 @@ public class SecondInstanceOpenerTests(PostgresFixture fixture) : SyncTestBase(f
 
         var alert = await AlertAsync(id);
         Assert.NotNull(alert.SecondLocation);
-        Assert.Equal(Staff.UserId, alert.SecondOpenedByUserId);
-        Assert.Single(await FactsOfTypeAsync(FactType.SecondInstanceOpened));
+        var fact = Assert.Single(await FactsOfTypeAsync(FactType.SecondInstanceOpened));
+        Assert.Equal(Staff.UserId.ToString(), fact.ActorId);
     }
 
     [Fact]

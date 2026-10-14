@@ -81,9 +81,6 @@ public class Alert
 
     /// <summary>Where the second instance is, once VRChat made it.</summary>
     public string? SecondLocation { get; set; }
-
-    /// <summary>The staff account that pressed the button.</summary>
-    public Guid? SecondOpenedByUserId { get; set; }
 }
 
 /// <summary>One watcher's settings. One row per watcher.</summary>
