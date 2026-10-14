@@ -203,4 +203,24 @@ public class MemberMilestoneCounterTests(PostgresFixture db)
         Assert.Equal(now - TimeSpan.FromDays(10) + TimeSpan.FromHours(3), row.LastVisitAt);
         Assert.Null(row.BackAt);
     }
+
+    [Fact]
+    public async Task ADateWhoseInstanceRowIsGone_IsMarkedCounted_SoItDoesNotTakeAPlaceInEveryPass()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+
+        var instanceId = await OpenedAsync(services);
+        services.Clock.Advance(TimeSpan.FromMinutes(30));
+
+        await using var context = services.Database.NewContext();
+        await context.VRChatInstances.Where(i => i.Id == instanceId).ExecuteDeleteAsync(Ct);
+
+        var counter = new MemberMilestoneCounter(context, services.Clock);
+
+        Assert.Equal(0, await counter.CountDatesAsync(Ct));
+
+        var opening = await context.CalendarOpenings.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(services.Clock.UtcNow, opening.MilestonesCountedAt);
+        Assert.Equal(0, await context.EventAttendees.CountAsync(Ct));
+    }
 }

@@ -97,8 +97,13 @@ public sealed class MemberMilestoneCounter
             var instance = await _db.VRChatInstances.AsNoTracking()
                 .FirstOrDefaultAsync(i => i.Id == opening.InstanceId, ct).ConfigureAwait(false);
 
+            // The event cannot be gone (its dates go with it), but an instance row can: a date with no
+            // instance has nobody to count, and left open it would take a place in every pass.
             if (calendarEvent is null || instance is null)
+            {
+                await MarkCountedAsync(opening, now, ct).ConfigureAwait(false);
                 continue;
+            }
 
             var endsAt = CalendarRepeat.StartingAt(calendarEvent, opening.OccurrenceStartsAt)?.EndsAt
                 ?? opening.OccurrenceStartsAt + CalendarRepeat.LengthOf(calendarEvent);
@@ -125,18 +130,20 @@ public sealed class MemberMilestoneCounter
                     ct).ConfigureAwait(false);
             }
 
-            await _db.CalendarOpenings
-                .Where(o => o.EventId == opening.EventId
-                    && o.OccurrenceStartsAt == opening.OccurrenceStartsAt
-                    && o.MilestonesCountedAt == null)
-                .ExecuteUpdateAsync(set => set.SetProperty(o => o.MilestonesCountedAt, now), ct)
-                .ConfigureAwait(false);
+            await MarkCountedAsync(opening, now, ct).ConfigureAwait(false);
 
             counted++;
         }
 
         return counted;
     }
+
+    private Task<int> MarkCountedAsync(CalendarOpening opening, DateTimeOffset now, CancellationToken ct)
+        => _db.CalendarOpenings
+            .Where(o => o.EventId == opening.EventId
+                && o.OccurrenceStartsAt == opening.OccurrenceStartsAt
+                && o.MilestonesCountedAt == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(o => o.MilestonesCountedAt, now), ct);
 
     /// <summary>Reads the arrivals since the last read and keeps each person's last visit and latest return.</summary>
     public async Task ReadVisitsAsync(CancellationToken ct = default)
@@ -173,8 +180,11 @@ public sealed class MemberMilestoneCounter
 
             await ReadSliceAsync(start, end, backAfter, ct).ConfigureAwait(false);
 
-            settings.MilestoneVisitsReadTo = end;
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            // Only forward: another copy that read further must not be moved back.
+            await _db.Settings
+                .Where(s => s.Id == 1 && (s.MilestoneVisitsReadTo == null || s.MilestoneVisitsReadTo < end))
+                .ExecuteUpdateAsync(set => set.SetProperty(s => s.MilestoneVisitsReadTo, end), ct)
+                .ConfigureAwait(false);
 
             start = end;
         }

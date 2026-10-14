@@ -32,8 +32,8 @@ public class EventAttendee
 
     /// <summary>
     /// When Modbot counted the date. A moment is new when the person reached its number after the
-    /// milestones were last turned on, judged by this and not by the date, so a date counted late
-    /// still counts as it was found.
+    /// milestones were last turned on, with a date that was counted and began after then: a date counted
+    /// late still counts as it was found, and history counted for the first time is never new.
     /// </summary>
     public DateTimeOffset CountedAt { get; set; }
 }

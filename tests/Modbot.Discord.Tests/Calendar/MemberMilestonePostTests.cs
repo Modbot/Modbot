@@ -39,8 +39,12 @@ public class MemberMilestonePostTests(PostgresFixture db)
             shape?.Invoke(s);
         }, Ct);
 
-    /// <summary>A person's dates counted, each one at the moment given.</summary>
-    private static async Task CameAsync(TestServices services, string userId, string name, int dates, DateTimeOffset countedAt)
+    /// <summary>
+    /// A person's dates counted, each one at the moment given. The dates began shortly before that, or
+    /// at <paramref name="began"/> when the counter is catching up on old history.
+    /// </summary>
+    private static async Task CameAsync(
+        TestServices services, string userId, string name, int dates, DateTimeOffset countedAt, DateTimeOffset? began = null)
     {
         await using var context = services.Database.NewContext();
 
@@ -50,7 +54,7 @@ public class MemberMilestonePostTests(PostgresFixture db)
             {
                 UserId = userId,
                 EventId = Guid.CreateVersion7(),
-                OccurrenceStartsAt = countedAt - TimeSpan.FromDays(i + 1),
+                OccurrenceStartsAt = (began ?? countedAt - TimeSpan.FromMinutes(10)) - TimeSpan.FromMinutes(i),
                 CountedAt = countedAt,
             });
         }
@@ -61,7 +65,7 @@ public class MemberMilestonePostTests(PostgresFixture db)
         await context.SaveChangesAsync(Ct);
     }
 
-    private static async Task LinkedAsync(TestServices services, string userId, bool inServer = true)
+    private static async Task LinkedAsync(TestServices services, string userId, bool inServer = true, long permissions = 0)
     {
         await using var context = services.Database.NewContext();
 
@@ -87,7 +91,7 @@ public class MemberMilestonePostTests(PostgresFixture db)
             RoleId = RegularRole,
             GuildId = Guild,
             Name = "Regular",
-            Permissions = 0,
+            Permissions = permissions,
             BotCanAssign = true,
             FirstSeenAt = services.Clock.UtcNow,
             UpdatedAt = services.Clock.UtcNow,
@@ -295,5 +299,81 @@ public class MemberMilestonePostTests(PostgresFixture db)
         await RunAsync(services, gateway);
 
         Assert.Empty(gateway.RoleChanges);
+    }
+
+    [Fact]
+    public async Task TheRegularRole_ReachesALinkedRegular_EvenWhenManyUnlinkedOnesSortBeforeThem()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services, s =>
+        {
+            s.MilestonePostFirst = false;
+            s.MilestonePostRegular = false;
+            s.MilestoneRegularRoleId = RegularRole;
+        });
+
+        for (var i = 0; i < MemberMilestonePost.PerPass + 50; i++)
+            await CameAsync(services, $"usr_a{i:D4}", $"Person {i}", 5, services.Clock.UtcNow);
+
+        await LinkedAsync(services, "usr_z");
+        await CameAsync(services, "usr_z", "Zed", 5, services.Clock.UtcNow);
+
+        await RunAsync(services, gateway);
+
+        var change = Assert.Single(gateway.RoleChanges);
+        Assert.Equal((true, Guild, DiscordUser, RegularRole), change);
+    }
+
+    [Fact]
+    public async Task TheRegularRole_IsRefusedAtRunTime_WhenTheRoleGainedADangerousPermission()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services, s => s.MilestoneRegularRoleId = RegularRole);
+
+        await LinkedAsync(services, "usr_a", permissions: 1L << 3);
+        await CameAsync(services, "usr_a", "Ada", 5, services.Clock.UtcNow);
+
+        await RunAsync(services, gateway);
+
+        Assert.Empty(gateway.RoleChanges);
+
+        await using var context = services.Database.NewContext();
+        Assert.Contains("Administrator", (await context.GetSettingsAsync(Ct)).MilestoneProblem);
+    }
+
+    [Fact]
+    public async Task HistoryCountedForTheFirstTimeAfterTurningOn_IsNotAMoment()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services);
+
+        // Five old dates, found and counted only now.
+        await CameAsync(services, "usr_a", "Ada", 5, services.Clock.UtcNow, began: services.Clock.UtcNow - TimeSpan.FromDays(200));
+
+        Assert.Equal(0, await RunAsync(services, gateway));
+        Assert.Empty(gateway.Messages);
+    }
+
+    [Fact]
+    public async Task ADateAfterTurningOn_StillMakesARegular_WhenTheEarlierOnesAreOldHistory()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services, s => s.MilestonePostFirst = false);
+
+        await CameAsync(services, "usr_a", "Ada", 4, services.Clock.UtcNow, began: services.Clock.UtcNow - TimeSpan.FromDays(200));
+        Assert.Equal(0, await RunAsync(services, gateway));
+
+        await CameAsync(services, "usr_a", "Ada", 1, services.Clock.UtcNow);
+
+        Assert.Equal(1, await RunAsync(services, gateway));
+        Assert.Equal("Now a Regular", Assert.Single(Assert.Single(gateway.Messages).Embeds).Title);
     }
 }

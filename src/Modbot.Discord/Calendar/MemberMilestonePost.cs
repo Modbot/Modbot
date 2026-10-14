@@ -46,6 +46,9 @@ public sealed class MemberMilestonePost
 
     private const int ProblemAtMost = 300;
 
+    /// <summary>How long a link found missing from the server is left alone, as the linked roles do.</summary>
+    private static readonly TimeSpan NotInServerWait = TimeSpan.FromDays(1);
+
     private enum Moment
     {
         First,
@@ -154,7 +157,7 @@ public sealed class MemberMilestonePost
     private async Task<List<string>> ClaimAsync(
         Moment moment, int number, DateTimeOffset from, DateTimeOffset now, CancellationToken ct)
     {
-        var ids = await ReachedAsync(moment, number, from, ct).ConfigureAwait(false);
+        var ids = await ReachedAsync(moment, number, from, now, null, ct).ConfigureAwait(false);
 
         if (ids.Count == 0)
             return [];
@@ -235,23 +238,50 @@ public sealed class MemberMilestonePost
 
     /// <summary>
     /// People whose count of events reached <paramref name="number"/> after <paramref name="from"/>: they
-    /// have that many, and had fewer when the milestones were turned on. Without those whose moment
-    /// is already dealt with.
+    /// have that many, and had fewer when the milestones were turned on. A date counts as old when it was
+    /// counted before then or began before then, so the history the counter catches up on after the
+    /// milestones are turned on is never a moment. Without those whose moment is already dealt with.
     /// </summary>
-    private async Task<List<string>> ReachedAsync(Moment moment, int number, DateTimeOffset from, CancellationToken ct)
+    /// <remarks>
+    /// Only people with a new date are looked at, and their dates counted, so a pass does not read every
+    /// date there is. For the role, only people it could be given to are looked at (a linked account,
+    /// still in the server, not recently found missing), so people it cannot reach never take one of the
+    /// <see cref="PerPass"/> places and hold up the ones behind them.
+    /// </remarks>
+    private async Task<List<string>> ReachedAsync(
+        Moment moment, int number, DateTimeOffset from, DateTimeOffset now, string? guildId, CancellationToken ct)
     {
-        var reached = _db.EventAttendees.AsNoTracking()
-            .GroupBy(a => a.UserId)
-            .Where(g => g.Count() >= number && g.Count(a => a.CountedAt < from) < number);
+        var dates = _db.EventAttendees.AsNoTracking();
 
-        reached = moment switch
+        var fresh = dates.Where(a => a.CountedAt >= from && a.OccurrenceStartsAt >= from);
+
+        fresh = moment switch
         {
-            Moment.First => reached.Where(g => !_db.MemberMilestones.Any(m => m.UserId == g.Key && m.FirstHandledAt != null)),
-            Moment.Regular => reached.Where(g => !_db.MemberMilestones.Any(m => m.UserId == g.Key && m.RegularHandledAt != null)),
-            _ => reached.Where(g => !_db.MemberMilestones.Any(m => m.UserId == g.Key && m.RegularRoleGivenAt != null)),
+            Moment.First => fresh.Where(a => !_db.MemberMilestones.Any(m => m.UserId == a.UserId && m.FirstHandledAt != null)),
+            Moment.Regular => fresh.Where(a => !_db.MemberMilestones.Any(m => m.UserId == a.UserId && m.RegularHandledAt != null)),
+            _ => fresh.Where(a => !_db.MemberMilestones.Any(m => m.UserId == a.UserId && m.RegularRoleGivenAt != null)),
         };
 
-        return await reached.OrderBy(g => g.Key).Select(g => g.Key).Take(PerPass).ToListAsync(ct).ConfigureAwait(false);
+        if (moment == Moment.Role)
+        {
+            var skipUntil = now - NotInServerWait;
+
+            fresh = fresh.Where(a => _db.DiscordAccountLinks.Any(l => l.VRChatUserId == a.UserId
+                && l.UnlinkedAt == null
+                && (l.NotInServerAt == null || l.NotInServerAt < skipUntil)
+                && !_db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt != null)));
+        }
+
+        var people = fresh.Select(a => a.UserId).Distinct();
+
+        return await dates
+            .Where(a => people.Contains(a.UserId))
+            .GroupBy(a => a.UserId)
+            .Where(g => g.Count() >= number && g.Count(a => a.CountedAt < from || a.OccurrenceStartsAt < from) < number)
+            .OrderBy(g => g.Key)
+            .Select(g => g.Key)
+            .Take(PerPass)
+            .ToListAsync(ct).ConfigureAwait(false);
     }
 
     private Task<int> EnsureRowsAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
@@ -313,12 +343,12 @@ public sealed class MemberMilestonePost
         if (settings.DiscordGuildId is not { Length: > 0 } guildId)
             return false;
 
-        var ids = await ReachedAsync(Moment.Role, settings.MilestoneRegularAt, from, ct).ConfigureAwait(false);
+        var ids = await ReachedAsync(Moment.Role, settings.MilestoneRegularAt, from, now, guildId, ct).ConfigureAwait(false);
 
         if (ids.Count == 0)
             return false;
 
-        var skipUntil = now - TimeSpan.FromDays(1);
+        var skipUntil = now - NotInServerWait;
 
         var links = await _db.DiscordAccountLinks.AsNoTracking()
             .Where(l => ids.Contains(l.VRChatUserId)
@@ -370,7 +400,14 @@ public sealed class MemberMilestonePost
             }
 
             if (outcome.NotInServer)
+            {
+                // Left alone for a day, as the linked roles do, so they do not use up the next passes.
+                await _db.DiscordAccountLinks
+                    .Where(l => l.VRChatUserId == link.VRChatUserId && l.UnlinkedAt == null)
+                    .ExecuteUpdateAsync(set => set.SetProperty(l => l.NotInServerAt, now), ct).ConfigureAwait(false);
+
                 continue;
+            }
 
             // The rest would be refused the same way, so the card gets the one problem.
             problems.Add(outcome.RoleGone ? "The Regular role no longer exists." : "The Regular role was not given: " + outcome.Error);
