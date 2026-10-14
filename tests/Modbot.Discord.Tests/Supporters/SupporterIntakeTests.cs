@@ -245,4 +245,37 @@ public class SupporterIntakeTests
         await using var db = services.Database.NewContext();
         Assert.Null((await db.Supporters.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
     }
+
+    [Fact]
+    public async Task AMatchedSupporterPayingAgainWithSomeoneElsesCode_StaysOnTheirOwnAccount()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var own = await CodeForAsync(services, "7001");
+        var someoneElses = await CodeForAsync(services, "7002");
+        var now = services.Clock.UtcNow;
+
+        await TakeAsync(services, Payment("one", at: now.AddDays(-40), message: own));
+        await TakeAsync(services, Payment("two", at: now.AddDays(-10), message: someoneElses));
+
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal("7001", supporter.DiscordUserId);
+        Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ACodeForAnAccountThatAlreadyHasASupporter_IsNotApplied()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var code = await CodeForAsync(services, "7001");
+
+        await TakeAsync(services, Payment("one", email: "first@example.com", message: code));
+        await TakeAsync(services, Payment("two", email: "second@example.com", message: code));
+
+        await using var db = services.Database.NewContext();
+        var supporters = await db.Supporters.AsNoTracking().ToListAsync(Ct);
+        Assert.Equal(2, supporters.Count);
+        Assert.Equal("7001", Assert.Single(supporters, s => s.DiscordUserId != null).DiscordUserId);
+        Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
+    }
 }

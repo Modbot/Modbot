@@ -10268,6 +10268,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("given_discord_role_id");
 
+                    b.Property<string>("GivenDiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("given_discord_user_id");
+
                     b.Property<string>("GivenVRChatRoleId")
                         .HasColumnType("text")
                         .HasColumnName("given_vr_chat_role_id");

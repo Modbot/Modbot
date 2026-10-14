@@ -11,6 +11,12 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "given_discord_user_id",
+                table: "supporter",
+                type: "text",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "supporter_code",
                 columns: table => new
@@ -36,6 +42,10 @@ namespace Modbot.Core.Data.Migrations
         {
             migrationBuilder.DropTable(
                 name: "supporter_code");
+
+            migrationBuilder.DropColumn(
+                name: "given_discord_user_id",
+                table: "supporter");
         }
     }
 }

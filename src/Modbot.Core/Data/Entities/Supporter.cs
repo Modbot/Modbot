@@ -126,6 +126,9 @@ public class Supporter
     /// <summary>The Discord role Modbot gave and has not taken back.</summary>
     public string? GivenDiscordRoleId { get; set; }
 
+    /// <summary>The Discord account that role was given to; null on a role given before this was kept (then the current account).</summary>
+    public string? GivenDiscordUserId { get; set; }
+
     /// <summary>The VRChat group role Modbot gave and has not taken back.</summary>
     public string? GivenVRChatRoleId { get; set; }
 

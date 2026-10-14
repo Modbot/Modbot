@@ -2525,6 +2525,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DiscordUserId).HasColumnType("text");
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.GivenDiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.GivenDiscordUserId).HasColumnType("text");
             entity.Property(e => e.GivenVRChatRoleId).HasColumnType("text");
             entity.Property(e => e.GivenVRChatUserId).HasColumnType("text");
             entity.Property(e => e.Problem).HasMaxLength(300);

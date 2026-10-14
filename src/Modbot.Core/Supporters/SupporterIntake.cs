@@ -69,8 +69,11 @@ public sealed class SupporterIntake(ModbotContext db)
 
         // With no Discord link from Ko-fi, a code from /supporter-code in the message names the account.
         // A message may be missing (Ko-fi may leave out a private one): then there is no code to find.
-        var discordId = linkedId
-            ?? await new SupporterCodes(db).DiscordUserIdInAsync(payment.Message, ct).ConfigureAwait(false);
+        // Anybody can paste another member's code, so a code only ever fills in an account that is free.
+        var codeId = linkedId is null
+            ? await new SupporterCodes(db).DiscordUserIdInAsync(payment.Message, ct).ConfigureAwait(false)
+            : null;
+        var discordId = linkedId ?? codeId;
         var paidAt = payment.PaidAt() is { } stated && stated < now ? stated : now;
 
         var key = SupporterRules.TierKeyOf(tierName);
@@ -85,10 +88,10 @@ public sealed class SupporterIntake(ModbotContext db)
 
         var supporter = await db.Supporters.FirstOrDefaultAsync(s => s.Provider == SupporterProviders.Kofi && s.PayerId == payerId, ct).ConfigureAwait(false);
 
-        if (supporter is null && discordId is not null)
+        if (supporter is null && linkedId is not null)
         {
             supporter = await db.Supporters
-                .FirstOrDefaultAsync(s => s.Provider == SupporterProviders.Kofi && s.DiscordUserId == discordId, ct)
+                .FirstOrDefaultAsync(s => s.Provider == SupporterProviders.Kofi && s.DiscordUserId == linkedId, ct)
                 .ConfigureAwait(false);
         }
 
@@ -123,7 +126,11 @@ public sealed class SupporterIntake(ModbotContext db)
             supporter.Problem = null;
             supporter.TryAgainAt = null;
 
-            if (discordId is not null)
+            // Moving a supporter to another account, or putting two supporters on one, is staff's to do:
+            // a code only matches a supporter who has no account, onto an account nobody else has.
+            if (discordId is not null
+                && (codeId is null || supporter.DiscordUserId is null)
+                && !await db.Supporters.AnyAsync(s => s.Id != supporter.Id && s.Provider == SupporterProviders.Kofi && s.DiscordUserId == discordId, ct).ConfigureAwait(false))
                 supporter.DiscordUserId = discordId;
 
             // A new tier, or a comeback after the roles came off, is worth saying thank you for again.

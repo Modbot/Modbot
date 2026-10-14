@@ -273,6 +273,12 @@ public static class SupporterEndpoints
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
                 var before = supporter.DiscordUserId;
+
+                // The role Modbot gave the old account is taken back from it, so remember whose it was
+                // (a role given before this was kept went to the account they are on now).
+                if (supporter.GivenDiscordRoleId is not null)
+                    supporter.GivenDiscordUserId ??= before;
+
                 supporter.DiscordUserId = discordUserId;
                 supporter.ThanksSentAt = null;
                 supporter.Problem = null;

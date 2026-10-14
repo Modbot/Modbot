@@ -144,8 +144,14 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             var heldDiscord = wantDiscord is not null
                 && heldInServer.TryGetValue(supporter.DiscordUserId, out var serverRoles)
                 && serverRoles.Contains(wantDiscord);
-            var discordOutOfStep = supporter.GivenDiscordRoleId != wantDiscord
-                && !(heldDiscord && supporter.GivenDiscordRoleId is null);
+
+            // Staff moved them to another account: the role Modbot gave the old one is still out there.
+            var onOtherAccount = supporter.GivenDiscordRoleId is not null
+                && supporter.GivenDiscordUserId is { } givenTo
+                && givenTo != supporter.DiscordUserId;
+            var discordOutOfStep = onOtherAccount
+                || (supporter.GivenDiscordRoleId != wantDiscord
+                    && !(heldDiscord && supporter.GivenDiscordRoleId is null));
 
             var vrchatDiffers = supporter.GivenVRChatRoleId != (wantUser is null ? null : wantVRChat)
                 || supporter.GivenVRChatUserId != wantUser;
@@ -209,6 +215,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
     private async Task LetGoOfRolesWithoutAccountAsync(Supporter supporter, DateTimeOffset now, Tally tally, CancellationToken ct)
     {
         supporter.GivenDiscordRoleId = null;
+        supporter.GivenDiscordUserId = null;
 
         if (supporter.GivenVRChatRoleId is not { } role || supporter.GivenVRChatUserId is not { } user)
         {
@@ -261,9 +268,12 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
     {
         var userId = supporter.DiscordUserId!;
 
-        if (supporter.GivenDiscordRoleId is { } given && given != want)
+        // The role is taken from the account Modbot gave it to, which staff may have moved the supporter off.
+        var holder = supporter.GivenDiscordUserId ?? userId;
+
+        if (supporter.GivenDiscordRoleId is { } given && (given != want || holder != userId))
         {
-            var outcome = await gateway.ChangeRoleAsync(guildId, userId, given, false, RoleReason, ct).ConfigureAwait(false);
+            var outcome = await gateway.ChangeRoleAsync(guildId, holder, given, false, RoleReason, ct).ConfigureAwait(false);
 
             // A person who left, or a role that is gone, has nothing left to take.
             if (!outcome.Done && !outcome.NotInServer && !outcome.RoleGone)
@@ -273,6 +283,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
                 tally.Taken++;
 
             supporter.GivenDiscordRoleId = null;
+            supporter.GivenDiscordUserId = null;
         }
 
         if (want is not null && supporter.GivenDiscordRoleId != want && !alreadyHeld)
@@ -286,6 +297,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             if (outcome.Done)
             {
                 supporter.GivenDiscordRoleId = want;
+                supporter.GivenDiscordUserId = userId;
                 tally.Given++;
             }
             else if (outcome.NotInServer)

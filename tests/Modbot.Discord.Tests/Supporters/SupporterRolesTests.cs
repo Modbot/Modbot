@@ -162,6 +162,37 @@ public class SupporterRolesTests
     }
 
     [Fact]
+    public async Task ASupporterMovedToAnotherAccount_HasTheRoleTakenFromTheOldOne_AndGivenToTheNewOne()
+    {
+        await using var setup = await SetUpAsync();
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+        Assert.Equal(Member, (await ReadAsync(setup)).GivenDiscordUserId);
+
+        const string NewMember = "5002";
+        await using (var db = setup.Services.Database.NewContext())
+        {
+            await db.Supporters.ExecuteUpdateAsync(u => u.SetProperty(s => s.DiscordUserId, NewMember), Ct);
+        }
+
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(2, pass.Taken);
+        Assert.Contains(gateway.RoleChanges, c => !c.Added && c.UserId == Member && c.RoleId == SyncSetUp.DiscordRole);
+        Assert.Contains(gateway.RoleChanges, c => c.Added && c.UserId == NewMember && c.RoleId == SyncSetUp.DiscordRole);
+        var supporter = await ReadAsync(setup);
+        Assert.Equal(SyncSetUp.DiscordRole, supporter.GivenDiscordRoleId);
+        Assert.Equal(NewMember, supporter.GivenDiscordUserId);
+
+        // The VRChat group role went with the old account's link: taken from that VRChat account, not given again.
+        Assert.Contains(setup.Services.VRChat.Actions, a => a == ("role-taken", VRChatUser, SyncSetUp.GroupRole));
+        Assert.Null(supporter.GivenVRChatRoleId);
+
+        var again = await PassAsync(setup.Services, gateway);
+        Assert.Equal(0, again.Given + again.Taken);
+    }
+
+    [Fact]
     public async Task ARoleModbotDidNotGiveIsNeverTaken()
     {
         // Paid long ago and ended, but Modbot never gave anything: it must not remove a role somebody gave by hand.

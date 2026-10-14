@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014092743_AddSupporterCodes")]
+    [Migration("20261014093527_AddSupporterCodes")]
     partial class AddSupporterCodes
     {
         /// <inheritdoc />
@@ -10253,6 +10253,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("GivenDiscordRoleId")
                         .HasColumnType("text")
                         .HasColumnName("given_discord_role_id");
+
+                    b.Property<string>("GivenDiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("given_discord_user_id");
 
                     b.Property<string>("GivenVRChatRoleId")
                         .HasColumnType("text")
