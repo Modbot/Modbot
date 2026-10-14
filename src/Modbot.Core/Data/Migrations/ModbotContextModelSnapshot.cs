@@ -6412,6 +6412,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("CheckInRemindedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("check_in_reminded_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -9799,6 +9803,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("spotlight_time_zone");
 
+                    b.Property<string>("StaffRemindersChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("staff_reminders_channel_id");
+
                     b.Property<string>("SupporterThanksText")
                         .HasColumnType("text")
                         .HasColumnName("supporter_thanks_text");
@@ -10143,6 +10152,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("BuddyNoteAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("buddy_note_at");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset?>("CouncilRemindedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("council_reminded_at");
 
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("timestamp with time zone")
