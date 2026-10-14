@@ -13942,6 +13942,124 @@
         ]
       }
     },
+    "/api/settings/discord-event-recaps": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get event recap settings",
+        "description": "Whether Modbot posts a recap in Discord once the instance of an event's date has closed, and the channel. `problem` says what stopped the last recap, or its photo thread.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordEventRecapSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordEventRecapSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update event recap settings",
+        "description": "Turn the event recaps on or off, or change their channel (empty for none). Turning them on never posts for an event whose instance closed before. A refusal (400) says what is wrong.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordEventRecapSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordEventRecapSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordEventRecapSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-commands": {
       "get": {
         "tags": [
@@ -44722,6 +44840,48 @@
             "additionalProperties": {
               "type": "boolean"
             }
+          }
+        }
+      },
+      "DiscordEventRecapSettingsResponse": {
+        "required": [
+          "on",
+          "channelId",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordEventRecapSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
