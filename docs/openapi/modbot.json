@@ -45066,6 +45066,31 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "publishToBluesky": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "blueskyTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blueskyDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blueskyPostBeforeMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -45471,6 +45496,27 @@
             "items": {
               "$ref": "#/components/schemas/CalendarCategoryView"
             }
+          },
+          "publishToBluesky": {
+            "type": "boolean",
+            "default": false
+          },
+          "blueskyPostBeforeMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1440
+          },
+          "blueskyTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blueskyDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -46108,6 +46154,16 @@
                 "$ref": "#/components/schemas/CalendarGooglePreviewView"
               }
             ]
+          },
+          "bluesky": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BlueskyPostPreview"
+              }
+            ]
           }
         }
       },
@@ -46125,6 +46181,10 @@
             "type": "boolean"
           },
           "google": {
+            "type": "boolean",
+            "default": false
+          },
+          "bluesky": {
             "type": "boolean",
             "default": false
           }
@@ -46657,6 +46717,31 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "publishToBluesky": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "blueskyPostBeforeMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "blueskyTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "blueskyDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
