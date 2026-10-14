@@ -42,6 +42,7 @@ export function FilterBar({
   chips,
   starts,
   onChange,
+  place = 'page',
   children,
 }: {
   properties: FilterProperty[]
@@ -49,6 +50,11 @@ export function FilterBar({
   /** Where the page starts: the first is what Clear puts back. */
   starts: FilterChip[][]
   onChange: (chips: FilterChip[]) => void
+  /**
+   * Where the bar sits. Its keys are the page's, so a bar in a popup registers none: the page's own
+   * stay listed behind it, and page keys cannot run while a popup is open.
+   */
+  place?: 'page' | 'popup'
   /** Drawn at the right end: a search box, a sort control, a count. */
   children?: React.ReactNode
 }) {
@@ -79,7 +85,7 @@ export function FilterBar({
     setUnfolded(false)
   }
 
-  useShortcuts([
+  useShortcuts(place === 'popup' ? [] : [
     { keys: 'f', label: 'Add a filter', group: 'Filters', page: true, run: add },
     {
       keys: 'shift+f',

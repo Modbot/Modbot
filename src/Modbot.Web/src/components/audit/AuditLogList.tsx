@@ -294,12 +294,16 @@ export function AuditLogList({
 
   // `j`/`k` move down and up the rows; `Enter` opens the selected row; `o` opens what it is about.
   // Page keys, so inside a popup they wait like the page's own.
-  const { rowProps, selected } = useListSelection(groups.length, (i) => {
-    const group = groups[i]
-    if (group) toggle(group)
-  })
+  const { rowProps, selected } = useListSelection(
+    groups.length,
+    (i) => {
+      const group = groups[i]
+      if (group) toggle(group)
+    },
+    place,
+  )
 
-  useShortcuts([
+  useShortcuts(place === 'popup' ? [] : [
     {
       keys: 'o',
       label: 'Open the person, account or instance the selected row is about',
@@ -437,7 +441,7 @@ export function AuditLogList({
   if (pages.length === 0) return place === 'page' ? <Empty tone="loading" /> : <EmptyRow tone="loading" />
 
   const bar = (
-    <FilterBar properties={properties} chips={chips} starts={starts} onChange={onChange}>
+    <FilterBar properties={properties} chips={chips} starts={starts} onChange={onChange} place={place}>
       {pending > 0 && (
         <Button size="sm" variant="outline" onClick={showNew}>
           {pending} new

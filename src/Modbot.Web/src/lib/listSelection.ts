@@ -6,7 +6,7 @@ import { useShortcuts } from '@/lib/shortcuts'
  *
  * `j` and `↓` move down, `k` and `↑` move up, `Enter` opens the selected row and `Esc` drops the
  * selection. The keys are page keys: they wait while a popup is open, because the list is behind
- * it. Nothing is selected until a key is pressed, so a page that was only ever used with the
+ * it. A list in a popup (`place`) registers none, so the page's are not listed twice. Nothing is selected until a key is pressed, so a page that was only ever used with the
  * mouse looks exactly as it did.
  *
  * The rows are found by `data-row-index`, which the caller writes on each row, so the selected
@@ -15,6 +15,7 @@ import { useShortcuts } from '@/lib/shortcuts'
 export function useListSelection(
   count: number,
   open: (index: number) => void,
+  place: 'page' | 'popup' = 'page',
 ): {
   selected: number | null
   setSelected: (index: number | null) => void
@@ -38,7 +39,7 @@ export function useListSelection(
     setSelected(selected === null ? (by > 0 ? 0 : count - 1) : Math.min(count - 1, Math.max(0, selected + by)))
   }
 
-  useShortcuts([
+  useShortcuts(place === 'popup' ? [] : [
     { keys: 'j', label: 'Next row', group: 'Lists', page: true, keyboardOnly: true, run: () => move(1) },
     { keys: 'arrowdown', label: 'Next row', group: 'Lists', page: true, hidden: true, run: () => move(1) },
     { keys: 'k', label: 'Previous row', group: 'Lists', page: true, keyboardOnly: true, run: () => move(-1) },

@@ -169,9 +169,7 @@ export function PeopleBrowser({
     api
       .people({
         ...filter,
-        // The server refuses the moments without an instance, so a hand-written address that
-        // carries them on the page reads the whole record instead.
-        ...(instance ? { instance } : { hereAt: undefined, notHereAt: undefined }),
+        instance,
         search,
         sort,
         // An alert's hour-precise stretch wins over a day picked in the bar.
@@ -295,17 +293,21 @@ export function PeopleBrowser({
   }
   // Only the page's own: a popup's keys would be listed beside the page's, which is still there
   // behind it, and page keys wait while a popup is open, so they could never run.
-  useShortcuts(place === 'page' ? [
+  useShortcuts(place === 'popup' ? [] : [
     { keys: '/', label: 'Search', group: 'Filters', page: true, keyboardOnly: true, run: () => searchBox.current?.select() },
     ...SORTS.map((s) => ({ label: s.label, group: 'Sort' as const, page: true, checked: s.value === sort, run: () => sortBy(s.value) })),
-  ] : [])
-  const { rowProps } = useListSelection(list?.people.length ?? 0, (i) => {
-    const person = list?.people[i]
-    if (person) openPerson(person.userId)
-  })
+  ])
+  const { rowProps } = useListSelection(
+    list?.people.length ?? 0,
+    (i) => {
+      const person = list?.people[i]
+      if (person) openPerson(person.userId)
+    },
+    place,
+  )
 
   const bar = (
-    <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips}>
+    <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips} place={place}>
       {joined && (
         <Button size="sm" variant="outline" onClick={onClearJoined}>
           {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
