@@ -526,6 +526,7 @@ export type DiscordWelcomeSettings = {
   enabled: boolean
   via: DiscordWelcomeVia
   channelId: string | null
+  linkButton: boolean
   rules: DiscordWelcomeRule[]
   defaults: DiscordWelcomeDefault[]
   mostRules: number
@@ -537,6 +538,7 @@ export type DiscordWelcomeSettingsInput = {
   enabled: boolean
   via: DiscordWelcomeVia
   channelId: string
+  linkButton: boolean
   rules: DiscordWelcomeRule[]
   defaults: DiscordWelcomeDefault[]
 }
@@ -2558,6 +2560,27 @@ export type DiscordInviteSource = {
 }
 
 export type DiscordInviteSeries = { name: string; days: DayValue[] }
+
+/** The one-time link reminder, as the Account links tab shows it. */
+export type DiscordLinkReminder = {
+  running: boolean
+  startedAt: string | null
+  waiting: number
+  sent: number
+  notReached: number
+  lastSentAt: string | null
+  secondsBetween: number
+}
+
+/** The Discord page's Account links tab. */
+export type DiscordLinkShare = {
+  groupMembers: number
+  groupMembersLinked: number
+  discordMembers: number
+  discordMembersLinked: number
+  linkingSetUp: boolean
+  reminder: DiscordLinkReminder
+}
 
 /** The Discord page's Invites tab. */
 export type DiscordInvitesReport = {
@@ -6087,6 +6110,13 @@ export const api = {
 
   /** The Discord page's Invites tab: joins per source for the last `days` days, and the invites. */
   discordInvites: (days: number) => request<DiscordInvitesReport>(`/api/discord/invites?days=${days}`),
+
+  /** The Discord page's Account links tab. */
+  discordLinkShare: () => request<DiscordLinkShare>('/api/discord/account-links'),
+
+  startDiscordLinkReminder: () => post<DiscordLinkShare>('/api/discord/account-links/reminder/start', {}),
+
+  stopDiscordLinkReminder: () => post<DiscordLinkShare>('/api/discord/account-links/reminder/stop', {}),
 
   /** Name an invite, or clear its name with null. */
   nameDiscordInvite: (id: string, name: string | null) =>

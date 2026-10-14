@@ -82,6 +82,7 @@ function WelcomeForm({
   const [enabled, setEnabled] = useState(settings.enabled)
   const [via, setVia] = useState<DiscordWelcomeVia>(settings.via)
   const [channelId, setChannelId] = useState(settings.channelId ?? '')
+  const [linkButton, setLinkButton] = useState(settings.linkButton)
   const [rules, setRules] = useState<Row[]>(() => settings.rules.map((r) => newRow(r.roleId, r.text, r.link)))
   const [defaults, setDefaults] = useState<Row[]>(() => settings.defaults.map((d) => newRow('', d.text, d.link)))
 
@@ -99,6 +100,7 @@ function WelcomeForm({
         enabled,
         via,
         channelId: via === 'dm' ? '' : channelId,
+        linkButton,
         rules: rules.map((r) => ({ roleId: r.roleId, text: r.text, link: r.link.trim() || null })),
         defaults: defaults.map((d) => ({ text: d.text, link: d.link.trim() || null })),
       })
@@ -140,6 +142,9 @@ function WelcomeForm({
         {via !== 'dm' && (
           <ChannelPicker label="Welcome channel" value={channelId} onChange={setChannelId} needs={WELCOME_NEEDS} />
         )}
+        <Switch checked={linkButton} onChange={setLinkButton}>
+          Add a Link your VRChat button
+        </Switch>
       </div>
 
       <StepList

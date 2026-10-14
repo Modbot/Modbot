@@ -62,6 +62,10 @@ export const NAV = [
   // it is See analytics like the other tabs; naming and making invites on it need Change settings,
   // which the server checks.
   { id: 'discord-invites', label: 'Discord invites', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['invite links', 'where people join from'] },
+  // The Discord page's Account links tab: what share of the group and the server has linked, and the
+  // one-time reminder to link. Seeing it is See analytics; starting the reminder needs Change
+  // settings, which the server checks.
+  { id: 'discord-account-links', label: 'Discord account links', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['linked accounts', 'link vrchat', 'verify'] },
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
@@ -235,6 +239,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'discord-roles': '',
   'discord-channels': '',
   'discord-invites': '',
+  'discord-account-links': '',
   people: 'n',
   live: 'l',
   calendar: 'e',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, ChartColumn, Gavel, Hash, Link, Shield, Users, type LucideIcon } from 'lucide-react'
+import { CalendarDays, ChartColumn, Gavel, Hash, Link, Link2, Shield, Users, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { api, type CurrentUser, type ServerProfile } from '@/lib/api'
 import { formatDay, plural } from '@/lib/format'
@@ -150,6 +150,7 @@ const TAB_ICONS: Partial<Record<PageId, LucideIcon>> = {
   'discord-channels': Hash,
   'discord-roles': Shield,
   'discord-invites': Link,
+  'discord-account-links': Link2,
   'discord-members': Users,
   bans: Gavel,
 }
