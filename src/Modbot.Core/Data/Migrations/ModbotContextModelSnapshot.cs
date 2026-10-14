@@ -1717,6 +1717,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("opened_by_user_id");
 
+                    b.Property<DateTimeOffset?>("RecapPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recap_posted_at");
+
                     b.Property<bool>("TryAgain")
                         .HasColumnType("boolean")
                         .HasColumnName("try_again");
@@ -8863,6 +8867,24 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("EventAlertsPing")
                         .HasColumnType("boolean")
                         .HasColumnName("event_alerts_ping");
+
+                    b.Property<string>("EventRecapChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("event_recap_channel_id");
+
+                    b.Property<string>("EventRecapProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("event_recap_problem");
+
+                    b.Property<DateTimeOffset?>("EventRecapsFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("event_recaps_from");
+
+                    b.Property<bool>("EventRecapsOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_recaps_on");
 
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
