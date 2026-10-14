@@ -404,6 +404,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>One row per occurrence whose instance Modbot tried to open (calendar design §4).</summary>
     public DbSet<CalendarOpening> CalendarOpenings => Set<CalendarOpening>();
 
+    /// <summary>How many people were interested in each date of an event when it started, on Discord and on VRChat.</summary>
+    public DbSet<CalendarInterest> CalendarInterests => Set<CalendarInterest>();
+
     /// <summary>The people each opened occurrence invites, in order (calendar auto-invite design).</summary>
     public DbSet<CalendarInvite> CalendarInvites => Set<CalendarInvite>();
 
@@ -2027,6 +2030,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.EventRecapChannelId).HasMaxLength(32);
             entity.Property(e => e.EventRecapProblem).HasMaxLength(300);
 
+            // The monthly event summary: off, for the row that exists already.
+            entity.Property(e => e.EventSummaryChannelId).HasMaxLength(32);
+            entity.Property(e => e.EventSummaryProblem).HasMaxLength(300);
+
             // Member milestones: no posts and no role, the numbers below, for the row that exists already.
             entity.Property(e => e.MilestoneFirstAt).HasDefaultValue(1);
             entity.Property(e => e.MilestoneRegularAt).HasDefaultValue(5);
@@ -3254,6 +3261,20 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.FirstJoinDiscordPostError).HasMaxLength(1024);
             entity.Property(e => e.FirstJoinVRChatPostedAt).HasColumnName("first_join_vrchat_posted_at");
             entity.Property(e => e.FirstJoinVRChatPostError).HasMaxLength(1024).HasColumnName("first_join_vrchat_post_error");
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // One row per date: each side's count is written once, when the date starts.
+        builder.Entity<CalendarInterest>(entity =>
+        {
+            entity.ToTable("calendar_interest");
+            entity.HasKey(e => new { e.EventId, e.OccurrenceStartsAt });
+            entity.Property(e => e.VRChatInterested).HasColumnName("vrchat_interested");
+            entity.Property(e => e.VRChatTakenAt).HasColumnName("vrchat_taken_at");
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

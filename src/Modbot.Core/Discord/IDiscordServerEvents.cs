@@ -21,6 +21,7 @@ public static class DiscordEventMakers
 /// <param name="MadeBy">One of <see cref="DiscordEventMakers"/>.</param>
 /// <param name="BotName">The bot's or app's name when <paramref name="MadeBy"/> is a bot or Modbot; null for a person.</param>
 /// <param name="Started">Discord shows it as happening now.</param>
+/// <param name="Interested">How many people marked themselves interested. Null when Discord gave no count.</param>
 public sealed record DiscordServerEvent(
     string Id,
     string Name,
@@ -28,7 +29,8 @@ public sealed record DiscordServerEvent(
     DateTimeOffset? EndsAt,
     bool Started,
     string MadeBy,
-    string? BotName);
+    string? BotName,
+    int? Interested = null);
 
 /// <summary>The server's events, and when Discord was asked.</summary>
 public sealed record DiscordServerEventList(IReadOnlyList<DiscordServerEvent> Events, DateTimeOffset ReadAt);

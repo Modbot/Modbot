@@ -1222,7 +1222,8 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                     e.EndTime,
                     e.Status == GuildScheduledEventStatus.Active,
                     MadeBy(e, me),
-                    e.Creator is { IsBot: true } bot ? bot.GlobalName ?? bot.Username : null))];
+                    e.Creator is { IsBot: true } bot ? bot.GlobalName ?? bot.Username : null,
+                    e.UserCount))];
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

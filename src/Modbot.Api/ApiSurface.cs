@@ -586,6 +586,7 @@ public static class ApiSurface
 
         // The recap posted when an event's instance has closed.
         app.MapDiscordEventRecapSettings();
+        app.MapDiscordEventSummarySettings();
         app.MapDiscordInviteTrackingSettings();
 
         // Member milestones: the posts and the Regular role.
@@ -767,6 +768,7 @@ public static class ApiSurface
         Features.Calendar.PublicCalendarFeedEndpoints.MapPublicCalendarFeed(app);
         // What each time an event ran did: its instance, who came and who joined the group.
         Features.Calendar.CalendarResultsEndpoints.MapCalendarResults(app);
+        Features.Calendar.CalendarSeriesEndpoints.MapCalendarSeries(app);
         // Lists of worlds, and an event's world picked from one: Pick again, and Next game during
         // the event (world lists design).
         Features.WorldLists.WorldListEndpoints.MapWorldLists(app);

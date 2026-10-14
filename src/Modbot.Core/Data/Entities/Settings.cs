@@ -828,6 +828,24 @@ public class Settings
     /// <summary>What went wrong the last time a recap was posted, in a sentence. Null when it went well.</summary>
     public string? EventRecapProblem { get; set; }
 
+    // --- Monthly event summary in Discord ---
+
+    /// <summary>Whether Modbot posts, once a month, how each event did the month before. Off to start.</summary>
+    public bool EventSummaryOn { get; set; }
+
+    /// <summary>The Discord channel the summary is posted in. Null means none.</summary>
+    public string? EventSummaryChannelId { get; set; }
+
+    /// <summary>
+    /// The latest month (its first day, UTC) already dealt with: posted, or left out because no event
+    /// ran in it. Written before the post, so a month is posted once however many restarts. Turning
+    /// the summary on sets it to the month before, so it never posts for months already over.
+    /// </summary>
+    public DateOnly? EventSummaryLastMonth { get; set; }
+
+    /// <summary>What went wrong the last time the summary was posted, in a sentence. Null when it went well.</summary>
+    public string? EventSummaryProblem { get; set; }
+
     // --- Member milestones ---
 
     /// <summary>The number of events somebody has come to that Modbot calls their first moment. 1 to start.</summary>

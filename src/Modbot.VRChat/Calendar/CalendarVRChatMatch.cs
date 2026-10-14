@@ -215,7 +215,7 @@ public static class CalendarVRChatMatch
 
     private static bool Far(TimeSpan a, TimeSpan b) => (a - b).Duration() >= SameTime;
 
-    private static DateTimeOffset AsUtc(DateTime value) =>
+    internal static DateTimeOffset AsUtc(DateTime value) =>
         new(value.Kind switch
         {
             DateTimeKind.Unspecified => DateTime.SpecifyKind(value, DateTimeKind.Utc),

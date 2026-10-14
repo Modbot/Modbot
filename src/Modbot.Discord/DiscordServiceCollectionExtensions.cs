@@ -68,6 +68,8 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Calendar.CalendarFirstJoinPost>();
         services.AddScoped<Calendar.CalendarInviteMessages>();
         services.AddScoped<Calendar.EventRecapPost>();
+        services.AddScoped<Calendar.EventInterestSnapshot>();
+        services.AddScoped<Calendar.EventSummaryPost>();
         services.AddScoped<Calendar.MemberMilestonePost>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 

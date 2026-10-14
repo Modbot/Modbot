@@ -14247,6 +14247,124 @@
         ]
       }
     },
+    "/api/settings/discord-event-summary": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get monthly event summary settings",
+        "description": "Whether Modbot posts a summary in Discord once a month of how each event did the month before, and the channel. `problem` says what stopped the last summary.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordEventSummarySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordEventSummarySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update monthly event summary settings",
+        "description": "Turn the monthly event summary on or off, or change its channel (empty for none). Turning it on never posts for a month already over. A refusal (400) says what is wrong.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordEventSummarySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordEventSummarySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordEventSummarySettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-invite-tracking": {
       "get": {
         "tags": [
@@ -32030,6 +32148,77 @@
         ]
       }
     },
+    "/api/calendar/events/{id}/series": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get how an event's dates did over time",
+        "description": "Every date of one event that has a count or an opened instance, earliest first, at most the latest 100: how many people were interested on Discord and on VRChat when the date started, how many people a moderator's client saw arrive at its instance, and the most counted at once. Each interested count is written once, when the date starts, and a date from before Modbot kept them has none. `came` counts only people seen where a moderator's client stood, so it can be lower than the real turnout, and is null for a date nobody was seen at. The averages are over the dates that have the figure.\n\nNeeds the `ViewAnalytics` and `ViewCalendar` permissions.",
+        "operationId": "GetCalendarEventSeries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarSeriesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/world-lists": {
       "get": {
         "tags": [
@@ -43667,6 +43856,97 @@
           }
         }
       },
+      "CalendarSeriesDateView": {
+        "required": [
+          "startsAt",
+          "discordInterested",
+          "vrChatInterested",
+          "came",
+          "mostAtOnce"
+        ],
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "discordInterested": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "vrChatInterested": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "came": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "mostAtOnce": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CalendarSeriesView": {
+        "required": [
+          "eventId",
+          "title",
+          "dates",
+          "averageDiscordInterested",
+          "averageVRChatInterested",
+          "averageCame"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "dates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarSeriesDateView"
+            }
+          },
+          "averageDiscordInterested": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "averageVRChatInterested": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "averageCame": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "CalendarStaffChoice": {
         "required": [
           "id",
@@ -46354,6 +46634,48 @@
         }
       },
       "DiscordEventRecapSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordEventSummarySettingsResponse": {
+        "required": [
+          "on",
+          "channelId",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordEventSummarySettingsUpdate": {
         "type": "object",
         "properties": {
           "on": {

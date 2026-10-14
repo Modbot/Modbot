@@ -423,6 +423,10 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<Calendar.CalendarFacts>()));
+        services.AddScoped<Calendar.CalendarInterestRecorder>(provider => new Calendar.CalendarInterestRecorder(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
         // Reading VRChat's calendar back in, only when a page asks (calendar design §12): what was
         // read is remembered for everyone, so it lives as long as the app does.
         services.AddSingleton<Calendar.CalendarVRChatReadMemory>();

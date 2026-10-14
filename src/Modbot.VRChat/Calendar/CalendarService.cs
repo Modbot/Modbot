@@ -51,9 +51,18 @@ public sealed class CalendarService : BackgroundService
             // Scheduled messages to everyone in a group instance. Its own loop, so an announcement
             // waiting its turn in the gate holds nothing else up.
             LoopAsync("VRChat announcements", RunAnnouncementsAsync, stoppingToken),
+            // How many are interested in a date on VRChat's calendar, once, when it has started. Its own
+            // loop, once a minute: it reads the group's calendar, which must never hold an instance up.
+            LoopAsync("calendar interest", RunInterestAsync, stoppingToken, InterestEvery),
             // Pictures cropped for Discord that no event was saved with (calendar design §15.4).
             // Asks VRChat nothing; its own loop, once an hour, since a day-old picture can wait.
             LoopAsync("calendar picture sweep", RunCoverSweepAsync, stoppingToken, Core.Calendar.CalendarCoverSweep.Every));
+
+    /// <summary>A date's interested count is wanted when it starts; a minute later is soon enough.</summary>
+    private static readonly TimeSpan InterestEvery = TimeSpan.FromMinutes(1);
+
+    private static Task RunInterestAsync(IServiceProvider scope, CancellationToken ct) =>
+        scope.GetRequiredService<CalendarInterestRecorder>().RunOnceAsync(ct);
 
     private static Task RunCoverSweepAsync(IServiceProvider scope, CancellationToken ct) =>
         scope.GetRequiredService<Core.Calendar.CalendarCoverSweep>().RunOnceAsync(ct);
