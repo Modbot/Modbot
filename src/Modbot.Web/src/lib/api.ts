@@ -2479,6 +2479,52 @@ export type RoleReport = {
   roles: RoleReportRow[]
 }
 
+/** One invite link in the Discord Invites tab. */
+export type DiscordInvite = {
+  id: string
+  code: string
+  name: string | null
+  source: string
+  isVanity: boolean
+  madeByModbot: boolean
+  gone: boolean
+  joins: number
+}
+
+/** One place people joined from: invites with the same name count together. */
+export type DiscordInviteSource = {
+  name: string
+  unknown: boolean
+  invites: number
+  joinsInRange: number
+  joinsEver: number
+}
+
+export type DiscordInviteSeries = { name: string; days: DayValue[] }
+
+/** The Discord page's Invites tab. */
+export type DiscordInvitesReport = {
+  from: string
+  to: string
+  joins: number
+  sources: DiscordInviteSource[]
+  series: DiscordInviteSeries[]
+  invites: DiscordInvite[]
+  /** Why Discord's invites could not be read just now; only filled in for somebody who may change settings. */
+  readError: string | null
+  missingPermission: boolean
+  mostNameLength: number
+  mostCreatedAtOnce: number
+}
+
+export type DiscordInviteMade = { name: string; code: string | null; error: string | null }
+
+export type DiscordInviteCreateResult = {
+  made: DiscordInviteMade[]
+  error: string | null
+  missingPermission: boolean
+}
+
 /** One channel in the Discord quiet channels list. */
 export type QuietChannelRow = {
   id: string
@@ -5963,6 +6009,17 @@ export const api = {
 
   /** The Discord page's Roles tab. */
   discordRoleReport: () => request<RoleReport>('/api/discord/reports/roles'),
+
+  /** The Discord page's Invites tab: joins per source for the last `days` days, and the invites. */
+  discordInvites: (days: number) => request<DiscordInvitesReport>(`/api/discord/invites?days=${days}`),
+
+  /** Name an invite, or clear its name with null. */
+  nameDiscordInvite: (id: string, name: string | null) =>
+    put<void>(`/api/discord/invites/${encodeURIComponent(id)}`, { name }),
+
+  /** Make an invite to the channel for each name. */
+  createDiscordInvites: (channelId: string, names: string[]) =>
+    post<DiscordInviteCreateResult>('/api/discord/invites/create', { channelId, names }),
 
   /** The Discord page's Channels tab, narrowed to what the given roles can or cannot see. */
   discordQuietChannels: (query: QuietChannelQuery = {}) => {

@@ -113,6 +113,7 @@ These are all the intents Modbot requests, and what each one is for.
 | **Server Members Intent** | yes | The member list, joins and leaves, nickname and role changes, timeouts, and the message that asks new joiners to link their accounts. |
 | Voice states | none | Who joins, leaves or moves between voice channels, for voice time. |
 | Bans and moderation | none | Bans and unbans, and new entries in the server's audit log as they happen. |
+| Server invites | none | Which invite each new member used, and invites being made or deleted ([Invites](/discord/invites)). |
 
 ### If a privileged intent is off
 
@@ -149,7 +150,8 @@ role and channel settings.
 | **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking, turn on [role sync](/discord/role-and-ban-sync) or [lists that give roles](/discord/roles-from-lists), choose a **Regular role** for [member milestones](/discord/member-milestones), or turn on the [join gate](/discord/join-gate). The bot's own role must also sit above the roles it gives or changes, and the gate's **Member role**. |
 | **Ban Members** | Only if you copy group bans into Discord ([ban sync](/discord/role-and-ban-sync)), or ban a Discord member from Modbot (**Ban** in the web app, or `/ban`). Reading the server's ban list needs this or **View Audit Log**. The invite link asks for it only when ban sync copies bans as bans. |
 | **Kick Members** | Only if ban sync copies bans as removals, you remove a Discord member from Modbot (**Remove from Discord**, or `/kick`), or the [join gate](/discord/join-gate) removes people who do not finish (**Remove after** is not **Never**). |
-| **Manage Server** | Only if the [join gate](/discord/join-gate) may pause your server's invites (**Allow pausing invites**). |
+| **Manage Server** | Reading the server's invites and how often each was used, for [Invites](/discord/invites) (always on); and, if the [join gate](/discord/join-gate) may pause your server's invites (**Allow pausing invites**), pausing them. The invite link Modbot builds asks for it only for the join gate. |
+| **Create Invite** | Only to make invites from a list of names on the [Invites](/discord/invites) tab. The invite link Modbot builds does not ask for it. |
 | **Manage Channels** | Only to delete a ticket after an [18+ check](/discord/age-check) (**Delete the ticket after** is on). The invite link Modbot builds does not ask for it. |
 | **Create Events** and **Manage Events** | Both, only if a [calendar](/moderation/calendar) event has **Discord event** ticked. The invite link Modbot builds does not ask for them. |
 | **Create Public Threads** | Only if you turn on [event recaps](/discord/event-recaps), which start a photo thread on each recap. The invite link Modbot builds asks for it once they are on. |

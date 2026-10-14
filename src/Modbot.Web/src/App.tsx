@@ -71,6 +71,7 @@ import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { DiscordChannels } from '@/pages/DiscordChannels'
+import { DiscordInvites } from '@/pages/DiscordInvites'
 import { DiscordRoles } from '@/pages/DiscordRoles'
 import { Now } from '@/pages/Now'
 import { Requests } from '@/pages/Requests'
@@ -105,6 +106,7 @@ const TITLES: Record<PageId, string> = {
   // The Roles and Channels tabs of the Discord page, so they carry its name too.
   'discord-roles': 'Discord',
   'discord-channels': 'Discord',
+  'discord-invites': 'Discord',
   people: 'People',
   live: 'Live',
   calendar: 'Calendar',
@@ -165,6 +167,7 @@ const PATHS: Record<PageId, string> = {
   'discord-members': '/discord/members',
   'discord-roles': '/discord/roles',
   'discord-channels': '/discord/channels',
+  'discord-invites': '/discord/invites',
   people: '/people',
   live: '/live',
   calendar: '/calendar',
@@ -695,6 +698,7 @@ function Shell({
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'discord-roles' && <DiscordRoles me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'discord-channels' && <DiscordChannels me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'discord-invites' && <DiscordInvites me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live me={me} />}
           {page === 'calendar' && <Calendar me={me} />}

@@ -1,0 +1,70 @@
+---
+title: Invites
+description: See which invite each new Discord member used, name your invites (Linktree, a partner's link), see joins per source over time, and have Modbot make an invite for each name on a list.
+---
+
+Modbot notes which invite each new member of your Discord server used, so you can see where people
+come from. The **Discord** page's **Invites** tab shows joins per source over the last 7, 30 or 90
+days, a table of the sources, and every invite with its name. **Discord** stays lit in the sidebar
+while it is open. The command palette finds it as **Discord invites**. Its address is
+`/discord/invites`.
+
+Tracking is always on. There is no switch. It starts the first time the bot connects, so joins from
+before that have no invite.
+
+## How a join is traced
+
+Discord does not say which invite someone used. It only keeps a count of uses on each invite. Modbot
+keeps the count it last saw for every invite, and when somebody joins it looks for the invite whose
+count went up by one.
+
+- One invite went up: the join is counted under that invite.
+- None went up or more than one did (two people joining at once): Modbot cannot tell, and the join
+  is counted under **Unknown**.
+- An invite that could only be used once is gone when it has been used. If one vanished as someone
+  joined, it was theirs.
+- Bots joining are not counted.
+- The vanity link (the short address of a server that has one) is its own source, **Vanity link**.
+
+Because it works from counts, Unknown is expected now and then, and more often when many people join
+within a second or two.
+
+## Sources and names
+
+Staff give each invite a name, such as **Linktree** or **Partner: Example**. Invites with the same
+name are one source, however many of them there are. An invite with no name is its own source,
+shown by its code.
+
+Naming an invite changes how past joins through it are counted too.
+
+| Part of the tab | Shows |
+|---|---|
+| **Joins per source** | A column per day, stacked by source. The four busiest sources have their own colour; the rest are **Everything else**. |
+| **Sources** | Each source with its number of invites, joins in the range and joins since Modbot started counting. |
+| **Invites** | Every invite Modbot has seen, its name, joins, and whether it is the vanity link, was made by Modbot, or is gone (deleted, expired or used up). |
+| **Make invites** | Only for people with **Change settings**. |
+
+## Making invites from a list of names
+
+In **Make invites**, pick a channel, write one name per line and press **Make invites**. Modbot
+makes one invite for each name to that channel, with no expiry and no limit on uses, and gives each
+the name. At most 20 at a time. A name Discord refused stays in the box so you can try again.
+
+## Permissions
+
+| Who | Needs |
+|---|---|
+| Opening the tab and its charts | **See analytics** |
+| Naming invites and making them | **Change settings** |
+
+| The bot needs | For |
+|---|---|
+| **Manage Server** | Reading the server's invites and their use counts, and the vanity link. |
+| **Create Invite** | Making invites. |
+
+The bot also asks for the Guild Invites intent, which is not privileged: there is no switch for it
+in the Developer Portal. See [Intents the bot asks for](/discord/bot-setup#intents-the-bot-asks-for).
+
+If the bot lacks Manage Server, the tab says **The bot needs Manage Server to read the server's
+invites.** to people with **Change settings**, and joins are counted as **Unknown**. If it lacks
+Create Invite in the channel, **Make invites** says so.

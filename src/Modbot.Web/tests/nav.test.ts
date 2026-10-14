@@ -258,8 +258,8 @@ test('Discord members is off the page list, shown as part of Discord, which the 
   assert.equal(mayOpen(person('ViewMembers'), 'discord-members'), true)
 })
 
-test('the Discord Roles and Channels tabs are off the page list, light Discord, and need See analytics', () => {
-  for (const id of ['discord-roles', 'discord-channels'] as const) {
+test('the Discord Roles, Channels and Invites tabs are off the page list, light Discord, and need See analytics', () => {
+  for (const id of ['discord-roles', 'discord-channels', 'discord-invites'] as const) {
     const item = NAV.find((n) => n.id === id)
 
     assert.ok(item && 'hidden' in item && item.hidden, `${id} is in the page list`)

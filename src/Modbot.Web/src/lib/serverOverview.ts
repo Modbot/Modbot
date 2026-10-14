@@ -29,6 +29,7 @@ export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   // each a read-only report (Discord tidy-up design).
   { id: 'discord-channels', label: 'Channels' },
   { id: 'discord-roles', label: 'Roles' },
+  { id: 'discord-invites', label: 'Invites' },
   { id: 'discord-members', label: 'Members' },
   { id: 'bans', label: 'Bans' },
 ]
