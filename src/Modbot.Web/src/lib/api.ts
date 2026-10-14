@@ -1480,6 +1480,22 @@ export type PersonRow = {
   isRepresenting: boolean
   /** Null when they have not linked, and always null without See profiles. */
   linkedDiscord: LinkedDiscord | null
+  /** Only when the list is narrowed to one instance: when this person was there. */
+  visit?: InstanceVisit | null
+}
+
+/** When one person was in one instance: one row per person however often they came and went. */
+export type InstanceVisit = {
+  /** Their first arrival, or the first report of them being there. */
+  arrived: string
+  /** A moderator saw them walk in, as opposed to finding them already there. */
+  arrivalSeen: boolean
+  /** Their last leave, or the end of what a moderator's client saw. */
+  left: string
+  /** A moderator saw them walk out, as opposed to the visit being cut off. */
+  leaveSeen: boolean
+  /** How many times they were there, counting each return. */
+  visits: number
 }
 
 export type PeopleList = {
@@ -1521,6 +1537,12 @@ export type PeopleQuery = {
   joinedFrom?: string
   /** Only people who joined the group before this moment. */
   joinedTo?: string
+  /** Only people a moderator's client saw in this Modbot instance (its id); each row then carries a `visit`. */
+  instance?: string
+  /** With `instance`: only people who were there at every one of these moments. */
+  hereAt?: string[]
+  /** With `instance`: only people who were not there at any of these moments. */
+  notHereAt?: string[]
   sort?: 'seen' | 'name' | 'known' | 'joined'
   page?: number
   pageSize?: number
@@ -6023,6 +6045,9 @@ export const api = {
     if (query.representing !== undefined) q.set('representing', String(query.representing))
     if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
     if (query.joinedTo) q.set('joinedTo', query.joinedTo)
+    if (query.instance) q.set('instance', query.instance)
+    query.hereAt?.forEach((m) => q.append('hereAt', m))
+    query.notHereAt?.forEach((m) => q.append('notHereAt', m))
     if (query.sort && query.sort !== 'seen') q.set('sort', query.sort)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))

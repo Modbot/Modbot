@@ -26,6 +26,9 @@ namespace Modbot.Api.Features.People;
 /// Their linked Discord account. Null when they have not linked, and always null for a caller
 /// without See profiles, who may not see links (Discord account linking design §11).
 /// </param>
+/// <param name="Visit">
+/// Only when the list is narrowed to one instance: when this person was there. Null otherwise.
+/// </param>
 public sealed record PersonRow(
     string UserId,
     string? DisplayName,
@@ -44,7 +47,23 @@ public sealed record PersonRow(
     IReadOnlyList<string> RoleNames,
     DateTimeOffset? JoinedAt,
     bool IsRepresenting,
-    LinkedDiscordView? LinkedDiscord);
+    LinkedDiscordView? LinkedDiscord,
+    InstanceVisit? Visit = null);
+
+/// <summary>
+/// When one person was in one instance: one row per person however often they came and went.
+/// </summary>
+/// <param name="Arrived">Their first arrival, or the first report of them being there.</param>
+/// <param name="ArrivalSeen">A moderator saw them walk in, as opposed to finding them already there.</param>
+/// <param name="Left">Their last leave, or the end of what a moderator's client saw.</param>
+/// <param name="LeaveSeen">A moderator saw them walk out, as opposed to the visit being cut off.</param>
+/// <param name="Visits">How many times they were there, counting each return.</param>
+public sealed record InstanceVisit(
+    DateTimeOffset Arrived,
+    bool ArrivalSeen,
+    DateTimeOffset Left,
+    bool LeaveSeen,
+    int Visits);
 
 /// <summary>
 /// How many people Modbot knows about in total, beside however many the filters left.

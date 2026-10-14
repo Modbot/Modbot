@@ -1406,7 +1406,7 @@
           "People"
         ],
         "summary": "List people",
-        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. `role` is a group role id and may be repeated: people holding any of them; `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `representing` is true or false. `joinedFrom` and `joinedTo` narrow the list to people who joined the group inside that stretch, which is what an unusual-activity alert links to. Sorted by when Modbot last saw them, most recent first, unless `sort=name`, `sort=known` (longest known first) or `sort=joined` (newest joiner first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet. Each row carries the member list's fields too: roles, when they joined, whether they are representing the group, and their linked Discord account. `roles` lists the group's roles with how many current members hold each.\n\nNeeds See profiles. See members alone is enough for `membership=member` or `membership=left`, without `flagged` or `linked`; the rows then carry no linked Discord account.",
+        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. `role` is a group role id and may be repeated: people holding any of them; `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `representing` is true or false. `joinedFrom` and `joinedTo` narrow the list to people who joined the group inside that stretch, which is what an unusual-activity alert links to. `instance` is a Modbot instance id: only people a moderator's client saw in that instance, each row with a `visit` (first arrival, last leave, how many visits). `hereAt` and `notHereAt`, repeatable and only with `instance`, keep people who were there at that moment, or were not; every one must hold. Sorted by when Modbot last saw them, most recent first, unless `sort=name`, `sort=known` (longest known first) or `sort=joined` (newest joiner first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet. Each row carries the member list's fields too: roles, when they joined, whether they are representing the group, and their linked Discord account. `roles` lists the group's roles with how many current members hold each.\n\nNeeds See profiles. See members alone is enough for `membership=member` or `membership=left`, without `flagged` or `linked`; the rows then carry no linked Discord account. `instance` needs See analytics and See audit log instead of either, and still refuses `flagged` and `linked` without See profiles.",
         "operationId": "GetPeople",
         "parameters": [
           {
@@ -1549,6 +1549,36 @@
             "schema": {
               "type": "string",
               "format": "date-time"
+            }
+          },
+          {
+            "name": "instance",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "hereAt",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          {
+            "name": "notHereAt",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           },
           {
@@ -54047,6 +54077,36 @@
           }
         }
       },
+      "InstanceVisit": {
+        "required": [
+          "arrived",
+          "arrivalSeen",
+          "left",
+          "leaveSeen",
+          "visits"
+        ],
+        "type": "object",
+        "properties": {
+          "arrived": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "arrivalSeen": {
+            "type": "boolean"
+          },
+          "left": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "leaveSeen": {
+            "type": "boolean"
+          },
+          "visits": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "InstanceWorldView": {
         "required": [
           "instanceId",
@@ -59056,6 +59116,16 @@
               },
               {
                 "$ref": "#/components/schemas/LinkedDiscordView"
+              }
+            ]
+          },
+          "visit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/InstanceVisit"
               }
             ]
           }

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.Members;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -83,6 +84,9 @@ public static class PeopleEndpoints
                 [FromQuery] bool? representing,
                 [FromQuery] DateTimeOffset? joinedFrom,
                 [FromQuery] DateTimeOffset? joinedTo,
+                [FromQuery] Guid? instance,
+                [FromQuery(Name = "hereAt")] DateTimeOffset[]? hereAt,
+                [FromQuery(Name = "notHereAt")] DateTimeOffset[]? notHereAt,
                 [FromQuery] string? sort,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
@@ -91,19 +95,35 @@ public static class PeopleEndpoints
                 if (membership is not (null or "" or Member or NotMember or Left or "all"))
                     return Results.BadRequest(new { error = "`membership` is member, not-member, left or all." });
 
+                if (instance is null && (hereAt is { Length: > 0 } || notHereAt is { Length: > 0 }))
+                    return Results.BadRequest(new { error = "`hereAt` and `notHereAt` need an `instance`." });
+
                 var held = ModbotAuth.PermissionsOf(http.User);
                 var seesProfiles = ModbotAuth.Allows(held, ModbotPermissions.ViewProfile);
 
+                // Who was in an instance is the instance popup's People tab, so it needs what that
+                // tab needs.
+                if (instance is not null
+                    && !(ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics)
+                        && ModbotAuth.Allows(held, ModbotPermissions.ViewAuditLog)))
+                    return Results.Forbid();
+
                 // See members alone reads what the member list showed and no more: members and
-                // people who left, with no links and no flags.
+                // people who left, with no links and no flags. Narrowed to an instance it reads
+                // whoever was there, which is the instance popup's own list, but still no links and
+                // no flags.
                 if (!seesProfiles)
                 {
-                    if (!ModbotAuth.Allows(held, ModbotPermissions.ViewMembers))
-                        return Results.Forbid();
+                    if (instance is null)
+                    {
+                        if (!ModbotAuth.Allows(held, ModbotPermissions.ViewMembers))
+                            return Results.Forbid();
 
-                    if (Trimmed(membership)?.ToLowerInvariant() is not (Member or Left)
-                        || flagged is not null
-                        || LinkFilter.Narrows(linked))
+                        if (Trimmed(membership)?.ToLowerInvariant() is not (Member or Left))
+                            return Results.Forbid();
+                    }
+
+                    if (flagged is not null || LinkFilter.Narrows(linked))
                         return Results.Forbid();
                 }
 
@@ -116,6 +136,21 @@ public static class PeopleEndpoints
                 if (!Ranks(trustRanks, out var ranks))
                     return Results.BadRequest(new { error = "`trustRank` is a trust rank name, such as KnownUser." });
 
+                IReadOnlyList<PresenceStay>? stays = null;
+
+                if (instance is { } instanceId)
+                {
+                    var row = await db.VRChatInstances.AsNoTracking().FirstOrDefaultAsync(i => i.Id == instanceId, ct);
+                    if (row is null)
+                        return Results.NotFound();
+
+                    // An instance with no number has no presence facts to read.
+                    stays = row.VRChatInstanceId is { Length: > 0 } number
+                        ? await new PresenceCounts(db).StaysInInstanceAsync(
+                            new InstanceLife(row.WorldId, number, row.OpenedAt, row.ClosedAt ?? row.LastSeenAt), ct)
+                        : [];
+                }
+
                 return Results.Ok(await ListAsync(
                     db,
                     clock,
@@ -127,7 +162,8 @@ public static class PeopleEndpoints
                     pageSize,
                     new PeopleFilters(
                         banned, everBanned, eighteenPlus, ranks, Platforms(platforms), linked, flagged, seenFrom, seenTo,
-                        MemberEndpoints.Ids(roles), MemberEndpoints.Ids(notRoles), noRole, representing, joinedFrom, joinedTo),
+                        MemberEndpoints.Ids(roles), MemberEndpoints.Ids(notRoles), noRole, representing, joinedFrom, joinedTo,
+                        stays, hereAt ?? [], notHereAt ?? []),
                     seesProfiles,
                     ct));
             })
@@ -153,7 +189,11 @@ public static class PeopleEndpoints
                 + "holding any of them; `notRole`, also repeatable, leaves out people holding any of "
                 + "those; `noRole=true` keeps only people with no role. `representing` is true or "
                 + "false. `joinedFrom` and `joinedTo` narrow the list to people who joined the group "
-                + "inside that stretch, which is what an unusual-activity alert links to. Sorted by "
+                + "inside that stretch, which is what an unusual-activity alert links to. `instance` "
+                + "is a Modbot instance id: only people a moderator's client saw in that instance, "
+                + "each row with a `visit` (first arrival, last leave, how many visits). `hereAt` "
+                + "and `notHereAt`, repeatable and only with `instance`, keep people who were there "
+                + "at that moment, or were not; every one must hold. Sorted by "
                 + "when Modbot last saw them, most recent first, unless `sort=name`, `sort=known` "
                 + "(longest known first) or `sort=joined` (newest joiner first). "
                 + "Names and pictures come from the profile sync and are null for anybody it has "
@@ -163,7 +203,8 @@ public static class PeopleEndpoints
                 + "each.\n\n"
                 + "Needs See profiles. See members alone is enough for `membership=member` or "
                 + "`membership=left`, without `flagged` or `linked`; the rows then carry no linked "
-                + "Discord account.")
+                + "Discord account. `instance` needs See analytics and See audit log instead of "
+                + "either, and still refuses `flagged` and `linked` without See profiles.")
             .Produces<PeopleListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -194,6 +235,12 @@ public static class PeopleEndpoints
     /// <param name="Representing">Representing the group, or not.</param>
     /// <param name="JoinedFrom">Joined the group on or after this.</param>
     /// <param name="JoinedTo">Joined the group before this.</param>
+    /// <param name="InstanceStays">
+    /// Only the people in these stays, which are one instance's (<see cref="PresenceCounts.StaysInInstanceAsync"/>);
+    /// each row then carries a <see cref="InstanceVisit"/>. Null means the list is not narrowed to an instance.
+    /// </param>
+    /// <param name="HereAt">With <paramref name="InstanceStays"/>: only people with a stay covering each of these moments (start at or before it, end after it).</param>
+    /// <param name="NotHereAt">With <paramref name="InstanceStays"/>: only people with no stay covering any of these moments.</param>
     internal sealed record PeopleFilters(
         bool? Banned = null,
         bool? EverBanned = null,
@@ -209,7 +256,10 @@ public static class PeopleEndpoints
         bool? NoRole = null,
         bool? Representing = null,
         DateTimeOffset? JoinedFrom = null,
-        DateTimeOffset? JoinedTo = null);
+        DateTimeOffset? JoinedTo = null,
+        IReadOnlyList<PresenceStay>? InstanceStays = null,
+        IReadOnlyList<DateTimeOffset>? HereAt = null,
+        IReadOnlyList<DateTimeOffset>? NotHereAt = null);
 
     /// <summary>
     /// The trust ranks a repeated <c>trustRank</c> names, or false when one of them is not a rank.
@@ -396,6 +446,36 @@ public static class PeopleEndpoints
         if (filters.JoinedTo is { } joinedTo)
             query = query.Where(x => x.m != null && x.m.JoinedAt < joinedTo);
 
+        // Narrowed to an instance: the people it saw, then each moment asked about. A person is here
+        // at a moment when any of their stays covers it (start <= moment < end), so "not here" means
+        // none does, which somebody who left and came back can only satisfy between their visits.
+        Dictionary<string, InstanceVisit>? visits = null;
+
+        if (filters.InstanceStays is { } stays)
+        {
+            var hereAt = filters.HereAt ?? [];
+            var notHereAt = filters.NotHereAt ?? [];
+
+            static bool Covers(IEnumerable<PresenceStay> own, DateTimeOffset moment)
+                => own.Any(s => s.Started <= moment && moment < s.Ended);
+
+            visits = stays
+                .GroupBy(s => s.UserId, StringComparer.Ordinal)
+                .Where(g => hereAt.All(moment => Covers(g, moment)) && !notHereAt.Any(moment => Covers(g, moment)))
+                .ToDictionary(
+                    g => g.Key,
+                    g =>
+                    {
+                        var first = g.OrderBy(s => s.Started).First();
+                        var last = g.OrderBy(s => s.Ended).Last();
+                        return new InstanceVisit(first.Started, first.ArrivalSeen, last.Ended, last.LeaveSeen, g.Count());
+                    },
+                    StringComparer.Ordinal);
+
+            var inInstance = visits.Keys.ToList();
+            query = query.Where(x => inInstance.Contains(x.u.UserId));
+        }
+
         query = Trimmed(sort)?.ToLowerInvariant() switch
         {
             // Newest joiner first, as the member list opened; people with no join date go last.
@@ -466,7 +546,8 @@ public static class PeopleEndpoints
                 MemberEndpoints.RoleNames(roleIds, roleNames),
                 r.Joined,
                 r.Representing,
-                discord.GetValueOrDefault(r.u.UserId));
+                discord.GetValueOrDefault(r.u.UserId),
+                visits?.GetValueOrDefault(r.u.UserId));
         }).ToList();
 
         var held = await MemberEndpoints.RoleCountsAsync(db, groupId, ct);
