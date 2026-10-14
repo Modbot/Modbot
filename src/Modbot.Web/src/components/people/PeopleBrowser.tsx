@@ -147,7 +147,7 @@ export function PeopleBrowser({
   // The columns turned off are remembered for each view on its own, so moving between the member
   // list's views and the rest of the list reads the new view's choice.
   const columnsKind: PeopleColumnsKind = instance ? 'instance' : view ? 'members' : 'people'
-  const [turnedOff, setTurnedOff] = useState({ kind: columnsKind, hidden: loadHiddenColumns(columnsKind) })
+  const [turnedOff, setTurnedOff] = useState(() => ({ kind: columnsKind, hidden: loadHiddenColumns(columnsKind) }))
   if (turnedOff.kind !== columnsKind) setTurnedOff({ kind: columnsKind, hidden: loadHiddenColumns(columnsKind) })
   const hidden = turnedOff.hidden
   const shows = (id: string) => !hidden.includes(id)

@@ -153,14 +153,16 @@ export function FilterBar({
           phoneLabel={chips.length > 0 ? 'Add' : undefined}
         />
 
-        {tools}
-
         {changed && (
           <Button variant="ghost" onClick={clear}>
             Clear
           </Button>
         )}
       </div>
+
+      {/* Outside the part that folds: on a phone the Filter button takes the chips' place, and a
+          control for the whole list must not go with them. */}
+      {tools}
 
       {/* The right end, as one item rather than a spacer and a row of loose ones. A bare
           `flex-1` spacer between them is a flex item of its own: when the bar wraps it can land
