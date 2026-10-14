@@ -501,7 +501,7 @@ function Overview({
       {readsVisits && vrchatId && <PersonMilestones userId={vrchatId} />}
 
       {readsVisits && vrchatId && (
-        <PersonVisitsuserId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
+        <PersonVisits userId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
       )}
 
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
