@@ -61,7 +61,7 @@ const ASPECT: Record<Shape, number | null> = { wide: 16 / 9, square: 1, whole: n
 /** A post's picture as VRChat has it. */
 type VRChatPictureSent = { imageId: string; pictureId: string }
 
-/** The small copy of a post's picture made for Bluesky's link card, and the picture it was made from. */
+/** The small copy of a post's picture made for Bluesky, and the picture it was made from. */
 type BlueskyCardPicture = { cardPictureId: string; cardPictureFrom: string }
 
 /**
@@ -154,7 +154,7 @@ export function PostComposer({
   // The error shown is the one for the picture the post has now.
   const vrchatPictureError = input.pictureId ? (vrchatErrors[input.pictureId] ?? null) : null
 
-  // Bluesky's link card takes a picture of at most 1,000,000 bytes, so a small JPEG copy of the
+  // Bluesky is sent a picture of at most 1,000,000 bytes, so a small JPEG copy of the
   // post's picture is made here, in the browser, and kept beside it: once per picture, the making
   // itself kept so a second ask waits on the first.
   const blueskyMakes = useRef(new Map<string, Promise<BlueskyCardPicture | null>>())

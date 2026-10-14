@@ -33328,6 +33328,90 @@
         ]
       }
     },
+    "/api/calendar/cover/{id}/bluesky": {
+      "put": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Upload Bluesky picture",
+        "description": "Keeps the small copy of a cover that Bluesky is sent as the post's picture. Needs Manage calendar or Manage templates. The body is a JPEG of under 1,000,000 bytes, told apart by its first bytes. Sent again, it replaces the earlier copy.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "UploadCalendarCoverBlueskyCopy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/covers/{id}": {
       "get": {
         "tags": [
@@ -44000,8 +44084,7 @@
           "uri",
           "title",
           "description",
-          "host",
-          "pictureUrl"
+          "host"
         ],
         "type": "object",
         "properties": {
@@ -44016,12 +44099,6 @@
           },
           "host": {
             "type": "string"
-          },
-          "pictureUrl": {
-            "type": [
-              "null",
-              "string"
-            ]
           }
         }
       },
@@ -44093,6 +44170,8 @@
           "bytes",
           "limit",
           "card",
+          "pictureUrl",
+          "pictureAlt",
           "handle",
           "displayName"
         ],
@@ -44127,6 +44206,18 @@
               {
                 "$ref": "#/components/schemas/BlueskyCardPreview"
               }
+            ]
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureAlt": {
+            "type": [
+              "null",
+              "string"
             ]
           },
           "handle": {

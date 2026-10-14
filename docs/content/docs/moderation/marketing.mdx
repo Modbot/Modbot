@@ -188,10 +188,12 @@ With **Bluesky** ticked, the post goes to your group's Bluesky account, as set u
   the title and text, has its own counter, and **Reset** puts them back.
 - **Links and tags**: a `https://` link and a `#tag` in the text are links on Bluesky. An
   `@handle` stays plain text: Modbot never mentions anyone, because a mention notifies that person.
-- **The link card**: when the text has a link, Bluesky shows a card for the first one, with the
-  post's title (or the link's website when there is no title) and the post's picture. Bluesky takes
-  a card picture of at most 1 MB, so the form makes a small JPEG copy of the picture in your
-  browser and keeps it beside the post. With no link in the text, Bluesky gets the text only.
+- **The picture**: a post with a picture carries it in full under the text, with the post's title
+  as its description, and no link card; a link in the text stays clickable. The form makes a JPEG
+  copy of the picture in your browser, at most 2000 pixels on its longer side and under 1 MB, and
+  keeps it beside the post.
+- **The link card**: a post with no picture, but a link in the text, gets a card for the first link,
+  with the post's title (or the link's website when there is no title).
 
 Bluesky cannot edit a post. Once one is on Bluesky it can only be deleted.
 
@@ -416,8 +418,8 @@ A post goes only where it is ticked, and every place starts unticked.
   (the group, some of its roles, or everyone on vrchat.com), and has VRChat notify the members only
   if **Notify members** was ticked. The picture goes only while **Upload VRChat pictures** is on; it
   is then uploaded to that VRChat account and stays there as a file on it.
-- **Bluesky**: the post's text, and when it has a link, a card with the post's title, that link and
-  a small copy of the picture, go to the account's own server, and from there are public on Bluesky
+- **Bluesky**: the post's text, and either a small copy of the picture with the post's title as its
+  description or, with no picture and a link, a card with the post's title and that link, go to the account's own server, and from there are public on Bluesky
   and copied by other services. Nobody is mentioned.
 
 Nothing about your members goes in a post: no names, no ids, no counts. See

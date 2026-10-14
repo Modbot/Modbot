@@ -32,8 +32,7 @@ public sealed record PostVRChatRequest(
 /// </param>
 /// <param name="CardPictureId">
 /// A small JPEG copy of the post's picture, of at most 1,000,000 bytes, kept with
-/// <c>POST /api/posts/picture</c>, for the link card. Null for none. Sent only while the text has a
-/// link for the card.
+/// <c>POST /api/posts/picture</c>, sent to Bluesky as the post's picture. Null for none.
 /// </param>
 /// <param name="CardPictureFrom">The post's picture the copy was made from; a copy of another picture is not kept.</param>
 public sealed record PostBlueskyRequest(string? Text = null, Guid? CardPictureId = null, Guid? CardPictureFrom = null);
@@ -90,7 +89,7 @@ public sealed record VRChatDestinationView(
     Guid? PictureId);
 
 /// <summary>A Bluesky destination's own choices.</summary>
-/// <param name="CardPictureId">The small copy of the post's picture the link card carries, or null for none.</param>
+/// <param name="CardPictureId">The small copy of the post's picture Bluesky is sent, or null for none.</param>
 /// <param name="CardPictureFrom">The post's picture the copy was made from.</param>
 public sealed record BlueskyDestinationView(Guid? CardPictureId, Guid? CardPictureFrom);
 
@@ -273,8 +272,7 @@ public sealed record BlueskyTextPartView(string Kind, string Text);
 /// <param name="Title">The post's title, or the link's host when there is none.</param>
 /// <param name="Description">The line under the title. May be empty.</param>
 /// <param name="Host">The link's host, as the card shows it.</param>
-/// <param name="PictureUrl">Modbot's own address for the card picture, or null for a card with none.</param>
-public sealed record BlueskyCardPreview(string Uri, string Title, string Description, string Host, string? PictureUrl);
+public sealed record BlueskyCardPreview(string Uri, string Title, string Description, string Host);
 
 /// <summary>What the Bluesky post will be, built by the code that sends it.</summary>
 /// <param name="Text">The whole text, exactly as it is sent.</param>
@@ -282,7 +280,9 @@ public sealed record BlueskyCardPreview(string Uri, string Title, string Descrip
 /// <param name="Graphemes">How many characters the text holds, the way Bluesky counts them.</param>
 /// <param name="Bytes">How many UTF-8 bytes the text holds.</param>
 /// <param name="Limit">Bluesky's limit: 300 characters (and 3000 bytes).</param>
-/// <param name="Card">The link card, when the text has a link; null otherwise.</param>
+/// <param name="Card">The link card, when the text has a link and the post has no picture; null otherwise.</param>
+/// <param name="PictureUrl">Modbot's own address for the picture shown in full under the text, or null for a post with none.</param>
+/// <param name="PictureAlt">The picture's description: the post's title, or empty.</param>
 /// <param name="Handle">The account it goes out as, or null when none is set up.</param>
 /// <param name="DisplayName">That account's display name as the last Check found it.</param>
 public sealed record BlueskyPostPreview(
@@ -292,6 +292,8 @@ public sealed record BlueskyPostPreview(
     int Bytes,
     int Limit,
     BlueskyCardPreview? Card,
+    string? PictureUrl,
+    string? PictureAlt,
     string? Handle,
     string? DisplayName);
 

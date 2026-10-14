@@ -50,6 +50,7 @@ public static class CalendarEndpoints
 
     /// <summary>The refusal for a Discord picture over <see cref="CalendarCoverPicture.MaxBytes"/>.</summary>
     public const string CoverTooBig = "The picture is larger than 8 MB.";
+    public const string BlueskyPictureTooBig = "The Bluesky picture is larger than 1 MB.";
 
     /// <summary>
     /// The refusal for a part of the event form (the picture helpers, the world and staff pickers, the
@@ -946,6 +947,57 @@ public static class CalendarEndpoints
             .Produces<CalendarCoverView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status413PayloadTooLarge);
+
+        // Bluesky's copy of a cover: a small JPEG made in the browser, kept in the cover's own row.
+        group.MapPut("/cover/{id:guid}/bluesky", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                if (RefusedWithoutEditorRights(http) is { } refused)
+                    return refused;
+
+                if (http.Request.ContentLength > BlueskyText.CardPictureMaxBytes)
+                {
+                    return Results.Json(
+                        new { error = BlueskyPictureTooBig },
+                        statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+
+                if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                    limit.MaxRequestBodySize = BlueskyText.CardPictureMaxBytes + 1;
+
+                var bytes = await ReadPictureAsync(http.Request.Body, http.Request.ContentLength, ct);
+
+                if (bytes.Length > BlueskyText.CardPictureMaxBytes)
+                {
+                    return Results.Json(
+                        new { error = BlueskyPictureTooBig },
+                        statusCode: StatusCodes.Status413PayloadTooLarge);
+                }
+
+                if (Core.Files.PictureFormats.Sniff(bytes) != "image/jpeg")
+                    return Results.BadRequest(new { error = "The Bluesky picture must be a JPEG." });
+
+                var changed = await db.CalendarCoverPictures
+                    .Where(c => c.Id == id)
+                    .ExecuteUpdateAsync(c => c.SetProperty(x => x.BlueskyBytes, bytes), ct);
+
+                return changed == 0 ? Results.NotFound() : Results.NoContent();
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("UploadCalendarCoverBlueskyCopy")
+            .WithSummary("Upload Bluesky picture")
+            .WithDescription(
+                "Keeps the small copy of a cover that Bluesky is sent as the post's picture. Needs Manage "
+                + "calendar or Manage templates. The body is a JPEG of under 1,000,000 bytes, told apart "
+                + "by its first bytes. Sent again, it replaces the earlier copy.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status413PayloadTooLarge);
 
         group.MapGet("/covers/{id:guid}", async (

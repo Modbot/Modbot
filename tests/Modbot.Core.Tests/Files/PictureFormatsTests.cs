@@ -63,4 +63,40 @@ public class PictureFormatsTests
     {
         Assert.Equal(expected, PictureFormats.DiscordTakes(type));
     }
+
+    [Fact]
+    public void APngsSizeIsReadFromItsHeader()
+    {
+        byte[] png =
+        [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0, 0, 0, 13, .. "IHDR"u8,
+            0, 0, 0x07, 0xD0, 0, 0, 0x03, 0x20,
+        ];
+
+        Assert.Equal((2000, 800), PictureFormats.Size(png));
+    }
+
+    [Fact]
+    public void AJpegsSizeIsReadFromItsFirstFrameHeader_SkippingOtherSegments()
+    {
+        byte[] jpeg =
+        [
+            0xFF, 0xD8,
+            0xFF, 0xE0, 0, 4, 0x4A, 0x46,                     // a segment to skip
+            0xFF, 0xC4, 0, 3, 0,                              // a table, not a frame
+            0xFF, 0xC0, 0, 11, 8, 0x01, 0xF4, 0x03, 0xE8, 3, 0, 0, // 8-bit, 500 high, 1000 wide
+        ];
+
+        Assert.Equal((1000, 500), PictureFormats.Size(jpeg));
+    }
+
+    [Fact]
+    public void ASizeIsNullForOtherKindsAndCutOffBytes()
+    {
+        Assert.Null(PictureFormats.Size("GIF89a......"u8));
+        Assert.Null(PictureFormats.Size([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0]));
+        Assert.Null(PictureFormats.Size([0xFF, 0xD8, 0xFF, 0xE0, 0, 4]));
+        Assert.Null(PictureFormats.Size([]));
+    }
 }

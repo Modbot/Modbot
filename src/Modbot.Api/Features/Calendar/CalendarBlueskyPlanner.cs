@@ -218,10 +218,7 @@ public sealed class CalendarBlueskyPlanner
 
             var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, tags);
 
-            // Bluesky shows the picture on a link card, so it goes only with a link.
-            var picture = calendarEvent.CoverPictureId is { } cover && Modbot.Core.Bluesky.BlueskyText.CardLink(text) is not null
-                ? cover
-                : (Guid?)null;
+            var picture = calendarEvent.CoverPictureId;
 
             wants[occurrence.StartsAt] = new Want(
                 occurrence.StartsAt,

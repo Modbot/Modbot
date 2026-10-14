@@ -3,18 +3,27 @@ using System.Text.Json.Nodes;
 
 namespace Modbot.Core.Bluesky;
 
-/// <summary>The link card under a post (<c>app.bsky.embed.external</c>), built by Modbot rather than fetched.</summary>
+/// <summary>The link card under a post (<c>app.bsky.embed.external</c>), built by Modbot rather than fetched. It has no picture of its own: a post with a picture shows that instead.</summary>
 /// <param name="Uri">The link it opens: the first link in the text.</param>
 /// <param name="Title">The card's title: the post's title, or the link's host when there is none.</param>
 /// <param name="Description">The card's line under the title. May be empty.</param>
 public sealed record BlueskyCard(string Uri, string Title, string Description);
+
+/// <summary>
+/// The picture a post carries in full (<c>app.bsky.embed.images</c>), instead of a link card.
+/// </summary>
+/// <param name="Blob">The picture's blob, as <c>uploadBlob</c> answered.</param>
+/// <param name="Alt">The picture's description for people who cannot see it. Bluesky requires the field; it may be empty.</param>
+/// <param name="Width">The picture's width, or null when not known.</param>
+/// <param name="Height">The picture's height, or null when not known. Width and height travel together, so the feed keeps the picture's shape instead of cropping it.</param>
+public sealed record BlueskyImage(JsonObject Blob, string Alt, int? Width, int? Height);
 
 /// <summary>The post a reply answers: its address and content id, as Bluesky gave them.</summary>
 public sealed record BlueskyReplyTo(string Uri, string Cid);
 
 /// <summary>
 /// The post record Modbot puts at its key (Bluesky design §3.4, §3.5): the text, its links and tags,
-/// the time, and the link card with its picture.
+/// the time, and the picture or the link card.
 /// </summary>
 /// <remarks>
 /// <c>createdAt</c> is the time of this very send, never the first try's: Bluesky's feeds sort by
@@ -34,10 +43,10 @@ public static class BlueskyPostRecord
     }
 
     /// <summary>The record, ready for <c>putRecord</c>.</summary>
-    /// <param name="thumb">The card picture's blob, as <c>uploadBlob</c> answered, or null for a card with none.</param>
     /// <param name="replyTo">The post this one answers, or null for a post of its own. Modbot replies only to its own top-level posts, so that post is both the root and the parent.</param>
+    /// <param name="image">The post's picture, or null for none. A post has the picture or the link card, never both: with a picture, <paramref name="card"/> is left out (the link stays clickable in the text).</param>
     public static JsonObject Build(
-        string text, DateTimeOffset createdAt, BlueskyCard? card, JsonObject? thumb, BlueskyReplyTo? replyTo = null)
+        string text, DateTimeOffset createdAt, BlueskyCard? card, BlueskyReplyTo? replyTo = null, BlueskyImage? image = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
@@ -61,22 +70,34 @@ public static class BlueskyPostRecord
             };
         }
 
-        if (card is not null)
+        if (image is not null)
         {
-            var external = new JsonObject
+            var entry = new JsonObject
             {
-                ["uri"] = card.Uri,
-                ["title"] = card.Title,
-                ["description"] = card.Description,
+                ["alt"] = image.Alt,
+                ["image"] = image.Blob.DeepClone(),
             };
 
-            if (thumb is not null)
-                external["thumb"] = thumb.DeepClone();
+            if (image.Width is > 0 && image.Height is > 0)
+                entry["aspectRatio"] = new JsonObject { ["width"] = image.Width, ["height"] = image.Height };
 
             record["embed"] = new JsonObject
             {
+                ["$type"] = "app.bsky.embed.images",
+                ["images"] = new JsonArray(entry),
+            };
+        }
+        else if (card is not null)
+        {
+            record["embed"] = new JsonObject
+            {
                 ["$type"] = "app.bsky.embed.external",
-                ["external"] = external,
+                ["external"] = new JsonObject
+                {
+                    ["uri"] = card.Uri,
+                    ["title"] = card.Title,
+                    ["description"] = card.Description,
+                },
             };
         }
 

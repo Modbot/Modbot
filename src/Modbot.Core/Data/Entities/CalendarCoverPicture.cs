@@ -30,6 +30,13 @@ public class CalendarCoverPicture
     /// <summary>The type its bytes have.</summary>
     public string ContentType { get; set; } = "image/png";
 
+    /// <summary>
+    /// The small JPEG copy for Bluesky, made in the browser from the cover (at most 2000 pixels on its
+    /// longer side and under 1,000,000 bytes), or null when none was made. Kept in the cover's own row
+    /// so it lives and dies with it.
+    /// </summary>
+    public byte[]? BlueskyBytes { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Who uploaded it.</summary>

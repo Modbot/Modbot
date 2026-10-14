@@ -69,7 +69,7 @@ your Modbot from the internet to sign it in, and only an `https://` address with
    **Sign-in: Bluesky**, the account and whether it is marked as automated, as **Check** does.
 
 Modbot never sees the account's password this way. It asks Bluesky only for what posting needs:
-making and deleting posts, pinning a post on the account's profile, and uploading the link card's
+making and deleting posts, pinning a post on the account's profile, and uploading a post's
 picture. If Bluesky does not offer that yet, Modbot asks for what an app password can do instead.
 
 **A sign-in made before pinning was added cannot pin.** Click **Sign in with Bluesky** again once, so
@@ -148,8 +148,12 @@ The reply is in [**Marketing**](/moderation/marketing) too and is sent once. It 
 to be on Bluesky; without one there is no reply. See
 [Announce when the first person joins](/moderation/calendar#announce-when-the-first-person-joins).
 
-A post shows a picture only with a link card, so the event's cover picture goes only when the post
-has a link, and only when it is 1 MB or smaller.
+When the event has a cover picture, the post carries it as a full picture under the text, with the
+event's title as its description, and has no link card; a link in the text stays clickable. Modbot
+sends a small copy of the cover, made in your browser when the cover is chosen: at most 2000
+pixels on its longer side and under 1 MB. An event whose cover has no such copy (chosen before this
+was added) sends the cover itself when it is 1 MB or smaller; otherwise the post goes with its link
+card and no picture. Choose the cover again to make the copy.
 
 ### Pin the next event
 
@@ -225,7 +229,7 @@ and never sends the request again before then.
 | The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
-| A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| A post's text, and either its picture (a small copy of it, with the post's title as its description) or, when it has no picture, its link card (the post's title and the link) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
 | The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
@@ -245,5 +249,5 @@ server.
 
 ## Not built yet
 
-Pictures in a post beyond the link card's come in a later version. See
+A second picture in a post, such as the world's, comes in a later version. See
 [Not built yet](/not-built-yet).

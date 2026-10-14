@@ -31,7 +31,7 @@ export type VRChatDestination = {
 
 /** A Bluesky destination's own choices. */
 export type BlueskyDestination = {
-  /** The small copy of the post's picture the link card carries, or null for none. */
+  /** The small copy of the post's picture Bluesky is sent, or null for none. */
   cardPictureId: string | null
   /** The post's picture the copy was made from. */
   cardPictureFrom: string | null
@@ -168,8 +168,12 @@ export type BlueskyPostPreview = {
   graphemes: number
   bytes: number
   limit: number
-  /** The link card, when the text has a link. */
-  card: { uri: string; title: string; description: string; host: string; pictureUrl: string | null } | null
+  /** The link card, when the text has a link and the post has no picture. */
+  card: { uri: string; title: string; description: string; host: string } | null
+  /** The post's picture, shown in full under the text in place of the card. */
+  pictureUrl: string | null
+  /** The picture's description: the post's title. */
+  pictureAlt: string | null
   /** The account it goes out as. */
   handle: string | null
   displayName: string | null
@@ -250,7 +254,7 @@ export type BlueskyInput = {
   /** "Own text" ticked: Bluesky gets `text`, every word of it, instead of the post's title and text. */
   ownText: boolean
   text: string
-  /** The small JPEG copy of the picture for the link card, made in the browser from `cardPictureFrom`. */
+  /** The small JPEG copy of the picture for Bluesky, made in the browser from `cardPictureFrom`. */
   cardPictureId: string | null
   cardPictureFrom: string | null
 }
@@ -315,7 +319,7 @@ export const POST_TITLE_MAX = 200
  */
 export const VRCHAT_TEXT_CEILING = 8000
 
-/** The largest card picture Bluesky takes: the server's `BlueskyText.CardPictureMaxBytes`. */
+/** The largest picture Modbot sends Bluesky: the server's `BlueskyText.CardPictureMaxBytes`. */
 export const BLUESKY_CARD_PICTURE_MAX_BYTES = 1_000_000
 
 export const NETWORK_LABEL: Record<PostNetwork, string> = {
@@ -654,7 +658,7 @@ export function blueskyCount(input: Pick<PostInput, 'title' | 'text' | 'bluesky'
   return { label: `Bluesky ${count} / ${BLUESKY_LIMIT}`, over: count > BLUESKY_LIMIT || bytes > BLUESKY_BYTE_LIMIT }
 }
 
-/** Whether a small copy of the post's picture still has to be made for Bluesky's link card. */
+/** Whether a small copy of the post's picture still has to be made for Bluesky. */
 export function blueskyCardPictureWanted(input: Pick<PostInput, 'pictureId' | 'bluesky'>): boolean {
   return input.bluesky.on && input.pictureId !== null && input.bluesky.cardPictureFrom !== input.pictureId
 }

@@ -413,7 +413,7 @@ under the card too, and go where you last clicked.
   shared with will see it, because **Check** found the calendar is not public, or shows the public
   only free or busy.
 - **Bluesky**: the post for the event's next date, as Bluesky will show it: the account's name, the
-  text, the link card with its picture, and how many of Bluesky's 300 characters it uses.
+  text, the event's cover picture in full (or the link card when it has no picture), and how many of Bluesky's 300 characters it uses.
 
 A card is made by the same code that sends the event, so it matches what goes out. It does not
 save anything or send anything to VRChat, Discord or Google. It can draw an event that is not finished yet,
@@ -1290,8 +1290,9 @@ given its own title or description (see
 [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event)) shows those
 words instead.
 
-Bluesky shows a picture only on a link card, so the event's cover picture goes only when the post
-has a link, and only when the picture is no bigger than 1 MB. Otherwise the post has no picture.
+The event's cover picture goes with the post as a full picture, in place of the link card. Modbot
+sends a small copy made when the cover is chosen. A cover chosen before that has no copy, and goes
+as it is when it is 1 MB or smaller; otherwise the post has no picture.
 
 ### Tags
 

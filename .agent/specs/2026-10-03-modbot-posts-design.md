@@ -68,8 +68,8 @@ external_key IS NOT NULL` (named `ux_post_kind_external_key`; one "We're live on
 | `id`, `post_id` | Deleted with its post. |
 | `network` | `discord`, `vrchat`; later `bluesky`, and others (`mastodon`, a web address). |
 | `target` | Discord: the channel id. VRChat: the group id. Bluesky: the account's DID. Kept so an edit or delete goes to the same place after settings change. Opaque. |
-| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility` (`group`/`public`), `roleIds`, `notify`, `imageId`, and `pictureId`, the post picture the `imageId` was uploaded from; once sent, `imageId` is what VRChat was sent, null for text only. Bluesky: `pictureId`, the post picture the card picture was made from, and `cid` once posted (no `langs` yet, §4.2c). |
-| `site_picture_id` uuid null | The site's own copy of the post's picture, a row of `calendar_cover_picture`: Bluesky's small card picture (step 3a). A column rather than a word in `options`, so the hourly sweep keeps it. |
+| `options` jsonb | Discord: `roleId`, `publish`. VRChat: `visibility` (`group`/`public`), `roleIds`, `notify`, `imageId`, and `pictureId`, the post picture the `imageId` was uploaded from; once sent, `imageId` is what VRChat was sent, null for text only. Bluesky: `pictureId`, the post picture the Bluesky copy was made from, and `cid` once posted (no `langs` yet, §4.2c). |
+| `site_picture_id` uuid null | The site's own copy of the post's picture, a row of `calendar_cover_picture`: Bluesky's small copy of the picture (step 3a). A column rather than a word in `options`, so the hourly sweep keeps it. |
 | `title_override`, `text_override` | Null means the post's own. Discord's "Own text"; VRChat's "Own title" and "Own text". |
 | `state` | `waiting`, `sending`, `checking`, `posted`, `failed`, `removed`, `skipped`. |
 | `client_key` | Bluesky's record key, made once (step 3); later Discord's nonce. |
@@ -294,11 +294,19 @@ post's `at://` address is `external_id` and its content id `options.cid`.
   one, otherwise the title on its own line and the text (`PostTexts.Bluesky`). 300 graphemes
   (`StringInfo`) and 3000 UTF-8 bytes, else "The Bluesky text is longer than 300 characters.", at
   save and at send. Facets for `http(s)://` links and `#tags` only, by UTF-8 byte offsets; an
-  `@handle` stays text, never a mention (facts 13, 24). The card is built by Modbot for the first
-  link in the text: title the post's title (or the link's host), description empty, and the card
-  picture, a JPEG of at most 1,000,000 bytes and 1200 pixels made in the browser from the post's
-  picture (`smallJpeg`), kept with `POST /api/posts/picture` as `site_picture_id`, uploaded with
-  `uploadBlob` just before `putRecord`. With no link there is no card and no picture.
+  `@handle` stays text, never a mention (facts 13, 24). A post with a picture carries
+  it in full (`app.bsky.embed.images`, one image: the blob, `alt` the post's title or empty, and
+  `aspectRatio` read from the JPEG or PNG header when it can be) and has no link card; the link
+  stays a facet in the text. The picture is a JPEG of at most 1,000,000 bytes and 2000 pixels on its
+  longer side, made in the browser from the post's picture (`smallJpeg`), kept with
+  `POST /api/posts/picture` as `site_picture_id`, uploaded with `uploadBlob` just before
+  `putRecord`. A calendar date's picture is the event's cover, whose row also keeps the Bluesky copy
+  (`bluesky_bytes`, put with `PUT /api/calendar/cover/{id}/bluesky`); a cover with no copy goes as
+  itself when it is 1,000,000 bytes or smaller, else the post keeps its link card with no picture.
+  A post with no picture and a link gets the card Modbot builds for the first link: title the post's
+  title (or the link's host), description empty, no picture. Lexicon checked 2026-10-14
+  (`app.bsky.feed.post` embed union; `app.bsky.embed.images`: at most 4 images, `alt` required,
+  `aspectRatio` optional, blob up to 2,000,000 bytes); Modbot keeps its own 1,000,000-byte limit.
 - **The loop**: `PostBlueskyService`, every 30 seconds, registered by the host with
   `AddBlueskyPosting` (the pass is scoped in `ApiSurface`). `PostBlueskySender` lives in
   `Modbot.Api/Features/Posts`, not in `Modbot.Core/Bluesky` as the marketing report placed it: its

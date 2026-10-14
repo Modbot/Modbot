@@ -708,14 +708,9 @@ public static class PostEndpoints
                         .Select(s => new { s.BlueskyHandle, s.BlueskyDisplayName })
                         .FirstOrDefaultAsync(ct);
 
-                    // The card picture is sent only with a card, as the sender does.
-                    var card = blueskySection.Card is { } built
-                        ? new BlueskyCardPreview(
-                            built.Uri,
-                            built.Title,
-                            built.Description,
-                            BlueskyText.CardHost(built.Uri),
-                            blueskySection.CardPictureId is { } copy ? PicturePath + copy : null)
+                    // A post with a picture shows it in full and has no link card, as the sender does.
+                    var card = blueskySection.Card is { } built && blueskySection.CardPictureId is null
+                        ? new BlueskyCardPreview(built.Uri, built.Title, built.Description, BlueskyText.CardHost(built.Uri))
                         : null;
 
                     blueskyPreview = new BlueskyPostPreview(
@@ -725,6 +720,8 @@ public static class PostEndpoints
                         BlueskyText.Bytes(blueskySection.Text),
                         BlueskyText.GraphemeLimit,
                         card,
+                        blueskySection.CardPictureId is { } copy ? PicturePath + copy : null,
+                        blueskySection.CardPictureId is null ? null : PostTexts.TidyTitle(request.Title) ?? string.Empty,
                         account?.BlueskyHandle,
                         account?.BlueskyDisplayName);
                 }

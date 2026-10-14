@@ -270,8 +270,9 @@ wherever you choose to store them. These pages describe what is kept and how it 
   account's id and the app password to the account's own server to sign in; it never posts. Modbot
   keeps that sign-in and renews it with the same server. Once someone turns **Posting** on, a post
   with **Bluesky** ticked sends that server the post's text (its own text, or the title and text),
-  the time it was sent, and, when the text has a link, a link card with the post's title, that
-  link and a small copy of the post's picture made in the browser. From there the post is **public
+  the time it was sent, and either a small copy of the post's picture made in the browser (with the
+  post's title as its description) or, when it has no picture and the text has a link, a link card with
+  the post's title and that link. From there the post is **public
   on Bluesky, and copied by other services**; deleting it removes it from Bluesky, not from copies
   others already took. Modbot never mentions anyone in a Bluesky post, so nobody is notified. Never
   sent: member names, VRChat or Discord ids, head counts, and anything about moderation. **Posting**,

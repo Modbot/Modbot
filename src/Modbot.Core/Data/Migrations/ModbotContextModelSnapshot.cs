@@ -1014,6 +1014,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<byte[]>("BlueskyBytes")
+                        .HasColumnType("bytea")
+                        .HasColumnName("bluesky_bytes");
+
                     b.Property<byte[]>("Bytes")
                         .IsRequired()
                         .HasColumnType("bytea")

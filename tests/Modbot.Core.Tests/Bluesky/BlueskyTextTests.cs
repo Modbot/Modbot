@@ -87,7 +87,7 @@ public class BlueskyTextTests
 
         Assert.Empty(BlueskyText.Facets(text));
 
-        var record = BlueskyPostRecord.Build(text, DateTimeOffset.UnixEpoch, card: null, thumb: null);
+        var record = BlueskyPostRecord.Build(text, DateTimeOffset.UnixEpoch, card: null);
         Assert.False(record.ContainsKey("facets"));
         Assert.DoesNotContain("#mention", record.ToJsonString(), StringComparison.Ordinal);
     }
@@ -169,25 +169,57 @@ public class BlueskyTextTests
     {
         var at = new DateTimeOffset(2026, 10, 3, 18, 30, 15, 123, TimeSpan.FromHours(2));
         var card = new BlueskyCard("https://example.com/a", "Movie night", string.Empty);
-        var thumb = new JsonObject { ["$type"] = "blob", ["size"] = 1000 };
 
-        var record = BlueskyPostRecord.Build("Movie night https://example.com/a", at, card, thumb);
+        var record = BlueskyPostRecord.Build("Movie night https://example.com/a", at, card);
 
         Assert.Equal("app.bsky.feed.post", record["$type"]!.GetValue<string>());
         Assert.Equal("2026-10-03T16:30:15.123Z", record["createdAt"]!.GetValue<string>());
         Assert.Single(record["facets"]!.AsArray());
         Assert.Equal("app.bsky.embed.external", record["embed"]!["$type"]!.GetValue<string>());
-        Assert.Equal(1000, record["embed"]!["external"]!["thumb"]!["size"]!.GetValue<int>());
+        Assert.Equal("Movie night", record["embed"]!["external"]!["title"]!.GetValue<string>());
+        Assert.Null(record["embed"]!["external"]!["thumb"]);
+    }
+
+    [Fact]
+    public void APictureIsEmbeddedInFullWithItsDescriptionAndShape_AndTheCardIsLeftOut()
+    {
+        var card = new BlueskyCard("https://example.com/a", "Movie night", string.Empty);
+        var blob = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
+
+        var record = BlueskyPostRecord.Build(
+            "Movie night https://example.com/a", DateTimeOffset.UnixEpoch, card, image: new BlueskyImage(blob, "Movie night", 2000, 800));
+
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["external"]);
+
+        var image = Assert.Single(embed["images"]!.AsArray())!;
+        Assert.Equal("Movie night", image["alt"]!.GetValue<string>());
+        Assert.Equal(900, image["image"]!["size"]!.GetValue<int>());
+        Assert.Equal(2000, image["aspectRatio"]!["width"]!.GetValue<int>());
+        Assert.Equal(800, image["aspectRatio"]!["height"]!.GetValue<int>());
+        Assert.Single(record["facets"]!.AsArray());
+    }
+
+    [Fact]
+    public void APictureOfUnknownShapeLeavesTheShapeOut()
+    {
+        var blob = new JsonObject { ["$type"] = "blob", ["size"] = 900 };
+        var record = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, image: new BlueskyImage(blob, string.Empty, null, null));
+
+        var image = Assert.Single(record["embed"]!["images"]!.AsArray())!;
+        Assert.Null(image["aspectRatio"]);
+        Assert.Equal(string.Empty, image["alt"]!.GetValue<string>());
     }
 
     [Fact]
     public void AReplyNamesThePostItAnswersAsBothRootAndParent_AndAPostOfItsOwnHasNoReply()
     {
-        var own = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null, thumb: null);
+        var own = BlueskyPostRecord.Build("Hello", DateTimeOffset.UnixEpoch, card: null);
         Assert.False(own.ContainsKey("reply"));
 
         var reply = BlueskyPostRecord.Build(
-            "We're live.", DateTimeOffset.UnixEpoch, card: null, thumb: null, new BlueskyReplyTo("at://did:plc:x/app.bsky.feed.post/abc", "bafy-abc"));
+            "We're live.", DateTimeOffset.UnixEpoch, card: null, new BlueskyReplyTo("at://did:plc:x/app.bsky.feed.post/abc", "bafy-abc"));
 
         foreach (var name in new[] { "root", "parent" })
         {
@@ -209,7 +241,7 @@ public class BlueskyTextTests
     }
 
     [Fact]
-    public void TheCardPictureGoesOnlyWithALink_AndOnlyWhenMadeFromThePostsPicture()
+    public void ThePictureGoesWithAnyText_AndOnlyWhenMadeFromThePostsPicture()
     {
         var picture = Guid.NewGuid();
         var copy = Guid.NewGuid();
@@ -221,10 +253,9 @@ public class BlueskyTextTests
             Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(picture)),
         };
 
-        Assert.Equal(copy, PostTexts.BlueskyPictureFor(post, destination, "See https://example.com/a"));
-        Assert.Null(PostTexts.BlueskyPictureFor(post, destination, "No link"));
+        Assert.Equal(copy, PostTexts.BlueskyPictureFor(post, destination));
 
         post.PictureId = Guid.NewGuid();
-        Assert.Null(PostTexts.BlueskyPictureFor(post, destination, "See https://example.com/a"));
+        Assert.Null(PostTexts.BlueskyPictureFor(post, destination));
     }
 }

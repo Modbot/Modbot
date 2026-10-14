@@ -290,10 +290,10 @@ public static class PostTexts
         JsonSerializer.Serialize(options ?? new BlueskyPostOptions(), Json);
 
     /// <summary>
-    /// The card picture a Bluesky post goes with, or null for none: only when the text has a link for
-    /// the card, and only when the small copy was made from the picture the post has now.
+    /// The picture a Bluesky post goes with, or null for none: only when the small copy was made from
+    /// the picture the post has now. A post with a picture shows it in full, whether or not its text has a link.
     /// </summary>
-    public static Guid? BlueskyPictureFor(Post post, PostDestination destination, string text)
+    public static Guid? BlueskyPictureFor(Post post, PostDestination destination)
     {
         ArgumentNullException.ThrowIfNull(post);
         ArgumentNullException.ThrowIfNull(destination);
@@ -301,7 +301,6 @@ public static class PostTexts
         return destination.SitePictureId is { } copy
             && post.PictureId is { } picture
             && BlueskyOptionsOf(destination).PictureId == picture
-            && global::Modbot.Core.Bluesky.BlueskyText.CardLink(text) is not null
                 ? copy
                 : null;
     }

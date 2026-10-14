@@ -130,6 +130,43 @@ public class CalendarCoverTests(PostgresFixture db)
         Assert.Contains("nosniff", read.Headers.GetValues("X-Content-Type-Options"));
     }
 
+    private static Task<HttpResponseMessage> UploadBlueskyCopyAsync(ApiTestHost host, string cookie, Guid cover, byte[] bytes)
+    {
+        var request = host.Authenticated(HttpMethod.Put, $"{Path}/{cover}/bluesky", cookie);
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        return host.Client.SendAsync(request, Ct);
+    }
+
+    [Fact]
+    public async Task ABlueskyCopyIsKeptInTheCoversOwnRow_ReplacedByTheNext_AndOnlyAsAJpegUnderOneMegabyte()
+    {
+        await using var host = await StartAsync();
+        var manager = await ManagerAsync(host);
+        var cover = await UploadedAsync(host, manager);
+
+        byte[] jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+        Assert.Equal(HttpStatusCode.NoContent, (await UploadBlueskyCopyAsync(host, manager, cover, jpeg)).StatusCode);
+
+        await using (var context = db.NewContext())
+        {
+            var row = await context.CalendarCoverPictures.AsNoTracking().SingleAsync(c => c.Id == cover, Ct);
+            Assert.Equal(jpeg, row.BlueskyBytes);
+            Assert.Equal(Png(), row.Bytes);
+        }
+
+        // Not a JPEG, over 1,000,000 bytes, or no such cover.
+        Assert.Equal(HttpStatusCode.BadRequest, (await UploadBlueskyCopyAsync(host, manager, cover, Png())).StatusCode);
+
+        var big = new byte[1_000_001];
+        jpeg.CopyTo(big, 0);
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await UploadBlueskyCopyAsync(host, manager, cover, big)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await UploadBlueskyCopyAsync(host, manager, Guid.NewGuid(), jpeg)).StatusCode);
+
+        var viewer = (await host.SignedInAsync(ModbotPermissions.ViewCalendar, Ct)).Cookie;
+        Assert.Equal(HttpStatusCode.Forbidden, (await UploadBlueskyCopyAsync(host, viewer, cover, jpeg)).StatusCode);
+    }
+
     [Fact]
     public async Task SomethingThatIsNotAPictureIsRefused()
     {

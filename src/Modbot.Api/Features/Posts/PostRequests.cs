@@ -58,7 +58,7 @@ internal static class PostRequests
     /// <param name="Did">The account it goes to: the one in Settings when it was saved.</param>
     /// <param name="OwnText">Bluesky's own text, or null for the post's title and text.</param>
     /// <param name="Text">The whole text Bluesky gets.</param>
-    /// <param name="CardPictureId">The small copy of the picture for the card, kept only when it is of the post's picture.</param>
+    /// <param name="CardPictureId">The small copy of the picture Bluesky is sent, kept only when it is of the post's picture.</param>
     /// <param name="Card">The link card, when the text has a link.</param>
     public sealed record CheckedBluesky(
         string? Did,
@@ -254,8 +254,8 @@ internal static class PostRequests
     /// <summary>
     /// The Bluesky section (posts design §4.2c): its own text, the 300-character and 3000-byte limits
     /// counted the way Bluesky counts, and the card picture. The account is the one in Settings when
-    /// the post is saved. The card picture is kept only when it is a small enough copy of the post's
-    /// own picture; Bluesky gets it only when the text has a link for the card.
+    /// the post is saved. The picture is kept only when it is a small enough copy of the post's
+    /// own picture; Bluesky shows it in full in place of a link card.
     /// </summary>
     private static async Task<CheckedBluesky> CheckBlueskyAsync(
         ModbotContext db,

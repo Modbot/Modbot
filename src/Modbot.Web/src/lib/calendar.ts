@@ -641,6 +641,13 @@ export const calendarApi = {
       body: picture,
       headers: { 'content-type': picture.type || 'application/octet-stream' },
     }),
+  /** Keeps the small JPEG copy of a cover that Bluesky is sent as the post's picture. */
+  uploadCoverBlueskyCopy: (coverId: string, picture: Blob) =>
+    http.request<void>(`${base}/cover/${encodeURIComponent(coverId)}/bluesky`, {
+      method: 'PUT',
+      body: picture,
+      headers: { 'content-type': 'image/jpeg' },
+    }),
   inviteChoices: (forTemplate = false) =>
     http.request<CalendarInviteChoices>(`${base}/invite-choices${forTemplate ? '?template=true' : ''}`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),

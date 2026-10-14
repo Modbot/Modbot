@@ -4,6 +4,7 @@ using Modbot.Analytics.Facts;
 using Modbot.Core.Bluesky;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Files;
 using Modbot.Core.Logging;
 using Modbot.Core.Posts;
 using Modbot.Core.Time;
@@ -413,20 +414,26 @@ public sealed class PostBlueskySender
         if (!await _claim.ClaimAsync(post, destination, null, text, pass.Ct).ConfigureAwait(false))
             return;
 
-        var card = BlueskyPostRecord.CardFor(PostTexts.TidyTitle(post.Title), text);
-        JsonObject? thumb = null;
+        var title = PostTexts.TidyTitle(post.Title);
+        var card = BlueskyPostRecord.CardFor(title, text);
+        BlueskyImage? image = null;
 
-        if (card is not null && PostTexts.BlueskyPictureFor(post, destination, text) is { } pictureId)
+        // A post with a picture carries it in full and has no link card; the link stays in the text.
+        if (PostTexts.BlueskyPictureFor(post, destination) is { } pictureId)
         {
             var picture = await _db.CalendarCoverPictures.AsNoTracking()
                 .Where(c => c.Id == pictureId)
-                .Select(c => new { c.Bytes, c.ContentType })
+                .Select(c => new { c.Bytes, c.ContentType, c.BlueskyBytes })
                 .FirstOrDefaultAsync(pass.Ct).ConfigureAwait(false);
 
-            if (picture is not null && picture.Bytes.Length <= BlueskyText.CardPictureMaxBytes)
+            // The small copy made in the browser, or the picture itself when that is small enough.
+            var bytes = picture?.BlueskyBytes ?? (picture is not null && picture.Bytes.Length <= BlueskyText.CardPictureMaxBytes ? picture.Bytes : null);
+
+            if (bytes is not null)
             {
                 // The same bytes give the same blob, so an upload made again is harmless.
-                var uploaded = await _client.UploadBlobAsync(access, picture.Bytes, picture.ContentType, pass.Ct)
+                var uploaded = await _client.UploadBlobAsync(
+                        access, bytes, picture!.BlueskyBytes is null ? picture.ContentType : "image/jpeg", pass.Ct)
                     .ConfigureAwait(false);
 
                 if (uploaded.Failure is { } refused)
@@ -435,12 +442,13 @@ public sealed class PostBlueskySender
                     return;
                 }
 
-                thumb = uploaded.Value;
+                var size = PictureFormats.Size(bytes);
+                image = new BlueskyImage(uploaded.Value!, title ?? string.Empty, size?.Width, size?.Height);
             }
         }
 
         // createdAt is this send's own time: feeds sort by it (fact 21).
-        var record = BlueskyPostRecord.Build(text, pass.Now, card, thumb, replyTo);
+        var record = BlueskyPostRecord.Build(text, pass.Now, card, replyTo, image);
 
         var put = await _client.PutRecordAsync(access, access.Did, BlueskyClient.PostCollection, key, record, pass.Ct)
             .ConfigureAwait(false);

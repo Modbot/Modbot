@@ -57,4 +57,61 @@ public static class PictureFormats
     /// <summary>Whether Discord takes this type as an event cover or a file on a card.</summary>
     public static bool DiscordTakes(string? type) =>
         type is "image/png" or "image/jpeg" or "image/gif" or "image/webp";
+
+    /// <summary>
+    /// The width and height of a PNG or JPEG, read from its header, or null for any other kind or
+    /// bytes cut short. Bluesky wants the shape of a picture beside it so it can reserve the room
+    /// before the picture loads.
+    /// </summary>
+    public static (int Width, int Height)? Size(ReadOnlySpan<byte> bytes)
+    {
+        if (Sniff(bytes) == "image/png")
+        {
+            // 8 bytes of signature, then the IHDR chunk: length, "IHDR", width, height.
+            if (bytes.Length < 24 || !bytes[12..16].SequenceEqual("IHDR"u8))
+                return null;
+
+            return Positive(ReadInt(bytes[16..20]), ReadInt(bytes[20..24]));
+        }
+
+        if (!bytes.StartsWith((ReadOnlySpan<byte>)[0xFF, 0xD8, 0xFF]))
+            return null;
+
+        // Segments from the top, until the one that says how big the picture is.
+        var at = 2;
+        while (at + 4 <= bytes.Length)
+        {
+            if (bytes[at] != 0xFF)
+                return null;
+
+            var marker = bytes[at + 1];
+            if (marker == 0xFF)
+            {
+                at++;
+                continue;
+            }
+
+            var length = (bytes[at + 2] << 8) | bytes[at + 3];
+
+            // Start of frame (not the table, arithmetic-coding and reserved markers in the same range).
+            if (marker is >= 0xC0 and <= 0xCF && marker is not (0xC4 or 0xC8 or 0xCC))
+            {
+                return at + 9 <= bytes.Length
+                    ? Positive((bytes[at + 7] << 8) | bytes[at + 8], (bytes[at + 5] << 8) | bytes[at + 6])
+                    : null;
+            }
+
+            if (marker == 0xDA || length < 2)
+                return null;
+
+            at += 2 + length;
+        }
+
+        return null;
+    }
+
+    private static int ReadInt(ReadOnlySpan<byte> four) => (four[0] << 24) | (four[1] << 16) | (four[2] << 8) | four[3];
+
+    private static (int Width, int Height)? Positive(int width, int height) =>
+        width > 0 && height > 0 ? (width, height) : null;
 }

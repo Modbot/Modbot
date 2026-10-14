@@ -47,7 +47,7 @@ public static partial class BlueskyText
     /// <summary>The longest tag Bluesky takes, in graphemes, without its <c>#</c>.</summary>
     public const int TagLimit = 64;
 
-    /// <summary>The most a card picture may be: Bluesky's limit for a link card's thumb.</summary>
+    /// <summary>The most a Bluesky picture may be: the size the small copy is made to, under what Bluesky takes.</summary>
     public const int CardPictureMaxBytes = 1_000_000;
 
     /// <summary>The longest card description sent.</summary>

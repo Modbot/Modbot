@@ -393,19 +393,31 @@ public sealed class PostBlueskySenderTests
         Assert.Equal(["app.bsky.richtext.facet#link", "app.bsky.richtext.facet#tag"], kinds);
     }
 
-    [Fact]
-    public async Task TheCardCarriesTheSmallPicture_UploadedFirst()
+    /// <summary>A JPEG that is only a header: enough to read its size from, padded to <paramref name="length"/> bytes.</summary>
+    private static byte[] Jpeg(int width, int height, int length)
     {
-        await SetUpAsync();
+        byte[] head = [0xFF, 0xD8, 0xFF, 0xC0, 0, 11, 8, (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 3, 0, 0];
+        var bytes = new byte[length];
+        head.CopyTo(bytes, 0);
+        return bytes;
+    }
 
+    private async Task<(Guid Picture, Guid Copy)> AddPicturesAsync(byte[] copyBytes)
+    {
         var picture = Guid.CreateVersion7();
         var copy = Guid.CreateVersion7();
-        await using (var context = _db.NewContext())
-        {
-            context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = picture, Bytes = new byte[4000], ContentType = "image/png", CreatedAt = _clock.UtcNow });
-            context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = copy, Bytes = new byte[900], ContentType = "image/jpeg", CreatedAt = _clock.UtcNow });
-            await context.SaveChangesAsync(Ct);
-        }
+        await using var context = _db.NewContext();
+        context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = picture, Bytes = new byte[4000], ContentType = "image/png", CreatedAt = _clock.UtcNow });
+        context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = copy, Bytes = copyBytes, ContentType = "image/jpeg", CreatedAt = _clock.UtcNow });
+        await context.SaveChangesAsync(Ct);
+        return (picture, copy);
+    }
+
+    [Fact]
+    public async Task APostWithAPictureCarriesItInFull_UploadedFirst_WithItsTitleAndShape_AndNoCard()
+    {
+        await SetUpAsync();
+        var (picture, copy) = await AddPicturesAsync(Jpeg(2000, 800, 900));
 
         await AddPostAsync(text: "Tickets at https://example.com/night", shape: (post, destination) =>
         {
@@ -417,14 +429,115 @@ public sealed class PostBlueskySenderTests
         await PassAsync();
 
         Assert.Equal([900], _bluesky.Blobs);
-        var external = Assert.Single(PutRecords())["record"]!["embed"]!["external"]!;
-        Assert.Equal("https://example.com/night", external["uri"]!.GetValue<string>());
-        Assert.Equal("Movie night", external["title"]!.GetValue<string>());
-        Assert.Equal(900, external["thumb"]!["size"]!.GetValue<int>());
+        var record = Assert.Single(PutRecords())["record"]!;
+        var embed = record["embed"]!;
+        Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
+        Assert.Null(embed["external"]);
+
+        var image = Assert.Single(embed["images"]!.AsArray())!;
+        Assert.Equal("Movie night", image["alt"]!.GetValue<string>());
+        Assert.Equal(900, image["image"]!["size"]!.GetValue<int>());
+        Assert.Equal(2000, image["aspectRatio"]!["width"]!.GetValue<int>());
+        Assert.Equal(800, image["aspectRatio"]!["height"]!.GetValue<int>());
+
+        // The link stays clickable in the text.
+        Assert.Single(record["facets"]!.AsArray());
 
         var upload = _bluesky.Requests.FindIndex(r => r.Method == "com.atproto.repo.uploadBlob");
         var put = _bluesky.Requests.FindIndex(r => r.Method == "com.atproto.repo.putRecord");
         Assert.True(upload < put);
+    }
+
+    [Fact]
+    public async Task APostWithAPictureAndNoLinkStillCarriesThePicture()
+    {
+        await SetUpAsync();
+        var (picture, copy) = await AddPicturesAsync(Jpeg(1000, 1000, 700));
+
+        await AddPostAsync(text: "No link in this one", shape: (post, destination) =>
+        {
+            post.PictureId = picture;
+            destination.SitePictureId = copy;
+            destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(picture));
+        });
+
+        await PassAsync();
+
+        var embed = Assert.Single(PutRecords())["record"]!["embed"]!;
+        Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ACalendarCoverGoesAsItsSmallBlueskyCopy_WhenItHasOne()
+    {
+        await SetUpAsync();
+
+        var cover = Guid.CreateVersion7();
+        await using (var context = _db.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture
+            {
+                Id = cover,
+                Bytes = new byte[3_000_000],
+                ContentType = "image/png",
+                BlueskyBytes = Jpeg(2000, 800, 800_000),
+                CreatedAt = _clock.UtcNow,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await AddPostAsync(text: "Tickets at https://example.com/night", shape: (post, destination) =>
+        {
+            post.PictureId = cover;
+            destination.SitePictureId = cover;
+            destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(cover));
+        });
+
+        await PassAsync();
+
+        Assert.Equal([800_000], _bluesky.Blobs);
+        var embed = Assert.Single(PutRecords())["record"]!["embed"]!;
+        Assert.Equal("app.bsky.embed.images", embed["$type"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ACoverOverOneMegabyteWithNoCopyKeepsTheLinkCardAndUploadsNothing()
+    {
+        await SetUpAsync();
+
+        var cover = Guid.CreateVersion7();
+        await using (var context = _db.NewContext())
+        {
+            context.CalendarCoverPictures.Add(new CalendarCoverPicture { Id = cover, Bytes = new byte[3_000_000], ContentType = "image/png", CreatedAt = _clock.UtcNow });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await AddPostAsync(text: "Tickets at https://example.com/night", shape: (post, destination) =>
+        {
+            post.PictureId = cover;
+            destination.SitePictureId = cover;
+            destination.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(cover));
+        });
+
+        await PassAsync();
+
+        Assert.Empty(_bluesky.Blobs);
+        var external = Assert.Single(PutRecords())["record"]!["embed"]!["external"]!;
+        Assert.Equal("https://example.com/night", external["uri"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task APostWithNoPictureKeepsItsLinkCard()
+    {
+        await SetUpAsync();
+        await AddPostAsync(text: "Tickets at https://example.com/night");
+
+        await PassAsync();
+
+        Assert.Empty(_bluesky.Blobs);
+        var embed = Assert.Single(PutRecords())["record"]!["embed"]!;
+        Assert.Equal("app.bsky.embed.external", embed["$type"]!.GetValue<string>());
+        Assert.Equal("Movie night", embed["external"]!["title"]!.GetValue<string>());
     }
 
     [Fact]

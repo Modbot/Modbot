@@ -208,6 +208,24 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ThePreviewShowsThePictureInFullInPlaceOfTheCard()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        var picture = await PictureAsync(5000, "image/png");
+        var copy = await PictureAsync(800);
+
+        var body = Body(
+            host, new { cardPictureId = copy, cardPictureFrom = picture }, text: "Friday at https://example.com/night", pictureId: picture);
+        var preview = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/posts/preview", body, cookie, Ct), Ct);
+
+        var bluesky = preview.GetProperty("bluesky");
+        Assert.EndsWith(copy.ToString(), bluesky.GetProperty("pictureUrl").GetString());
+        Assert.Equal("Movie night", bluesky.GetProperty("pictureAlt").GetString());
+        Assert.Equal(JsonValueKind.Null, bluesky.GetProperty("card").ValueKind);
+    }
+
+    [Fact]
     public async Task TheCardPictureIsKeptOnlyAsACopyOfThePostsPicture()
     {
         var (host, _, cookie) = await StartAsync();

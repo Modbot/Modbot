@@ -76,8 +76,8 @@ export function PostPreviewPanel({
 
 /**
  * A Bluesky post as Bluesky shows it: the account's name and handle, the exact text with its links
- * and tags coloured (never a mention), and the link card Modbot builds, with its picture when it has
- * one. The counter is the server's count. The calendar form passes `body` to put boxes to type in
+ * and tags coloured (never a mention), then the post's picture in full, or the link card Modbot
+ * builds when it has no picture. The counter is the server's count. The calendar form passes `body` to put boxes to type in
  * where the text is.
  */
 export function BlueskyPost({ post, body }: { post: BlueskyPostPreview; body?: ReactNode }) {
@@ -107,9 +107,16 @@ export function BlueskyPost({ post, body }: { post: BlueskyPostPreview; body?: R
             )}
           </p>
         )}
+        {post.pictureUrl && (
+          <img
+            src={post.pictureUrl}
+            alt={post.pictureAlt ?? ''}
+            className="max-h-96 w-full rounded-sm border border-(length:--hairline) object-contain"
+            loading="lazy"
+          />
+        )}
         {post.card && (
           <div className="flex flex-col overflow-hidden rounded-sm border border-(length:--hairline)">
-            {post.card.pictureUrl && <img src={post.card.pictureUrl} alt="" className="max-h-60 w-full object-cover" loading="lazy" />}
             <div className="flex flex-col gap-0.5 p-2">
               <span className="font-medium [overflow-wrap:anywhere]">{post.card.title}</span>
               {post.card.description && <span className="text-muted-foreground [overflow-wrap:anywhere]">{post.card.description}</span>}

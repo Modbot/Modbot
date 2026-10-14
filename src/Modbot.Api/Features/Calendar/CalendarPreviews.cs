@@ -127,8 +127,10 @@ public static class CalendarPreviews
 
         var entry = CalendarFeedWriter.Entry(calendarEvent, names);
         var blueskyPicture = calendarEvent.CoverPictureId is { } coverId
-            ? await db.CalendarCoverPictures.AsNoTracking().Where(c => c.Id == coverId).Select(c => (int?)c.Bytes.Length).FirstOrDefaultAsync(ct)
-            : null;
+            && await db.CalendarCoverPictures.AsNoTracking()
+                .Where(c => c.Id == coverId)
+                .Select(c => c.BlueskyBytes != null || c.Bytes.Length <= BlueskyText.CardPictureMaxBytes)
+                .FirstOrDefaultAsync(ct);
 
         return new CalendarPreviewResult(
             new CalendarPreviewView(
@@ -154,15 +156,15 @@ public static class CalendarPreviews
 
     /// <summary>
     /// The Bluesky post for the event's current date, made by the code that makes the real ones
-    /// (<see cref="CalendarBlueskyText"/>). The picture shows only on a link card and only when it is
-    /// small enough for Bluesky, as the sender does it.
+    /// (<see cref="CalendarBlueskyText"/>). The cover shows in full, in place of the link card, when
+    /// the sender has a copy of it small enough for Bluesky.
     /// </summary>
-    /// <param name="pictureBytes">The cover picture's size, or null when the event has none.</param>
+    /// <param name="hasPicture">Whether the event has a cover Bluesky can be sent.</param>
     public static BlueskyPostPreview Bluesky(
         CalendarEvent calendarEvent,
         IReadOnlyDictionary<string, string> worldNames,
         Modbot.Core.Data.Entities.Settings? settings,
-        int? pictureBytes)
+        bool hasPicture)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
         ArgumentNullException.ThrowIfNull(worldNames);
@@ -172,11 +174,7 @@ public static class CalendarPreviews
         var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, CalendarBlueskyText.TagsOf(calendarEvent, settings?.BlueskyPostTags));
         var card = BlueskyPostRecord.CardFor(CalendarBlueskyText.TitleOf(calendarEvent, occurrence), text);
 
-        var picture = card is not null
-            && calendarEvent.CoverPictureId is { } cover
-            && pictureBytes is { } bytes and <= BlueskyText.CardPictureMaxBytes
-            ? CoverPath + cover
-            : null;
+        var picture = hasPicture && calendarEvent.CoverPictureId is { } cover ? CoverPath + cover : null;
 
         return new BlueskyPostPreview(
             text,
@@ -184,7 +182,9 @@ public static class CalendarPreviews
             BlueskyText.Graphemes(text),
             BlueskyText.Bytes(text),
             BlueskyText.GraphemeLimit,
-            card is null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri), picture),
+            card is null || picture is not null ? null : new BlueskyCardPreview(card.Uri, card.Title, card.Description, BlueskyText.CardHost(card.Uri)),
+            picture,
+            picture is null ? null : CalendarBlueskyText.TitleOf(calendarEvent, occurrence) ?? string.Empty,
             settings?.BlueskyHandle,
             settings?.BlueskyDisplayName);
     }

@@ -1,4 +1,6 @@
 import { calendarApi, CALENDAR_COVER_MAX_BYTES, VRCHAT_PICTURE_MAX_BYTES } from '@/lib/calendar'
+import { smallJpeg } from '@/lib/pictureFiles'
+import { BLUESKY_CARD_PICTURE_MAX_BYTES } from '@/lib/postRules'
 import { DISCORD_COVER_ASPECT, VRCHAT_PICTURE_ASPECT, vrchatFileIdInLink } from '@/lib/eventPicture'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { useCroppedPicture, type CroppedPicture } from './useCroppedPicture'
@@ -45,7 +47,8 @@ export function useVRChatPicture({
 
 /**
  * Discord's picture being chosen (calendar design §15.4): a 2.5:1 crop, kept by Modbot, and its id
- * saved on the event as the Discord event's cover and the channel post's picture.
+ * saved on the event as the Discord event's cover and the channel post's picture, and Bluesky's
+ * picture.
  */
 export function useDiscordCover({
   onUploaded,
@@ -57,7 +60,20 @@ export function useDiscordCover({
   return useCroppedPicture({
     aspect: DISCORD_COVER_ASPECT,
     maxBytes: CALENDAR_COVER_MAX_BYTES,
-    send: (file) => calendarApi.uploadCover(file).then((r) => r.coverId),
+    send: async (file) => {
+      const { coverId } = await calendarApi.uploadCover(file)
+
+      // Bluesky is sent a small JPEG copy of the cover. A cover that cannot be made small enough is
+      // still saved: its Bluesky posts then go with the cover itself when it is under 1 MB, else
+      // with their link card only.
+      try {
+        await calendarApi.uploadCoverBlueskyCopy(coverId, await smallJpeg(file, BLUESKY_CARD_PICTURE_MAX_BYTES))
+      } catch {
+        // Nothing to say: the cover is what was asked for.
+      }
+
+      return coverId
+    },
     onUploaded: (coverId) => onUploaded(coverId),
     initialLink,
   })
