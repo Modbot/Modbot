@@ -382,6 +382,76 @@ public class BlueskySettingsTests(PostgresFixture db)
         Assert.False((await context.GetSettingsAsync(Ct)).BlueskyPinNextEvent);
     }
 
+    private async Task SeedPinErrorAsync()
+    {
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.BlueskyPinNextEvent = true;
+        settings.BlueskyPinnedUri = "at://did:plc:old/app.bsky.feed.post/old";
+        settings.BlueskyPinError = "Bluesky refused the pin.";
+        settings.BlueskyPinErrorAt = DateTimeOffset.UnixEpoch;
+        await context.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task ANewHandleClearsAnOldPinFailure()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        await SetUpAsync(host, cookie);
+        await SeedPinErrorAsync();
+
+        await OkAsync(await SaveAsync(host, cookie, new { handle = "OtherGroup" }));
+
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        Assert.Null(settings.BlueskyPinError);
+        Assert.Null(settings.BlueskyPinErrorAt);
+        Assert.Null(settings.BlueskyPinnedUri);
+    }
+
+    [Fact]
+    public async Task ChangingThePinSwitchClearsAnOldPinFailure()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        await SeedPinErrorAsync();
+
+        await OkAsync(await SaveAsync(host, cookie, new { pinNextEvent = false }));
+
+        await using (var context = db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            Assert.Null(settings.BlueskyPinError);
+            Assert.Null(settings.BlueskyPinErrorAt);
+        }
+
+        // A save that does not change the switch leaves a failure be.
+        await SeedPinErrorAsync();
+        await OkAsync(await SaveAsync(host, cookie, new { pinNextEvent = true, postTags = "#VRChat" }));
+
+        await using var again = db.NewContext();
+        Assert.NotNull((await again.GetSettingsAsync(Ct)).BlueskyPinError);
+    }
+
+    [Fact]
+    public async Task RemoveTurnsThePinOff_AndClearsItsFailure()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+        await SetUpAsync(host, cookie);
+        await SeedPinErrorAsync();
+
+        await OkAsync(await host.SendJsonAsync(HttpMethod.Delete, Path, null, cookie, Ct));
+
+        await using var context = db.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        Assert.False(settings.BlueskyPinNextEvent);
+        Assert.Null(settings.BlueskyPinnedUri);
+        Assert.Null(settings.BlueskyPinError);
+        Assert.Null(settings.BlueskyPinErrorAt);
+    }
+
     [Fact]
     public async Task MoreThanFiveTagsOrOneTooLongIsRefused_AndNothingIsSaved()
     {

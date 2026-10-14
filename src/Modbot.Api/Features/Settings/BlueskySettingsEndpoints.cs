@@ -194,6 +194,8 @@ public static class BlueskySettingsEndpoints
                     // The pin was on the old account's profile.
                     settings.BlueskyPinnedUri = null;
                     settings.BlueskyPinCheckedAt = null;
+                    settings.BlueskyPinError = null;
+                    settings.BlueskyPinErrorAt = null;
                 }
 
                 if (passwordChanged)
@@ -222,8 +224,11 @@ public static class BlueskySettingsEndpoints
                 {
                     settings.BlueskyPinNextEvent = pinAfter;
 
-                    // Turned on, the profile is looked at on the next pass.
+                    // Turned on, the profile is looked at on the next pass. An old failure is no
+                    // news about the new setting.
                     settings.BlueskyPinCheckedAt = null;
+                    settings.BlueskyPinError = null;
+                    settings.BlueskyPinErrorAt = null;
                 }
 
                 var change = new SettingsChange("bluesky")
@@ -265,7 +270,8 @@ public static class BlueskySettingsEndpoints
                     .Field("blueskyHandle", settings.BlueskyHandle, null)
                     .Secret("blueskyAppPassword", settings.BlueskyAppPasswordEncrypted is not null)
                     .Field("blueskySignedInWithBluesky", settings.BlueskyOAuthSignedIn, false)
-                    .Field("blueskyPosting", settings.BlueskyPostingOn, false);
+                    .Field("blueskyPosting", settings.BlueskyPostingOn, false)
+                    .Field("blueskyPinNextEvent", settings.BlueskyPinNextEvent, false);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -278,6 +284,13 @@ public static class BlueskySettingsEndpoints
                 settings.BlueskyOAuthPendingEncrypted = null;
                 settings.BlueskySignInRefused = false;
                 settings.BlueskyPostingOn = false;
+
+                // The pin was on the removed account's profile.
+                settings.BlueskyPinNextEvent = false;
+                settings.BlueskyPinnedUri = null;
+                settings.BlueskyPinCheckedAt = null;
+                settings.BlueskyPinError = null;
+                settings.BlueskyPinErrorAt = null;
                 ClearCheck(settings);
 
                 // The stop and the day's sign-in count are kept: both are Bluesky's limits on this
