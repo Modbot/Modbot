@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014054101_SnapshotTheDiscordServer")]
+    [Migration("20261014075642_SnapshotTheDiscordServer")]
     partial class SnapshotTheDiscordServer
     {
         /// <inheritdoc />
@@ -1552,6 +1552,38 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_calendar_feed_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInterest", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<int?>("DiscordInterested")
+                        .HasColumnType("integer")
+                        .HasColumnName("discord_interested");
+
+                    b.Property<DateTimeOffset?>("DiscordTakenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_taken_at");
+
+                    b.Property<int?>("VRChatInterested")
+                        .HasColumnType("integer")
+                        .HasColumnName("vrchat_interested");
+
+                    b.Property<DateTimeOffset?>("VRChatTakenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vrchat_taken_at");
+
+                    b.HasKey("EventId", "OccurrenceStartsAt")
+                        .HasName("pk_calendar_interest");
+
+                    b.ToTable("calendar_interest", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
@@ -9221,6 +9253,24 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("event_recaps_on");
 
+                    b.Property<string>("EventSummaryChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("event_summary_channel_id");
+
+                    b.Property<DateOnly?>("EventSummaryLastMonth")
+                        .HasColumnType("date")
+                        .HasColumnName("event_summary_last_month");
+
+                    b.Property<bool>("EventSummaryOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_summary_on");
+
+                    b.Property<string>("EventSummaryProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("event_summary_problem");
+
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
                         .HasColumnName("evidence_backend");
@@ -11266,6 +11316,16 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_event_place_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInterest", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_calendar_interest_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
