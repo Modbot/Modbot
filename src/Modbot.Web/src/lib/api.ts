@@ -4370,6 +4370,8 @@ export type BlueskySettings = {
   signInWithBluesky: boolean
   /** The account was signed in with Bluesky's own page, not an app password. */
   signedInWithBluesky: boolean
+  /** The tags every calendar post ends with, after its categories' tags: `#VRChat #Karaoke`. Empty for none. */
+  postTags: string
 }
 
 /** What the last Twitch Check found (Twitch design). */
@@ -5797,7 +5799,7 @@ export const api = {
   blueskySettings: () => request<BlueskySettings>('/api/settings/bluesky'),
 
   /** A field left out keeps what is stored. Anything but an app password is refused. */
-  setBlueskySettings: (body: { handle?: string; appPassword?: string; posting?: boolean }) =>
+  setBlueskySettings: (body: { handle?: string; appPassword?: string; posting?: boolean; postTags?: string }) =>
     put<BlueskySettings>('/api/settings/bluesky', body),
 
   /** Forgets the account, the app password and the session, and turns Posting off. */

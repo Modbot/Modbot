@@ -194,4 +194,51 @@ public class CalendarCategoryEndpointTests(PostgresFixture db)
         await using var context = db.NewContext();
         Assert.True(await context.CalendarEvents.AnyAsync(e => e.Id == eventId, Ct));
     }
+
+    [Fact]
+    public async Task ACategoryFollowsItsNameForItsBlueskyTag_UntilOneIsSet()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var made = await host.SendJsonAsync(HttpMethod.Post, Path, new { name = "Dance night" }, manager, Ct);
+        var view = await ApiTestHost.BodyOf(made, Ct);
+        var id = view.GetProperty("id").GetGuid();
+        Assert.Equal("DanceNight", view.GetProperty("blueskyTag").GetString());
+        Assert.False(view.GetProperty("blueskyTagIsOwn").GetBoolean());
+
+        // A rename carries the name's tag along.
+        var renamed = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Disco night" }, manager, Ct), Ct);
+        Assert.Equal("DiscoNight", renamed.GetProperty("blueskyTag").GetString());
+
+        // Its own tag, typed with a # and a space, is cleaned and kept through a rename that names none.
+        var own = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Disco night", blueskyTag = "#Dance floor" }, manager, Ct), Ct);
+        Assert.Equal("Dancefloor", own.GetProperty("blueskyTag").GetString());
+        Assert.True(own.GetProperty("blueskyTagIsOwn").GetBoolean());
+
+        var kept = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Disco" }, manager, Ct), Ct);
+        Assert.Equal("Dancefloor", kept.GetProperty("blueskyTag").GetString());
+
+        // The tag the name makes is no choice at all; an empty one is none.
+        var back = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Disco", blueskyTag = "Disco" }, manager, Ct), Ct);
+        Assert.False(back.GetProperty("blueskyTagIsOwn").GetBoolean());
+
+        var none = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Disco", blueskyTag = "" }, manager, Ct), Ct);
+        Assert.Equal(string.Empty, none.GetProperty("blueskyTag").GetString());
+        Assert.True(none.GetProperty("blueskyTagIsOwn").GetBoolean());
+
+        Assert.Equal(4, (await host.FactsAsync(FactType.CalendarCategoryChanged, id.ToString(), Ct)).Count(f => ApiTestHost.DataOf(f).ToString().Contains("blueskyTag", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task ABlueskyTagLongerThanBlueskyTakesIsRefused()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = await CreateCategoryAsync(host, manager, "Karaoke");
+        var tooLong = new string('a', 65);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Post, Path, new { name = "Movie night", blueskyTag = tooLong }, manager, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Karaoke", blueskyTag = tooLong }, manager, Ct)).StatusCode);
+    }
 }

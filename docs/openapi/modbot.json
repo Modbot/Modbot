@@ -8080,7 +8080,7 @@
           "Settings"
         ],
         "summary": "Update Bluesky settings",
-        "description": "Save the handle, an app password, Posting, or any of them. Only an app password is taken (four groups of four letters or digits, made in Bluesky's settings); anything else is refused with \"Use an app password.\". It is kept encrypted and never returned. Saving the handle or the app password clears what the last Check found, and posts wait until Check passes again. Posting on needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, at most 5, each at most 64 characters; empty clears them), or any of them. Only an app password is taken (four groups of four letters or digits, made in Bluesky's settings); anything else is refused with \"Use an app password.\". It is kept encrypted and never returned. Saving the handle or the app password clears what the last Check found, and posts wait until Check passes again. Posting on needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetBlueskySettings",
         "requestBody": {
           "content": {
@@ -44163,6 +44163,12 @@
               "null",
               "boolean"
             ]
+          },
+          "postTags": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -44224,6 +44230,10 @@
           "signedInWithBluesky": {
             "type": "boolean",
             "default": false
+          },
+          "postTags": {
+            "type": "string",
+            "default": ""
           }
         }
       },
@@ -44465,6 +44475,14 @@
           "usedBy": {
             "type": "integer",
             "format": "int32"
+          },
+          "blueskyTag": {
+            "type": "string",
+            "default": ""
+          },
+          "blueskyTagIsOwn": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -44476,6 +44494,12 @@
         "properties": {
           "name": {
             "type": "string"
+          },
+          "blueskyTag": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -45091,6 +45115,10 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "announceFirstJoinOnBluesky": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -45517,6 +45545,10 @@
               "null",
               "string"
             ]
+          },
+          "announceFirstJoinOnBluesky": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -45952,6 +45984,12 @@
           "instanceMade": {
             "type": "boolean",
             "default": false
+          },
+          "firstJoinBlueskyPostError": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -46462,6 +46500,7 @@
           "inviteListId",
           "announceFirstJoinInDiscord",
           "announceFirstJoinInVRChat",
+          "announceFirstJoinOnBluesky",
           "vrChatTitle",
           "vrChatDescription",
           "discordTitle",
@@ -46670,6 +46709,9 @@
             "type": "boolean"
           },
           "announceFirstJoinInVRChat": {
+            "type": "boolean"
+          },
+          "announceFirstJoinOnBluesky": {
             "type": "boolean"
           },
           "vrChatTitle": {

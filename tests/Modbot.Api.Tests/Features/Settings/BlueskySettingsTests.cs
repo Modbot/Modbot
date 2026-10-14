@@ -323,4 +323,53 @@ public class BlueskySettingsTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Get, Path, null, viewer, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Post, Path + "/check", null, viewer, Ct)).StatusCode);
     }
+
+    [Fact]
+    public async Task TagsOnEveryPostAreCleanedKeptAndAudited_AndAnEmptyOneClearsThem()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var empty = await OkAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
+        Assert.Equal(string.Empty, empty.GetProperty("postTags").GetString());
+
+        var saved = await OkAsync(await SaveAsync(host, cookie, new { postTags = "VRChat, #karaoke  vrchat" }));
+        Assert.Equal("#VRChat #karaoke", saved.GetProperty("postTags").GetString());
+
+        // A save that names no tags leaves them be.
+        var kept = await OkAsync(await SaveAsync(host, cookie, new { handle = "@" + FakeBluesky.Handle }));
+        Assert.Equal("#VRChat #karaoke", kept.GetProperty("postTags").GetString());
+
+        await using (var context = db.NewContext())
+            Assert.Equal("#VRChat #karaoke", (await context.GetSettingsAsync(Ct)).BlueskyPostTags);
+
+        var facts = await host.FactsAsync(FactType.SettingsChanged, "settings", Ct);
+        Assert.Contains(
+            facts.Select(ApiTestHost.DataOf),
+            d => d.GetProperty("setting").GetString() == "bluesky" && d.GetProperty("changed").TryGetProperty("blueskyPostTags", out _));
+
+        var cleared = await OkAsync(await SaveAsync(host, cookie, new { postTags = "" }));
+        Assert.Equal(string.Empty, cleared.GetProperty("postTags").GetString());
+
+        await using (var context = db.NewContext())
+            Assert.Null((await context.GetSettingsAsync(Ct)).BlueskyPostTags);
+    }
+
+    [Fact]
+    public async Task MoreThanFiveTagsOrOneTooLongIsRefused_AndNothingIsSaved()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var many = await SaveAsync(host, cookie, new { postTags = "a1 b2 c3 d4 e5 f6" });
+        Assert.Equal(HttpStatusCode.BadRequest, many.StatusCode);
+        Assert.Contains(BlueskyTags.TooMany, await many.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        var tooLong = await SaveAsync(host, cookie, new { postTags = "#" + new string('a', BlueskyText.TagLimit + 1) });
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+        Assert.Contains(BlueskyTags.TooLong, await tooLong.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        await using var context = db.NewContext();
+        Assert.Null((await context.GetSettingsAsync(Ct)).BlueskyPostTags);
+    }
 }

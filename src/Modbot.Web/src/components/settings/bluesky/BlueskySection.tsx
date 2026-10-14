@@ -45,6 +45,7 @@ export function BlueskySection() {
         <>
           <AccountCard settings={data} onSaved={setData} />
           {(data.canPost || data.posting) && <PostingCard settings={data} onSaved={setData} />}
+          <TagsCard settings={data} onSaved={setData} />
         </>
       )}
     </SettingsSection>
@@ -252,6 +253,50 @@ function PostingCard({ settings, onSaved }: { settings: BlueskySettings; onSaved
       <Switch checked={settings.posting} disabled={busy || (!settings.posting && !settings.canPost)} onChange={setPosting}>
         Posting
       </Switch>
+    </SettingsCard>
+  )
+}
+
+/** "Tags on every post": the tags every calendar post ends with, after its category's tags. */
+function TagsCard({ settings, onSaved }: { settings: BlueskySettings; onSaved: (next: BlueskySettings) => void }) {
+  // Null until somebody types, so the field follows the stored tags after a save.
+  const [typed, setTyped] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState<string | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const tags = typed ?? settings.postTags
+
+  const save = () => {
+    setBusy(true)
+    setSaved(null)
+    setProblem(null)
+
+    api
+      .setBlueskySettings({ postTags: tags })
+      .then((next) => {
+        onSaved(next)
+        setTyped(null)
+        setSaved('Saved.')
+      })
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard
+      title="Tags"
+      footer={
+        <>
+          <Button type="button" size="xs" disabled={busy || typed === null || typed === settings.postTags} onClick={save}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          <Outcome tone="ok">{saved}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <Field label="Tags on every post" mono value={tags} maxLength={400} placeholder="#VRChat" onChange={setTyped} />
     </SettingsCard>
   )
 }

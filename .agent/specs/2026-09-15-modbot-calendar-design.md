@@ -1523,3 +1523,26 @@ fill themselves in (step 4) are not here.
 - **Limits.** The counters in the form count the stored text, where a link is its name; the address
   sent is longer, and VRChat or Discord may cut or refuse a text that ends up over their limit (the
   existing per-site checks and messages apply).
+
+## 21. Bluesky tags (added 2026-10-14)
+
+A date's Bluesky post ends with a last line of tags, so people who follow a tag find the event.
+
+- **Where a tag comes from.** Each category has a Bluesky tag (`CalendarCategory.BlueskyTag`): null
+  means the tag its name makes (`BlueskyTags.FromName`, "Dance night" gives `DanceNight`), empty means
+  none, anything else is the tag as cleaned. A tag the name itself makes is stored as null, so a
+  rename carries it along. Settings → Bluesky has "Tags on every post" (`Settings.BlueskyPostTags`,
+  at most five, kept as `#VRChat #Karaoke`).
+- **What a tag may be.** Letters and digits only (no `#`, spaces or punctuation), not digits alone
+  (Bluesky does not read those as a tag), at most 64 graphemes (`BlueskyText.TagLimit`). A name whose
+  tag would be longer gives none; a typed one longer than that is a 400.
+- **Order and fit.** The categories' tags in the order of the categories' names, then the every-post
+  tags, none twice. `BlueskyTags.Append` adds them one by one after the words and stops at the first
+  that does not fit 300 graphemes and the byte limit: tags are dropped from the end, and the words
+  are never cut for them (the description is still cut first, as in section 18, so a post whose
+  description fills the post has no room for any tag).
+- **Changing a tag.** The tags are part of the text, so a tag change changes the date's fingerprint
+  and the planner treats it as any other change: a post not sent is rewritten, one already up is
+  deleted and made again (section on Bluesky changes). The preview builds the text with the same
+  `CalendarBlueskyText.TagsOf`, so it shows the tags.
+- **Rate limits** are unchanged: the same sender, a 429 is never retried.

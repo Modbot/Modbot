@@ -1287,6 +1287,23 @@ words instead.
 Bluesky shows a picture only on a link card, so the event's cover picture goes only when the post
 has a link, and only when the picture is no bigger than 1 MB. Otherwise the post has no picture.
 
+### Tags
+
+A post ends with a last line of tags. First come the tags of the event's
+[categories](/moderation/event-categories), in the order of the categories' names, then the tags set for
+every post in **Settings**, **Bluesky**, under **Tags on every post** (up to five, such as `#VRChat`; empty
+to start). A category's tag is made from its name by default (**Dance night** gives `#DanceNight`) and can be
+changed on the **Event categories** page. A tag is never written twice in one post.
+
+A post holds 300 characters. Tags are added after the words, and the words are never cut for them: a tag
+that does not fit is left out, and so is every tag after it. A post whose description was cut to fit may have
+little or no room, so it gets few or no tags. The **Bluesky** tab's preview shows the tags the post will have.
+
+A tag that changes what a date's post would say is a change like any other (see below): when you
+change a category's tag, rename a category, change a category on an event, or change **Tags on every
+post**, the posts of dates that have not started and are already up are **deleted** and **posted again**.
+Anyone who saw, liked or replied to the old ones loses them.
+
 ### Bluesky settings on the form
 
 The **Bluesky** tab appears while the chip is on, with **Post it**. Its card's title and description can be typed in,

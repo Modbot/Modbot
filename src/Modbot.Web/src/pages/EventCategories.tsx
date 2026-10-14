@@ -6,12 +6,20 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { ApiError } from '@/lib/api'
-import { calendarCategoryApi, type CalendarCategories, type CalendarCategoryRow } from '@/lib/calendarCategories'
+import {
+  calendarCategoryApi,
+  tagFromName,
+  type CalendarCategories,
+  type CalendarCategoryRow,
+} from '@/lib/calendarCategories'
 import { useShortcuts } from '@/lib/shortcuts'
 import { PageMessage } from '@/pages/analytics/shared'
 
 /** The longest a category's name may be; the server holds the same number. */
 const MAX_NAME = 40
+
+/** The longest the tag box takes: room for a pasted `#` and a few stray characters; the server cleans the rest. */
+const MAX_TAG_FIELD = 80
 
 /**
  * Event categories: the ones admins make in Modbot, such as Karaoke or Movie night. They add to the
@@ -119,7 +127,7 @@ export function EventCategories() {
   )
 }
 
-/** The make and rename form: just the name. */
+/** The make and rename form: the name and the Bluesky tag, which follows the name until somebody types one. */
 function CategoryForm({
   category,
   onClose,
@@ -130,6 +138,8 @@ function CategoryForm({
   onSaved: () => void
 }) {
   const [name, setName] = useState(category?.name ?? '')
+  // Null follows the name; once typed in (or when the category already has its own) the tag stays as it is.
+  const [typedTag, setTypedTag] = useState<string | null>(category?.blueskyTagIsOwn ? category.blueskyTag : null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -137,7 +147,9 @@ function CategoryForm({
     setBusy(true)
     setError(null)
 
-    const request = category ? calendarCategoryApi.rename(category.id, name) : calendarCategoryApi.create(name)
+    const request = category
+      ? calendarCategoryApi.rename(category.id, name, typedTag)
+      : calendarCategoryApi.create(name, typedTag)
 
     request
       .then(onSaved)
@@ -164,6 +176,13 @@ function CategoryForm({
       >
         <div className="flex flex-col gap-4" style={{ fontSize: 'var(--text-small)' }}>
           <Field label="Name" value={name} maxLength={MAX_NAME} onChange={setName} />
+          <Field
+            label="Bluesky tag"
+            mono
+            value={typedTag ?? tagFromName(name)}
+            maxLength={MAX_TAG_FIELD}
+            onChange={setTypedTag}
+          />
         </div>
       </DialogContent>
     </Dialog>

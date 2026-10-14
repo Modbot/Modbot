@@ -154,4 +154,54 @@ public class CalendarBlueskyTextTests
         Assert.NotEqual(a, CalendarBlueskyText.Fingerprint("two", null));
         Assert.NotEqual(a, CalendarBlueskyText.Fingerprint("one", picture));
     }
+
+    private static CalendarCategory Category(string name, string? tag = null) =>
+        new() { Id = Guid.CreateVersion7(), Name = name, BlueskyTag = tag };
+
+    [Fact]
+    public void ThePostEndsWithItsCategoriesTags_ThenTheOnesForEveryPost()
+    {
+        var e = Event();
+        e.Categories = [Category("Open mic"), Category("Karaoke", "Sing")];
+
+        var tags = CalendarBlueskyText.TagsOf(e, "#VRChat");
+        var text = CalendarBlueskyText.For(e, Date(e), null, tags);
+
+        Assert.Equal(["Sing", "OpenMic", "VRChat"], tags);
+        Assert.EndsWith("\n#Sing #OpenMic #VRChat", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ACategoryWithNoTagAddsNone_AndAnEventWithNoTagsPostsAsBefore()
+    {
+        var e = Event();
+        e.Categories = [Category("Karaoke", string.Empty)];
+
+        Assert.Empty(CalendarBlueskyText.TagsOf(e, null));
+        Assert.Equal(CalendarBlueskyText.For(e, Date(e), null), CalendarBlueskyText.For(e, Date(e), null, CalendarBlueskyText.TagsOf(e, null)));
+    }
+
+    [Fact]
+    public void TagsThatDoNotFitAreDroppedFromTheEnd_AndTheTextStaysWhole()
+    {
+        var e = Event();
+        e.Description = new string('x', 600);
+        e.AutoLinks = new CalendarLinks("https://calendar.example/event", null, null, null);
+        var without = CalendarBlueskyText.For(e, Date(e), "Cozy Cabin");
+
+        var with = CalendarBlueskyText.For(e, Date(e), "Cozy Cabin", ["VRChat", "Karaoke"]);
+
+        Assert.StartsWith(without, with, StringComparison.Ordinal);
+        Assert.True(BlueskyText.Fits(with));
+    }
+
+    [Fact]
+    public void ATagChangeChangesTheFingerprint()
+    {
+        var e = Event();
+        var plain = CalendarBlueskyText.For(e, Date(e), null);
+        var tagged = CalendarBlueskyText.For(e, Date(e), null, ["VRChat"]);
+
+        Assert.NotEqual(CalendarBlueskyText.Fingerprint(plain, null), CalendarBlueskyText.Fingerprint(tagged, null));
+    }
 }
