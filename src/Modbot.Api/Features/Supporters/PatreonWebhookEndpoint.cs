@@ -110,8 +110,9 @@ public static class PatreonWebhookEndpoint
                 "Patreon calls this when a membership is made, changed or deleted, and when a charge goes through or fails. "
                 + "The body is signed with the webhook secret from Patreon (hex HMAC-MD5 in X-Patreon-Signature); a message with "
                 + "no signature or the wrong one is refused (401) and nothing is read. An active patron with a tier gets that tier's "
-                + "roles; a patron whose charge was declined keeps them until three days after the charge; a pledge that ended keeps them "
-                + "until the paid month is up and three days more. Anything else is answered 200 and ignored. Answers 404 while Patreon is off or no secret is saved.")
+                + "roles; a patron whose charge was declined keeps them until the Patreon setting's number of days after the charge; "
+                + "a pledge that ended keeps them until the paid month is up and that number of days more (or for good, when the "
+                + "setting is never). Anything else is answered 200 and ignored. Answers 404 while Patreon is off or no secret is saved.")
             .Accepts<object>("application/json")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)

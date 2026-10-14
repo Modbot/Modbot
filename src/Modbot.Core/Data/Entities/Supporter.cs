@@ -41,8 +41,14 @@ public static class SupporterLimits
     /// <summary>How many supporters the page lists, newest payment first.</summary>
     public const int MostListed = 500;
 
-    /// <summary>How many days after the paid month is up a supporter keeps the roles before they are taken away.</summary>
-    public const int GraceDays = 3;
+    /// <summary>How many days after the paid month is up a supporter keeps the roles before they are taken away, until a site's setting says otherwise.</summary>
+    public const int DefaultRolesOffDays = 3;
+
+    /// <summary>The most days a site's setting may give.</summary>
+    public const int MostRolesOffDays = 365;
+
+    /// <summary>The value of a site's setting that means the roles never come off.</summary>
+    public const int RolesNeverOff = -1;
 }
 
 /// <summary>

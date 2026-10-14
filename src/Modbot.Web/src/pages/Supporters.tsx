@@ -238,7 +238,7 @@ function SupporterRow({ supporter, onChanged }: { supporter: Supporter; onChange
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         <span>Paid {dateTime(supporter.lastPaidAt)}</span>
-        {active && <span>Roles end {dateTime(supporter.rolesEndAt)}</span>}
+        {active && supporter.rolesEndAt && <span>Roles end {dateTime(supporter.rolesEndAt)}</span>}
         {supporter.discordRoleGiven && <span>Discord role given</span>}
         {supporter.vrChatRoleGiven && <span>VRChat role given</span>}
       </div>

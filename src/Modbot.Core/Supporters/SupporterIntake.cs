@@ -38,6 +38,20 @@ public sealed partial class SupporterIntake(ModbotContext db)
     private const int MostCodeLength = 100;
     private const int MostDiscordIdLength = 40;
 
+    /// <summary>The site's setting for when the roles come off, read fresh for each message.</summary>
+    private async Task<int> RolesOffDaysAsync(string provider, CancellationToken ct)
+    {
+        var days = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.KofiRolesOffDays, s.PatreonRolesOffDays })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return days is null
+            ? SupporterLimits.DefaultRolesOffDays
+            : SupporterRules.RolesOffDaysFor(provider, days.KofiRolesOffDays, days.PatreonRolesOffDays);
+    }
+
     /// <summary>Takes in one Ko-fi payment message. The caller has already checked the verification token.</summary>
     public Task<SupporterIntakeOutcome> TakeKofiAsync(KofiPayment payment, DateTimeOffset now, CancellationToken ct = default)
         => TakeKofiAsync(payment, now, true, ct);
@@ -75,6 +89,7 @@ public sealed partial class SupporterIntake(ModbotContext db)
             : null;
         var discordId = linkedId ?? codeId;
         var paidAt = payment.PaidAt() is { } stated && stated < now ? stated : now;
+        var offDays = await RolesOffDaysAsync(SupporterProviders.Kofi, ct).ConfigureAwait(false);
 
         var key = SupporterRules.TierKeyOf(tierName);
         var tier = await db.SupporterTiers.FirstOrDefaultAsync(t => t.Provider == SupporterProviders.Kofi && t.Key == key, ct).ConfigureAwait(false);
@@ -122,7 +137,7 @@ public sealed partial class SupporterIntake(ModbotContext db)
             supporter.TierId = tier.Id;
             supporter.LastPaidAt = paidAt;
             supporter.PaidThrough = SupporterRules.PaidThrough(paidAt);
-            supporter.State = SupporterRules.HasLapsed(supporter.PaidThrough, now) ? SupporterStates.Ended : SupporterStates.Active;
+            supporter.State = SupporterRules.HasLapsed(supporter.PaidThrough, now, offDays) ? SupporterStates.Ended : SupporterStates.Active;
             supporter.Problem = null;
             supporter.TryAgainAt = null;
 

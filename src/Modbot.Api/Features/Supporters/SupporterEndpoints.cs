@@ -17,7 +17,7 @@ using Npgsql;
 namespace Modbot.Api.Features.Supporters;
 
 /// <summary>One level supporters pay at, with the roles it gives.</summary>
-/// <param name="Provider">The site the tier is on, <c>kofi</c>.</param>
+/// <param name="Provider">The site the tier is on, <c>kofi</c> or <c>patreon</c>.</param>
 /// <param name="Supporters">How many supporters are paid up on it now.</param>
 public sealed record SupporterTierView(
     Guid Id,
@@ -31,7 +31,7 @@ public sealed record SupporterTierView(
 /// <param name="DiscordUserId">Their Discord account, or null while they have not been matched.</param>
 /// <param name="DiscordName">Their name in the server, when they are in it.</param>
 /// <param name="State"><c>active</c> or <c>ended</c>.</param>
-/// <param name="RolesEndAt">When the roles come off if no payment comes first.</param>
+/// <param name="RolesEndAt">When the roles come off if no payment comes first; null when the site is set to never take them off.</param>
 /// <param name="DiscordRoleGiven">Modbot has given the Discord role.</param>
 /// <param name="VRChatRoleGiven">Modbot has given the VRChat group role.</param>
 /// <param name="VRChatLinked">Their Discord account is linked to a VRChat account.</param>
@@ -48,7 +48,7 @@ public sealed record SupporterView(
     string State,
     DateTimeOffset LastPaidAt,
     DateTimeOffset PaidThrough,
-    DateTimeOffset RolesEndAt,
+    DateTimeOffset? RolesEndAt,
     bool DiscordRoleGiven,
     bool VRChatRoleGiven,
     bool VRChatLinked,
@@ -419,7 +419,7 @@ public static class SupporterEndpoints
                 s.State,
                 s.LastPaidAt,
                 s.PaidThrough,
-                SupporterRules.RolesEndAt(s.PaidThrough),
+                SupporterRules.RolesEndAt(s.PaidThrough, SupporterRules.RolesOffDaysFor(s.Provider, settings.KofiRolesOffDays, settings.PatreonRolesOffDays)),
                 s.GivenDiscordRoleId is not null,
                 s.GivenVRChatRoleId is not null,
                 s.DiscordUserId is { } u && linked.Contains(u),

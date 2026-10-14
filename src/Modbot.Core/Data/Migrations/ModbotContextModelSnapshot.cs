@@ -17,7 +17,7 @@ namespace Modbot.Core.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -9489,6 +9489,12 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("kofi_on");
 
+                    b.Property<int>("KofiRolesOffDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("kofi_roles_off_days");
+
                     b.Property<string>("KofiVerificationTokenEncrypted")
                         .HasColumnType("text")
                         .HasColumnName("kofi_verification_token_encrypted");
@@ -9680,6 +9686,12 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("PatreonOn")
                         .HasColumnType("boolean")
                         .HasColumnName("patreon_on");
+
+                    b.Property<int>("PatreonRolesOffDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("patreon_roles_off_days");
 
                     b.Property<string>("PatreonWebhookSecretEncrypted")
                         .HasColumnType("text")

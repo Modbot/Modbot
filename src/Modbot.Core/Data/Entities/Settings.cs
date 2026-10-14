@@ -854,6 +854,18 @@ public class Settings
     public string? PatreonWebhookSecretEncrypted { get; set; }
 
     /// <summary>
+    /// How many days after a Ko-fi supporter's paid month is up the roles come off, or
+    /// <see cref="SupporterLimits.RolesNeverOff"/> for never. 3 to start.
+    /// </summary>
+    public int KofiRolesOffDays { get; set; } = SupporterLimits.DefaultRolesOffDays;
+
+    /// <summary>
+    /// How many days after a Patreon supporter's paid month is up (or after a declined charge) the roles come off,
+    /// or <see cref="SupporterLimits.RolesNeverOff"/> for never. 3 to start.
+    /// </summary>
+    public int PatreonRolesOffDays { get; set; } = SupporterLimits.DefaultRolesOffDays;
+
+    /// <summary>
     /// The direct message a new supporter gets, with {name} and {tier} filled in. Null sends none.
     /// The same message for every site.
     /// </summary>

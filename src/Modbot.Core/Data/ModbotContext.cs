@@ -2028,6 +2028,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // that exists already.
             entity.Property(e => e.TwitchPostAfterMinutes).HasDefaultValue(3);
             entity.Property(e => e.TwitchPostEveryHours).HasDefaultValue(6);
+
+            // The roles of a supporter whose payment stopped come off three days after the paid month, as they did before this was a setting.
+            entity.Property(e => e.KofiRolesOffDays).HasDefaultValue(SupporterLimits.DefaultRolesOffDays);
+            entity.Property(e => e.PatreonRolesOffDays).HasDefaultValue(SupporterLimits.DefaultRolesOffDays);
             entity.Property(e => e.TwitchPostPlaces).HasDefaultValue("{}");
 
             // No ready-made report replies until staff write some, for the row that exists already.

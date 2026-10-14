@@ -4,6 +4,7 @@ import { ApiError } from '@/lib/api'
 import { supporterApi, type SupporterSettings } from '@/lib/supporters'
 import { Fact, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { RolesOffCard } from './RolesOffCard'
 
 /**
  * Settings → Patreon: whether Modbot takes in Patreon's membership messages, the webhook secret that
@@ -39,7 +40,10 @@ export function PatreonSection() {
           {error}
         </Placeholder>
       ) : (
-        <ConnectionCard settings={data} onSaved={setData} />
+        <>
+          <ConnectionCard settings={data} onSaved={setData} />
+          <RolesOffCard site="patreon" settings={data} onSaved={setData} />
+        </>
       )}
     </SettingsSection>
   )

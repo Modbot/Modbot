@@ -37,9 +37,10 @@ public sealed record SupporterPass(int Given, int Taken, int Thanked, int Left, 
 /// own Discord link) is not recorded, so it is never taken. That is judged from the roles Modbot last saw.
 /// </para>
 /// <para>
-/// <strong>The roles come off three days after the paid month is up.</strong> Ko-fi sends no message
-/// when a membership stops, so the only sign is a payment that did not come
-/// (<see cref="SupporterRules.RolesEndAt"/>).
+/// <strong>The roles come off the number of days after the paid month is up that the supporter's site
+/// is set to</strong> (Settings → Supporters), or never. Ko-fi sends no message when a membership
+/// stops, so the only sign is a payment that did not come (<see cref="SupporterRules.RolesEndAt"/>).
+/// A supporter who has ended but whose roles do not come off yet keeps what Modbot gave and is left alone.
 /// </para>
 /// <para>
 /// <strong>The VRChat role goes to the VRChat account linked to the supporter's Discord account.</strong>
@@ -71,7 +72,7 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordGuildId, s.ManagedGroupId, s.SupporterThanksText })
+            .Select(s => new { s.DiscordGuildId, s.ManagedGroupId, s.SupporterThanksText, s.KofiRolesOffDays, s.PatreonRolesOffDays })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
@@ -112,7 +113,9 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
 
         foreach (var supporter in supporters)
         {
-            if (supporter.State == SupporterStates.Active && SupporterRules.HasLapsed(supporter.PaidThrough, now))
+            var offDays = SupporterRules.RolesOffDaysFor(supporter.Provider, settings.KofiRolesOffDays, settings.PatreonRolesOffDays);
+
+            if (supporter.State == SupporterStates.Active && SupporterRules.HasLapsed(supporter.PaidThrough, now, offDays))
             {
                 supporter.State = SupporterStates.Ended;
                 supporter.UpdatedAt = now;
@@ -123,6 +126,13 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
             if (supporter.DiscordUserId is null)
             {
                 await LetGoOfRolesWithoutAccountAsync(supporter, now, tally, ct).ConfigureAwait(false);
+                await db.SaveChangesAsync(ct).ConfigureAwait(false);
+                continue;
+            }
+
+            // Ended, but the site's setting keeps the roles Modbot gave for now (or for good): nothing to change.
+            if (supporter.State == SupporterStates.Ended && !SupporterRules.RolesAreOff(supporter.PaidThrough, now, offDays))
+            {
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
                 continue;
             }

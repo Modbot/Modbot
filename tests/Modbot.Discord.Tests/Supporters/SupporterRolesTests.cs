@@ -11,8 +11,8 @@ namespace Modbot.Discord.Tests.Supporters;
 
 /// <summary>
 /// The supporter role pass: a paid-up supporter gets the tier's Discord role, and the VRChat group
-/// role once their Discord account is linked to a VRChat one; both are taken back three days after
-/// the paid month is up; and a role Modbot did not give is never taken.
+/// role once their Discord account is linked to a VRChat one; both are taken back the set number of days
+/// after the paid month is up (3 to start, 0, or never, per site); and a role Modbot did not give is never taken.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class SupporterRolesTests
@@ -32,9 +32,18 @@ public class SupporterRolesTests
     }
 
     /// <summary>A supporter who paid <paramref name="paidDaysAgo"/> days ago, on a tier giving both roles.</summary>
-    private async Task<Setup> SetUpAsync(int paidDaysAgo = 1, bool linkVRChat = true, string? thanks = "Thanks {name}, {tier}!")
+    private async Task<Setup> SetUpAsync(
+        int paidDaysAgo = 1,
+        bool linkVRChat = true,
+        string? thanks = "Thanks {name}, {tier}!",
+        Action<Settings>? configure = null,
+        string provider = SupporterProviders.Kofi)
     {
-        var services = await SyncSetUp.CreateAsync(_db, s => s.SupporterThanksText = thanks, Ct);
+        var services = await SyncSetUp.CreateAsync(_db, s =>
+        {
+            s.SupporterThanksText = thanks;
+            configure?.Invoke(s);
+        }, Ct);
         var now = services.Clock.UtcNow;
 
         if (linkVRChat)
@@ -44,6 +53,7 @@ public class SupporterRolesTests
 
         var tier = new SupporterTier
         {
+            Provider = provider,
             Key = "gold",
             Name = "Gold",
             DiscordRoleId = SyncSetUp.DiscordRole,
@@ -55,6 +65,7 @@ public class SupporterRolesTests
         var paidAt = now.AddDays(-paidDaysAgo);
         var supporter = new Supporter
         {
+            Provider = provider,
             PayerId = "payer",
             Name = "Sam",
             DiscordUserId = Member,
@@ -139,6 +150,94 @@ public class SupporterRolesTests
         Assert.Equal(SupporterStates.Ended, supporter.State);
         Assert.Null(supporter.GivenDiscordRoleId);
         Assert.Null(supporter.GivenVRChatRoleId);
+    }
+
+    [Theory]
+    [InlineData(SupporterProviders.Kofi)]
+    [InlineData(SupporterProviders.Patreon)]
+    public async Task TheRolesAreTakenBackTheSetNumberOfDaysAfterThePaidMonthIsUp(string provider)
+    {
+        await using var setup = await SetUpAsync(
+            configure: s =>
+            {
+                s.KofiRolesOffDays = 10;
+                s.PatreonRolesOffDays = 10;
+            },
+            provider: provider);
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+
+        var through = SupporterRules.PaidThrough(setup.Services.Clock.UtcNow.AddDays(-1));
+
+        // Nine days after the month (past the old three): still paid up.
+        setup.Services.Clock.UtcNow = through.AddDays(9);
+        await PassAsync(setup.Services, gateway);
+        Assert.Equal(SupporterStates.Active, (await ReadAsync(setup)).State);
+        Assert.Single(gateway.RoleChanges);
+
+        setup.Services.Clock.UtcNow = through.AddDays(10);
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(2, pass.Taken);
+        Assert.Equal(SupporterStates.Ended, (await ReadAsync(setup)).State);
+    }
+
+    [Fact]
+    public async Task WithZeroDays_TheRolesComeOffWhenThePaidMonthIsUp()
+    {
+        await using var setup = await SetUpAsync(configure: s => s.KofiRolesOffDays = 0);
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+
+        var through = SupporterRules.PaidThrough(setup.Services.Clock.UtcNow.AddDays(-1));
+        setup.Services.Clock.UtcNow = through;
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(2, pass.Taken);
+        Assert.Equal(SupporterStates.Ended, (await ReadAsync(setup)).State);
+    }
+
+    [Theory]
+    [InlineData(SupporterProviders.Kofi)]
+    [InlineData(SupporterProviders.Patreon)]
+    public async Task WithNever_TheSupporterEndsButKeepsTheRolesModbotGave(string provider)
+    {
+        await using var setup = await SetUpAsync(
+            configure: s =>
+            {
+                s.KofiRolesOffDays = SupporterLimits.RolesNeverOff;
+                s.PatreonRolesOffDays = SupporterLimits.RolesNeverOff;
+            },
+            provider: provider);
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+
+        var through = SupporterRules.PaidThrough(setup.Services.Clock.UtcNow.AddDays(-1));
+        setup.Services.Clock.UtcNow = through.AddDays(400);
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(0, pass.Taken);
+        Assert.Single(gateway.RoleChanges);
+        Assert.DoesNotContain(setup.Services.VRChat.Actions, a => a.Item1 == "role-taken");
+
+        var supporter = await ReadAsync(setup);
+        Assert.Equal(SupporterStates.Ended, supporter.State);
+        Assert.Equal(SyncSetUp.DiscordRole, supporter.GivenDiscordRoleId);
+        Assert.Equal(SyncSetUp.GroupRole, supporter.GivenVRChatRoleId);
+    }
+
+    [Fact]
+    public async Task AKofiSupporterIsNotHeldByPatreonsSetting()
+    {
+        await using var setup = await SetUpAsync(configure: s => s.PatreonRolesOffDays = SupporterLimits.RolesNeverOff);
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+
+        var through = SupporterRules.PaidThrough(setup.Services.Clock.UtcNow.AddDays(-1));
+        setup.Services.Clock.UtcNow = through.AddDays(3);
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(2, pass.Taken);
     }
 
     [Fact]

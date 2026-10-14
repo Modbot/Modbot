@@ -20,6 +20,9 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="PatreonOn">Modbot takes in Patreon's membership messages.</param>
 /// <param name="PatreonSecretStored">Whether a Patreon webhook secret is saved.</param>
 /// <param name="PatreonWebhookAddress">The address to give Patreon, built from the public address; null until that is set.</param>
+/// <param name="KofiRolesOffDays">Days after a Ko-fi supporter's paid month ends that the roles come off; -1 is never.</param>
+/// <param name="PatreonRolesOffDays">Days after a Patreon supporter's paid month ends (or a declined charge) that the roles come off; -1 is never.</param>
+/// <param name="MostRolesOffDays">The most days either setting may give.</param>
 public sealed record SupporterSettingsResponse(
     bool KofiOn,
     bool TokenStored,
@@ -28,21 +31,29 @@ public sealed record SupporterSettingsResponse(
     int MostThanksLength,
     bool PatreonOn,
     bool PatreonSecretStored,
-    string? PatreonWebhookAddress);
+    string? PatreonWebhookAddress,
+    int KofiRolesOffDays,
+    int PatreonRolesOffDays,
+    int MostRolesOffDays);
 
 /// <summary>A change to Settings → Supporters. A field left out is not changed.</summary>
 /// <param name="VerificationToken">The token from Ko-fi's webhook page. Left out or empty keeps the saved one.</param>
 /// <param name="PatreonWebhookSecret">The secret from Patreon's webhook page. Left out or empty keeps the saved one.</param>
+/// <param name="KofiRolesOffDays">Days after a Ko-fi supporter's paid month ends that the roles come off, 0 to 365, or -1 for never.</param>
+/// <param name="PatreonRolesOffDays">Days after a Patreon supporter's paid month ends (or a declined charge) that the roles come off, 0 to 365, or -1 for never.</param>
 public sealed record SupporterSettingsUpdate(
     bool? KofiOn,
     string? VerificationToken,
     string? ThanksText,
     bool? PatreonOn = null,
-    string? PatreonWebhookSecret = null);
+    string? PatreonWebhookSecret = null,
+    int? KofiRolesOffDays = null,
+    int? PatreonRolesOffDays = null);
 
 /// <summary>
 /// Settings → Supporters: whether Ko-fi's payment messages and Patreon's membership messages are taken
-/// in, the verification token and the webhook secret that prove they came from there, and the thank-you
+/// in, the verification token and the webhook secret that prove they came from there, how many days
+/// after the paid month ends each site's supporters lose the roles (or never), and the thank-you
 /// message. Needs Manage settings. The token and the secret are kept encrypted and never returned; the
 /// change is recorded as a secret changed, never what to. Turning Ko-fi or Patreon on adds Manage Roles
 /// to the bot's invite link.
@@ -63,7 +74,8 @@ public static class SupporterSettingsEndpoints
             .WithSummary("Get supporter settings")
             .WithDescription(
                 "Whether Ko-fi and Patreon are on, whether a verification token or a Patreon webhook secret is saved (never the "
-                + "token or the secret), the thank-you message and the addresses to give Ko-fi and Patreon.")
+                + "token or the secret), how many days after the paid month ends each site's supporters lose the roles (-1 is never), "
+                + "the thank-you message and the addresses to give Ko-fi and Patreon.")
             .Produces<SupporterSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -91,6 +103,12 @@ public static class SupporterSettingsEndpoints
                 if (thanks is { Length: > SupporterLimits.MostThanksLength })
                     return Results.BadRequest(new { error = $"The message is longer than {SupporterLimits.MostThanksLength} characters." });
 
+                foreach (var days in new[] { body.KofiRolesOffDays, body.PatreonRolesOffDays })
+                {
+                    if (days is { } d && d != SupporterLimits.RolesNeverOff && (d < 0 || d > SupporterLimits.MostRolesOffDays))
+                        return Results.BadRequest(new { error = $"Give a number of days from 0 to {SupporterLimits.MostRolesOffDays}, or never." });
+                }
+
                 var settings = await db.GetSettingsAsync(ct);
 
                 var onAfter = body.KofiOn ?? settings.KofiOn;
@@ -105,6 +123,8 @@ public static class SupporterSettingsEndpoints
                 if (patreonOnAfter && secret is null && string.IsNullOrEmpty(settings.PatreonWebhookSecretEncrypted))
                     return Results.BadRequest(new { error = "Save the webhook secret first." });
 
+                var kofiDaysAfter = body.KofiRolesOffDays ?? settings.KofiRolesOffDays;
+                var patreonDaysAfter = body.PatreonRolesOffDays ?? settings.PatreonRolesOffDays;
                 var thanksAfter = thanks is null ? settings.SupporterThanksText : (thanks.Length > 0 ? thanks : null);
 
                 var change = new SettingsChange("supporters")
@@ -112,6 +132,8 @@ public static class SupporterSettingsEndpoints
                     .Secret("kofiVerificationToken", tokenChanged)
                     .Field("patreonOn", settings.PatreonOn, patreonOnAfter)
                     .Secret("patreonWebhookSecret", secretChanged)
+                    .Field("kofiRolesOffDays", settings.KofiRolesOffDays, kofiDaysAfter)
+                    .Field("patreonRolesOffDays", settings.PatreonRolesOffDays, patreonDaysAfter)
                     .Field("thanksText", settings.SupporterThanksText, thanksAfter);
 
                 if (change.IsEmpty)
@@ -125,6 +147,8 @@ public static class SupporterSettingsEndpoints
                 settings.PatreonOn = patreonOnAfter;
                 if (secretChanged)
                     settings.PatreonWebhookSecretEncrypted = protector.Protect(secret!);
+                settings.KofiRolesOffDays = kofiDaysAfter;
+                settings.PatreonRolesOffDays = patreonDaysAfter;
                 settings.SupporterThanksText = thanksAfter;
 
                 await db.SaveChangesAsync(ct);
@@ -137,7 +161,8 @@ public static class SupporterSettingsEndpoints
             .WithSummary("Update supporter settings")
             .WithDescription(
                 "Switch Ko-fi or Patreon on or off, save the verification token from Ko-fi's webhook page or the webhook secret from "
-                + "Patreon's (kept encrypted, never returned) and set the thank-you message. Neither can be switched on without its "
+                + "Patreon's (kept encrypted, never returned), set how many days after the paid month ends each site's supporters lose the "
+                + "roles (0 to 365, or -1 for never) and set the thank-you message. Neither can be switched on without its "
                 + "token or secret. While either is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be "
                 + "added again from the new link.")
             .Accepts<SupporterSettingsUpdate>("application/json")
@@ -157,5 +182,8 @@ public static class SupporterSettingsEndpoints
             SupporterLimits.MostThanksLength,
             settings.PatreonOn,
             !string.IsNullOrEmpty(settings.PatreonWebhookSecretEncrypted),
-            string.IsNullOrWhiteSpace(settings.PublicAddress) ? null : settings.PublicAddress.Trim().TrimEnd('/') + PatreonWebhookEndpoint.Path);
+            string.IsNullOrWhiteSpace(settings.PublicAddress) ? null : settings.PublicAddress.Trim().TrimEnd('/') + PatreonWebhookEndpoint.Path,
+            settings.KofiRolesOffDays,
+            settings.PatreonRolesOffDays,
+            SupporterLimits.MostRolesOffDays);
 }

@@ -175,7 +175,7 @@ public class PatreonIntakeTests
         var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
         Assert.Equal(Charged.AddMonths(1), supporter.PaidThrough);
         Assert.Equal(SupporterStates.Active, supporter.State);
-        Assert.Equal(Charged.AddMonths(1).AddDays(SupporterLimits.GraceDays), SupporterRules.RolesEndAt(supporter.PaidThrough));
+        Assert.Equal(Charged.AddMonths(1).AddDays(SupporterLimits.DefaultRolesOffDays), SupporterRules.RolesEndAt(supporter.PaidThrough, SupporterLimits.DefaultRolesOffDays));
         Assert.Equal(1, await db.SupporterPayments.CountAsync(Ct));
     }
 
@@ -191,8 +191,8 @@ public class PatreonIntakeTests
         // The pass compares the paid month with the clock; a supporter is lapsed three days after it is up.
         await using var db = services.Database.NewContext();
         var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
-        Assert.False(SupporterRules.HasLapsed(supporter.PaidThrough, Charged.AddMonths(1).AddDays(2)));
-        Assert.True(SupporterRules.HasLapsed(supporter.PaidThrough, Charged.AddMonths(1).AddDays(3)));
+        Assert.False(SupporterRules.HasLapsed(supporter.PaidThrough, Charged.AddMonths(1).AddDays(2), SupporterLimits.DefaultRolesOffDays));
+        Assert.True(SupporterRules.HasLapsed(supporter.PaidThrough, Charged.AddMonths(1).AddDays(3), SupporterLimits.DefaultRolesOffDays));
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class PatreonIntakeTests
         await using var db = services.Database.NewContext();
         var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
         Assert.Equal(SupporterStates.Active, supporter.State);
-        Assert.Equal(declinedAt.AddDays(SupporterLimits.GraceDays), SupporterRules.RolesEndAt(supporter.PaidThrough));
+        Assert.Equal(declinedAt.AddDays(SupporterLimits.DefaultRolesOffDays), SupporterRules.RolesEndAt(supporter.PaidThrough, SupporterLimits.DefaultRolesOffDays));
         Assert.Equal(1, await db.SupporterPayments.CountAsync(Ct));
     }
 
@@ -238,8 +238,121 @@ public class PatreonIntakeTests
         await TakeAsync(services, Message(charge: Charged));
 
         var declinedAt = Charged.AddMonths(1);
-        services.Clock.UtcNow = declinedAt.AddDays(SupporterLimits.GraceDays + 1);
+        services.Clock.UtcNow = declinedAt.AddDays(SupporterLimits.DefaultRolesOffDays + 1);
         await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"));
+
+        await using var db = services.Database.NewContext();
+        Assert.Equal(SupporterStates.Ended, (await db.Supporters.AsNoTracking().SingleAsync(Ct)).State);
+    }
+
+    [Fact]
+    public async Task WithTenDays_ADeclinedChargeKeepsTheRolesUntilTenDaysAfterIt_AndAPledgeThatEndedUntilTenDaysAfterTheMonth()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.PatreonRolesOffDays = 10, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+        await TakeAsync(services, Message(charge: Charged));
+
+        var declinedAt = Charged.AddMonths(1).AddHours(4);
+        services.Clock.UtcNow = declinedAt.AddDays(5);
+        await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"), "members:update");
+
+        await using (var db = services.Database.NewContext())
+        {
+            var declined = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+            Assert.Equal(SupporterStates.Active, declined.State);
+            Assert.Equal(declinedAt.AddDays(10), SupporterRules.RolesEndAt(declined.PaidThrough, 10));
+        }
+
+        services.Clock.UtcNow = declinedAt.AddDays(11);
+        await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"), "members:update");
+
+        await using var read = services.Database.NewContext();
+        Assert.Equal(SupporterStates.Ended, (await read.Supporters.AsNoTracking().SingleAsync(Ct)).State);
+    }
+
+    [Fact]
+    public async Task WithTenDays_APledgeThatEndedIsStillActiveFiveDaysAfterTheMonth()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.PatreonRolesOffDays = 10, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+        await TakeAsync(services, Message(charge: Charged));
+
+        services.Clock.UtcNow = Charged.AddMonths(1).AddDays(5);
+        await TakeAsync(services, Message("former_patron", tiers: [], charge: Charged), "members:pledge:delete");
+
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(SupporterStates.Active, supporter.State);
+        Assert.Equal(Charged.AddMonths(1).AddDays(10), SupporterRules.RolesEndAt(supporter.PaidThrough, 10));
+    }
+
+    [Fact]
+    public async Task WithZeroDays_APledgeThatEndedIsEndedOnceThePaidMonthIsUp()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.PatreonRolesOffDays = 0, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+        await TakeAsync(services, Message(charge: Charged));
+
+        services.Clock.UtcNow = Charged.AddMonths(1).AddHours(1);
+        await TakeAsync(services, Message("former_patron", tiers: [], charge: Charged), "members:pledge:delete");
+
+        await using var db = services.Database.NewContext();
+        Assert.Equal(SupporterStates.Ended, (await db.Supporters.AsNoTracking().SingleAsync(Ct)).State);
+    }
+
+    [Fact]
+    public async Task WithNever_AnEndedPledgeAndADeclinedChargeStillShowAsEnded_WithNoDateForTheRolesToComeOff()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.PatreonRolesOffDays = SupporterLimits.RolesNeverOff, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+        await TakeAsync(services, Message(charge: Charged));
+
+        var declinedAt = Charged.AddMonths(1);
+        services.Clock.UtcNow = declinedAt.AddHours(1);
+        await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"), "members:update");
+
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(SupporterStates.Ended, supporter.State);
+        Assert.Null(SupporterRules.RolesEndAt(supporter.PaidThrough, SupporterLimits.RolesNeverOff));
+    }
+
+    [Fact]
+    public async Task ALateActiveMessageWithAnOlderChargeDoesNotExtendTheMonth()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var newer = Charged.AddMonths(1);
+        services.Clock.UtcNow = newer.AddDays(1);
+        await TakeAsync(services, Message(charge: newer), "members:update");
+
+        // The older charge's message arrives again, carrying a different tier.
+        services.Clock.UtcNow = newer.AddDays(2);
+        var outcome = await TakeAsync(services, Message(tiers: ["silver"], charge: Charged), "members:update");
+
+        Assert.Equal(SupporterIntake.Taken, outcome.Result);
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal(newer, supporter.LastPaidAt);
+        Assert.Equal(newer.AddMonths(1), supporter.PaidThrough);
+        Assert.Equal("gold", (await db.SupporterTiers.AsNoTracking().SingleAsync(t => t.Id == supporter.TierId, Ct)).Key);
+        Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ALateActiveMessageWithAnOlderChargeDoesNotBringBackRolesThatCameOff()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        services.Clock.UtcNow = Charged.AddDays(2);
+        await TakeAsync(services, Message(charge: Charged), "members:update");
+        services.Clock.UtcNow = Charged.AddMonths(1).AddDays(1);
+        await TakeAsync(services, Message(charge: Charged.AddMonths(1)), "members:update");
+
+        var declinedAt = Charged.AddMonths(2);
+        services.Clock.UtcNow = declinedAt.AddDays(SupporterLimits.DefaultRolesOffDays + 1);
+        await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"), "members:update");
+
+        // The first charge's active message is replayed with its old date.
+        await TakeAsync(services, Message(charge: Charged), "members:update");
 
         await using var db = services.Database.NewContext();
         Assert.Equal(SupporterStates.Ended, (await db.Supporters.AsNoTracking().SingleAsync(Ct)).State);
@@ -253,7 +366,7 @@ public class PatreonIntakeTests
         await TakeAsync(services, Message(charge: Charged));
 
         var declinedAt = Charged.AddMonths(1);
-        services.Clock.UtcNow = declinedAt.AddDays(SupporterLimits.GraceDays + 1);
+        services.Clock.UtcNow = declinedAt.AddDays(SupporterLimits.DefaultRolesOffDays + 1);
         await TakeAsync(services, Message("declined_patron", charge: declinedAt, chargeStatus: "Declined"));
 
         await using (var db = services.Database.NewContext())
@@ -287,7 +400,7 @@ public class PatreonIntakeTests
         await using var db = services.Database.NewContext();
         var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
         Assert.Equal(SupporterStates.Active, supporter.State);
-        Assert.False(SupporterRules.HasLapsed(supporter.PaidThrough, services.Clock.UtcNow));
+        Assert.False(SupporterRules.HasLapsed(supporter.PaidThrough, services.Clock.UtcNow, SupporterLimits.DefaultRolesOffDays));
     }
 
     [Fact]

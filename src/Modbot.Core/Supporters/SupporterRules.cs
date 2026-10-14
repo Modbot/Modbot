@@ -14,13 +14,27 @@ public static class SupporterRules
     public static DateTimeOffset PaidThrough(DateTimeOffset paidAt) => paidAt.AddMonths(1);
 
     /// <summary>
-    /// The moment the roles come off if no new payment has come: three days after the paid month is
-    /// up. Ko-fi sends no message when a membership stops, so a missing payment is the only sign.
+    /// The moment the roles come off if no new payment has come: <paramref name="rolesOffDays"/> days after
+    /// the paid month is up, or null when the site's setting is <see cref="SupporterLimits.RolesNeverOff"/>.
+    /// Ko-fi sends no message when a membership stops, so a missing payment is the only sign.
     /// </summary>
-    public static DateTimeOffset RolesEndAt(DateTimeOffset paidThrough) => paidThrough.AddDays(SupporterLimits.GraceDays);
+    public static DateTimeOffset? RolesEndAt(DateTimeOffset paidThrough, int rolesOffDays)
+        => rolesOffDays < 0 ? null : paidThrough.AddDays(rolesOffDays);
 
-    /// <summary>Whether a supporter whose month ran out at <paramref name="paidThrough"/> has lost the roles by <paramref name="now"/>.</summary>
-    public static bool HasLapsed(DateTimeOffset paidThrough, DateTimeOffset now) => now >= RolesEndAt(paidThrough);
+    /// <summary>
+    /// Whether a supporter whose month ran out at <paramref name="paidThrough"/> counts as ended by
+    /// <paramref name="now"/>: the roles are off by then, or (when they never come off) the month is simply up.
+    /// </summary>
+    public static bool HasLapsed(DateTimeOffset paidThrough, DateTimeOffset now, int rolesOffDays)
+        => now >= paidThrough.AddDays(Math.Max(rolesOffDays, 0));
+
+    /// <summary>Whether the roles Modbot gave are to be taken back by <paramref name="now"/>. Never true when the setting is never.</summary>
+    public static bool RolesAreOff(DateTimeOffset paidThrough, DateTimeOffset now, int rolesOffDays)
+        => RolesEndAt(paidThrough, rolesOffDays) is { } end && now >= end;
+
+    /// <summary>The setting that belongs to the site a supporter came from.</summary>
+    public static int RolesOffDaysFor(string provider, int kofiDays, int patreonDays)
+        => provider == SupporterProviders.Patreon ? patreonDays : kofiDays;
 
     /// <summary>A tier's key: how the site names it, trimmed and lower-case.</summary>
     public static string TierKeyOf(string name) => name.Trim().ToLowerInvariant();

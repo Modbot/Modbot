@@ -43,7 +43,7 @@ be left empty.
 - A tier appears by itself the first time a patron is at it, with no roles. Pick its roles to start
   giving them. Its name is the tier's title on Patreon, and it is renamed here if you rename it there.
 - A patron who is entitled to several tiers is counted at the one that costs the most.
-- A patron who is entitled to no tier is not counted.
+- A patron who is entitled to no tier is not counted. One who was counted and then loses every tier is ended, like a pledge that ended.
 - Changing a tier's roles applies to everyone on it within a minute.
 - A tier cannot be deleted while paid-up supporters are on it.
 
@@ -54,8 +54,13 @@ The thank-you message is the one under **Settings**, **Ko-fi**. It is the same f
 | What Patreon says | What Modbot does |
 |---|---|
 | The patron is active | Gives the tier's roles. They last for the month the last paid charge covers; until Patreon charges them, a month from when the pledge was first seen. |
-| A charge was declined | The roles stay until **3 days** after the declined charge, then come off. |
-| The pledge ended (deleted, or a former patron) | The roles stay until the paid month is up, and the same **3 days** more, then come off. |
+| A charge was declined | The roles stay until the number of days set under **Settings**, **Patreon** has passed since the declined charge, then come off. |
+| The pledge ended (deleted, or a former patron), or the patron lost every tier | The roles stay until the paid month is up and the same number of days more, then come off. |
+
+Under **Settings**, **Patreon**, **Roles come off** sets that number of days: 0 to 365, with **3** to start.
+**Never** keeps the roles Modbot gave for good; the supporter still shows as **Ended** on the
+**Supporters** page, and 0 takes the roles off the moment the paid month is up. The setting is Patreon's own;
+Ko-fi has its own.
 
 A later message that says the patron is active again gives the roles back, and they are thanked again.
 Cancelling a free or gifted membership sends no pledge-deleted message.

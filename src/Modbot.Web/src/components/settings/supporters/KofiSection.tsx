@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api'
 import { supporterApi, type SupporterSettings } from '@/lib/supporters'
 import { Fact, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { RolesOffCard } from './RolesOffCard'
 
 /**
  * Settings → Ko-fi: whether Modbot takes in Ko-fi's payment messages, the verification token
@@ -42,6 +43,7 @@ export function KofiSection() {
       ) : (
         <>
           <ConnectionCard settings={data} onSaved={setData} />
+          <RolesOffCard site="kofi" settings={data} onSaved={setData} />
           <ThanksCard settings={data} onSaved={setData} />
         </>
       )}

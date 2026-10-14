@@ -50,12 +50,16 @@ be left empty.
 Only a **monthly** payment counts. A one-off donation, a shop order or a commission is answered and
 ignored.
 
-## The three-day rule
+## When the roles come off
 
 Ko-fi sends nothing when a monthly payment stops. So Modbot counts instead. A payment covers a month.
-If the next one has not come **3 days after that month is up**, the supporter's state becomes **Ended**
-and Modbot takes back the roles it gave. The page shows **Roles end** for each supporter. A payment that
-arrives late, after the roles came off, gives them back.
+If the next one has not come the set number of days after that month is up, the supporter's state becomes
+**Ended** and Modbot takes back the roles it gave. The page shows **Roles end** for each supporter. A
+payment that arrives late, after the roles came off, gives them back.
+
+**Settings**, **Ko-fi**, **Roles come off** sets the number of days: 0 to 365, with **3** to start. 0 takes
+the roles off the moment the paid month is up. **Never** keeps the roles Modbot gave for good; the supporter
+still shows as **Ended** on the **Supporters** page. The setting is Ko-fi's own; Patreon has its own.
 
 Modbot only takes back roles it gave itself. A role you gave by hand is never touched.
 
@@ -108,7 +112,7 @@ somebody does not accept direct messages from the server, the page shows that on
 Giving a Discord role needs the **Manage Roles** permission, and the bot's own role must sit above the
 roles it gives. The VRChat side uses Modbot's own VRChat login, which needs the group permission to give
 and take away roles; a refusal from VRChat is shown on the supporter's row. The **Bot invite link** asks for Manage Roles while
-Ko-fi is on. A bot added earlier has to be added again from the new link.
+Ko-fi or Patreon is on. A bot added earlier has to be added again from the new link.
 
 A role the bot cannot give is marked in the picker, and a refusal is shown on the supporter's row.
 

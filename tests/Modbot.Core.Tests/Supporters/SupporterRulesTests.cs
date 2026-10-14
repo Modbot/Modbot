@@ -1,3 +1,4 @@
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Supporters;
 
 namespace Modbot.Core.Tests.Supporters;
@@ -16,7 +17,40 @@ public class SupporterRulesTests
         var through = SupporterRules.PaidThrough(Paid);
 
         Assert.Equal(new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.Zero), through);
-        Assert.Equal(through.AddDays(3), SupporterRules.RolesEndAt(through));
+        Assert.Equal(through.AddDays(3), SupporterRules.RolesEndAt(through, SupporterLimits.DefaultRolesOffDays));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(365)]
+    public void TheRolesGoTheSetNumberOfDaysAfterTheMonthIsUp(int days)
+    {
+        var through = SupporterRules.PaidThrough(Paid);
+
+        Assert.Equal(through.AddDays(days), SupporterRules.RolesEndAt(through, days));
+        Assert.False(SupporterRules.RolesAreOff(through, through.AddDays(days).AddMinutes(-1), days));
+        Assert.True(SupporterRules.RolesAreOff(through, through.AddDays(days), days));
+        Assert.False(SupporterRules.HasLapsed(through, through.AddDays(days).AddMinutes(-1), days));
+        Assert.True(SupporterRules.HasLapsed(through, through.AddDays(days), days));
+    }
+
+    [Fact]
+    public void WithNeverTheRolesNeverComeOff_ButTheSupporterEndsWhenTheMonthIsUp()
+    {
+        var through = SupporterRules.PaidThrough(Paid);
+
+        Assert.Null(SupporterRules.RolesEndAt(through, SupporterLimits.RolesNeverOff));
+        Assert.False(SupporterRules.RolesAreOff(through, through.AddDays(4000), SupporterLimits.RolesNeverOff));
+        Assert.False(SupporterRules.HasLapsed(through, through.AddMinutes(-1), SupporterLimits.RolesNeverOff));
+        Assert.True(SupporterRules.HasLapsed(through, through, SupporterLimits.RolesNeverOff));
+    }
+
+    [Fact]
+    public void EachSiteHasItsOwnSetting()
+    {
+        Assert.Equal(1, SupporterRules.RolesOffDaysFor(SupporterProviders.Kofi, 1, 2));
+        Assert.Equal(2, SupporterRules.RolesOffDaysFor(SupporterProviders.Patreon, 1, 2));
     }
 
     [Fact]
@@ -24,9 +58,9 @@ public class SupporterRulesTests
     {
         var through = SupporterRules.PaidThrough(Paid);
 
-        Assert.False(SupporterRules.HasLapsed(through, through.AddDays(2).AddHours(23)));
-        Assert.True(SupporterRules.HasLapsed(through, through.AddDays(3)));
-        Assert.True(SupporterRules.HasLapsed(through, through.AddDays(30)));
+        Assert.False(SupporterRules.HasLapsed(through, through.AddDays(2).AddHours(23), SupporterLimits.DefaultRolesOffDays));
+        Assert.True(SupporterRules.HasLapsed(through, through.AddDays(3), SupporterLimits.DefaultRolesOffDays));
+        Assert.True(SupporterRules.HasLapsed(through, through.AddDays(30), SupporterLimits.DefaultRolesOffDays));
     }
 
     [Fact]

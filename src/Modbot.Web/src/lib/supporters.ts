@@ -24,8 +24,8 @@ export type Supporter = {
   state: 'active' | 'ended'
   lastPaidAt: string
   paidThrough: string
-  /** When the roles come off if no payment comes first. */
-  rolesEndAt: string
+  /** When the roles come off if no payment comes first; null when the site is set to never take them off. */
+  rolesEndAt: string | null
   discordRoleGiven: boolean
   vrChatRoleGiven: boolean
   vrChatLinked: boolean
@@ -57,6 +57,11 @@ export type SupporterSettings = {
   patreonSecretStored: boolean
   /** The address to give Patreon; null until the public address is set. */
   patreonWebhookAddress: string | null
+  /** Days after the paid month ends that Ko-fi supporters lose the roles; -1 is never. */
+  kofiRolesOffDays: number
+  /** Days after the paid month ends (or a declined charge) that Patreon supporters lose the roles; -1 is never. */
+  patreonRolesOffDays: number
+  mostRolesOffDays: number
 }
 
 export type SupporterSettingsInput = {
@@ -65,6 +70,8 @@ export type SupporterSettingsInput = {
   thanksText?: string
   patreonOn?: boolean
   patreonWebhookSecret?: string
+  kofiRolesOffDays?: number
+  patreonRolesOffDays?: number
 }
 
 /** The name of the site a supporter or a tier came from. */

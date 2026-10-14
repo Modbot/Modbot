@@ -125,6 +125,23 @@ public class SupporterIntakeTests
         Assert.Equal(SupporterRules.PaidThrough(now.AddDays(-1)), supporter.PaidThrough);
     }
 
+    [Theory]
+    [InlineData(3, SupporterStates.Ended)]
+    [InlineData(0, SupporterStates.Ended)]
+    [InlineData(10, SupporterStates.Active)]
+    [InlineData(SupporterLimits.RolesNeverOff, SupporterStates.Ended)]
+    public async Task APaymentWhoseMonthRanOutAFewDaysAgoIsEndedOrNotBySettingsDays(int days, string expected)
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.KofiRolesOffDays = days, Ct);
+        var now = services.Clock.UtcNow;
+
+        // Paid 35 days ago: the month ran out between four and seven days ago.
+        await TakeAsync(services, Payment("one", at: now.AddDays(-35)));
+
+        await using var db = services.Database.NewContext();
+        Assert.Equal(expected, (await db.Supporters.AsNoTracking().SingleAsync(Ct)).State);
+    }
+
     [Fact]
     public async Task ALatePaymentDoesNotUndoANewerTier()
     {

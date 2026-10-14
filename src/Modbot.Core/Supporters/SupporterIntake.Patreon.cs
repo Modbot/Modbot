@@ -11,10 +11,15 @@ namespace Modbot.Core.Supporters;
 /// <para>
 /// <strong>The status decides, not the kind of message.</strong> An active patron has the tier's roles
 /// for the month their last paid charge covers (or a month from now, until Patreon charges them). A
-/// patron whose charge was declined keeps them until three days after the declined charge. A patron
-/// whose pledge ended keeps them until the paid month is up. Each is then given the same three days
-/// as a Ko-fi supporter ends with (<see cref="SupporterRules.RolesEndAt"/>). A later message that says
-/// active gives the roles back.
+/// patron whose charge was declined keeps them for the days Settings → Supporters gives after the
+/// declined charge. A patron whose pledge ended keeps them until the paid month is up. Each is then
+/// given those same days (<see cref="SupporterRules.RolesEndAt"/>), or keeps the roles for good when
+/// the setting is never. A later message that says active gives the roles back.
+/// </para>
+/// <para>
+/// <strong>A late message does not undo a newer one.</strong> Patreon sends no event id, so an active
+/// message whose last charge is older than the one already taken is written down but changes nothing,
+/// as with a late Ko-fi payment.
 /// </para>
 /// <para>
 /// <strong>The same message twice changes nothing.</strong> A charge is written down once, by the
@@ -53,6 +58,7 @@ public sealed partial class SupporterIntake
             .ConfigureAwait(false);
 
         var tierPick = message.EntitledTier();
+        var offDays = await RolesOffDaysAsync(SupporterProviders.Patreon, ct).ConfigureAwait(false);
 
         // A patron entitled to no tier has nothing to be given: they are treated as one whose pledge ended.
         if (standing == PatreonStanding.Active && tierPick is null)
@@ -70,7 +76,12 @@ public sealed partial class SupporterIntake
         var charged = message.LastPaidCharge is { } paid ? (paid < now ? paid : now) : (DateTimeOffset?)null;
         var isNew = supporter is null;
 
-        if (standing == PatreonStanding.Active)
+        // A message that says active but whose last charge is older than the one already taken is a late or
+        // replayed one: it must neither extend the month nor bring back roles that came off. Only its charge
+        // is written down, below.
+        var late = standing == PatreonStanding.Active && supporter is not null && charged is { } lateCharge && lateCharge < supporter.LastPaidAt;
+
+        if (standing == PatreonStanding.Active && !late)
         {
             var tier = await FindOrMakeTierAsync(tierPick!, now, ct).ConfigureAwait(false);
 
@@ -94,11 +105,11 @@ public sealed partial class SupporterIntake
             // are an active patron, so a month already over is not believed: it starts again from now.
             var through = charged is { } c
                 ? SupporterRules.PaidThrough(c)
-                : !isNew && !SupporterRules.HasLapsed(supporter.PaidThrough, now)
+                : !isNew && !SupporterRules.HasLapsed(supporter.PaidThrough, now, offDays)
                     ? supporter.PaidThrough
                     : SupporterRules.PaidThrough(now);
 
-            if (SupporterRules.HasLapsed(through, now))
+            if (SupporterRules.HasLapsed(through, now, offDays))
                 through = SupporterRules.PaidThrough(now);
 
             var wasEnded = supporter.State == SupporterStates.Ended;
@@ -126,10 +137,10 @@ public sealed partial class SupporterIntake
                 supporter.TryAgainAt = null;
             }
         }
-        else
+        else if (standing != PatreonStanding.Active)
         {
-            // A declined charge ends the paid time where the charge was tried, so the roles go three
-            // days after it. Somebody whose roles already came off is not given more time by it. A
+            // A declined charge ends the paid time where the charge was tried, so the roles go the
+            // set number of days after it. Somebody whose roles already came off is not given more time by it. A
             // pledge that ended is paid for the month its last paid charge covers; with no paid charge
             // behind it there is no month to wait out.
             if (standing == PatreonStanding.Declined)
@@ -146,9 +157,12 @@ public sealed partial class SupporterIntake
                 supporter.PaidThrough = now;
             }
 
-            if (supporter.State == SupporterStates.Active && SupporterRules.HasLapsed(supporter.PaidThrough, now))
+            if (supporter.State == SupporterStates.Active && SupporterRules.HasLapsed(supporter.PaidThrough, now, offDays))
                 supporter.State = SupporterStates.Ended;
         }
+
+        // Every way through the above leaves a supporter: a new patron was made, anybody else was found.
+        ArgumentNullException.ThrowIfNull(supporter);
 
         // A charge is written down once; the supporter was brought up to date above either way.
         if (charged is { } chargeDate)
