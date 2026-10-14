@@ -40,6 +40,7 @@ namespace Modbot.TestSupport;
 public sealed class PostgresFixture : IAsyncLifetime
 {
     private PostgresServer? _server;
+    private readonly HashSet<IAsyncDisposable> _hosts = [];
 
     /// <summary>The connection string of this fixture's database. Set once the fixture is initialised.</summary>
     public string ConnectionString { get; private set; } = string.Empty;
@@ -51,8 +52,46 @@ public sealed class PostgresFixture : IAsyncLifetime
         ConnectionString = await CreateMigratedDatabaseAsync();
     }
 
+    /// <summary>
+    /// Remembers a host that uses this fixture's database, so that one a test never disposed (it
+    /// threw between starting the host and reaching its <c>await using</c>) is disposed here, before
+    /// the database goes. Left running it would keep polling a database that no longer exists, for
+    /// as long as the test process lives.
+    /// </summary>
+    public void Track(IAsyncDisposable host)
+    {
+        lock (_hosts)
+            _hosts.Add(host);
+    }
+
+    /// <summary>Forgets a host that has been disposed in the ordinary way.</summary>
+    public void Untrack(IAsyncDisposable host)
+    {
+        lock (_hosts)
+            _hosts.Remove(host);
+    }
+
     public async ValueTask DisposeAsync()
     {
+        IAsyncDisposable[] left;
+        lock (_hosts)
+        {
+            left = [.. _hosts];
+            _hosts.Clear();
+        }
+
+        foreach (var host in left)
+        {
+            try
+            {
+                await host.DisposeAsync();
+            }
+            catch (Exception)
+            {
+                // Cleanup is not a reason to fail a test.
+            }
+        }
+
         // The container's data is in memory, and a class's database is not needed once its tests
         // have run. The container itself is stopped when the process ends.
         if (_server is not null && ConnectionString.Length > 0)

@@ -55,6 +55,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
 
     private readonly WebApplication _app;
     private readonly PostgresFixture _db;
+    private int _disposed;
 
     private ReadSurfaceTestHost(
         WebApplication app, HttpClient client, FakeClock clock, FakeVRChatGate gate, PostgresFixture db)
@@ -200,18 +201,28 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         // failing, not a clear error where the duplication is.
         app.MapModbotApi();
 
-        await app.StartAsync();
-        await app.Services.LoadEvidenceSettingsAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            await app.StartAsync();
+            await app.Services.LoadEvidenceSettingsAsync(TestContext.Current.CancellationToken);
+        }
+        catch
+        {
+            await app.DisposeAsync();
+            throw;
+        }
 
         var client = app.GetTestClient();
         client.BaseAddress = new Uri("https://localhost/");
 
-        return new ReadSurfaceTestHost(app, client, clock, gate, db)
+        var host = new ReadSurfaceTestHost(app, client, clock, gate, db)
         {
             Diagnostics = diagnostics,
             Queue = queue,
             EvidenceRoot = evidenceRoot,
         };
+        db.Track(host);
+        return host;
     }
 
     /// <summary>The refresh queue the API feeds. Empty and unregistered when <c>withSync</c> was false.</summary>
@@ -383,6 +394,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            return;
+
+        _db.Untrack(this);
         await _app.StopAsync();
         Client.Dispose();
         await _app.DisposeAsync();

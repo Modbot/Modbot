@@ -41,10 +41,13 @@ public sealed class ApiTestHost : IAsyncDisposable
     public const string TwoFlagProbe = "/probe/audit-and-settings";
 
     private readonly WebApplication _app;
+    private readonly PostgresFixture _db;
+    private int _disposed;
 
-    private ApiTestHost(WebApplication app, HttpClient client, FakeClock clock, FakeVRChatGate gate)
+    private ApiTestHost(WebApplication app, HttpClient client, FakeClock clock, FakeVRChatGate gate, PostgresFixture db)
     {
         _app = app;
+        _db = db;
         Client = client;
         Clock = clock;
         VRChat = gate;
@@ -112,14 +115,24 @@ public sealed class ApiTestHost : IAsyncDisposable
         app.MapGet(TwoFlagProbe, () => Results.Ok("both"))
            .RequiresFlag(ModbotPermissions.ViewAuditLog | ModbotPermissions.ManageSettings);
 
-        await app.StartAsync();
+        try
+        {
+            await app.StartAsync();
+        }
+        catch
+        {
+            await app.DisposeAsync();
+            throw;
+        }
 
         // https, because the session cookie is marked Secure and a cookie jar would refuse to
         // store it over plain http -- exactly as a browser would.
         var client = app.GetTestClient();
         client.BaseAddress = new Uri("https://localhost/");
 
-        return new ApiTestHost(app, client, clock, gate);
+        var host = new ApiTestHost(app, client, clock, gate, db);
+        db.Track(host);
+        return host;
     }
 
     /// <summary>
@@ -399,6 +412,10 @@ public sealed class ApiTestHost : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+            return;
+
+        _db.Untrack(this);
         await _app.StopAsync();
         Client.Dispose();
         await _app.DisposeAsync();
