@@ -446,6 +446,9 @@ export type CalendarSeriesDate = {
   /** People a moderator's client saw arrive at the date's instance. */
   came: number | null
   mostAtOnce: number | null
+  /** The count was read more than ten minutes after the date started. */
+  discordLate: boolean
+  vrChatLate: boolean
 }
 
 /** How one event's dates did over time (`GET /api/calendar/events/:id/series`). */

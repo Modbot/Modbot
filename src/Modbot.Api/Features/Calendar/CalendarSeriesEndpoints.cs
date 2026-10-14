@@ -16,12 +16,16 @@ namespace Modbot.Api.Features.Calendar;
 /// <param name="VRChatInterested">Interested on VRChat when it started. Null when it was not read.</param>
 /// <param name="Came">People seen arriving at the date's instance. Null when Modbot opened none or saw nobody.</param>
 /// <param name="MostAtOnce">The most people counted in the instance at once. Null when it never counted.</param>
+/// <param name="DiscordLate">The Discord count was read more than ten minutes after the date started.</param>
+/// <param name="VRChatLate">The VRChat count was read more than ten minutes after the date started.</param>
 public sealed record CalendarSeriesDateView(
     DateTimeOffset StartsAt,
     int? DiscordInterested,
     int? VRChatInterested,
     int? Came,
-    int? MostAtOnce);
+    int? MostAtOnce,
+    bool DiscordLate,
+    bool VRChatLate);
 
 /// <param name="EventId">The event: one series is all the dates of one event.</param>
 /// <param name="Title">The event's title.</param>
@@ -68,7 +72,7 @@ public static class CalendarSeriesEndpoints
                     calendarEvent.Id,
                     calendarEvent.Title,
                     [.. dates.Select(d => new CalendarSeriesDateView(
-                        d.StartsAt, d.DiscordInterested, d.VRChatInterested, d.Came, d.MostAtOnce))],
+                        d.StartsAt, d.DiscordInterested, d.VRChatInterested, d.Came, d.MostAtOnce, d.DiscordLate, d.VRChatLate))],
                     EventSeriesHistory.Average(dates.Select(d => d.DiscordInterested)),
                     EventSeriesHistory.Average(dates.Select(d => d.VRChatInterested)),
                     EventSeriesHistory.Average(dates.Select(d => d.Came))));
@@ -80,7 +84,8 @@ public static class CalendarSeriesEndpoints
                 "Every date of one event that has a count or an opened instance, earliest first, at most the "
                 + "latest 100: how many people were interested on Discord and on VRChat when the date started, "
                 + "how many people a moderator's client saw arrive at its instance, and the most counted at once. "
-                + "Each interested count is written once, when the date starts, and a date from before Modbot "
+                + "Each interested count is written once, when the date starts; one read more than ten minutes "
+                + "later (Modbot was not running at the start) is marked late, and a date from before Modbot "
                 + "kept them has none. `came` counts only people seen where a moderator's client stood, so it "
                 + "can be lower than the real turnout, and is null for a date nobody was seen at. The averages "
                 + "are over the dates that have the figure.")

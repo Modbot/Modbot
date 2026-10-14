@@ -24,6 +24,20 @@ function figure(value: number | null): string {
   return value === null ? '—' : String(value)
 }
 
+/** A count, with a muted "late" after it when it was read well after the date started. */
+function counted(value: number | null, late: boolean) {
+  return (
+    <>
+      {figure(value)}
+      {value !== null && late && (
+        <span className="ml-1 font-sans text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+          late
+        </span>
+      )}
+    </>
+  )
+}
+
 /**
  * One event's dates over time, at `/calendar/series/:id`: how many were interested on Discord and
  * on VRChat when each date started, and how many came. The first two are written once per date, so
@@ -103,8 +117,8 @@ export function CalendarSeries({ eventId, onBack }: { eventId: string; onBack: (
               {[...data.dates].reverse().map((d) => (
                 <Tr key={d.startsAt}>
                   <Td>{dateTime(d.startsAt)}</Td>
-                  <Td className="text-right font-mono">{figure(d.discordInterested)}</Td>
-                  <Td className="text-right font-mono">{figure(d.vrChatInterested)}</Td>
+                  <Td className="text-right font-mono">{counted(d.discordInterested, d.discordLate)}</Td>
+                  <Td className="text-right font-mono">{counted(d.vrChatInterested, d.vrChatLate)}</Td>
                   <Td className="text-right font-mono">{figure(d.came)}</Td>
                   <Td className="text-right font-mono">{figure(d.mostAtOnce)}</Td>
                 </Tr>

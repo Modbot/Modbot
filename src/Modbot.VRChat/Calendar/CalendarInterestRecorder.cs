@@ -23,14 +23,34 @@ namespace Modbot.VRChat.Calendar;
 /// </para>
 /// <para>
 /// Each date is written once (<see cref="CalendarInterestStore"/>). A date VRChat's calendar does not
-/// list is written with no count once every page was read, so it is not looked for again; a read
-/// that failed or stopped short writes nothing and is made again on the next pass.
+/// list is written with no count once every page was read, so it is not looked for again. A read that
+/// stopped short, with the date not among the rows, is made again on the next pass, but only
+/// <see cref="MostMisses"/> times: then the date is written with no count. A read VRChat failed (not
+/// a rate limit or a sign-in that is waiting) is made again after 5, then 10, then 20 minutes for
+/// those dates. The counters live in memory, so a restart starts them again.
 /// </para>
 /// </remarks>
 public sealed class CalendarInterestRecorder
 {
     /// <summary>How far apart VRChat's start and Modbot's may be and still be the same date.</summary>
     private static readonly TimeSpan SameDate = TimeSpan.FromMinutes(1);
+
+    /// <summary>How many reads that stopped short may miss a date before it is written with no count.</summary>
+    internal const int MostMisses = 3;
+
+    /// <summary>The wait after a failed read: 5 minutes, doubling to at most 20.</summary>
+    internal static TimeSpan BackOff(int failures) =>
+        TimeSpan.FromMinutes(Math.Min(20, 5 * Math.Pow(2, Math.Max(0, failures - 1))));
+
+    private sealed class Tries
+    {
+        public int Misses;
+        public int Failures;
+        public DateTimeOffset NotBefore;
+    }
+
+    /// <summary>What has been tried for each date still waiting for a count. Shared by every pass.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid EventId, DateTimeOffset StartsAt), Tries> Waiting = new();
 
     private readonly IVRChatGate _gate;
     private readonly ModbotContext _db;
@@ -91,9 +111,21 @@ public sealed class CalendarInterestRecorder
                     && i.OccurrenceStartsAt == occurrence.StartsAt
                     && i.VRChatTakenAt != null, ct).ConfigureAwait(false);
 
-            if (!taken)
-                due.Add((calendarEvent, place.ExternalId!, occurrence.StartsAt));
+            if (taken)
+            {
+                Waiting.TryRemove((place.EventId, occurrence.StartsAt), out _);
+                continue;
+            }
+
+            if (Waiting.TryGetValue((place.EventId, occurrence.StartsAt), out var tries) && now < tries.NotBefore)
+                continue;
+
+            due.Add((calendarEvent, place.ExternalId!, occurrence.StartsAt));
         }
+
+        // Dates that ended long ago are not waited for any more.
+        foreach (var key in Waiting.Keys.Where(k => k.StartsAt < now - TimeSpan.FromDays(1)).ToList())
+            Waiting.TryRemove(key, out _);
 
         if (due.Count == 0)
             return 0;
@@ -106,9 +138,22 @@ public sealed class CalendarInterestRecorder
             var read = await CalendarVRChatReader.ReadMonthPagesAsync(_gate, groupId, month, VRChatCallPriority.Background, ct)
                 .ConfigureAwait(false);
 
-            // The gate is cold or VRChat did not answer: the next pass asks again.
-            if (read.Failed is not null)
+            if (read.Failed is { } failed)
+            {
+                // The gate is cold or a sign-in is waiting: the next pass asks again. Anything else
+                // VRChat refused is asked again later and later, per date.
+                if (failed.Kind is not (VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting))
+                {
+                    foreach (var d in due)
+                    {
+                        var tries = Waiting.GetOrAdd((d.Event.Id, d.StartsAt), _ => new Tries());
+                        tries.Failures++;
+                        tries.NotBefore = now + BackOff(tries.Failures);
+                    }
+                }
+
                 return 0;
+            }
 
             rows.AddRange(read.Rows);
             whole &= read.Whole;
@@ -126,12 +171,20 @@ public sealed class CalendarInterestRecorder
                 .OrderBy(r => (CalendarVRChatMatch.AsUtc(r.StartsAt) - startsAt).Duration())
                 .FirstOrDefault();
 
-            // Not in what was read, and not all of it was: it may be on a page that was not.
+            // Not in what was read, and not all of it was: it may be on a page that was not. After a
+            // few such reads it is written with no count, so VRChat is not asked for it all event long.
             if (row is null && !whole)
-                continue;
+            {
+                var tries = Waiting.GetOrAdd((calendarEvent.Id, startsAt), _ => new Tries());
+
+                if (++tries.Misses < MostMisses)
+                    continue;
+            }
 
             if (await _store.RecordVRChatAsync(calendarEvent.Id, startsAt, row?.InterestedUserCount, now, ct).ConfigureAwait(false))
                 written++;
+
+            Waiting.TryRemove((calendarEvent.Id, startsAt), out _);
         }
 
         if (written > 0)

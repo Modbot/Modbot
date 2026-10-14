@@ -26,13 +26,18 @@ public class EventSummaryPostTests(PostgresFixture db)
         return await new EventSummaryPost(context, services.Clock).RunOnceAsync(gateway, Ct);
     }
 
-    private static Task TurnOnAsync(TestServices services, DateOnly? last = null) =>
-        services.ConfigureAsync(s =>
+    /// <summary>Turned on, with the clock at 06:00 UTC on 1 January, when the summary may go out.</summary>
+    private static Task TurnOnAsync(TestServices services, DateOnly? last = null)
+    {
+        services.Clock.Advance(TimeSpan.FromHours(6));
+
+        return services.ConfigureAsync(s =>
         {
             s.EventSummaryOn = true;
             s.EventSummaryChannelId = Channel;
             s.EventSummaryLastMonth = last ?? new DateOnly(2025, 11, 1);
         }, Ct);
+    }
 
     private static async Task AddEventWithCountsAsync(TestServices services, string title = "Movie night")
     {
@@ -87,6 +92,26 @@ public class EventSummaryPostTests(PostgresFixture db)
 
         await using var context = services.Database.NewContext();
         Assert.Equal(new DateOnly(2025, 12, 1), (await context.GetSettingsAsync(Ct)).EventSummaryLastMonth);
+    }
+
+    [Fact]
+    public async Task NothingIsPostedBefore0600UtcOnThe1st_ThenItGoesOut()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services);
+        await AddEventWithCountsAsync(services);
+
+        services.Clock.Advance(TimeSpan.FromHours(-1));
+
+        Assert.Equal(0, await PostAsync(services, gateway));
+        Assert.Empty(gateway.Messages);
+
+        services.Clock.Advance(TimeSpan.FromHours(1));
+
+        Assert.Equal(1, await PostAsync(services, gateway));
+        Assert.Single(gateway.Messages);
     }
 
     [Fact]

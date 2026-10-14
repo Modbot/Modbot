@@ -103,6 +103,27 @@ public class EventSeriesTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ACountReadMoreThanTenMinutesAfterTheStart_IsMarkedLate()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var e = await AddEventAsync(services);
+
+        await using var context = services.Database.NewContext();
+        var store = new CalendarInterestStore(context);
+        await store.RecordDiscordAsync(e.Id, Nov, 10, Nov.AddMinutes(5), Ct);
+        await store.RecordVRChatAsync(e.Id, Nov, 4, Nov.AddMinutes(45), Ct);
+        await store.RecordDiscordAsync(e.Id, Nov.AddDays(7), null, Nov.AddDays(7).AddHours(1), Ct);
+
+        var dates = await new EventSeriesHistory(context).ForEventAsync(e.Id, ct: Ct);
+
+        Assert.False(dates[0].DiscordLate);
+        Assert.True(dates[0].VRChatLate);
+
+        // No count was read, so there is nothing to call late.
+        Assert.False(dates[1].DiscordLate);
+    }
+
+    [Fact]
     public async Task TheHistoryKeepsOnlyTheLatestDates_WhenThereAreMoreThanTheLimit()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);

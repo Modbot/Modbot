@@ -191,7 +191,7 @@ there are more. This needs **See the audit log** too, and counts only while a mo
 in the instance: **Nobody seen.** means no client saw anyone, not that nobody came. For **Usually**,
 times nobody was seen are left out.
 
-The numbers are not posted anywhere. They show only on this page.
+The numbers are not posted anywhere. They show on this page, in the event's [dates over time](#an-events-dates-over-time), and as averages in the optional [monthly event summary](/discord/event-summary).
 
 ### An event's dates over time
 
@@ -202,15 +202,17 @@ repeating event is one page and two separate events are two.
 
 | Figure | What it counts |
 |---|---|
-| **Interested on Discord** | The number Discord shows as interested in the event's Discord event when the date started. |
+| **Interested on Discord** | The number Discord shows as interested in the event's Discord event when the date started, read while the date runs. |
 | **Interested on VRChat** | The number VRChat shows as interested in the event on the group calendar when the date started. |
 | **Came** | The people a moderator's [desktop client](/companion/install) saw arrive in the date's instance. |
 | **Most at once** | The most people in the date's instance at one moment. |
 
 Above the chart, the page gives the average of each figure over the dates that have it.
 
-- The interested numbers are read once, when the date starts, and kept. A date from before Modbot kept them
-  shows **—**.
+- The interested numbers are read once, when the date starts, and kept. This needs no switch, and it happens for
+  every date of an event that is on Discord's events or on VRChat's calendar. If Modbot was not running at the start,
+  the number is read later in the date and shows a muted **late** beside it. A date from before Modbot kept them,
+  or one VRChat did not list, shows **—**.
 - **Came** counts only the people seen where a moderator's Modbot app was. It can be lower than the real turnout, and
   a date nobody was seen at shows **—**.
 - A date missing one figure is skipped on that line of the chart, and the line carries on.

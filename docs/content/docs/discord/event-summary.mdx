@@ -46,19 +46,23 @@ month. The events with the most dates come first.
 
 ## When it posts
 
-Modbot posts the summary soon after the month turns over. It posts one summary for each month, however often Modbot
+Modbot posts the summary from 06:00 UTC on the 1st, so the last date of the month has finished and its **Came** is complete. It posts one summary for each month, however often Modbot
 restarts. If Discord asks the bot to wait, Modbot tries again a short while later. If Discord refuses the post, Modbot
 does not send it again, and the card shows what went wrong.
 
 ## Who it counts
 
-The interested numbers are the ones Discord and VRChat show for the event on the day it started. **Came** counts only
+The interested numbers are the ones Discord and VRChat show for the event, read once while the date is running,
+normally in its first minutes. If Modbot was not running when the date started, the number is read later in the
+date, and the [event's page](/moderation/calendar#an-events-dates-over-time) marks it **late**. **Came** counts only
 the people in instances where a moderator's Modbot app was present, so the numbers can be lower than the real
 turnout. A date from before Modbot started keeping these numbers has none.
 
 ## What Modbot keeps
 
-For each date of an event, the Discord and VRChat interested numbers and when each was read, and the month the
-last summary was posted for, so it is not posted twice. These are counts: nobody is named. Nothing about the
-summary is sent to Modbot Cloud. What leaves your server is the post in your channel, through Discord. It names
-events, not people, and a [purge](/moderation/purge) does not remove it.
+Modbot keeps the interested numbers whether or not this card is on. For each date of an event that is on Discord's
+events or on your group's VRChat calendar, it keeps the Discord and VRChat interested numbers and when each was
+read. The card only decides whether they are posted. It also keeps the month the last summary was posted for, so it
+is not posted twice. These are counts: nobody is named. Nothing about them is sent to Modbot Cloud. What leaves your
+server is the post in your channel, through Discord. It names events, not people, and a
+[purge](/moderation/purge) does not remove it.

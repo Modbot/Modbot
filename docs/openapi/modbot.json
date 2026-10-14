@@ -32154,7 +32154,7 @@
           "Calendar"
         ],
         "summary": "Get how an event's dates did over time",
-        "description": "Every date of one event that has a count or an opened instance, earliest first, at most the latest 100: how many people were interested on Discord and on VRChat when the date started, how many people a moderator's client saw arrive at its instance, and the most counted at once. Each interested count is written once, when the date starts, and a date from before Modbot kept them has none. `came` counts only people seen where a moderator's client stood, so it can be lower than the real turnout, and is null for a date nobody was seen at. The averages are over the dates that have the figure.\n\nNeeds the `ViewAnalytics` and `ViewCalendar` permissions.",
+        "description": "Every date of one event that has a count or an opened instance, earliest first, at most the latest 100: how many people were interested on Discord and on VRChat when the date started, how many people a moderator's client saw arrive at its instance, and the most counted at once. Each interested count is written once, when the date starts; one read more than ten minutes later (Modbot was not running at the start) is marked late, and a date from before Modbot kept them has none. `came` counts only people seen where a moderator's client stood, so it can be lower than the real turnout, and is null for a date nobody was seen at. The averages are over the dates that have the figure.\n\nNeeds the `ViewAnalytics` and `ViewCalendar` permissions.",
         "operationId": "GetCalendarEventSeries",
         "parameters": [
           {
@@ -43862,7 +43862,9 @@
           "discordInterested",
           "vrChatInterested",
           "came",
-          "mostAtOnce"
+          "mostAtOnce",
+          "discordLate",
+          "vrChatLate"
         ],
         "type": "object",
         "properties": {
@@ -43897,6 +43899,12 @@
               "integer"
             ],
             "format": "int32"
+          },
+          "discordLate": {
+            "type": "boolean"
+          },
+          "vrChatLate": {
+            "type": "boolean"
           }
         }
       },

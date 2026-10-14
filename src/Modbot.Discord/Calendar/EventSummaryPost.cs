@@ -36,6 +36,9 @@ public sealed class EventSummaryPost
 
     private const int ProblemAtMost = 300;
 
+    /// <summary>How long after the month turns over the summary waits.</summary>
+    private static readonly TimeSpan PostAfter = TimeSpan.FromHours(6);
+
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly EventMonthSummary _summary;
@@ -66,9 +69,15 @@ public sealed class EventSummaryPost
             return 0;
         }
 
-        var month = EventMonthSummary.MonthOf(_clock.UtcNow).AddMonths(-1);
+        var now = _clock.UtcNow;
+        var month = EventMonthSummary.MonthOf(now).AddMonths(-1);
 
         if (last >= month)
+            return 0;
+
+        // Not before 06:00 UTC on the 1st: the last date of the month may still be closing, and its
+        // count of who came would be short.
+        if (now < EventMonthSummary.Start(EventMonthSummary.MonthOf(now)) + PostAfter)
             return 0;
 
         // Written first, and only where nobody has moved it yet: once, however many restarts or

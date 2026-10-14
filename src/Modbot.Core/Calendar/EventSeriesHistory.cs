@@ -12,12 +12,16 @@ namespace Modbot.Core.Calendar;
 /// seen is not the same as nobody came, so it is not a zero.
 /// </param>
 /// <param name="MostAtOnce">The most people the group instance poll counted at once. Null when it never counted.</param>
+/// <param name="DiscordLate">The Discord count was read more than <see cref="EventSeriesHistory.LateAfter"/> after the date started (Modbot was not running at the start).</param>
+/// <param name="VRChatLate">The VRChat count was read more than <see cref="EventSeriesHistory.LateAfter"/> after the date started.</param>
 public sealed record EventSeriesDate(
     DateTimeOffset StartsAt,
     int? DiscordInterested,
     int? VRChatInterested,
     int? Came,
-    int? MostAtOnce);
+    int? MostAtOnce,
+    bool DiscordLate = false,
+    bool VRChatLate = false);
 
 /// <summary>
 /// How each date of one event did: the interest counts taken when it started (<see cref="CalendarInterest"/>)
@@ -32,6 +36,9 @@ public sealed class EventSeriesHistory
 {
     /// <summary>The most dates one answer carries: the latest ones.</summary>
     public const int MostDates = 100;
+
+    /// <summary>How long after the start a count may be read and still count as taken at the start.</summary>
+    public static readonly TimeSpan LateAfter = TimeSpan.FromMinutes(10);
 
     private readonly ModbotContext _db;
     private readonly EventAttendance _attendance;
@@ -93,7 +100,9 @@ public sealed class EventSeriesHistory
                 interest?.DiscordInterested,
                 interest?.VRChatInterested,
                 turnout is { People.Count: > 0 } ? turnout.People.Count : null,
-                turnout?.PeakHeadCount);
+                turnout?.PeakHeadCount,
+                interest is { DiscordInterested: not null, DiscordTakenAt: { } discordAt } && discordAt - date > LateAfter,
+                interest is { VRChatInterested: not null, VRChatTakenAt: { } vrchatAt } && vrchatAt - date > LateAfter);
         })];
     }
 
