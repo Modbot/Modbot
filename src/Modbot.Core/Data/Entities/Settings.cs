@@ -832,6 +832,17 @@ public class Settings
     /// </summary>
     public DateTimeOffset? DiscordSnapshotClaimedAt { get; set; }
 
+    // --- New staff checklist ---
+
+    /// <summary>
+    /// The tasks a new staff member does and fills in themselves, one written answer each, first first. Copied
+    /// onto a trial when it begins. Null or empty means none.
+    /// </summary>
+    public List<string>? NewStaffTasks { get; set; }
+
+    /// <summary>The lines a new staff member's buddy signs off, first first. Copied onto a trial when it begins. Null or empty means none.</summary>
+    public List<string>? NewStaffSignOffs { get; set; }
+
     // --- Event recaps in Discord ---
 
     /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>

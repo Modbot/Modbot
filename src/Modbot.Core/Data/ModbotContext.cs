@@ -318,6 +318,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Saved pictures of the Discord server's roles and channels with their permissions.</summary>
     public DbSet<DiscordSnapshot> DiscordSnapshots => Set<DiscordSnapshot>();
 
+    /// <summary>New staff members' trials: the buddy, the start date, and the note the buddy wrote.</summary>
+    public DbSet<StaffTrial> StaffTrials => Set<StaffTrial>();
+
+    /// <summary>The lines of each trial's checklist, with the answers and sign-offs.</summary>
+    public DbSet<StaffTrialItem> StaffTrialItems => Set<StaffTrialItem>();
+
     /// <summary>Questions Modbot posts in Discord for members to vote on, open or closed.</summary>
     public DbSet<Vote> Votes => Set<Vote>();
 
@@ -605,6 +611,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Off, for the row that exists already as much as for a new one.
             entity.Property(e => e.DiscordGateMode).HasMaxLength(16).HasDefaultValue(DiscordGateModes.Off);
             entity.Property(e => e.DiscordSnapshotSchedule).HasMaxLength(16).HasDefaultValue(DiscordSnapshotSchedules.Off);
+            entity.Property(e => e.NewStaffTasks).HasColumnType("jsonb");
+            entity.Property(e => e.NewStaffSignOffs).HasColumnType("jsonb");
 
             // Off, and sent as a direct message, for the row that exists already.
             entity.Property(e => e.DiscordWelcomeVia).HasMaxLength(16).HasDefaultValue(DiscordWelcomeWhere.DirectMessage);
@@ -2488,6 +2496,30 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The page lists them newest first.
             entity.HasIndex(e => e.TakenAt).HasDatabaseName("ix_discord_snapshot_taken");
+        });
+
+        builder.Entity<StaffTrial>(entity =>
+        {
+            entity.ToTable("staff_trial");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.BuddyNote).HasMaxLength(StaffTrialLimits.NoteLength);
+
+            // One trial per account; a buddy's own page looks trials up by buddy.
+            entity.HasIndex(e => e.AccountId).IsUnique().HasDatabaseName("ux_staff_trial_account");
+            entity.HasIndex(e => e.BuddyId).HasDatabaseName("ix_staff_trial_buddy");
+
+            entity.HasMany(e => e.Items).WithOne().HasForeignKey(i => i.TrialId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<StaffTrialItem>(entity =>
+        {
+            entity.ToTable("staff_trial_item");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.Text).HasMaxLength(StaffTrialLimits.ItemTextLength);
+            entity.Property(e => e.Answer).HasMaxLength(StaffTrialLimits.AnswerLength);
         });
 
         builder.Entity<DiscordTicketType>(entity =>

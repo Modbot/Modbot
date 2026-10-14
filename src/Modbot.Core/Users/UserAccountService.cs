@@ -190,6 +190,9 @@ public sealed class UserAccountService
         await RevokeCompanionDevicesAsync(user.Id, ct);
         await _db.StaffAvailabilities.Where(a => a.UserId == user.Id).ExecuteDeleteAsync(ct);
         await _db.StaffAvailabilityZones.Where(z => z.UserId == user.Id).ExecuteDeleteAsync(ct);
+
+        // The written answers are theirs; the lines go with the trial (the foreign key cascades).
+        await _db.StaffTrials.Where(t => t.AccountId == user.Id).ExecuteDeleteAsync(ct);
         await _db.SaveChangesAsync(ct);
 
         return name;

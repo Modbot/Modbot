@@ -8,6 +8,7 @@ import { PersonAppeals } from '@/components/subject/PersonAppeals'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { ProfileDetails, ProfileIdentity, ProfileMark } from '@/components/UserProfileCard'
 import { AccountCard, AccountHistory } from '@/components/subject/AccountSide'
+import { AccountTrial } from '@/components/staffTrial/AccountTrial'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import {
   DiscordHistory,
@@ -407,7 +408,12 @@ function Resolved({
           )
         )}
         {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
-        {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
+        {tab === 'account' && account && (
+          <>
+            <AccountTrial accountId={account.id} />
+            <AccountHistory key={fresh} accountId={account.id} />
+          </>
+        )}
         {tab === 'json' && <Records key={fresh} person={person} me={me} />}
       </PopupTabs>
 

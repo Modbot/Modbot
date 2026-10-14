@@ -31,6 +31,7 @@ using Modbot.Api.Features.Mcp;
 using Modbot.Api.Features.DiscordRoutes;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
+using Modbot.Api.Features.StaffTrials;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Votes;
 using Modbot.Api.Features.Evidence;
@@ -496,6 +497,8 @@ public static class ApiSurface
         app.MapDiscordConnect();
         app.MapVRChatLink();
         app.MapUsers();
+        app.MapStaffTrials();
+        app.MapNewStaffChecklistSettings();
         app.MapInvites();
         app.MapResetLinks();
         app.MapRoles();

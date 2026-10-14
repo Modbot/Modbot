@@ -500,6 +500,21 @@ public static class FactType
     public const string UserDeleted = "modbot.user.delete";
 
     public const string UserRolesChanged = "modbot.user.roles.change";
+
+    /// <summary>
+    /// A new staff member's trial began, with a buddy. The subject is the account on trial. Payload:
+    /// <c>buddy</c> (the buddy's username) and <c>buddyId</c>.
+    /// </summary>
+    public const string StaffTrialStarted = "modbot.user.trial.start";
+
+    /// <summary>A trial's buddy was changed. The subject is the account on trial. Payload: <c>buddy</c> and <c>buddyId</c>.</summary>
+    public const string StaffTrialBuddyChanged = "modbot.user.trial.buddy";
+
+    /// <summary>A line on a trial's checklist was signed off or taken back. The subject is the account on trial. Payload: <c>item</c> and <c>action</c> (<c>signed-off</c> or <c>taken-back</c>).</summary>
+    public const string StaffTrialSignedOff = "modbot.user.trial.signoff";
+
+    /// <summary>A trial and its checklist were taken off an account. The subject is the account. Payload: <c>buddy</c>.</summary>
+    public const string StaffTrialRemoved = "modbot.user.trial.remove";
     public const string ResetLinkCreated = "modbot.user.password.reset.create";
     public const string ResetLinkUsed = "modbot.user.password.reset.use";
     public const string SignedOutEverywhere = "modbot.user.sign-out-everywhere";

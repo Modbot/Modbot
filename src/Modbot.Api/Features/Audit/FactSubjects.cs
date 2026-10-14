@@ -80,6 +80,10 @@ public static class FactSubjects
         [FactType.UserEnabled] = SubjectKind.Account,
         [FactType.UserDeleted] = SubjectKind.Account,
         [FactType.UserRolesChanged] = SubjectKind.Account,
+        [FactType.StaffTrialStarted] = SubjectKind.Account,
+        [FactType.StaffTrialBuddyChanged] = SubjectKind.Account,
+        [FactType.StaffTrialSignedOff] = SubjectKind.Account,
+        [FactType.StaffTrialRemoved] = SubjectKind.Account,
         [FactType.SignedOutEverywhere] = SubjectKind.Account,
         [FactType.UpdatesSubscribed] = SubjectKind.Account,
 

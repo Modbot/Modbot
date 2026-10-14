@@ -975,6 +975,25 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.user.disable': (p) => <>{p.actor} disabled the Modbot account {p.subject}.</>,
   'modbot.user.enable': (p) => <>{p.actor} enabled the Modbot account {p.subject}.</>,
 
+  'modbot.user.trial.start': (p) => (
+    <>
+      {p.actor} started {p.subject}'s trial
+      {p.text('buddy') ? <> with {p.text('buddy')} as their buddy</> : null}.
+    </>
+  ),
+  'modbot.user.trial.buddy': (p) => (
+    <>
+      {p.actor} made {p.text('buddy') ?? 'someone'} {p.subject}'s trial buddy.
+    </>
+  ),
+  'modbot.user.trial.signoff': (p) => (
+    <>
+      {p.actor} {p.text('action') === 'taken-back' ? 'took back the sign-off of' : 'signed off'} “{p.text('item')}” on{' '}
+      {p.subject}'s trial.
+    </>
+  ),
+  'modbot.user.trial.remove': (p) => <>{p.actor} took the trial off {p.subject}.</>,
+
   'modbot.user.roles.change': (p) =>
     p.text('why') === 'discord-role' ? (
       <>

@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
+import { MyTrials } from '@/components/staffTrial/MyTrials'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser, type DiscordCodeStatus } from '@/lib/api'
 import { formatDay } from '@/lib/format'
@@ -60,6 +61,8 @@ export function Account({
           </div>
         </CardContent>
       </Card>
+
+      <MyTrials />
 
       <Card>
         <CardHeader>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import type { CurrentUser } from '@/lib/api'
 import { can } from '@/lib/permissions'
+import { NewStaffChecklistCard } from '@/components/settings/iam/NewStaffChecklistCard'
 import { Roles } from '@/pages/Roles'
 import { Users } from '@/pages/Users'
 
@@ -22,6 +23,7 @@ import { Users } from '@/pages/Users'
 const IAM_TABS = [
   { value: 'users', label: 'Users', needs: 'ManageUsers' },
   { value: 'roles', label: 'Roles', needs: 'ManageRoles' },
+  { value: 'new-staff', label: 'New staff', needs: 'ManageUsers' },
 ] as const
 
 type IamTabId = (typeof IAM_TABS)[number]['value']
@@ -64,6 +66,7 @@ export function IamSection({ me }: { me: CurrentUser }) {
     >
       {tab === 'users' && <Users me={me} />}
       {tab === 'roles' && <Roles me={me} />}
+      {tab === 'new-staff' && <NewStaffChecklistCard />}
     </Tabs>
   )
 }

@@ -9633,6 +9633,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("name_catch_up_version");
 
+                    b.PrimitiveCollection<string>("NewStaffSignOffs")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("new_staff_sign_offs");
+
+                    b.PrimitiveCollection<string>("NewStaffTasks")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("new_staff_tasks");
+
                     b.Property<string>("NewestRelease")
                         .HasColumnType("text")
                         .HasColumnName("newest_release");
@@ -10099,6 +10107,102 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_staff_discord_code_code");
 
                     b.ToTable("staff_discord_code", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffTrial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("BuddyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("buddy_id");
+
+                    b.Property<string>("BuddyNote")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("buddy_note");
+
+                    b.Property<DateTimeOffset?>("BuddyNoteAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("buddy_note_at");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<Guid>("StartedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("started_by_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_staff_trial");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_staff_trial_account");
+
+                    b.HasIndex("BuddyId")
+                        .HasDatabaseName("ix_staff_trial_buddy");
+
+                    b.ToTable("staff_trial", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffTrialItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Answer")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("answer");
+
+                    b.Property<DateTimeOffset?>("AnsweredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("answered_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("kind");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<DateTimeOffset?>("SignedOffAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("signed_off_at");
+
+                    b.Property<Guid?>("SignedOffById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("signed_off_by_id");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid>("TrialId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trial_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_staff_trial_item");
+
+                    b.HasIndex("TrialId")
+                        .HasDatabaseName("ix_staff_trial_item_trial_id");
+
+                    b.ToTable("staff_trial_item", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.StorageDay", b =>
@@ -11765,6 +11869,16 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_staff_discord_code_modbot_user_user_id");
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffTrialItem", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.StaffTrial", null)
+                        .WithMany("Items")
+                        .HasForeignKey("TrialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_staff_trial_item_staff_trial_trial_id");
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.TwitchStream", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
@@ -11903,6 +12017,11 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProfileField", b =>
                 {
                     b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.StaffTrial", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.Vote", b =>

@@ -239,6 +239,44 @@ export type UserSummary = {
   rolesFromDiscord: string[]
 }
 
+/** Settings → People and roles → New staff: the two lists a new staff member's checklist is made from. */
+export type NewStaffChecklistSettings = {
+  tasks: string[]
+  signOffs: string[]
+  mostItemsPerKind: number
+  mostTextLength: number
+}
+
+export type StaffTrialItem = {
+  id: string
+  /** `task`: the trial mod writes an answer. `sign-off`: the buddy signs it off. */
+  kind: 'task' | 'sign-off'
+  text: string
+  answer: string | null
+  answeredAt: string | null
+  signedOffAt: string | null
+  signedOffBy: string | null
+}
+
+/** One new staff member's trial, with what the signed-in person may do to it. */
+export type StaffTrial = {
+  accountId: string
+  username: string
+  buddyId: string
+  buddyName: string
+  startedAt: string
+  buddyNote: string | null
+  buddyNoteAt: string | null
+  items: StaffTrialItem[]
+  canAnswer: boolean
+  canSignOff: boolean
+  canManage: boolean
+}
+
+export type StaffTrialResponse = { trial: StaffTrial | null; canStart: boolean }
+
+export type MyStaffTrials = { own: StaffTrial | null; asBuddy: StaffTrial[] }
+
 /**
  * A link that was just made. Shown once — the server keeps only a hash.
  *
@@ -5622,6 +5660,39 @@ export const api = {
   // ── Users and roles ─────────────────────────────────────────────────────────────────────
 
   users: () => request<UserSummary[]>('/api/users'),
+
+  newStaffChecklistSettings: () => request<NewStaffChecklistSettings>('/api/settings/new-staff-checklist'),
+
+  setNewStaffChecklistSettings: (body: { tasks: string[]; signOffs: string[] }) =>
+    put<NewStaffChecklistSettings>('/api/settings/new-staff-checklist', body),
+
+  myStaffTrials: () => request<MyStaffTrials>('/api/staff-trials/mine'),
+
+  staffTrial: (accountId: string) =>
+    request<StaffTrialResponse>(`/api/staff-trials/${encodeURIComponent(accountId)}`),
+
+  startStaffTrial: (accountId: string, buddyId: string) =>
+    post<StaffTrial>('/api/staff-trials', { accountId, buddyId }),
+
+  setStaffTrialBuddy: (accountId: string, buddyId: string) =>
+    put<StaffTrial>(`/api/staff-trials/${encodeURIComponent(accountId)}/buddy`, { buddyId }),
+
+  removeStaffTrial: (accountId: string) => del<void>(`/api/staff-trials/${encodeURIComponent(accountId)}`),
+
+  answerStaffTrialTask: (accountId: string, itemId: string, answer: string) =>
+    put<StaffTrial>(
+      `/api/staff-trials/${encodeURIComponent(accountId)}/items/${encodeURIComponent(itemId)}/answer`,
+      { answer },
+    ),
+
+  signOffStaffTrialLine: (accountId: string, itemId: string, signedOff: boolean) =>
+    put<StaffTrial>(
+      `/api/staff-trials/${encodeURIComponent(accountId)}/items/${encodeURIComponent(itemId)}/sign-off`,
+      { signedOff },
+    ),
+
+  setStaffTrialNote: (accountId: string, note: string) =>
+    put<StaffTrial>(`/api/staff-trials/${encodeURIComponent(accountId)}/note`, { note }),
 
   createUser: (body: {
     username: string
