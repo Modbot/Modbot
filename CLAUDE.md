@@ -62,6 +62,18 @@ A preview is public, and that decides what it may say. The moderator app names t
 the page: the links moderators paste carry a person, a ban or a case file in them, and a preview
 would spell that into a channel the app itself keeps behind a sign-in.
 
+## Docs — every feature gets a page
+
+**Every feature a moderator or member can see gets its own page in `docs/content/docs/`, or an
+update to the page it belongs on.** Add one line for it to its section's overview page (the
+`index.mdx` of its folder). If it is one of the section's main features, name it in that section's
+paragraph of the Introduction (`docs/content/docs/index.mdx`). Building something that
+`not-built-yet.mdx` lists takes it off that page in the same change.
+
+The Introduction and the overview pages are how people find a feature. A page that nothing links
+to is a feature nobody knows Modbot has, and `not-built-yet.mdx` is only honest while it lists what
+is still missing.
+
 ## Where things live
 
 | Path | Contents |

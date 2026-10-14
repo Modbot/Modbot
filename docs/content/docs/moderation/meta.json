@@ -1,6 +1,7 @@
 {
   "title": "Moderation",
   "pages": [
+    "index",
     "live",
     "announcements",
     "calendar",
