@@ -168,6 +168,32 @@ right was asked for needs **Sign in with Bluesky** again), the **Posts** card on
 a pin goes through. Turning the switch off leaves
 the pin where it is.
 
+### Weekly line-up
+
+Under **Settings**, **Bluesky**, the **Weekly line-up** switch (shown once Check has passed) makes one post
+a week that lists the next seven days. Pick the **Day**, the time (**At**, on the hour) and the **Time
+zone**; it starts on Monday at 12:00 in UTC. Turning it on never posts for a time that has already gone by.
+
+The post starts with *This week at* and the group's name, then one line for each date, in order: the day,
+the time in the line-up's time zone on a 24-hour clock, and the title (such as `Mon 20:00 Karaoke`).
+
+- **Which dates.** Every date in the next seven days that everyone can see: it is on VRChat's calendar and
+  open to everyone, with no role needed. The event's own **Bluesky** chip does not matter. A members-only
+  event is never in it, and neither is a cancelled date or a cancelled or deleted event.
+- **Too long.** A post holds 300 characters. Modbot lists as many dates as fit, then *+N more*.
+- **The link.** When the group's [Google calendar](/moderation/google-calendar) is set up and public, the post
+  ends with its public page, which gives the post a link card. Without that there is no link.
+- **A week with no dates** gets no post.
+- **After it is posted** the post is left alone. A date changed or cancelled later does not change it, and
+  it is never deleted or posted again.
+- **A missed time.** A time more than an hour past (because **Posting** was off, say) is skipped, and the
+  next week's post goes out as usual.
+
+It is an ordinary post: it shows in [**Marketing**](/moderation/marketing) and follows **Posting**, **Pause
+all posting**, the hourly limit and Bluesky's rate limit, and Modbot never sends it again after a rate limit.
+When it fails, the **Posts** card on Health shows it. See
+[Weekly line-up](/moderation/calendar#weekly-line-up).
+
 ## Remove
 
 **Remove** asks first, then forgets the handle, the app password or the sign-in with Bluesky, and
@@ -199,6 +225,7 @@ and never sends the request again before then.
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
 | A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
 | A reply: "We're live in" the world's name and a link, with the address and content id of the date's post it answers | The account's own server, and from there public on Bluesky | Only for an event with **Announce on Bluesky when the first person joins** ticked, once for each date, when the first person is in the instance |
+| The weekly line-up: the group's name, and the title and time of each public date in the next seven days, with the link to the Google calendar's public page | The account's own server, and from there public on Bluesky | Only with **Weekly line-up** on, once a week |
 | The account's profile (its name, description, pictures and pinned post), written back with only the pinned post changed | The account's own server, and from there public on Bluesky | Only with **Pin the next event** on, when the pinned post changes |
 | The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 

@@ -375,6 +375,33 @@ post's `at://` address is `external_id` and its content id `options.cid`.
 - **Not in 3a or 3b**: `langs` (no language picker), pictures beyond the card, the event kinds and
   the Cancelled reply (step 4).
 
+### 4.2d Bluesky weekly line-up (added 2026-10-14)
+
+One Bluesky post a week that lists the next seven days' dates (Settings → Bluesky, Weekly line-up).
+It is an ordinary `post` of kind `lineup` with one Bluesky destination, so `PostBlueskySender` and its
+rules apply unchanged: one record key before the first try, the read-back, the hourly cap, the late
+rule, Posting, Pause all posting, and a 429 never tried again. A failed one shows on Health.
+
+- **Settings**: `bluesky_lineup_on`, `_day`, `_hour`, `_time_zone` (null = UTC; the app has no single
+  group time zone, so the line-up carries its own, as the spotlight and birthdays do) and
+  `_handled_through`. Default Monday 12:00.
+- **Once a week**: `CalendarBlueskyLineupPass` takes the latest time at or before now that the settings
+  name, and claims it on the settings row in the same transaction as the post. The Monday of the week
+  is the post's `external_key` under the existing unique index, so a restart, a second pass or a day
+  changed within the week cannot make two. Saving the settings marks the times already past as dealt
+  with: turning it on never posts for a past time. A time more than `PostRules.LateLimit` (1 h) past
+  is skipped, not posted late.
+- **Which dates** (`CalendarBlueskyLineup.DatesOf`): every live date starting in the next seven days
+  from the pass's time that `CalendarFeedWriter.IsPublic` allows (on VRChat's calendar, visible to
+  Everyone, no role), whether or not the event's own Bluesky switch is on. Members-only events and
+  cancelled dates are never in it. A week with no dates gets no post.
+- **Text**: "This week at <group name>", one `Mon 20:00 Title` line per date (24-hour, the line-up's
+  zone), as many as fit in 300 graphemes, then `+N more`, and last the Google calendar's public page
+  when that is set up and public (the link card); otherwise no link. No fact record is written when
+  the post is made.
+- **After it is made** the post is left alone: a date changed or cancelled later does not edit,
+  delete or repost it.
+
 ### 4.3 Edits and the version
 
 Every change a person saves says which `version` it read. A change while a destination is `sending`
@@ -526,6 +553,7 @@ Operational category, moderation retention (kept).
 | Discord | title, text, picture file, one role mention | the channel's readers; followers' servers if published |
 | VRChat | title, text, picture (uploaded to Modbot's VRChat account, only while uploads are on), roles, visibility, notify | group members (or the roles picked), or everyone on vrchat.com |
 | Bluesky (step 3a) | the handle to Bluesky's public API, the DID to plc.directory, the app password and session to the account's server; a post's text (its own, or title and text) and, with a link, a card with the title, the link and a small copy of the picture | public, and permanent once copied |
+| Bluesky weekly line-up | the group's name, the title and time of each public date in the next seven days and the Google calendar's public page, to the account's server | everyone: public on Bluesky |
 | Bluesky sign-in (step 3b) | to the sign-in server the account's server names: Modbot's client id (its public address), the handle as a hint, PKCE, signed client assertions and DPoP proofs; that server reads the client document (name, addresses, the public half of Modbot's key) | the sign-in server |
 
 Never sent: member names, user names or ids, counts of people, moderation data. Operator switches:
