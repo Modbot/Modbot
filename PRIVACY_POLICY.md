@@ -235,7 +235,8 @@ change settings saves a handle and an app password and turns **Posting** on. The
 Bluesky ticked, and a calendar event with its **Bluesky** chip on, are posted on that account. For a
 calendar event, Modbot makes one post for each of the event's dates, a set time before the date
 starts (1 hour, 1 day, 3 days or 1 week, as chosen on the event). It sends Bluesky the post's text:
-the event's title, the date's time, the world's name when there is one, the description and a link
+the event's title, the date's time, the world's name when there is one, the description, tags (one for each of the event's
+categories, made from its name unless the group set another, and any tags the group set to go on every post; all public) and a link
 to the event's page on Google Calendar or the group's page on vrchat.com. When the post has a link,
 it also sends a link card with the title and the event's cover picture, if that is 1 MB or smaller.
 **The post is public on Bluesky, and other services copy it.** When the event changes after the

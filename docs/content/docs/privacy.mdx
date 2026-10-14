@@ -279,7 +279,8 @@ wherever you choose to store them. These pages describe what is kept and how it 
   A [calendar event](/moderation/calendar#bluesky) with **Bluesky** on sends the same kind of post for
   each of its dates, made by Modbot itself a set time before the date, and later deletes it from
   Bluesky when the event changes, is cancelled or is deleted. The post's text is the event's title,
-  the date's time, the world's name, the description and a link, and its picture is the event's cover
+  the date's time, the world's name, the description, a link and the tags (one for each of the event's categories,
+  made from its name unless the group set another, and any tags the group set to go on every post; all public), and its picture is the event's cover
   picture when that is 1 MB or smaller. For each such post Modbot keeps in its database, with the other
   posts, the post's address on Bluesky and the start of the date it is about, so that a restart never
   posts a date twice and the right post is the one deleted.
