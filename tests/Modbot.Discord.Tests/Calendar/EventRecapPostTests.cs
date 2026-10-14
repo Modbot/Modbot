@@ -212,6 +212,49 @@ public class EventRecapPostTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ADateThatClosedBeforeTheyWereTurnedOn_IsMarkedSoItIsNotReadAgain()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        var (e, instanceId) = await OpenedAsync(services);
+        await SawArriveAsync(services, "usr_a", "Ada");
+        await CloseAsync(services, instanceId);
+
+        services.Clock.Advance(TimeSpan.FromHours(2));
+        await services.ConfigureAsync(s =>
+        {
+            s.EventRecapsOn = true;
+            s.EventRecapChannelId = Channel;
+            s.EventRecapsFrom = services.Clock.UtcNow;
+        }, Ct);
+
+        Assert.Equal(0, await RecapAsync(services, gateway));
+
+        await using var context = services.Database.NewContext();
+        var opening = await context.CalendarOpenings.SingleAsync(o => o.EventId == e.Id, Ct);
+        Assert.NotNull(opening.RecapPostedAt);
+        Assert.Empty(gateway.Messages);
+    }
+
+    [Fact]
+    public async Task TwoCopiesOfModbotRunningAtOnce_PostTheRecapOnce()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await TurnOnAsync(services);
+        var (_, instanceId) = await OpenedAsync(services);
+        await SawArriveAsync(services, "usr_a", "Ada");
+        await CloseAsync(services, instanceId);
+
+        var results = await Task.WhenAll(RecapAsync(services, gateway), RecapAsync(services, gateway));
+
+        Assert.Equal(1, results.Sum());
+        Assert.Single(gateway.Messages);
+    }
+
+    [Fact]
     public async Task ARefusedRecapThatIsFinalIsNotTriedAgain_AndTheCardShowsWhy()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);

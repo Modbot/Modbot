@@ -107,12 +107,17 @@ public sealed class EventRecapPost
 
             var closedAt = instance.ClosedAt ?? occurrence.EndsAt + StillOpenAfter;
 
-            if (closedAt > now || closedAt < from)
+            if (closedAt > now)
                 continue;
 
-            // Written first: once, however many restarts.
-            opening.RecapPostedAt = now;
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            // Written first, and only where nobody has written it yet: once, however many restarts or
+            // copies of Modbot. A date that closed before the switch was turned on is marked the same
+            // way, without a post, so it is not read again every pass.
+            if (!await MarkAsync(opening, now, ct).ConfigureAwait(false))
+                continue;
+
+            if (closedAt < from)
+                continue;
 
             var turnout = (await _attendance.ForOpeningsAsync([opening], ct).ConfigureAwait(false))[0];
 
@@ -134,7 +139,7 @@ public sealed class EventRecapPost
                 // A refusal that may pass is tried again; a final one, or one that may have gone
                 // through, is not, so a recap never doubles.
                 if (!outcome.Permanent && !outcome.Unclear)
-                    opening.RecapPostedAt = null;
+                    await UnmarkAsync(opening, now, ct).ConfigureAwait(false);
 
                 settings.EventRecapProblem = CardText.Fit(outcome.Error ?? "Discord refused the recap.", ProblemAtMost);
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -168,6 +173,23 @@ public sealed class EventRecapPost
 
         return posted;
     }
+
+    /// <summary>Sets the posted time where it is still empty. False when another copy of Modbot got there first.</summary>
+    private async Task<bool> MarkAsync(CalendarOpening opening, DateTimeOffset now, CancellationToken ct)
+        => await _db.CalendarOpenings
+            .Where(o => o.EventId == opening.EventId
+                && o.OccurrenceStartsAt == opening.OccurrenceStartsAt
+                && o.RecapPostedAt == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(o => o.RecapPostedAt, now), ct)
+            .ConfigureAwait(false) > 0;
+
+    /// <summary>Clears the time this pass set, so the next pass tries the post again.</summary>
+    private Task<int> UnmarkAsync(CalendarOpening opening, DateTimeOffset marked, CancellationToken ct)
+        => _db.CalendarOpenings
+            .Where(o => o.EventId == opening.EventId
+                && o.OccurrenceStartsAt == opening.OccurrenceStartsAt
+                && o.RecapPostedAt == marked)
+            .ExecuteUpdateAsync(set => set.SetProperty(o => o.RecapPostedAt, (DateTimeOffset?)null), ct);
 
     /// <summary>
     /// The next date of the same event after <paramref name="done"/>: the repeat's next date, with
