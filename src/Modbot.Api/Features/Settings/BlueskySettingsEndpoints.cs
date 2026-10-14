@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Insights;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Calendar;
 using Modbot.Core.Bluesky;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -27,6 +29,10 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="SignedInWithBluesky">The account was signed in with Bluesky's own sign-in page, not an app password.</param>
 /// <param name="PostTags">The tags every calendar post ends with after its categories' tags: <c>#VRChat #Karaoke</c>. Empty for none.</param>
 /// <param name="PinNextEvent">Modbot keeps the next calendar date's post pinned on the account's profile.</param>
+/// <param name="LineupOn">Modbot posts the week's line-up once a week.</param>
+/// <param name="LineupDay">The day of the week it is posted, 0 (Sunday) to 6.</param>
+/// <param name="LineupHour">The hour of that day, 0 to 23, in <paramref name="LineupTimeZone"/>.</param>
+/// <param name="LineupTimeZone">The IANA zone the day and hour are in, and the times in the post. Null is UTC.</param>
 public sealed record BlueskySettingsView(
     string? Handle,
     bool AppPasswordStored,
@@ -38,7 +44,11 @@ public sealed record BlueskySettingsView(
     bool SignInWithBluesky = false,
     bool SignedInWithBluesky = false,
     string PostTags = "",
-    bool PinNextEvent = false);
+    bool PinNextEvent = false,
+    bool LineupOn = false,
+    int LineupDay = 1,
+    int LineupHour = 12,
+    string? LineupTimeZone = null);
 
 /// <param name="Handle">The handle to sign in as, with or without the <c>@</c>. Null or empty uses the stored one.</param>
 public sealed record BlueskySignInRequest(string? Handle = null);
@@ -61,8 +71,13 @@ public sealed record BlueskyCheckView(DateTimeOffset At, string? Handle, string?
 /// </param>
 /// <param name="Posting">Turn posting to Bluesky on or off. Null keeps it. On needs a Check that passed.</param>
 /// <param name="PinNextEvent">Turn pinning the next calendar date's post on the profile on or off. Null keeps it.</param>
+/// <param name="LineupOn">Turn the weekly line-up on or off. Null keeps it.</param>
+/// <param name="LineupDay">The day of the week the line-up is posted, 0 (Sunday) to 6. Null keeps it.</param>
+/// <param name="LineupHour">The hour of that day, 0 to 23, in <paramref name="LineupTimeZone"/>. Null keeps it.</param>
+/// <param name="LineupTimeZone">An IANA zone name; empty for UTC. Null keeps it.</param>
 public sealed record BlueskySettingsUpdate(
-    string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null, bool? PinNextEvent = null);
+    string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null, bool? PinNextEvent = null,
+    bool? LineupOn = null, int? LineupDay = null, int? LineupHour = null, string? LineupTimeZone = null);
 
 /// <summary>
 /// Settings → Bluesky (Bluesky design §3.1, posts design §4.2c): the handle, the app password, Check,
@@ -98,6 +113,9 @@ public static class BlueskySettingsEndpoints
 {
     public const string NotAHandle = "This is not a Bluesky handle.";
     public const string CheckFirst = "Check the account first.";
+    public const string LineupDayRange = "The day must be between Sunday and Saturday.";
+    public const string LineupHourRange = "The hour must be between 0 and 23.";
+    public const string LineupZoneUnknown = "That time zone is not known.";
     public const string NeedsPublicAddress = "Bluesky sign-in needs a public https address.";
 
     public static IEndpointRouteBuilder MapBlueskySettings(this IEndpointRouteBuilder app)
@@ -157,6 +175,16 @@ public static class BlueskySettingsEndpoints
                     postTags = BlueskyTags.Write(BlueskyTags.ParseList(body.PostTags));
                 }
 
+                if (body.LineupDay is < 0 or > 6)
+                    return Results.BadRequest(new { error = LineupDayRange });
+
+                if (body.LineupHour is < 0 or > 23)
+                    return Results.BadRequest(new { error = LineupHourRange });
+
+                var lineupZone = body.LineupTimeZone?.Trim();
+                if (!string.IsNullOrEmpty(lineupZone) && InsightTimes.FindTimeZone(lineupZone) is null)
+                    return Results.BadRequest(new { error = LineupZoneUnknown });
+
                 var settings = await db.GetSettingsAsync(ct);
                 var handleBefore = settings.BlueskyHandle;
                 var passwordBefore = settings.BlueskyAppPasswordEncrypted;
@@ -170,12 +198,26 @@ public static class BlueskySettingsEndpoints
                 var tagsChanged = postTags is not null && postTags != tagsBefore;
                 var pinBefore = settings.BlueskyPinNextEvent;
                 var pinAfter = body.PinNextEvent ?? pinBefore;
+                var lineupOnBefore = settings.BlueskyLineupOn;
+                var lineupDayBefore = settings.BlueskyLineupDay;
+                var lineupHourBefore = settings.BlueskyLineupHour;
+                var lineupZoneBefore = settings.BlueskyLineupTimeZone;
+                var lineupOnAfter = body.LineupOn ?? lineupOnBefore;
+                var lineupDayAfter = body.LineupDay ?? settings.BlueskyLineupDay;
+                var lineupHourAfter = body.LineupHour ?? settings.BlueskyLineupHour;
+                var lineupZoneAfter = body.LineupTimeZone is null
+                    ? settings.BlueskyLineupTimeZone
+                    : (lineupZone is { Length: > 0 } ? lineupZone : null);
+                var lineupChanged = lineupOnAfter != lineupOnBefore
+                    || lineupDayAfter != lineupDayBefore
+                    || lineupHourAfter != lineupHourBefore
+                    || !string.Equals(lineupZoneAfter, lineupZoneBefore, StringComparison.Ordinal);
 
                 // Posting goes on only over a Check that passed for this very handle and app password.
                 if (postingAfter && !postingBefore && (handleChanged || passwordChanged || !PostSites.BlueskyReady(settings)))
                     return Results.BadRequest(new { error = CheckFirst });
 
-                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore && pinAfter == pinBefore)
+                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore && pinAfter == pinBefore && !lineupChanged)
                     return Results.Ok(View(settings, clock.UtcNow));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -231,13 +273,30 @@ public static class BlueskySettingsEndpoints
                     settings.BlueskyPinErrorAt = null;
                 }
 
+                if (lineupChanged)
+                {
+                    settings.BlueskyLineupOn = lineupOnAfter;
+                    settings.BlueskyLineupDay = lineupDayAfter;
+                    settings.BlueskyLineupHour = lineupHourAfter;
+                    settings.BlueskyLineupTimeZone = lineupZoneAfter;
+
+                    // A time that went by before this was turned on, or moved, never makes a post
+                    // straight away: the first one is the next time the settings name.
+                    if (lineupOnAfter)
+                        settings.BlueskyLineupHandledThrough = CalendarBlueskyLineupPass.LatestMoment(settings, clock.UtcNow);
+                }
+
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", handleBefore, settings.BlueskyHandle)
                     .Secret("blueskyAppPassword", passwordChanged)
                     .Field("blueskySignedInWithBluesky", oauthBefore, settings.BlueskyOAuthSignedIn)
                     .Field("blueskyPosting", postingBefore, postingAfter)
                     .Field("blueskyPostTags", tagsBefore, settings.BlueskyPostTags ?? string.Empty)
-                    .Field("blueskyPinNextEvent", pinBefore, pinAfter);
+                    .Field("blueskyPinNextEvent", pinBefore, pinAfter)
+                    .Field("blueskyLineupOn", lineupOnBefore, lineupOnAfter)
+                    .Field("blueskyLineupDay", lineupDayBefore, lineupDayAfter)
+                    .Field("blueskyLineupHour", lineupHourBefore, lineupHourAfter)
+                    .Field("blueskyLineupTimeZone", lineupZoneBefore, lineupZoneAfter);
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
@@ -249,7 +308,8 @@ public static class BlueskySettingsEndpoints
             .WithSummary("Update Bluesky settings")
             .WithDescription(
                 "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, "
-                + "at most 5, each at most 64 characters; empty clears them), PinNextEvent (keep the next calendar date's post pinned on the profile), or any of them. Only an app password is "
+                + "at most 5, each at most 64 characters; empty clears them), PinNextEvent (keep the next calendar date's post pinned on the profile), "
+                + "LineupOn, LineupDay (0 is Sunday), LineupHour (0 to 23) and LineupTimeZone (an IANA name, empty for UTC): once a week the next seven days' public dates go out as one post, or any of them. Only an app password is "
                 + "taken (four groups of four letters or digits, made in Bluesky's settings); anything "
                 + "else is refused with \"Use an app password.\". It is kept encrypted and never returned. "
                 + "Saving the handle or the app password clears what the last Check found, and posts wait "
@@ -530,6 +590,10 @@ public static class BlueskySettingsEndpoints
             BlueskyOAuth.Offered(settings.PublicAddress),
             settings.BlueskyOAuthSignedIn,
             settings.BlueskyPostTags ?? string.Empty,
-            settings.BlueskyPinNextEvent);
+            settings.BlueskyPinNextEvent,
+            settings.BlueskyLineupOn,
+            settings.BlueskyLineupDay,
+            settings.BlueskyLineupHour,
+            settings.BlueskyLineupTimeZone);
     }
 }

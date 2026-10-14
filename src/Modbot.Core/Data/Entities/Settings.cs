@@ -528,6 +528,21 @@ public class Settings
     /// <summary>When <see cref="BlueskyPinError"/> was last set.</summary>
     public DateTimeOffset? BlueskyPinErrorAt { get; set; }
 
+    /// <summary>Post the week's line-up (the next seven days' public dates) on Bluesky once a week. Off to start.</summary>
+    public bool BlueskyLineupOn { get; set; }
+
+    /// <summary>The day of the week the line-up is posted, 0 (Sunday) to 6, as <see cref="DayOfWeek"/> counts.</summary>
+    public int BlueskyLineupDay { get; set; } = 1;
+
+    /// <summary>The hour of that day, 0 to 23, in <see cref="BlueskyLineupTimeZone"/>.</summary>
+    public int BlueskyLineupHour { get; set; } = 12;
+
+    /// <summary>The IANA zone the day and hour are in, and the times in the post. Null is UTC.</summary>
+    public string? BlueskyLineupTimeZone { get; set; }
+
+    /// <summary>The latest line-up time already looked at, so a time is handled once: turning the line-up on or moving its time sets it to the latest time gone by.</summary>
+    public DateTimeOffset? BlueskyLineupHandledThrough { get; set; }
+
     /// <summary>
     /// No call goes to the account's server before this: set when Bluesky answers with a rate limit,
     /// to the time it says the limit resets, and kept here so a restart cannot cut the wait short.

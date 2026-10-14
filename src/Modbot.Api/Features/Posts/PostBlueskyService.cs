@@ -14,7 +14,8 @@ namespace Modbot.Api.Features.Posts;
 /// connected or VRChat is signed in, and a limit from Bluesky stops nothing else. A pass with Bluesky
 /// not set up, or Posting off, reads the settings row and the waiting rows and nothing more. Each pass
 /// first lets <see cref="CalendarBlueskyPlanner"/> make and take down the posts of calendar events, and
-/// <see cref="CalendarBlueskyFirstJoin"/> make the "We're live" replies; <see cref="CalendarBlueskyPin"/>
+/// <see cref="CalendarBlueskyFirstJoin"/> make the "We're live" replies, <see cref="CalendarBlueskyLineupPass"/>
+/// makes the weekly line-up; <see cref="CalendarBlueskyPin"/>
 /// then keeps the next date's post pinned on the profile.
 /// </remarks>
 public sealed class PostBlueskyService : BackgroundService
@@ -51,6 +52,10 @@ public sealed class PostBlueskyService : BackgroundService
 
                 // So are the replies for a first join, which the sender then sends.
                 await scope.ServiceProvider.GetRequiredService<CalendarBlueskyFirstJoin>()
+                    .RunOnceAsync(stoppingToken).ConfigureAwait(false);
+
+                // And the week's line-up, once a week at the time set in Settings.
+                await scope.ServiceProvider.GetRequiredService<CalendarBlueskyLineupPass>()
                     .RunOnceAsync(stoppingToken).ConfigureAwait(false);
 
                 await scope.ServiceProvider.GetRequiredService<PostBlueskySender>()

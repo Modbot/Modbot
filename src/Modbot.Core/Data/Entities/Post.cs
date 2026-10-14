@@ -89,6 +89,12 @@ public static class PostKinds
     /// is the event and <see cref="Post.DateStartsAt"/> the date's planned start.
     /// </summary>
     public const string EventDate = "event_date";
+
+    /// <summary>
+    /// The week's line-up on Bluesky: the next seven days' public dates in one post, made once a week
+    /// by <c>CalendarBlueskyLineup</c>. <see cref="Post.ExternalKey"/> is the Monday of the week.
+    /// </summary>
+    public const string Lineup = "lineup";
 }
 
 /// <summary>

@@ -8958,6 +8958,31 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("bluesky_handle");
 
+                    b.Property<int>("BlueskyLineupDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("bluesky_lineup_day");
+
+                    b.Property<DateTimeOffset?>("BlueskyLineupHandledThrough")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_lineup_handled_through");
+
+                    b.Property<int>("BlueskyLineupHour")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(12)
+                        .HasColumnName("bluesky_lineup_hour");
+
+                    b.Property<bool>("BlueskyLineupOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bluesky_lineup_on");
+
+                    b.Property<string>("BlueskyLineupTimeZone")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("bluesky_lineup_time_zone");
+
                     b.Property<string>("BlueskyOAuthKeyEncrypted")
                         .HasColumnType("text")
                         .HasColumnName("bluesky_oauth_key_encrypted");

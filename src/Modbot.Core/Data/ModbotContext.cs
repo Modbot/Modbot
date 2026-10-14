@@ -2037,6 +2037,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // No ready-made report replies until staff write some, for the row that exists already.
             entity.Property(e => e.MemberReportReplies).HasDefaultValue("[]");
 
+            // The weekly Bluesky line-up: off, Monday 12:00, for the row that exists already.
+            entity.Property(e => e.BlueskyLineupDay).HasDefaultValue(1);
+            entity.Property(e => e.BlueskyLineupHour).HasDefaultValue(12);
+            entity.Property(e => e.BlueskyLineupTimeZone).HasMaxLength(64);
+
             // The weekly spotlight: off, Monday 09:00, random, nothing ticked, for the row that exists already.
             entity.Property(e => e.SpotlightDay).HasDefaultValue(1);
             entity.Property(e => e.SpotlightHour).HasDefaultValue(9);
