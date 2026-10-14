@@ -1739,6 +1739,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("location");
 
+                    b.Property<DateTimeOffset?>("MilestonesCountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("milestones_counted_at");
+
                     b.Property<Guid?>("OpenedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("opened_by_user_id");
@@ -3991,6 +3995,33 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.EventAttendee", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<DateTimeOffset>("CountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("counted_at");
+
+                    b.HasKey("UserId", "EventId", "OccurrenceStartsAt")
+                        .HasName("pk_event_attendee");
+
+                    b.HasIndex("CountedAt")
+                        .HasDatabaseName("ix_event_attendee_counted_at");
+
+                    b.ToTable("event_attendee", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.EventInviteChoice", b =>
                 {
                     b.Property<string>("DiscordUserId")
@@ -5844,6 +5875,46 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_member_birthday_day");
 
                     b.ToTable("member_birthday", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.MemberMilestone", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<int?>("BackAfterDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("back_after_days");
+
+                    b.Property<DateTimeOffset?>("BackAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("back_at");
+
+                    b.Property<DateTimeOffset?>("BackHandledFor")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("back_handled_for");
+
+                    b.Property<DateTimeOffset?>("FirstHandledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_handled_at");
+
+                    b.Property<DateTimeOffset?>("LastVisitAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_visit_at");
+
+                    b.Property<DateTimeOffset?>("RegularHandledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("regular_handled_at");
+
+                    b.Property<DateTimeOffset?>("RegularRoleGivenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("regular_role_given_at");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_member_milestone");
+
+                    b.ToTable("member_milestone", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.MemberProfile", b =>
@@ -9242,6 +9313,59 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("MemberSweepStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("member_sweep_started_at");
+
+                    b.Property<int>("MilestoneBackDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(60)
+                        .HasColumnName("milestone_back_days");
+
+                    b.Property<string>("MilestoneChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("milestone_channel_id");
+
+                    b.Property<int>("MilestoneFirstAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("milestone_first_at");
+
+                    b.Property<bool>("MilestonePostBack")
+                        .HasColumnType("boolean")
+                        .HasColumnName("milestone_post_back");
+
+                    b.Property<bool>("MilestonePostFirst")
+                        .HasColumnType("boolean")
+                        .HasColumnName("milestone_post_first");
+
+                    b.Property<bool>("MilestonePostRegular")
+                        .HasColumnType("boolean")
+                        .HasColumnName("milestone_post_regular");
+
+                    b.Property<string>("MilestoneProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("milestone_problem");
+
+                    b.Property<int>("MilestoneRegularAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(5)
+                        .HasColumnName("milestone_regular_at");
+
+                    b.Property<string>("MilestoneRegularRoleId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("milestone_regular_role_id");
+
+                    b.Property<DateTimeOffset?>("MilestoneVisitsReadTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("milestone_visits_read_to");
+
+                    b.Property<DateTimeOffset?>("MilestonesFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("milestones_from");
 
                     b.Property<int>("ModerationFactRetentionDays")
                         .HasColumnType("integer")
