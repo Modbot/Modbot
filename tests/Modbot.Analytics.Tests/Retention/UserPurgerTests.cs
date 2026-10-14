@@ -532,6 +532,50 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// A purge takes the Ko-fi supporter matched to a Discord account, with their payments, and leaves
+    /// everybody else's.
+    /// </summary>
+    [Fact]
+    public async Task TheSupporterMatchedToTheirDiscordAccount_Goes_WithTheirPayments()
+    {
+        const string DiscordSubject = "7401";
+        const string DiscordBystander = "7402";
+
+        await using (var setup = Database.NewContext())
+        {
+            await setup.Supporters.ExecuteDeleteAsync(Ct);
+
+            foreach (var id in new[] { DiscordSubject, DiscordBystander })
+            {
+                var supporter = new Supporter
+                {
+                    PayerId = "payer" + id,
+                    Name = "Supporter " + id,
+                    DiscordUserId = id,
+                    FirstPaidAt = Start,
+                    LastPaidAt = Start,
+                    PaidThrough = Start.AddMonths(1),
+                    UpdatedAt = Start,
+                };
+                setup.Supporters.Add(supporter);
+                setup.SupporterPayments.Add(new SupporterPayment { Code = "code" + id, SupporterId = supporter.Id, PaidAt = Start, ReceivedAt = Start });
+            }
+
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using (var context = Database.NewContext())
+        {
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+            Assert.Equal(1, result.SupportersDeleted);
+        }
+
+        await using var read = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await read.Supporters.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
+        Assert.Equal("code" + DiscordBystander, Assert.Single(await read.SupporterPayments.AsNoTracking().ToListAsync(Ct)).Code);
+    }
+
+    /// <summary>
     /// A purge takes the birthday a member set (a Discord purge, or a VRChat one through the linked
     /// account) and leaves everybody else's. A row whose birthday role is still held stays with no
     /// month and day, so the next birthday pass can take the role back and delete it.
