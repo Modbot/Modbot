@@ -820,6 +820,47 @@ public class Settings
     /// <summary>What went wrong the last time a recap was posted, in a sentence. Null when it went well.</summary>
     public string? EventRecapProblem { get; set; }
 
+    // --- Member milestones ---
+
+    /// <summary>The number of events somebody has come to that Modbot calls their first moment. 1 to start.</summary>
+    public int MilestoneFirstAt { get; set; } = 1;
+
+    /// <summary>The number of events at which somebody is a Regular. 5 to start.</summary>
+    public int MilestoneRegularAt { get; set; } = 5;
+
+    /// <summary>How many days away make a return a welcome back. 60 to start.</summary>
+    public int MilestoneBackDays { get; set; } = 60;
+
+    /// <summary>The Discord channel the milestone posts go in. Null means none.</summary>
+    public string? MilestoneChannelId { get; set; }
+
+    /// <summary>Whether a post goes up for somebody's first moment. Off to start.</summary>
+    public bool MilestonePostFirst { get; set; }
+
+    /// <summary>Whether a post goes up for somebody becoming a Regular. Off to start.</summary>
+    public bool MilestonePostRegular { get; set; }
+
+    /// <summary>Whether a post goes up for somebody coming back. Off to start.</summary>
+    public bool MilestonePostBack { get; set; }
+
+    /// <summary>The Discord role given to a Regular who has a linked account. Null means none.</summary>
+    public string? MilestoneRegularRoleId { get; set; }
+
+    /// <summary>
+    /// When posts or the role were last turned on from nothing. A moment reached before it is left
+    /// alone, so turning them on never posts for people who got there long ago.
+    /// </summary>
+    public DateTimeOffset? MilestonesFrom { get; set; }
+
+    /// <summary>
+    /// How far the scan for returning visitors has read the fact log. It starts again a day before,
+    /// so a report that came in late is still read.
+    /// </summary>
+    public DateTimeOffset? MilestoneVisitsReadTo { get; set; }
+
+    /// <summary>What went wrong the last time a milestone post or role was tried, in a sentence. Null when it went well.</summary>
+    public string? MilestoneProblem { get; set; }
+
     /// <summary>
     /// The Discord channel a closed ticket's transcript is posted to, as a file. Null means no
     /// transcript is kept: the ticket still closes and the fact log still records it.

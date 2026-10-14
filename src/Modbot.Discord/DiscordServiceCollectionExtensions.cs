@@ -68,6 +68,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Calendar.CalendarFirstJoinPost>();
         services.AddScoped<Calendar.CalendarInviteMessages>();
         services.AddScoped<Calendar.EventRecapPost>();
+        services.AddScoped<Calendar.MemberMilestonePost>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 
         // Posts from the Marketing tab (posts design §3.5): its own loop, the calendar's shape, and

@@ -639,6 +639,12 @@ public class CalendarOpening
     /// written before the post, so it goes out once however many restarts.
     /// </summary>
     public DateTimeOffset? RecapPostedAt { get; set; }
+
+    /// <summary>
+    /// When the people who came to this occurrence were added to <c>event_attendee</c>. Written
+    /// after the rows, which are written once whatever happens, so counting twice is harmless.
+    /// </summary>
+    public DateTimeOffset? MilestonesCountedAt { get; set; }
 }
 
 /// <summary>The words stored in <see cref="CalendarInvite.State"/> (calendar auto-invite design §3).</summary>

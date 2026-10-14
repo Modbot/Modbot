@@ -56,6 +56,11 @@ public static class AnalyticsServiceCollectionExtensions
         // its Discord loop, which sends the direct messages (calendar auto-invite design).
         services.AddScoped<Calendar.CalendarInvites>();
 
+        // What the member milestones are made from: who came to each date and who came back. Here
+        // because the marks on a profile do not wait for Discord.
+        services.AddScoped<Calendar.MemberMilestoneCounter>();
+        services.AddHostedService<Calendar.MemberMilestoneService>();
+
         // Member reports from Discord's /report and Report to mods: here because the bot makes them
         // and the Reports page closes them, and the two must agree on the limits and the facts
         // (Discord commands design §3.4).

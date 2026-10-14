@@ -33,6 +33,9 @@ public sealed record EventTurnout(
 /// </remarks>
 public sealed class EventAttendance
 {
+    /// <summary>How long after a date was due to end an instance that never showed as closed counts as closed.</summary>
+    public static readonly TimeSpan StillOpenAfter = TimeSpan.FromHours(12);
+
     private readonly ModbotContext _db;
 
     public EventAttendance(ModbotContext db)

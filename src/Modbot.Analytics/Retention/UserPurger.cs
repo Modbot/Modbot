@@ -316,6 +316,21 @@ public sealed class UserPurger : IUserPurger
                 ct,
                 new NpgsqlParameter("subject", subjectId));
 
+            // The member milestones name a VRChat account: the dates of events they came to, and their
+            // last visit with the marks for what was posted. A post already in Discord stays there.
+            if (platform == FactPlatform.VRChat)
+            {
+                await ExecuteAsync(
+                    "DELETE FROM event_attendee WHERE user_id = @subject",
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+
+                await ExecuteAsync(
+                    "DELETE FROM member_milestone WHERE user_id = @subject",
+                    ct,
+                    new NpgsqlParameter("subject", subjectId));
+            }
+
             // Event alerts name a Discord account three ways (event alerts design §7): what they
             // signed up for, their choice of way, and the alerts queued or sent to them. For a
             // VRChat account, the Discord account linked to it now, as with reminders.

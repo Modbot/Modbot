@@ -424,6 +424,20 @@ export type DiscordEventRecapSettings = {
   problem: string | null
 }
 
+/** Settings → Discord → Member milestones. */
+export type DiscordMilestoneSettings = {
+  firstAt: number
+  regularAt: number
+  backDays: number
+  channelId: string | null
+  postFirst: boolean
+  postRegular: boolean
+  postBack: boolean
+  regularRoleId: string | null
+  /** What stopped the last post or role, or why the role cannot be given now. */
+  problem: string | null
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -1061,6 +1075,8 @@ export type PurgePreview = {
   watches: number
   /** Appeals logged for this account, decided or not. */
   appeals: number
+  /** Dates of events they came to, counted for the member milestones. */
+  milestones: number
   caseFilesKept: number
   evidenceFilesKept: number
   linkedAccount: PurgeLinkedAccount | null
@@ -1188,6 +1204,17 @@ export type PersonVisitsPage = {
   visits: PersonVisit[]
   next: AuditCursor | null
   now: string
+}
+
+/** What the member milestones know about one person. */
+export type PersonMilestones = {
+  eventsCame: number
+  firstAt: number
+  firstDate: string | null
+  regularAt: number
+  regularSince: string | null
+  backAt: string | null
+  backAfterDays: number | null
 }
 
 export type AuditCoverage = {
@@ -5233,6 +5260,19 @@ export const api = {
   setDiscordEventRecapSettings: (body: { on: boolean; channelId: string }) =>
     put<DiscordEventRecapSettings>('/api/settings/discord-event-recaps', body),
 
+  discordMilestoneSettings: () => request<DiscordMilestoneSettings>('/api/settings/discord-milestones'),
+
+  setDiscordMilestoneSettings: (body: {
+    firstAt: number
+    regularAt: number
+    backDays: number
+    channelId: string
+    postFirst: boolean
+    postRegular: boolean
+    postBack: boolean
+    regularRoleId: string
+  }) => put<DiscordMilestoneSettings>('/api/settings/discord-milestones', body),
+
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 
   setDiscordGateSettings: (body: DiscordGateSettingsInput) =>
@@ -5802,6 +5842,10 @@ export const api = {
   },
 
   auditFilters: () => request<AuditFilters>('/api/audit/filters'),
+
+  /** How many events one VRChat user came to, and the dates that made them a Regular or brought them back. */
+  personMilestones: (userId: string) =>
+    request<PersonMilestones>(`/api/audit/milestones?${new URLSearchParams({ person: userId }).toString()}`),
 
   /** One VRChat user's visits, newest first. `before` is the `next` of the page before. */
   personVisits: (userId: string, before: AuditCursor | null = null, limit = 10) => {

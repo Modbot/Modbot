@@ -39,8 +39,13 @@ public sealed class CalendarDiscordService : BackgroundService
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
+    /// <summary>The milestones' pass runs on one round in this many: about every two minutes.</summary>
+    private const int MilestoneEveryRounds = 6;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var round = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             if (_bot.ReadyGateway is { } gateway)
@@ -99,6 +104,26 @@ public sealed class CalendarDiscordService : BackgroundService
                 catch (Exception ex)
                 {
                     _log.Error(ex, "The recaps' Discord pass failed; it will run again");
+                }
+
+                // Member milestones (first event, Regular, welcome back): its own try again, and only
+                // every few rounds, since it adds up everybody's events each time.
+                if (round++ % MilestoneEveryRounds == 0)
+                {
+                    try
+                    {
+                        using var scope = _scopes.CreateScope();
+                        await scope.ServiceProvider.GetRequiredService<MemberMilestonePost>()
+                            .RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.Error(ex, "The milestones' Discord pass failed; it will run again");
+                    }
                 }
 
                 // Alerts for the categories and events members signed up for (/notify, Notify me):

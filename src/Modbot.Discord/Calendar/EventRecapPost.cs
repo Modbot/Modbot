@@ -41,7 +41,7 @@ public sealed class EventRecapPost
     private static readonly TimeSpan LongestOccurrence = TimeSpan.FromDays(7);
 
     /// <summary>How long after a date was due to end an instance that never showed as closed counts as closed.</summary>
-    public static readonly TimeSpan StillOpenAfter = TimeSpan.FromHours(12);
+    public static readonly TimeSpan StillOpenAfter = EventAttendance.StillOpenAfter;
 
     /// <summary>Discord's longest embed description is 4096; the names stop short of it.</summary>
     private const int NamesAtMost = 3000;
@@ -270,7 +270,7 @@ public sealed class EventRecapPost
     }
 
     /// <summary>The names in one line, as many as fit, then how many more came.</summary>
-    private static string? NameList(IReadOnlyList<string> names, int came)
+    internal static string? NameList(IReadOnlyList<string> names, int came)
     {
         if (names.Count == 0)
             return null;

@@ -31,6 +31,7 @@ public sealed record PurgeLinkedAccountView(string Platform, string SubjectId, s
 /// <param name="ImportRecords">Rows saying a record about them came from an uploaded file.</param>
 /// <param name="Watches">Watches on this account, standing or ended.</param>
 /// <param name="Appeals">Appeals logged for this account.</param>
+/// <param name="Milestones">Dates of events they came to, counted for the member milestones.</param>
 /// <param name="CaseFilesKept">Case files about them. Kept.</param>
 /// <param name="EvidenceFilesKept">Evidence files on those case files. Kept.</param>
 /// <param name="LinkedAccount">Their other account, when a link proves one.</param>
@@ -49,6 +50,7 @@ public sealed record PurgePreviewResponse(
     int ImportRecords,
     int Watches,
     int Appeals,
+    int Milestones,
     int CaseFilesKept,
     int EvidenceFilesKept,
     PurgeLinkedAccountView? LinkedAccount);
@@ -247,6 +249,7 @@ public static class PurgeEndpoints
             p.ImportRecords,
             p.Watches,
             p.Appeals,
+            p.Milestones,
             p.CaseFilesKept,
             p.EvidenceFilesKept,
             p.LinkedAccount is null

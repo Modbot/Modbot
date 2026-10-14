@@ -579,6 +579,9 @@ public static class ApiSurface
         // The recap posted when an event's instance has closed.
         app.MapDiscordEventRecapSettings();
 
+        // Member milestones: the posts and the Regular role.
+        app.MapDiscordMilestoneSettings();
+
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();
 
@@ -608,6 +611,7 @@ public static class ApiSurface
         // rather than failing to map.
         app.MapAuditLog();
         app.MapPersonVisits();
+        app.MapPersonMilestones();
         app.MapAnalytics();
         app.MapSyncHealth();
 

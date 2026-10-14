@@ -354,6 +354,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The birthdays members set with <c>/birthday set</c>: a month and a day, no year.</summary>
     public DbSet<MemberBirthday> MemberBirthdays => Set<MemberBirthday>();
 
+    /// <summary>The dates of events each person came to, for the member milestones.</summary>
+    public DbSet<EventAttendee> EventAttendees => Set<EventAttendee>();
+
+    /// <summary>The last visit, the latest return and the once-only marks of each person, for the member milestones.</summary>
+    public DbSet<MemberMilestone> MemberMilestones => Set<MemberMilestone>();
+
     /// <summary>Pictures members posted in Discord for the group gallery, waiting for staff or decided.</summary>
     public DbSet<GallerySubmission> GallerySubmissions => Set<GallerySubmission>();
 
@@ -2003,6 +2009,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.EventRecapChannelId).HasMaxLength(32);
             entity.Property(e => e.EventRecapProblem).HasMaxLength(300);
 
+            // Member milestones: no posts and no role, the numbers below, for the row that exists already.
+            entity.Property(e => e.MilestoneFirstAt).HasDefaultValue(1);
+            entity.Property(e => e.MilestoneRegularAt).HasDefaultValue(5);
+            entity.Property(e => e.MilestoneBackDays).HasDefaultValue(60);
+            entity.Property(e => e.MilestoneChannelId).HasMaxLength(32);
+            entity.Property(e => e.MilestoneRegularRoleId).HasMaxLength(32);
+            entity.Property(e => e.MilestoneProblem).HasMaxLength(300);
+
             // "We're live" group posts: off, until an operator picks which instances.
             entity.Property(e => e.LivePostScope).HasMaxLength(8).HasDefaultValue(LivePostScopes.Off);
 
@@ -2711,6 +2725,24 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The day's pass looks up who has a birthday today.
             entity.HasIndex(e => new { e.Month, e.Day }).HasDatabaseName("ix_member_birthday_day");
+        });
+
+        // Member milestones: a row for each person and date they came to, and one row for each person.
+        builder.Entity<EventAttendee>(entity =>
+        {
+            entity.ToTable("event_attendee");
+            entity.HasKey(e => new { e.UserId, e.EventId, e.OccurrenceStartsAt });
+            entity.Property(e => e.UserId).HasColumnType("text");
+
+            // The moments look for people counted since the milestones were turned on.
+            entity.HasIndex(e => e.CountedAt).HasDatabaseName("ix_event_attendee_counted_at");
+        });
+
+        builder.Entity<MemberMilestone>(entity =>
+        {
+            entity.ToTable("member_milestone");
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasColumnType("text");
         });
 
         // Posts (posts design §2.2). A picture deleted under a post leaves it with none, as an
