@@ -125,7 +125,8 @@ public sealed partial class DiscordNetGateway
             invite.MaxUses ?? 0,
             Text(invite.ChannelId),
             invite.Inviter is { } inviter ? Text(inviter.Id) : null,
-            invite.CreatedAt);
+            invite.CreatedAt,
+            ExpiresAt: ExpiryOf(invite.CreatedAt, invite.MaxAge));
 
     private static DiscordInviteSnapshot Describe(SocketInvite invite)
         => new(
@@ -134,5 +135,10 @@ public sealed partial class DiscordNetGateway
             invite.MaxUses,
             Text(invite.ChannelId),
             invite.Inviter is { } inviter ? Text(inviter.Id) : null,
-            invite.CreatedAt);
+            invite.CreatedAt,
+            ExpiresAt: ExpiryOf(invite.CreatedAt, invite.MaxAge));
+
+    /// <summary>When an invite made at <paramref name="createdAt"/> runs out, or null when it never does or is not known.</summary>
+    private static DateTimeOffset? ExpiryOf(DateTimeOffset? createdAt, int? maxAgeSeconds)
+        => createdAt is { } created && maxAgeSeconds is > 0 ? created.AddSeconds(maxAgeSeconds.Value) : null;
 }

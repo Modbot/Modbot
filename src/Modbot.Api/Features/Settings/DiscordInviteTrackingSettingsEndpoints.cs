@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api.Features.Settings;
 
@@ -43,6 +44,7 @@ public static class DiscordInviteTrackingSettingsEndpoints
                 HttpContext http,
                 [FromBody] DiscordInviteTrackingSettingsUpdate body,
                 [FromServices] ModbotContext db,
+                [FromServices] IDiscordInviteActions discord,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -63,13 +65,19 @@ public static class DiscordInviteTrackingSettingsEndpoints
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
+                // Counts kept from an earlier time are out of date: start from Discord's own, so the
+                // first joins can be placed. A refusal (no Manage Server yet) shows on the Invites tab.
+                if (body.On)
+                    await discord.StartCountingAsync(ct);
+
                 return Results.Ok(View(settings));
             })
             .WithName("SetDiscordInviteTrackingSettings")
             .WithSummary("Update invite tracking settings")
             .WithDescription(
                 "Turn invite tracking on or off. While it is on the bot's invite link asks for Manage Server and "
-                + "Create Invite, so a bot added earlier has to be added again from the new link.")
+                + "Create Invite, so a bot added earlier has to be added again from the new link. Turning it on "
+                + "starts the use counts from Discord's own.")
             .Accepts<DiscordInviteTrackingSettingsUpdate>("application/json")
             .Produces<DiscordInviteTrackingSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);

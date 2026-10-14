@@ -24,8 +24,8 @@ public class InviteTrackerTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static DiscordInviteSnapshot Invite(string code, int uses, int maxUses = 0, bool vanity = false)
-        => new(code, uses, maxUses, "900", null, null, vanity);
+    private static DiscordInviteSnapshot Invite(string code, int uses, int maxUses = 0, bool vanity = false, DateTimeOffset? expiresAt = null)
+        => new(code, uses, maxUses, "900", null, null, vanity, expiresAt);
 
     private static DiscordMemberJoin Join(string userId, bool bot = false)
         => new(SyncSetUp.Guild, userId, "someone", bot);
@@ -160,15 +160,52 @@ public class InviteTrackerTests
     }
 
     [Fact]
-    public async Task A_single_use_invite_that_went_without_Modbot_hearing_of_it_is_not_blamed()
+    public async Task A_single_use_invite_that_vanished_before_Modbot_heard_it_was_deleted_is_still_theirs()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
+        var gateway = new FakeGateway();
+        var later = services.Clock.UtcNow.AddDays(1);
+        gateway.Invites.AddRange([Invite(Linktree, 0), Invite("once", 0, maxUses: 1, expiresAt: later)]);
+        await SeedAsync(services, gateway);
+
+        // The join comes first; the delete event follows it.
+        gateway.Invites.RemoveAt(1);
+        await JoinAsync(services, gateway, Join("5001"));
+        using (var scope = services.Scope())
+            await scope.ServiceProvider.GetRequiredService<InviteTracker>().RemovedAsync("once", Ct);
+
+        Assert.Equal("once", await CodeOfAsync(services, "5001"));
+    }
+
+    [Fact]
+    public async Task A_single_use_invite_that_has_expired_is_not_blamed_for_a_later_join()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
+        var gateway = new FakeGateway();
+        var past = services.Clock.UtcNow.AddHours(-2);
+        gateway.Invites.AddRange([Invite(Linktree, 0), Invite("once", 0, maxUses: 1, expiresAt: past)]);
+        await SeedAsync(services, gateway);
+
+        // Never heard of it going: it ran out of time and is not the one this person used.
+        gateway.Invites.RemoveAt(1);
+        await JoinAsync(services, gateway, Join("5001"));
+
+        Assert.Null(await CodeOfAsync(services, "5001"));
+    }
+
+    [Fact]
+    public async Task A_single_use_invite_marked_gone_long_ago_is_not_blamed_for_a_later_join()
     {
         await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 0), Invite("once", 0, maxUses: 1)]);
         await SeedAsync(services, gateway);
 
-        // It may have expired long ago, so an unrelated join is not given to it.
         gateway.Invites.RemoveAt(1);
+        using (var scope = services.Scope())
+            await scope.ServiceProvider.GetRequiredService<InviteTracker>().RemovedAsync("once", Ct);
+
+        services.Clock.Advance(InviteTracker.JustGone + TimeSpan.FromMinutes(5));
         await JoinAsync(services, gateway, Join("5001"));
 
         Assert.Null(await CodeOfAsync(services, "5001"));

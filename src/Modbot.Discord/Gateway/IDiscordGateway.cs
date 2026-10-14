@@ -769,6 +769,7 @@ public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool Messag
 /// </summary>
 /// <param name="MaxUses">How many uses the invite allows, or 0 for no limit.</param>
 /// <param name="IsVanity">The server's vanity link, which Discord reports apart from the others.</param>
+/// <param name="ExpiresAt">When the invite runs out of time, or null for one that never does (or when Discord did not say).</param>
 public sealed record DiscordInviteSnapshot(
     string Code,
     int Uses,
@@ -776,7 +777,8 @@ public sealed record DiscordInviteSnapshot(
     string? ChannelId,
     string? InviterId,
     DateTimeOffset? CreatedAt,
-    bool IsVanity = false);
+    bool IsVanity = false,
+    DateTimeOffset? ExpiresAt = null);
 
 /// <summary>What reading the server's invites came to. <see cref="MissingPermission"/> is Manage Server.</summary>
 public sealed record DiscordInviteRead(IReadOnlyList<DiscordInviteSnapshot> Invites, string? Error, bool MissingPermission)

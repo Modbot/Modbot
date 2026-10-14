@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014042909_TrackInvitesOnlyWhenAskedTo")]
+    [Migration("20261014043616_TrackInvitesOnlyWhenAskedTo")]
     partial class TrackInvitesOnlyWhenAskedTo
     {
         /// <inheritdoc />
@@ -2688,6 +2688,10 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("code");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
 
                     b.Property<DateTimeOffset>("FirstSeenAt")
                         .HasColumnType("timestamp with time zone")
@@ -6107,6 +6111,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("reporter_discord_id");
 
+                    b.Property<string>("ReporterMessageResult")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reporter_message_result");
+
                     b.Property<string>("ReporterName")
                         .IsRequired()
                         .HasColumnType("text")
@@ -9377,6 +9386,13 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("McpServerEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("mcp_server_enabled");
+
+                    b.Property<string>("MemberReportReplies")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("member_report_replies");
 
                     b.Property<int>("MemberReportRetentionDays")
                         .HasColumnType("integer")

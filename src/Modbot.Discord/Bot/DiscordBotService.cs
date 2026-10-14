@@ -689,9 +689,16 @@ public sealed class DiscordBotService : BackgroundService
     /// </summary>
     private async Task StartInviteCountsAsync(IDiscordGateway gateway, string guildId)
     {
-        var read = await gateway.ReadInvitesAsync(guildId, CancellationToken.None).ConfigureAwait(false);
-        if (read.Ok)
-            await InvitesAsync("start counting invite uses", (tracker, ct) => tracker.ReadAsync(read.Invites, resetCounts: true, ct)).ConfigureAwait(false);
+        // Nothing is asked of Discord while tracking is off.
+        await InvitesAsync("start counting invite uses", async (tracker, ct) =>
+        {
+            if (!await tracker.IsOnAsync(ct).ConfigureAwait(false))
+                return;
+
+            var read = await gateway.ReadInvitesAsync(guildId, ct).ConfigureAwait(false);
+            if (read.Ok)
+                await tracker.ReadAsync(read.Invites, resetCounts: true, ct).ConfigureAwait(false);
+        }).ConfigureAwait(false);
     }
 
     private async Task InvitesAsync(string what, Func<Invites.InviteTracker, CancellationToken, Task> work)

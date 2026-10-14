@@ -22,8 +22,9 @@ namespace Modbot.Discord.Invites;
 /// <strong>When it cannot tell.</strong> No invite went up (the join came through a link Modbot does
 /// not see, such as one used while the bot was offline) or more than one did (two people joined
 /// through different links at once): the join is kept with no invite. An invite used up on this
-/// very join is already gone from Discord's list, so one that allowed exactly one more use and was
-/// marked gone a moment ago counts.
+/// very join is already gone from Discord's list, so one that allowed exactly one more use and could
+/// not have expired counts, whether or not Modbot has heard it was deleted yet (Discord does not
+/// order the two).
 /// </para>
 /// <para>
 /// Only while invite tracking is on in the settings: while it is off every entry point does nothing,
@@ -46,8 +47,7 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
     /// <summary>
     /// How long an invite that has just been marked gone still counts as the one a join used up.
-    /// An invite that Modbot has not heard was deleted is not taken for it, since it may have
-    /// expired long ago: that join is kept with no invite.
+    /// One marked gone longer ago, or past its time limit, is not taken for it.
     /// </summary>
     public static readonly TimeSpan JustGone = TimeSpan.FromMinutes(1);
 
@@ -205,7 +205,8 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
         }
     }
 
-    private async Task<bool> IsOnAsync(CancellationToken ct)
+    /// <summary>Invite tracking is on in the settings.</summary>
+    public async Task<bool> IsOnAsync(CancellationToken ct)
         => await db.Settings.AsNoTracking()
             .Select(s => s.DiscordInviteTrackingOn)
             .FirstOrDefaultAsync(ct)
@@ -241,9 +242,11 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
         }
 
         // An invite with one use left is deleted by Discord as it is used, so it is missing from the list.
-        // Only one marked gone a moment ago: one Modbot never heard was deleted may have expired long ago.
+        // Discord does not order the join and the delete, so one not yet marked gone counts too. An
+        // invite past its time may simply have expired, and stays out whenever it is marked gone.
         foreach (var row in known.Values.Where(r => !live.Contains(r.Code) && r.MaxUses > 0 && r.Uses + 1 == r.MaxUses
-            && r.GoneAt is { } gone && now - gone <= JustGone))
+            && (r.ExpiresAt is null || r.ExpiresAt > now)
+            && (r.GoneAt is null || now - r.GoneAt.Value <= JustGone)))
         {
             candidates.Add((row, row.MaxUses, true));
         }
@@ -284,6 +287,7 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
         row.ChannelId = invite.ChannelId;
         row.InviterId = invite.InviterId;
         row.IsVanity = invite.IsVanity;
+        row.ExpiresAt = invite.ExpiresAt;
         row.GoneAt = null;
     }
 }

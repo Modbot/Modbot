@@ -55,6 +55,12 @@ public class DiscordInviteLink
 
     public DateTimeOffset FirstSeenAt { get; set; }
 
+    /// <summary>
+    /// When the invite runs out of time, or null for one that never does. An invite that goes missing
+    /// before this was deleted or used up, not expired.
+    /// </summary>
+    public DateTimeOffset? ExpiresAt { get; set; }
+
     /// <summary>When Modbot found the invite deleted, expired or used up, or null while it is live.</summary>
     public DateTimeOffset? GoneAt { get; set; }
 }

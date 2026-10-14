@@ -14301,7 +14301,7 @@
           "Settings"
         ],
         "summary": "Update invite tracking settings",
-        "description": "Turn invite tracking on or off. While it is on the bot's invite link asks for Manage Server and Create Invite, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Turn invite tracking on or off. While it is on the bot's invite link asks for Manage Server and Create Invite, so a bot added earlier has to be added again from the new link. Turning it on starts the use counts from Discord's own.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordInviteTrackingSettings",
         "requestBody": {
           "content": {

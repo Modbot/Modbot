@@ -37,11 +37,19 @@ public class DiscordInviteTests
 
         public int Reads { get; private set; }
 
+        public int Starts { get; private set; }
+
         public List<(string ChannelId, IReadOnlyList<string> Names)> Created { get; } = [];
 
         public Task<InviteSiteOutcome> ReadAsync(CancellationToken ct = default)
         {
             Reads++;
+            return Task.FromResult(ReadResult);
+        }
+
+        public Task<InviteSiteOutcome> StartCountingAsync(CancellationToken ct = default)
+        {
+            Starts++;
             return Task.FromResult(ReadResult);
         }
 
@@ -189,7 +197,7 @@ public class DiscordInviteTests
     [Fact]
     public async Task TheTrackingSwitch_IsOffToStart_IsSavedAndAudited_AndIsForSomebodyWhoCanChangeSettings()
     {
-        var (host, _) = await StartAsync(_db, trackingOn: false);
+        var (host, discord) = await StartAsync(_db, trackingOn: false);
         await using var _ = host;
         var staff = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
         var viewer = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
@@ -201,8 +209,12 @@ public class DiscordInviteTests
         Assert.Equal(HttpStatusCode.OK, (await host.PutJsonAsync(Url, new { on = true }, staff, Ct)).StatusCode);
         Assert.True((await host.GetJsonAsync<DiscordInviteTrackingSettingsResponse>(Url, staff, Ct)).On);
 
+        // Turning it on starts the counts from Discord's own; turning it off asks nothing.
+        Assert.Equal(1, discord.Starts);
+
         // Saving the same again records nothing more.
         Assert.Equal(HttpStatusCode.OK, (await host.PutJsonAsync(Url, new { on = true }, staff, Ct)).StatusCode);
+        Assert.Equal(1, discord.Starts);
 
         using var scope = host.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();

@@ -36,6 +36,13 @@ public interface IDiscordInviteActions
     Task<InviteSiteOutcome> ReadAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Reads the server's invites and takes Discord's own use counts as the ones Modbot has accounted
+    /// for, as a new session does. Used when tracking is turned on, since counts kept from before
+    /// are out of date and whoever joined meanwhile cannot be placed. Needs Manage Server.
+    /// </summary>
+    Task<InviteSiteOutcome> StartCountingAsync(CancellationToken ct = default);
+
+    /// <summary>
     /// Makes one invite to <paramref name="channelId"/> for each name, with no limit on uses or time,
     /// and stores each with its name. Needs Create Invite in the channel.
     /// </summary>
@@ -46,6 +53,9 @@ public interface IDiscordInviteActions
 public sealed class NoDiscordInviteActions : IDiscordInviteActions
 {
     public Task<InviteSiteOutcome> ReadAsync(CancellationToken ct = default)
+        => Task.FromResult(InviteSiteOutcome.Offline);
+
+    public Task<InviteSiteOutcome> StartCountingAsync(CancellationToken ct = default)
         => Task.FromResult(InviteSiteOutcome.Offline);
 
     public Task<InviteCreateOutcome> CreateAsync(string channelId, IReadOnlyList<string> names, CancellationToken ct = default)

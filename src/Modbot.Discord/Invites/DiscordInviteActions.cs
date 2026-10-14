@@ -14,7 +14,11 @@ namespace Modbot.Discord.Invites;
 /// <param name="scopes">Opens the database for the one call.</param>
 public sealed class DiscordInviteActions(Func<IDiscordGateway?> readyGateway, IServiceScopeFactory scopes) : IDiscordInviteActions
 {
-    public async Task<InviteSiteOutcome> ReadAsync(CancellationToken ct = default)
+    public Task<InviteSiteOutcome> ReadAsync(CancellationToken ct = default) => ReadAsync(resetCounts: false, ct);
+
+    public Task<InviteSiteOutcome> StartCountingAsync(CancellationToken ct = default) => ReadAsync(resetCounts: true, ct);
+
+    private async Task<InviteSiteOutcome> ReadAsync(bool resetCounts, CancellationToken ct)
     {
         if (readyGateway() is not { } gateway)
             return InviteSiteOutcome.Offline;
@@ -28,7 +32,7 @@ public sealed class DiscordInviteActions(Func<IDiscordGateway?> readyGateway, IS
             return InviteSiteOutcome.Failed(read.Error!, read.MissingPermission);
 
         await scope.ServiceProvider.GetRequiredService<InviteTracker>()
-            .ReadAsync(read.Invites, resetCounts: false, ct)
+            .ReadAsync(read.Invites, resetCounts, ct)
             .ConfigureAwait(false);
 
         return InviteSiteOutcome.Ok;
