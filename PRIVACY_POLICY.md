@@ -230,6 +230,23 @@ raw log lines, no chat, no friends list. See
 [What does the companion send?](#what-does-the-companion-send) for what it is and how it is turned
 off. We keep these events for 365 days.
 
+**To Bluesky, if the group connected an account.** Nothing is sent until someone with permission to
+change settings saves a handle and an app password and turns **Posting** on. Then a post that has
+Bluesky ticked, and a calendar event with its **Bluesky** chip on, are posted on that account. For a
+calendar event, Modbot makes one post for each of the event's dates, a set time before the date
+starts (1 hour, 1 day, 3 days or 1 week, as chosen on the event). It sends Bluesky the post's text:
+the event's title, the date's time, the world's name when there is one, the description and a link
+to the event's page on Google Calendar or the group's page on vrchat.com. When the post has a link,
+it also sends a link card with the title and the event's cover picture, if that is 1 MB or smaller.
+**The post is public on Bluesky, and other services copy it.** When the event changes after the
+post went out, is cancelled or is deleted, Modbot deletes the post from Bluesky, and posts the new
+version when there is one; deleting it removes it from Bluesky, not from copies others already took.
+**No member name, no VRChat or Discord id, no head count and nothing from moderation is ever put in
+a post,** and a post mentions nobody. Modbot keeps each post's address on Bluesky and the start of
+the date it is about in its own database, so that a restart never posts a date twice and the right
+post is the one deleted. The operator can stop it with **Posting**, **Pause all posting** or by
+removing the account, which also forgets the app password.
+
 **Where the operator points it.** Modbot can post events to Discord channels the operator picks, send
 emails, call webhooks the operator sets up, and keep a copy of its logs in a Seq server the operator
 runs. Those leave the server only where the operator pointed them.
@@ -627,6 +644,7 @@ encrypted in its own database.
 | **An AI app you connect through MCP** | Using Chat's lookups from another app | What the lookups return, for the person who connected it. Off until you switch MCP on |
 | **An SMTP relay** | Sending invitations and reset links | The emails it sends |
 | **Google Calendar** | Putting your group's events on a Google calendar your group's owner shares with Modbot, if you give it a key | When someone presses **Check**: a sign-in request signed with the key, naming the key's Google address, to `oauth2.googleapis.com`, and the calendar's id to `www.googleapis.com`, to read the calendar's name, time zone and sharing. While **Sending** is on, about once an hour a new sign-in, and for each event ticked for Google Calendar, whenever it is made, changed, cancelled or removed: its title, description, times, time zone, repeat and cancelled dates, a date's own times and words, the world's name and page, the group's name, and Modbot's id for the event, to `www.googleapis.com`. Google shows them to whoever the calendar is shared with, and to the public if it is public. Events only members can see are never sent, nor are member names, ids, head counts, the join link, pictures or moderation data. The key's private part never leaves your server |
+| **Bluesky** | Posting to the account the group connects, including events from the calendar | Handle lookup: when someone presses **Check**, the handle goes to `public.api.bsky.app`, or to the handle's own website, to find the account. The account's record is read from `plc.directory`, or from the account's own website. The account's id and the app password go to the account's own server to sign in, and the posts, the deletes and the pictures on a post's link card go to that same server. The handle and the app password are stored in Settings (the password encrypted), and **Remove** forgets the password. What a post holds is under [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else). Off until you save an account and turn **Posting** on |
 | **S3-compatible storage** | Evidence files, if you choose it over disk | The evidence files themselves |
 | **Seq** | A durable copy of the logs, if you set `SEQ_URL` | Modbot's own application logs |
 | **Webhook addresses you set** | Telling your own tools about events | The events you chose, as signed JSON |
