@@ -1,3 +1,4 @@
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
 
@@ -25,9 +26,17 @@ namespace Modbot.Api.Features.Places;
 /// </para>
 /// <para>
 /// A moderator's client states who is present as a run of "already here" reports, each within
-/// <see cref="InstanceWatching.ArrivalBurstAllowance"/> of the first, and then its own join. That run
-/// is what marks the start of a new stint. The stint also starts at the first report after the client
-/// said its log stopped, since a client that comes back to an empty instance states nobody at all.
+/// <see cref="InstanceWatching.ArrivalBurstAllowance"/> of the one before it (a roster of forty-odd
+/// can take longer than that in all), and then its own join. That run is what marks the start of a
+/// new stint. The stint also starts at the first report after the client said its log stopped, since
+/// a client that comes back to an empty instance states nobody at all.
+/// </para>
+/// <para>
+/// <strong>A restatement drops only the people no other moderator reported alongside it.</strong>
+/// When two moderators restate together, the fact writer keeps only the first report of each person
+/// within its dedup window and throws the second moderator's copy away, so that moderator's
+/// restatement reaches the database as a few stragglers. Someone another moderator reported within
+/// that window of the restatement is therefore still here, and stays on this moderator's list.
 /// </para>
 /// <para>
 /// Pure: no database and no clock, so the rule can be read and tested on its own.
@@ -41,19 +50,36 @@ public static class CompanionGaps
     /// <param name="reports">
     /// The instance's presence reports and log-stopped reports, from any moderator, in any order.
     /// </param>
-    public static IReadOnlyList<PresenceStay> Stays(IReadOnlyList<PresenceReport> reports)
+    /// <param name="dedupWindow">
+    /// How close together the fact writer treats two reports of the same person as one; the default is
+    /// its default (<see cref="FactWriter.DefaultWindowSeconds"/>).
+    /// </param>
+    public static IReadOnlyList<PresenceStay> Stays(
+        IReadOnlyList<PresenceReport> reports,
+        TimeSpan? dedupWindow = null)
     {
         ArgumentNullException.ThrowIfNull(reports);
+
+        var window = dedupWindow ?? TimeSpan.FromSeconds(FactWriter.DefaultWindowSeconds);
 
         var real = reports.Where(IsAboutAPerson).ToList();
 
         if (real.Count == 0)
             return [];
 
+        // Every "here" report by person, so a restatement can ask who else reported someone near it.
+        var reported = real
+            .Where(r => r.Type is FactType.InstanceJoined or FactType.InstancePresenceObserved)
+            .GroupBy(r => r.SubjectId!, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => (r.At, Device: r.Device ?? "")).ToList(),
+                StringComparer.Ordinal);
+
         var perDevice = reports
             .Where(r => r.Type is FactType.InstanceLogStopped || IsAboutAPerson(r))
             .GroupBy(r => r.Device ?? "", StringComparer.Ordinal)
-            .Select(g => Watch(g.OrderBy(r => r.At).ThenBy(r => r.Id).ToList()))
+            .Select(g => Watch(g.Key, g.OrderBy(r => r.At).ThenBy(r => r.Id).ToList(), reported, window))
             .ToList();
 
         var events = new List<Step>(real.Count);
@@ -117,7 +143,11 @@ public static class CompanionGaps
             && report.SubjectId is { Length: > 0 };
 
     /// <summary>One moderator's client, start to finish: who it vouched for, and who it lost track of.</summary>
-    private static DeviceWatch Watch(List<PresenceReport> reports)
+    private static DeviceWatch Watch(
+        string device,
+        List<PresenceReport> reports,
+        Dictionary<string, List<(DateTimeOffset At, string Device)>> reported,
+        TimeSpan window)
     {
         var allowance = InstanceWatching.ArrivalBurstAllowance;
         var roster = new HashSet<string>(StringComparer.Ordinal);
@@ -175,9 +205,11 @@ public static class CompanionGaps
 
             if (report.Type == FactType.InstancePresenceObserved)
             {
+                // Each report is timed from the one before it, not from the first: a big roster is
+                // logged over longer than the allowance in all.
                 while (next < reports.Count
                     && reports[next].Type == FactType.InstancePresenceObserved
-                    && reports[next].At - report.At <= allowance)
+                    && reports[next].At - burst[^1].At <= allowance)
                 {
                     burst.Add(reports[next]);
                     next++;
@@ -185,7 +217,7 @@ public static class CompanionGaps
 
                 if (next < reports.Count
                     && reports[next].Type == FactType.InstanceJoined
-                    && reports[next].At - report.At <= allowance)
+                    && reports[next].At - burst[^1].At <= allowance)
                 {
                     burst.Add(reports[next]);
                     next++;
@@ -195,10 +227,23 @@ public static class CompanionGaps
             var gap = stopped ?? previous;
             var inBurst = burst.Select(r => r.SubjectId!).ToHashSet(StringComparer.Ordinal);
 
+            var keptByOthers = new List<string>();
+
             if (gap is { } start)
             {
+                var from = burst[0].At - window;
+                var to = burst[^1].At + window;
+
                 foreach (var userId in roster.Where(u => !inBurst.Contains(u)).Order(StringComparer.Ordinal))
-                    drops.Add(new Drop(userId, start.At, start.Id));
+                {
+                    // Reported by another moderator around this restatement: this one's copy was
+                    // most likely thrown away as a duplicate, not left out.
+                    if (reported.TryGetValue(userId, out var by)
+                        && by.Any(b => b.Device != device && b.At >= from && b.At <= to))
+                        keptByOthers.Add(userId);
+                    else
+                        drops.Add(new Drop(userId, start.At, start.Id));
+                }
 
                 CloseAll(start.At);
             }
@@ -208,6 +253,12 @@ public static class CompanionGaps
             {
                 roster.Add(member.SubjectId!);
                 open.TryAdd(member.SubjectId!, member.At);
+            }
+
+            foreach (var userId in keptByOthers)
+            {
+                roster.Add(userId);
+                open.TryAdd(userId, burst[0].At);
             }
 
             previous = burst[^1];

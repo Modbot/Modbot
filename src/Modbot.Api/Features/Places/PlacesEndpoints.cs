@@ -309,10 +309,13 @@ public static class PlacesEndpoints
             {
                 var presence = new PresenceCounts(db);
 
-                counts = await presence.ForInstanceAsync(instance, ct);
-                people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
+                // Read once; the figures, the people and the head count series are all worked out from it.
+                var stays = await presence.StaysInInstanceAsync(instance, ct);
+
+                counts = PresenceCounts.CountsOf(stays);
+                people = await WithNamesAsync(db, PresenceCounts.PeopleOf(stays), ct);
                 returningMembers = await ReturningMembersAsync(db, people, ct);
-                present = await PeoplePresentAsync(db, presence, instance, ct);
+                present = await PeoplePresentAsync(db, PresenceCounts.SessionsOf(stays), ct);
             }
         }
 
@@ -379,11 +382,9 @@ public static class PlacesEndpoints
     /// </summary>
     private static async Task<IReadOnlyList<PeoplePresentPoint>> PeoplePresentAsync(
         ModbotContext db,
-        PresenceCounts presence,
-        InstanceLife instance,
+        IReadOnlyList<PresenceSession> sessions,
         CancellationToken ct)
     {
-        var sessions = await presence.SessionsInInstanceAsync(instance, ct);
         if (sessions.Count == 0)
             return [];
 

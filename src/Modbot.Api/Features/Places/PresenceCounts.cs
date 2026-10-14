@@ -1,4 +1,6 @@
 using System.Data.Common;
+using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Analytics;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -250,8 +252,11 @@ public sealed class PresenceCounts(ModbotContext db)
     /// (<see cref="VRChatInstance"/>).
     /// </remarks>
     public async Task<PlaceCounts> ForInstanceAsync(InstanceLife instance, CancellationToken ct)
+        => CountsOf(await StaysInInstanceAsync(instance, ct));
+
+    /// <summary>The instance's figures from stays already read (<see cref="StaysInInstanceAsync"/>).</summary>
+    public static PlaceCounts CountsOf(IReadOnlyList<PresenceStay> stays)
     {
-        var stays = await StaysInInstanceAsync(instance, ct);
         if (stays.Count == 0)
             return PlaceCounts.Nothing;
 
@@ -264,7 +269,11 @@ public sealed class PresenceCounts(ModbotContext db)
 
     /// <summary>Who was seen in one instance, longest first.</summary>
     public async Task<IReadOnlyList<PersonSeen>> PeopleInInstanceAsync(InstanceLife instance, CancellationToken ct)
-        => (await StaysInInstanceAsync(instance, ct))
+        => PeopleOf(await StaysInInstanceAsync(instance, ct));
+
+    /// <summary>Who was seen, longest first, from stays already read (<see cref="StaysInInstanceAsync"/>).</summary>
+    public static IReadOnlyList<PersonSeen> PeopleOf(IReadOnlyList<PresenceStay> stays)
+        => stays
             .GroupBy(s => s.UserId, StringComparer.Ordinal)
             .Select(g => new PersonSeen(
                 g.Key,
@@ -282,7 +291,11 @@ public sealed class PresenceCounts(ModbotContext db)
     /// was present at each moment (<see cref="PeoplePresentSeries"/>).
     /// </summary>
     public async Task<IReadOnlyList<PresenceSession>> SessionsInInstanceAsync(InstanceLife instance, CancellationToken ct)
-        => (await StaysInInstanceAsync(instance, ct))
+        => SessionsOf(await StaysInInstanceAsync(instance, ct));
+
+    /// <summary>Sessions from stays already read (<see cref="StaysInInstanceAsync"/>).</summary>
+    public static IReadOnlyList<PresenceSession> SessionsOf(IReadOnlyList<PresenceStay> stays)
+        => stays
             .Select(s => new PresenceSession(s.UserId, s.Started, s.Ended))
             .ToList();
 
@@ -325,7 +338,14 @@ public sealed class PresenceCounts(ModbotContext db)
             ("world", instance.WorldId),
             ("instance", instance.Number));
 
-        return CompanionGaps.Stays(reports);
+        // Read, never created: the fact writer's own window, which the stays rule needs to know
+        // (CompanionGaps).
+        var window = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => (int?)s.DedupWindowSeconds)
+            .FirstOrDefaultAsync(ct) ?? FactWriter.DefaultWindowSeconds;
+
+        return CompanionGaps.Stays(reports, TimeSpan.FromSeconds(window));
     }
 
     /// <summary>Minutes of people-time in some stays, to a tenth.</summary>

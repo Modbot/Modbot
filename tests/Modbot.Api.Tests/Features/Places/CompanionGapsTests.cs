@@ -173,4 +173,80 @@ public class CompanionGapsTests
         var b = StayOf(stays, "usr_b");
         Assert.Equal((At(0), At(10), false), (b.Started, b.Ended, b.LeaveSeen));
     }
+
+    /// <summary>
+    /// A forty-five person roster logged at 0.7 s apiece takes over thirty seconds, three times the
+    /// burst allowance. Each report is timed from the one before it, so it is still one roster and
+    /// nobody in its first part is read as having left when its tail arrives.
+    /// </summary>
+    [Fact]
+    public void ALongRoster_LoggedOverMoreThanTheAllowance_IsStillOneRoster()
+    {
+        var people = Enumerable.Range(0, 45).Select(i => $"usr_{i:00}").ToList();
+
+        List<PresenceReport> Roster(DateTimeOffset start)
+            => people.Select((who, i) => Seen(who, start.AddMilliseconds(700 * i))).ToList();
+
+        var first = Roster(At(0));
+        var second = Roster(At(10));
+
+        var stays = CompanionGaps.Stays([.. first, .. second]);
+
+        Assert.Equal(45, stays.Count);
+
+        var lastReport = second[^1].At;
+
+        for (var i = 0; i < people.Count; i++)
+        {
+            var stay = StayOf(stays, people[i]);
+            Assert.Equal((first[i].At, lastReport, false), (stay.Started, stay.Ended, stay.LeaveSeen));
+        }
+    }
+
+    /// <summary>
+    /// Two moderators' clients come back together. The fact writer keeps only the first report of a
+    /// person within its dedup window, so the second moderator's list reaches the database as just its
+    /// own join. Ada and Bea were on the first moderator's list at the same moment, so they are still
+    /// there: one stay each, not a gap and a second visit. Cy and Dan were on neither list and left in
+    /// the gap.
+    /// </summary>
+    [Fact]
+    public void TwoCompanionsRejoiningTogether_KeepsWhoTheOtherOneStillListed()
+    {
+        var stays = CompanionGaps.Stays(
+        [
+            Seen("usr_a", At(0)),
+            Seen("usr_b", At(0, 1)),
+            Seen("usr_c", At(0, 2)),
+            Seen("usr_d", At(0, 3)),
+            Joined("usr_mod1", At(0, 4)),
+            Seen("usr_a", At(1), "d2"),
+            Seen("usr_b", At(1, 1), "d2"),
+            Seen("usr_c", At(1, 2), "d2"),
+            Seen("usr_d", At(1, 3), "d2"),
+            Joined("usr_mod2", At(1, 4), "d2"),
+            Stopped("usr_mod1", At(10)),
+            Stopped("usr_mod2", At(10), "d2"),
+            // Both come back at once: the first one's list is kept, the second one's is thrown away
+            // as duplicates and only its own join survives.
+            Seen("usr_a", At(20)),
+            Seen("usr_b", At(20, 1)),
+            Joined("usr_mod1", At(20, 2)),
+            Joined("usr_mod2", At(20, 4), "d2"),
+        ]);
+
+        var lastReport = At(20, 4);
+
+        foreach (var who in new[] { "usr_a", "usr_b" })
+        {
+            var stay = StayOf(stays, who);
+            Assert.Equal((lastReport, false), (stay.Ended, stay.LeaveSeen));
+        }
+
+        foreach (var who in new[] { "usr_c", "usr_d" })
+        {
+            var stay = StayOf(stays, who);
+            Assert.Equal((At(10), false), (stay.Ended, stay.LeaveSeen));
+        }
+    }
 }
