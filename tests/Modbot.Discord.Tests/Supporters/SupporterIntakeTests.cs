@@ -278,4 +278,68 @@ public class SupporterIntakeTests
         Assert.Equal("7001", Assert.Single(supporters, s => s.DiscordUserId != null).DiscordUserId);
         Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
     }
+
+    [Fact]
+    public async Task AKofiLinkThatMovesASupporterToAnotherAccount_RemembersWhoseRoleIsStillOut()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var now = services.Clock.UtcNow;
+
+        await TakeAsync(services, Payment("one", discord: "7001", at: now.AddDays(-40)));
+
+        // Modbot gave the first account a role (the role pass keeps the account beside it, and does not run here).
+        await using (var db = services.Database.NewContext())
+        {
+            var given = await db.Supporters.SingleAsync(Ct);
+            given.GivenDiscordRoleId = "9001";
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await TakeAsync(services, Payment("two", discord: "7002", at: now.AddDays(-10)));
+
+        await using var read = services.Database.NewContext();
+        var supporter = await read.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal("7002", supporter.DiscordUserId);
+        Assert.Equal("7001", supporter.GivenDiscordUserId);
+        Assert.Equal("9001", supporter.GivenDiscordRoleId);
+    }
+
+    [Fact]
+    public async Task AKofiLinkThatMovesASupporterWhoHasNoRoleOut_RemembersNoAccount()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var now = services.Clock.UtcNow;
+
+        await TakeAsync(services, Payment("one", discord: "7001", at: now.AddDays(-40)));
+        await TakeAsync(services, Payment("two", discord: "7002", at: now.AddDays(-10)));
+
+        await using var read = services.Database.NewContext();
+        var supporter = await read.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal("7002", supporter.DiscordUserId);
+        Assert.Null(supporter.GivenDiscordUserId);
+    }
+
+    [Fact]
+    public async Task TwoSupportersCannotHaveTheSameDiscordAccount_ButManyCanHaveNone()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var db = services.Database.NewContext();
+
+        Supporter Make(string payer, string? account) => new()
+        {
+            PayerId = payer,
+            Name = payer,
+            DiscordUserId = account,
+            FirstPaidAt = services.Clock.UtcNow,
+            LastPaidAt = services.Clock.UtcNow,
+            PaidThrough = services.Clock.UtcNow.AddMonths(1),
+            UpdatedAt = services.Clock.UtcNow,
+        };
+
+        db.Supporters.AddRange(Make("none-one", null), Make("none-two", null), Make("has", "7001"));
+        await db.SaveChangesAsync(Ct);
+
+        db.Supporters.Add(Make("same", "7001"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(Ct));
+    }
 }

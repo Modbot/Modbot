@@ -11,6 +11,10 @@ namespace Modbot.Core.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "ix_supporter_discord_user",
+                table: "supporter");
+
             migrationBuilder.AddColumn<string>(
                 name: "given_discord_user_id",
                 table: "supporter",
@@ -31,6 +35,12 @@ namespace Modbot.Core.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "ux_supporter_discord_user",
+                table: "supporter",
+                columns: new[] { "provider", "discord_user_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ux_supporter_code_code",
                 table: "supporter_code",
                 column: "code",
@@ -43,9 +53,18 @@ namespace Modbot.Core.Data.Migrations
             migrationBuilder.DropTable(
                 name: "supporter_code");
 
+            migrationBuilder.DropIndex(
+                name: "ux_supporter_discord_user",
+                table: "supporter");
+
             migrationBuilder.DropColumn(
                 name: "given_discord_user_id",
                 table: "supporter");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_supporter_discord_user",
+                table: "supporter",
+                column: "discord_user_id");
         }
     }
 }

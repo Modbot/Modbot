@@ -581,6 +581,87 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// A supporter staff moved off the purged account still names it as the one a role was given to.
+    /// A purge clears that name and the role on the other supporter's row, for the Discord account and
+    /// for the VRChat account it is linked to, and leaves everybody else's.
+    /// </summary>
+    [Fact]
+    public async Task AnotherSupportersNoteOfARoleGivenToThePurgedAccount_IsCleared_ForTheDiscordAccountAndItsLinkedVRChatAccount()
+    {
+        const string DiscordSubject = "7401";
+        const string DiscordBystander = "7402";
+        const string DiscordMovedTo = "7403";
+
+        async Task SetUpAsync()
+        {
+            await using var setup = Database.NewContext();
+            await setup.Supporters.ExecuteDeleteAsync(Ct);
+
+            if (!await setup.DiscordAccountLinks.AnyAsync(l => l.DiscordUserId == DiscordSubject, Ct))
+            {
+                setup.DiscordAccountLinks.Add(new DiscordAccountLink
+                {
+                    DiscordUserId = DiscordSubject,
+                    DiscordUsername = "member",
+                    VRChatUserId = Subject,
+                    LinkedAt = Start,
+                });
+            }
+
+            // Staff moved this supporter to another account; the role went to the purged one first.
+            // The other row's role was given to a bystander.
+            foreach (var (payer, account, givenTo) in new[] { ("moved", DiscordMovedTo, DiscordSubject), ("other", DiscordBystander, DiscordBystander) })
+            {
+                setup.Supporters.Add(new Supporter
+                {
+                    PayerId = payer,
+                    Name = payer,
+                    DiscordUserId = account,
+                    GivenDiscordRoleId = "9001",
+                    GivenDiscordUserId = givenTo,
+                    FirstPaidAt = Start,
+                    LastPaidAt = Start,
+                    PaidThrough = Start.AddMonths(1),
+                    UpdatedAt = Start,
+                });
+            }
+
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        async Task AssertAsync()
+        {
+            await using var read = Database.NewContext();
+            var supporters = await read.Supporters.AsNoTracking().ToListAsync(Ct);
+            Assert.Equal(2, supporters.Count);
+
+            var moved = Assert.Single(supporters, s => s.PayerId == "moved");
+            Assert.Null(moved.GivenDiscordUserId);
+            Assert.Null(moved.GivenDiscordRoleId);
+            Assert.Equal(DiscordMovedTo, moved.DiscordUserId);
+
+            var other = Assert.Single(supporters, s => s.PayerId == "other");
+            Assert.Equal(DiscordBystander, other.GivenDiscordUserId);
+            Assert.Equal("9001", other.GivenDiscordRoleId);
+        }
+
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
+
+        await AssertAsync();
+
+        // The same, asked about the VRChat account the Discord one is linked to.
+        await SetUpAsync();
+
+        await using (var context = Database.NewContext())
+            await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+
+        await AssertAsync();
+    }
+
+    /// <summary>
     /// A purge takes the birthday a member set (a Discord purge, or a VRChat one through the linked
     /// account) and leaves everybody else's. A row whose birthday role is still held stays with no
     /// month and day, so the next birthday pass can take the role back and delete it.

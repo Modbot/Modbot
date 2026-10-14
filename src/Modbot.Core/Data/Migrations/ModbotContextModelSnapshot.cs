@@ -10336,11 +10336,12 @@ namespace Modbot.Core.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_supporter");
 
-                    b.HasIndex("DiscordUserId")
-                        .HasDatabaseName("ix_supporter_discord_user");
-
                     b.HasIndex("TierId")
                         .HasDatabaseName("ix_supporter_tier_id");
+
+                    b.HasIndex("Provider", "DiscordUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_supporter_discord_user");
 
                     b.HasIndex("Provider", "PayerId")
                         .IsUnique()
