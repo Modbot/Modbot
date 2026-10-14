@@ -618,6 +618,75 @@
         ]
       }
     },
+    "/api/audit/milestones": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Get a person's milestones",
+        "description": "How many dates of calendar events one VRChat user came to, the date of the event Modbot calls their first moment (`firstAt`) and of the one that made them a Regular (`regularAt`), and the visit that ended their latest gap of the welcome-back length or more. Counted from the companion's presence reports, so only people in an instance where a moderator's app was present are counted.\n\nNeeds ViewAuditLog, the permission that reads the same arrivals in the audit log.",
+        "operationId": "GetPersonMilestones",
+        "parameters": [
+          {
+            "name": "person",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonMilestonesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/cases/{id}/evidence/{hash}/take-off": {
       "post": {
         "tags": [
@@ -14015,6 +14084,124 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DiscordEventRecapSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/discord-milestones": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get member milestone settings",
+        "description": "The numbers behind the first-event, Regular and welcome-back moments, which of them get a post in the channel, and the role given to a Regular who has a linked account. `problem` says what stopped the last post or role, or that Modbot cannot give the role.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordMilestoneSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordMilestoneSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update member milestone settings",
+        "description": "Change the event numbers for the first moment (`firstAt`) and for a Regular (`regularAt`), the days away for a welcome back (`backDays`), the channel (empty for none), which moments get a post, and the Regular role (empty for none). A role that holds a dangerous permission is refused. Turning a post or the role on never acts for a moment reached before. A refusal (400) lists everything wrong at once, in `problems`.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordMilestoneSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordMilestoneSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordMilestoneSettingsResponse"
                 }
               }
             }
@@ -46441,6 +46628,117 @@
           }
         }
       },
+      "DiscordMilestoneSettingsResponse": {
+        "required": [
+          "firstAt",
+          "regularAt",
+          "backDays",
+          "channelId",
+          "postFirst",
+          "postRegular",
+          "postBack",
+          "regularRoleId",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "firstAt": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regularAt": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "backDays": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postFirst": {
+            "type": "boolean"
+          },
+          "postRegular": {
+            "type": "boolean"
+          },
+          "postBack": {
+            "type": "boolean"
+          },
+          "regularRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordMilestoneSettingsUpdate": {
+        "type": "object",
+        "properties": {
+          "firstAt": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "regularAt": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "backDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "postFirst": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "postRegular": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "postBack": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "regularRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DiscordPermissionWatchSettingsResponse": {
         "required": [
           "channelId",
@@ -57308,6 +57606,60 @@
           }
         }
       },
+      "PersonMilestonesResponse": {
+        "required": [
+          "eventsCame",
+          "firstAt",
+          "firstDate",
+          "regularAt",
+          "regularSince",
+          "backAt",
+          "backAfterDays"
+        ],
+        "type": "object",
+        "properties": {
+          "eventsCame": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstAt": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "regularAt": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regularSince": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "backAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "backAfterDays": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "PersonRow": {
         "required": [
           "userId",
@@ -59216,6 +59568,7 @@
           "importRecords",
           "watches",
           "appeals",
+          "milestones",
           "caseFilesKept",
           "evidenceFilesKept",
           "linkedAccount"
@@ -59279,6 +59632,10 @@
             "format": "int32"
           },
           "appeals": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "milestones": {
             "type": "integer",
             "format": "int32"
           },
