@@ -515,6 +515,9 @@ public static class FactType
 
     /// <summary>A trial and its checklist were taken off an account. The subject is the account. Payload: <c>buddy</c>.</summary>
     public const string StaffTrialRemoved = "modbot.user.trial.remove";
+
+    /// <summary>A trial was closed, so it no longer counts as running; the checklist stays. The subject is the account on trial. Payload: <c>buddy</c>.</summary>
+    public const string StaffTrialClosed = "modbot.user.trial.close";
     public const string ResetLinkCreated = "modbot.user.password.reset.create";
     public const string ResetLinkUsed = "modbot.user.password.reset.use";
     public const string SignedOutEverywhere = "modbot.user.sign-out-everywhere";

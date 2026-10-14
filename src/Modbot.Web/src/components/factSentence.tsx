@@ -993,6 +993,7 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
   'modbot.user.trial.remove': (p) => <>{p.actor} took the trial off {p.subject}.</>,
+  'modbot.user.trial.close': (p) => <>{p.actor} closed {p.subject}'s trial.</>,
 
   'modbot.user.roles.change': (p) =>
     p.text('why') === 'discord-role' ? (

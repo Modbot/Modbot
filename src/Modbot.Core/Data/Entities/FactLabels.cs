@@ -141,6 +141,7 @@ public static class FactLabels
         [FactType.StaffTrialBuddyChanged] = "Trial buddy changed",
         [FactType.StaffTrialSignedOff] = "Trial line signed off",
         [FactType.StaffTrialRemoved] = "Trial removed",
+        [FactType.StaffTrialClosed] = "Trial closed",
         [FactType.ResetLinkCreated] = "Reset link created",
         [FactType.ResetLinkUsed] = "Reset link used",
         [FactType.SignedOutEverywhere] = "Signed out everywhere",

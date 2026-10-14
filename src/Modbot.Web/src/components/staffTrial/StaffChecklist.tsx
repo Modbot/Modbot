@@ -61,6 +61,12 @@ export function StaffChecklist({ trial, onChange, onRemoved }: {
         <span className="text-muted-foreground">
           <ProgressLine trial={trial} />
         </span>
+        {trial.closedAt && (
+          <span>
+            <span className="text-muted-foreground">Closed </span>
+            <span className="font-mono">{formatDay(trial.closedAt)}</span>
+          </span>
+        )}
       </div>
 
       {tasks.length > 0 && (
@@ -304,6 +310,7 @@ function Manage({ trial, onChange, onRemoved }: {
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const change = () => {
     setBusy(true)
@@ -328,11 +335,25 @@ function Manage({ trial, onChange, onRemoved }: {
         <Button type="button" size="xs" variant="outline" onClick={change} disabled={busy || buddy === ''}>
           Change buddy
         </Button>
+        {!trial.closedAt && (
+          <Button type="button" size="xs" variant="outline" onClick={() => setClosing(true)}>
+            Close
+          </Button>
+        )}
         <Button type="button" size="xs" variant="outline" onClick={() => setRemoving(true)}>
           Remove checklist
         </Button>
         <Outcome tone="problem">{problem}</Outcome>
       </div>
+
+      <ConfirmDialog
+        open={closing}
+        onOpenChange={setClosing}
+        title={`Close ${trial.username}'s checklist?`}
+        action="Close"
+        failed="Could not close the checklist."
+        onConfirm={() => api.closeStaffTrial(trial.accountId).then(onChange)}
+      />
 
       <ConfirmDialog
         open={removing}

@@ -622,6 +622,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DiscordSnapshotSchedule).HasMaxLength(16).HasDefaultValue(DiscordSnapshotSchedules.Off);
             entity.Property(e => e.NewStaffTasks).HasColumnType("jsonb");
             entity.Property(e => e.NewStaffSignOffs).HasColumnType("jsonb");
+            entity.Property(e => e.StaffRemindersChannelId).HasMaxLength(32);
 
             // Off, and sent as a direct message, for the row that exists already.
             entity.Property(e => e.DiscordWelcomeVia).HasMaxLength(16).HasDefaultValue(DiscordWelcomeWhere.DirectMessage);

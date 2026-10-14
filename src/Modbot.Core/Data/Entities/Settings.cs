@@ -864,6 +864,12 @@ public class Settings
     /// <summary>The lines a new staff member's buddy signs off, first first. Copied onto a trial when it begins. Null or empty means none.</summary>
     public List<string>? NewStaffSignOffs { get; set; }
 
+    /// <summary>
+    /// The Discord channel the day-30 Council reminders and the 30-day inactive check-ins are posted in: one channel
+    /// for both. Null means neither is posted.
+    /// </summary>
+    public string? StaffRemindersChannelId { get; set; }
+
     // --- Event recaps in Discord ---
 
     /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>

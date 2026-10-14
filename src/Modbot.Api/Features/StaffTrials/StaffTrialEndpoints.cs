@@ -33,7 +33,11 @@ public sealed record StaffTrialItemView(
 /// <summary>One new staff member's trial, with what the caller may do to it.</summary>
 /// <param name="CanAnswer">The caller is the one on trial, so the tasks are theirs to fill in.</param>
 /// <param name="CanSignOff">The caller is the buddy, or manages accounts, and is not the one on trial.</param>
-/// <param name="CanManage">The caller may change the buddy and take the trial off the account.</param>
+/// <param name="ClosedAt">When the trial was closed, so it no longer counts as running. Null while it runs.</param>
+/// <param name="CanManage">
+/// The caller may change the buddy, close the trial and take it off the account: they have Manage users and the
+/// account's highest role is below theirs (an administrator may on anyone).
+/// </param>
 public sealed record StaffTrialView(
     Guid AccountId,
     string Username,
@@ -42,13 +46,14 @@ public sealed record StaffTrialView(
     DateTimeOffset StartedAt,
     string? BuddyNote,
     DateTimeOffset? BuddyNoteAt,
+    DateTimeOffset? ClosedAt,
     IReadOnlyList<StaffTrialItemView> Items,
     bool CanAnswer,
     bool CanSignOff,
     bool CanManage);
 
 /// <summary>An account's trial, or none yet.</summary>
-/// <param name="CanStart">The caller may start one.</param>
+/// <param name="CanStart">The caller may start one: they have Manage users, the account is not their own, and its highest role is below theirs (an administrator may on anyone).</param>
 public sealed record StaffTrialResponse(StaffTrialView? Trial, bool CanStart);
 
 /// <summary>The caller's own trial, and the trials they are buddy to.</summary>
@@ -73,11 +78,13 @@ public sealed record StaffTrialNoteBody(string? Note);
 /// <strong>Who may do what.</strong> The one on trial fills in the tasks, and only they do. The buddy
 /// signs the other lines off and writes the note; somebody who manages accounts may do both of those in
 /// the buddy's place, so a buddy who has left does not hold a trial up. Nobody signs off their own
-/// trial. Starting a trial, changing the buddy and taking a trial off need Manage users.
+/// trial. Starting a trial, changing the buddy, closing a trial and taking a trial off need Manage users, and
+/// like the other account actions they only reach accounts whose highest role is below the caller's
+/// (<see cref="RoleOrder"/>); nobody starts a trial on their own account.
 /// </para>
 /// <para>
-/// <strong>Who may read.</strong> The one on trial, their buddy, and whoever may see the account side of
-/// a person (<see cref="PersonSight.Account"/>): the checklist is part of that profile.
+/// <strong>Who may read.</strong> The one on trial, their buddy, and anyone with Manage users or See the
+/// operational log: the checklist is part of the account side of a person's profile.
 /// </para>
 /// </remarks>
 public static class StaffTrialEndpoints
@@ -91,6 +98,7 @@ public static class StaffTrialEndpoints
         group.MapGet("/mine", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 var me = Me(http);
@@ -101,15 +109,16 @@ public static class StaffTrialEndpoints
                     .OrderBy(t => t.StartedAt)
                     .ToListAsync(ct);
 
-                var views = await ViewsAsync(db, trials, http, ct);
+                var views = await ViewsAsync(db, accounts, trials, http, ct);
 
+                // A closed trial is no longer one the buddy has running.
                 return Results.Ok(new MyStaffTrialsResponse(
                     views.FirstOrDefault(v => v.AccountId == me),
-                    views.Where(v => v.AccountId != me).ToList()));
+                    views.Where(v => v.AccountId != me && v.ClosedAt is null).ToList()));
             })
             .WithName("MyStaffTrials")
             .WithSummary("Get my trial and the trials I am buddy to")
-            .WithDescription("The signed-in person's own checklist, if they are on a trial, and the checklists of the people they are buddy to.")
+            .WithDescription("The signed-in person's own checklist, if they are on a trial, and the checklists of the people they are buddy to whose trials are still running.")
             .Produces<MyStaffTrialsResponse>()
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -117,11 +126,12 @@ public static class StaffTrialEndpoints
                 Guid accountId,
                 HttpContext http,
                 [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 var trial = await LoadAsync(db, accountId, ct);
                 var held = ModbotAuth.PermissionsOf(http.User);
-                var canStart = ModbotAuth.Allows(held, ModbotPermissions.ManageUsers);
+                var canStart = Me(http) != accountId && await MayChangeAsync(http, accounts, accountId, ct);
 
                 if (trial is null)
                 {
@@ -135,11 +145,11 @@ public static class StaffTrialEndpoints
                 if (!MaySee(http, trial))
                     return Results.Forbid();
 
-                return Results.Ok(new StaffTrialResponse((await ViewsAsync(db, [trial], http, ct))[0], canStart));
+                return Results.Ok(new StaffTrialResponse((await ViewsAsync(db, accounts, [trial], http, ct))[0], canStart));
             })
             .WithName("GetStaffTrial")
             .WithSummary("Get an account's trial")
-            .WithDescription("The account's checklist, or none yet. For the person on trial, their buddy, and anyone who may see the account side of a person.")
+            .WithDescription("The account's checklist, or none yet. For the person on trial, their buddy, and anyone with Manage users or See the operational log.")
             .Produces<StaffTrialResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -160,6 +170,9 @@ public static class StaffTrialEndpoints
                 var account = await db.Users.FirstOrDefaultAsync(u => u.Id == body.AccountId, ct);
                 if (account is null || account.IsDeleted)
                     return Results.NotFound(new { error = "That account does not exist." });
+
+                if (account.Id == Me(http))
+                    return Results.BadRequest(new { error = "You can't start a checklist on your own account." });
 
                 if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, account.Id, ct) is { } outranked)
                     return outranked;
@@ -212,11 +225,11 @@ public static class StaffTrialEndpoints
 
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
             })
             .WithName("StartStaffTrial")
             .WithSummary("Start a trial")
-            .WithDescription("Give an account a checklist and a buddy. The lines are copied from Settings now. Needs Manage users.")
+            .WithDescription("Give an account a checklist and a buddy. The lines are copied from Settings now. Needs Manage users, and the account must be below your highest role and not your own.")
             .Accepts<StartStaffTrialBody>("application/json")
             .Produces<StaffTrialView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -246,7 +259,7 @@ public static class StaffTrialEndpoints
                     return outranked;
 
                 if (trial.BuddyId == body.BuddyId)
-                    return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                    return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
 
                 if (await BuddyProblemAsync(db, accountId, body.BuddyId, ct) is { } problem)
                     return problem;
@@ -268,7 +281,7 @@ public static class StaffTrialEndpoints
 
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
             })
             .WithName("SetStaffTrialBuddy")
             .WithSummary("Change a trial's buddy")
@@ -323,6 +336,55 @@ public static class StaffTrialEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{accountId:guid}/close", async (
+                Guid accountId,
+                HttpContext http,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                [FromServices] IModbotClock clock,
+                [FromServices] UserAccountService accounts,
+                CancellationToken ct) =>
+            {
+                if (!Manages(http))
+                    return Results.Forbid();
+
+                var trial = await LoadAsync(db, accountId, ct);
+                if (trial is null)
+                    return Results.NotFound(new { error = "That account has no trial." });
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, accountId, ct) is { } outranked)
+                    return outranked;
+
+                // Closing twice changes nothing and records nothing.
+                if (trial.ClosedAt is null)
+                {
+                    var account = await db.Users.FirstAsync(u => u.Id == accountId, ct);
+                    var buddyName = await db.Users.Where(u => u.Id == trial.BuddyId).Select(u => u.Username).FirstOrDefaultAsync(ct);
+
+                    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                    trial.ClosedAt = clock.UtcNow;
+                    await db.SaveChangesAsync(ct);
+
+                    await facts.RecordAsync(
+                        FactType.StaffTrialClosed,
+                        account,
+                        Actor.Of(http),
+                        new JsonObject { ["buddy"] = buddyName },
+                        ct);
+
+                    await transaction.CommitAsync(ct);
+                }
+
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
+            })
+            .WithName("CloseStaffTrial")
+            .WithSummary("Close a trial")
+            .WithDescription("The trial stops counting as running and gets no more reminders. The checklist, answers and sign-offs stay. Needs Manage users, and the account must be below your highest role.")
+            .Produces<StaffTrialView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapPut("/{accountId:guid}/items/{itemId:guid}/answer", async (
                 Guid accountId,
                 Guid itemId,
@@ -330,6 +392,7 @@ public static class StaffTrialEndpoints
                 [FromBody] StaffTrialAnswerBody body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -357,7 +420,7 @@ public static class StaffTrialEndpoints
                     await db.SaveChangesAsync(ct);
                 }
 
-                return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
             })
             .WithName("AnswerStaffTrialTask")
             .WithSummary("Write the answer to a task")
@@ -376,6 +439,7 @@ public static class StaffTrialEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] AccountFacts facts,
                 [FromServices] IModbotClock clock,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -416,7 +480,7 @@ public static class StaffTrialEndpoints
                     await transaction.CommitAsync(ct);
                 }
 
-                return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
             })
             .WithName("SignOffStaffTrialLine")
             .WithSummary("Sign a line off, or take the sign-off back")
@@ -432,6 +496,7 @@ public static class StaffTrialEndpoints
                 [FromBody] StaffTrialNoteBody body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] UserAccountService accounts,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -457,7 +522,7 @@ public static class StaffTrialEndpoints
                     await db.SaveChangesAsync(ct);
                 }
 
-                return Results.Ok((await ViewsAsync(db, [trial], http, ct))[0]);
+                return Results.Ok((await ViewsAsync(db, accounts, [trial], http, ct))[0]);
             })
             .WithName("SetStaffTrialNote")
             .WithSummary("Write the buddy's note")
@@ -475,6 +540,10 @@ public static class StaffTrialEndpoints
 
     private static bool Manages(HttpContext http)
         => ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageUsers);
+
+    /// <summary>Whether the caller has Manage users and the account's highest role is below theirs, as the actions themselves check.</summary>
+    private static async Task<bool> MayChangeAsync(HttpContext http, UserAccountService accounts, Guid accountId, CancellationToken ct)
+        => Manages(http) && await RoleOrder.MayNotChangeAccountAsync(http, accounts, accountId, ct) is null;
 
     private static bool MaySee(HttpContext http, StaffTrial trial)
     {
@@ -507,6 +576,7 @@ public static class StaffTrialEndpoints
 
     private static async Task<List<StaffTrialView>> ViewsAsync(
         ModbotContext db,
+        UserAccountService accounts,
         IReadOnlyList<StaffTrial> trials,
         HttpContext http,
         CancellationToken ct)
@@ -521,7 +591,10 @@ public static class StaffTrialEndpoints
             .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
 
         var me = Me(http);
-        var manages = Manages(http);
+
+        var canManage = new Dictionary<Guid, bool>();
+        foreach (var t in trials)
+            canManage[t.AccountId] = await MayChangeAsync(http, accounts, t.AccountId, ct);
 
         return
         [
@@ -533,6 +606,7 @@ public static class StaffTrialEndpoints
                 t.StartedAt,
                 t.BuddyNote,
                 t.BuddyNoteAt,
+                t.ClosedAt,
                 [
                     .. t.Items
                         .OrderBy(i => i.Kind == StaffTrialItemKinds.Task ? 0 : 1)
@@ -547,8 +621,8 @@ public static class StaffTrialEndpoints
                             i.SignedOffById is { } by ? names.GetValueOrDefault(by) : null)),
                 ],
                 me == t.AccountId,
-                me != t.AccountId && (me == t.BuddyId || manages),
-                manages)),
+                me != t.AccountId && (me == t.BuddyId || Manages(http)),
+                canManage[t.AccountId])),
         ];
     }
 }

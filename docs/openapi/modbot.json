@@ -3097,7 +3097,7 @@
           "Users"
         ],
         "summary": "Get my trial and the trials I am buddy to",
-        "description": "The signed-in person's own checklist, if they are on a trial, and the checklists of the people they are buddy to.",
+        "description": "The signed-in person's own checklist, if they are on a trial, and the checklists of the people they are buddy to whose trials are still running.",
         "operationId": "MyStaffTrials",
         "responses": {
           "200": {
@@ -3137,7 +3137,7 @@
           "Users"
         ],
         "summary": "Get an account's trial",
-        "description": "The account's checklist, or none yet. For the person on trial, their buddy, and anyone who may see the account side of a person.",
+        "description": "The account's checklist, or none yet. For the person on trial, their buddy, and anyone with Manage users or See the operational log.",
         "operationId": "GetStaffTrial",
         "parameters": [
           {
@@ -3260,7 +3260,7 @@
           "Users"
         ],
         "summary": "Start a trial",
-        "description": "Give an account a checklist and a buddy. The lines are copied from Settings now. Needs Manage users.",
+        "description": "Give an account a checklist and a buddy. The lines are copied from Settings now. Needs Manage users, and the account must be below your highest role and not your own.",
         "operationId": "StartStaffTrial",
         "requestBody": {
           "content": {
@@ -3390,6 +3390,77 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/staff-trials/{accountId}/close": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Close a trial",
+        "description": "The trial stops counting as running and gets no more reminders. The checklist, answers and sign-offs stay. Needs Manage users, and the account must be below your highest role.",
+        "operationId": "CloseStaffTrial",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffTrialView"
                 }
               }
             }
@@ -3722,7 +3793,7 @@
           "Settings"
         ],
         "summary": "Get the new staff checklist",
-        "description": "The tasks a new staff member fills in themselves and the lines their buddy signs off.\n\nNeeds the `ManageUsers` permission.",
+        "description": "The tasks a new staff member fills in themselves, the lines their buddy signs off, and the channel the reminders are posted in.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "GetNewStaffChecklistSettings",
         "responses": {
           "200": {
@@ -3770,7 +3841,7 @@
           "Settings"
         ],
         "summary": "Update the new staff checklist",
-        "description": "Replace both lists. Blank lines are dropped. A trial already started keeps the lines it was given; the change reaches trials started after it.\n\nNeeds the `ManageUsers` permission.",
+        "description": "Replace both lists and the reminder channel. Blank lines are dropped, and an empty channel turns the reminders off. A trial already started keeps the lines it was given; the change reaches trials started after it.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "SetNewStaffChecklistSettings",
         "requestBody": {
           "content": {
@@ -60450,6 +60521,7 @@
         "required": [
           "tasks",
           "signOffs",
+          "reminderChannelId",
           "mostItemsPerKind",
           "mostTextLength"
         ],
@@ -60467,6 +60539,12 @@
               "type": "string"
             }
           },
+          "reminderChannelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "mostItemsPerKind": {
             "type": "integer",
             "format": "int32"
@@ -60480,7 +60558,8 @@
       "NewStaffChecklistSettingsUpdate": {
         "required": [
           "tasks",
-          "signOffs"
+          "signOffs",
+          "reminderChannelId"
         ],
         "type": "object",
         "properties": {
@@ -60501,6 +60580,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "reminderChannelId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -67272,6 +67357,7 @@
           "startedAt",
           "buddyNote",
           "buddyNoteAt",
+          "closedAt",
           "items",
           "canAnswer",
           "canSignOff",
@@ -67304,6 +67390,13 @@
             ]
           },
           "buddyNoteAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "closedAt": {
             "type": [
               "null",
               "string"

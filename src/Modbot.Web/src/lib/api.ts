@@ -239,10 +239,12 @@ export type UserSummary = {
   rolesFromDiscord: string[]
 }
 
-/** Settings → People and roles → New staff: the two lists a new staff member's checklist is made from. */
+/** Settings → People and roles → New staff: the two lists a new staff member's checklist is made from, and where the reminders go. */
 export type NewStaffChecklistSettings = {
   tasks: string[]
   signOffs: string[]
+  /** The Discord channel for the day-30 reminder and the 30-day check-in. Null means off. */
+  reminderChannelId: string | null
   mostItemsPerKind: number
   mostTextLength: number
 }
@@ -267,6 +269,8 @@ export type StaffTrial = {
   startedAt: string
   buddyNote: string | null
   buddyNoteAt: string | null
+  /** When the trial was closed, so it no longer counts as running. Null while it runs. */
+  closedAt: string | null
   items: StaffTrialItem[]
   canAnswer: boolean
   canSignOff: boolean
@@ -5663,7 +5667,7 @@ export const api = {
 
   newStaffChecklistSettings: () => request<NewStaffChecklistSettings>('/api/settings/new-staff-checklist'),
 
-  setNewStaffChecklistSettings: (body: { tasks: string[]; signOffs: string[] }) =>
+  setNewStaffChecklistSettings: (body: { tasks: string[]; signOffs: string[]; reminderChannelId: string | null }) =>
     put<NewStaffChecklistSettings>('/api/settings/new-staff-checklist', body),
 
   myStaffTrials: () => request<MyStaffTrials>('/api/staff-trials/mine'),
@@ -5678,6 +5682,9 @@ export const api = {
     put<StaffTrial>(`/api/staff-trials/${encodeURIComponent(accountId)}/buddy`, { buddyId }),
 
   removeStaffTrial: (accountId: string) => del<void>(`/api/staff-trials/${encodeURIComponent(accountId)}`),
+
+  closeStaffTrial: (accountId: string) =>
+    post<StaffTrial>(`/api/staff-trials/${encodeURIComponent(accountId)}/close`, {}),
 
   answerStaffTrialTask: (accountId: string, itemId: string, answer: string) =>
     put<StaffTrial>(

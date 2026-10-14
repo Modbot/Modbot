@@ -237,6 +237,7 @@ public static class AuditVisibility
         [FactType.StaffTrialBuddyChanged] = AuditCategory.Operational,
         [FactType.StaffTrialSignedOff] = AuditCategory.Operational,
         [FactType.StaffTrialRemoved] = AuditCategory.Operational,
+        [FactType.StaffTrialClosed] = AuditCategory.Operational,
         [FactType.ResetLinkCreated] = AuditCategory.Operational,
         [FactType.ResetLinkUsed] = AuditCategory.Operational,
         [FactType.SignedOutEverywhere] = AuditCategory.Operational,

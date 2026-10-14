@@ -155,6 +155,12 @@ public class ModbotUser
     public DateTimeOffset? LastLoginAt { get; set; }
 
     /// <summary>
+    /// When the 30-day inactive check-in for this account was posted in Discord. A check-in is due again only once
+    /// the account has been active after this and gone quiet for 30 days again. Null until one is posted.
+    /// </summary>
+    public DateTimeOffset? CheckInRemindedAt { get; set; }
+
+    /// <summary>
     /// When this person last had the Now page on screen. Moved forward while they look at it.
     /// </summary>
     public DateTimeOffset? NowLookedAt { get; set; }

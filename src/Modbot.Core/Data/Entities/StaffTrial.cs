@@ -62,6 +62,12 @@ public class StaffTrial
 
     public DateTimeOffset? BuddyNoteAt { get; set; }
 
+    /// <summary>When the day-30 reminder for the Council's vote was posted in Discord. Null until it is; it is posted once.</summary>
+    public DateTimeOffset? CouncilRemindedAt { get; set; }
+
+    /// <summary>When the trial was closed, so it no longer counts as running. Null while it runs. A closed trial gets no reminder.</summary>
+    public DateTimeOffset? ClosedAt { get; set; }
+
     public List<StaffTrialItem> Items { get; set; } = [];
 }
 

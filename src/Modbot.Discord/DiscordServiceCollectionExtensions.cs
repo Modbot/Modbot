@@ -121,6 +121,9 @@ public static class DiscordServiceCollectionExtensions
         // is worth posting in the next minute and an insight is not.
         services.AddHostedService<AlertPostService>();
 
+        // The day-30 Council reminder and the 30-day inactive check-in (new staff tracker). Its own loop too.
+        services.AddHostedService<StaffReminders.StaffReminderService>();
+
         // Linked members' roles (Discord account linking design §6). The signal is shared with the
         // API, which wakes the job when it saves or ends a link.
         services.TryAddSingleton<DiscordLinkSignal>();
@@ -252,6 +255,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<DiscordServerIndex>();
         services.AddScoped<InsightPoster>();
         services.AddScoped<AlertPoster>();
+        services.AddScoped<StaffReminders.StaffReminderPoster>();
 
         // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
         services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();

@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type NewStaffChecklistSettings } from '@/lib/api'
+import { api, ApiError, type DiscordChannelPermission, type NewStaffChecklistSettings } from '@/lib/api'
 import { LongField, Outcome } from '../fields'
 import { SettingsCard } from '../SettingsCard'
+
+/** The reminders are posted as cards, so the bot must see the channel, send there and embed links. */
+const POST_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks']
 
 const lines = (text: string) => text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
 
 /**
  * Settings → People and roles → New staff: the two lists a new staff member's checklist is made
- * from, one line each. A change reaches checklists started after it.
+ * from, one line each, and the channel the day-30 reminder and the 30-day check-in are posted in.
+ * A change to the lines reaches checklists started after it.
  */
 export function NewStaffChecklistCard() {
   const [data, setData] = useState<NewStaffChecklistSettings | null>(null)
@@ -55,6 +60,7 @@ function ChecklistForm({
 }) {
   const [tasks, setTasks] = useState(settings.tasks.join('\n'))
   const [signOffs, setSignOffs] = useState(settings.signOffs.join('\n'))
+  const [channelId, setChannelId] = useState(settings.reminderChannelId ?? '')
 
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -66,11 +72,12 @@ function ChecklistForm({
     setProblem(null)
 
     api
-      .setNewStaffChecklistSettings({ tasks: lines(tasks), signOffs: lines(signOffs) })
+      .setNewStaffChecklistSettings({ tasks: lines(tasks), signOffs: lines(signOffs), reminderChannelId: channelId || null })
       .then((next) => {
         onSaved(next)
         setTasks(next.tasks.join('\n'))
         setSignOffs(next.signOffs.join('\n'))
+        setChannelId(next.reminderChannelId ?? '')
         setSaved(true)
       })
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
@@ -109,6 +116,15 @@ function ChecklistForm({
           value={signOffs}
           onChange={(v) => {
             setSignOffs(v)
+            setSaved(false)
+          }}
+        />
+        <ChannelPicker
+          label="Reminder channel"
+          value={channelId}
+          needs={POST_NEEDS}
+          onChange={(id) => {
+            setChannelId(id)
             setSaved(false)
           }}
         />

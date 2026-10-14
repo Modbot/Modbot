@@ -84,6 +84,7 @@ public static class FactSubjects
         [FactType.StaffTrialBuddyChanged] = SubjectKind.Account,
         [FactType.StaffTrialSignedOff] = SubjectKind.Account,
         [FactType.StaffTrialRemoved] = SubjectKind.Account,
+        [FactType.StaffTrialClosed] = SubjectKind.Account,
         [FactType.SignedOutEverywhere] = SubjectKind.Account,
         [FactType.UpdatesSubscribed] = SubjectKind.Account,
 
