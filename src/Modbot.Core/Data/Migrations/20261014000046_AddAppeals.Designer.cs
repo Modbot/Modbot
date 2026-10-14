@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261013231734_AddAppeals")]
+    [Migration("20261014000046_AddAppeals")]
     partial class AddAppeals
     {
         /// <inheritdoc />
@@ -7433,6 +7433,70 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_other_instance_name");
 
                     b.ToTable("other_instance_name", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Partner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.PrimitiveCollection<string[]>("Contacts")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("contacts");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Envoy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("envoy");
+
+                    b.Property<string>("GroupId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("LastCollabNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("last_collab_note");
+
+                    b.Property<DateOnly?>("LastCollabOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_collab_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner");
+
+                    b.HasIndex("LastCollabOn")
+                        .HasDatabaseName("ix_partner_last_collab");
+
+                    b.ToTable("partner", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.PersonWatch", b =>
