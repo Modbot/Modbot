@@ -81,6 +81,10 @@ public static class TermsAndRulesEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                // The count and the names are read after the lock, so two adds at once take turns.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, TermsLock, ct);
+
                 if (await db.GlossaryTerms.CountAsync(ct) >= GlossaryTerm.MaxTerms)
                     return Results.BadRequest(new { error = $"There can be at most {GlossaryTerm.MaxTerms} terms." });
 
@@ -90,8 +94,6 @@ public static class TermsAndRulesEndpoints
                     return Results.BadRequest(new { error = problem });
 
                 term.UpdatedAt = term.CreatedAt;
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.GlossaryTerms.Add(term);
                 await db.SaveChangesAsync(ct);
@@ -123,6 +125,9 @@ public static class TermsAndRulesEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, TermsLock, ct);
+
                 var term = await db.GlossaryTerms.FirstOrDefaultAsync(t => t.Id == id, ct);
                 if (term is null)
                     return Results.NotFound();
@@ -137,7 +142,6 @@ public static class TermsAndRulesEndpoints
 
                 term.UpdatedAt = clock.UtcNow;
 
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
                 await db.SaveChangesAsync(ct);
 
                 await facts.RecordAsync(
@@ -279,6 +283,10 @@ public static class TermsAndRulesEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                // The count and the last number are read after the lock, so two adds at once take turns.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, RulesLock, ct);
+
                 var rules = await InOrderAsync(db.ServerRules, ct);
                 if (rules.Count >= ServerRule.MaxRules)
                     return Results.BadRequest(new { error = $"There can be at most {ServerRule.MaxRules} rules." });
@@ -294,8 +302,6 @@ public static class TermsAndRulesEndpoints
                     return Results.BadRequest(new { error = problem });
 
                 rule.UpdatedAt = rule.CreatedAt;
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 db.ServerRules.Add(rule);
                 await db.SaveChangesAsync(ct);
@@ -385,6 +391,9 @@ public static class TermsAndRulesEndpoints
                 if (step == 0)
                     return Results.BadRequest(new { error = "The direction must be up or down." });
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockAsync(db, RulesLock, ct);
+
                 var rules = await InOrderAsync(db.ServerRules, ct);
                 var rule = rules.FirstOrDefault(r => r.Id == id);
                 if (rule is null)
@@ -406,7 +415,6 @@ public static class TermsAndRulesEndpoints
 
                     rule.UpdatedAt = now;
 
-                    await using var transaction = await db.Database.BeginTransactionAsync(ct);
                     await db.SaveChangesAsync(ct);
 
                     await facts.RecordAsync(
@@ -493,6 +501,18 @@ public static class TermsAndRulesEndpoints
         => [.. inOrder.Select((r, at) => new RuleView(r.Id, at + 1, r.Title, r.Text, r.UpdatedAt))];
 
     // ── Both ─────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Names the locks so two people changing the terms, or the rules, at the same moment take
+    /// turns: without it both could pass the same name check or limit check, or share a place in
+    /// the rules. Any stable string works; the prefix matches the other locks Modbot takes.
+    /// </summary>
+    private const string TermsLock = "modbot:terms:write";
+
+    private const string RulesLock = "modbot:rules:write";
+
+    private static Task LockAsync(ModbotContext db, string name, CancellationToken ct)
+        => db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({name}))", ct);
 
     private static string? Clean(string? text)
         => string.IsNullOrWhiteSpace(text) ? null : text.Trim();

@@ -307,4 +307,36 @@ public class TermsAndRulesEndpointTests(PostgresFixture db)
         Assert.Equal(["1. Be kind", "2. No spamming"], await TitlesAsync(host, editor));
         Assert.Equal(2, (await host.FactsAsync(FactType.RuleChanged, second.ToString(), Ct)).Count);
     }
+
+    [Fact]
+    public async Task TermsAddedAtTheSameMoment_WithTheSameName_LeaveOnlyOne()
+    {
+        await using var host = await StartAsync();
+        var (_, editor) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var answers = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            host.SendJsonAsync(HttpMethod.Post, "/api/terms", new { name = "Regent", meaning = "A helper." }, editor, Ct)));
+
+        Assert.Equal(1, answers.Count(a => a.StatusCode == HttpStatusCode.OK));
+        Assert.Equal(7, answers.Count(a => a.StatusCode == HttpStatusCode.BadRequest));
+
+        await using var read = db.NewContext();
+        Assert.Equal(1, await read.GlossaryTerms.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task RulesAddedAtTheSameMoment_EachTakeTheirOwnPlace()
+    {
+        await using var host = await StartAsync();
+        var (_, editor) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var answers = await Task.WhenAll(Enumerable.Range(0, 8).Select(i =>
+            host.SendJsonAsync(HttpMethod.Post, "/api/rules", new { title = $"Rule {i}", text = "Text." }, editor, Ct)));
+
+        Assert.All(answers, a => Assert.Equal(HttpStatusCode.OK, a.StatusCode));
+
+        await using var read = db.NewContext();
+        var places = await read.ServerRules.Select(r => r.Position).ToListAsync(Ct);
+        Assert.Equal(8, places.Distinct().Count());
+    }
 }
