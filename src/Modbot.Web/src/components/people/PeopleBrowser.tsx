@@ -6,6 +6,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
+import { ColumnPicker } from '@/components/people/ColumnPicker'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Freshness } from '@/components/Freshness'
@@ -23,6 +24,7 @@ import { useListSelection } from '@/lib/listSelection'
 import { memberView, peopleQueryFrom } from '@/lib/pageFilters'
 import { can, canAny } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
+import { loadHiddenColumns, peopleColumns, saveHiddenColumns, type PeopleColumnsKind } from '@/lib/peopleColumns'
 import { openPerson } from '@/lib/subject'
 import { trustRank, trustRankColour, trustRankLabel, type TrustRank } from '@/lib/trustRank'
 import { useLiveVersion } from '@/lib/useLiveVersion'
@@ -140,6 +142,18 @@ export function PeopleBrowser({
   if ((view !== null) !== sortedForMembers) {
     setSortedForMembers(view !== null)
     setSort(view ? 'joined' : 'seen')
+  }
+
+  // The columns turned off are remembered for each view on its own, so moving between the member
+  // list's views and the rest of the list reads the new view's choice.
+  const columnsKind: PeopleColumnsKind = instance ? 'instance' : view ? 'members' : 'people'
+  const [turnedOff, setTurnedOff] = useState({ kind: columnsKind, hidden: loadHiddenColumns(columnsKind) })
+  if (turnedOff.kind !== columnsKind) setTurnedOff({ kind: columnsKind, hidden: loadHiddenColumns(columnsKind) })
+  const hidden = turnedOff.hidden
+  const shows = (id: string) => !hidden.includes(id)
+  const hide = (next: string[]) => {
+    setTurnedOff({ kind: columnsKind, hidden: next })
+    saveHiddenColumns(columnsKind, next)
   }
 
   // Bumped after a kick or a ban. The server has already marked the person as gone, so this
@@ -307,7 +321,20 @@ export function PeopleBrowser({
   )
 
   const bar = (
-    <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips} place={place}>
+    <FilterBar
+      properties={properties}
+      chips={chips}
+      starts={starts}
+      onChange={setChips}
+      place={place}
+      tools={
+        <ColumnPicker
+          columns={peopleColumns(columnsKind, { view, profiles: seesProfiles })}
+          hidden={hidden}
+          onChange={hide}
+        />
+      }
+    >
       {joined && (
         <Button size="sm" variant="outline" onClick={onClearJoined}>
           {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
@@ -412,39 +439,40 @@ export function PeopleBrowser({
                 now={now}
                 view={view}
                 seesProfiles={seesProfiles}
+                shows={shows}
                 canAct={canAct}
                 onActed={() => setActed((n) => n + 1)}
               />
             ) : (
-              <PeopleRows people={list.people} now={now} here={!!instance} />
+              <PeopleRows people={list.people} now={now} here={!!instance} shows={shows} />
             )
           }
           head={
             view ? (
               <>
                 <Th>Person</Th>
-                {seesProfiles && <Th>Discord</Th>}
-                <Th>Roles</Th>
-                <Th>Joined</Th>
-                {view === 'left' && <Th>Left</Th>}
-                <Th>Last seen by Modbot</Th>
-                {view === 'member' && <Th className="text-right">First seen</Th>}
+                {seesProfiles && shows('discord') && <Th>Discord</Th>}
+                {shows('roles') && <Th>Roles</Th>}
+                {shows('joined') && <Th>Joined</Th>}
+                {view === 'left' && shows('left') && <Th>Left</Th>}
+                {shows('lastSeen') && <Th>Last seen by Modbot</Th>}
+                {view === 'member' && shows('firstSeen') && <Th className="text-right">First seen</Th>}
                 {canAct && <Th><span className="sr-only">Actions</span></Th>}
               </>
             ) : instance ? (
               <>
                 <Th>Person</Th>
-                <Th>Standing</Th>
-                <Th>Arrived at</Th>
-                <Th>Left at</Th>
-                <Th className="text-right">Visits</Th>
+                {shows('standing') && <Th>Standing</Th>}
+                {shows('arrived') && <Th>Arrived at</Th>}
+                {shows('leftAt') && <Th>Left at</Th>}
+                {shows('visits') && <Th className="text-right">Visits</Th>}
               </>
             ) : (
               <>
                 <Th>Person</Th>
-                <Th>Standing</Th>
-                <Th>Last seen by Modbot</Th>
-                <Th className="text-right">First seen</Th>
+                {shows('standing') && <Th>Standing</Th>}
+                {shows('lastSeen') && <Th>Last seen by Modbot</Th>}
+                {shows('firstSeen') && <Th className="text-right">First seen</Th>}
               </>
             )
           }
@@ -464,7 +492,7 @@ export function PeopleBrowser({
               </Td>
               {view ? (
                 <>
-                  {seesProfiles && (
+                  {seesProfiles && shows('discord') && (
                     <Td>
                       {person.linkedDiscord ? (
                         <DiscordAccount account={person.linkedDiscord} />
@@ -473,22 +501,28 @@ export function PeopleBrowser({
                       )}
                     </Td>
                   )}
-                  <Td>
-                    <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
-                      {person.roleNames.map((name, r) => (
-                        <Badge key={person.roleIds[r] ?? name} variant="secondary" title={person.roleIds[r]}>
-                          {name}
-                        </Badge>
-                      ))}
-                      {person.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
-                    </div>
-                  </Td>
-                  <Td className="font-mono">
-                    {person.joinedAt ? formatDay(person.joinedAt) : <span className="text-muted-foreground">—</span>}
-                  </Td>
-                  {view === 'left' && <Td className="font-mono">{person.leftAt ? formatDay(person.leftAt) : ''}</Td>}
-                  <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
-                  {view === 'member' && (
+                  {shows('roles') && (
+                    <Td>
+                      <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
+                        {person.roleNames.map((name, r) => (
+                          <Badge key={person.roleIds[r] ?? name} variant="secondary" title={person.roleIds[r]}>
+                            {name}
+                          </Badge>
+                        ))}
+                        {person.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
+                      </div>
+                    </Td>
+                  )}
+                  {shows('joined') && (
+                    <Td className="font-mono">
+                      {person.joinedAt ? formatDay(person.joinedAt) : <span className="text-muted-foreground">—</span>}
+                    </Td>
+                  )}
+                  {view === 'left' && shows('left') && (
+                    <Td className="font-mono">{person.leftAt ? formatDay(person.leftAt) : ''}</Td>
+                  )}
+                  {shows('lastSeen') && <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>}
+                  {view === 'member' && shows('firstSeen') && (
                     <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
                   )}
                   {canAct && (
@@ -507,20 +541,30 @@ export function PeopleBrowser({
                 </>
               ) : instance ? (
                 <>
-                  <Td>
-                    <Standing person={person} />
-                  </Td>
-                  <Td>{person.visit && <Moment at={person.visit.arrived} unsure={!person.visit.arrivalSeen} note="Already there" />}</Td>
-                  <Td>{person.visit && <Moment at={person.visit.left} unsure={!person.visit.leaveSeen} note="Not seen leaving" />}</Td>
-                  <Td className="text-right font-mono">{person.visit?.visits}</Td>
+                  {shows('standing') && (
+                    <Td>
+                      <Standing person={person} />
+                    </Td>
+                  )}
+                  {shows('arrived') && (
+                    <Td>{person.visit && <Moment at={person.visit.arrived} unsure={!person.visit.arrivalSeen} note="Already there" />}</Td>
+                  )}
+                  {shows('leftAt') && (
+                    <Td>{person.visit && <Moment at={person.visit.left} unsure={!person.visit.leaveSeen} note="Not seen leaving" />}</Td>
+                  )}
+                  {shows('visits') && <Td className="text-right font-mono">{person.visit?.visits}</Td>}
                 </>
               ) : (
                 <>
-                  <Td>
-                    <Standing person={person} />
-                  </Td>
-                  <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
-                  <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
+                  {shows('standing') && (
+                    <Td>
+                      <Standing person={person} />
+                    </Td>
+                  )}
+                  {shows('lastSeen') && <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>}
+                  {shows('firstSeen') && (
+                    <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
+                  )}
                 </>
               )}
             </Tr>
@@ -625,7 +669,17 @@ function Standing({ person, blank = false }: { person: Person; blank?: boolean }
  * the trust rank and when Modbot last saw them. The popup a row opens has everything else. In an
  * instance's list (`here`), when they arrived and left take the place of when Modbot last saw them.
  */
-function PeopleRows({ people, now, here }: { people: Person[]; now: string; here: boolean }) {
+function PeopleRows({
+  people,
+  now,
+  here,
+  shows,
+}: {
+  people: Person[]
+  now: string
+  here: boolean
+  shows: (id: string) => boolean
+}) {
   return (
     <NarrowRows>
       {people.map((person) => (
@@ -656,7 +710,7 @@ function PeopleRows({ people, now, here }: { people: Person[]; now: string; here
               )}
             </span>
           }
-          side={<Standing person={person} blank />}
+          side={shows('standing') && <Standing person={person} blank />}
           facts={[
             person.plainName,
             // The badge draws nothing for a rank it does not know, and an empty fact would still get its " · ".
@@ -664,19 +718,25 @@ function PeopleRows({ people, now, here }: { people: Person[]; now: string; here
             person.isRepresenting && 'representing',
             ...(here && person.visit
               ? [
-                  <span key="arrived">
-                    arrived at <span className="font-mono">{dateTime(person.visit.arrived)}</span>
-                    {!person.visit.arrivalSeen && ' (already there)'}
-                  </span>,
-                  <span key="left">
-                    left at <span className="font-mono">{dateTime(person.visit.left)}</span>
-                    {!person.visit.leaveSeen && ' (not seen leaving)'}
-                  </span>,
+                  shows('arrived') && (
+                    <span key="arrived">
+                      arrived at <span className="font-mono">{dateTime(person.visit.arrived)}</span>
+                      {!person.visit.arrivalSeen && ' (already there)'}
+                    </span>
+                  ),
+                  shows('leftAt') && (
+                    <span key="left">
+                      left at <span className="font-mono">{dateTime(person.visit.left)}</span>
+                      {!person.visit.leaveSeen && ' (not seen leaving)'}
+                    </span>
+                  ),
                 ]
               : [
-                  <span key="seen">
-                    seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
-                  </span>,
+                  shows('lastSeen') && (
+                    <span key="seen">
+                      seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
+                    </span>
+                  ),
                 ]),
           ]}
         />
@@ -696,6 +756,7 @@ function MemberRows({
   now,
   view,
   seesProfiles,
+  shows,
   canAct,
   onActed,
 }: {
@@ -704,6 +765,7 @@ function MemberRows({
   now: string
   view: NonNullable<ReturnType<typeof memberView>>
   seesProfiles: boolean
+  shows: (id: string) => boolean
   canAct: boolean
   onActed: () => void
 }) {
@@ -731,12 +793,12 @@ function MemberRows({
             }
             side={
               <>
-                {topRole && (
+                {shows('roles') && topRole && (
                   <Badge variant="secondary" className="max-w-[7.5rem]" title={person.roleIds[0]}>
                     <span className="truncate">{topRole}</span>
                   </Badge>
                 )}
-                {otherRoles.length > 0 && (
+                {shows('roles') && otherRoles.length > 0 && (
                   <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                     +{otherRoles.length}
                   </span>
@@ -754,20 +816,22 @@ function MemberRows({
               </>
             }
             facts={[
-              seesProfiles && person.linkedDiscord?.name,
-              person.joinedAt && (
+              seesProfiles && shows('discord') && person.linkedDiscord?.name,
+              shows('joined') && person.joinedAt && (
                 <span key="joined">
                   joined <span className="font-mono">{formatDay(person.joinedAt)}</span>
                 </span>
               ),
-              view === 'left' && person.leftAt && (
+              view === 'left' && shows('left') && person.leftAt && (
                 <span key="left">
                   left <span className="font-mono">{formatDay(person.leftAt)}</span>
                 </span>
               ),
-              <span key="seen">
-                seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
-              </span>,
+              shows('lastSeen') && (
+                <span key="seen">
+                  seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
+                </span>
+              ),
             ]}
           />
         )

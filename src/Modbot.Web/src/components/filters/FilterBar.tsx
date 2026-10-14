@@ -43,6 +43,7 @@ export function FilterBar({
   starts,
   onChange,
   place = 'page',
+  tools,
   children,
 }: {
   properties: FilterProperty[]
@@ -55,6 +56,8 @@ export function FilterBar({
    * stay listed behind it, and page keys cannot run while a popup is open.
    */
   place?: 'page' | 'popup'
+  /** Drawn beside the Filter button: a control for the list as a whole, such as its columns. */
+  tools?: React.ReactNode
   /** Drawn at the right end: a search box, a sort control, a count. */
   children?: React.ReactNode
 }) {
@@ -149,6 +152,8 @@ export function FilterBar({
           // Beside "Filter 2" on a phone, a second "Filter" would read as the same button.
           phoneLabel={chips.length > 0 ? 'Add' : undefined}
         />
+
+        {tools}
 
         {changed && (
           <Button variant="ghost" onClick={clear}>
