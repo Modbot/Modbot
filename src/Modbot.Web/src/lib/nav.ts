@@ -61,7 +61,7 @@ export const NAV = [
   // The Discord page's Invites tab: which invite each new member used, as joins per source. Seeing
   // it is See analytics like the other tabs; naming and making invites on it need Change settings,
   // which the server checks.
-  { id: 'discord-invites', label: 'Discord invites', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['invite links', 'where members join from'] },
+  { id: 'discord-invites', label: 'Discord invites', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['invite links', 'where people join from'] },
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
