@@ -209,6 +209,15 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         catch
         {
             await app.DisposeAsync();
+            try
+            {
+                if (Directory.Exists(evidenceRoot))
+                    Directory.Delete(evidenceRoot, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Litter in the temp folder, not worth hiding the failure that got us here.
+            }
             throw;
         }
 
