@@ -185,6 +185,76 @@ public class InstanceTests
     }
 
     /// <summary>
+    /// The moderator's client stopped at 30 minutes and came back at 60 listing only Ada and itself.
+    /// Bea was not on the list, so she left in the gap and counts as gone from its start rather than
+    /// from the instance's last report.
+    /// </summary>
+    [Fact]
+    public async Task APersonMissingWhenTheCompanionCameBack_LeftWhenTheGapBegan()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), t.AddHours(2), ct);
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstancePresenceObserved, "usr_a", t.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstancePresenceObserved, "usr_b", t.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLogStopped, "usr_mod", t.AddMinutes(30), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstancePresenceObserved, "usr_a", t.AddMinutes(60), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t.AddMinutes(60), "wrld_a", "39047"), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
+
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
+
+        Assert.Equal(55m, view.People.Single(p => p.UserId == "usr_a").MinutesSeen);
+        Assert.Equal(25m, view.People.Single(p => p.UserId == "usr_b").MinutesSeen);
+    }
+
+    /// <summary>
+    /// A crash in an earlier evening under the same number does not reach tonight's instance: only
+    /// the reports inside its own stretch are read.
+    /// </summary>
+    [Fact]
+    public async Task ACrashInAnEarlierEvening_DoesNotReachTonightsInstance()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var monday = host.Clock.UtcNow.AddDays(-7);
+        var tonight = host.Clock.UtcNow.AddHours(-2);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", monday, ct);
+
+        await PlacesFixtures.InstanceAsync(
+            host, "wrld_a", "39047", monday, monday.AddHours(1), monday.AddHours(1), ct);
+        var later = await PlacesFixtures.InstanceAsync(
+            host, "wrld_a", "39047", tonight, tonight.AddMinutes(30), null, ct);
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstancePresenceObserved, "usr_old", monday.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", monday.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLogStopped, "usr_mod", monday.AddMinutes(20), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_new", tonight.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_new", tonight.AddMinutes(25), "wrld_a", "39047"), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
+
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{later.Id}", cookie, ct);
+
+        var seen = Assert.Single(view.People);
+        Assert.Equal("usr_new", seen.UserId);
+        Assert.Equal(20m, seen.MinutesSeen);
+    }
+
+    /// <summary>
     /// The instance's own shape is not moderation history; who was in it and what was done to them is
     /// (spec 5.9.4). A caller with ViewAnalytics alone gets the instance and neither list.
     /// </summary>
