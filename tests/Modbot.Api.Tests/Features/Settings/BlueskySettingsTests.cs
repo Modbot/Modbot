@@ -453,6 +453,65 @@ public class BlueskySettingsTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task TheWeeklyLineupIsKeptAndAudited_AndTurningItOnNeverPostsForATimeAlreadyPast()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var off = await OkAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
+        Assert.False(off.GetProperty("lineupOn").GetBoolean());
+        Assert.Equal(1, off.GetProperty("lineupDay").GetInt32());
+        Assert.Equal(12, off.GetProperty("lineupHour").GetInt32());
+        Assert.Equal(JsonValueKind.Null, off.GetProperty("lineupTimeZone").ValueKind);
+
+        var on = await OkAsync(await SaveAsync(host, cookie, new { lineupOn = true, lineupDay = 5, lineupHour = 18, lineupTimeZone = "Europe/London" }));
+        Assert.True(on.GetProperty("lineupOn").GetBoolean());
+        Assert.Equal(5, on.GetProperty("lineupDay").GetInt32());
+        Assert.Equal(18, on.GetProperty("lineupHour").GetInt32());
+        Assert.Equal("Europe/London", on.GetProperty("lineupTimeZone").GetString());
+
+        await using (var context = db.NewContext())
+        {
+            var stored = await context.GetSettingsAsync(Ct);
+            Assert.NotNull(stored.BlueskyLineupHandledThrough);
+            Assert.True(stored.BlueskyLineupHandledThrough <= host.Clock.UtcNow);
+        }
+
+        var kept = await OkAsync(await SaveAsync(host, cookie, new { postTags = "#VRChat" }));
+        Assert.True(kept.GetProperty("lineupOn").GetBoolean());
+        Assert.Equal("Europe/London", kept.GetProperty("lineupTimeZone").GetString());
+
+        var facts = await host.FactsAsync(FactType.SettingsChanged, "settings", Ct);
+        Assert.Contains(
+            facts.Select(ApiTestHost.DataOf),
+            d => d.GetProperty("setting").GetString() == "bluesky" && d.GetProperty("changed").TryGetProperty("blueskyLineupOn", out _));
+
+        var utc = await OkAsync(await SaveAsync(host, cookie, new { lineupTimeZone = "" }));
+        Assert.Equal(JsonValueKind.Null, utc.GetProperty("lineupTimeZone").ValueKind);
+    }
+
+    [Theory]
+    [InlineData("{\"lineupDay\":7}")]
+    [InlineData("{\"lineupDay\":-1}")]
+    [InlineData("{\"lineupHour\":24}")]
+    [InlineData("{\"lineupTimeZone\":\"Nowhere/Land\"}")]
+    public async Task ADayHourOrTimeZoneThatIsNotOneIsRefused_AndNothingIsSaved(string json)
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        var response = await SaveAsync(host, cookie, JsonSerializer.Deserialize<JsonElement>(json));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        await using var context = db.NewContext();
+        var stored = await context.GetSettingsAsync(Ct);
+        Assert.False(stored.BlueskyLineupOn);
+        Assert.Equal(1, stored.BlueskyLineupDay);
+        Assert.Equal(12, stored.BlueskyLineupHour);
+        Assert.Null(stored.BlueskyLineupTimeZone);
+    }
+
+    [Fact]
     public async Task MoreThanFiveTagsOrOneTooLongIsRefused_AndNothingIsSaved()
     {
         var (host, _, cookie) = await StartAsync();
