@@ -10,6 +10,7 @@ import { AgeCheckCard } from './AgeCheckCard'
 import { ChannelsCard } from './ChannelsCard'
 import { CommandsCard } from './CommandsCard'
 import { EventRecapsCard } from './EventRecapsCard'
+import { MilestonesCard } from './MilestonesCard'
 import { BirthdaysCard } from './BirthdaysCard'
 import { GalleryPicturesCard } from './GalleryPicturesCard'
 import { JoinGateCard } from './JoinGateCard'
@@ -63,6 +64,7 @@ export function DiscordSection({
           <GalleryPicturesCard />
           <BirthdaysCard />
           <EventRecapsCard />
+          <MilestonesCard />
           <WelcomeCard />
           <RoleMenusCard />
           <TicketsCard />

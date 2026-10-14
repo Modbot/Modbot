@@ -23,6 +23,7 @@ import { useBrief } from '@/components/subject/useBrief'
 import { offersBriefs } from '@/lib/briefs'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
+import { PersonMilestones } from '@/components/subject/PersonMilestones'
 import { PersonVisits } from '@/components/subject/PersonVisits'
 import { PersonWatch } from '@/components/subject/PersonWatch'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
@@ -497,8 +498,10 @@ function Overview({
         </Panel>
       )}
 
+      {readsVisits && vrchatId && <PersonMilestones userId={vrchatId} />}
+
       {readsVisits && vrchatId && (
-        <PersonVisits userId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
+        <PersonVisitsuserId={vrchatId} currentName={stored.profile?.displayName ?? person.vrChat?.name ?? null} />
       )}
 
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
