@@ -5,6 +5,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { InstanceLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { calendarApi, type CalendarEvent } from '@/lib/calendar'
+import { followLink } from '@/lib/router'
 import { openSubject } from '@/lib/subject'
 import { useLoad } from '@/lib/useLoad'
 
@@ -81,6 +82,13 @@ export function EventResults({ event, start, live }: { event: CalendarEvent; sta
             compare={compare}
           />
         </Figures>
+        <a
+          href={`/calendar/series/${event.id}`}
+          onClick={followLink(`/calendar/series/${event.id}`)}
+          className="text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Every date of this event
+        </a>
       </Section>
 
       {data.canSeeWhoWasThere && instance && seen && (

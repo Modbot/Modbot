@@ -430,6 +430,35 @@ export type DiscordEventRecapSettings = {
   problem: string | null
 }
 
+/** Settings → Discord → Monthly event summary. */
+export type DiscordEventSummarySettings = {
+  on: boolean
+  channelId: string | null
+  /** What stopped the last summary post. */
+  problem: string | null
+}
+
+/** One date of an event's series. Every count is null when it was never read. */
+export type CalendarSeriesDate = {
+  startsAt: string
+  discordInterested: number | null
+  vrChatInterested: number | null
+  /** People a moderator's client saw arrive at the date's instance. */
+  came: number | null
+  mostAtOnce: number | null
+}
+
+/** How one event's dates did over time (`GET /api/calendar/events/:id/series`). */
+export type CalendarSeries = {
+  eventId: string
+  title: string
+  /** Earliest first. */
+  dates: CalendarSeriesDate[]
+  averageDiscordInterested: number | null
+  averageVRChatInterested: number | null
+  averageCame: number | null
+}
+
 /** Settings → Discord → Invite tracking. */
 export type DiscordInviteTrackingSettings = { on: boolean }
 
@@ -5329,6 +5358,13 @@ export const api = {
 
   setDiscordEventRecapSettings: (body: { on: boolean; channelId: string }) =>
     put<DiscordEventRecapSettings>('/api/settings/discord-event-recaps', body),
+
+  discordEventSummarySettings: () => request<DiscordEventSummarySettings>('/api/settings/discord-event-summary'),
+
+  setDiscordEventSummarySettings: (body: { on: boolean; channelId: string }) =>
+    put<DiscordEventSummarySettings>('/api/settings/discord-event-summary', body),
+
+  calendarSeries: (eventId: string) => request<CalendarSeries>(`/api/calendar/events/${eventId}/series`),
 
   discordInviteTrackingSettings: () =>
     request<DiscordInviteTrackingSettings>('/api/settings/discord-invite-tracking'),

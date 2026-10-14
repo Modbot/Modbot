@@ -175,6 +175,9 @@ export const NAV = [
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.
   { id: 'cases', label: 'Case files', hidden: true },
+  // One event's dates over time, opened from the event's details in the calendar. The server gates
+  // it on both the calendar and the analytics, and the page says so in words.
+  { id: 'calendar-series', label: 'Event dates', needs: 'ViewCalendar', hidden: true },
   // Reached from the footer and from Settings. No requirement: everyone signed in may read it.
   { id: 'credits', label: 'Credits', hidden: true },
 ] as const
@@ -272,6 +275,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   settings: 's',
   account: 'y',
   cases: '',
+  'calendar-series': '',
   credits: '',
 }
 

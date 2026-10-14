@@ -57,6 +57,7 @@ import { LinkAccounts } from '@/pages/LinkAccounts'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
+import { CalendarSeries } from '@/pages/CalendarSeries'
 import { Giveaways } from '@/pages/Giveaways'
 import { Marketing } from '@/pages/Marketing'
 import { Lists } from '@/pages/Lists'
@@ -151,6 +152,7 @@ const TITLES: Record<PageId, string> = {
   settings: 'Settings',
   account: 'Your account',
   cases: 'Case file',
+  'calendar-series': 'Event dates',
   credits: 'Credits',
 }
 
@@ -210,6 +212,7 @@ const PATHS: Record<PageId, string> = {
   settings: '/settings',
   account: '/account',
   cases: '/cases',
+  'calendar-series': '/calendar/series',
   credits: CREDITS_PATH,
 }
 
@@ -220,6 +223,12 @@ const PATHS: Record<PageId, string> = {
  */
 function caseFileId(path: string): string | null {
   const prefix = `${PATHS.cases}/`
+  return path.startsWith(prefix) && path.length > prefix.length ? path.slice(prefix.length) : null
+}
+
+/** An event's dates over time live at `/calendar/series/:id`, linked from the event's details. */
+function eventSeriesId(path: string): string | null {
+  const prefix = `${PATHS['calendar-series']}/`
   return path.startsWith(prefix) && path.length > prefix.length ? path.slice(prefix.length) : null
 }
 
@@ -234,6 +243,7 @@ function chatConversationId(path: string): string | null {
 
 function pageFor(path: string): PageId {
   if (caseFileId(path)) return 'cases'
+  if (eventSeriesId(path)) return 'calendar-series'
   if (chatConversationId(path)) return 'chat'
 
   // The member list's old address, on its way to People (`membersAddress`).
@@ -705,6 +715,13 @@ function Shell({
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live me={me} />}
           {page === 'calendar' && <Calendar me={me} />}
+          {page === 'calendar-series' && (
+            <CalendarSeries
+              key={eventSeriesId(route) ?? ''}
+              eventId={eventSeriesId(route) ?? ''}
+              onBack={() => navigate(PATHS.calendar)}
+            />
+          )}
           {page === 'event-categories' && <EventCategories />}
           {page === 'world-lists' && <WorldLists />}
           {/* One element for the four lists, so an open composer stays open when the list changes. */}
