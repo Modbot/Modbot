@@ -96,7 +96,7 @@ function LinkShare({ canChange }: { canChange: boolean }) {
 
   return (
     <>
-      <StatStrip className="sm:grid-cols-2 xl:grid-cols-2">
+      <StatStrip className="sm:grid-cols-2 xl:grid-cols-2" phonePairs>
         <Stat
           label="Group members with a linked Discord account"
           value={share(data.groupMembersLinked, data.groupMembers)}

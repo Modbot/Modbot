@@ -429,6 +429,9 @@ function PeopleOverTime({ view, onHereAt }: { view: InstanceView; onHereAt: (ins
           <LineChart
             data={rows}
             margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
+            // Moves are not held back to the next frame: a tap sends its move and its click together,
+            // and the click reads the point the move chose, so a held-back move left the first tap empty.
+            throttledEvents={[]}
             // The label is the row's `at`, in milliseconds: the point the tooltip is showing.
             onClick={view.canSeeWhoWasThere ? (state) => {
               const at = Number(state.activeLabel)
