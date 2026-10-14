@@ -27,6 +27,14 @@ public class KofiPaymentTests
     public void ADiscordAccountSentAsANumberIsStillRead()
         => Assert.Equal("1234567890123456789", KofiPayment.Parse("""{"discord_userid":1234567890123456789}""")!.DiscordUserId);
 
+    [Fact]
+    public void TheMessageIsRead_AndAMissingOrNullOneIsNull()
+    {
+        Assert.Equal("my code K7Q2MX", KofiPayment.Parse("""{"message":"my code K7Q2MX"}""")!.Message);
+        Assert.Null(KofiPayment.Parse("""{"message":null}""")!.Message);
+        Assert.Null(KofiPayment.Parse("""{}""")!.Message);
+    }
+
     [Theory]
     [InlineData("""{}""")]
     [InlineData("""{"discord_userid":null}""")]

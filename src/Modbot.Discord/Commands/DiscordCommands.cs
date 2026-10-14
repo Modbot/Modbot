@@ -104,6 +104,13 @@ public static class DiscordCommands
     /// Alerts setting is on, and not otherwise.
     /// </summary>
     public const string Notify = "notify";
+
+    /// <summary>
+    /// <c>/supporter-code</c>: the short code a Ko-fi supporter pastes into Ko-fi's message box so
+    /// Modbot can match their payment to their Discord account. For every member, private, and not on
+    /// the Commands card: it is registered while Ko-fi supporters is on, and not otherwise.
+    /// </summary>
+    public const string SupporterCode = "supporter-code";
     public const string Event = "event";
     public const string Post = "post";
     public const string Report = "report";
@@ -489,6 +496,10 @@ public static class DiscordCommands
             "Get told before events you care about",
             []),
         new(
+            SupporterCode,
+            "Your code for Ko-fi's message box",
+            []),
+        new(
             Report,
             "Tell the mods about someone, privately",
             [
@@ -587,18 +598,21 @@ public static class DiscordCommands
     /// Whether event alerts are on. <c>/notify</c> follows this and not the switches: it is there
     /// while they are on and gone while they are off.
     /// </param>
-    public static IReadOnlyList<DiscordCommandDefinition> For(string? switches, bool alertsOn = false)
-        => [.. All.Where(c => c.Name == Notify ? alertsOn : DiscordCommandSwitches.IsOn(switches, c.Name))];
+    /// <param name="kofiOn">
+    /// Whether Ko-fi supporters is on. <c>/supporter-code</c> follows this, the same way.
+    /// </param>
+    public static IReadOnlyList<DiscordCommandDefinition> For(string? switches, bool alertsOn = false, bool kofiOn = false)
+        => [.. All.Where(c => c.Name == Notify ? alertsOn : c.Name == SupporterCode ? kofiOn : DiscordCommandSwitches.IsOn(switches, c.Name))];
 
     /// <summary>
     /// The names registered for these switches. Two lists with the same names are the same
     /// registration: the bot registers again only when this changes (Discord commands design §3.8).
     /// </summary>
-    public static IReadOnlySet<string> NamesFor(string? switches, bool alertsOn = false)
-        => For(switches, alertsOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
+    public static IReadOnlySet<string> NamesFor(string? switches, bool alertsOn = false, bool kofiOn = false)
+        => For(switches, alertsOn, kofiOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or VerifyAccount or Events or RemindMe or Notify or Report or Profile or Find or Birthday or Term or Rule;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or VerifyAccount or Events or RemindMe or Notify or SupporterCode or Report or Profile or Find or Birthday or Term or Rule;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

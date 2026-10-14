@@ -10345,6 +10345,33 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("supporter", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SupporterCode", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_supporter_code");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ux_supporter_code_code");
+
+                    b.ToTable("supporter_code", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.SupporterPayment", b =>
                 {
                     b.Property<Guid>("Id")

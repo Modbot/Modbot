@@ -68,7 +68,7 @@ public sealed record PurgeActor(Guid AccountId, string Username);
 /// <param name="InviteJoinsDeleted">Rows saying which invite a Discord account joined with, and when (invite tracking).</param>
 /// <param name="LinkRemindersDeleted">Rows saying a Discord account was sent the one-time link reminder (account links).</param>
 /// <param name="WelcomesDeleted">Rows saying a Discord account was welcomed, or is waiting for the join gate to be (welcome steps).</param>
-/// <param name="SupportersDeleted">Ko-fi supporters matched to a Discord account, with their payment rows (supporters).</param>
+/// <param name="SupportersDeleted">Ko-fi supporters matched to a Discord account, with their payment rows, and the code they got from <c>/supporter-code</c> (supporters).</param>
 /// <param name="EventAlertsDeleted">
 /// Event alert rows that named them: their sign-ups, their choice of way and the alerts queued for
 /// them (event alerts design §7). Added together; the record names nobody.
@@ -399,6 +399,19 @@ public sealed class UserPurger : IUserPurger
                     ? "DELETE FROM supporter WHERE discord_user_id = @subject"
                     : """
                       DELETE FROM supporter
+                      WHERE discord_user_id IN (
+                          SELECT discord_user_id FROM discord_account_link
+                          WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)
+                      """,
+                ct,
+                new NpgsqlParameter("subject", subjectId));
+
+            // The code they got from /supporter-code is theirs too, and is counted with the supporter.
+            supportersDeleted += await ExecuteAsync(
+                platform == FactPlatform.Discord
+                    ? "DELETE FROM supporter_code WHERE discord_user_id = @subject"
+                    : """
+                      DELETE FROM supporter_code
                       WHERE discord_user_id IN (
                           SELECT discord_user_id FROM discord_account_link
                           WHERE vrchat_user_id = @subject AND unlinked_at IS NULL)

@@ -79,8 +79,9 @@ public class SupporterTier
 /// </summary>
 /// <remarks>
 /// <para>
-/// <see cref="DiscordUserId"/> is how a supporter is matched to the server: Ko-fi's Discord link, or
-/// staff linking them by the code from their payment. Without it the supporter waits on the page.
+/// <see cref="DiscordUserId"/> is how a supporter is matched to the server: Ko-fi's Discord link, the
+/// <see cref="SupporterCode"/> they pasted into the payment's message, or staff linking them by the
+/// receipt number. Without it the supporter waits on the page.
 /// </para>
 /// <para>
 /// The <c>Given…</c> columns are what Modbot itself gave. Roles are only ever taken away when they
@@ -158,4 +159,20 @@ public class SupporterPayment
     public DateTimeOffset PaidAt { get; set; }
 
     public DateTimeOffset ReceivedAt { get; set; }
+}
+
+/// <summary>
+/// The short code a person gets from <c>/supporter-code</c> and pastes into Ko-fi's message box, so
+/// a payment with no Discord account can be matched to theirs. The table is <c>supporter_code</c>.
+/// </summary>
+/// <remarks>One code per Discord account, and one account per code. A purge deletes the row.</remarks>
+public class SupporterCode
+{
+    /// <summary>The Discord account the code belongs to. Opaque text.</summary>
+    public string DiscordUserId { get; set; } = string.Empty;
+
+    /// <summary>The code, in capitals.</summary>
+    public string Code { get; set; } = string.Empty;
+
+    public DateTimeOffset CreatedAt { get; set; }
 }

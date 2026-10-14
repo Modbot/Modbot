@@ -333,6 +333,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each supporter payment taken in, so a repeated message counts once.</summary>
     public DbSet<SupporterPayment> SupporterPayments => Set<SupporterPayment>();
 
+    /// <summary>The code each Discord account got from <c>/supporter-code</c>, to match their Ko-fi payment.</summary>
+    public DbSet<SupporterCode> SupporterCodes => Set<SupporterCode>();
+
     /// <summary>Questions Modbot posts in Discord for members to vote on, open or closed.</summary>
     public DbSet<Vote> Votes => Set<Vote>();
 
@@ -2549,6 +2552,17 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.SupporterId).HasDatabaseName("ix_supporter_payment_supporter");
 
             entity.HasOne<Supporter>().WithMany().HasForeignKey(e => e.SupporterId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SupporterCode>(entity =>
+        {
+            entity.ToTable("supporter_code");
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasMaxLength(40);
+            entity.Property(e => e.Code).HasMaxLength(8);
+
+            // A code is found in a payment's message, so it names one account.
+            entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName("ux_supporter_code_code");
         });
 
         builder.Entity<DiscordSnapshot>(entity =>

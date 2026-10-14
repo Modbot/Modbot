@@ -235,6 +235,60 @@ public class SupporterRolesTests
     }
 
     [Fact]
+    public async Task ASupporterWhoseDiscordAccountWasCleared_HasTheVRChatRoleTakenBack_AndTheRecordsCleared()
+    {
+        await using var setup = await SetUpAsync();
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+        Assert.NotNull((await ReadAsync(setup)).GivenVRChatRoleId);
+
+        await using (var db = setup.Services.Database.NewContext())
+        {
+            await db.Supporters.ExecuteUpdateAsync(u => u.SetProperty(s => s.DiscordUserId, (string?)null), Ct);
+        }
+
+        var pass = await PassAsync(setup.Services, gateway);
+
+        Assert.Equal(1, pass.Taken);
+        Assert.Contains(setup.Services.VRChat.Actions, a => a == ("role-taken", VRChatUser, SyncSetUp.GroupRole));
+        var supporter = await ReadAsync(setup);
+        Assert.Null(supporter.GivenDiscordRoleId);
+        Assert.Null(supporter.GivenVRChatRoleId);
+        Assert.Null(supporter.GivenVRChatUserId);
+
+        // Nothing is left on record, so the next pass has nothing to do.
+        var again = await PassAsync(setup.Services, gateway);
+        Assert.Equal(0, again.Taken);
+    }
+
+    [Fact]
+    public async Task AVRChatRefusalForAClearedSupporter_KeepsTheRecord_AndIsTriedAgainLater()
+    {
+        await using var setup = await SetUpAsync();
+        var gateway = new FakeGateway();
+        await PassAsync(setup.Services, gateway);
+
+        await using (var db = setup.Services.Database.NewContext())
+        {
+            await db.Supporters.ExecuteUpdateAsync(u => u.SetProperty(s => s.DiscordUserId, (string?)null), Ct);
+        }
+
+        setup.Services.VRChat.Error = "Not allowed";
+        await PassAsync(setup.Services, gateway);
+
+        var refused = await ReadAsync(setup);
+        Assert.Equal(SyncSetUp.GroupRole, refused.GivenVRChatRoleId);
+        Assert.Equal("Not allowed", refused.Problem);
+        Assert.NotNull(refused.TryAgainAt);
+
+        setup.Services.VRChat.Error = null;
+        setup.Services.Clock.Advance(SupporterRoles.TryAgainAfter + TimeSpan.FromMinutes(1));
+        await PassAsync(setup.Services, gateway);
+
+        Assert.Null((await ReadAsync(setup)).GivenVRChatRoleId);
+    }
+
+    [Fact]
     public async Task ARefusedRoleIsShownOnTheSupporter_AndNotTriedAgainAtOnce()
     {
         await using var setup = await SetUpAsync();

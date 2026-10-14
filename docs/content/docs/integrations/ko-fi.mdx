@@ -61,14 +61,29 @@ Modbot only takes back roles it gave itself. A role you gave by hand is never to
 
 ## Matching a supporter to their Discord account
 
-Roles need a Discord account. Modbot finds it two ways:
+Roles need a Discord account. Modbot finds it three ways:
 
 - **Ko-fi's Discord link.** A supporter who connected their Discord account in Ko-fi is matched as soon
   as they pay.
+- **A Modbot code.** While Ko-fi is on, anybody in your Discord server can type `/supporter-code`. Modbot
+  answers privately, so only they see it, with a short code such as `K7Q2MX`: six capital letters and
+  digits, with no look-alikes (no 0, O, 1, I or L). They paste the code into the **message** box on Ko-fi
+  when they pay. When a payment has no Discord link and its message holds a code Modbot gave out, the
+  supporter is matched to that code's Discord account. The code can be anywhere in the message, in
+  capitals or not, but it must stand as a word of its own. Asking again gives the same code. Once a
+  supporter is matched, their later monthly payments match by themselves.
 - **The code on their receipt.** Anybody else shows as **Not matched**. They give staff the
   **transaction id** from their Ko-fi receipt. Type it into the search box on the **Supporters** page
   to find them, press **Match**, search for their name in the Discord server and press **Match**
   again.
+
+A Ko-fi Discord link wins over a code in the message. `/supporter-code` is there only while the **Ko-fi**
+switch in **Settings** is on, and is not on the Discord **Commands** card.
+
+If a supporter marks their message as private on Ko-fi, Ko-fi may leave the message out of what it sends
+Modbot. That has not been checked. Modbot copes with a missing message: the supporter simply shows as
+**Not matched**, and staff match them by the receipt code. Modbot only looks for a code in the message
+and never keeps the message.
 
 The VRChat group role goes to the VRChat account linked to their Discord account (see
 [Account links](/discord/account-links)). A supporter with no linked VRChat account shows
@@ -93,7 +108,9 @@ A role the bot cannot give is marked in the picker, and a refusal is shown on th
 ## What Modbot keeps
 
 For each supporter: the name they paid under, their tier, their Discord account, when they paid, which
-roles Modbot gave, and the transaction ids of their payments. Their **email address is never stored**:
-Modbot keeps only a one-way fingerprint of it, to tell one person's payments from another's. Nothing
-is sent to Modbot Cloud. A [purge](/moderation/purge) deletes the supporter matched to that Discord
-account, with their payments; no retention window touches it.
+roles Modbot gave, and the transaction ids of their payments. For each person who typed `/supporter-code`:
+their Discord account and the code Modbot gave them. Their **email address is never stored**:
+Modbot keeps only a one-way fingerprint of it, to tell one person's payments from another's. The payment's
+message is read for a code and not kept. Nothing is sent to Modbot Cloud. A [purge](/moderation/purge)
+deletes the supporter matched to that Discord account, with their payments, and their code; no retention
+window touches it.

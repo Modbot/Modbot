@@ -148,8 +148,8 @@ public class DiscordBotServiceTests
 
         Assert.Equal(2, gateway.RegisterCalls);
         Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
-        // Events, reminders, /report, /profile, /find, /birthday, /ageverified, /term, /rule, /vote and Report to mods are off by default too, and /notify follows the alerts.
-        Assert.Equal(DiscordCommands.All.Count - 12, services.Status.Snapshot().CommandsRegistered);
+        // Events, reminders, /report, /profile, /find, /birthday, /ageverified, /term, /rule, /vote and Report to mods are off by default too, /notify follows the alerts and /supporter-code follows Ko-fi.
+        Assert.Equal(DiscordCommands.All.Count - 13, services.Status.Snapshot().CommandsRegistered);
         Assert.Single(gateways.Created);
 
         await services.ConfigureAsync(s => s.SwitchCommand("me", false), ct);
@@ -191,6 +191,36 @@ public class DiscordBotServiceTests
     }
 
     [Fact]
+    public async Task TurningKofiOnOrOff_RegistersSupporterCodeAndRemovesIt_WithoutReconnecting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        await gateway.RaiseReadyAsync();
+
+        Assert.Equal(1, gateway.RegisterCalls);
+        Assert.DoesNotContain(gateway.RegisteredCommands, c => c.Name == DiscordCommands.SupporterCode);
+
+        await services.ConfigureAsync(s => s.KofiOn = true, ct);
+        await bot.TickAsync(ct);
+
+        Assert.Equal(2, gateway.RegisterCalls);
+        Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.SupporterCode);
+
+        await services.ConfigureAsync(s => s.KofiOn = false, ct);
+        await bot.TickAsync(ct);
+
+        Assert.Equal(3, gateway.RegisterCalls);
+        Assert.DoesNotContain(gateway.RegisteredCommands, c => c.Name == DiscordCommands.SupporterCode);
+        Assert.Single(gateways.Created);
+    }
+
+    [Fact]
     public async Task WithMeOnAtSignIn_ItIsRegisteredOnReady()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -206,7 +236,7 @@ public class DiscordBotServiceTests
 
         Assert.Equal(
             DiscordCommands.All
-                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Find or DiscordCommands.Birthday or DiscordCommands.AgeVerified or DiscordCommands.Term or DiscordCommands.Rule or DiscordCommands.Vote or DiscordCommands.Notify))
+                .Where(c => c.Name is not (DiscordCommands.Events or DiscordCommands.RemindMe or DiscordCommands.Report or DiscordCommands.ReportMenu or DiscordCommands.Profile or DiscordCommands.Find or DiscordCommands.Birthday or DiscordCommands.AgeVerified or DiscordCommands.Term or DiscordCommands.Rule or DiscordCommands.Vote or DiscordCommands.Notify or DiscordCommands.SupporterCode))
                 .Select(c => c.Name),
             gateway.RegisteredCommands.Select(c => c.Name));
 

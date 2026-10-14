@@ -187,7 +187,8 @@ wherever you choose to store them. These pages describe what is kept and how it 
   Modbot a message for each payment. For each supporter Modbot keeps the name they paid under, their tier, their
   Discord account when matched, when they paid, which roles it gave, and the transaction id of each payment. Their email
   address is never stored: only a one-way fingerprint of it, to tell one person's payments from another's. A
-  [purge](/moderation/purge) deletes the supporter matched to that Discord account; no retention window touches it.
+  person who types `/supporter-code` gets a short code, kept with their Discord account. A
+  [purge](/moderation/purge) deletes the supporter matched to that Discord account, and their code; no retention window touches it.
   Nothing is sent to Modbot Cloud, and Discord sees the direct message and the roles.
 - [Account links](/discord/account-links): the tab shows only counts. When staff press **Start reminder**, the bot
   sends each Discord member who has not linked one direct message with the link page, one every 30 seconds, and keeps

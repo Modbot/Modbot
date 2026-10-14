@@ -268,9 +268,9 @@ public sealed class DiscordBotService : BackgroundService
         if (_gateway is { State: DiscordGatewayState.Ready } registering
             && _guildId is { } registerGuild
             && _registeredNames is { } registered
-            && !registered.SetEquals(DiscordCommands.NamesFor(config.Commands, config.AlertsOn)))
+            && !registered.SetEquals(DiscordCommands.NamesFor(config.Commands, config.AlertsOn, config.KofiOn)))
         {
-            await RegisterCommandsAsync(registering, registerGuild, config.Commands, config.AlertsOn).ConfigureAwait(false);
+            await RegisterCommandsAsync(registering, registerGuild, config.Commands, config.AlertsOn, config.KofiOn).ConfigureAwait(false);
         }
 
         // An event can be missed. If the gateway can post but the status says otherwise, the
@@ -406,11 +406,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var switches = await ReadCommandSwitchesAsync().ConfigureAwait(false);
         var alertsOn = await ReadAlertsOnAsync().ConfigureAwait(false);
+        var kofiOn = await ReadKofiOnAsync().ConfigureAwait(false);
 
         // A refusal leaves the bot connected but useless. It says so and stays signed in: the
         // channel poster still works, and a fixed guild id is picked up by the settings poll
         // without a restart.
-        if (await RegisterCommandsAsync(gateway, guildId, switches, alertsOn).ConfigureAwait(false))
+        if (await RegisterCommandsAsync(gateway, guildId, switches, alertsOn, kofiOn).ConfigureAwait(false))
             _log.Information("Discord bot connected; {Count} commands registered on the guild", _commandsRegistered);
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
@@ -419,16 +420,16 @@ public sealed class DiscordBotService : BackgroundService
     }
 
     /// <summary>
-    /// Replaces the server's commands with the ones the switches leave on, and <c>/notify</c> while
-    /// event alerts are on. Returns whether Discord took them.
+    /// Replaces the server's commands with the ones the switches leave on, <c>/notify</c> while
+    /// event alerts are on, and <c>/supporter-code</c> while Ko-fi supporters is on. Returns whether Discord took them.
     /// </summary>
     /// <remarks>
     /// A refusal is remembered as done, so the settings poll does not ask again every few seconds;
     /// the Health page says what went wrong, and the next sign-in or switch change tries again.
     /// </remarks>
-    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, string switches, bool alertsOn)
+    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, string switches, bool alertsOn, bool kofiOn)
     {
-        var commands = DiscordCommands.For(switches, alertsOn);
+        var commands = DiscordCommands.For(switches, alertsOn, kofiOn);
         _registeredNames = commands.Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
         try
@@ -471,6 +472,19 @@ public sealed class DiscordBotService : BackgroundService
         return await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
             .Select(s => s.EventAlertsOn)
+            .FirstOrDefaultAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Whether Ko-fi supporters is on, which is what keeps <c>/supporter-code</c> in Discord.</summary>
+    private async Task<bool> ReadKofiOnAsync()
+    {
+        using var scope = _scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.KofiOn)
             .FirstOrDefaultAsync(CancellationToken.None)
             .ConfigureAwait(false);
     }
@@ -1140,6 +1154,15 @@ public sealed class DiscordBotService : BackgroundService
                 return;
             }
 
+            // /supporter-code answers privately with the caller's code; it follows the Ko-fi setting.
+            if (call.CommandName == DiscordCommands.SupporterCode)
+            {
+                var supporterCode = scope.ServiceProvider.GetRequiredService<SupporterCodeCommand>();
+                await call.ReplyAsync(await supporterCode.RunAsync(call, CancellationToken.None).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
+
+                return;
+            }
+
             // /ban and /kick open the reasons form and keep a confirmation waiting, which is the
             // staff handler's (Discord commands design §3.3).
             if (StaffInteractionHandler.HandlesCommand(call.CommandName))
@@ -1507,12 +1530,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordCommands, s.EventAlertsOn })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordCommands, s.EventAlertsOn, s.KofiOn })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
         if (settings is null)
-            return new BotConfig(null, null, false, false, DiscordCommandSwitches.Empty, false);
+            return new BotConfig(null, null, false, false, DiscordCommandSwitches.Empty, false, false);
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
@@ -1526,7 +1549,8 @@ public sealed class DiscordBotService : BackgroundService
             sendsEvents,
             settings.DiscordLinkPromptNewMembers,
             settings.DiscordCommands,
-            settings.EventAlertsOn);
+            settings.EventAlertsOn,
+            settings.KofiOn);
 
     }
 
@@ -1536,6 +1560,6 @@ public sealed class DiscordBotService : BackgroundService
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
-    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, string Commands, bool AlertsOn);
+    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, string Commands, bool AlertsOn, bool KofiOn);
 
 }

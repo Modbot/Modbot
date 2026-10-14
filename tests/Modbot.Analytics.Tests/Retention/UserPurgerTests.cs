@@ -532,8 +532,8 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
-    /// A purge takes the Ko-fi supporter matched to a Discord account, with their payments, and leaves
-    /// everybody else's.
+    /// A purge takes the Ko-fi supporter matched to a Discord account, with their payments and the
+    /// code they got from <c>/supporter-code</c>, and leaves everybody else's.
     /// </summary>
     [Fact]
     public async Task TheSupporterMatchedToTheirDiscordAccount_Goes_WithTheirPayments()
@@ -544,9 +544,12 @@ public class UserPurgerTests : AnalyticsTestBase
         await using (var setup = Database.NewContext())
         {
             await setup.Supporters.ExecuteDeleteAsync(Ct);
+            await setup.SupporterCodes.ExecuteDeleteAsync(Ct);
 
             foreach (var id in new[] { DiscordSubject, DiscordBystander })
             {
+                setup.SupporterCodes.Add(new SupporterCode { DiscordUserId = id, Code = "CODE" + id, CreatedAt = Start });
+
                 var supporter = new Supporter
                 {
                     PayerId = "payer" + id,
@@ -567,10 +570,12 @@ public class UserPurgerTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
         {
             var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, DiscordSubject, ct: Ct);
-            Assert.Equal(1, result.SupportersDeleted);
+            // The supporter and their code.
+            Assert.Equal(2, result.SupportersDeleted);
         }
 
         await using var read = Database.NewContext();
+        Assert.Equal(DiscordBystander, Assert.Single(await read.SupporterCodes.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
         Assert.Equal(DiscordBystander, Assert.Single(await read.Supporters.AsNoTracking().ToListAsync(Ct)).DiscordUserId);
         Assert.Equal("code" + DiscordBystander, Assert.Single(await read.SupporterPayments.AsNoTracking().ToListAsync(Ct)).Code);
     }

@@ -23,6 +23,10 @@ public sealed record SupporterIntakeOutcome(string Result, Guid? SupporterId);
 /// not hear an answer). A payment older than the newest one already taken is written down but
 /// changes nothing, so a late message never undoes a tier change.
 /// </para>
+/// <para>
+/// <strong>The Discord account</strong> is the one Ko-fi's Discord link names, or else the one whose
+/// <see cref="SupporterCodes">code</see> is in the payment's message.
+/// </para>
 /// </remarks>
 public sealed class SupporterIntake(ModbotContext db)
 {
@@ -57,9 +61,16 @@ public sealed class SupporterIntake(ModbotContext db)
         if (await db.SupporterPayments.AnyAsync(p => p.Provider == SupporterProviders.Kofi && p.Code == code, ct).ConfigureAwait(false))
             return new SupporterIntakeOutcome(Repeat, null);
 
-        var discordId = payment.DiscordUserId is { Length: > 0 } and { Length: <= MostDiscordIdLength } ? payment.DiscordUserId : null;
+        var linkedId = payment.DiscordUserId is { Length: > 0 } and { Length: <= MostDiscordIdLength } ? payment.DiscordUserId : null;
         var name = string.IsNullOrWhiteSpace(payment.FromName) ? "Ko-fi supporter" : Clip(payment.FromName.Trim(), MostNameLength);
-        var payerId = SupporterRules.PayerIdOf(SupporterProviders.Kofi, payment.Email, discordId, name);
+
+        // The payer is told apart by what Ko-fi sent, so a later payment without the code is still theirs.
+        var payerId = SupporterRules.PayerIdOf(SupporterProviders.Kofi, payment.Email, linkedId, name);
+
+        // With no Discord link from Ko-fi, a code from /supporter-code in the message names the account.
+        // A message may be missing (Ko-fi may leave out a private one): then there is no code to find.
+        var discordId = linkedId
+            ?? await new SupporterCodes(db).DiscordUserIdInAsync(payment.Message, ct).ConfigureAwait(false);
         var paidAt = payment.PaidAt() is { } stated && stated < now ? stated : now;
 
         var key = SupporterRules.TierKeyOf(tierName);

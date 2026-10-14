@@ -27,9 +27,11 @@ public class SupporterIntakeTests
         string? discord = null,
         string email = "sam@example.com",
         DateTimeOffset? at = null,
-        bool monthly = true)
+        bool monthly = true,
+        string? message = null)
         => new()
         {
+            Message = message,
             TransactionId = code,
             TierName = tier,
             FromName = "Sam",
@@ -176,5 +178,71 @@ public class SupporterIntakeTests
 
         await using var read = services.Database.NewContext();
         Assert.NotNull((await read.Supporters.AsNoTracking().SingleAsync(Ct)).ThanksSentAt);
+    }
+
+    // ── The code from /supporter-code in the message ───────────────────────────────────────
+
+    private static async Task<string> CodeForAsync(TestServices services, string discordUserId)
+    {
+        await using var db = services.Database.NewContext();
+        return await new SupporterCodes(db).ForAsync(discordUserId, services.Clock.UtcNow, Ct);
+    }
+
+    [Fact]
+    public async Task APaymentWithNoDiscordLink_ButTheCodeInItsMessage_IsMatchedToTheCodesAccount()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var code = await CodeForAsync(services, "7001");
+
+        var outcome = await TakeAsync(services, Payment("one", message: $"Thanks for the streams! {code.ToLowerInvariant()}"));
+
+        Assert.Equal(SupporterIntake.Taken, outcome.Result);
+        await using var db = services.Database.NewContext();
+        Assert.Equal("7001", (await db.Supporters.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
+    }
+
+    [Fact]
+    public async Task ALaterPaymentWithNoCode_StillFindsTheSameSupporter_AndTheirAccount()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var code = await CodeForAsync(services, "7001");
+        var now = services.Clock.UtcNow;
+
+        await TakeAsync(services, Payment("one", at: now.AddDays(-40), message: code));
+        await TakeAsync(services, Payment("two", at: now.AddDays(-10), message: null));
+
+        await using var db = services.Database.NewContext();
+        var supporter = await db.Supporters.AsNoTracking().SingleAsync(Ct);
+        Assert.Equal("7001", supporter.DiscordUserId);
+        Assert.Equal(2, await db.SupporterPayments.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AKofiDiscordLink_WinsOverACodeInTheMessage()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var code = await CodeForAsync(services, "7001");
+
+        await TakeAsync(services, Payment("one", discord: "7002", message: code));
+
+        await using var db = services.Database.NewContext();
+        Assert.Equal("7002", (await db.Supporters.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("Keep up the good work")]
+    [InlineData("ZZZZZZ")]
+    public async Task AMessageWithNoKnownCode_LeavesTheSupporterNotMatched(string? message)
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await CodeForAsync(services, "7001");
+
+        var outcome = await TakeAsync(services, Payment("one", message: message));
+
+        Assert.Equal(SupporterIntake.Taken, outcome.Result);
+        await using var db = services.Database.NewContext();
+        Assert.Null((await db.Supporters.AsNoTracking().SingleAsync(Ct)).DiscordUserId);
     }
 }

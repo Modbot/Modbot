@@ -118,9 +118,11 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
                 supporter.UpdatedAt = now;
             }
 
-            // Nobody to give roles to until they are matched; only the lapse above applies.
+            // Nobody to give roles to until they are matched; only the lapse above applies. A role
+            // still recorded from before their account was cleared is let go of, so it is not left stuck.
             if (supporter.DiscordUserId is null)
             {
+                await LetGoOfRolesWithoutAccountAsync(supporter, now, tally, ct).ConfigureAwait(false);
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
                 continue;
             }
@@ -136,6 +138,9 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
                 : await db.LinkedVRChatUserIdAsync(supporter.DiscordUserId!, ct).ConfigureAwait(false);
 
             // A role they already hold was not given by Modbot, so Modbot neither records nor later takes it.
+            // "Already hold" is read from the roles stored for the member, which can lag a little behind
+            // Discord: a role just added by hand may not show yet, and then Modbot adds it and records
+            // it as its own. That is rare and the cost is small (the role is taken back when it ends).
             var heldDiscord = wantDiscord is not null
                 && heldInServer.TryGetValue(supporter.DiscordUserId, out var serverRoles)
                 && serverRoles.Contains(wantDiscord);
@@ -193,6 +198,54 @@ public sealed class SupporterRoles(ModbotContext db, IModbotClock clock, IVRChat
         }
 
         return new SupporterPass(tally.Given, tally.Taken, tally.Thanked, tally.Left, tally.Problem);
+    }
+
+    /// <summary>
+    /// A supporter with no Discord account that still has a role on record (their account was cleared
+    /// after Modbot gave it). The Discord role cannot be taken back, because the account it went to is
+    /// no longer known, so the record is cleared. The VRChat role names its own VRChat account, so it
+    /// is taken from there; a refusal keeps the record and is tried again later.
+    /// </summary>
+    private async Task LetGoOfRolesWithoutAccountAsync(Supporter supporter, DateTimeOffset now, Tally tally, CancellationToken ct)
+    {
+        supporter.GivenDiscordRoleId = null;
+
+        if (supporter.GivenVRChatRoleId is not { } role || supporter.GivenVRChatUserId is not { } user)
+        {
+            // Nothing recorded, or half a record that cannot be acted on: start clean.
+            supporter.GivenVRChatRoleId = null;
+            supporter.GivenVRChatUserId = null;
+            return;
+        }
+
+        if (supporter.TryAgainAt is { } waitUntil && now < waitUntil)
+            return;
+
+        if (tally.Given + tally.Taken >= MaxChangesPerPass)
+        {
+            tally.Left++;
+            return;
+        }
+
+        var outcome = await vrchat.TakeGroupRoleAsync(user, role, ct).ConfigureAwait(false);
+
+        if (outcome.Done)
+        {
+            tally.Taken++;
+            supporter.GivenVRChatRoleId = null;
+            supporter.GivenVRChatUserId = null;
+            supporter.Problem = null;
+            supporter.TryAgainAt = null;
+        }
+        else
+        {
+            var problem = outcome.Error ?? "VRChat refused to take the group role away.";
+            supporter.Problem = Clip(problem);
+            supporter.TryAgainAt = now + TryAgainAfter;
+            tally.Problem = problem;
+        }
+
+        supporter.UpdatedAt = now;
     }
 
     /// <summary>Takes back the role Modbot gave and gives the one that is due. Returns the refusal, if any, and whether the person is not in the server.</summary>

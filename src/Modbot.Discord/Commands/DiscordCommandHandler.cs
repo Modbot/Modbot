@@ -376,7 +376,13 @@ public sealed class DiscordCommandHandler
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
-        var lines = DiscordCommands.For(switches, alertsOn)
+        var kofiOn = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.KofiOn)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var lines = DiscordCommands.For(switches, alertsOn, kofiOn)
             .Where(c => c.Kind == DiscordCommandKind.Slash && (c.Name != DiscordCommands.Me || meOn))
             .Where(c => DiscordCommands.IsForEveryone(c.Name)
                         || (held is { } permissions

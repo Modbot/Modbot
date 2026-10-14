@@ -17,8 +17,8 @@ public class CommandLayerTests
     [Fact]
     public void EveryCommandHasASwitch_AndEverySwitchACommand()
     {
-        // /notify follows the Alerts setting, not a switch.
-        var commands = DiscordCommands.All.Where(c => c.Name != DiscordCommands.Notify).Select(c => c.Name).Order().ToList();
+        // /notify follows the Alerts setting and /supporter-code the Ko-fi setting, not a switch.
+        var commands = DiscordCommands.All.Where(c => c.Name is not (DiscordCommands.Notify or DiscordCommands.SupporterCode)).Select(c => c.Name).Order().ToList();
         var switches = DiscordCommandSwitches.All.Select(c => c.Name).Order().ToList();
 
         Assert.Equal(switches, commands);
@@ -27,7 +27,7 @@ public class CommandLayerTests
     [Fact]
     public void MenusAreMarkedAsMenus_InTheSwitchList()
     {
-        foreach (var command in DiscordCommands.All.Where(c => c.Name != DiscordCommands.Notify))
+        foreach (var command in DiscordCommands.All.Where(c => c.Name is not (DiscordCommands.Notify or DiscordCommands.SupporterCode)))
         {
             var found = DiscordCommandSwitches.Find(command.Name);
             Assert.NotNull(found);
@@ -54,8 +54,9 @@ public class CommandLayerTests
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Vote);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.ReportMenu);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.Notify);
+        Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.SupporterCode);
         Assert.DoesNotContain(registered, c => c.Name == DiscordCommands.AgeVerified);
-        Assert.Equal(DiscordCommands.All.Count - 13, registered.Count);
+        Assert.Equal(DiscordCommands.All.Count - 14, registered.Count);
         Assert.Equal(registered.Select(c => c.Name).ToHashSet(), DiscordCommands.NamesFor(null));
     }
 

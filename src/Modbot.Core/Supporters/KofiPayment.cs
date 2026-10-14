@@ -38,6 +38,13 @@ public sealed class KofiPayment
     [JsonPropertyName("tier_name")]
     public string? TierName { get; set; }
 
+    /// <summary>
+    /// What the supporter wrote in Ko-fi's message box. Missing or null when they wrote nothing, and
+    /// possibly left out when they marked the message private (not checked with Ko-fi).
+    /// </summary>
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
     /// <summary>What Ko-fi sent for the Discord account: text, or a number if Ko-fi ever sends it as one.</summary>
     [JsonPropertyName("discord_userid")]
     public JsonElement? DiscordUserIdRaw { get; set; }

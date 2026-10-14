@@ -244,6 +244,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<TermCommand>();
         services.TryAddKeyedSingleton<MemberCommandLimits>(RuleCommand.LimitsKey);
         services.AddScoped<RuleCommand>();
+
+        // /supporter-code: the code a Ko-fi supporter pastes into Ko-fi's message box; there while Ko-fi is on.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(SupporterCodeCommand.LimitsKey);
+        services.AddScoped<SupporterCodeCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting
