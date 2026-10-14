@@ -82,6 +82,13 @@ public static class PostKinds
     /// approve or posted straight away (<see cref="Post.ExternalKey"/> is the instance's id).
     /// </summary>
     public const string InstanceLive = "instance_live";
+
+    /// <summary>
+    /// A calendar event's post on Bluesky for one date, sent a set time before the date starts. Made
+    /// and kept in line with the event by <c>CalendarBlueskyPlanner</c>; <see cref="Post.EventId"/>
+    /// is the event and <see cref="Post.DateStartsAt"/> the date's planned start.
+    /// </summary>
+    public const string EventDate = "event_date";
 }
 
 /// <summary>
@@ -338,4 +345,9 @@ public sealed record VRChatPostOptions(
 /// then found nothing. Bluesky contradicted itself, so the post may be there: it is never sent again,
 /// by the loop or by Try again, only read back and taken if found.
 /// </param>
-public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null, bool KeyTaken = false);
+/// <param name="Fingerprint">
+/// For an event's post (<see cref="PostKinds.EventDate"/>): what the calendar last wanted this post
+/// to say, so a change to the event is found by comparing, and a post a person deleted or cancelled in
+/// Marketing is not made again until the event changes. Null on every other post.
+/// </param>
+public sealed record BlueskyPostOptions(Guid? PictureId = null, string? Cid = null, bool KeyTaken = false, string? Fingerprint = null);

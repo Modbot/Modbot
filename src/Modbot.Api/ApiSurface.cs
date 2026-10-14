@@ -134,6 +134,7 @@ public static class ApiSurface
         Core.Bluesky.BlueskyServices.AddBluesky(services);
         services.TryAddScoped<Core.Posts.PostClaim>();
         services.TryAddScoped<Features.Posts.PostBlueskySender>();
+        services.TryAddScoped<Features.Calendar.CalendarBlueskyPlanner>();
         services.TryAddScoped<Core.Posts.IBlueskyPostActions, Core.Bluesky.BlueskyPostActions>();
 
         // Keep updated (posts design §8): the pass is scoped, the window it keeps is one for the

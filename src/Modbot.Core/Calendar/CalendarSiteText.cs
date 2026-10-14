@@ -8,6 +8,7 @@ public enum CalendarSite
     VRChat,
     Discord,
     Google,
+    Bluesky,
 }
 
 /// <summary>
@@ -63,6 +64,7 @@ public static class CalendarSiteText
         {
             CalendarSite.VRChat => calendarEvent.VRChatTitle,
             CalendarSite.Discord => calendarEvent.DiscordTitle,
+            CalendarSite.Bluesky => calendarEvent.BlueskyTitle,
             _ => calendarEvent.GoogleTitle,
         });
     }
@@ -76,6 +78,7 @@ public static class CalendarSiteText
         {
             CalendarSite.VRChat => calendarEvent.VRChatDescription,
             CalendarSite.Discord => calendarEvent.DiscordDescription,
+            CalendarSite.Bluesky => calendarEvent.BlueskyDescription,
             _ => calendarEvent.GoogleDescription,
         });
     }

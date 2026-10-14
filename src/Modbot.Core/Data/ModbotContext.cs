@@ -3175,6 +3175,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DiscordDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.GoogleTitle).HasMaxLength(CalendarEvent.MaxTitleLength);
             entity.Property(e => e.GoogleDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
+            entity.Property(e => e.BlueskyTitle).HasMaxLength(CalendarEvent.MaxTitleLength);
+            entity.Property(e => e.BlueskyDescription).HasMaxLength(CalendarEvent.MaxDescriptionLength);
             entity.Property(e => e.TimeZone).HasMaxLength(64);
             entity.Property(e => e.Repeat).HasMaxLength(16);
             entity.Property(e => e.RepeatDays).HasColumnType("jsonb");

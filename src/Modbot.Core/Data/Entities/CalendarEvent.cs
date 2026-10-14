@@ -85,6 +85,12 @@ public class CalendarEvent
     /// <summary>The description Google Calendar shows, or null for <see cref="Description"/>.</summary>
     public string? GoogleDescription { get; set; }
 
+    /// <summary>The title Bluesky's post opens with, or null for <see cref="Title"/>.</summary>
+    public string? BlueskyTitle { get; set; }
+
+    /// <summary>The words under the title in Bluesky's post, or null for <see cref="Description"/>. Plain text.</summary>
+    public string? BlueskyDescription { get; set; }
+
     // ── When ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>When the first occurrence starts.</summary>
@@ -230,6 +236,15 @@ public class CalendarEvent
     /// ticked or not (decision 1).
     /// </summary>
     public bool PublishToGoogle { get; set; }
+
+    /// <summary>
+    /// Whether each date of the event gets its own post on the Bluesky account in Settings →
+    /// Bluesky, sent <see cref="BlueskyPostBeforeMinutes"/> before the date starts (added 2026-10-14).
+    /// </summary>
+    public bool PublishToBluesky { get; set; }
+
+    /// <summary>How long before a date starts its Bluesky post goes: one of <see cref="Modbot.Core.Calendar.CalendarBlueskyText.BeforeChoices"/>.</summary>
+    public int BlueskyPostBeforeMinutes { get; set; } = Modbot.Core.Calendar.CalendarBlueskyText.DefaultBeforeMinutes;
 
     public string? ChannelId { get; set; }
 

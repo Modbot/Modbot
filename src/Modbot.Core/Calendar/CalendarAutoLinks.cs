@@ -192,13 +192,14 @@ public static partial class CalendarAutoLinks
     /// (it would link to itself, and a new date's event is made before its address exists). A date's
     /// own texts leave it out too: they are sent to a site once and again only when they are edited,
     /// so a Discord address in them would be wrong from the next date on, and putting it in would
-    /// send every such date again each time the date moves on.
+    /// send every such date again each time the date moves on. A Bluesky post is made for one date, so
+    /// it leaves the Discord event out as well: that address is the current date's, not its own.
     /// </summary>
     public static CalendarLinks? For(CalendarEvent calendarEvent, CalendarSite? site, bool ofADate = false)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
 
-        return calendarEvent.AutoLinks is { } links && (site == CalendarSite.Discord || ofADate)
+        return calendarEvent.AutoLinks is { } links && (site is CalendarSite.Discord or CalendarSite.Bluesky || ofADate)
             ? links with { DiscordEvent = null }
             : calendarEvent.AutoLinks;
     }
