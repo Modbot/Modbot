@@ -5,6 +5,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Cards;
+using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -48,8 +49,11 @@ public sealed class StaffReminderPoster
     /// <summary>The most Council reminders in one pass, so a first run after the channel is set does not flood it.</summary>
     public const int PerPass = 5;
 
-    /// <summary>The most people one check-in post lists; the rest follow in the next pass.</summary>
+    /// <summary>The most people one check-in post tries to list; the card keeps what fits and the rest follow in the next pass.</summary>
     public const int CheckInsPerPost = 40;
+
+    /// <summary>The most a card's description holds.</summary>
+    private const int DescriptionLength = 4096;
 
     /// <summary>The most of the buddy's note a card shows.</summary>
     private const int NoteLength = 900;
@@ -104,18 +108,22 @@ public sealed class StaffReminderPoster
 
         var style = new CardStyle(settings.PublicAddress, settings.ManagedGroupName, BrandIcon.For(settings.PublicAddress));
 
-        var (council, error) = await CouncilAsync(gateway, channel, style, ct).ConfigureAwait(false);
+        var (council, councilError, stop) = await CouncilAsync(gateway, channel, style, ct).ConfigureAwait(false);
 
-        // A channel Discord refuses is refused for both kinds.
-        if (error is not null)
-            return new StaffReminderPass(council, 0, error);
+        // A channel Discord refuses outright, or asks to slow down, is the same for both kinds.
+        if (stop)
+            return new StaffReminderPass(council, 0, councilError);
 
         var (checkIns, checkInError) = await CheckInsAsync(gateway, channel, style, ct).ConfigureAwait(false);
 
-        return new StaffReminderPass(council, checkIns, checkInError);
+        return new StaffReminderPass(council, checkIns, checkInError ?? councilError);
     }
 
-    private async Task<(int Posted, string? Error)> CouncilAsync(
+    /// <summary>
+    /// One post for each trial that has reached day 30. A trial Discord refuses is left for the next pass and the
+    /// others still go; two refusals in a row, or one that is not final, stop the pass (<c>Stop</c>).
+    /// </summary>
+    private async Task<(int Posted, string? Error, bool Stop)> CouncilAsync(
         IDiscordGateway gateway, string channel, CardStyle style, CancellationToken ct)
     {
         var now = _clock.UtcNow;
@@ -129,6 +137,8 @@ public sealed class StaffReminderPoster
             .ConfigureAwait(false);
 
         var posted = 0;
+        var refusedInARow = 0;
+        string? error = null;
 
         foreach (var trial in due)
         {
@@ -158,16 +168,27 @@ public sealed class StaffReminderPoster
             var outcome = await gateway.PostAsync(channel, [CouncilCard(trial, account, buddy, events, now, style)], ct).ConfigureAwait(false);
 
             if (!outcome.Sent && !outcome.Unclear)
-                return (posted, Refused(outcome, "the Council reminder"));
+            {
+                error ??= Refused(outcome, "the Council reminder");
+                refusedInARow++;
 
+                // Only a final refusal of this one card leaves the others a chance; anything else is the channel's.
+                if (!outcome.Permanent || outcome.NotFound || outcome.RateLimited || refusedInARow >= 2)
+                    return (posted, error, true);
+
+                continue;
+            }
+
+            refusedInARow = 0;
             trial.CouncilRemindedAt = now;
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             posted++;
         }
 
-        return (posted, null);
+        return (posted, error, false);
     }
 
+    /// <summary>One post listing everyone due. Only the people the post shows are marked, so the rest go next pass.</summary>
     private async Task<(int Posted, string? Error)> CheckInsAsync(
         IDiscordGateway gateway, string channel, CardStyle style, CancellationToken ct)
     {
@@ -175,69 +196,89 @@ public sealed class StaffReminderPoster
         var quietSince = now - QuietFor;
 
         // Only an account whose sign-in is already 30 days old can be due; the other two kinds of activity
-        // are looked up for those alone.
+        // are looked up for those alone, in one query each.
         var quiet = await _db.Users
             .Where(u => u.DeletedAt == null && !u.IsDisabled && (u.LastLoginAt ?? u.CreatedAt) <= quietSince)
             .OrderBy(u => u.LastLoginAt ?? u.CreatedAt)
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var due = new List<(ModbotUser Account, DateTimeOffset LastActive)>();
+        if (quiet.Count == 0)
+            return (0, null);
 
-        foreach (var account in quiet)
-        {
-            if (due.Count >= CheckInsPerPost)
-                break;
+        var lastActive = await LastActiveAsync(quiet, now, ct).ConfigureAwait(false);
 
-            var lastActive = await LastActiveAsync(account, now, ct).ConfigureAwait(false);
-
-            if (lastActive > quietSince || (account.CheckInRemindedAt is { } reminded && lastActive <= reminded))
-                continue;
-
-            due.Add((account, lastActive));
-        }
+        var due = quiet
+            .Select(account => (Account: account, LastActive: lastActive[account.Id]))
+            .Where(p => p.LastActive <= quietSince && !(p.Account.CheckInRemindedAt is { } reminded && p.LastActive <= reminded))
+            .Take(CheckInsPerPost)
+            .ToList();
 
         if (due.Count == 0)
             return (0, null);
 
         // One post for everyone due, so choosing the channel for the first time does not flood it with a card per
         // long-gone account.
-        var outcome = await gateway.PostAsync(channel, [CheckInCard(due, now, style)], ct).ConfigureAwait(false);
+        var (card, shown) = CheckInCard(due, now, style);
+        var outcome = await gateway.PostAsync(channel, [card], ct).ConfigureAwait(false);
 
         if (!outcome.Sent && !outcome.Unclear)
             return (0, Refused(outcome, "the check-ins"));
 
-        foreach (var (account, _) in due)
+        foreach (var (account, _) in due.Take(shown))
             account.CheckInRemindedAt = now;
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return (due.Count, null);
+        return (shown, null);
     }
 
-    /// <summary>The latest of the account's sign-in, moderation actions and events it was host or staff on.</summary>
-    public async Task<DateTimeOffset> LastActiveAsync(ModbotUser account, DateTimeOffset now, CancellationToken ct)
+    /// <summary>
+    /// For each account, the latest of its sign-in, moderation actions and events it was host or staff on.
+    /// Two queries for all of them, however many accounts there are.
+    /// </summary>
+    public async Task<Dictionary<Guid, DateTimeOffset>> LastActiveAsync(
+        IReadOnlyList<ModbotUser> accounts, DateTimeOffset now, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(accounts);
 
-        var modbotId = account.Id.ToString();
-        var vrchatId = account.IsVRChatLinked ? account.VRChatUserId : null;
-        var discordId = account.IsDiscordProven ? account.DiscordUserId : null;
+        var ids = accounts.Select(a => a.Id).ToList();
+        var modbotIds = accounts.Select(a => a.Id.ToString()).ToList();
+        var vrchatIds = accounts.Where(a => a.IsVRChatLinked).Select(a => a.VRChatUserId!).ToList();
+        var discordIds = accounts.Where(a => a.IsDiscordProven).Select(a => a.DiscordUserId!).ToList();
 
-        var action = await _db.Events.AsNoTracking()
-            .Where(e => ActionTypes.Contains(e.Type)
-                     && ((e.ActorPlatform == FactPlatform.Modbot && e.ActorId == modbotId)
-                         || (vrchatId != null && e.ActorPlatform == FactPlatform.VRChat && e.ActorId == vrchatId)
-                         || (discordId != null && e.ActorPlatform == FactPlatform.Discord && e.ActorId == discordId)))
-            .MaxAsync(e => (DateTimeOffset?)e.OccurredAt, ct)
+        var actions = await _db.Events.AsNoTracking()
+            .Where(e => ActionTypes.Contains(e.Type) && e.ActorId != null
+                     && ((e.ActorPlatform == FactPlatform.Modbot && modbotIds.Contains(e.ActorId))
+                         || (e.ActorPlatform == FactPlatform.VRChat && vrchatIds.Contains(e.ActorId))
+                         || (e.ActorPlatform == FactPlatform.Discord && discordIds.Contains(e.ActorId))))
+            .GroupBy(e => new { e.ActorPlatform, e.ActorId })
+            .Select(g => new { g.Key.ActorPlatform, g.Key.ActorId, At = g.Max(e => e.OccurredAt) })
+            .ToListAsync(ct)
             .ConfigureAwait(false);
 
         var hosted = await _db.CalendarInvites.AsNoTracking()
-            .Where(i => i.StaffUserId == account.Id && EventRoles.Contains(i.Role) && i.OccurrenceStartsAt <= now)
-            .MaxAsync(i => (DateTimeOffset?)i.OccurrenceStartsAt, ct)
+            .Where(i => i.StaffUserId != null && ids.Contains(i.StaffUserId.Value)
+                     && EventRoles.Contains(i.Role) && i.OccurrenceStartsAt <= now)
+            .GroupBy(i => i.StaffUserId)
+            .Select(g => new { Id = g.Key, At = g.Max(i => i.OccurrenceStartsAt) })
+            .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return new[] { account.LastLoginAt ?? account.CreatedAt, action ?? DateTimeOffset.MinValue, hosted ?? DateTimeOffset.MinValue }.Max();
+        DateTimeOffset ActionAt(FactPlatform platform, string? id) =>
+            id is null ? DateTimeOffset.MinValue
+                : actions.Where(a => a.ActorPlatform == platform && a.ActorId == id).Select(a => a.At).DefaultIfEmpty(DateTimeOffset.MinValue).Max();
+
+        return accounts.ToDictionary(
+            a => a.Id,
+            a => new[]
+            {
+                a.LastLoginAt ?? a.CreatedAt,
+                ActionAt(FactPlatform.Modbot, a.Id.ToString()),
+                ActionAt(FactPlatform.VRChat, a.IsVRChatLinked ? a.VRChatUserId : null),
+                ActionAt(FactPlatform.Discord, a.IsDiscordProven ? a.DiscordUserId : null),
+                hosted.Where(h => h.Id == a.Id).Select(h => h.At).DefaultIfEmpty(DateTimeOffset.MinValue).Max(),
+            }.Max());
     }
 
     private string Refused(DiscordPostOutcome outcome, string what)
@@ -279,8 +320,11 @@ public sealed class StaffReminderPoster
             FooterIconUrl: style.FooterIconUrl);
     }
 
-    /// <summary>The check-in card: one line for each person, with the day they were last active.</summary>
-    public static DiscordEmbedContent CheckInCard(
+    /// <summary>
+    /// The check-in card: one line for each person, with the day they were last active. Only as many whole lines
+    /// as fit in a card are shown; <c>Shown</c> says how many, counting from the first.
+    /// </summary>
+    public static (DiscordEmbedContent Card, int Shown) CheckInCard(
         IReadOnlyList<(ModbotUser Account, DateTimeOffset LastActive)> people, DateTimeOffset now, CardStyle style)
     {
         ArgumentNullException.ThrowIfNull(people);
@@ -294,15 +338,22 @@ public sealed class StaffReminderPoster
             return $"{shown}: last active {Day(p.LastActive)}";
         });
 
-        return new DiscordEmbedContent(
-            Title: people.Count == 1 ? "Check-in: 1 person" : $"Check-in: {people.Count.ToString(CultureInfo.InvariantCulture)} people",
-            Description: string.Join('\n', lines),
+        var description = DiscordCommandHandler.WholeLines(lines, DescriptionLength);
+
+        // A list that was cut ends with an ellipsis line, which is not a person.
+        var count = description.Split('\n').Length - (description.EndsWith("\n…", StringComparison.Ordinal) ? 1 : 0);
+
+        var card = new DiscordEmbedContent(
+            Title: count == 1 ? "Check-in: 1 person" : $"Check-in: {count.ToString(CultureInfo.InvariantCulture)} people",
+            Description: description,
             Color: CardColour.Amber,
             Fields: [],
             Timestamp: now,
             Url: null,
             Footer: "Inactive for 30 days",
             FooterIconUrl: style.FooterIconUrl);
+
+        return (card, count);
     }
 
     private static string Day(DateTimeOffset at) => at.UtcDateTime.ToString("d MMM yyyy", CultureInfo.InvariantCulture);

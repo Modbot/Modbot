@@ -355,4 +355,84 @@ public class StaffReminderPosterTests
         Assert.Contains("jessie", card.Description);
         Assert.DoesNotContain("robin", card.Description);
     }
+
+    [Fact]
+    public async Task ACheckInThatWouldBeTooLongForACard_ListsWhatFits_AndMarksOnlyThosePeople()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateway = new FakeGateway();
+        await services.ConfigureAsync(s =>
+        {
+            s.StaffRemindersChannelId = Channel;
+            s.PublicAddress = "https://modbot.example.com";
+        }, Ct);
+
+        // Forty linked lines of about 150 characters each: more than the 4096 a card's description holds.
+        for (var i = 0; i < 45; i++)
+            await AddUserAsync(services, $"{new string('a', 40)}{i:00}", signedInDaysAgo: 100 + i);
+
+        var first = await RunAsync(services, gateway);
+
+        var card = Assert.Single(Assert.Single(gateway.Posts).Embeds);
+        Assert.InRange(card.Description!.Length, 1, 4096);
+        Assert.InRange(first.CheckIns, 1, StaffReminderPoster.CheckInsPerPost - 1);
+        Assert.Equal($"Check-in: {first.CheckIns} people", card.Title);
+        Assert.Equal(first.CheckIns, card.Description.Split('\n').Count(l => l != "…"));
+        Assert.Equal(first.CheckIns, await MarkedAsync(services));
+
+        // The people left off are listed in the next posts, and nobody is listed twice.
+        var listed = first.CheckIns;
+        for (var pass = 0; pass < 10 && listed < 45; pass++)
+            listed += (await RunAsync(services, gateway)).CheckIns;
+
+        Assert.Equal(45, listed);
+        Assert.Equal(45, await MarkedAsync(services));
+        Assert.All(gateway.Posts, p => Assert.InRange(Assert.Single(p.Embeds).Description!.Length, 1, 4096));
+    }
+
+    private static async Task<int> MarkedAsync(TestServices services)
+    {
+        await using var context = services.Database.NewContext();
+        return await context.Users.CountAsync(u => u.CheckInRemindedAt != null, Ct);
+    }
+
+    [Fact]
+    public async Task ACouncilCardDiscordRefusesForGood_LeavesTheOtherTrialsAndTheCheckInsAGo()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateway = new FakeGateway();
+        await ChooseChannelAsync(services);
+        var buddy = await AddUserAsync(services, "casey");
+        var first = await AddTrialAsync(services, await AddUserAsync(services, "wanda"), buddy, startedDaysAgo: 35);
+        var second = await AddTrialAsync(services, await AddUserAsync(services, "robin"), buddy, startedDaysAgo: 31);
+        await AddUserAsync(services, "jessie", signedInDaysAgo: 50);
+
+        gateway.FailNextPost("Cannot send this card", permanent: true);
+        var pass = await RunAsync(services, gateway);
+
+        Assert.Equal("Cannot send this card", pass.Error);
+        Assert.Equal(1, pass.Council);
+        Assert.Equal(1, pass.CheckIns);
+        Assert.Null((await ReadAsync(services, first.Id)).CouncilRemindedAt);
+        Assert.NotNull((await ReadAsync(services, second.Id)).CouncilRemindedAt);
+    }
+
+    [Fact]
+    public async Task ARefusalThatIsNotFinal_StopsThePass_ForEveryKind()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateway = new FakeGateway();
+        await ChooseChannelAsync(services);
+        var buddy = await AddUserAsync(services, "casey");
+        await AddTrialAsync(services, await AddUserAsync(services, "wanda"), buddy, startedDaysAgo: 35);
+        var second = await AddTrialAsync(services, await AddUserAsync(services, "robin"), buddy, startedDaysAgo: 31);
+        await AddUserAsync(services, "jessie", signedInDaysAgo: 50);
+
+        gateway.FailNextPost("Discord is busy");
+        var pass = await RunAsync(services, gateway);
+
+        Assert.Equal(new StaffReminderPass(0, 0, "Discord is busy"), pass);
+        Assert.Empty(gateway.Posts);
+        Assert.Null((await ReadAsync(services, second.Id)).CouncilRemindedAt);
+    }
 }

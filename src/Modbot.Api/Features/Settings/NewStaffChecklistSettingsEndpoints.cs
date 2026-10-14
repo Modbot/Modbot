@@ -36,6 +36,9 @@ public sealed record NewStaffChecklistSettingsUpdate(List<string>? Tasks, List<s
 /// </summary>
 public static class NewStaffChecklistSettingsEndpoints
 {
+    /// <summary>The width of the column the channel is kept in.</summary>
+    private const int ChannelIdLength = 32;
+
     public static IEndpointRouteBuilder MapNewStaffChecklistSettings(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -70,6 +73,9 @@ public static class NewStaffChecklistSettingsEndpoints
                     return Results.BadRequest(new { error = $"A line is at most {StaffTrialLimits.ItemTextLength} characters." });
 
                 var channelId = string.IsNullOrWhiteSpace(body.ReminderChannelId) ? null : body.ReminderChannelId.Trim();
+
+                if (channelId is { Length: > ChannelIdLength })
+                    return Results.BadRequest(new { error = $"A channel id is at most {ChannelIdLength} characters." });
 
                 var settings = await db.GetSettingsAsync(ct);
 
