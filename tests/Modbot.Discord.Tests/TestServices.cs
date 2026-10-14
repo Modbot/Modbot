@@ -150,6 +150,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddSingleton<Modbot.Core.Discord.DiscordLinkSignal>();
         services.AddScoped<Modbot.Discord.Linking.LinkedRoles>();
         services.AddScoped<Modbot.Discord.Linking.LinkPrompt>();
+        services.AddScoped<Modbot.Discord.Linking.LinkNudges>();
         services.AddSingleton<Modbot.Discord.Welcome.OnboardingCheck>();
         services.AddScoped<Modbot.Discord.Welcome.SmartWelcome>();
         services.AddSingleton<Modbot.Discord.Gate.JoinGateState>();

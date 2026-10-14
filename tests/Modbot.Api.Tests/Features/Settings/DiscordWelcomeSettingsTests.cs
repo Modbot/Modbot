@@ -33,8 +33,9 @@ public class DiscordWelcomeSettingsTests
         string via = "dm",
         string? channelId = null,
         IEnumerable<object>? rules = null,
-        IEnumerable<object>? defaults = null)
-        => new { enabled, via, channelId, rules = (rules ?? []).ToList(), defaults = (defaults ?? []).ToList() };
+        IEnumerable<object>? defaults = null,
+        bool linkButton = false)
+        => new { enabled, via, channelId, rules = (rules ?? []).ToList(), defaults = (defaults ?? []).ToList(), linkButton };
 
     [Fact]
     public async Task WithoutChangeSettings_ItIsRefused()
@@ -219,5 +220,33 @@ public class DiscordWelcomeSettingsTests
 
         Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, Update(enabled: false, defaults: [Step()]), cookie, Ct)).StatusCode);
         Assert.Null(await StartedAtAsync());
+    }
+
+    [Fact]
+    public async Task TheLinkButtonSwitch_IsOffToStart_IsSaved_AndComesBack()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var first = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.False(first.GetProperty("linkButton").GetBoolean());
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await host.SendJsonAsync(HttpMethod.Put, Path, Update(enabled: true, defaults: [Step()], linkButton: true), cookie, Ct)).StatusCode);
+
+        var on = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.True(on.GetProperty("linkButton").GetBoolean());
+
+        using (var scope = host.Services.CreateScope())
+            Assert.True((await scope.ServiceProvider.GetRequiredService<ModbotContext>().GetSettingsAsync(Ct)).DiscordWelcomeLinkButton);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await host.SendJsonAsync(HttpMethod.Put, Path, Update(enabled: true, defaults: [Step()], linkButton: false), cookie, Ct)).StatusCode);
+
+        var off = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.False(off.GetProperty("linkButton").GetBoolean());
     }
 }

@@ -55,11 +55,20 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Set to make the next direct messages blow up, as a crash would, before anything is recorded.</summary>
     public Exception? DirectMessageCrash { get; set; }
 
+    /// <summary>Set to make the next direct message come back with this answer, once.</summary>
+    public DiscordPostOutcome? NextDirectMessageOutcome { get; set; }
+
     public Task<DiscordPostOutcome> SendDirectMessageAsync(
         string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
     {
         if (DirectMessageCrash is not null)
             throw DirectMessageCrash;
+
+        if (NextDirectMessageOutcome is { } next)
+        {
+            NextDirectMessageOutcome = null;
+            return Task.FromResult(next);
+        }
 
         if (DirectMessagesClosed)
         {

@@ -429,4 +429,78 @@ public class SmartWelcomeTests
         Assert.Equal("dm", await UpdateAsync(services, gateway, Member("2028", ["850"], started: true, finished: true)));
         Assert.Single(gateway.DirectMessages);
     }
+
+    private static Task SetUpLinkingAsync(TestServices services, bool linkButton = true, bool linkingSetUp = true)
+        => services.ConfigureAsync(s =>
+        {
+            s.DiscordWelcomeLinkButton = linkButton;
+            s.PublicAddress = "https://modbot.example.com";
+            s.DiscordOAuthClientId = "123456";
+            s.DiscordOAuthClientSecretEncrypted = linkingSetUp ? services.Protector.Protect("secret") : null;
+        }, Ct);
+
+    [Fact]
+    public async Task WithTheLinkSwitchOn_AnUnlinkedMemberGetsALinkYourVRChatButton_AfterTheStepButtons()
+    {
+        await using var services = await SetUpAsync(_db);
+        await SetUpLinkingAsync(services);
+        var gateway = new FakeGateway();
+
+        await FinishAsync(services, gateway, Member("2040", [Artist]));
+
+        var dm = Assert.Single(gateway.DirectMessages);
+        Assert.Equal(["Step 1", "Link your VRChat"], dm.Links.Select(l => l.Label));
+        Assert.Equal("https://modbot.example.com/link", dm.Links[^1].Url);
+    }
+
+    [Fact]
+    public async Task TheLinkButton_AlsoGoesWithTheChannelPost()
+    {
+        await using var services = await SetUpAsync(_db, via: DiscordWelcomeWhere.Channel);
+        await SetUpLinkingAsync(services);
+        var gateway = new FakeGateway();
+
+        await FinishAsync(services, gateway, Member("2041", [Artist]));
+
+        var mention = Assert.Single(gateway.Mentions);
+        Assert.Contains(mention.Links, l => l.Label == "Link your VRChat");
+    }
+
+    [Fact]
+    public async Task TheLinkButton_IsLeftOut_WhenTheSwitchIsOff_LinkingIsNotSetUp_OrTheMemberHasLinked()
+    {
+        await using (var off = await SetUpAsync(_db))
+        {
+            await SetUpLinkingAsync(off, linkButton: false);
+            var gateway = new FakeGateway();
+            await FinishAsync(off, gateway, Member("2042", [Artist]));
+            Assert.DoesNotContain(Assert.Single(gateway.DirectMessages).Links, l => l.Label == "Link your VRChat");
+        }
+
+        await using (var notSetUp = await SetUpAsync(_db))
+        {
+            await SetUpLinkingAsync(notSetUp, linkingSetUp: false);
+            var gateway = new FakeGateway();
+            await FinishAsync(notSetUp, gateway, Member("2043", [Artist]));
+            Assert.DoesNotContain(Assert.Single(gateway.DirectMessages).Links, l => l.Label == "Link your VRChat");
+        }
+
+        await using var linked = await SetUpAsync(_db);
+        await SetUpLinkingAsync(linked);
+        await using (var context = linked.Database.NewContext())
+        {
+            context.DiscordAccountLinks.Add(new DiscordAccountLink
+            {
+                DiscordUserId = "2044",
+                DiscordUsername = "linked",
+                VRChatUserId = "usr_linked",
+                LinkedAt = linked.Clock.UtcNow,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var linkedGateway = new FakeGateway();
+        await FinishAsync(linked, linkedGateway, Member("2044", [Artist]));
+        Assert.DoesNotContain(Assert.Single(linkedGateway.DirectMessages).Links, l => l.Label == "Link your VRChat");
+    }
 }
