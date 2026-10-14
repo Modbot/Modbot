@@ -151,6 +151,18 @@ public static class DiscordCommands
     /// <summary>The rule <c>/rule</c> shows, picked from the suggestions (its number) or typed as a number or a title.</summary>
     public const string RuleWhichOption = "rule";
 
+    /// <summary>
+    /// <c>/vote</c>: asks members to vote on a question, in a channel the caller picks. For event
+    /// hosts, who need Manage posts; off until the operator turns it on.
+    /// </summary>
+    public const string Vote = "vote";
+
+    /// <summary>Where <c>/vote</c> posts the question.</summary>
+    public const string VoteChannelOption = "channel";
+
+    /// <summary>The role a person must hold to vote, when it is not everybody.</summary>
+    public const string VoteRoleOption = "only_for";
+
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
 
@@ -428,6 +440,14 @@ public static class DiscordCommands
                 new DiscordSubcommand(PostList, "Posts waiting to go out", []),
             ]),
         new(
+            Vote,
+            "Ask members to vote",
+            [
+                new DiscordCommandOption(VoteChannelOption, "Where to post the vote", DiscordOptionKind.Channel, Required: true),
+                new DiscordCommandOption(VoteRoleOption, "Only people with this role can vote", DiscordOptionKind.Role, Required: false),
+            ],
+            ShownTo: DiscordShownTo.EventHosts),
+        new(
             Events,
             "Upcoming events, in your time zone",
             [new DiscordCommandOption(EventsPrivateOption, "Only show me", DiscordOptionKind.YesNo, Required: false)],
@@ -583,6 +603,7 @@ public static class DiscordCommands
         Gate => ModbotPermissions.ManageJoinGate,
         AgeVerified => ModbotPermissions.EditAgeVerification,
         Event => ModbotPermissions.ManageCalendar,
+        Vote => ModbotPermissions.ManagePosts,
 
         // The lowest a step of /post needs: reading the list. RequiresFor names the step's own.
         Post => ModbotPermissions.ViewPosts,
@@ -630,7 +651,7 @@ public static class DiscordCommands
     /// <c>/post</c> count as writing, which is the safe way for a list of what somebody may use.
     /// </summary>
     public static bool Writes(string command, string? subcommand = null)
-        => command is Note or Watch or Ban or Kick or Event or AgeVerified
+        => command is Note or Watch or Ban or Kick or Event or AgeVerified or Vote
             || (command == Gate && subcommand != GateWaiting)
             || (command == Post && subcommand != PostList);
 

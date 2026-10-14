@@ -312,6 +312,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each person who joined the Discord server, with the invite they used when that was clear.</summary>
     public DbSet<DiscordInviteJoin> DiscordInviteJoins => Set<DiscordInviteJoin>();
 
+    /// <summary>Questions Modbot posts in Discord for members to vote on, open or closed.</summary>
+    public DbSet<Vote> Votes => Set<Vote>();
+
+    /// <summary>The options on each vote.</summary>
+    public DbSet<VoteOption> VoteOptions => Set<VoteOption>();
+
+    /// <summary>Each person's pick on a vote.</summary>
+    public DbSet<VotePick> VotePicks => Set<VotePick>();
+
     /// <summary>
     /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
     /// deletes change the row, and a deleted message keeps it.
@@ -2404,6 +2413,53 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // The page reads joins by day.
             entity.HasIndex(e => e.JoinedAt).HasDatabaseName("ix_discord_invite_join_at");
             entity.HasIndex(e => e.InviteId).HasDatabaseName("ix_discord_invite_join_invite");
+        });
+
+        builder.Entity<Vote>(entity =>
+        {
+            entity.ToTable("vote");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Question).HasMaxLength(VoteLimits.MostQuestionLength);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.Status).HasMaxLength(16);
+
+            // A press finds its vote by id; the page lists them newest first.
+            entity.HasIndex(e => e.CreatedAt).HasDatabaseName("ix_vote_created");
+
+            entity.HasMany(e => e.Options)
+                .WithOne()
+                .HasForeignKey(o => o.VoteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<VoteOption>(entity =>
+        {
+            entity.ToTable("vote_option");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Label).HasMaxLength(VoteLimits.MostLabelLength);
+
+            entity.HasIndex(e => new { e.VoteId, e.Position }).HasDatabaseName("ix_vote_option_order");
+        });
+
+        builder.Entity<VotePick>(entity =>
+        {
+            entity.ToTable("vote_pick");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+
+            // One pick for each person on a vote, which is also how a changed vote finds its row.
+            entity.HasIndex(e => new { e.VoteId, e.DiscordUserId }).IsUnique().HasDatabaseName("ux_vote_pick_person");
+
+            // Counting a vote's picks for each option.
+            entity.HasIndex(e => new { e.VoteId, e.OptionId }).HasDatabaseName("ix_vote_pick_option");
+
+            entity.HasOne<Vote>().WithMany().HasForeignKey(e => e.VoteId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<VoteOption>().WithMany().HasForeignKey(e => e.OptionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<DiscordTicketType>(entity =>

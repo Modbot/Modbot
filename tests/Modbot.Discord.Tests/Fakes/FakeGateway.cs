@@ -152,6 +152,42 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
+    /// <summary>Every message posted or rewritten with drop-down lists: channel, message, text, lists.</summary>
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordSelectMenu> Lists)> ListPosts { get; } = [];
+
+    public Task<DiscordPostOutcome> PostWithListsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
+        CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Posts.Add((channelId, embeds));
+        ListPosts.Add((channelId, messageId, text, lists));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public Task<DiscordPostOutcome> EditWithListsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
+        CancellationToken ct)
+    {
+        var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        ListPosts.Add((channelId, messageId, text, lists));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
     /// <summary>Every role menu posted or rewritten: channel, message, text, buttons, drop-down list.</summary>
     public List<(string ChannelId, string MessageId, string Text, IReadOnlyList<DiscordActionButton> Buttons, DiscordSelectMenu? Select)> MenuPosts { get; } = [];
 

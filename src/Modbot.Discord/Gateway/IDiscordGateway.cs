@@ -35,6 +35,9 @@ public enum DiscordOptionKind
 
     /// <summary>Yes or no. The command receives <c>true</c> or <c>false</c> as text.</summary>
     YesNo = 6,
+
+    /// <summary>A role of the server, picked from Discord's own list. The command receives the role's id as text.</summary>
+    Role = 7,
 }
 
 /// <summary>One thing a <see cref="DiscordOptionKind.Choice"/> option offers.</summary>
@@ -1392,6 +1395,30 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
         IReadOnlyList<DiscordActionButton>? actions,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Posts a message with an embed and up to five drop-down lists under it, one to a row, and says
+    /// what its id is. A vote with more options than a message holds buttons for. Mentions are off.
+    /// </summary>
+    Task<DiscordPostOutcome> PostWithListsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites a message the bot posted with <see cref="PostWithListsAsync"/>. A message that is
+    /// gone comes back as a permanent failure with <see cref="DiscordPostOutcome.NotFound"/>. No
+    /// lists takes the lists away.
+    /// </summary>
+    Task<DiscordPostOutcome> EditWithListsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
         CancellationToken ct);
 
     /// <summary>

@@ -1498,6 +1498,60 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
         });
     }
 
+    public Task<DiscordPostOutcome> PostWithListsAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+        ArgumentNullException.ThrowIfNull(lists);
+
+        return InChannelAsync(channelId, ChannelNeed.Post, async channel =>
+        {
+            var sent = await channel.SendMessageAsync(
+                    text: text,
+                    embeds: embeds.Select(ToEmbed).ToArray(),
+                    allowedMentions: AllowedMentions.None,
+                    components: Lists(lists))
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        });
+    }
+
+    public Task<DiscordPostOutcome> EditWithListsAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordSelectMenu> lists,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+        ArgumentNullException.ThrowIfNull(lists);
+
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, ChannelNeed.Edit, async channel =>
+        {
+            if (await channel.GetMessageAsync(message).ConfigureAwait(false) is not IUserMessage mine)
+                return DiscordPostOutcome.Failed("That message is gone, or was not posted by the bot.", permanent: true, notFound: true);
+
+            await mine.ModifyAsync(m =>
+            {
+                m.Content = text;
+                m.Embeds = embeds.Select(ToEmbed).ToArray();
+                m.AllowedMentions = AllowedMentions.None;
+                m.Components = Lists(lists);
+            }).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(messageId);
+        });
+    }
+
     public async Task<bool?> ReadOnboardingOnAsync(string guildId, CancellationToken ct)
     {
         // The server is the one the bot already holds in memory: no request to fetch it. Only the
@@ -2963,6 +3017,7 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             DiscordOptionKind.WholeNumber => ApplicationCommandOptionType.Integer,
             DiscordOptionKind.Member => ApplicationCommandOptionType.User,
             DiscordOptionKind.Channel => ApplicationCommandOptionType.Channel,
+            DiscordOptionKind.Role => ApplicationCommandOptionType.Role,
             DiscordOptionKind.YesNo => ApplicationCommandOptionType.Boolean,
             _ => ApplicationCommandOptionType.String,
         };
@@ -3052,7 +3107,23 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
             return Buttons(links: null, buttons);
 
         var builder = new ComponentBuilder();
+        AddSelect(builder, select);
+        return builder.Build();
+    }
 
+    /// <summary>Up to five drop-down lists, one to a row.</summary>
+    private static MessageComponent Lists(IReadOnlyList<DiscordSelectMenu> lists)
+    {
+        var builder = new ComponentBuilder();
+
+        foreach (var list in lists.Take(5))
+            AddSelect(builder, list);
+
+        return builder.Build();
+    }
+
+    private static void AddSelect(ComponentBuilder builder, DiscordSelectMenu select)
+    {
         if (select.Id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal) && select.Id.Length <= 100)
         {
             var choices = select.Choices
@@ -3075,8 +3146,6 @@ public sealed partial class DiscordNetGateway : IDiscordGateway
                     maxValues: Math.Clamp(select.MostPicks, 1, choices.Count));
             }
         }
-
-        return builder.Build();
     }
 
     /// <summary>A server emoji (<c>&lt;:name:id&gt;</c>) or a Unicode one, or null when empty.</summary>
