@@ -7,7 +7,8 @@ namespace Modbot.Core.Data.Entities;
 /// <remarks>
 /// An alert names counts, a stretch of time, and at most a world or instance. It never names a person
 /// and never says what to do about it (M8 §2, §6), so a row holds no personal data and is outside
-/// retention and purge-user, like an insight.
+/// retention and purge-user, like an insight. The one exception is the second-instance alert, which
+/// says an instance is full and has a button to open another (approved 2026-10-13).
 /// </remarks>
 public class Alert
 {
