@@ -202,6 +202,12 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<BirthdayCommand>();
         services.AddSingleton<Core.Discord.IDiscordBirthdayActions>(
             p => new Birthdays.DiscordBirthdayActions(() => p.GetRequiredService<DiscordBotService>().ReadyGateway));
+
+        // /term and /rule count their own tries too; they read the tables the Terms and rules page writes.
+        services.TryAddKeyedSingleton<MemberCommandLimits>(TermCommand.LimitsKey);
+        services.AddScoped<TermCommand>();
+        services.TryAddKeyedSingleton<MemberCommandLimits>(RuleCommand.LimitsKey);
+        services.AddScoped<RuleCommand>();
         services.AddScoped<DiscordCommandHandler>();
 
         // Acting from Discord: right-click menus, card buttons, forms and the confirmations waiting

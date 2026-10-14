@@ -64,6 +64,7 @@ import { EventCategories } from '@/pages/EventCategories'
 import { WorldLists } from '@/pages/WorldLists'
 import { Availability } from '@/pages/Availability'
 import { Partners } from '@/pages/Partners'
+import { TermsAndRules } from '@/pages/TermsAndRules'
 import { Integrations } from '@/pages/Integrations'
 import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
@@ -118,6 +119,7 @@ const TITLES: Record<PageId, string> = {
   lists: 'Lists',
   availability: 'Availability',
   partners: 'Partners',
+  'terms-and-rules': 'Terms and rules',
   chat: 'Chat',
   bans: 'Bans',
   appeals: 'Appeals',
@@ -176,6 +178,7 @@ const PATHS: Record<PageId, string> = {
   lists: '/lists',
   availability: '/availability',
   partners: '/partners',
+  'terms-and-rules': '/terms-and-rules',
   chat: '/chat',
   bans: '/bans',
   appeals: '/appeals',
@@ -705,6 +708,7 @@ function Shell({
           {page === 'lists' && <Lists />}
           {page === 'availability' && <Availability me={me} />}
           {page === 'partners' && <Partners />}
+          {page === 'terms-and-rules' && <TermsAndRules />}
           {page === 'chat' && (
             <Suspense fallback={null}>
               <Chat

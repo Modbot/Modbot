@@ -33,6 +33,9 @@ namespace Modbot.Discord.Commands;
 /// <see cref="Find"/> is for every member too and answers in private; it is off until the operator
 /// turns it on, needs no Modbot account, and lists only members who turned on Findable, matching
 /// them only on answers the searcher may read (find design).
+/// <see cref="Term"/> and <see cref="Rule"/> are for every member too and answer in private; they are
+/// off until the operator turns them on, need no Modbot account, and answer from the words staff
+/// type on the Terms and rules page.
 /// <see cref="Help"/> lists the commands the caller can use, and nothing about anybody.
 /// <see cref="Event"/> and <see cref="Post"/> are for event hosts: Discord shows them to members who
 /// may manage events (<see cref="DiscordShownTo.EventHosts"/>), and Modbot asks Manage calendar for
@@ -129,6 +132,24 @@ public static class DiscordCommands
 
     /// <summary>The day of the month <c>/birthday set</c> takes, 1 to 31.</summary>
     public const string BirthdayDayOption = "day";
+
+    /// <summary>
+    /// <c>/term</c>: what a word the community uses means, from the Terms and rules page. For every
+    /// member, private, and needs no Modbot account; off until the operator turns it on.
+    /// </summary>
+    public const string Term = "term";
+
+    /// <summary>The word <c>/term</c> explains, picked from the suggestions (a term's name or one of its other names).</summary>
+    public const string TermNameOption = "name";
+
+    /// <summary>
+    /// <c>/rule</c>: one of the community's rules, from the Terms and rules page. For every member,
+    /// private, and needs no Modbot account; off until the operator turns it on.
+    /// </summary>
+    public const string Rule = "rule";
+
+    /// <summary>The rule <c>/rule</c> shows, picked from the suggestions (its number) or typed as a number or a title.</summary>
+    public const string RuleWhichOption = "rule";
 
     /// <summary>The message menu "Report to mods": for every member, off until the operator turns it on.</summary>
     public const string ReportMenu = "Report to mods";
@@ -490,6 +511,14 @@ public static class DiscordCommands
                 new DiscordSubcommand(BirthdayRemove, "Forget your birthday", []),
             ]),
         new(
+            Term,
+            "What a word in this community means",
+            [new DiscordCommandOption(TermNameOption, "The word", DiscordOptionKind.Text, Required: true, Suggests: true, Min: 1, Max: 100)]),
+        new(
+            Rule,
+            "One of the community's rules",
+            [new DiscordCommandOption(RuleWhichOption, "Which rule", DiscordOptionKind.Text, Required: true, Suggests: true, Min: 1, Max: 100)]),
+        new(
             Link,
             "Link your VRChat account",
             []),
@@ -536,7 +565,7 @@ public static class DiscordCommands
         => For(switches, alertsOn).Select(c => c.Name).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command is Link or Me or Help or VerifyAccount or Events or RemindMe or Notify or Report or Profile or Find or Birthday;
+    public static bool IsForEveryone(string command) => command is Link or Me or Help or VerifyAccount or Events or RemindMe or Notify or Report or Profile or Find or Birthday or Term or Rule;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

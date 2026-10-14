@@ -19,7 +19,7 @@ import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import {
-  Ban, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Ellipsis, Flag, Gift, Globe, Handshake, Hash, Headset,
+  Ban, BookOpen, Bug, CalendarClock, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Ellipsis, Flag, Gift, Globe, Handshake, Hash, Headset,
   House, Logs, LogOut, Megaphone, Menu, MessageSquare, MessageSquareWarning, Monitor, Moon, Plug, Radio, Scale, ScrollText, Search, Settings, Shuffle, Sun, Tags,
   Star, UserPlus, UserRound, Users, X, Zap, type LucideIcon,
 } from 'lucide-react'
@@ -495,6 +495,7 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
   giveaways: Gift,
   availability: CalendarClock,
   partners: Handshake,
+  'terms-and-rules': BookOpen,
   integrations: Plug,
   'analytics-group': Globe,
   'analytics-server': Hash,

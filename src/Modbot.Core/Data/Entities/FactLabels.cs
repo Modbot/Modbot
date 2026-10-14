@@ -230,6 +230,8 @@ public static class FactLabels
         [FactType.PartnerCreated] = "Partner added",
         [FactType.PartnerChanged] = "Partner changed",
         [FactType.PartnerDeleted] = "Partner deleted",
+        [FactType.TermChanged] = "Term changed",
+        [FactType.RuleChanged] = "Rule changed",
 
         [FactType.PostCreated] = "Post written",
         [FactType.PostChanged] = "Post changed",

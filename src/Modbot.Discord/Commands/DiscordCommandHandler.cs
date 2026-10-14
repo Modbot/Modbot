@@ -63,6 +63,8 @@ public sealed class DiscordCommandHandler
     private readonly FindCommand? _find;
     private readonly BirthdayCommand? _birthday;
     private readonly AgeVerifiedCommand? _ageVerified;
+    private readonly TermCommand? _term;
+    private readonly RuleCommand? _rule;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -83,7 +85,9 @@ public sealed class DiscordCommandHandler
         ProfileCommand? profile = null,
         FindCommand? find = null,
         BirthdayCommand? birthday = null,
-        AgeVerifiedCommand? ageVerified = null)
+        AgeVerifiedCommand? ageVerified = null,
+        TermCommand? term = null,
+        RuleCommand? rule = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -110,6 +114,8 @@ public sealed class DiscordCommandHandler
         _find = find;
         _birthday = birthday;
         _ageVerified = ageVerified;
+        _term = term;
+        _rule = rule;
     }
 
     /// <summary>
@@ -191,6 +197,13 @@ public sealed class DiscordCommandHandler
         // For every member too, and private: a member's own birthday, a month and a day and no year.
         if (call.CommandName == DiscordCommands.Birthday)
             return await BirthdayAsync(call, gateway, ct).ConfigureAwait(false);
+
+        // For every member too, and private: the words and rules staff typed on the Terms and rules page.
+        if (call.CommandName == DiscordCommands.Term)
+            return await TermAsync(call, ct).ConfigureAwait(false);
+
+        if (call.CommandName == DiscordCommands.Rule)
+            return await RuleAsync(call, ct).ConfigureAwait(false);
 
         if (call.CommandName == DiscordCommands.Help)
             return await HelpAsync(call, ct).ConfigureAwait(false);
@@ -421,6 +434,24 @@ public sealed class DiscordCommandHandler
                 : [];
         }
 
+        // The words under /term and the rules under /rule are the same ones any member may ask for;
+        // offered only while the command is on, and not recorded either.
+        if (ask.CommandName == DiscordCommands.Term)
+        {
+            return _term is not null
+                   && await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.Term, ct).ConfigureAwait(false)
+                ? await _term.SuggestAsync(ask, ct).ConfigureAwait(false)
+                : [];
+        }
+
+        if (ask.CommandName == DiscordCommands.Rule)
+        {
+            return _rule is not null
+                   && await CommandSwitchSetting.IsOnAsync(_db, DiscordCommands.Rule, ct).ConfigureAwait(false)
+                ? await _rule.SuggestAsync(ask, ct).ConfigureAwait(false)
+                : [];
+        }
+
         // The events and dates under /event are the calendar's, for Manage calendar (and See calendar,
         // which the calendar service asks for itself).
         if (ask.CommandName == DiscordCommands.Event)
@@ -574,6 +605,47 @@ public sealed class DiscordCommandHandler
             return DiscordReply.Say(BirthdayCommand.TooFastMessage);
 
         var reply = await _birthday.RunAsync(call, gateway, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
+    }
+
+    /// <summary>
+    /// <c>/term</c>: what a word means, for any member. A call over the per-person limit is refused
+    /// and not recorded, as with <c>/birthday</c>. Recorded like every command, with no Modbot
+    /// account, no target and never the word asked about.
+    /// </summary>
+    private async Task<DiscordReply> TermAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_term is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_term.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(TermCommand.TooFastMessage);
+
+        var reply = await _term.RunAsync(call, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
+    }
+
+    /// <summary>
+    /// <c>/rule</c>: one of the community's rules, for any member. Limited and recorded like
+    /// <c>/term</c>, and never with the rule asked about.
+    /// </summary>
+    private async Task<DiscordReply> RuleAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_rule is null)
+        {
+            await RecordAsync(call, null, "unknown-command", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say("Modbot does not know that command.");
+        }
+
+        if (!_rule.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(RuleCommand.TooFastMessage);
+
+        var reply = await _rule.RunAsync(call, ct).ConfigureAwait(false);
         await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
         return reply;
     }

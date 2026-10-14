@@ -449,6 +449,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The other groups this one works with, kept by staff (partner tracker).</summary>
     public DbSet<Partner> Partners => Set<Partner>();
 
+    /// <summary>The words staff explain on the Terms and rules page, answered by <c>/term</c>.</summary>
+    public DbSet<GlossaryTerm> GlossaryTerms => Set<GlossaryTerm>();
+
+    /// <summary>The community's rules for members, kept on the Terms and rules page and answered by <c>/rule</c>.</summary>
+    public DbSet<ServerRule> ServerRules => Set<ServerRule>();
+
     /// <summary>
     /// Modbot's own log, so it can be read in the app without Seq or a disk. Written only by
     /// <c>DatabaseLogSink</c>; outbound API traffic is left out.
@@ -3482,6 +3488,27 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The page lists the most recent collab first.
             entity.HasIndex(e => e.LastCollabOn).HasDatabaseName("ix_partner_last_collab");
+        });
+
+        builder.Entity<GlossaryTerm>(entity =>
+        {
+            entity.ToTable("glossary_term");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(GlossaryTerm.MaxNameLength);
+            entity.Property(e => e.Meaning).HasMaxLength(GlossaryTerm.MaxMeaningLength);
+        });
+
+        builder.Entity<ServerRule>(entity =>
+        {
+            entity.ToTable("server_rule");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Title).HasMaxLength(ServerRule.MaxTitleLength);
+            entity.Property(e => e.Text).HasMaxLength(ServerRule.MaxTextLength);
+
+            // The page and /rule list the rules in this order.
+            entity.HasIndex(e => e.Position).HasDatabaseName("ix_server_rule_position");
         });
 
         builder.Entity<HealthWatch>(entity =>

@@ -432,6 +432,10 @@ public static class AuditVisibility
         [FactType.PartnerChanged] = AuditCategory.Operational,
         [FactType.PartnerDeleted] = AuditCategory.Operational,
 
+        // Terms and rules: staff-typed words kept on the Terms and rules page, the same shape as partners.
+        [FactType.TermChanged] = AuditCategory.Operational,
+        [FactType.RuleChanged] = AuditCategory.Operational,
+
         // Posts: Modbot's own feature, gated by See posts and Manage posts on its own tab, the same
         // shape as giveaways. Live updates reach somebody with See posts through LiveScope.
         [FactType.PostCreated] = AuditCategory.Operational,

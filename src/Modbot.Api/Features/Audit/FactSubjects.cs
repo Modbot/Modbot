@@ -162,6 +162,8 @@ public static class FactSubjects
         [FactType.PartnerCreated] = SubjectKind.Other,
         [FactType.PartnerChanged] = SubjectKind.Other,
         [FactType.PartnerDeleted] = SubjectKind.Other,
+        [FactType.TermChanged] = SubjectKind.Other,
+        [FactType.RuleChanged] = SubjectKind.Other,
 
         // The subject is the post's id: the group's own words, about nobody.
         [FactType.PostCreated] = SubjectKind.Other,

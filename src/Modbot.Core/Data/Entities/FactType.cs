@@ -854,6 +854,15 @@ public static class FactType
     public const string PartnerChanged = "modbot.partner.change";
     public const string PartnerDeleted = "modbot.partner.delete";
 
+    // ── Terms and rules (batch 3, /term and /rule). The subject is the term's or the rule's id. ──
+    //
+    // The words staff typed for the Terms and rules page: nothing keyed to a member, so a purge has
+    // nothing to find in these. The data names the title and what was done (added, changed, deleted,
+    // or for a rule also moved), never the meaning or the text.
+
+    public const string TermChanged = "modbot.term.change";
+    public const string RuleChanged = "modbot.rule.change";
+
     // ── Posts (posts design §5) ────────────────────────────────────────────────────────────
     //
     // The subject is the post's id on the Modbot platform. A person who wrote, changed, cancelled,

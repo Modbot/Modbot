@@ -111,6 +111,11 @@ export const NAV = [
   // list's rules can ask about bans, flags and 18+ verification, so who is in "banned twice" is
   // moderation history, not only membership (decided 2026-10-01). Making one is the page's own check.
   { id: 'lists', label: 'Lists', group: 'Community', needsAll: ['ViewMembers', 'ViewProfile'], words: ['segments', 'regulars', 'export'] },
+  // The words the community uses and the rules for members, which /term and /rule answer from
+  // (batch 3). A reference for the whole team, so it needs no permission to read; changing it needs
+  // Change settings, which the page checks for itself. After Lists and before Partners,
+  // which stays just before Availability. No `g` letter: all twenty-six are taken.
+  { id: 'terms-and-rules', label: 'Terms and rules', group: 'Community', words: ['glossary', 'definitions', 'meaning', 'member rules', 'server rules', 'term', 'rule'] },
   // The other groups this one works with, their contacts, the last collab and the envoy (partner
   // tracker). Staff only: one permission opens it and changes it. After Lists and before
   // Availability, which stays last. No `g` letter: all twenty-six are taken.
@@ -232,6 +237,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   lists: 'u',
   availability: 'z',
   partners: '',
+  'terms-and-rules': '',
   chat: 'c',
   bans: 'b',
   appeals: '',
