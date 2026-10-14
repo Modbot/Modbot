@@ -803,6 +803,14 @@ public class Settings
     /// <summary>What went wrong the last time the pass tried, in a sentence. Null when it went well.</summary>
     public string? BirthdayProblem { get; set; }
 
+    // --- Invite tracking in Discord ---
+
+    /// <summary>
+    /// Whether Modbot records which invite each new member used. Off to start, since it needs Manage
+    /// Server and Create Invite, which the bot's link asks for only while this is on.
+    /// </summary>
+    public bool DiscordInviteTrackingOn { get; set; }
+
     // --- Event recaps in Discord ---
 
     /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>

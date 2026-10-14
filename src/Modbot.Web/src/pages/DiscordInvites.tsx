@@ -104,6 +104,14 @@ function InviteReport({ canChange }: { canChange: boolean }) {
     slot: nextSlot(i),
   }))
 
+  if (!report.trackingOn) {
+    return (
+      <Panel title="Invite tracking">
+        <EmptyRow>Off</EmptyRow>
+      </Panel>
+    )
+  }
+
   return (
     <>
       {report.missingPermission && (

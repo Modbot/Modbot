@@ -14,6 +14,7 @@ namespace Modbot.Core.Discord;
 public static class DiscordInvite
 {
     // Discord's permission bits.
+    public const long CreateInvite = 1L << 0;
     public const long RemoveMembers = 1L << 1;
     public const long BanMembers = 1L << 2;
     public const long ViewAuditLog = 1L << 7;
@@ -61,6 +62,11 @@ public static class DiscordInvite
         // itself needs nothing beyond the base set.
         if (settings.EventRecapsOn)
             permissions |= CreatePublicThreads;
+
+        // Invite tracking reads the server's invites to see which one went up (Manage Server) and
+        // makes one invite per name on the Invites tab (Create Invite).
+        if (settings.DiscordInviteTrackingOn)
+            permissions |= ManageGuild | CreateInvite;
 
         // The join gate gives the member role, removes people who do not finish when the operator
         // set a removal time, and pauses invites only when the operator allowed it (join gate

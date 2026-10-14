@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Api.Features.DiscordInvites;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -56,11 +57,20 @@ public class DiscordInviteTests
         }
     }
 
-    private static async Task<(ReadSurfaceTestHost Host, FakeInviteActions Discord)> StartAsync(PostgresFixture db)
+    private static async Task<(ReadSurfaceTestHost Host, FakeInviteActions Discord)> StartAsync(PostgresFixture db, bool trackingOn = true)
     {
         var discord = new FakeInviteActions();
         var host = await ReadSurfaceTestHost.StartAsync(db, configure: s => s.AddSingleton<IDiscordInviteActions>(discord));
         await host.ResetAsync(Ct);
+
+        if (trackingOn)
+        {
+            using var scope = host.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            (await context.GetSettingsAsync(Ct)).DiscordInviteTrackingOn = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
         return (host, discord);
     }
 
@@ -156,6 +166,53 @@ public class DiscordInviteTests
         Assert.Equal(1, discord.Reads);
         Assert.True(told.MissingPermission);
         Assert.Contains("Manage Server", told.ReadError);
+    }
+
+    [Fact]
+    public async Task WhileTrackingIsOff_TheReportSaysSo_DiscordIsNotAsked_AndNothingIsMade()
+    {
+        var (host, discord) = await StartAsync(_db, trackingOn: false);
+        await using var _ = host;
+        var staff = await host.SignedInAsync(ModbotPermissions.ViewAnalytics | ModbotPermissions.ManageSettings, Ct);
+
+        var report = await host.GetJsonAsync<DiscordInvitesResponse>("/api/discord/invites", staff, Ct);
+
+        Assert.False(report.TrackingOn);
+        Assert.Equal(0, discord.Reads);
+        Assert.Null(report.ReadError);
+
+        Assert.Equal("Invite tracking is off.", await ErrorAsync(
+            await host.PostJsonAsync("/api/discord/invites/create", new { channelId = "900", names = new[] { "Linktree" } }, staff, Ct)));
+        Assert.Empty(discord.Created);
+    }
+
+    [Fact]
+    public async Task TheTrackingSwitch_IsOffToStart_IsSavedAndAudited_AndIsForSomebodyWhoCanChangeSettings()
+    {
+        var (host, _) = await StartAsync(_db, trackingOn: false);
+        await using var _ = host;
+        var staff = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var viewer = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        const string Url = "/api/settings/discord-invite-tracking";
+
+        Assert.False((await host.GetJsonAsync<DiscordInviteTrackingSettingsResponse>(Url, staff, Ct)).On);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.PutJsonAsync(Url, new { on = true }, viewer, Ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await host.PutJsonAsync(Url, new { on = true }, staff, Ct)).StatusCode);
+        Assert.True((await host.GetJsonAsync<DiscordInviteTrackingSettingsResponse>(Url, staff, Ct)).On);
+
+        // Saving the same again records nothing more.
+        Assert.Equal(HttpStatusCode.OK, (await host.PutJsonAsync(Url, new { on = true }, staff, Ct)).StatusCode);
+
+        using var scope = host.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var facts = await context.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.SettingsChanged)
+            .ToListAsync(Ct);
+
+        var change = Assert.Single(facts, f => ApiTestHost.DataOf(f).TryGetProperty("setting", out var name) && name.GetString() == "discordInviteTrackingOn");
+        Assert.False(ApiTestHost.DataOf(change).GetProperty("before").GetBoolean());
+        Assert.True(ApiTestHost.DataOf(change).GetProperty("after").GetBoolean());
     }
 
     [Fact]

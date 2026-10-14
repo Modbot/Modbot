@@ -430,6 +430,9 @@ export type DiscordEventRecapSettings = {
   problem: string | null
 }
 
+/** Settings → Discord → Invite tracking. */
+export type DiscordInviteTrackingSettings = { on: boolean }
+
 /** Settings → Discord → Member milestones. */
 export type DiscordMilestoneSettings = {
   firstAt: number
@@ -2515,6 +2518,8 @@ export type DiscordInvitesReport = {
   missingPermission: boolean
   mostNameLength: number
   mostCreatedAtOnce: number
+  /** Invite tracking is on in Settings → Discord. */
+  trackingOn: boolean
 }
 
 export type DiscordInviteMade = { name: string; code: string | null; error: string | null }
@@ -5324,6 +5329,12 @@ export const api = {
 
   setDiscordEventRecapSettings: (body: { on: boolean; channelId: string }) =>
     put<DiscordEventRecapSettings>('/api/settings/discord-event-recaps', body),
+
+  discordInviteTrackingSettings: () =>
+    request<DiscordInviteTrackingSettings>('/api/settings/discord-invite-tracking'),
+
+  setDiscordInviteTrackingSettings: (body: { on: boolean }) =>
+    put<DiscordInviteTrackingSettings>('/api/settings/discord-invite-tracking', body),
 
   discordMilestoneSettings: () => request<DiscordMilestoneSettings>('/api/settings/discord-milestones'),
 

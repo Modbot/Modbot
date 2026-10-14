@@ -9033,6 +9033,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("discord_instance_show_names");
 
+                    b.Property<bool>("DiscordInviteTrackingOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_invite_tracking_on");
+
                     b.Property<string>("DiscordLinkBackupChannelId")
                         .HasColumnType("text")
                         .HasColumnName("discord_link_backup_channel_id");

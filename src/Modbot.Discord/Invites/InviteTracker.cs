@@ -22,7 +22,12 @@ namespace Modbot.Discord.Invites;
 /// <strong>When it cannot tell.</strong> No invite went up (the join came through a link Modbot does
 /// not see, such as one used while the bot was offline) or more than one did (two people joined
 /// through different links at once): the join is kept with no invite. An invite used up on this
-/// very join is already gone from Discord's list, so one that allowed exactly one more use counts.
+/// very join is already gone from Discord's list, so one that allowed exactly one more use and was
+/// marked gone a moment ago counts.
+/// </para>
+/// <para>
+/// Only while invite tracking is on in the settings: while it is off every entry point does nothing,
+/// so no join, invite or count is recorded.
 /// </para>
 /// <para>
 /// One at a time: every change to the counts goes through <see cref="OneAtATime"/>, since two joins
@@ -39,7 +44,11 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
     /// </summary>
     public static readonly TimeSpan NewInvite = TimeSpan.FromMinutes(10);
 
-    /// <summary>How long an invite that has just gone still counts as the one a join used up.</summary>
+    /// <summary>
+    /// How long an invite that has just been marked gone still counts as the one a join used up.
+    /// An invite that Modbot has not heard was deleted is not taken for it, since it may have
+    /// expired long ago: that join is kept with no invite.
+    /// </summary>
     public static readonly TimeSpan JustGone = TimeSpan.FromMinutes(1);
 
     /// <summary>Records one person joining, with the invite they used when that is clear. Bots are left out.</summary>
@@ -56,6 +65,9 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
         try
         {
+            if (!await IsOnAsync(ct).ConfigureAwait(false))
+                return;
+
             var now = clock.UtcNow;
             var read = await gateway.ReadInvitesAsync(join.GuildId, ct).ConfigureAwait(false);
             var used = read.Ok ? await UsedAsync(read.Invites, now, ct).ConfigureAwait(false) : null;
@@ -88,6 +100,9 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
         try
         {
+            if (!await IsOnAsync(ct).ConfigureAwait(false))
+                return;
+
             var now = clock.UtcNow;
             var known = await db.DiscordInviteLinks.ToDictionaryAsync(i => i.Code, ct).ConfigureAwait(false);
             var live = invites.Select(i => i.Code).ToHashSet(StringComparer.Ordinal);
@@ -126,7 +141,8 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
         try
         {
-            if (!await db.DiscordInviteLinks.AnyAsync(i => i.Code == invite.Code, ct).ConfigureAwait(false))
+            if (await IsOnAsync(ct).ConfigureAwait(false)
+                && !await db.DiscordInviteLinks.AnyAsync(i => i.Code == invite.Code, ct).ConfigureAwait(false))
             {
                 Add(invite, invite.Uses, clock.UtcNow);
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -147,7 +163,8 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
         try
         {
-            if (await db.DiscordInviteLinks.FirstOrDefaultAsync(i => i.Code == code, ct).ConfigureAwait(false) is { GoneAt: null } row)
+            if (await IsOnAsync(ct).ConfigureAwait(false)
+                && await db.DiscordInviteLinks.FirstOrDefaultAsync(i => i.Code == code, ct).ConfigureAwait(false) is { GoneAt: null } row)
             {
                 row.GoneAt = clock.UtcNow;
                 await db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -172,6 +189,9 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
 
         try
         {
+            if (!await IsOnAsync(ct).ConfigureAwait(false))
+                return;
+
             var row = await db.DiscordInviteLinks.FirstOrDefaultAsync(i => i.Code == invite.Code, ct).ConfigureAwait(false)
                 ?? Add(invite, invite.Uses, clock.UtcNow);
 
@@ -184,6 +204,12 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
             OneAtATime.Release();
         }
     }
+
+    private async Task<bool> IsOnAsync(CancellationToken ct)
+        => await db.Settings.AsNoTracking()
+            .Select(s => s.DiscordInviteTrackingOn)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
 
     private async Task<DiscordInviteLink?> UsedAsync(IReadOnlyList<DiscordInviteSnapshot> invites, DateTimeOffset now, CancellationToken ct)
     {
@@ -215,8 +241,9 @@ public sealed class InviteTracker(ModbotContext db, IModbotClock clock)
         }
 
         // An invite with one use left is deleted by Discord as it is used, so it is missing from the list.
+        // Only one marked gone a moment ago: one Modbot never heard was deleted may have expired long ago.
         foreach (var row in known.Values.Where(r => !live.Contains(r.Code) && r.MaxUses > 0 && r.Uses + 1 == r.MaxUses
-            && (r.GoneAt is null || now - r.GoneAt.Value <= JustGone)))
+            && r.GoneAt is { } gone && now - gone <= JustGone))
         {
             candidates.Add((row, row.MaxUses, true));
         }

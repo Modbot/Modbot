@@ -583,6 +583,7 @@ public static class ApiSurface
 
         // The recap posted when an event's instance has closed.
         app.MapDiscordEventRecapSettings();
+        app.MapDiscordInviteTrackingSettings();
 
         // Member milestones: the posts and the Regular role.
         app.MapDiscordMilestoneSettings();

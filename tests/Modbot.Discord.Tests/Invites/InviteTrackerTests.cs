@@ -57,7 +57,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task The_invite_whose_count_went_up_is_the_one_used()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 4), Invite(Partner, 9)]);
         await SeedAsync(services, gateway);
@@ -71,7 +71,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task Two_joins_in_a_row_are_each_given_their_own_invite()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 0), Invite(Partner, 0)]);
         await SeedAsync(services, gateway);
@@ -89,7 +89,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task The_vanity_link_is_a_source_of_its_own()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 0), Invite("thy-kingdom", 20, vanity: true)]);
         await SeedAsync(services, gateway);
@@ -107,7 +107,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task Two_invites_going_up_at_once_cannot_be_told_apart()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 0), Invite(Partner, 0)]);
         await SeedAsync(services, gateway);
@@ -128,7 +128,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task No_count_going_up_leaves_the_join_with_no_invite()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.Add(Invite(Linktree, 3));
         await SeedAsync(services, gateway);
@@ -141,13 +141,16 @@ public class InviteTrackerTests
     [Fact]
     public async Task A_single_use_invite_that_vanished_as_somebody_joined_is_theirs()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.AddRange([Invite(Linktree, 0), Invite("once", 0, maxUses: 1)]);
         await SeedAsync(services, gateway);
 
-        // Discord deletes an invite as its last use is spent.
+        // Discord deletes an invite as its last use is spent, and Modbot hears of it.
         gateway.Invites.RemoveAt(1);
+        using (var scope = services.Scope())
+            await scope.ServiceProvider.GetRequiredService<InviteTracker>().RemovedAsync("once", Ct);
+
         await JoinAsync(services, gateway, Join("5001"));
 
         Assert.Equal("once", await CodeOfAsync(services, "5001"));
@@ -157,9 +160,40 @@ public class InviteTrackerTests
     }
 
     [Fact]
-    public async Task A_bot_joining_is_not_counted()
+    public async Task A_single_use_invite_that_went_without_Modbot_hearing_of_it_is_not_blamed()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
+        var gateway = new FakeGateway();
+        gateway.Invites.AddRange([Invite(Linktree, 0), Invite("once", 0, maxUses: 1)]);
+        await SeedAsync(services, gateway);
+
+        // It may have expired long ago, so an unrelated join is not given to it.
+        gateway.Invites.RemoveAt(1);
+        await JoinAsync(services, gateway, Join("5001"));
+
+        Assert.Null(await CodeOfAsync(services, "5001"));
+    }
+
+    [Fact]
+    public async Task While_tracking_is_off_nothing_is_recorded()
     {
         await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        var gateway = new FakeGateway();
+        gateway.Invites.Add(Invite(Linktree, 0));
+        await SeedAsync(services, gateway);
+
+        gateway.Invites[0] = Invite(Linktree, 1);
+        await JoinAsync(services, gateway, Join("5001"));
+
+        await using var db = services.Database.NewContext();
+        Assert.Empty(await db.DiscordInviteLinks.AsNoTracking().ToListAsync(Ct));
+        Assert.Empty(await db.DiscordInviteJoins.AsNoTracking().ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task A_bot_joining_is_not_counted()
+    {
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.Add(Invite(Linktree, 0));
         await SeedAsync(services, gateway);
@@ -174,7 +208,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task Without_permission_to_read_invites_the_join_is_kept_with_no_invite()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway { InvitesRefused = true };
 
         await JoinAsync(services, gateway, Join("5001"));
@@ -185,7 +219,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task An_invite_made_a_moment_ago_and_used_at_once_is_the_one_used()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.Add(Invite(Linktree, 0));
         await SeedAsync(services, gateway);
@@ -200,7 +234,7 @@ public class InviteTrackerTests
     [Fact]
     public async Task A_deleted_invite_is_kept_and_marked_gone()
     {
-        await using var services = await SyncSetUp.CreateAsync(_db, null, Ct);
+        await using var services = await SyncSetUp.CreateAsync(_db, s => s.DiscordInviteTrackingOn = true, Ct);
         var gateway = new FakeGateway();
         gateway.Invites.Add(Invite(Linktree, 0));
         await SeedAsync(services, gateway);

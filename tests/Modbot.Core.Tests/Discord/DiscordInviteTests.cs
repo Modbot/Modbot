@@ -66,6 +66,32 @@ public class DiscordInviteTests
     }
 
     [Fact]
+    public void InviteTrackingIsOn_ManageServerAndCreateInviteAreAskedFor()
+    {
+        var permissions = DiscordInvite.PermissionsFor(new Settings { DiscordInviteTrackingOn = true });
+
+        Assert.Equal(DiscordInvite.ManageGuild, permissions & DiscordInvite.ManageGuild);
+        Assert.Equal(DiscordInvite.CreateInvite, permissions & DiscordInvite.CreateInvite);
+    }
+
+    [Fact]
+    public void InviteTrackingIsOff_ManageServerAndCreateInviteAreNotAskedFor()
+    {
+        var permissions = DiscordInvite.PermissionsFor(new Settings { DiscordInviteTrackingOn = false });
+
+        Assert.Equal(0, permissions & DiscordInvite.ManageGuild);
+        Assert.Equal(0, permissions & DiscordInvite.CreateInvite);
+    }
+
+    [Fact]
+    public void CreateInvite_IsDiscordsBitZero()
+        => Assert.Equal(1L, DiscordInvite.CreateInvite);
+
+    [Fact]
+    public void ManageGuild_IsDiscordsBitFive()
+        => Assert.Equal(0x20, DiscordInvite.ManageGuild);
+
+    [Fact]
     public void CreatePublicThreads_IsDiscordsBitThirtyFive()
         => Assert.Equal(1L << 35, DiscordInvite.CreatePublicThreads);
 

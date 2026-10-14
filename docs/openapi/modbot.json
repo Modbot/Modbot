@@ -14247,6 +14247,114 @@
         ]
       }
     },
+    "/api/settings/discord-invite-tracking": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get invite tracking settings",
+        "description": "Whether Modbot records which invite each new Discord member used.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetDiscordInviteTrackingSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordInviteTrackingSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update invite tracking settings",
+        "description": "Turn invite tracking on or off. While it is on the bot's invite link asks for Manage Server and Create Invite, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetDiscordInviteTrackingSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordInviteTrackingSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordInviteTrackingSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-milestones": {
       "get": {
         "tags": [
@@ -15547,7 +15655,7 @@
           "Discord"
         ],
         "summary": "List invites and the joins each brought",
-        "description": "The server's invites with their names and how many people joined through each, and the joins per source, per day, for the last `days` days (1 to 365, default 30). Invites with the same name are one source; the vanity link is its own; joins Modbot could not trace are Unknown. For somebody who may change settings it first reads the invites from Discord, which needs Manage Server, and says in `readError` when that failed.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The server's invites with their names and how many people joined through each, and the joins per source, per day, for the last `days` days (1 to 365, default 30). Invites with the same name are one source; the vanity link is its own; joins Modbot could not trace are Unknown. `trackingOn` is false while invite tracking is off. For somebody who may change settings it first reads the invites from Discord, which needs Manage Server, and says in `readError` when that failed.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "ListDiscordInvites",
         "parameters": [
           {
@@ -15691,7 +15799,7 @@
           "Discord"
         ],
         "summary": "Make an invite for each name",
-        "description": "Make one invite for each name, to the given channel, with no expiry and no limit on uses, and name each. At most 20 at a time. Needs Create Invite in the channel. Answers 200 with what each name came to; a name Discord refused has an `error`, and `missingPermission` is set when the permission is why.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Make one invite for each name, to the given channel, with no expiry and no limit on uses, and name each. At most 20 at a time. Needs invite tracking on, and Create Invite in the channel. Answers 200 with what each name came to; a name Discord refused has an `error`, and `missingPermission` is set when the permission is why.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CreateDiscordInvites",
         "requestBody": {
           "content": {
@@ -46508,6 +46616,28 @@
           }
         }
       },
+      "DiscordInviteTrackingSettingsResponse": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiscordInviteTrackingSettingsUpdate": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
       "DiscordInviteView": {
         "required": [
           "id",
@@ -46563,7 +46693,8 @@
           "readError",
           "missingPermission",
           "mostNameLength",
-          "mostCreatedAtOnce"
+          "mostCreatedAtOnce",
+          "trackingOn"
         ],
         "type": "object",
         "properties": {
@@ -46613,6 +46744,9 @@
           "mostCreatedAtOnce": {
             "type": "integer",
             "format": "int32"
+          },
+          "trackingOn": {
+            "type": "boolean"
           }
         }
       },

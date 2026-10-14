@@ -43,6 +43,7 @@ public sealed record DiscordInviteSeries(string Name, IReadOnlyList<DayValue> Da
 /// they were read, and always null for anybody else, since only the first is asked to fix it.
 /// </param>
 /// <param name="MissingPermission">The read was refused for want of Manage Server.</param>
+/// <param name="TrackingOn">Invite tracking is on. While it is off nothing is recorded and the rest is what was recorded before.</param>
 public sealed record DiscordInvitesResponse(
     DateOnly From,
     DateOnly To,
@@ -53,7 +54,8 @@ public sealed record DiscordInvitesResponse(
     string? ReadError,
     bool MissingPermission,
     int MostNameLength,
-    int MostCreatedAtOnce);
+    int MostCreatedAtOnce,
+    bool TrackingOn);
 
 public sealed record DiscordInviteNameBody(string? Name);
 
@@ -78,8 +80,9 @@ public sealed record DiscordInviteCreateResponse(IReadOnlyList<DiscordInviteMade
 /// </para>
 /// <para>
 /// <strong>What Discord needs.</strong> Reading invites needs Manage Server on the bot, making one needs
-/// Create Invite in the channel. Only somebody who may fix that is told Discord refused: the read is
-/// asked of Discord only for them.
+/// Create Invite in the channel; the bot's link asks for both only while invite tracking is on (Settings
+/// → Discord), and while it is off nothing is read, recorded or made. Only somebody who may fix that is
+/// told Discord refused: the read is asked of Discord only for them.
 /// </para>
 /// </remarks>
 public static class DiscordInviteEndpoints
@@ -106,8 +109,10 @@ public static class DiscordInviteEndpoints
             {
                 var span = Math.Clamp(days ?? 30, 1, DiscordInviteLimits.MostDays);
 
+                var trackingOn = (await db.GetSettingsAsync(ct)).DiscordInviteTrackingOn;
+
                 // Read first, so a new invite shows with its name field on the same visit.
-                var read = ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageSettings)
+                var read = trackingOn && ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageSettings)
                     ? await discord.ReadAsync(ct)
                     : InviteSiteOutcome.Ok;
 
@@ -117,6 +122,7 @@ public static class DiscordInviteEndpoints
                 {
                     ReadError = read.Done ? null : read.Error,
                     MissingPermission = read.MissingPermission,
+                    TrackingOn = trackingOn,
                 });
             })
             .WithName("ListDiscordInvites")
@@ -125,7 +131,7 @@ public static class DiscordInviteEndpoints
                 "The server's invites with their names and how many people joined through each, and the "
                 + "joins per source, per day, for the last `days` days (1 to 365, default 30). Invites with "
                 + "the same name are one source; the vanity link is its own; joins Modbot could not trace "
-                + "are Unknown. For somebody who may change settings it first reads the invites from "
+                + "are Unknown. `trackingOn` is false while invite tracking is off. For somebody who may change settings it first reads the invites from "
                 + "Discord, which needs Manage Server, and says in `readError` when that failed.")
             .Produces<DiscordInvitesResponse>()
             .Produces(StatusCodes.Status403Forbidden)
@@ -181,10 +187,14 @@ public static class DiscordInviteEndpoints
         group.MapPost("/create", async (
                 HttpContext http,
                 [FromBody] DiscordInviteCreateBody body,
+                [FromServices] ModbotContext db,
                 [FromServices] IDiscordInviteActions discord,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
+
+                if (!(await db.GetSettingsAsync(ct)).DiscordInviteTrackingOn)
+                    return Results.BadRequest(new { error = "Invite tracking is off." });
 
                 if (string.IsNullOrWhiteSpace(body.ChannelId))
                     return Results.BadRequest(new { error = "Pick the channel the invites lead to." });
@@ -227,7 +237,7 @@ public static class DiscordInviteEndpoints
             .WithSummary("Make an invite for each name")
             .WithDescription(
                 "Make one invite for each name, to the given channel, with no expiry and no limit on uses, "
-                + "and name each. At most 20 at a time. Needs Create Invite in the channel. Answers 200 with "
+                + "and name each. At most 20 at a time. Needs invite tracking on, and Create Invite in the channel. Answers 200 with "
                 + "what each name came to; a name Discord refused has an `error`, and `missingPermission` "
                 + "is set when the permission is why.")
             .Produces<DiscordInviteCreateResponse>()
@@ -346,7 +356,8 @@ public static class DiscordInviteEndpoints
             null,
             false,
             DiscordInviteLimits.MostNameLength,
-            DiscordInviteLimits.MostCreatedAtOnce);
+            DiscordInviteLimits.MostCreatedAtOnce,
+            false);
     }
 
     /// <summary>A count for every day of the range, nought where nobody joined, so a column is drawn for each.</summary>
