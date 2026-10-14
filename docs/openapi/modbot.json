@@ -8080,7 +8080,7 @@
           "Settings"
         ],
         "summary": "Update Bluesky settings",
-        "description": "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, at most 5, each at most 64 characters; empty clears them), PinNextEvent (keep the next calendar date's post pinned on the profile), or any of them. Only an app password is taken (four groups of four letters or digits, made in Bluesky's settings); anything else is refused with \"Use an app password.\". It is kept encrypted and never returned. Saving the handle or the app password clears what the last Check found, and posts wait until Check passes again. Posting on needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, at most 5, each at most 64 characters; empty clears them), PinNextEvent (keep the next calendar date's post pinned on the profile), LineupOn, LineupDay (0 is Sunday), LineupHour (0 to 23) and LineupTimeZone (an IANA name, empty for UTC): once a week the next seven days' public dates go out as one post, or any of them. Only an app password is taken (four groups of four letters or digits, made in Bluesky's settings); anything else is refused with \"Use an app password.\". It is kept encrypted and never returned. Saving the handle or the app password clears what the last Check found, and posts wait until Check passes again. Posting on needs a Check that passed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetBlueskySettings",
         "requestBody": {
           "content": {
@@ -44175,6 +44175,32 @@
               "null",
               "boolean"
             ]
+          },
+          "lineupOn": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "lineupDay": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "lineupHour": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "lineupTimeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -44244,6 +44270,26 @@
           "pinNextEvent": {
             "type": "boolean",
             "default": false
+          },
+          "lineupOn": {
+            "type": "boolean",
+            "default": false
+          },
+          "lineupDay": {
+            "type": "integer",
+            "format": "int32",
+            "default": 1
+          },
+          "lineupHour": {
+            "type": "integer",
+            "format": "int32",
+            "default": 12
+          },
+          "lineupTimeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
