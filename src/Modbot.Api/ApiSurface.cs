@@ -25,6 +25,7 @@ using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.DiscordReports;
 using Modbot.Api.Features.DiscordInvites;
 using Modbot.Api.Features.DiscordSnapshots;
+using Modbot.Api.Features.Supporters;
 using Modbot.Api.Features.DiscordRoleMenus;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Mcp;
@@ -175,6 +176,10 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Discord.IDiscordSnapshotActions, Core.Discord.NoDiscordSnapshotActions>();
         services.TryAddSingleton<Core.Discord.IDiscordVoteActions, Core.Discord.NoDiscordVoteActions>();
         services.TryAddScoped<Core.Votes.VoteService>();
+
+        // Supporter perks: Ko-fi's payment messages are taken in here; the bot's job gives the roles and is woken by the signal.
+        services.TryAddSingleton<Core.Supporters.SupporterSignal>();
+        services.TryAddScoped<Core.Supporters.SupporterIntake>();
         services.TryAddSingleton<Core.Discord.IDiscordBirthdayActions, Core.Discord.NoDiscordBirthdayActions>();
         services.TryAddSingleton<Core.Discord.IDiscordAgeActions, Core.Discord.NoDiscordAgeActions>();
         services.TryAddScoped<Core.Users.IAgeCheck, Features.AgeChecks.AgeCheck>();
@@ -605,6 +610,7 @@ public static class ApiSurface
         app.MapDiscordEventSummarySettings();
         app.MapDiscordInviteTrackingSettings();
         app.MapDiscordSnapshotSettings();
+        app.MapSupporterSettings();
 
         // Member milestones: the posts and the Regular role.
         app.MapDiscordMilestoneSettings();
@@ -629,6 +635,10 @@ public static class ApiSurface
 
         // Votes: a question with a button for each option, posted in a channel.
         app.MapVotes();
+
+        // Supporters: Ko-fi's payment messages in, tiers and the roles each gives, who pays.
+        app.MapKofiWebhook();
+        app.MapSupporters();
 
         // Which group role goes with which Discord role, which side decides, and whether bans
         // cross over (M5 §3, §4).

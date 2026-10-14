@@ -128,6 +128,12 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkedRoles>();
         services.AddScoped<LinkPrompt>();
 
+        // Supporter perks: the roles each tier gives, taken back when a payment does not come, and the
+        // thank-you message. The signal is shared with the API, which wakes the job on a payment.
+        services.TryAddSingleton<Core.Supporters.SupporterSignal>();
+        services.AddScoped<Supporters.SupporterRoles>();
+        services.AddHostedService<Supporters.SupporterRoleService>();
+
         // The one-time reminder to link, sent slowly to members who have not (account links).
         services.AddScoped<LinkNudges>();
         services.AddHostedService<LinkNudgeService>();

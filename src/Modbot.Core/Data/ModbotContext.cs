@@ -324,6 +324,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The lines of each trial's checklist, with the answers and sign-offs.</summary>
     public DbSet<StaffTrialItem> StaffTrialItems => Set<StaffTrialItem>();
 
+    /// <summary>The levels supporters pay at, each with the Discord role and the VRChat group role it gives.</summary>
+    public DbSet<SupporterTier> SupporterTiers => Set<SupporterTier>();
+
+    /// <summary>People who pay monthly through Ko-fi, and the roles Modbot gave them.</summary>
+    public DbSet<Supporter> Supporters => Set<Supporter>();
+
+    /// <summary>Each supporter payment taken in, so a repeated message counts once.</summary>
+    public DbSet<SupporterPayment> SupporterPayments => Set<SupporterPayment>();
+
     /// <summary>Questions Modbot posts in Discord for members to vote on, open or closed.</summary>
     public DbSet<Vote> Votes => Set<Vote>();
 
@@ -2484,6 +2493,61 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasOne<Vote>().WithMany().HasForeignKey(e => e.VoteId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<VoteOption>().WithMany().HasForeignKey(e => e.OptionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<SupporterTier>(entity =>
+        {
+            entity.ToTable("supporter_tier");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Provider).HasMaxLength(16);
+            entity.Property(e => e.Key).HasMaxLength(SupporterLimits.MostTierNameLength);
+            entity.Property(e => e.Name).HasMaxLength(SupporterLimits.MostTierNameLength);
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.VRChatRoleId).HasColumnType("text");
+
+            // One tier per name on a site: the payment that names it finds it again.
+            entity.HasIndex(e => new { e.Provider, e.Key }).IsUnique().HasDatabaseName("ux_supporter_tier_key");
+        });
+
+        builder.Entity<Supporter>(entity =>
+        {
+            entity.ToTable("supporter");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Provider).HasMaxLength(16);
+            entity.Property(e => e.PayerId).HasMaxLength(80);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.GivenDiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.GivenVRChatRoleId).HasColumnType("text");
+            entity.Property(e => e.GivenVRChatUserId).HasColumnType("text");
+            entity.Property(e => e.Problem).HasMaxLength(300);
+
+            // A payment from the same person finds their row again.
+            entity.HasIndex(e => new { e.Provider, e.PayerId }).IsUnique().HasDatabaseName("ux_supporter_payer");
+
+            // The pass looks up a person's Discord account, and the purge erases by it.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_supporter_discord_user");
+
+            // A tier with supporters on it is not deleted (the endpoint says so); if it ever goes, they lose the tier.
+            entity.HasOne<SupporterTier>().WithMany().HasForeignKey(e => e.TierId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<SupporterPayment>(entity =>
+        {
+            entity.ToTable("supporter_payment");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Provider).HasMaxLength(16);
+            entity.Property(e => e.Code).HasMaxLength(100);
+
+            // The same payment arriving twice is one payment: this is what makes a repeat harmless.
+            entity.HasIndex(e => new { e.Provider, e.Code }).IsUnique().HasDatabaseName("ux_supporter_payment_code");
+            entity.HasIndex(e => e.SupporterId).HasDatabaseName("ix_supporter_payment_supporter");
+
+            entity.HasOne<Supporter>().WithMany().HasForeignKey(e => e.SupporterId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<DiscordSnapshot>(entity =>

@@ -73,6 +73,10 @@ public static class DiscordInvite
         if (settings.DiscordSnapshotRestoreOn)
             permissions |= ManageRoles;
 
+        // Supporter perks give and take the roles each Ko-fi tier is set to, which needs Manage Roles.
+        if (settings.KofiOn)
+            permissions |= ManageRoles;
+
         // The join gate gives the member role, removes people who do not finish when the operator
         // set a removal time, and pauses invites only when the operator allowed it (join gate
         // design §11), and only while it is On: Watch only does nothing in Discord, so it asks for

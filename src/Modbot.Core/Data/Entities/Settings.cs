@@ -825,6 +825,27 @@ public class Settings
     /// </summary>
     public bool DiscordSnapshotRestoreOn { get; set; }
 
+    // --- Supporters (Ko-fi) ---
+
+    /// <summary>
+    /// Whether Modbot takes in Ko-fi's payment messages. Off to start, and it cannot go on without a
+    /// verification token. Turning it on makes the bot's invite link ask for Manage Roles.
+    /// </summary>
+    public bool KofiOn { get; set; }
+
+    /// <summary>
+    /// The verification token from Ko-fi's webhook page, encrypted like every other secret (see
+    /// <c>ISecretProtector</c>). Every message carries it; one that does not match is refused.
+    /// Never returned by the API.
+    /// </summary>
+    public string? KofiVerificationTokenEncrypted { get; set; }
+
+    /// <summary>
+    /// The direct message a new supporter gets, with {name} and {tier} filled in. Null sends none.
+    /// The same message for every site.
+    /// </summary>
+    public string? SupporterThanksText { get; set; }
+
     /// <summary>
     /// When a Modbot began saving a scheduled snapshot, held only while it does and cleared after. A
     /// second Modbot on the same database that finds it set (and recent) leaves the snapshot to the first,
