@@ -59,7 +59,11 @@ public sealed record CalendarTemplateFields(
     string? DiscordDescription,
     string? GoogleTitle,
     string? GoogleDescription,
-    IReadOnlyList<Guid>? CategoryIds = null);
+    IReadOnlyList<Guid>? CategoryIds = null,
+    bool? PublishToBluesky = null,
+    int? BlueskyPostBeforeMinutes = null,
+    string? BlueskyTitle = null,
+    string? BlueskyDescription = null);
 
 /// <summary>A template as a person fills it in.</summary>
 /// <param name="Name">What the list calls it, 1 to 100 characters.</param>

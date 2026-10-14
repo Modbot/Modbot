@@ -433,6 +433,12 @@ public static class CalendarPlaces
     /// <see cref="CalendarEventPlace.GoogleCalendarId"/> is the calendar it was written to.
     /// </summary>
     public const string Google = "googleCalendar";
+
+    /// <summary>
+    /// Bluesky (added 2026-10-14). Only a word for "not set up" lists: an event's Bluesky posts are
+    /// <see cref="Post"/> rows of kind <see cref="PostKinds.EventDate"/>, never place rows.
+    /// </summary>
+    public const string Bluesky = "bluesky";
 }
 
 /// <summary>

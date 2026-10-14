@@ -64,6 +64,16 @@ namespace Modbot.Api.Features.Calendar;
 /// null ticks it when Google Calendar is set up and the event is visible to everyone. An event only
 /// the group's members see never goes, ticked or not.
 /// </param>
+/// <param name="PublishToBluesky">
+/// Post each date of the event on the Bluesky account in Settings. Null keeps what the event has;
+/// a new event starts with it off.
+/// </param>
+/// <param name="BlueskyTitle">The title Bluesky's post opens with, in place of <paramref name="Title"/>.</param>
+/// <param name="BlueskyDescription">Bluesky's own description, plain text, 300 characters at most.</param>
+/// <param name="BlueskyPostBeforeMinutes">
+/// How long before a date starts its Bluesky post goes: 60, 1440, 4320 or 10080. Null keeps what the
+/// event has.
+/// </param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -109,7 +119,11 @@ public sealed record CalendarEventRequest(
     string? DiscordDescription = null,
     string? GoogleTitle = null,
     string? GoogleDescription = null,
-    IReadOnlyList<Guid>? CategoryIds = null);
+    IReadOnlyList<Guid>? CategoryIds = null,
+    bool? PublishToBluesky = null,
+    string? BlueskyTitle = null,
+    string? BlueskyDescription = null,
+    int? BlueskyPostBeforeMinutes = null);
 
 /// <summary>A category made in Modbot, by the id an event holds it by.</summary>
 public sealed record CalendarCategoryView(Guid Id, string Name);
@@ -280,6 +294,8 @@ public sealed record CalendarPictureLinkRequest(string? Url);
 /// <param name="Featured">Whether VRChat is asked to show the event as featured.</param>
 /// <param name="Categories">The categories made in Modbot that the event carries, by name; none for an event with none.</param>
 /// <param name="PublishToGoogle">Whether the event is ticked for the Google calendar in Settings.</param>
+/// <param name="PublishToBluesky">Whether each date of the event gets its own post on Bluesky.</param>
+/// <param name="BlueskyPostBeforeMinutes">How long before a date starts its Bluesky post goes.</param>
 /// <param name="VRChatRoleIds">
 /// The group roles VRChat shows the event to, kept as VRChat said them for an event read in from
 /// VRChat; null or empty for everyone it is visible to. An event narrowed to roles is for members
@@ -352,7 +368,11 @@ public sealed record CalendarEventView(
     string? DiscordDescription = null,
     string? GoogleTitle = null,
     string? GoogleDescription = null,
-    IReadOnlyList<CalendarCategoryView>? Categories = null);
+    IReadOnlyList<CalendarCategoryView>? Categories = null,
+    bool PublishToBluesky = false,
+    int BlueskyPostBeforeMinutes = 1440,
+    string? BlueskyTitle = null,
+    string? BlueskyDescription = null);
 
 /// <summary>A time the channel streamed on Twitch while this event was on (Twitch design, step 3).</summary>
 /// <param name="Id">Twitch's stream id. Opaque.</param>
@@ -394,7 +414,7 @@ public sealed record CalendarView(
 /// Google Calendar: a key and a calendar are saved, the last Check passed and found Modbot may change
 /// events, and Sending is on (Google Calendar design §3.8).
 /// </param>
-public sealed record CalendarReadyView(bool VRChat, bool Discord, bool Google = false);
+public sealed record CalendarReadyView(bool VRChat, bool Discord, bool Google = false, bool Bluesky = false);
 
 /// <param name="PostInChannel">
 /// Post a short message in the event's channel that it is cancelled. Needs a channel on the event.

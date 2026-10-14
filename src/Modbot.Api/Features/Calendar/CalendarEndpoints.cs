@@ -13,6 +13,7 @@ using Modbot.Analytics.Calendar;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.GroupPage;
 using Modbot.Api.Features.Users;
+using Modbot.Core.Bluesky;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -1804,8 +1805,19 @@ public static class CalendarEndpoints
         var discordDescription = OwnText(body.DiscordDescription, target.DiscordDescription, "Discord description", CalendarEvent.MaxDescriptionLength, problems);
         var googleTitle = OwnText(body.GoogleTitle, target.GoogleTitle, "Google title", CalendarEvent.MaxTitleLength, problems);
         var googleDescription = OwnText(body.GoogleDescription, target.GoogleDescription, "Google description", CalendarEvent.MaxDescriptionLength, problems);
+        var blueskyTitle = OwnText(body.BlueskyTitle, target.BlueskyTitle, "Bluesky title", CalendarEvent.MaxTitleLength, problems);
+        var blueskyDescription = OwnText(body.BlueskyDescription, target.BlueskyDescription, "Bluesky description", CalendarEvent.MaxDescriptionLength, problems);
 
-        foreach (var (what, ownTitle) in new[] { ("VRChat title", vrchatTitle), ("Discord title", discordTitle), ("Google title", googleTitle) })
+        // A post holds 300 graphemes in all, so the description's own text may not be longer than that.
+        if (body.BlueskyDescription is not null && blueskyDescription is not null
+            && new StringInfo(blueskyDescription).LengthInTextElements > BlueskyText.GraphemeLimit)
+            problems.Add(CalendarBlueskyText.DescriptionTooLong);
+
+        var blueskyBefore = body.BlueskyPostBeforeMinutes ?? target.BlueskyPostBeforeMinutes;
+        if (body.BlueskyPostBeforeMinutes is { } sentBefore && !CalendarBlueskyText.IsChoice(sentBefore))
+            problems.Add(CalendarBlueskyText.BeforeNotAChoice);
+
+        foreach (var (what, ownTitle) in new[] { ("VRChat title", vrchatTitle), ("Discord title", discordTitle), ("Google title", googleTitle), ("Bluesky title", blueskyTitle) })
         {
             if (CalendarAutoLinks.HasLink(ownTitle))
                 problems.Add(LinkInTitle(what));
@@ -1972,6 +1984,8 @@ public static class CalendarEndpoints
         target.DiscordDescription = discordDescription;
         target.GoogleTitle = googleTitle;
         target.GoogleDescription = googleDescription;
+        target.BlueskyTitle = blueskyTitle;
+        target.BlueskyDescription = blueskyDescription;
         target.StartsAt = starts;
         target.EndsAt = ends;
         target.TimeZone = zone!.Id;
@@ -2014,6 +2028,8 @@ public static class CalendarEndpoints
         target.PublishToVRChat = body.PublishToVRChat;
         target.PublishToDiscord = body.PublishToDiscord;
         target.PublishToGoogle = body.PublishToGoogle ?? target.PublishToGoogle;
+        target.PublishToBluesky = body.PublishToBluesky ?? target.PublishToBluesky;
+        target.BlueskyPostBeforeMinutes = blueskyBefore;
         target.PostToChannel = body.PostToChannel;
         target.ChannelId = channelId;
         target.MentionRoleId = string.IsNullOrWhiteSpace(body.MentionRoleId) ? null : body.MentionRoleId.Trim();
@@ -2297,7 +2313,11 @@ public static class CalendarEndpoints
                 e.DiscordDescription,
                 e.GoogleTitle,
                 e.GoogleDescription,
-                [.. e.Categories.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Select(c => new CalendarCategoryView(c.Id, c.Name))]);
+                [.. e.Categories.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Select(c => new CalendarCategoryView(c.Id, c.Name))],
+                e.PublishToBluesky,
+                e.BlueskyPostBeforeMinutes,
+                e.BlueskyTitle,
+                e.BlueskyDescription);
         })];
     }
 

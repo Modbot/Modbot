@@ -27,7 +27,7 @@ namespace Modbot.Api.Features.Calendar;
 public static class CalendarReadiness
 {
     public static CalendarReadyView Of(Modbot.Core.Data.Entities.Settings? settings, IDiscordBotStatus? bot) =>
-        new(VRChat(settings), Discord(settings, bot), Google(settings));
+        new(VRChat(settings), Discord(settings, bot), Google(settings), Bluesky(settings));
 
     /// <summary>
     /// Google Calendar (added 2026-10-03): a key and a calendar, a Check that passed and found Modbot
@@ -35,6 +35,13 @@ public static class CalendarReadiness
     /// </summary>
     public static bool Google(Modbot.Core.Data.Entities.Settings? settings) =>
         settings is not null && Modbot.Core.Calendar.CalendarGoogle.Ready(settings);
+
+    /// <summary>
+    /// Bluesky (added 2026-10-14): an account that passed Check, and Posting on. Off, no event's post
+    /// is made or taken down, so a ticked event says so.
+    /// </summary>
+    public static bool Bluesky(Modbot.Core.Data.Entities.Settings? settings) =>
+        settings is { BlueskyPostingOn: true } && Modbot.Core.Posts.PostSites.BlueskyReady(settings);
 
     public static bool VRChat(Modbot.Core.Data.Entities.Settings? settings) =>
         settings is not null
@@ -49,7 +56,7 @@ public static class CalendarReadiness
 
     /// <summary>
     /// The places live events want that are not set up: <c>vrchat</c>, <c>instance</c>,
-    /// <c>discordEvent</c>, <c>channelPost</c> and <c>googleCalendar</c>, in that order.
+    /// <c>discordEvent</c>, <c>channelPost</c>, <c>googleCalendar</c> and <c>bluesky</c>, in that order.
     /// </summary>
     public static IReadOnlyList<string> NotSetUp(
         CalendarReadyView ready,
@@ -57,7 +64,8 @@ public static class CalendarReadiness
         bool wantsInstance,
         bool wantsDiscordEvent,
         bool wantsChannelPost,
-        bool wantsGoogle = false)
+        bool wantsGoogle = false,
+        bool wantsBluesky = false)
     {
         ArgumentNullException.ThrowIfNull(ready);
 
@@ -77,6 +85,9 @@ public static class CalendarReadiness
 
         if (!ready.Google && wantsGoogle)
             missing.Add(CalendarPlaces.Google);
+
+        if (!ready.Bluesky && wantsBluesky)
+            missing.Add(CalendarPlaces.Bluesky);
 
         return missing;
     }

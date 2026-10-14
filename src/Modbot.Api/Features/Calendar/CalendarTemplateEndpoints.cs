@@ -362,7 +362,11 @@ public static class CalendarTemplateEndpoints
             DiscordDescription: target.DiscordDescription,
             GoogleTitle: target.GoogleTitle,
             GoogleDescription: target.GoogleDescription,
-            CategoryIds: [.. (categories ?? []).Select(c => c.Id).Order()]));
+            CategoryIds: [.. (categories ?? []).Select(c => c.Id).Order()],
+            PublishToBluesky: fields.PublishToBluesky,
+            BlueskyPostBeforeMinutes: fields.BlueskyPostBeforeMinutes,
+            BlueskyTitle: target.BlueskyTitle,
+            BlueskyDescription: target.BlueskyDescription));
     }
 
     /// <summary>
@@ -418,6 +422,10 @@ public static class CalendarTemplateEndpoints
             DiscordDescription: f.DiscordDescription,
             GoogleTitle: f.GoogleTitle,
             GoogleDescription: f.GoogleDescription,
-            CategoryIds: f.CategoryIds);
+            CategoryIds: f.CategoryIds,
+            PublishToBluesky: f.PublishToBluesky,
+            BlueskyTitle: f.BlueskyTitle,
+            BlueskyDescription: f.BlueskyDescription,
+            BlueskyPostBeforeMinutes: f.BlueskyPostBeforeMinutes);
     }
 }

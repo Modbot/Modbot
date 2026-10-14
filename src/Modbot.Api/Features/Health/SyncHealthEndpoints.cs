@@ -373,6 +373,7 @@ public static class SyncHealthEndpoints
                 e.AutoOpen,
                 e.OccurrenceStartsAt,
                 e.PublishToGoogle,
+                e.PublishToBluesky,
                 e.Visibility,
                 e.VRChatRoleIds,
             })
@@ -434,7 +435,8 @@ public static class SyncHealthEndpoints
             wantsChannelPost: live.Any(e => e.PostToChannel),
             // A members-only event never goes to Google, so it never wants Google set up: the
             // same rule the sending loop follows.
-            wantsGoogle: live.Any(e => e.PublishToGoogle && !Modbot.Core.Calendar.CalendarGoogle.MembersOnly(e.Visibility, e.VRChatRoleIds)));
+            wantsGoogle: live.Any(e => e.PublishToGoogle && !Modbot.Core.Calendar.CalendarGoogle.MembersOnly(e.Visibility, e.VRChatRoleIds)),
+            wantsBluesky: live.Any(e => e.PublishToBluesky));
 
         return problems.Count == 0 && !missingManageEvents && !missingCreateEvents && notSetUp.Count == 0 && duplicates.Count == 0 && googleLimitedUntil is null
             ? null
