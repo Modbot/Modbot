@@ -671,6 +671,11 @@ const SENTENCES: Record<string, Sentence> = {
   // list. Never "closed": that word is VRChat's, for a moderator who did it.
   'modbot.instance.end': (p) => <>{p.place ?? 'An instance'} ended on its own.</>,
 
+  // A moderator pressed Open second instance on an alert; the entry's world and instance are the new one.
+  'modbot.instance.second.open': (p) => (
+    <>{p.actor} opened {p.place ?? 'a second instance'} because the first was full.</>
+  ),
+
   'vrchat.group.instance.update': (p) => (
     <>
       {p.actor} changed {p.place ?? 'an instance'}
