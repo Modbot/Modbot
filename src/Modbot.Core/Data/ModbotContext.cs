@@ -300,6 +300,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Who the smart welcome has seen, so each member is welcomed once (smart welcome design §5.1).</summary>
     public DbSet<DiscordWelcome> DiscordWelcomes => Set<DiscordWelcome>();
 
+    /// <summary>The one link reminder each Discord member is ever sent.</summary>
+    public DbSet<DiscordLinkNudge> DiscordLinkNudges => Set<DiscordLinkNudge>();
+
     /// <summary>Messages with buttons or a drop-down list that give people roles.</summary>
     public DbSet<DiscordRoleMenu> DiscordRoleMenus => Set<DiscordRoleMenu>();
 
@@ -2511,6 +2514,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.ToTable("discord_welcome");
 
             // One row per member: the key is what lets only one of two racing events send.
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+        });
+
+        builder.Entity<DiscordLinkNudge>(entity =>
+        {
+            entity.ToTable("discord_link_nudge");
+
+            // One row per member, ever: the key is what keeps a reminder from going out twice.
             entity.HasKey(e => e.DiscordUserId);
             entity.Property(e => e.DiscordUserId).HasColumnType("text");
             entity.Property(e => e.State).HasMaxLength(16);

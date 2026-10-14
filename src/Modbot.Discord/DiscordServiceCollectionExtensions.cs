@@ -123,6 +123,10 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkedRoles>();
         services.AddScoped<LinkPrompt>();
 
+        // The one-time reminder to link, sent slowly to members who have not (account links).
+        services.AddScoped<LinkNudges>();
+        services.AddHostedService<LinkNudgeService>();
+
         // The next steps a new member is sent (smart welcome design).
         services.TryAddSingleton<Welcome.OnboardingCheck>();
         services.AddScoped<Welcome.SmartWelcome>();

@@ -2806,6 +2806,36 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("discord_link_code", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordLinkNudge", b =>
+                {
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text")
+                        .HasColumnName("error");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.HasKey("DiscordUserId")
+                        .HasName("pk_discord_link_nudge");
+
+                    b.ToTable("discord_link_nudge", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordListRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9077,6 +9107,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_link_backup_channel_id");
 
+                    b.Property<DateTimeOffset?>("DiscordLinkNudgeStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("discord_link_nudge_started_at");
+
                     b.Property<bool>("DiscordLinkPromptNewMembers")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_link_prompt_new_members");
@@ -9134,6 +9168,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("DiscordWelcomeEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("discord_welcome_enabled");
+
+                    b.Property<bool>("DiscordWelcomeLinkButton")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_welcome_link_button");
 
                     b.Property<DateTimeOffset?>("DiscordWelcomeStartedAt")
                         .HasColumnType("timestamp with time zone")

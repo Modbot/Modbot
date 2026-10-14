@@ -975,6 +975,20 @@ public class Settings
     /// </summary>
     public DateTimeOffset? DiscordWelcomeStartedAt { get; set; }
 
+    /// <summary>
+    /// Whether the welcome message carries a button to the account link page, for a member who has
+    /// not linked. Off by default.
+    /// </summary>
+    public bool DiscordWelcomeLinkButton { get; set; }
+
+    // --- Account links: the one-time reminder ---
+
+    /// <summary>
+    /// When staff started sending the link reminder, or null while it is not running. Only members who
+    /// were in the server by then are sent it, so it ends when they have all been.
+    /// </summary>
+    public DateTimeOffset? DiscordLinkNudgeStartedAt { get; set; }
+
     // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
     //
     // Three switches, all off, because each one is a different decision. Turning any of them on

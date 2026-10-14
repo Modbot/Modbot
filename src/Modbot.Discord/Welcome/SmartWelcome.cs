@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
@@ -34,6 +35,9 @@ public sealed class SmartWelcome
     private readonly EventPartitionMaintainer _partitions;
     private readonly IModbotClock _clock;
     private readonly OnboardingCheck _onboarding;
+
+    /// <summary>The label of the button that opens the account link page.</summary>
+    public const string LinkButtonLabel = "Link your VRChat";
 
     public SmartWelcome(
         ModbotContext db,
@@ -222,6 +226,25 @@ public sealed class SmartWelcome
         return buttons;
     }
 
+    /// <summary>
+    /// The steps' buttons and, when the welcome is set to carry it, linking works and the member has
+    /// not linked, a last button to the link page.
+    /// </summary>
+    private async Task<IReadOnlyList<DiscordLinkButton>> ButtonsWithLinkAsync(
+        Settings settings, string userId, IReadOnlyList<DiscordWelcomeStep> steps, CancellationToken ct)
+    {
+        var buttons = Buttons(steps);
+
+        if (!settings.DiscordWelcomeLinkButton
+            || DiscordInvite.LinkPageWhenSetUp(settings) is not { } page
+            || await _db.ActiveAccountLinks().AnyAsync(l => l.DiscordUserId == userId, ct).ConfigureAwait(false))
+        {
+            return buttons;
+        }
+
+        return [.. buttons, new DiscordLinkButton(LinkButtonLabel, page)];
+    }
+
     private async Task<Settings?> ReadSettingsAsync(CancellationToken ct)
         => await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct).ConfigureAwait(false);
 
@@ -248,7 +271,7 @@ public sealed class SmartWelcome
             .ConfigureAwait(false);
 
         var text = MessageText(serverName, picked);
-        var buttons = Buttons(picked);
+        var buttons = await ButtonsWithLinkAsync(settings, userId, picked, ct).ConfigureAwait(false);
         var errors = new List<string>();
         var viaDm = false;
         var viaChannel = false;

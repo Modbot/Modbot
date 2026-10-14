@@ -23,12 +23,14 @@ public sealed record DiscordWelcomeDefault(string Text, string? Link);
 
 /// <summary>The smart welcome's settings, as stored.</summary>
 /// <param name="Via"><c>dm</c>, <c>channel</c> or <c>both</c>.</param>
+/// <param name="LinkButton">Add a button to the account link page for a member who has not linked.</param>
 /// <param name="Rules">In the order they are tried.</param>
 /// <param name="Defaults">In the order they fill.</param>
 public sealed record DiscordWelcomeSettingsResponse(
     bool Enabled,
     string Via,
     string? ChannelId,
+    bool LinkButton,
     IReadOnlyList<DiscordWelcomeRule> Rules,
     IReadOnlyList<DiscordWelcomeDefault> Defaults,
     int MostRules,
@@ -37,12 +39,14 @@ public sealed record DiscordWelcomeSettingsResponse(
 
 /// <param name="Via"><c>dm</c> (a direct message), <c>channel</c> or <c>both</c>.</param>
 /// <param name="ChannelId">Needed when <c>via</c> is <c>channel</c> or <c>both</c>.</param>
+/// <param name="LinkButton">Add a button to the account link page for a member who has not linked.</param>
 /// <param name="Rules">At most 25, in the order they are tried.</param>
 /// <param name="Defaults">At most 3, in the order they fill.</param>
 public sealed record DiscordWelcomeSettingsUpdate(
     bool Enabled,
     string Via,
     string? ChannelId,
+    bool LinkButton,
     IReadOnlyList<DiscordWelcomeRule>? Rules,
     IReadOnlyList<DiscordWelcomeDefault>? Defaults);
 
@@ -112,6 +116,7 @@ public static class DiscordWelcomeSettingsEndpoints
                     .Field("enabled", settings.DiscordWelcomeEnabled, body.Enabled)
                     .Field("via", settings.DiscordWelcomeVia, via!)
                     .Field("channelId", settings.DiscordWelcomeChannelId, channel)
+                    .Field("linkButton", settings.DiscordWelcomeLinkButton, body.LinkButton)
                     .Items("rules", was.Rules.Select(Describe), rules.Select(Describe))
                     .Items("defaults", was.Defaults.Select(Describe), defaults.Select(Describe));
 
@@ -126,6 +131,7 @@ public static class DiscordWelcomeSettingsEndpoints
                 settings.DiscordWelcomeEnabled = body.Enabled;
                 settings.DiscordWelcomeVia = via!;
                 settings.DiscordWelcomeChannelId = channel;
+                settings.DiscordWelcomeLinkButton = body.LinkButton;
 
                 await db.DiscordWelcomeSteps.ExecuteDeleteAsync(ct);
 
@@ -165,7 +171,7 @@ public static class DiscordWelcomeSettingsEndpoints
                 + "last two. Every step is replaced by the lists sent: at most 25 rules (a role, a text "
                 + "of at most 80 characters on one line, and an optional https link) and at most 3 "
                 + "default steps. A member who holds a rule's role is sent its step; defaults fill "
-                + "up to three. Switching on needs at least one step, and welcomes only members who "
+                + "up to three. `linkButton` adds a button to the account link page for a member who has not linked. Switching on needs at least one step, and welcomes only members who "
                 + "join after that.")
             .Produces<DiscordWelcomeSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -215,6 +221,7 @@ public static class DiscordWelcomeSettingsEndpoints
             settings.DiscordWelcomeEnabled,
             settings.DiscordWelcomeVia,
             settings.DiscordWelcomeChannelId,
+            settings.DiscordWelcomeLinkButton,
             [.. steps.Where(s => s.Kind == DiscordWelcomeStepKinds.Rule)
                 .Select(s => new DiscordWelcomeRule(s.RoleId ?? string.Empty, s.Text, s.Link))],
             [.. steps.Where(s => s.Kind == DiscordWelcomeStepKinds.Default)

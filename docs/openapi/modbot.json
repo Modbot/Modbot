@@ -15341,7 +15341,7 @@
           "Settings"
         ],
         "summary": "Update welcome steps",
-        "description": "Save the welcome steps. `via` is dm, channel or both; the channel is needed for the last two. Every step is replaced by the lists sent: at most 25 rules (a role, a text of at most 80 characters on one line, and an optional https link) and at most 3 default steps. A member who holds a rule's role is sent its step; defaults fill up to three. Switching on needs at least one step, and welcomes only members who join after that.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Save the welcome steps. `via` is dm, channel or both; the channel is needed for the last two. Every step is replaced by the lists sent: at most 25 rules (a role, a text of at most 80 characters on one line, and an optional https link) and at most 3 default steps. A member who holds a rule's role is sent its step; defaults fill up to three. `linkButton` adds a button to the account link page for a member who has not linked. Switching on needs at least one step, and welcomes only members who join after that.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordWelcomeSettings",
         "requestBody": {
           "content": {
@@ -15992,6 +15992,166 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/account-links": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "What share of members have linked",
+        "description": "How many people in the VRChat group have a Discord account linked, how many in the Discord server have a VRChat account linked, and the state of the one-time link reminder. Counts only; nobody is named.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetDiscordLinkShare",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordLinkShareResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/account-links/reminder/start": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Start the link reminder",
+        "description": "Start sending the one-time reminder to link a VRChat account to the Discord members who were in the server just now and have not linked. One direct message goes out every 30 seconds, and nobody is sent it twice, ever. It stops by itself when it has reached them all. Needs account linking set up. Does nothing if it is already running.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "StartDiscordLinkReminder",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordLinkShareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord/account-links/reminder/stop": {
+      "post": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Stop the link reminder",
+        "description": "Stop sending the reminder. Whoever was already sent it is not sent it again if it is started again.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "StopDiscordLinkReminder",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordLinkShareResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -47327,6 +47487,88 @@
           }
         }
       },
+      "DiscordLinkReminderView": {
+        "required": [
+          "running",
+          "startedAt",
+          "waiting",
+          "sent",
+          "notReached",
+          "lastSentAt",
+          "secondsBetween"
+        ],
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": "boolean"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "notReached": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastSentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "secondsBetween": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DiscordLinkShareResponse": {
+        "required": [
+          "groupMembers",
+          "groupMembersLinked",
+          "discordMembers",
+          "discordMembersLinked",
+          "linkingSetUp",
+          "reminder"
+        ],
+        "type": "object",
+        "properties": {
+          "groupMembers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "groupMembersLinked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discordMembers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "discordMembersLinked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "linkingSetUp": {
+            "type": "boolean"
+          },
+          "reminder": {
+            "$ref": "#/components/schemas/DiscordLinkReminderView"
+          }
+        }
+      },
       "DiscordLinkView": {
         "required": [
           "id",
@@ -49078,6 +49320,7 @@
           "enabled",
           "via",
           "channelId",
+          "linkButton",
           "rules",
           "defaults",
           "mostRules",
@@ -49097,6 +49340,9 @@
               "null",
               "string"
             ]
+          },
+          "linkButton": {
+            "type": "boolean"
           },
           "rules": {
             "type": "array",
@@ -49129,6 +49375,7 @@
           "enabled",
           "via",
           "channelId",
+          "linkButton",
           "rules",
           "defaults"
         ],
@@ -49145,6 +49392,9 @@
               "null",
               "string"
             ]
+          },
+          "linkButton": {
+            "type": "boolean"
           },
           "rules": {
             "type": [

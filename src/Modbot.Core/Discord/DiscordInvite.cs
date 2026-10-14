@@ -114,4 +114,17 @@ public static class DiscordInvite
         => string.IsNullOrWhiteSpace(publicAddress)
             ? null
             : publicAddress.Trim().TrimEnd('/') + "/link";
+
+    /// <summary>
+    /// The link page, only when linking can work: the OAuth client id and secret are saved and there
+    /// is a public address. Null otherwise, so nothing sends somebody to a page that cannot work.
+    /// </summary>
+    public static string? LinkPageWhenSetUp(Settings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        return string.IsNullOrWhiteSpace(settings.DiscordOAuthClientId) || settings.DiscordOAuthClientSecretEncrypted is null
+            ? null
+            : LinkPageFor(settings.PublicAddress);
+    }
 }

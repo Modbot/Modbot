@@ -606,6 +606,9 @@ public static class ApiSurface
         app.MapDiscordRoleMenus();
         app.MapDiscordInvites();
 
+        // What share of the group and the server has linked, and the one-time reminder to link.
+        app.MapDiscordLinkShare();
+
         // Votes: a question with a button for each option, posted in a channel.
         app.MapVotes();
 
