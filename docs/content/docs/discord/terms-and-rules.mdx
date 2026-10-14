@@ -1,0 +1,110 @@
+---
+title: Terms and rules
+description: Keep the words your community uses and its rules on one page, and let members look them up in Discord with /term and /rule.
+---
+
+**Terms and rules** is a page where staff type the words your community uses, with what each means, and the
+rules for members. Members look them up in Discord with `/term` and `/rule`, and the answers come from what
+is on the page.
+
+Everything on the page is what staff typed. Modbot reads nothing from anywhere to fill it in, and nothing on
+it is sent anywhere but to the member who asks.
+
+## Turn it on
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)).
+
+`/term` and `/rule` are off until you turn them on. Open **Settings → Discord → Commands**, switch on
+`/term`, `/rule` or both, and press **Save commands**. Each has its own switch.
+
+## Who can use the page
+
+| To do this | You need |
+|---|---|
+| See the page | Any Modbot account that is signed in |
+| Add, change, move and delete terms and rules | [**Change settings**](/accounts/roles-and-permissions#change-settings) |
+
+**Terms and rules** is in the sidebar, under **Community**, between **Lists** and **Partners**. It has no
+`g` shortcut.
+
+The commands repeat these words to every member of your server, which is why changing them is a setting of
+the server and not a right every account holds. **Administrator** holds **Change settings**.
+
+## The page
+
+The page has two tabs.
+
+### Terms
+
+Each term is a card, by name. A card shows the word, its other names, and what it means.
+
+1. Press **New term**, or **Edit** on a card.
+2. Fill in the **Term** and its **Meaning**.
+3. Press **Add other name** for each other name that means the same, such as a short form. The cross beside
+   one removes it.
+4. Press **Save**.
+
+To delete a term, press **Delete** on its card and confirm.
+
+No two terms may answer to the same name. A name, or an other name, that another term already has is
+refused, in any letter case, and the message says which term has it.
+
+### Rules
+
+Each rule is a card with its number, in order. The arrows on a card move it up or down one place.
+
+1. Press **New rule**, or **Edit** on a card.
+2. Give the **Title** and write the **Rule**.
+3. Press **Save**. A new rule goes at the end.
+
+To delete a rule, press **Delete** on its card and confirm.
+
+A rule's number is its place in the list. Moving a rule renumbers the rules it moves past, and deleting one
+moves the rules after it up by one. A member who types `/rule` with a number gets whichever rule is there
+now.
+
+## Limits
+
+The limits keep every answer inside one Discord message. They are held when you save.
+
+| Part | Longest |
+|---|---|
+| Term | 100 characters, on one line |
+| Other names | 10 names, 50 characters each, on one line |
+| Meaning | 1,000 characters |
+| Terms | 500 terms |
+| Rule title | 100 characters, on one line |
+| Rule | 1,500 characters |
+| Rules | 100 rules |
+
+## What members type
+
+| Command | What it does |
+|---|---|
+| `/term name:` | Tells you what a word means. As you type, Discord suggests the terms, and the other names with the term they belong to. You can also type the whole word or one of its other names, in any letter case. The answer is the term, its other names, and what it means. |
+| `/rule rule:` | Shows you one rule. As you type, Discord suggests the rules by number and title. You can also type a number, or a rule's whole title in any letter case. The answer is the rule's number, its title, and what it says. |
+
+If nothing matches, the answer says so: `No term called` the word, `There is no rule` with the number, or
+`No rule called` the title.
+
+Every answer is seen only by the member who ran the command. A member can use each command five times a
+minute. Neither command needs a Modbot account. The suggestions appear only while the command is on.
+
+## What goes in the audit log
+
+Adding, changing, moving and deleting a term or a rule are written to the
+[audit log](/moderation/audit-log) under the operational log, with who did it.
+
+| Entry | What it means |
+|---|---|
+| **Term changed** | Somebody added, changed or deleted a term. Carries the term and what was done, never the meaning. |
+| **Rule changed** | Somebody added, changed, moved or deleted a rule. Carries the title and what was done, and for a move the new number, never the text. |
+
+## What Modbot keeps
+
+The terms and rules are free text kept in Modbot's own database. They are not sent to Modbot Cloud or to an
+AI provider. What leaves your server is the answer in Discord to the member who asked. A command run is
+recorded like every command, without the word, number or title asked about.
+
+None of it is tied to a member, so a [purge](/moderation/purge) of a person has nothing to remove here.
