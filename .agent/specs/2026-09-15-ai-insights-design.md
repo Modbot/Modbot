@@ -151,7 +151,9 @@ model, and it carries figures rather than prose. The model's only part is one op
 about those figures, and the alert goes out whether or not it gets one.
 
 Everything §1.1 and §1.2 say still holds. An alert names counts, a stretch of time, and at most a
-world or room. It never names a person, never scores anybody, and never says what to do.
+world or room. It never names a person and never scores anybody. It only counts things. The one
+exception that suggests an action is the second-instance alert (§8.5 to §8.7; approved 2026-10-13), which says
+an instance is full and carries a button to open another.
 
 ### 8.1 What is watched
 
@@ -285,6 +287,21 @@ A real pass reads **four things at most**, and two of them only when something n
 Nothing here reads a person's id or name except where the live-room reader needs one to answer "is
 anybody watching", and that answer is a yes or no by the time it leaves the reader.
 
+**The second-instance alert is checked apart from this**, by `SecondInstanceChecker`, on every wake of
+the same background service (once a minute): head counts change every 30 seconds, and a full instance
+is something to act on now. It reads the open instances of the managed group and their worlds'
+capacity, and does nothing while neither setting in §8.6 is set. It raises an alert when an instance
+holds at least the lower of the two lines: the number of people, or the percent of the world's
+capacity as VRChat reports it, rounded up. A world with no known capacity never reaches a percent.
+It has no sensitivity, no quiet time and no earlier windows, and it alerts once per instance, ever
+(a unique index on `instance_id`). The alert has no model sentence. Its Discord card shows where, how
+many people are in, and the line it crossed, with an **Open second instance** button for staff. Only one
+instance is opened per alert; a later press gets the same join link back, and the link is shown only to
+the person who pressed. Pressing it asks VRChat
+for one more instance of the same world and settings, through the same interactive instance-create
+path as the calendar, so the 1-per-5-seconds limit holds. The fact `modbot.instance.second.open`
+records who pressed.
+
 ### 8.6 Settings
 
 Settings → AI → **Alerts**, its own sub-tab: the Insights tab already carries four cards, and ten
@@ -295,12 +312,21 @@ watchers would bury them.
 - **AI sentence** — on or off. Off means the figures go out on their own.
 - **What is watched** — one control per watcher: off, low, normal, high. Every watcher is off until
   somebody turns it on, so a deployment that upgrades into this feature gets nothing until it asks.
+- **Second instance** — two boxes, **Alert at people** (1 to 1000) and **Alert at percent of
+  capacity** (1 to 100). Empty is off; nothing is on until somebody fills one in. Over the API, a
+  box left out of the update keeps what it was, and 0 turns it off.
 
 ### 8.7 Storage
 
 - `modbot_alert` — one row per alert.
 - `modbot_alert_watch` — one row per watcher: sensitivity, and the window last judged.
-- `modbot_alert_settings` — one row: channel, quiet time, AI sentence, when the checks last ran.
+- `modbot_alert_settings` — one row: channel, quiet time, AI sentence, when the checks last ran, and
+  the two second-instance lines (`second_instance_at_people`, `second_instance_at_percent`).
+
+`modbot_alert` has three columns for the second-instance alert: `instance_id` (which instance it is
+about; unique where set), `second_tried_at` (when somebody pressed the button and Modbot began asking
+VRChat) and `second_location` (where the new instance is). None of them is about a person: who pressed
+is in the fact, not on the row.
 
 Alerts hold no personal data (§8.3), so like insights they are outside retention and purge-user.
 

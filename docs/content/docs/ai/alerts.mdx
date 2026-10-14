@@ -11,7 +11,9 @@ An alert is figures, not prose. It says what the figure was, what normal looks l
 of time it covers, and where in Modbot to go and look. If your AI is on, it can also carry one
 sentence from the model about those figures — but the alert goes out either way.
 
-Like an insight, an alert never names anybody and never suggests an action. It counts things.
+Like an insight, an alert never names anybody. It counts things. The one alert that suggests an
+action is [Open a second instance](#open-a-second-instance), which says an instance is full and has a
+button to open another.
 
 You set alerts up under **Settings** → **AI** → **Alerts**, which needs the **Change settings**
 permission. Everything is off until you turn it on.
@@ -112,6 +114,8 @@ evening does not fill your channel.
 The exception is when it gets **much worse**: twice as far from normal as the alert that was posted.
 Then it speaks up again, because a burst that keeps growing is worth hearing about more than once.
 
+The [second instance](#open-a-second-instance) alert has no quiet time: it alerts once per instance.
+
 ## Where alerts appear
 
 - **In Modbot**, as a card at the top of the **VRChat** analytics page and of **Health**, showing
@@ -121,7 +125,8 @@ Then it speaks up again, because a burst that keeps growing is worth hearing abo
 - **In Discord**, if you pick an alerts channel. This can be a different, noisier channel from your
   insights channel. The bot needs View Channels, Send Messages and Embed Links in it. The card
   is amber, and shows the figure, what normal is for that hour or day, the stretch of time, and a
-  link to the page the alert came from.
+  link to the page the alert came from. The second instance alert shows **Alert at** in place of the
+  stretch of time, and has the **Open second instance** button.
 - **Anywhere else**, through [event routes](/discord/event-channels): every alert also writes an
   **Unusual activity** event, which a route can send wherever you like.
 

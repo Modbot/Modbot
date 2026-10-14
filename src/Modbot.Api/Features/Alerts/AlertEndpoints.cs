@@ -140,10 +140,10 @@ public static class AlertEndpoints
                 if (body.QuietHours is < 0 or > AlertWatchers.MaxQuietHours)
                     return Results.BadRequest(new { error = "Choose a quiet time." });
 
-                if (body.SecondInstanceAtPeople is < 1 or > MaxSecondInstancePeople)
+                if (body.SecondInstanceAtPeople is < 0 or > MaxSecondInstancePeople)
                     return Results.BadRequest(new { error = $"Choose a number of people from 1 to {MaxSecondInstancePeople}." });
 
-                if (body.SecondInstanceAtPercent is < 1 or > 100)
+                if (body.SecondInstanceAtPercent is < 0 or > 100)
                     return Results.BadRequest(new { error = "Choose a percent from 1 to 100." });
 
                 foreach (var w in body.Watchers ?? [])
@@ -158,18 +158,22 @@ public static class AlertEndpoints
 
                 var stored = await SettingsRowAsync(db, ct);
                 var newChannel = string.IsNullOrEmpty(channel) ? null : channel;
+
+                // Left out keeps what was stored; 0 turns it off.
+                var atPeople = Kept(body.SecondInstanceAtPeople, stored.SecondInstanceAtPeople);
+                var atPercent = Kept(body.SecondInstanceAtPercent, stored.SecondInstanceAtPercent);
                 var change = new SettingsChange("aiAlerts")
                     .Field("discordChannelId", stored.DiscordChannelId, newChannel)
                     .Field("quietHours", stored.QuietHours, body.QuietHours)
                     .Field("writeSentence", stored.WriteSentence, body.WriteSentence)
-                    .Field("secondInstanceAtPeople", stored.SecondInstanceAtPeople, body.SecondInstanceAtPeople)
-                    .Field("secondInstanceAtPercent", stored.SecondInstanceAtPercent, body.SecondInstanceAtPercent);
+                    .Field("secondInstanceAtPeople", stored.SecondInstanceAtPeople, atPeople)
+                    .Field("secondInstanceAtPercent", stored.SecondInstanceAtPercent, atPercent);
 
                 stored.DiscordChannelId = newChannel;
                 stored.QuietHours = body.QuietHours;
                 stored.WriteSentence = body.WriteSentence;
-                stored.SecondInstanceAtPeople = body.SecondInstanceAtPeople;
-                stored.SecondInstanceAtPercent = body.SecondInstanceAtPercent;
+                stored.SecondInstanceAtPeople = atPeople;
+                stored.SecondInstanceAtPercent = atPercent;
 
                 var watches = await WatchesAsync(db, ct);
 
@@ -197,6 +201,9 @@ public static class AlertEndpoints
 
         return app;
     }
+
+    /// <summary>A value left out keeps the stored one; 0 clears it.</summary>
+    private static int? Kept(int? sent, int? stored) => sent is null ? stored : sent == 0 ? null : sent;
 
     private static async Task<AlertSettings> SettingsRowAsync(ModbotContext db, CancellationToken ct)
     {

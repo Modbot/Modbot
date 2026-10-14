@@ -202,8 +202,8 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
   )
 }
 
-/** A box left empty is off. */
-function wholeNumber(text: string): number | null {
+/** A box left empty is off, which the API takes as 0. */
+function wholeNumber(text: string): number {
   const n = Number.parseInt(text, 10)
-  return Number.isFinite(n) ? n : null
+  return Number.isFinite(n) ? n : 0
 }

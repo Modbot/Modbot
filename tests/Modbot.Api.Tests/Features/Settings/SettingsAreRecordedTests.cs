@@ -382,6 +382,53 @@ public class SettingsAreRecordedTests
         Assert.Equal(12, Field(newest, "quietHours").GetProperty("new").GetInt32());
     }
 
+    [Fact]
+    public async Task TheSecondInstanceSettings_AreKeptWhenLeftOut_AndClearedByZero()
+    {
+        var (host, _, cookie) = await StartAsync(ModbotPermissions.ManageSettings);
+        await using var running = host;
+
+        object With(int quietHours, int atPeople, int atPercent) => new
+        {
+            discordChannelId = (string?)null,
+            quietHours,
+            writeSentence = true,
+            watchers = new[] { new { watcher = "flags", sensitivity = "normal" } },
+            secondInstanceAtPeople = atPeople,
+            secondInstanceAtPercent = atPercent,
+        };
+
+        object Without(int quietHours) => new
+        {
+            discordChannelId = (string?)null,
+            quietHours,
+            writeSentence = true,
+            watchers = new[] { new { watcher = "flags", sensitivity = "normal" } },
+        };
+
+        await PutAsync(host, "/api/settings/ai/alerts", With(6, 20, 80), cookie);
+
+        var set = (await EntriesAsync(host, "aiAlerts"))[0];
+        Assert.Equal(20, Field(set, "secondInstanceAtPeople").GetProperty("new").GetInt32());
+        Assert.Equal(80, Field(set, "secondInstanceAtPercent").GetProperty("new").GetInt32());
+
+        // Left out: the stored values stay, so nothing is recorded for them.
+        await PutAsync(host, "/api/settings/ai/alerts", Without(12), cookie);
+
+        var kept = (await EntriesAsync(host, "aiAlerts"))[0];
+        Assert.True(Has(kept, "quietHours"));
+        Assert.False(Has(kept, "secondInstanceAtPeople"));
+        Assert.False(Has(kept, "secondInstanceAtPercent"));
+
+        // 0 turns them off.
+        await PutAsync(host, "/api/settings/ai/alerts", With(12, 0, 0), cookie);
+
+        var cleared = (await EntriesAsync(host, "aiAlerts"))[0];
+        Assert.Equal(20, Field(cleared, "secondInstanceAtPeople").GetProperty("old").GetInt32());
+        Assert.Equal(JsonValueKind.Null, Field(cleared, "secondInstanceAtPeople").GetProperty("new").ValueKind);
+        Assert.Equal(JsonValueKind.Null, Field(cleared, "secondInstanceAtPercent").GetProperty("new").ValueKind);
+    }
+
     // ── Public address ──────────────────────────────────────────────────────────────────────
 
     /// <summary>

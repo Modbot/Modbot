@@ -4746,8 +4746,10 @@ export type AiAlertSettingsInput = {
   quietHours: number
   writeSentence: boolean
   watchers: { watcher: AlertWatcher; sensitivity: AlertSensitivity }[]
-  secondInstanceAtPeople: number | null
-  secondInstanceAtPercent: number | null
+  /** 0 turns it off. */
+  secondInstanceAtPeople: number
+  /** 0 turns it off. */
+  secondInstanceAtPercent: number
 }
 
 /** One API key as the list shows it. Never the key itself. */

@@ -89,8 +89,8 @@ public sealed record AlertSettingsResponse(
 public sealed record AlertWatchUpdate(string Watcher, string Sensitivity);
 
 /// <param name="Watchers">Watchers left out keep what they had.</param>
-/// <param name="SecondInstanceAtPeople">1 to <see cref="AlertEndpoints.MaxSecondInstancePeople"/>, or null for off.</param>
-/// <param name="SecondInstanceAtPercent">1 to 100, or null for off.</param>
+/// <param name="SecondInstanceAtPeople">1 to <see cref="AlertEndpoints.MaxSecondInstancePeople"/>, 0 for off, left out to keep what it was.</param>
+/// <param name="SecondInstanceAtPercent">1 to 100, 0 for off, left out to keep what it was.</param>
 public sealed record AlertSettingsUpdate(
     string? DiscordChannelId,
     int QuietHours,
