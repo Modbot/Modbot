@@ -49,21 +49,51 @@ function spanIn(startsAt: string, endsAt: string, timeZone: string): string {
   }
 }
 
+/** What the server drew for the form: the cards, or why it could not. */
+export type PreviewAnswer = { preview: CalendarPreview | null; error: string | null }
+
 /**
- * A service's card in the form: the event drawn the way that place would show it, by the server from
- * the code that sends it (calendar design §14.2). Read when its tab opens, and again a moment after
- * the form changes; the old card stays on screen until the new one is in. With one place there is one
- * card, and its heading is the tab's name, so it is left to screen readers.
+ * The server's drawing of the event as `input` holds it (calendar design §14.2), asked again each
+ * time `input` is a new object; null asks for nothing. The form holds this, so the last answer is
+ * still on screen when a tab is left and come back to, and an old answer stays until the new one is in.
+ */
+export function usePreviewAnswer(eventId: string | null, input: CalendarEventInput | null): PreviewAnswer {
+  const [answer, setAnswer] = useState<PreviewAnswer>({ preview: null, error: null })
+
+  useEffect(() => {
+    if (!input) return
+
+    let cancelled = false
+
+    calendarApi
+      .preview(eventId, input)
+      .then((preview) => {
+        if (!cancelled) setAnswer({ preview, error: null })
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setAnswer({ preview: null, error: e instanceof ApiError ? e.message : 'Could not draw the preview.' })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, input])
+
+  return answer
+}
+
+/**
+ * A service's card in the form: the event drawn the way that place would show it, from the server's
+ * answer. With one place there is one card, and its heading is the tab's name, so it is left to
+ * screen readers.
  */
 export function EventPreview({
-  eventId,
-  input,
+  answer: { preview, error },
   places,
   vrchatPicture = null,
   discordPicture = null,
 }: {
-  eventId: string | null
-  input: CalendarEventInput
+  answer: PreviewAnswer
   /** The places to draw, in the chips' order. */
   places: CalendarDestination[]
   /**
@@ -77,28 +107,6 @@ export function EventPreview({
    */
   discordPicture?: ReactNode
 }) {
-  const [preview, setPreview] = useState<CalendarPreview | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    calendarApi
-      .preview(eventId, input)
-      .then((p) => {
-        if (cancelled) return
-        setPreview(p)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not draw the preview.')
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [eventId, input])
-
   if (error) return <Outcome tone="problem">{error}</Outcome>
   if (!preview) return <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Loading…</p>
 

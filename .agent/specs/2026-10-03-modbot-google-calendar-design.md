@@ -272,7 +272,7 @@ due place, ExternalId null
   - **Not set up** links to `/settings#google`.
   - **Members only**, a single status word, when decision 1 A blocks it.
 - **"Visible to" moves** from the VRChat section to "Where", shown when VRChat or Google Calendar is on (the same move Bluesky's design asks for).
-- **Preview tab:** a Google card drawn from `CalendarGoogleBody`: title, date and time in the event's zone with the repeat in words, location, description with the world line, the calendar's name, and a padlock for `private`.
+- **Google tab (the Preview tab until 2026-10-14):** a Google card drawn from `CalendarGoogleBody`: title, date and time in the event's zone with the repeat in words, location, description with the world line, the calendar's name, and a padlock for `private`.
 - **The event's box:** **Google Calendar: Sending… / Published / Failed (Google's words) · Try again / Removed**. When published, **Open** links to the event's `htmlLink`. Per-date failures appear as for VRChat.
 - **Health:** Calendar card lines for Google failures and **Not set up**, plus the limit line above.
 - **Integrations:** a "Google Calendar" card. Parts **Key · Calendar · Sending**. Status **Needs setup / Working / Failed / Off**.

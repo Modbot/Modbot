@@ -11,7 +11,7 @@ export type PictureThumbnails = {
 
 /**
  * The thumbnails of pictures uploaded in a form: links to the files on this computer. Held by the
- * form rather than by the field, so a thumbnail survives the field being drawn again (the Preview
+ * form rather than by the field, so a thumbnail survives the field being drawn again (another
  * tab, the VRChat chip turned off and on), and every link is let go of when the form closes, which
  * is when the browser may free the files.
  */

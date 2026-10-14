@@ -52,7 +52,7 @@ import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fill
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import { cn } from '@/lib/utils'
-import { EventPreview } from './EventPreview'
+import { EventPreview, usePreviewAnswer } from './EventPreview'
 import { FillInText } from './FillInText'
 import { NotSetUp } from './NotSetUp'
 import { worldListApi, type WorldList } from '@/lib/worldLists'
@@ -89,8 +89,8 @@ const REPEAT_UNIT: Record<Exclude<CalendarRepeat, 'none'>, [string, string]> = {
  * The create and edit form for one event (calendar design §2, §14).
  *
  * Where the event goes comes first, as one row of chips: each place it can go, on or off, the
- * calendar feed shown and always on. A place's own settings are in its section below and only while
- * its chip is on. A ticked place that cannot work as things are set up says "Not set up" beside its
+ * calendar feed shown and always on. A place's own settings are on its tab and only while its chip
+ * is on. A ticked place that cannot work as things are set up says "Not set up" beside its
  * chip, linking to where it is set up. Google Calendar says "Not set up" whether ticked or not, and
  * "Members only" for an event only members see, which it never takes (Google Calendar design §3.8);
  * "Visible to" sits under Where, as both it and the VRChat calendar go by it. The chips and the
@@ -398,7 +398,7 @@ export function CalendarEventForm({
     />
   ) : null
 
-  // What Preview shows as VRChat's picture: a crop not uploaded yet, or the set picture when this
+  // What the VRChat card shows as VRChat's picture: a crop not uploaded yet, or the set picture when this
   // page can see it (one uploaded here, or the picture link's own).
   const vrchatAddress = vrchatPictureAddress(input.vrChatImageId, input.imageUrl, pictureThumbnails)
   const vrchatPreview = vrchatPicture.draft ? (
@@ -415,12 +415,15 @@ export function CalendarEventForm({
     place === 'feed' || (place === 'googleCalendar' ? google.on : !!input[DESTINATION_SWITCH[place]])
 
   const tabs = tabsFor(on)
-  // The chip of the tab being shown cannot go off from there; a Google tick that goes off with its setting can.
+  // A chip goes off on the Event tab, or a Google tick goes off with its setting: the tab goes with it,
+  // so turning the chip back on does not open the tab again.
   const active: CalendarTab = tabs.includes(tab) ? tab : 'event'
+  if (tab !== active) setTab(active)
 
-  // The form as the server is asked to draw it. A template has no dates: its end follows its length.
+  // The form as the server is asked to draw it. A template has no dates: its end follows its length,
+  // and a card is drawn for at least a minute.
   const previewInput: CalendarEventInput = template
-    ? { ...body(false), endsAt: addMinutes(input.startsAt, length) }
+    ? { ...body(false), endsAt: addMinutes(input.startsAt, Math.max(length, 1)) }
     : body(false)
   const previewKey = JSON.stringify(previewInput)
   const shownKey = useRef('')
@@ -447,12 +450,12 @@ export function CalendarEventForm({
     return () => window.clearTimeout(timer)
   }, [active, previewKey])
 
+  const answer = usePreviewAnswer(event?.id ?? null, shown)
+
   const card = (place: CalendarServiceTab) =>
     shown && (
       <EventPreview
-        key={place}
-        eventId={event?.id ?? null}
-        input={shown}
+        answer={answer}
         places={[place]}
         vrchatPicture={vrchatPreview}
         discordPicture={discordPreview}
@@ -584,7 +587,7 @@ export function CalendarEventForm({
                     ) : place !== 'feed' && on(place) && !isSetUp(place, ready) ? (
                       <NotSetUp place={place} newTab />
                     ) : (
-                      // The channel is picked in its own section, just below.
+                      // The channel is picked on the Discord post tab.
                       place === 'channelPost' &&
                       missingChannel(input) && (
                         <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>

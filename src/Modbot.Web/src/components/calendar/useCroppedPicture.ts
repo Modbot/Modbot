@@ -53,8 +53,8 @@ export function useOpenGivenLink(picture: CroppedPicture, link: string | null, w
 
 /**
  * A picture being chosen in one form, in a crop box of one shape. Held by the form rather than the
- * field, so the crop survives the field being drawn again (the Preview tab, a chip turned off and
- * on) and the Preview tab can draw it before anything is uploaded. The picture is let go of when it
+ * field, so the crop survives the field being drawn again (another tab, a chip turned off and
+ * on) and a service's card can draw it before anything is uploaded. The picture is let go of when it
  * is uploaded, cancelled, replaced, or the form closes.
  */
 export function useCroppedPicture({

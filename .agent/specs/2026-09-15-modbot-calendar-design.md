@@ -821,7 +821,11 @@ Published, although the docs said it did.
 - **A Preview tab draws the event the way each place that is on would show it**: the Discord event
   (cover, time, name, location, description), the channel card (group, title, description, fields,
   picture, footer, Join button), what VRChat's calendar is sent, and what a phone or desktop calendar
-  reads from the feed.
+  reads from the feed. *Changed 2026-10-14: there is no Preview tab. The form has an Event tab and one
+  tab for each place whose chip is on (VRChat, Discord event, Discord post, Google, Bluesky), each with
+  that place's fields and its card, drawn by the same server preview when the tab opens and again after
+  the form changes. The feed has no tab. Templates have the same tabs, their cards drawn for a made-up
+  start.*
 - **One set of rules: the server draws it** (`POST /api/calendar/preview`, Manage calendar). Every
   part comes from the code that sends it, so the preview and the real thing cannot disagree:
   - Discord: the publisher's own `ServerEventDetails` and `Post`, behind `ICalendarDiscordPreview`
@@ -1045,13 +1049,13 @@ the shape the preview already drew).
 - **Save or Schedule with a crop still in the box uploads it first.** Pressing Schedule with a crop on
   screen means the picture is wanted. The upload is still its own request; the save waits for it, and
   a refused upload stops the save and shows why on the picture field.
-- **The Preview tab shows the crop** as VRChat's picture, drawn in the browser, before anything is
+- **The VRChat tab's card shows the crop** (the Preview tab until 2026-10-14) as VRChat's picture, drawn in the browser, before anything is
   uploaded; after it, the uploaded picture, and for a VRChat picture from the picture link, the
   link's picture at 16:9. VRChat is sent only the file id, so this part of the preview is the
   browser's, not the server's (§14.2).
 - **With uploads off VRChat's crop box never opens**: nothing could be uploaded, and a box that
   changes nothing would mislead. Discord's (§15.4) does.
-- The crop is held by the form, not the field, so it survives the Preview tab and the VRChat chip
+- The crop is held by the form, not the field, so it survives a change of tab (the Preview tab until 2026-10-14) and the VRChat chip
   being turned off and on; the picture is let go of when it is uploaded, cancelled, replaced, or the
   form closes.
 
@@ -1066,7 +1070,7 @@ Discord's event cover is 2.5:1 and VRChat's picture 16:9, so one crop cannot ser
   link given in this form (§15.2, once the typing stops), or, with Crop, the picture link again. A
   picture chosen in either field opens in every crop box shown, so one choice serves both places,
   each cropped to its own shape. Upload, Cancel, Remove, Save uploading a crop still open, and the
-  Preview tab drawing it before it is uploaded all work as for VRChat's (§15.3).
+  Preview tab (since 2026-10-14 the Discord event and Discord post cards) drawing it before it is uploaded all work as for VRChat's (§15.3).
 - **Modbot keeps it** (`calendar_cover_picture`: the bytes, their type, when and who). Discord is
   sent a cover's bytes each time the event is made or changed, and the crop exists nowhere else, so
   something has to hold it between the form and the Discord loop. Keeping a crop rectangle instead
@@ -1385,7 +1389,7 @@ fill themselves in (step 4) are not here.
   `POST /api/calendar/picture-link`, `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds`,
   `GET /api/calendar/invite-choices`, and `GET /api/discord/channels` and `/roles` (which also stay
   open to Change settings). Making, changing and publishing events stays Manage calendar, and so do
-  the preview (the template form has no Preview tab) and the World lists page's world search.
+  the preview (the template form has the same tabs and cards as the event form since 2026-10-14; it had no Preview tab before) and the World lists page's world search.
   `POST /api/calendar/vrchat-picture`, `GET /api/calendar/worlds` and `GET /api/calendar/invite-choices`
   now also need See calendar (before: Manage calendar alone). Picking an invite list on a template needs
   Manage templates, not the Lists rule (user, 2026-10-13, option A; auto-invite design §9):
