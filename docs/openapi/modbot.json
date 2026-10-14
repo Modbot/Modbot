@@ -15873,6 +15873,205 @@
         ]
       }
     },
+    "/api/votes": {
+      "get": {
+        "tags": [
+          "Votes"
+        ],
+        "summary": "List votes",
+        "description": "The most recent votes, newest first, each with how many people picked each option.\n\nNeeds the `ViewPosts` permission.",
+        "operationId": "ListVotes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VotesResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Votes"
+        ],
+        "summary": "Post a vote",
+        "description": "Post a question in a Discord channel with a button for each option. Needs the Discord bot to be connected and to send messages in the channel.\n\nNeeds the `ManagePosts` permission.",
+        "operationId": "CreateVote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/votes/{id}/close": {
+      "post": {
+        "tags": [
+          "Votes"
+        ],
+        "summary": "Close a vote",
+        "description": "Stop taking votes and rewrite the Discord message with the result. The vote is closed in Modbot even when Discord refuses the rewrite; the answer then says why.\n\nNeeds the `ManagePosts` permission.",
+        "operationId": "CloseVote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoteView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-sync": {
       "get": {
         "tags": [
@@ -66336,6 +66535,196 @@
           }
         }
       },
+      "VoteBody": {
+        "required": [
+          "question",
+          "channelId",
+          "roleId",
+          "options"
+        ],
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "options": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "showCounts": {
+            "type": "boolean",
+            "default": false
+          },
+          "anonymous": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "VoteOptionView": {
+        "required": [
+          "id",
+          "label",
+          "count",
+          "voters"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "voters": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/VoterView"
+            }
+          }
+        }
+      },
+      "VoteView": {
+        "required": [
+          "id",
+          "question",
+          "channelId",
+          "roleId",
+          "showCounts",
+          "anonymous",
+          "status",
+          "createdAt",
+          "closedAt",
+          "total",
+          "options",
+          "messageProblem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "question": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "showCounts": {
+            "type": "boolean"
+          },
+          "anonymous": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoteOptionView"
+            }
+          },
+          "messageProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "VoterView": {
+        "required": [
+          "discordUserId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "discordUserId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "VotesResponse": {
+        "required": [
+          "votes",
+          "canManage",
+          "mostOptions",
+          "mostQuestionLength",
+          "mostLabelLength"
+        ],
+        "type": "object",
+        "properties": {
+          "votes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoteView"
+            }
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "mostOptions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostQuestionLength": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "mostLabelLength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "WatchList": {
         "required": [
           "watches",
@@ -67681,6 +68070,10 @@
     {
       "name": "Twitch",
       "x-displayName": "Twitch"
+    },
+    {
+      "name": "Votes",
+      "x-displayName": "Votes"
     },
     {
       "name": "Watches",
