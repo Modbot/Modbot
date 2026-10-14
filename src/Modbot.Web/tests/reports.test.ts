@@ -8,9 +8,15 @@ import {
   CLOSE_NOTE_MAX,
   discordLink,
   hasQuote,
+  NO_REPORTER_MESSAGE,
   onTab,
   openTabCount,
+  OWN_REPORTER_MESSAGE,
   personName,
+  REPORTER_MESSAGE_MAX,
+  reporterMessageLine,
+  reporterMessageProblem,
+  reporterMessageToSend,
   writtenText,
 } from '../src/lib/reports.ts'
 import type { MemberReportView, ReportMessage } from '../src/lib/api.ts'
@@ -37,6 +43,8 @@ const report = (over: Partial<MemberReportView> = {}): MemberReportView => ({
   closedAt: null,
   closedByUsername: null,
   closeNote: null,
+  reporterMessageSent: false,
+  reporterMessageProblem: null,
   ...over,
 })
 
@@ -108,4 +116,26 @@ test('a tab keeps only the reports that belong on it', () => {
 
   assert.deepEqual(onTab(list, 'open').map((r) => r.id), ['a', 'c'])
   assert.deepEqual(onTab(list, 'closed').map((r) => r.id), ['b'])
+})
+
+test('no message goes to the reporter unless the closer chose one', () => {
+  assert.equal(reporterMessageToSend(NO_REPORTER_MESSAGE, 'left over'), undefined)
+  assert.equal(reporterMessageToSend(OWN_REPORTER_MESSAGE, '  Thanks, handled.  '), 'Thanks, handled.')
+  assert.equal(reporterMessageToSend('preset:0', 'Thanks'), 'Thanks')
+})
+
+test('a message to the reporter needs words and has a limit; choosing none is never a problem', () => {
+  assert.equal(reporterMessageProblem(NO_REPORTER_MESSAGE, ''), null)
+  assert.match(reporterMessageProblem(OWN_REPORTER_MESSAGE, '   ') ?? '', /Write the message/)
+  assert.match(reporterMessageProblem('preset:1', 'x'.repeat(REPORTER_MESSAGE_MAX + 1)) ?? '', /too long/)
+  assert.equal(reporterMessageProblem('preset:1', 'x'.repeat(REPORTER_MESSAGE_MAX)), null)
+})
+
+test('a closed report says whether the reporter was told, and says nothing when nobody tried', () => {
+  assert.equal(reporterMessageLine(report()), null)
+  assert.equal(reporterMessageLine(report({ reporterMessageSent: true })), 'The reporter was told.')
+  assert.equal(
+    reporterMessageLine(report({ reporterMessageProblem: 'Discord refused' })),
+    'The reporter was not told: Discord refused',
+  )
 })

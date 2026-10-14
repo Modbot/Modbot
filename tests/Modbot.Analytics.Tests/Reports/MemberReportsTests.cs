@@ -4,6 +4,8 @@ using Modbot.Analytics.Reports;
 using Modbot.Analytics.Retention;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
+using Modbot.Core.Email;
 using Modbot.TestSupport;
 
 namespace Modbot.Analytics.Tests.Reports;
@@ -21,11 +23,12 @@ public class MemberReportsTests : AnalyticsTestBase
 
     public MemberReportsTests(PostgresFixture fixture) : base(fixture) { }
 
-    private MemberReports NewReports(ModbotContext context) => new(
+    private MemberReports NewReports(ModbotContext context, IDiscordMessenger? messenger = null) => new(
         context,
         new FactWriter(context, Clock),
         new EventPartitionMaintainer(context, Clock),
-        Clock);
+        Clock,
+        messenger: messenger);
 
     private UserPurger NewPurger(ModbotContext context) => new(
         context,
@@ -193,6 +196,82 @@ public class MemberReportsTests : AnalyticsTestBase
         Assert.Contains(report.Id.ToString(), fact.Data, StringComparison.Ordinal);
         Assert.DoesNotContain("Spoke to them", fact.Data, StringComparison.Ordinal);
         Assert.DoesNotContain(Reporter, fact.Data, StringComparison.Ordinal);
+    }
+
+    // ── Telling the reporter ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TellingTheReporter_SendsOneDirectMessageToThemAlone_AndKeepsOnlyThatItWent()
+    {
+        var report = await AddAsync(Reporter, Reported);
+        var messenger = new RecordingMessenger(SendOutcome.Ok);
+
+        await using (var context = Database.NewContext())
+        {
+            var reports = NewReports(context, messenger);
+            Assert.Equal(MemberReportCloseResult.Closed, await reports.CloseAsync(report.Id, "dealt with", Guid.NewGuid(), "alice", Ct));
+
+            var closed = await context.MemberReports.FirstAsync(r => r.Id == report.Id, Ct);
+            Assert.Equal(MemberReport.ReporterMessageSent, await reports.TellReporterAsync(closed, "  Thanks, we dealt with it.  ", Ct));
+        }
+
+        var sent = Assert.Single(messenger.Sent);
+        Assert.Equal(Reporter, sent.To);
+        Assert.Equal("Thanks, we dealt with it.", sent.Text);
+        Assert.Equal(MemberReport.ReporterMessageSent, (await ReadAsync(report.Id)).ReporterMessageResult);
+
+        // The reporter is in no fact, and neither are the words sent to them.
+        await using var read = Database.NewContext();
+        var facts = await read.Events.AsNoTracking().ToListAsync(Ct);
+        Assert.DoesNotContain(facts, f => f.Data.Contains(Reporter, StringComparison.Ordinal) || f.Data.Contains("Thanks, we dealt", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AMessageThatFails_KeepsTheReportClosed_AndKeepsTheReason()
+    {
+        var report = await AddAsync(Reporter, Reported);
+        var messenger = new RecordingMessenger(SendOutcome.Failed("Discord refused; the person may have direct messages closed."));
+
+        await using (var context = Database.NewContext())
+        {
+            var reports = NewReports(context, messenger);
+            Assert.Equal(MemberReportCloseResult.Closed, await reports.CloseAsync(report.Id, "dealt with", Guid.NewGuid(), "alice", Ct));
+
+            var closed = await context.MemberReports.FirstAsync(r => r.Id == report.Id, Ct);
+            Assert.Contains("direct messages closed", await reports.TellReporterAsync(closed, "Thanks.", Ct), StringComparison.Ordinal);
+        }
+
+        var kept = await ReadAsync(report.Id);
+        Assert.Equal(MemberReportStates.Closed, kept.State);
+        Assert.Contains("direct messages closed", kept.ReporterMessageResult, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithoutADiscordBot_NothingCanBeSent_AndTheCloserIsToldWhy()
+    {
+        var report = await AddAsync(Reporter, Reported);
+
+        await using var context = Database.NewContext();
+        var reports = NewReports(context);
+
+        Assert.False(await reports.CanMessageReportersAsync(Ct));
+        Assert.Equal(MemberReportCloseResult.Closed, await reports.CloseAsync(report.Id, "dealt with", Guid.NewGuid(), "alice", Ct));
+
+        var closed = await context.MemberReports.FirstAsync(r => r.Id == report.Id, Ct);
+        Assert.Contains("not set up", await reports.TellReporterAsync(closed, "Thanks.", Ct), StringComparison.Ordinal);
+    }
+
+    private sealed class RecordingMessenger(SendOutcome outcome) : IDiscordMessenger
+    {
+        public List<(string To, string Text)> Sent { get; } = [];
+
+        public Task<bool> IsConfiguredAsync(CancellationToken ct = default) => Task.FromResult(true);
+
+        public Task<SendOutcome> SendDirectMessageAsync(string discordUserId, string text, CancellationToken ct = default)
+        {
+            Sent.Add((discordUserId, text));
+            return Task.FromResult(outcome);
+        }
     }
 
     // ── The same message twice, the same person twice ────────────────────────────────────────

@@ -569,6 +569,9 @@ public static class ApiSurface
         // The channel members post gallery pictures in.
         app.MapDiscordGallerySettings();
 
+        // The ready-made messages staff can send a reporter when they close a report.
+        app.MapReportReplySettings();
+
         // Tickets members open from a panel's buttons: the types, the transcript channel, the panel.
         app.MapDiscordTickets();
 

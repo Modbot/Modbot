@@ -2,11 +2,20 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Notice } from '@/components/ui/notice'
+import { Select } from '@/components/ui/select'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { Textarea } from '@/components/ui/textarea'
 import { Row } from '@/components/ui/fact-row'
 import { ago } from '@/lib/format'
-import { api, ApiError, type CurrentUser, type MemberReportList, type MemberReportView } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type CurrentUser,
+  type MemberReportList,
+  type MemberReportView,
+  type ReportReply,
+} from '@/lib/api'
 import { can } from '@/lib/permissions'
 import {
   aboutSubject,
@@ -15,8 +24,14 @@ import {
   CLOSE_NOTE_MAX,
   discordLink,
   hasQuote,
+  NO_REPORTER_MESSAGE,
   openTabCount,
+  OWN_REPORTER_MESSAGE,
   personName,
+  REPORTER_MESSAGE_MAX,
+  reporterMessageLine,
+  reporterMessageProblem,
+  reporterMessageToSend,
   writtenText,
 } from '@/lib/reports'
 import { openSubject } from '@/lib/subject'
@@ -26,7 +41,9 @@ import { openSubject } from '@/lib/subject'
  *
  * Everyone who can open this page sees who reported (decision 2); Discord, the alerts and the audit
  * log never do. A report about a staff account is left out by the server unless this person also
- * holds Review tickets, so nothing here has to hide it. Closing needs a note, the same as Reviews.
+ * holds Review tickets, so nothing here has to hide it. Closing needs a note, the same as Reviews,
+ * and can send the reporter a direct message (never a channel post): a ready-made message, the
+ * closer's own words, or nothing.
  */
 export function Reports({
   me,
@@ -39,6 +56,7 @@ export function Reports({
   const [state, setState] = useState<'open' | 'closed'>('open')
   const [list, setList] = useState<MemberReportList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const load = useCallback(() => {
     return api
@@ -94,6 +112,12 @@ export function Reports({
         />
       </div>
 
+      {notice && (
+        <Card>
+          <Notice tone="warn">{notice}</Notice>
+        </Card>
+      )}
+
       {!list && (
         <Card>
           <EmptyRow tone="loading" />
@@ -107,7 +131,18 @@ export function Reports({
       )}
 
       {list?.reports.map((report) => (
-        <ReportCard key={report.id} report={report} now={list.now} me={me} onClosed={load} />
+        <ReportCard
+          key={report.id}
+          report={report}
+          now={list.now}
+          me={me}
+          replies={list.replies ?? []}
+          canMessageReporter={list.canMessageReporters}
+          onClosed={(closed) => {
+            setNotice(closed.reporterMessageProblem ? reporterMessageLine(closed) : null)
+            load()
+          }}
+        />
       ))}
     </div>
   )
@@ -117,14 +152,21 @@ function ReportCard({
   report,
   now,
   me,
+  replies,
+  canMessageReporter,
   onClosed,
 }: {
   report: MemberReportView
   now: string
   me: CurrentUser
-  onClosed: () => void
+  replies: ReportReply[]
+  canMessageReporter: boolean
+  /** Called with the closed report, which says whether the reporter's message went. */
+  onClosed: (closed: MemberReportView) => void
 }) {
   const [note, setNote] = useState('')
+  const [tell, setTell] = useState(NO_REPORTER_MESSAGE)
+  const [tellText, setTellText] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -136,8 +178,16 @@ function ReportCard({
   const writesNotes = can(me, 'WriteNotes')
   const handles = can(me, 'HandleReports')
 
+  // A ready-made message fills the box and can still be edited before closing.
+  const chooseMessage = (choice: string) => {
+    setTell(choice)
+    setProblem(null)
+    const preset = choice.startsWith('preset:') ? replies[Number(choice.slice('preset:'.length))] : undefined
+    setTellText(preset?.text ?? '')
+  }
+
   const close = () => {
-    const why = closeProblem(note)
+    const why = closeProblem(note) ?? reporterMessageProblem(tell, tellText)
     if (why) {
       setProblem(why)
       return
@@ -146,8 +196,8 @@ function ReportCard({
     setBusy(true)
     setProblem(null)
     api
-      .closeMemberReport(report.id, note.trim())
-      .then(() => onClosed())
+      .closeMemberReport(report.id, note.trim(), reporterMessageToSend(tell, tellText))
+      .then((closed) => onClosed(closed))
       .catch((e: unknown) =>
         setProblem(
           e instanceof ApiError && e.status === 403
@@ -248,12 +298,49 @@ function ReportCard({
             />
           </label>
         )}
+
+        {report.state === 'open' && handles && (
+          <div className="mt-3 flex max-w-lg flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <span id={`tell-${report.id}`} className="text-muted-foreground">
+              Tell the reporter
+            </span>
+            {canMessageReporter ? (
+              <>
+                <Select value={tell} onChange={chooseMessage} aria-labelledby={`tell-${report.id}`}>
+                  <option value={NO_REPORTER_MESSAGE}>Don't tell them</option>
+                  {replies.map((reply, index) => (
+                    <option key={reply.name} value={`preset:${index}`}>
+                      {reply.name}
+                    </option>
+                  ))}
+                  <option value={OWN_REPORTER_MESSAGE}>Write my own</option>
+                </Select>
+                {tell !== NO_REPORTER_MESSAGE && (
+                  <Textarea
+                    className="min-h-16"
+                    value={tellText}
+                    onChange={(e) => setTellText(e.target.value)}
+                    maxLength={REPORTER_MESSAGE_MAX}
+                    aria-labelledby={`tell-${report.id}`}
+                  />
+                )}
+              </>
+            ) : (
+              <span className="text-muted-foreground">
+                The reporter can't be messaged: the Discord bot is not set up.
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
 
       {report.state === 'closed' ? (
         <CardFooter className="block" style={{ fontSize: 'var(--text-small)' }}>
           <span className="text-muted-foreground">{report.closedByUsername ?? 'Somebody'} wrote: </span>
           <span className="break-words whitespace-pre-wrap">{report.closeNote}</span>
+          {reporterMessageLine(report) && (
+            <p className="mt-1 text-muted-foreground">{reporterMessageLine(report)}</p>
+          )}
         </CardFooter>
       ) : (
         handles && (

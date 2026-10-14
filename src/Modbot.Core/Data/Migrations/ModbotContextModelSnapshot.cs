@@ -6015,6 +6015,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("reporter_discord_id");
 
+                    b.Property<string>("ReporterMessageResult")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("reporter_message_result");
+
                     b.Property<string>("ReporterName")
                         .IsRequired()
                         .HasColumnType("text")
@@ -9281,6 +9286,13 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("McpServerEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("mcp_server_enabled");
+
+                    b.Property<string>("MemberReportReplies")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("member_report_replies");
 
                     b.Property<int>("MemberReportRetentionDays")
                         .HasColumnType("integer")

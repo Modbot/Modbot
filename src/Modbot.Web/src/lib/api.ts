@@ -380,6 +380,12 @@ export type DiscordGallerySettings = {
   channelId: string | null
 }
 
+/** A ready-made message staff can send the reporter when they close a report. */
+export type ReportReply = { name: string; text: string }
+
+/** Settings → Discord → Report replies. */
+export type ReportReplySettings = { replies: ReportReply[] }
+
 /** One kind of ticket members can open. Settings → Discord → Tickets. */
 export type DiscordTicketType = {
   id: string
@@ -3464,6 +3470,10 @@ export type MemberReportView = {
   closedAt: string | null
   closedByUsername: string | null
   closeNote: string | null
+  /** The closer sent the reporter a direct message and it went. */
+  reporterMessageSent: boolean
+  /** Why the message the closer chose to send did not go. Null otherwise. */
+  reporterMessageProblem: string | null
 }
 
 export type MemberReportList = {
@@ -3471,6 +3481,10 @@ export type MemberReportList = {
   /** Every open report this person may see, whatever tab the page is on. */
   openCount: number
   now: string
+  /** The server's ready-made messages for the reporter. */
+  replies: ReportReply[]
+  /** False when no Discord bot token is stored, so no direct message can go. */
+  canMessageReporters: boolean
 }
 
 /** One person's count of being acted on. `status` is decided by the `rule` that travels with it. */
@@ -5224,6 +5238,11 @@ export const api = {
 
   setDiscordGallerySettings: (body: { channelId: string }) =>
     put<DiscordGallerySettings>('/api/settings/discord-gallery', body),
+
+  reportReplySettings: () => request<ReportReplySettings>('/api/settings/report-replies'),
+
+  setReportReplySettings: (body: ReportReplySettings) =>
+    put<ReportReplySettings>('/api/settings/report-replies', body),
   discordTickets: () => request<DiscordTickets>('/api/settings/discord-tickets'),
 
   setDiscordTicketTranscriptChannel: (channelId: string) =>
@@ -6204,9 +6223,9 @@ export const api = {
 
   openReportCount: () => request<{ open: number }>('/api/reports/open-count'),
 
-  /** The note is required. Needs Handle reports. */
-  closeMemberReport: (id: string, note: string) =>
-    post<MemberReportView>(`/api/reports/${encodeURIComponent(id)}/close`, { note }),
+  /** The note is required. `reporterMessage`, when given, goes to the reporter as a direct message. Needs Handle reports. */
+  closeMemberReport: (id: string, note: string, reporterMessage?: string) =>
+    post<MemberReportView>(`/api/reports/${encodeURIComponent(id)}/close`, { note, reporterMessage }),
 
   /** People acted on more than once, most recent action first. Needs ViewProfile. */
   repeatOffenders: (query: { status?: 'all' | 'repeat' | 'more-than-once'; offset?: number; limit?: number } = {}) => {

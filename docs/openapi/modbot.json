@@ -13275,6 +13275,124 @@
         ]
       }
     },
+    "/api/settings/report-replies": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get the ready-made messages for reporters",
+        "description": "The messages staff can send the reporter when they close a report.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetReportReplySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportReplySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update the ready-made messages for reporters",
+        "description": "Replace the list. At most 10 messages, each with a name (40 characters) and text (1,000 characters), and no two with the same name.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetReportReplySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportReplySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportReplySettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-tickets": {
       "get": {
         "tags": [
@@ -35180,7 +35298,7 @@
           "Reports"
         ],
         "summary": "Close a member report",
-        "description": "The note is required and is kept with the report. Closing is recorded as a fact against your account that names the report and not the note or the reporter.\n\nNeeds the `ViewReports` and `HandleReports` permissions.",
+        "description": "The note is required and is kept with the report. Closing is recorded as a fact against your account that names the report and not the note or the reporter. A message to the reporter is optional: it is sent to them in a direct message and never to a channel, and the report says whether it went. A message that fails to send does not undo the close.\n\nNeeds the `ViewReports` and `HandleReports` permissions.",
         "operationId": "CloseReport",
         "parameters": [
           {
@@ -44681,6 +44799,12 @@
         "properties": {
           "note": {
             "type": "string"
+          },
+          "reporterMessage": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -55632,6 +55756,19 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "replies": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ReportReplyView"
+            }
+          },
+          "canMessageReporters": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -55705,6 +55842,16 @@
             ]
           },
           "closeNote": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reporterMessageSent": {
+            "type": "boolean",
+            "default": false
+          },
+          "reporterMessageProblem": {
             "type": [
               "null",
               "string"
@@ -60364,6 +60511,64 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ReportReplySettingView": {
+        "required": [
+          "name",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "ReportReplySettingsResponse": {
+        "required": [
+          "replies"
+        ],
+        "type": "object",
+        "properties": {
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportReplySettingView"
+            }
+          }
+        }
+      },
+      "ReportReplySettingsUpdate": {
+        "required": [
+          "replies"
+        ],
+        "type": "object",
+        "properties": {
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportReplySettingView"
+            }
+          }
+        }
+      },
+      "ReportReplyView": {
+        "required": [
+          "name",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },

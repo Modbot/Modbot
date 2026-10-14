@@ -1270,6 +1270,14 @@ public class Settings
     public int MemberReportRetentionDays { get; set; } = MemberReport.DefaultRetentionDays;
 
     /// <summary>
+    /// The ready-made messages staff can send the reporter when they close a report, as a JSON list
+    /// of <c>{ "name", "text" }</c> (see <see cref="ReportReplies"/>). Empty to start: staff can still
+    /// write their own.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string MemberReportReplies { get; set; } = "[]";
+
+    /// <summary>
     /// How long Modbot's own log lines are kept in the database, in days. 0 keeps them forever.
     /// </summary>
     /// <remarks>

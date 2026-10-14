@@ -19,6 +19,8 @@ public sealed record ReportMessageView(
 
 /// <summary>One report, with the reporter: everyone who may see reports sees who reported.</summary>
 /// <param name="State"><c>open</c> or <c>closed</c>.</param>
+/// <param name="ReporterMessageSent">The closer sent the reporter a direct message and it went.</param>
+/// <param name="ReporterMessageProblem">One sentence on why the message the closer chose to send did not go; null otherwise.</param>
 /// <param name="Text">What the reporter wrote. Null once retention removed it.</param>
 /// <param name="Message">The quoted message, or null when there is none or retention removed it.</param>
 /// <param name="TextRemovedAt">When retention removed the text and the message copy; null while they are kept.</param>
@@ -33,12 +35,28 @@ public sealed record MemberReportView(
     DateTimeOffset? TextRemovedAt,
     DateTimeOffset? ClosedAt,
     string? ClosedByUsername,
-    string? CloseNote);
+    string? CloseNote,
+    bool ReporterMessageSent = false,
+    string? ReporterMessageProblem = null);
+
+/// <summary>A ready-made message for the reporter, set per server.</summary>
+public sealed record ReportReplyView(string Name, string Text);
 
 /// <param name="OpenCount">Every open report this person may see, whatever tab the page is on.</param>
-public sealed record MemberReportList(IReadOnlyList<MemberReportView> Reports, int OpenCount, DateTimeOffset Now);
+/// <param name="Replies">The server's ready-made messages for the reporter, for the close form.</param>
+/// <param name="CanMessageReporters">False when no Discord bot token is stored, so no direct message can go.</param>
+public sealed record MemberReportList(
+    IReadOnlyList<MemberReportView> Reports,
+    int OpenCount,
+    DateTimeOffset Now,
+    IReadOnlyList<ReportReplyView>? Replies = null,
+    bool CanMessageReporters = false);
 
 public sealed record OpenReportCount(int Open);
 
 /// <param name="Note">Required. What was done or concluded, in the closer's words.</param>
-public sealed record CloseReportRequest(string Note);
+/// <param name="ReporterMessage">
+/// Optional. What to send the reporter in a direct message (a ready-made message or the closer's own
+/// words, at most 1,000 characters). Null or empty sends nothing. Never posted in a channel.
+/// </param>
+public sealed record CloseReportRequest(string Note, string? ReporterMessage = null);

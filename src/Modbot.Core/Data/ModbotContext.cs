@@ -1984,6 +1984,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.TwitchPostEveryHours).HasDefaultValue(6);
             entity.Property(e => e.TwitchPostPlaces).HasDefaultValue("{}");
 
+            // No ready-made report replies until staff write some, for the row that exists already.
+            entity.Property(e => e.MemberReportReplies).HasDefaultValue("[]");
+
             // The weekly spotlight: off, Monday 09:00, random, nothing ticked, for the row that exists already.
             entity.Property(e => e.SpotlightDay).HasDefaultValue(1);
             entity.Property(e => e.SpotlightHour).HasDefaultValue(9);
@@ -3314,6 +3317,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.State).HasMaxLength(16);
             entity.Property(e => e.ClosedByUsername).HasMaxLength(64);
             entity.Property(e => e.CloseNote).HasMaxLength(MemberReport.MaxCloseNoteLength);
+            entity.Property(e => e.ReporterMessageResult).HasMaxLength(300);
 
             // "You already reported this": one report per reporter per message, in the database so
             // two presses at once cannot make two. The message id goes when retention removes the

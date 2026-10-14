@@ -45,6 +45,7 @@ public static class ReportEndpoints
                 HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] MemberReports reports,
                 [FromQuery] string? state,
                 CancellationToken ct) =>
             {
@@ -65,7 +66,12 @@ public static class ReportEndpoints
 
                 var openCount = await visible.CountAsync(r => r.State == MemberReportStates.Open, ct);
 
-                return Results.Ok(new MemberReportList(rows.Select(View).ToList(), openCount, now));
+                var replies = ReportReplies.Read((await db.GetSettingsAsync(ct)).MemberReportReplies)
+                    .Select(r => new ReportReplyView(r.Name, r.Text))
+                    .ToList();
+
+                return Results.Ok(new MemberReportList(
+                    rows.Select(View).ToList(), openCount, now, replies, await reports.CanMessageReportersAsync(ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewReports)
             .WithName("ListReports")
@@ -112,8 +118,18 @@ public static class ReportEndpoints
                 if (!await visible.AnyAsync(r => r.Id == id, ct))
                     return Results.NotFound(new { error = "No such report." });
 
+                // Refused before anything changes: a report must not close and then fail on its message.
+                var toReporter = body?.ReporterMessage?.Trim();
+                if (toReporter?.Length > MemberReport.MaxReporterMessageLength)
+                    return Results.BadRequest(new { error = $"The message to the reporter is too long (at most {MemberReport.MaxReporterMessageLength} characters)." });
+
                 var report = await db.MemberReports.FirstOrDefaultAsync(r => r.Id == id, ct);
                 var result = await reports.CloseAsync(report, body?.Note, userId, http.User.Identity?.Name ?? string.Empty, ct);
+
+                // The close stands whatever happens to the message; how it went is kept on the report
+                // and shown to the closer.
+                if (result == MemberReportCloseResult.Closed && !string.IsNullOrEmpty(toReporter))
+                    await reports.TellReporterAsync(report!, toReporter, ct);
 
                 return result switch
                 {
@@ -129,7 +145,9 @@ public static class ReportEndpoints
             .WithSummary("Close a member report")
             .WithDescription(
                 "The note is required and is kept with the report. Closing is recorded as a fact against "
-                + "your account that names the report and not the note or the reporter.")
+                + "your account that names the report and not the note or the reporter. A message to the "
+                + "reporter is optional: it is sent to them in a direct message and never to a channel, and "
+                + "the report says whether it went. A message that fails to send does not undo the close.")
             .Produces<MemberReportView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -159,5 +177,7 @@ public static class ReportEndpoints
             r.TextRemovedAt,
             r.ClosedAt,
             r.ClosedByUsername,
-            r.CloseNote);
+            r.CloseNote,
+            r.ReporterMessageResult == MemberReport.ReporterMessageSent,
+            r.ReporterMessageResult is { } result && result != MemberReport.ReporterMessageSent ? result : null);
 }

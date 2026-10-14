@@ -5,6 +5,37 @@ import type { MemberReportView, ReportMessage, ReportPerson } from './api.ts'
 /** The longest close note the server takes. */
 export const CLOSE_NOTE_MAX = 2000
 
+/** The longest message to the reporter the server takes. */
+export const REPORTER_MESSAGE_MAX = 1000
+
+/** The choice in the close form that sends nothing. */
+export const NO_REPORTER_MESSAGE = ''
+
+/** The choice in the close form for the closer's own words. */
+export const OWN_REPORTER_MESSAGE = 'own'
+
+/** What the close form sends the reporter: nothing for "don't tell them", else the words written. */
+export function reporterMessageToSend(choice: string, text: string): string | undefined {
+  return choice === NO_REPORTER_MESSAGE ? undefined : text.trim()
+}
+
+/** Why the message to the reporter cannot go yet, or null. Nothing is wrong with choosing not to send one. */
+export function reporterMessageProblem(choice: string, text: string): string | null {
+  if (choice === NO_REPORTER_MESSAGE) return null
+  const written = text.trim()
+  if (written.length === 0) return 'Write the message to the reporter first.'
+  if (written.length > REPORTER_MESSAGE_MAX)
+    return `The message is too long (at most ${REPORTER_MESSAGE_MAX} characters).`
+  return null
+}
+
+/** What a closed report says about telling the reporter, or null when nobody was told and nobody tried. */
+export function reporterMessageLine(report: Pick<MemberReportView, 'reporterMessageSent' | 'reporterMessageProblem'>): string | null {
+  if (report.reporterMessageSent) return 'The reporter was told.'
+  if (report.reporterMessageProblem) return `The reporter was not told: ${report.reporterMessageProblem}`
+  return null
+}
+
 /** The popup a person opens: their VRChat account when the Discord account was linked to one then. */
 export function aboutSubject(about: ReportPerson): { kind: 'person' | 'discord-person'; id: string } {
   return about.vrChatUserId

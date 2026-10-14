@@ -49,6 +49,12 @@ public class MemberReport
     /// <summary>How long a close note may be, the same as a review's.</summary>
     public const int MaxCloseNoteLength = 2000;
 
+    /// <summary>The longest message to the reporter. Discord's own limit for a direct message is 2,000.</summary>
+    public const int MaxReporterMessageLength = 1000;
+
+    /// <summary>What <see cref="ReporterMessageResult"/> holds when the message went.</summary>
+    public const string ReporterMessageSent = "sent";
+
     /// <summary>How long a closed report keeps its words when nothing else is set: a year.</summary>
     public const int DefaultRetentionDays = 365;
 
@@ -109,4 +115,11 @@ public class MemberReport
 
     /// <summary>When the text and the message copy were removed by retention, or null while they are kept.</summary>
     public DateTimeOffset? TextRemovedAt { get; set; }
+
+    /// <summary>
+    /// How telling the reporter went when the report was closed: <see cref="ReporterMessageSent"/>, or
+    /// one sentence on why the direct message did not go. Null when the closer chose not to send one.
+    /// What was sent is not kept.
+    /// </summary>
+    public string? ReporterMessageResult { get; set; }
 }

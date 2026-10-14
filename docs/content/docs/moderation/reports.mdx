@@ -47,10 +47,29 @@ nobody in the server can see that a report was made or by whom.
 - **Add note**, **Watch** and **Profile**, which open the person's popup, for the people who hold
   those permissions;
 - **Close**, with a **Close note** that is required. The note is kept on the report, with who closed it
-  and when.
+  and when. **Tell the reporter** is optional: see [Telling the reporter](#telling-the-reporter).
 
 Closing is recorded in the [audit log](/moderation/audit-log) as **Member report closed**, naming the
 person reported and the staff account that closed it. The note is not in the entry.
+
+### Telling the reporter
+
+When you close a report you can send the reporter a Discord direct message, so they know it was handled.
+Under **Tell the reporter** pick one of:
+
+- **Don't tell them**, the default: nothing is sent.
+- one of your ready-made messages, which fills the box so you can change it before you close;
+- **Write my own**, and write the message yourself (at most 1,000 characters).
+
+The message goes to the reporter alone, as a direct message from the bot. It is never posted in a
+channel, and nothing in Discord names who reported. Modbot keeps only whether it went: a closed report
+says **The reporter was told.**, or **The reporter was not told** with the reason (their direct messages
+may be closed, or they may share no server with the bot). A message that fails to send does not undo
+the close. Modbot keeps no copy of what was sent, and the reporter's id is in no audit log entry. Without
+a Discord bot token (**Settings → Discord**) the form says the reporter can't be messaged.
+
+Set the ready-made messages in **Settings → Discord → Report replies**: up to 10, each with a name
+(40 characters) and the message (1,000 characters). It needs **Change settings**.
 
 ### Who sees who reported
 
@@ -98,7 +117,8 @@ Each report is one row in Modbot's database:
 - what the reporter wrote;
 - for the menu: the message's id, the channel's id and name, when it was sent, its words, the names of
   its files, and its link;
-- open or closed, who closed it, when, and the close note.
+- open or closed, who closed it, when, and the close note;
+- whether the reporter was told when it was closed, and if not, why. Not what was sent.
 
 **Closed reports keep the words for a year.** After the number of days in **Settings → Server → Keep
 for (days) → Closed reports** (365 unless you change it; 0 keeps them forever) from the day a report

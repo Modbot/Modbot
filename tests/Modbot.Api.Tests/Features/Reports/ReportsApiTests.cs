@@ -288,6 +288,37 @@ public class ReportsApiTests
         Assert.DoesNotContain("Quillfeather", fact.Data, StringComparison.Ordinal);
         Assert.DoesNotContain(Reporter, fact.Data, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task ClosingWithAMessage_TriesTheDirectMessage_KeepsTheCloseWhenItFails_AndAnOverlongOneIsRefusedFirst()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        var tooLong = await AddAsync(host);
+        var id = await AddAsync(host, reported: "200000000000000099", reporter: "100000000000000098");
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewReports | ModbotPermissions.HandleReports, Ct);
+
+        // Refused before anything changes: the report stays open.
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await host.PostJsonAsync($"/api/reports/{tooLong}/close", new { note = "x", reporterMessage = new string('m', MemberReport.MaxReporterMessageLength + 1) }, cookie, Ct)).StatusCode);
+        Assert.Equal(2, (await host.GetJsonAsync<MemberReportList>("/api/reports", cookie, Ct)).OpenCount);
+
+        // This host has no Discord bot, so the message cannot go: the close stands and says why.
+        var closed = await host.PostJsonAsync($"/api/reports/{id}/close", new { note = "Handled.", reporterMessage = "Thanks, handled." }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        var view = JsonSerializer.Deserialize<MemberReportView>(await closed.Content.ReadAsStringAsync(Ct), Web)!;
+        Assert.Equal("closed", view.State);
+        Assert.False(view.ReporterMessageSent);
+        Assert.Contains("not set up", view.ReporterMessageProblem, StringComparison.Ordinal);
+
+        // The list says no message can be sent, and carries the server's ready-made replies.
+        var list = await host.GetJsonAsync<MemberReportList>("/api/reports", cookie, Ct);
+        Assert.False(list.CanMessageReporters);
+        Assert.NotNull(list.Replies);
+    }
 }
 
 /// <summary>What retention does to a row, for a test that reads it through the API.</summary>

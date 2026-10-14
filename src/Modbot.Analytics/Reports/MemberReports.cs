@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
+using Modbot.Core.Email;
 using Modbot.Core.Logging;
 using Modbot.Core.Notifications;
 using Modbot.Core.Time;
@@ -118,13 +120,15 @@ public sealed class MemberReports
     private readonly EventPartitionMaintainer _partitions;
     private readonly IModbotClock _clock;
     private readonly INotifier? _notifier;
+    private readonly IDiscordMessenger? _messenger;
 
     public MemberReports(
         ModbotContext db,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
         IModbotClock clock,
-        INotifier? notifier = null)
+        INotifier? notifier = null,
+        IDiscordMessenger? messenger = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -136,6 +140,7 @@ public sealed class MemberReports
         _partitions = partitions;
         _clock = clock;
         _notifier = notifier;
+        _messenger = messenger;
     }
 
     // ── Opening ──────────────────────────────────────────────────────────────────────────────
@@ -436,6 +441,43 @@ public sealed class MemberReports
 
         await transaction.CommitAsync(ct).ConfigureAwait(false);
         return MemberReportCloseResult.Closed;
+    }
+
+    /// <summary>Whether Modbot can send a direct message at all: a bot token is stored.</summary>
+    public async Task<bool> CanMessageReportersAsync(CancellationToken ct)
+        => _messenger is not null && await _messenger.IsConfiguredAsync(ct).ConfigureAwait(false);
+
+    /// <summary>
+    /// Sends the reporter of a closed report a direct message, and keeps how it went on the report.
+    /// It goes to the reporter alone: never to a channel, and the reporter's id is in no fact, log
+    /// line or notification. A failure never undoes the close, so the result is kept and returned for
+    /// the closer to see. Returns <see cref="MemberReport.ReporterMessageSent"/> or the reason.
+    /// </summary>
+    public async Task<string> TellReporterAsync(MemberReport report, string text, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        string result;
+        try
+        {
+            var outcome = _messenger is null
+                ? SendOutcome.NotConfigured("The Discord bot")
+                : await _messenger.SendDirectMessageAsync(report.ReporterDiscordId, text.Trim(), ct).ConfigureAwait(false);
+
+            result = outcome.Sent
+                ? MemberReport.ReporterMessageSent
+                : outcome.Error ?? "The message was not sent.";
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            Log.Logger.ForContext(LogArea.Name, LogArea.Analytics).Warning(e, "Could not send a closed member report's reporter a message");
+            result = "The message was not sent.";
+        }
+
+        report.ReporterMessageResult = result.Length > 300 ? result[..300] : result;
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return result;
     }
 
     // ── Retention ────────────────────────────────────────────────────────────────────────────

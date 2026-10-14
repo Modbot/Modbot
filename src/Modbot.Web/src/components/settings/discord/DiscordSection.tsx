@@ -17,6 +17,7 @@ import { JoinGateCard } from './JoinGateCard'
 import { LinkingCard } from './LinkingCard'
 import { ListRolesCard } from './ListRolesCard'
 import { PermissionWatchCard } from './PermissionWatchCard'
+import { ReportRepliesCard } from './ReportRepliesCard'
 import { RoleMenusCard } from './RoleMenusCard'
 import { SyncCard } from './SyncCard'
 import { TicketsCard } from './TicketsCard'
@@ -61,6 +62,7 @@ export function DiscordSection({
           <CommandsCard />
           <JoinGateCard />
           <PermissionWatchCard />
+          <ReportRepliesCard />
           <GalleryPicturesCard />
           <BirthdaysCard />
           <EventRecapsCard />
