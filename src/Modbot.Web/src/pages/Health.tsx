@@ -666,11 +666,12 @@ const CALENDAR_PLACE: Record<string, string> = {
   channelPost: 'Channel post',
   cancelPost: 'Cancelled post',
   googleCalendar: 'Google Calendar',
+  bluesky: 'Bluesky',
   instance: 'Instance',
 }
 
 const isSwitchable = (place: string): place is CalendarSetUpPlace =>
-  place === 'vrchat' || place === 'instance' || place === 'discordEvent' || place === 'channelPost' || place === 'googleCalendar'
+  place === 'vrchat' || place === 'instance' || place === 'discordEvent' || place === 'channelPost' || place === 'googleCalendar' || place === 'bluesky'
 
 /**
  * Moderation rules that stopped themselves (AI moderation design §13.2).

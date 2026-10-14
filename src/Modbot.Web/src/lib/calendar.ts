@@ -1,4 +1,5 @@
-import type { CalendarReady } from './calendarPlaces.ts'
+import { DEFAULT_BLUESKY_BEFORE, type CalendarReady } from './calendarPlaces.ts'
+import type { BlueskyPostPreview } from './postRules.ts'
 import type { CalendarSameEvents } from './calendarWarnings.ts'
 import { ApiError, http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from './api.ts'
 
@@ -171,6 +172,10 @@ export type CalendarEvent = {
   coverPictureId?: string | null
   /** Ticked for the Google calendar in Settings. Missing from an older server. */
   publishToGoogle?: boolean
+  /** Each date gets its own Bluesky post. Missing from an older server. */
+  publishToBluesky?: boolean
+  /** How long before a date starts its Bluesky post goes, in minutes. Missing from an older server. */
+  blueskyPostBeforeMinutes?: number
   /** The group roles VRChat shows the event to; null for everyone it is visible to. */
   vrChatRoleIds?: string[] | null
   /** Times the channel streamed on Twitch while the event was on, newest first (Twitch design). */
@@ -182,6 +187,8 @@ export type CalendarEvent = {
   discordDescription?: string | null
   googleTitle?: string | null
   googleDescription?: string | null
+  blueskyTitle?: string | null
+  blueskyDescription?: string | null
   /** The categories made in Modbot that the event carries, by name. Missing from an older server. */
   categories?: CalendarCategory[]
 }
@@ -328,6 +335,8 @@ export type CalendarPreview = {
   }
   /** What the Google calendar in Settings is sent. Missing from an older server. */
   google?: CalendarGooglePreview | null
+  /** The Bluesky post for the event's current date. Missing from an older server. */
+  bluesky?: BlueskyPostPreview | null
 }
 
 /** The event as the Google calendar is sent it (Google Calendar design §3.8). */
@@ -462,6 +471,10 @@ export type CalendarEventInput = {
    * server ticks it when Google Calendar is set up and everyone may see the event.
    */
   publishToGoogle?: boolean | null
+  /** Post each date on Bluesky. Left out keeps what the event has; a new event starts off. */
+  publishToBluesky?: boolean
+  /** How long before a date starts its Bluesky post goes: 60, 1440, 4320 or 10080. */
+  blueskyPostBeforeMinutes?: number
   /**
    * Each site's own title and description; blank says the shared one. Left out keeps what the event
    * has. VRChat's is plain text, Discord's takes `[words](https://address)` for a link, and
@@ -473,6 +486,9 @@ export type CalendarEventInput = {
   discordDescription?: string
   googleTitle?: string
   googleDescription?: string
+  /** Bluesky's is plain text and, with the title and the rest of the post, at most 300 characters. */
+  blueskyTitle?: string
+  blueskyDescription?: string
   /** The Modbot categories the event carries; an empty list takes them all off. */
   categoryIds: string[]
 }
@@ -781,6 +797,10 @@ export function blankEvent(now: Date): CalendarEventInput {
     discordDescription: '',
     googleTitle: '',
     googleDescription: '',
+    publishToBluesky: false,
+    blueskyPostBeforeMinutes: DEFAULT_BLUESKY_BEFORE,
+    blueskyTitle: '',
+    blueskyDescription: '',
     categoryIds: [],
   }
 }
@@ -838,6 +858,10 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     discordDescription: event.discordDescription ?? '',
     googleTitle: event.googleTitle ?? '',
     googleDescription: event.googleDescription ?? '',
+    publishToBluesky: event.publishToBluesky ?? false,
+    blueskyPostBeforeMinutes: event.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE,
+    blueskyTitle: event.blueskyTitle ?? '',
+    blueskyDescription: event.blueskyDescription ?? '',
     categoryIds: (event.categories ?? []).map((c) => c.id),
   }
 }

@@ -28,6 +28,8 @@ export const FILL_IN_TEXTS = [
   'discordDescription',
   'googleTitle',
   'googleDescription',
+  'blueskyTitle',
+  'blueskyDescription',
 ] as const
 
 type TextKey = (typeof FILL_IN_TEXTS)[number]

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { CalendarDays, Lock, MapPin } from 'lucide-react'
+import { BlueskyPost } from '@/components/marketing/PostPreview'
 import { Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
 import {
@@ -108,6 +109,7 @@ export function EventPreview({
       {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
       {places.includes('feed') && <FeedCard entry={preview.feed} />}
       {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} />}
+      {places.includes('bluesky') && preview.bluesky && <BlueskyPost post={preview.bluesky} />}
     </div>
   )
 }

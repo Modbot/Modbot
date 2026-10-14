@@ -54,6 +54,10 @@ const input: CalendarEventInput = {
   googleTitle: '',
   googleDescription: '',
   publishToGoogle: null,
+  publishToBluesky: true,
+  blueskyPostBeforeMinutes: 4320,
+  blueskyTitle: '',
+  blueskyDescription: 'Doors at seven',
   categoryIds: [],
 }
 
@@ -76,6 +80,22 @@ test('a blank own text is saved as the shared one', () => {
 
   assert.equal(fields.vrChatTitle, 'Movies in VRChat')
   assert.equal(fields.discordDescription, 'Pop in')
+})
+
+test('a template keeps the Bluesky switch, the post time and its own text', () => {
+  const loaded = inputFromTemplate(fieldsFromInput(input, 120), input)
+
+  assert.equal(loaded.publishToBluesky, true)
+  assert.equal(loaded.blueskyPostBeforeMinutes, 4320)
+  assert.equal(loaded.blueskyDescription, 'Doors at seven')
+})
+
+test('a template saved before Bluesky loads with it off and the usual time', () => {
+  const { publishToBluesky: _on, blueskyPostBeforeMinutes: _before, ...old } = fieldsFromInput(input, 120)
+  const loaded = inputFromTemplate({ ...old, blueskyTitle: null, blueskyDescription: null }, input)
+
+  assert.equal(loaded.publishToBluesky, false)
+  assert.equal(loaded.blueskyPostBeforeMinutes, 1440)
 })
 
 test('a template loads into the form over the dates it is given', () => {

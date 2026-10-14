@@ -206,7 +206,7 @@ function EventBody({
           ))}
           {missing.map((place) => (
             <div key={place} className="flex flex-wrap items-center gap-2">
-              <Badge variant="destructive">{place === 'instance' ? DESTINATION_LABEL.instance : PLACE_LABEL[place]}</Badge>
+              <Badge variant="destructive">{place === 'instance' || place === 'bluesky' ? DESTINATION_LABEL[place] : PLACE_LABEL[place]}</Badge>
               <NotSetUp place={place} />
             </div>
           ))}

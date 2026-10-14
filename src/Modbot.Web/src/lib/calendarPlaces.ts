@@ -6,11 +6,12 @@ import type { CalendarEvent, CalendarEventInput, CalendarPlace, CalendarPlaceNam
 /**
  * VRChat: a managed group and a VRChat account. Discord: a server id and a connected bot. Google: a
  * key, a calendar, a good Check and Sending on (missing from an older server: taken as set up).
+ * Bluesky: an account that passed Check and Posting on (the same).
  */
-export type CalendarReady = { vrChat: boolean; discord: boolean; google?: boolean }
+export type CalendarReady = { vrChat: boolean; discord: boolean; google?: boolean; bluesky?: boolean }
 
 /** Every place an event can go, as the form's chips name them, in their order. The feed is always on. */
-export type CalendarDestination = 'vrchat' | 'discordEvent' | 'channelPost' | 'feed' | 'googleCalendar' | 'instance'
+export type CalendarDestination = 'vrchat' | 'discordEvent' | 'channelPost' | 'feed' | 'googleCalendar' | 'bluesky' | 'instance'
 
 /**
  * A place switched by a plain tick on the event: every one but the feed, which is always on, and
@@ -24,6 +25,7 @@ export const DESTINATIONS: readonly CalendarDestination[] = [
   'channelPost',
   'feed',
   'googleCalendar',
+  'bluesky',
   'instance',
 ]
 
@@ -33,18 +35,20 @@ export const DESTINATION_LABEL: Record<CalendarDestination, string> = {
   channelPost: 'Discord channel post',
   feed: 'Calendar feed',
   googleCalendar: 'Google Calendar',
+  bluesky: 'Bluesky',
   instance: 'Open the instance',
 }
 
 /** The switch on the event behind each chip. */
 export const DESTINATION_SWITCH: Record<
   CalendarSwitchable,
-  keyof Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'>
+  keyof Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen' | 'publishToBluesky'>
 > = {
   vrchat: 'publishToVRChat',
   discordEvent: 'publishToDiscord',
   channelPost: 'postToChannel',
   instance: 'autoOpen',
+  bluesky: 'publishToBluesky',
 }
 
 /** A place that can say "Not set up": every chip but the feed. */
@@ -57,6 +61,7 @@ export const SET_UP_LINK: Record<CalendarSetUpPlace, string> = {
   discordEvent: '/settings#discord',
   channelPost: '/settings#discord',
   googleCalendar: '/settings#google',
+  bluesky: '/settings#bluesky',
 }
 
 /**
@@ -76,6 +81,15 @@ export function wantsGoogle(e: {
 }): boolean {
   return !!e.publishToGoogle && !membersOnly(e)
 }
+
+/** How long before a date starts its Bluesky post goes: the server's four choices, and the one a new event starts on. */
+export const BLUESKY_BEFORE_CHOICES: readonly { minutes: number; label: string }[] = [
+  { minutes: 60, label: '1 hour before' },
+  { minutes: 1440, label: '1 day before' },
+  { minutes: 4320, label: '3 days before' },
+  { minutes: 10080, label: '1 week before' },
+]
+export const DEFAULT_BLUESKY_BEFORE = 1440
 
 /** How the form's Google Calendar chip stands (Google Calendar design §3.8). */
 export type GoogleChip = {
@@ -137,9 +151,9 @@ export function showsVisibleTo(input: { publishToVRChat: boolean }, google: Goog
 
 /** The places an event, or the form's input, is ticked for, in the chips' order. */
 export function wantedPlaces(
-  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'>,
+  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen' | 'publishToBluesky'>,
 ): CalendarSwitchable[] {
-  return (['vrchat', 'discordEvent', 'channelPost', 'instance'] as const).filter((p) => e[DESTINATION_SWITCH[p]])
+  return (['vrchat', 'discordEvent', 'channelPost', 'instance', 'bluesky'] as const).filter((p) => e[DESTINATION_SWITCH[p]])
 }
 
 /**
@@ -148,6 +162,7 @@ export function wantedPlaces(
  */
 export function isSetUp(place: CalendarSwitchable, ready: CalendarReady | null | undefined): boolean {
   if (!ready) return true
+  if (place === 'bluesky') return ready.bluesky !== false
   return place === 'vrchat' || place === 'instance' ? ready.vrChat : ready.discord
 }
 
@@ -156,7 +171,7 @@ export function isSetUp(place: CalendarSwitchable, ready: CalendarReady | null |
  * event ticked for it that may go there, while Google is not set up or Sending is off.
  */
 export function notSetUp(
-  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen'> & {
+  e: Pick<CalendarEventInput, 'publishToVRChat' | 'publishToDiscord' | 'postToChannel' | 'autoOpen' | 'publishToBluesky'> & {
     publishToGoogle?: boolean | null
     visibility?: string
     vrChatRoleIds?: readonly string[] | null
@@ -236,6 +251,36 @@ export function missingChannel(e: Pick<CalendarEventInput, 'postToChannel' | 'ch
 /** Discord's limits for an event's name and description, which are Modbot's too (calendar design §2). */
 export const TITLE_LIMIT = 100
 export const DESCRIPTION_LIMIT = 1000
+
+/** Bluesky's limit for the whole post, which its own description may not pass either. */
+export const BLUESKY_DESCRIPTION_LIMIT = 300
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+
+/** How many characters Bluesky counts in `text`: one for each thing a person sees as a character. */
+export function graphemeCount(text: string): number {
+  let n = 0
+  for (const _ of segmenter.segment(text)) n++
+  return n
+}
+
+/** `text` cut to at most `limit` graphemes, never in the middle of one. */
+export function cutGraphemes(text: string, limit: number): string {
+  let out = ''
+  let n = 0
+  for (const { segment } of segmenter.segment(text)) {
+    if (n === limit) break
+    out += segment
+    n++
+  }
+  return out
+}
+
+/** "12 / 300" for a Bluesky text, and whether it is over: the same as `counted`, in graphemes. */
+export function countedGraphemes(text: string, limit: number): { label: string; over: boolean } {
+  const length = graphemeCount(text.trim())
+  return { label: `${length} / ${limit}`, over: length > limit }
+}
 
 /** "12 / 100", and whether it is over: what the form shows beside the title and the description. */
 export function counted(text: string, limit: number): { label: string; over: boolean } {

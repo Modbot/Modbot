@@ -24,7 +24,12 @@ import {
   type CalendarWorld,
 } from '@/lib/calendar'
 import {
+  BLUESKY_BEFORE_CHOICES,
+  BLUESKY_DESCRIPTION_LIMIT,
   counted,
+  countedGraphemes,
+  cutGraphemes,
+  DEFAULT_BLUESKY_BEFORE,
   DESCRIPTION_LIMIT,
   DESTINATION_LABEL,
   DESTINATION_SWITCH,
@@ -405,7 +410,7 @@ export function CalendarEventForm({
     <img src={vrchatAddress} alt="" className="aspect-video w-full rounded-sm object-cover" />
   ) : null
   const on = (place: CalendarDestination) =>
-    place === 'feed' || (place === 'googleCalendar' ? google.on : input[DESTINATION_SWITCH[place]])
+    place === 'feed' || (place === 'googleCalendar' ? google.on : !!input[DESTINATION_SWITCH[place]])
   const title = counted(input.title, TITLE_LIMIT)
   const description = counted(input.description, DESCRIPTION_LIMIT)
 
@@ -897,6 +902,24 @@ export function CalendarEventForm({
                   </Section>
                 )}
 
+                {input.publishToBluesky && (
+                  <Section title={DESTINATION_LABEL.bluesky}>
+                    <Labelled label="Post it">
+                      <Select
+                        value={String(input.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE)}
+                        onChange={(v) => set('blueskyPostBeforeMinutes', Number(v))}
+                        aria-label="Post it"
+                      >
+                        {BLUESKY_BEFORE_CHOICES.map((c) => (
+                          <option key={c.minutes} value={c.minutes}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </Labelled>
+                  </Section>
+                )}
+
                 {input.postToChannel && (
                   <Section title={DESTINATION_LABEL.channelPost}>
                     <ChannelPicker
@@ -945,6 +968,7 @@ const OWN_TEXT_SITES = [
   { label: 'VRChat', title: 'vrChatTitle', description: 'vrChatDescription' },
   { label: 'Discord', title: 'discordTitle', description: 'discordDescription' },
   { label: 'Google', title: 'googleTitle', description: 'googleDescription' },
+  { label: 'Bluesky', title: 'blueskyTitle', description: 'blueskyDescription' },
 ] as const
 
 /**
@@ -973,7 +997,8 @@ function OwnText({
   const tick = (site: (typeof OWN_TEXT_SITES)[number], on: boolean) => {
     setOpen((current) => ({ ...current, [site.label]: on }))
     set(site.title, on ? ((input[site.title] ?? '') || input.title) : '')
-    set(site.description, on ? ((input[site.description] ?? '') || input.description) : '')
+    const shared = (input[site.description] ?? '') || input.description
+    set(site.description, on ? (site.label === 'Bluesky' ? cutGraphemes(shared, BLUESKY_DESCRIPTION_LIMIT) : shared) : '')
   }
 
   return (
@@ -998,7 +1023,14 @@ function OwnText({
               onActive={onActive}
             />
           </Counted>
-          <Counted label={`${site.label} description`} count={counted(input[site.description] ?? '', DESCRIPTION_LIMIT)}>
+          <Counted
+            label={`${site.label} description`}
+            count={
+              site.label === 'Bluesky'
+                ? countedGraphemes(input[site.description] ?? '', BLUESKY_DESCRIPTION_LIMIT)
+                : counted(input[site.description] ?? '', DESCRIPTION_LIMIT)
+            }
+          >
             <FillInText
               multiline
               label={`${site.label} description`}

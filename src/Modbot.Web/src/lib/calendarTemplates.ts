@@ -1,6 +1,7 @@
 // Nothing here talks to the server or the page, so the Node test runner can load this file as it is
 // (the API calls are in `calendarTemplateApi.ts`).
 import type { CalendarEventInput } from './calendar.ts'
+import { DEFAULT_BLUESKY_BEFORE } from './calendarPlaces.ts'
 
 /**
  * Event templates (calendar templates plan): a name and everything the event form holds except its
@@ -21,6 +22,8 @@ export type CalendarTemplateFields = Omit<
   | 'discordDescription'
   | 'googleTitle'
   | 'googleDescription'
+  | 'blueskyTitle'
+  | 'blueskyDescription'
   | 'categoryIds'
 > & {
   /** How long the event lasts, 1 minute to 7 days. */
@@ -34,6 +37,8 @@ export type CalendarTemplateFields = Omit<
   discordDescription: string | null
   googleTitle: string | null
   googleDescription: string | null
+  blueskyTitle: string | null
+  blueskyDescription: string | null
   /** The categories made in Modbot; null for a template saved before they were kept. */
   categoryIds: string[] | null
 }
@@ -87,6 +92,11 @@ export function inputFromTemplate(fields: CalendarTemplateFields, base: Calendar
     discordDescription: fields.discordDescription ?? '',
     googleTitle: fields.googleTitle ?? '',
     googleDescription: fields.googleDescription ?? '',
+    // A template saved before Bluesky has neither: off, and the usual time.
+    publishToBluesky: fields.publishToBluesky ?? false,
+    blueskyPostBeforeMinutes: fields.blueskyPostBeforeMinutes ?? DEFAULT_BLUESKY_BEFORE,
+    blueskyTitle: fields.blueskyTitle ?? '',
+    blueskyDescription: fields.blueskyDescription ?? '',
     categoryIds: fields.categoryIds ?? [],
   }
 }
@@ -106,6 +116,8 @@ export function fieldsFromInput(input: CalendarEventInput, lengthMinutes: number
     discordDescription: input.discordDescription ?? null,
     googleTitle: input.googleTitle ?? null,
     googleDescription: input.googleDescription ?? null,
+    blueskyTitle: input.blueskyTitle ?? null,
+    blueskyDescription: input.blueskyDescription ?? null,
     categoryIds: input.categoryIds,
   }
 }

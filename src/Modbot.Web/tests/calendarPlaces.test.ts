@@ -3,7 +3,11 @@ import { test } from 'node:test'
 import type { CalendarEvent } from '../src/lib/calendar.ts'
 import {
   anySending,
+  BLUESKY_BEFORE_CHOICES,
   counted,
+  countedGraphemes,
+  cutGraphemes,
+  DEFAULT_BLUESKY_BEFORE,
   DESCRIPTION_LIMIT,
   DESTINATION_LABEL,
   DESTINATIONS,
@@ -260,4 +264,35 @@ test('the Google Calendar chip comes after the calendar feed', () => {
 
   assert.deepEqual(DESTINATIONS.slice(feed, feed + 2), ['feed', 'googleCalendar'])
   assert.equal(DESTINATION_LABEL.googleCalendar, 'Google Calendar')
+})
+
+test('the Bluesky chip comes after the Google Calendar chip', () => {
+  const google = DESTINATIONS.indexOf('googleCalendar')
+
+  assert.deepEqual(DESTINATIONS.slice(google, google + 2), ['googleCalendar', 'bluesky'])
+  assert.equal(DESTINATION_LABEL.bluesky, 'Bluesky')
+})
+
+test('a ticked Bluesky is marked only when it is not set up, and an older server marks nothing', () => {
+  const on = { ...ticks, publishToVRChat: false, publishToDiscord: false, postToChannel: false, autoOpen: false, publishToBluesky: true }
+
+  assert.deepEqual(wantedPlaces(on), ['bluesky'])
+  assert.deepEqual(notSetUp(on, { vrChat: true, discord: true, bluesky: false }), ['bluesky'])
+  assert.deepEqual(notSetUp(on, { vrChat: true, discord: true, bluesky: true }), [])
+  assert.deepEqual(notSetUp(on, { vrChat: true, discord: true }), [])
+  assert.deepEqual(notSetUp({ ...on, publishToBluesky: false }, { vrChat: true, discord: true, bluesky: false }), [])
+})
+
+test('Post it offers the server’s four times, and a day before is the start', () => {
+  assert.deepEqual(BLUESKY_BEFORE_CHOICES.map((c) => c.minutes), [60, 1440, 4320, 10080])
+  assert.equal(DEFAULT_BLUESKY_BEFORE, 1440)
+})
+
+test('Bluesky’s own text is counted and cut in graphemes, as Bluesky counts', () => {
+  const family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}'
+
+  assert.deepEqual(countedGraphemes(`${family}ab`, 300), { label: '3 / 300', over: false })
+  assert.equal(countedGraphemes('a'.repeat(301), 300).over, true)
+  assert.equal(cutGraphemes(`${family}${family}ab`, 2), `${family}${family}`)
+  assert.equal(cutGraphemes('abc', 10), 'abc')
 })
