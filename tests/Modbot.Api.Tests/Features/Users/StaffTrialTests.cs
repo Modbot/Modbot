@@ -572,4 +572,19 @@ public class StaffTrialTests
             await host.SendJsonAsync(HttpMethod.Get, "/api/staff-trials/mine", null, t.PersonCookie, Ct), Ct);
         Assert.Equal(t.Person.Id, asPerson.GetProperty("own").GetProperty("accountId").GetGuid());
     }
+
+    [Fact]
+    public async Task TheReminderChannel_IsRefusedAboveTheWidthItIsKeptIn()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ManageUsers, Ct);
+
+        var tooLong = await host.SendJsonAsync(
+            HttpMethod.Put, SettingsPath, new { tasks = new[] { "A" }, signOffs = new[] { "B" }, reminderChannelId = new string('1', 33) }, manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+
+        var atTheLimit = await host.SendJsonAsync(
+            HttpMethod.Put, SettingsPath, new { tasks = new[] { "A" }, signOffs = new[] { "B" }, reminderChannelId = new string('1', 32) }, manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, atTheLimit.StatusCode);
+    }
 }
