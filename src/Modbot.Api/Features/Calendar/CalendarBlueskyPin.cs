@@ -247,12 +247,16 @@ public sealed class CalendarBlueskyPin
         return null;
     }
 
-    /// <summary>The post and destination Modbot recorded at <paramref name="uri"/>, or null when it is none of Modbot's.</summary>
+    /// <summary>
+    /// The calendar date post and destination Modbot recorded at <paramref name="uri"/>, or null when it is
+    /// none of those: a Marketing post a person pinned by hand is not Modbot's to move.
+    /// </summary>
     private async Task<(Post Post, PostDestination Destination)?> OwnPostAsync(string uri, CancellationToken ct)
     {
         var row = await _db.PostDestinations.AsNoTracking()
             .Where(d => d.Network == PostNetworks.Bluesky && d.ExternalId == uri)
             .Join(_db.Posts.AsNoTracking(), d => d.PostId, p => p.Id, (d, p) => new { Destination = d, Post = p })
+            .Where(x => x.Post.Kind == PostKinds.EventDate)
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
         return row is null ? null : (row.Post, row.Destination);
@@ -275,23 +279,34 @@ public sealed class CalendarBlueskyPin
 
         if (failure.Problem is BlueskyProblem.TokenExpired or BlueskyProblem.TokenRefused)
         {
+            // A sign-in without the profile right can be answered this way too: the look is held back as
+            // well, so a pass does not refresh and try again every time.
             await _session.ExpiredAsync(_db, access.AccessJwt, ct).ConfigureAwait(false);
+            await LookedAsync(now, ct).ConfigureAwait(false);
             return;
         }
 
-        _log.Warning("The post could not be pinned on the Bluesky profile: {Reason}", BlueskyErrors.Sentence(failure));
+        var reason = BlueskyErrors.Sentence(failure);
+        _log.Warning("The post could not be pinned on the Bluesky profile: {Reason}", reason);
         await LookedAsync(now, ct).ConfigureAwait(false);
+        await _db.Settings.Where(s => s.Id == 1)
+            .ExecuteUpdateAsync(
+                u => u.SetProperty(s => s.BlueskyPinError, reason).SetProperty(s => s.BlueskyPinErrorAt, now),
+                ct).ConfigureAwait(false);
     }
 
     private Task LookedAsync(DateTimeOffset now, CancellationToken ct) =>
         _db.Settings.Where(s => s.Id == 1)
             .ExecuteUpdateAsync(u => u.SetProperty(s => s.BlueskyPinCheckedAt, now), ct);
 
-    /// <summary>The profile is as wanted: the address is kept, and the next look is not held back.</summary>
+    /// <summary>The profile is as wanted: the address is kept, the next look is not held back and an earlier error is cleared.</summary>
     private Task SetPinnedAsync(string? uri, CancellationToken ct) =>
         _db.Settings.Where(s => s.Id == 1)
             .ExecuteUpdateAsync(
-                u => u.SetProperty(s => s.BlueskyPinnedUri, uri).SetProperty(s => s.BlueskyPinCheckedAt, (DateTimeOffset?)null),
+                u => u.SetProperty(s => s.BlueskyPinnedUri, uri)
+                    .SetProperty(s => s.BlueskyPinCheckedAt, (DateTimeOffset?)null)
+                    .SetProperty(s => s.BlueskyPinError, (string?)null)
+                    .SetProperty(s => s.BlueskyPinErrorAt, (DateTimeOffset?)null),
                 ct);
 
     private async Task WriteFactAsync(string type, Post post, PostDestination destination, DateTimeOffset now, string? reason, CancellationToken ct)

@@ -196,6 +196,9 @@ export type PostsHealth = {
   paused: boolean
   problems: PostHealthProblem[]
   holds: { network: PostNetwork; hold: 'off' | 'notSetUp'; waiting: number }[]
+  /** Why pinning the next event on the Bluesky profile failed, until it goes through. */
+  pinError: string | null
+  pinErrorAt: string | null
 }
 
 export type PostSettings = {

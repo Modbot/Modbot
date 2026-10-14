@@ -59,7 +59,7 @@ public sealed class CalendarBlueskyFirstJoinTests(PostgresFixture db)
     /// an instance with one person in it, and the opening that links them.
     /// </summary>
     private async Task<Scene> AddSceneAsync(
-        Action<CalendarEvent>? shape = null, string parentState = PostDestinationStates.Posted, int users = 1, bool datePost = true)
+        Action<CalendarEvent>? shape = null, string parentState = PostDestinationStates.Posted, int users = 1, bool datePost = true, bool parentCid = true)
     {
         var now = _clock.UtcNow;
         var startsAt = now.AddMinutes(-10);
@@ -139,7 +139,7 @@ public sealed class CalendarBlueskyFirstJoinTests(PostgresFixture db)
                 State = parentState,
                 ExternalId = $"at://{FakeBluesky.Did}/app.bsky.feed.post/3l4pqjzzyde2a",
                 ClientKey = "3l4pqjzzyde2a",
-                Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Cid: "bafy-parent")),
+                Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Cid: parentCid ? "bafy-parent" : null)),
                 UpdatedAt = now.AddDays(-1),
             });
 
@@ -245,6 +245,30 @@ public sealed class CalendarBlueskyFirstJoinTests(PostgresFixture db)
 
         Assert.Empty(await RepliesAsync(scene.EventId));
         Assert.Null((await OpeningAsync(scene.EventId)).FirstJoinBlueskyPostedAt);
+    }
+
+    [Fact]
+    public async Task ADatePostPostedButNotYetReadBackWithItsContentIdMakesTheReplyWait_ThenItGoesUnderIt()
+    {
+        await SetUpAsync();
+        var scene = await AddSceneAsync(parentCid: false);
+
+        Assert.Equal(0, await PassAsync());
+
+        Assert.Empty(await RepliesAsync(scene.EventId));
+        var opening = await OpeningAsync(scene.EventId);
+        Assert.Null(opening.FirstJoinBlueskyPostedAt);
+        Assert.Null(opening.FirstJoinBlueskyPostError);
+
+        await using (var context = db.NewContext())
+        {
+            var parent = await context.PostDestinations.SingleAsync(d => d.Id == scene.ParentId, Ct);
+            parent.Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Cid: "bafy-parent"));
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(1, await PassAsync());
+        Assert.Single(await RepliesAsync(scene.EventId));
     }
 
     [Fact]

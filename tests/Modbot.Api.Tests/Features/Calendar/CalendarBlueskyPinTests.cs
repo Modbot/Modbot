@@ -383,6 +383,90 @@ public sealed class CalendarBlueskyPinTests
         Assert.Null((await SettingsAsync()).BlueskyPinnedUri);
     }
 
+    [Fact]
+    public async Task APinWhoseWritingIsRefused_KeepsItsError_UntilAPinGoesThrough()
+    {
+        await SetUpAsync();
+        await AddDateAsync("first", TimeSpan.FromDays(1));
+        _bluesky.ProfilePutStatus = HttpStatusCode.Forbidden;
+
+        await PassAsync();
+
+        var failed = await SettingsAsync();
+        Assert.False(string.IsNullOrWhiteSpace(failed.BlueskyPinError));
+        Assert.NotNull(failed.BlueskyPinErrorAt);
+
+        _bluesky.ProfilePutStatus = null;
+        _clock.Advance(CalendarBlueskyPin.LookEvery);
+
+        Assert.Equal(1, (await PassAsync()).Pinned);
+
+        var fixedUp = await SettingsAsync();
+        Assert.Null(fixedUp.BlueskyPinError);
+        Assert.Null(fixedUp.BlueskyPinErrorAt);
+    }
+
+    [Fact]
+    public async Task APinAnsweredAsARefusedSignIn_IsNotRetriedUntilTheWaitIsOver()
+    {
+        await SetUpAsync();
+        await AddDateAsync("first", TimeSpan.FromDays(1));
+        _bluesky.ProfilePutStatus = HttpStatusCode.Unauthorized;
+
+        Assert.Equal(0, (await PassAsync()).Pinned);
+        Assert.NotNull((await SettingsAsync()).BlueskyPinCheckedAt);
+        var reads = ProfileReads;
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        await PassAsync();
+        Assert.Equal(reads, ProfileReads);
+    }
+
+    [Fact]
+    public async Task AMarketingPostAPersonPinnedByHandIsLeftAlone()
+    {
+        await SetUpAsync();
+        await AddDateAsync("first", TimeSpan.FromDays(1));
+
+        // A post a person wrote on the Marketing tab, posted to the same Bluesky account.
+        var written = new Post
+        {
+            Id = Guid.CreateVersion7(),
+            Title = "Announcement",
+            Text = "Announcement",
+            Status = PostStatuses.Scheduled,
+            SendAt = _clock.UtcNow.AddDays(-3),
+            TimeZone = "UTC",
+            CreatedAt = _clock.UtcNow.AddDays(-4),
+            UpdatedAt = _clock.UtcNow.AddDays(-4),
+        };
+
+        written.Destinations.Add(new PostDestination
+        {
+            Id = Guid.CreateVersion7(),
+            PostId = written.Id,
+            Network = PostNetworks.Bluesky,
+            Target = FakeBluesky.Did,
+            State = PostDestinationStates.Posted,
+            ExternalId = UriOf("marketing"),
+            ClientKey = "marketing",
+            Options = PostTexts.WriteBlueskyOptions(new BlueskyPostOptions(Cid: "bafy-marketing")),
+            UpdatedAt = _clock.UtcNow.AddDays(-3),
+        });
+
+        await using (var context = _db.NewContext())
+        {
+            context.Posts.Add(written);
+            await context.SaveChangesAsync(Ct);
+        }
+
+        _bluesky.PinnedPost = Pin("marketing");
+
+        Assert.Equal(0, (await PassAsync()).Pinned);
+        Assert.Equal(0, _bluesky.ProfilePuts);
+        Assert.Equal(UriOf("marketing"), _bluesky.PinnedPost["uri"]!.GetValue<string>());
+    }
+
     /// <summary>The app password and session are stored as they are: the protector's own tests cover the encryption.</summary>
     private sealed class PlainProtector : ISecretProtector
     {

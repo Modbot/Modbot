@@ -86,8 +86,12 @@ public static class BlueskyTags
     public static string ForCategory(string name, string? own) =>
         own is null ? FromName(name) : Clean(own);
 
-    /// <summary>Whether a cleaned tag is longer than Bluesky takes. <see cref="Clean"/> leaves such a tag as it is.</summary>
-    public static bool IsTooLong(string tag) => BlueskyText.Graphemes(tag) > BlueskyText.TagLimit;
+    /// <summary>
+    /// Whether a cleaned tag is longer than Bluesky takes, in graphemes, or than a category's tag column
+    /// holds, in characters. <see cref="Clean"/> leaves such a tag as it is.
+    /// </summary>
+    public static bool IsTooLong(string tag) =>
+        BlueskyText.Graphemes(tag) > BlueskyText.TagLimit || tag.Length > Modbot.Core.Data.Entities.CalendarCategory.MaxBlueskyTagLength;
 
     /// <summary>
     /// The tags typed into "Tags on every post": split at spaces and commas, each cleaned, none twice

@@ -1057,7 +1057,12 @@ public static class PostEndpoints
                 .Select(w => new PostHealthHold(w.Network, w.Hold!, w.Count))
                 .ToList();
 
-        return new PostsHealth(sites.Paused, problems, holds);
+        var pin = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1 && s.BlueskyPinNextEvent && s.BlueskyPinError != null)
+            .Select(s => new { s.BlueskyPinError, s.BlueskyPinErrorAt })
+            .FirstOrDefaultAsync(ct);
+
+        return new PostsHealth(sites.Paused, problems, holds, pin?.BlueskyPinError, pin?.BlueskyPinErrorAt);
     }
 
     /// <summary>The title, or the first line of the text, the way the list names a post.</summary>

@@ -363,4 +363,11 @@ public sealed record PostHealthHold(string Network, string Hold, int Waiting);
 /// <param name="Paused">Pause all posting is on.</param>
 /// <param name="Problems">Failures in the last 7 days, and posts looked for longer than 15 minutes, newest first.</param>
 /// <param name="Holds">Sites scheduled posts wait on that are switched off or not set up.</param>
-public sealed record PostsHealth(bool Paused, IReadOnlyList<PostHealthProblem> Problems, IReadOnlyList<PostHealthHold> Holds);
+/// <param name="PinError">Why the last try to pin the next event on the Bluesky profile failed, until a pin goes through. Null when Pin the next event is off or nothing failed.</param>
+/// <param name="PinErrorAt">When that try failed.</param>
+public sealed record PostsHealth(
+    bool Paused,
+    IReadOnlyList<PostHealthProblem> Problems,
+    IReadOnlyList<PostHealthHold> Holds,
+    string? PinError = null,
+    DateTimeOffset? PinErrorAt = null);

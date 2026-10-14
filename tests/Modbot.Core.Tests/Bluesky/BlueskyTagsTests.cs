@@ -103,6 +103,18 @@ public class BlueskyTagsTests
     }
 
     [Fact]
+    public void ATagOfFewLettersWithManyMarksIsTooLongForTheColumnEvenWhenItIsFewGraphemes()
+    {
+        // One letter with 300 combining marks is a single grapheme but 301 characters.
+        var typed = "a" + new string('́', 300);
+        var tag = BlueskyTags.Clean(typed);
+
+        Assert.True(BlueskyText.Graphemes(tag) <= BlueskyText.TagLimit);
+        Assert.True(BlueskyTags.IsTooLong(tag));
+        Assert.Equal(BlueskyTags.TooLong, BlueskyTags.ProblemWith(typed));
+    }
+
+    [Fact]
     public void ATextThatFillsThePostTakesNoTag()
     {
         var text = new string('x', BlueskyText.GraphemeLimit);

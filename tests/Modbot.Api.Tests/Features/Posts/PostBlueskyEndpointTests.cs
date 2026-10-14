@@ -276,6 +276,35 @@ public class PostBlueskyEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AFailedPinOfTheNextEventIsOnHealth_OnlyWhileTheSwitchIsOn()
+    {
+        var (host, _, cookie) = await StartAsync();
+        await using var running = host;
+
+        await SetPinAsync(on: true, error: "Bluesky refused the pin.");
+        var shown = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal("Bluesky refused the pin.", shown.GetProperty("pinError").GetString());
+
+        await SetPinAsync(on: false, error: "Bluesky refused the pin.");
+        var off = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, off.GetProperty("pinError").ValueKind);
+
+        await SetPinAsync(on: true, error: null);
+        var none = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/posts/health", null, cookie, Ct), Ct);
+        Assert.Equal(JsonValueKind.Null, none.GetProperty("pinError").ValueKind);
+    }
+
+    private async Task SetPinAsync(bool on, string? error)
+    {
+        await using var context = db.NewContext();
+        await context.Settings.Where(s => s.Id == 1).ExecuteUpdateAsync(
+            u => u.SetProperty(s => s.BlueskyPinNextEvent, on)
+                .SetProperty(s => s.BlueskyPinError, error)
+                .SetProperty(s => s.BlueskyPinErrorAt, error == null ? (DateTimeOffset?)null : DateTimeOffset.UnixEpoch),
+            Ct);
+    }
+
+    [Fact]
     public async Task ADeleteBlueskyRefusesIsSaid_AndTheRowStays()
     {
         var (host, bluesky, cookie) = await StartAsync();

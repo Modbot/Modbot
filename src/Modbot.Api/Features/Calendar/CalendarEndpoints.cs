@@ -2040,7 +2040,8 @@ public static class CalendarEndpoints
         target.InviteListId = body.InviteListId;
         target.AnnounceFirstJoinInDiscord = body.AnnounceFirstJoinInDiscord;
         target.AnnounceFirstJoinInVRChat = body.AnnounceFirstJoinInVRChat;
-        target.AnnounceFirstJoinOnBluesky = body.AnnounceFirstJoinOnBluesky;
+        // The reply goes under the date's Bluesky post, so it is kept only while the event goes to Bluesky.
+        target.AnnounceFirstJoinOnBluesky = body.AnnounceFirstJoinOnBluesky && target.PublishToBluesky;
 
         // The start's own day is always one of a weekly event's days, so every place agrees on the
         // first occurrence.

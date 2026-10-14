@@ -522,6 +522,12 @@ public class Settings
     /// <summary>When Modbot last looked at the profile's pin and left it as it was or could not change it: the next look waits.</summary>
     public DateTimeOffset? BlueskyPinCheckedAt { get; set; }
 
+    /// <summary>Why the last try to pin or unpin failed, in plain words; shown on Health. Null once a pin goes through, and when none has failed.</summary>
+    public string? BlueskyPinError { get; set; }
+
+    /// <summary>When <see cref="BlueskyPinError"/> was last set.</summary>
+    public DateTimeOffset? BlueskyPinErrorAt { get; set; }
+
     /// <summary>
     /// No call goes to the account's server before this: set when Bluesky answers with a rate limit,
     /// to the time it says the limit resets, and kept here so a restart cannot cut the wait short.

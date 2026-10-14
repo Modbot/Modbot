@@ -241,4 +241,18 @@ public class CalendarCategoryEndpointTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Post, Path, new { name = "Movie night", blueskyTag = tooLong }, manager, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Karaoke", blueskyTag = tooLong }, manager, Ct)).StatusCode);
     }
+
+    [Fact]
+    public async Task ABlueskyTagOfFewGraphemesButMoreCharactersThanTheColumnIsRefusedNotAServerError()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+        var id = await CreateCategoryAsync(host, manager, "Karaoke");
+
+        // One letter with 300 combining marks: one grapheme, 301 characters.
+        var marks = "a" + new string('́', 300);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Post, Path, new { name = "Movie night", blueskyTag = marks }, manager, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{id}", new { name = "Karaoke", blueskyTag = marks }, manager, Ct)).StatusCode);
+    }
 }

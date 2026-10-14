@@ -925,8 +925,8 @@ public static class FactType
     public const string PostPinned = "modbot.post.pin";
 
     /// <summary>
-    /// Modbot took its pinned post off the group's Bluesky profile: the date ended and no later one has
-    /// a post, or the next date's post took its place (then <c>PostPinned</c> follows). No actor.
+    /// Modbot took its pinned post off the group's Bluesky profile because the date ended and no later
+    /// one has a post. A later date's post taking the pin over writes only <c>PostPinned</c>. No actor.
     /// Payload: title, network, link, external id, reason.
     /// </summary>
     public const string PostUnpinned = "modbot.post.unpin";

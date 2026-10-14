@@ -127,9 +127,13 @@ public sealed class CalendarBlueskyFirstJoin
 
             var parent = datePost?.Destinations.FirstOrDefault(d => d.Network == PostNetworks.Bluesky);
 
-            // On its way: the reply waits for it (the late rule ends a wait that goes nowhere).
-            if (parent?.State is PostDestinationStates.Waiting or PostDestinationStates.Sending or PostDestinationStates.Checking)
+            // On its way, or posted but not yet read back with its content id (a reply cannot go under
+            // it without): the reply waits for it, until the date ends.
+            if (parent?.State is PostDestinationStates.Waiting or PostDestinationStates.Sending or PostDestinationStates.Checking
+                || parent is { State: PostDestinationStates.Posted } && PostTexts.BlueskyOptionsOf(parent).Cid is not { Length: > 0 })
+            {
                 continue;
+            }
 
             // Written first: once, however many restarts.
             opening.FirstJoinBlueskyPostedAt = now;

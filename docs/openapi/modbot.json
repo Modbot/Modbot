@@ -63545,6 +63545,19 @@
             "items": {
               "$ref": "#/components/schemas/PostHealthHold"
             }
+          },
+          "pinError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pinErrorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

@@ -111,6 +111,25 @@ public class CalendarInviteEndpointTests(PostgresFixture db)
         Assert.True(body.GetProperty("announceFirstJoinInVRChat").GetBoolean());
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task TheBlueskyReplyOnFirstJoinIsKeptOnlyWhileTheEventGoesToBluesky(bool publishToBluesky, bool expected)
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(Manager, Ct);
+
+        var json = System.Text.Json.JsonSerializer.SerializeToNode(Body(host))!.AsObject();
+        json["publishToBluesky"] = publishToBluesky;
+        json["announceFirstJoinOnBluesky"] = true;
+
+        var saved = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", json, manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var body = await ApiTestHost.BodyOf(saved, Ct);
+        Assert.Equal(expected, body.GetProperty("announceFirstJoinOnBluesky").GetBoolean());
+    }
+
     [Fact]
     public async Task KeepingTheListAlreadyThereNeedsNothingMore_ChangingItDoes()
     {

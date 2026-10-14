@@ -8974,6 +8974,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("bluesky_pin_checked_at");
 
+                    b.Property<string>("BlueskyPinError")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_pin_error");
+
+                    b.Property<DateTimeOffset?>("BlueskyPinErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_pin_error_at");
+
                     b.Property<bool>("BlueskyPinNextEvent")
                         .HasColumnType("boolean")
                         .HasColumnName("bluesky_pin_next_event");
