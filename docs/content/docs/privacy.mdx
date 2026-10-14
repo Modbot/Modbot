@@ -180,8 +180,11 @@ wherever you choose to store them. These pages describe what is kept and how it 
   Keep for (days)**; 0 keeps them forever), and then the text and the message copy are removed and the bare
   record stays: who, about whom, when, and the close note. A [purge](/moderation/purge) deletes every report
   a person made and every report about them. A report about a staff account is shown only to people who also
-  hold **Review tickets**. What leaves your server: staff are told "Modbot: new report" with no names and no
-  words, by email, Discord direct message or push as each set up, and nothing goes to Modbot Cloud or to an
+  hold **Review tickets**. When staff close a report they may choose to tell the reporter: Modbot then sends
+  the reporter a Discord direct message with the words staff picked or wrote, and keeps only whether it went
+  or why not (`reporter_message_result`), never the words. What leaves your server: staff are told "Modbot: new
+  report" with no names and no words, by email, Discord direct message or push as each set up; that direct
+  message to the reporter, only when staff choose to send it; and nothing goes to Modbot Cloud or to an
   AI chat tool.
 - [Tickets](/discord/tickets): off until someone with **Change settings** adds a ticket type and posts a
   panel. A member who presses a button gets a private Discord thread with staff. Modbot keeps the

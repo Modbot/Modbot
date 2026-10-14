@@ -476,7 +476,18 @@ public sealed class MemberReports
         }
 
         report.ReporterMessageResult = result.Length > 300 ? result[..300] : result;
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The report is closed and stays closed; the closer is told what is known, and the
+            // record of it is lost.
+            Log.Logger.ForContext(LogArea.Name, LogArea.Analytics).Warning(e, "Could not keep how telling a member report's reporter went");
+        }
+
         return result;
     }
 

@@ -5,6 +5,11 @@ import { api, ApiError, type ReportReply, type ReportReplySettings } from '@/lib
 import { Field, LongField, Outcome } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 
+/** Each row keeps its own key, so removing a middle one does not hand its text to the next. */
+let lastKey = 0
+const nextKey = () => ++lastKey
+const withKeys = (list: ReportReply[]) => list.map((r) => ({ ...r, key: nextKey() }))
+
 /** The server's limits, the same as the API's. */
 const MOST_KEPT = 10
 const NAME_MAX = 40
@@ -54,7 +59,7 @@ function ReportRepliesForm({
   settings: ReportReplySettings
   onSaved: (next: ReportReplySettings) => void
 }) {
-  const [replies, setReplies] = useState<ReportReply[]>(settings.replies)
+  const [replies, setReplies] = useState<(ReportReply & { key: number })[]>(() => withKeys(settings.replies))
 
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -71,10 +76,10 @@ function ReportRepliesForm({
     setProblem(null)
 
     api
-      .setReportReplySettings({ replies })
+      .setReportReplySettings({ replies: replies.map(({ name, text }) => ({ name, text })) })
       .then((next) => {
         onSaved(next)
-        setReplies(next.replies)
+        setReplies(withKeys(next.replies))
         setSaved(true)
       })
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
@@ -96,7 +101,7 @@ function ReportRepliesForm({
             disabled={replies.length >= MOST_KEPT}
             onClick={() => {
               setSaved(false)
-              setReplies((all) => [...all, { name: '', text: '' }])
+              setReplies((all) => [...all, { name: '', text: '', key: nextKey() }])
             }}
           >
             Add a reply
@@ -108,7 +113,7 @@ function ReportRepliesForm({
     >
       <div className="flex max-w-lg flex-col gap-4">
         {replies.map((reply, index) => (
-          <div key={index} className="flex flex-col gap-2">
+          <div key={reply.key} className="flex flex-col gap-2">
             <Field
               label="Name"
               value={reply.name}
