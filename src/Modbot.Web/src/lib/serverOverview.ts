@@ -31,6 +31,7 @@ export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'discord-roles', label: 'Roles' },
   { id: 'discord-invites', label: 'Invites' },
   { id: 'discord-account-links', label: 'Account links' },
+  { id: 'discord-snapshots', label: 'Snapshots' },
   { id: 'discord-members', label: 'Members' },
   { id: 'bans', label: 'Bans' },
 ]

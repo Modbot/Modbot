@@ -31,6 +31,7 @@ test('the links are named and ordered the way Discord’s server column has them
       ['Roles', 'discord-roles'],
       ['Invites', 'discord-invites'],
       ['Account links', 'discord-account-links'],
+      ['Snapshots', 'discord-snapshots'],
       ['Members', 'discord-members'],
       ['Bans', 'bans'],
     ],
@@ -38,10 +39,10 @@ test('the links are named and ordered the way Discord’s server column has them
 })
 
 test('a link the person may not open is not offered, the same as in the sidebar', () => {
-  assert.deepEqual(serverTabs(person('ViewAnalytics')).map((t) => t.label), ['Overview', 'Channels', 'Roles', 'Invites', 'Account links'])
+  assert.deepEqual(serverTabs(person('ViewAnalytics')).map((t) => t.label), ['Overview', 'Channels', 'Roles', 'Invites', 'Account links', 'Snapshots'])
   assert.deepEqual(
     serverTabs(person('ViewAnalytics', 'ViewMembers', 'ViewAuditLog')).map((t) => t.label),
-    ['Overview', 'Channels', 'Roles', 'Invites', 'Account links', 'Members', 'Bans'],
+    ['Overview', 'Channels', 'Roles', 'Invites', 'Account links', 'Snapshots', 'Members', 'Bans'],
   )
   assert.deepEqual(serverTabs(person('ViewMembers')).map((t) => t.label), ['Members'])
 })

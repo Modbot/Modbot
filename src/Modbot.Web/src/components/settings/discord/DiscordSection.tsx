@@ -12,6 +12,7 @@ import { CommandsCard } from './CommandsCard'
 import { EventRecapsCard } from './EventRecapsCard'
 import { EventSummaryCard } from './EventSummaryCard'
 import { InviteTrackingCard } from './InviteTrackingCard'
+import { SnapshotsCard } from './SnapshotsCard'
 import { MilestonesCard } from './MilestonesCard'
 import { BirthdaysCard } from './BirthdaysCard'
 import { GalleryPicturesCard } from './GalleryPicturesCard'
@@ -70,6 +71,7 @@ export function DiscordSection({
           <EventRecapsCard />
           <EventSummaryCard />
           <InviteTrackingCard />
+          <SnapshotsCard />
           <MilestonesCard />
           <WelcomeCard />
           <RoleMenusCard />

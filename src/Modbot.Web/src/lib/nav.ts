@@ -66,6 +66,10 @@ export const NAV = [
   // one-time reminder to link. Seeing it is See analytics; starting the reminder needs Change
   // settings, which the server checks.
   { id: 'discord-account-links', label: 'Discord account links', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['linked accounts', 'link vrchat', 'verify'] },
+  // The Discord page's Snapshots tab: the server's roles, channels and permissions saved on a
+  // schedule or by hand. Seeing it is See analytics; taking, deleting and putting permissions
+  // back need Change settings, which the server checks.
+  { id: 'discord-snapshots', label: 'Discord snapshots', needs: 'ViewAnalytics', hidden: true, under: 'analytics-server', words: ['server backup', 'saved permissions', 'what changed'] },
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
@@ -240,6 +244,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'discord-channels': '',
   'discord-invites': '',
   'discord-account-links': '',
+  'discord-snapshots': '',
   people: 'n',
   live: 'l',
   calendar: 'e',

@@ -2611,6 +2611,78 @@ export type DiscordInviteCreateResult = {
   missingPermission: boolean
 }
 
+export type DiscordSnapshotRow = {
+  id: string
+  takenAt: string
+  scheduled: boolean
+  takenBy: string | null
+  roleCount: number
+  channelCount: number
+}
+
+/** The Discord page's Snapshots tab. */
+export type DiscordSnapshotsResponse = {
+  snapshots: DiscordSnapshotRow[]
+  schedule: 'off' | 'weekly' | 'every-two-weeks' | 'monthly'
+  nextDue: string | null
+  restoreOn: boolean
+  mostKept: number
+}
+
+export type DiscordSnapshotChange = {
+  kind: 'role' | 'channel'
+  id: string
+  name: string
+  what: 'added' | 'removed' | 'changed'
+  details: string[]
+}
+
+export type DiscordSnapshotCompareResponse = {
+  fromId: string
+  fromTakenAt: string
+  toId: string | null
+  toTakenAt: string | null
+  toNow: boolean
+  changes: DiscordSnapshotChange[]
+  error: string | null
+}
+
+export type DiscordSnapshotRestorePreview = {
+  kind: 'role' | 'channel'
+  targetId: string
+  name: string
+  lines: string[]
+  problem: string | null
+  missingPermission: boolean
+  nothingToChange: boolean
+  fingerprint: string
+}
+
+export type DiscordSnapshotRestoreResponse = {
+  done: boolean
+  error: string | null
+  missingPermission: boolean
+  applied: number
+  lines: string[]
+}
+
+/** The roles and channels one snapshot holds, for picking what to put back. */
+export type DiscordSnapshotDetail = {
+  id: string
+  takenAt: string
+  scheduled: boolean
+  takenBy: string | null
+  guildName: string
+  roles: { id: string; name: string; everyone: boolean; managed: boolean }[]
+  channels: { id: string; name: string; type: string }[]
+}
+
+/** Settings → Discord → Server snapshots. */
+export type DiscordSnapshotSettings = {
+  schedule: 'off' | 'weekly' | 'every-two-weeks' | 'monthly'
+  restoreOn: boolean
+}
+
 /** One channel in the Discord quiet channels list. */
 export type QuietChannelRow = {
   id: string
@@ -5424,6 +5496,11 @@ export const api = {
   setDiscordInviteTrackingSettings: (body: { on: boolean }) =>
     put<DiscordInviteTrackingSettings>('/api/settings/discord-invite-tracking', body),
 
+  discordSnapshotSettings: () => request<DiscordSnapshotSettings>('/api/settings/discord-snapshots'),
+
+  setDiscordSnapshotSettings: (body: DiscordSnapshotSettings) =>
+    put<DiscordSnapshotSettings>('/api/settings/discord-snapshots', body),
+
   discordMilestoneSettings: () => request<DiscordMilestoneSettings>('/api/settings/discord-milestones'),
 
   setDiscordMilestoneSettings: (body: {
@@ -6129,6 +6206,37 @@ export const api = {
   /** Make an invite to the channel for each name. */
   createDiscordInvites: (channelId: string, names: string[]) =>
     post<DiscordInviteCreateResult>('/api/discord/invites/create', { channelId, names }),
+
+  /** The Discord page's Snapshots tab. */
+  discordSnapshots: () => request<DiscordSnapshotsResponse>('/api/discord/snapshots'),
+
+  takeDiscordSnapshot: () => post<DiscordSnapshotRow>('/api/discord/snapshots'),
+
+  discordSnapshot: (id: string) => request<DiscordSnapshotDetail>(`/api/discord/snapshots/${encodeURIComponent(id)}`),
+
+  /** The file a snapshot downloads as: a plain link, so the browser saves it. */
+  discordSnapshotDownloadHref: (id: string) => `/api/discord/snapshots/${encodeURIComponent(id)}/download`,
+
+  deleteDiscordSnapshot: (id: string) => del<void>(`/api/discord/snapshots/${encodeURIComponent(id)}`),
+
+  /** `to` is a snapshot id, or `now` for the server as it is. */
+  compareDiscordSnapshots: (from: string, to: string) =>
+    request<DiscordSnapshotCompareResponse>(
+      `/api/discord/snapshots/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
+
+  previewDiscordSnapshotRestore: (id: string, kind: 'role' | 'channel', targetId: string) =>
+    post<DiscordSnapshotRestorePreview>(`/api/discord/snapshots/${encodeURIComponent(id)}/restore-preview`, {
+      kind,
+      targetId,
+    }),
+
+  restoreDiscordSnapshot: (id: string, kind: 'role' | 'channel', targetId: string, fingerprint: string) =>
+    post<DiscordSnapshotRestoreResponse>(`/api/discord/snapshots/${encodeURIComponent(id)}/restore`, {
+      kind,
+      targetId,
+      fingerprint,
+    }),
 
   /** The Discord page's Channels tab, narrowed to what the given roles can or cannot see. */
   discordQuietChannels: (query: QuietChannelQuery = {}) => {
