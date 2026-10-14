@@ -49,7 +49,7 @@ public static class CalendarPreviews
         if (request.EventId is { } id)
         {
             // Read without tracking: everything below changes it, and none of it is saved.
-            saved = await db.CalendarEvents.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
+            saved = await db.CalendarEvents.AsNoTracking().Include(e => e.Categories).FirstOrDefaultAsync(e => e.Id == id && e.DeletedAt == null, ct);
             if (saved is null)
                 return CalendarPreviewResult.NotFound;
         }
@@ -169,7 +169,7 @@ public static class CalendarPreviews
 
         var occurrence = CalendarRepeat.Current(calendarEvent);
         var world = calendarEvent.WorldListId is null && calendarEvent.WorldId is { } id ? worldNames.GetValueOrDefault(id) : null;
-        var text = CalendarBlueskyText.For(calendarEvent, occurrence, world);
+        var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, CalendarBlueskyText.TagsOf(calendarEvent, settings?.BlueskyPostTags));
         var card = BlueskyPostRecord.CardFor(CalendarBlueskyText.TitleOf(calendarEvent, occurrence), text);
 
         var picture = card is not null

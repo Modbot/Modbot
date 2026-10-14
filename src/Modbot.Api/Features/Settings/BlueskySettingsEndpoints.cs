@@ -25,6 +25,7 @@ namespace Modbot.Api.Features.Settings;
 /// Signing in with Bluesky's own sign-in page is offered: the public address is https with no port.
 /// </param>
 /// <param name="SignedInWithBluesky">The account was signed in with Bluesky's own sign-in page, not an app password.</param>
+/// <param name="PostTags">The tags every calendar post ends with after its categories' tags: <c>#VRChat #Karaoke</c>. Empty for none.</param>
 public sealed record BlueskySettingsView(
     string? Handle,
     bool AppPasswordStored,
@@ -34,7 +35,8 @@ public sealed record BlueskySettingsView(
     DateTimeOffset? LimitedUntil,
     DateTimeOffset? SignInAfter,
     bool SignInWithBluesky = false,
-    bool SignedInWithBluesky = false);
+    bool SignedInWithBluesky = false,
+    string PostTags = "");
 
 /// <param name="Handle">The handle to sign in as, with or without the <c>@</c>. Null or empty uses the stored one.</param>
 public sealed record BlueskySignInRequest(string? Handle = null);
@@ -56,7 +58,7 @@ public sealed record BlueskyCheckView(DateTimeOffset At, string? Handle, string?
 /// empty keeps the stored one. Anything else is refused with "Use an app password.".
 /// </param>
 /// <param name="Posting">Turn posting to Bluesky on or off. Null keeps it. On needs a Check that passed.</param>
-public sealed record BlueskySettingsUpdate(string? Handle = null, string? AppPassword = null, bool? Posting = null);
+public sealed record BlueskySettingsUpdate(string? Handle = null, string? AppPassword = null, bool? Posting = null, string? PostTags = null);
 
 /// <summary>
 /// Settings → Bluesky (Bluesky design §3.1, posts design §4.2c): the handle, the app password, Check,
@@ -142,6 +144,15 @@ public static class BlueskySettingsEndpoints
                     password = body.AppPassword.Trim();
                 }
 
+                string? postTags = null;
+                if (body.PostTags is not null)
+                {
+                    if (BlueskyTags.ProblemWith(body.PostTags) is { } tagsProblem)
+                        return Results.BadRequest(new { error = tagsProblem });
+
+                    postTags = BlueskyTags.Write(BlueskyTags.ParseList(body.PostTags));
+                }
+
                 var settings = await db.GetSettingsAsync(ct);
                 var handleBefore = settings.BlueskyHandle;
                 var passwordBefore = settings.BlueskyAppPasswordEncrypted;
@@ -151,12 +162,14 @@ public static class BlueskySettingsEndpoints
                 var handleChanged = handle is not null && !string.Equals(handle, handleBefore, StringComparison.Ordinal);
                 var passwordChanged = password is not null && password != StoredPassword(protector, passwordBefore);
                 var postingAfter = body.Posting ?? postingBefore;
+                var tagsBefore = settings.BlueskyPostTags ?? string.Empty;
+                var tagsChanged = postTags is not null && postTags != tagsBefore;
 
                 // Posting goes on only over a Check that passed for this very handle and app password.
                 if (postingAfter && !postingBefore && (handleChanged || passwordChanged || !PostSites.BlueskyReady(settings)))
                     return Results.BadRequest(new { error = CheckFirst });
 
-                if (!handleChanged && !passwordChanged && postingAfter == postingBefore)
+                if (!handleChanged && !passwordChanged && !tagsChanged && postingAfter == postingBefore)
                     return Results.Ok(View(settings, clock.UtcNow));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -192,11 +205,15 @@ public static class BlueskySettingsEndpoints
 
                 settings.BlueskyPostingOn = postingAfter;
 
+                if (tagsChanged)
+                    settings.BlueskyPostTags = postTags!.Length == 0 ? null : postTags;
+
                 var change = new SettingsChange("bluesky")
                     .Field("blueskyHandle", handleBefore, settings.BlueskyHandle)
                     .Secret("blueskyAppPassword", passwordChanged)
                     .Field("blueskySignedInWithBluesky", oauthBefore, settings.BlueskyOAuthSignedIn)
-                    .Field("blueskyPosting", postingBefore, postingAfter);
+                    .Field("blueskyPosting", postingBefore, postingAfter)
+                    .Field("blueskyPostTags", tagsBefore, settings.BlueskyPostTags ?? string.Empty);
 
                 await db.SaveChangesAsync(ct);
                 await change.RecordAsync(http, ct);
@@ -207,7 +224,8 @@ public static class BlueskySettingsEndpoints
             .WithName("SetBlueskySettings")
             .WithSummary("Update Bluesky settings")
             .WithDescription(
-                "Save the handle, an app password, Posting, or any of them. Only an app password is "
+                "Save the handle, an app password, Posting, the tags every calendar post ends with (PostTags, "
+                + "at most 5, each at most 64 characters; empty clears them), or any of them. Only an app password is "
                 + "taken (four groups of four letters or digits, made in Bluesky's settings); anything "
                 + "else is refused with \"Use an app password.\". It is kept encrypted and never returned. "
                 + "Saving the handle or the app password clears what the last Check found, and posts wait "
@@ -478,6 +496,7 @@ public static class BlueskySettingsEndpoints
             settings.BlueskyStoppedUntil is { } until && now < until ? until : null,
             signInAfter,
             BlueskyOAuth.Offered(settings.PublicAddress),
-            settings.BlueskyOAuthSignedIn);
+            settings.BlueskyOAuthSignedIn,
+            settings.BlueskyPostTags ?? string.Empty);
     }
 }

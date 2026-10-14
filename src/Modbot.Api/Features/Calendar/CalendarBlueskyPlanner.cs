@@ -152,6 +152,7 @@ public sealed class CalendarBlueskyPlanner
             return new CalendarBlueskyPass(0, 0, 0);
 
         var events = await _db.CalendarEvents.AsNoTracking()
+            .Include(e => e.Categories)
             .Where(e => ids.Contains(e.Id))
             .ToListAsync(ct).ConfigureAwait(false);
 
@@ -164,7 +165,7 @@ public sealed class CalendarBlueskyPlanner
             if (now - calendarEvent.UpdatedAt < SettleFor)
                 continue;
 
-            var wants = WantsOf(calendarEvent, names, now);
+            var wants = WantsOf(calendarEvent, names, settings.BlueskyPostTags, now);
             var mine = posts.Where(p => p.EventId == calendarEvent.Id).ToList();
 
             try
@@ -192,7 +193,7 @@ public sealed class CalendarBlueskyPlanner
     /// or the event is no longer scheduled.
     /// </summary>
     private static Dictionary<DateTimeOffset, Want> WantsOf(
-        CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames, DateTimeOffset now)
+        CalendarEvent calendarEvent, IReadOnlyDictionary<string, string> worldNames, string? everyPostTags, DateTimeOffset now)
     {
         var wants = new Dictionary<DateTimeOffset, Want>();
 
@@ -207,6 +208,7 @@ public sealed class CalendarBlueskyPlanner
             ? worldNames.GetValueOrDefault(id)
             : null;
 
+        var tags = CalendarBlueskyText.TagsOf(calendarEvent, everyPostTags);
         var horizon = now + TimeSpan.FromMinutes(CalendarBlueskyText.BeforeChoices.Max()) + TimeSpan.FromTicks(1);
 
         foreach (var occurrence in CalendarRepeat.Between(calendarEvent, now, horizon))
@@ -214,7 +216,7 @@ public sealed class CalendarBlueskyPlanner
             if (occurrence.StartsAt <= now)
                 continue;
 
-            var text = CalendarBlueskyText.For(calendarEvent, occurrence, world);
+            var text = CalendarBlueskyText.For(calendarEvent, occurrence, world, tags);
 
             // Bluesky shows the picture on a link card, so it goes only with a link.
             var picture = calendarEvent.CoverPictureId is { } cover && Modbot.Core.Bluesky.BlueskyText.CardLink(text) is not null

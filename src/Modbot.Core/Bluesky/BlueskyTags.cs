@@ -27,6 +27,9 @@ public static class BlueskyTags
     /// <summary>The words for a tag longer than Bluesky takes.</summary>
     public const string TooLong = "A Bluesky tag is longer than 64 characters.";
 
+    /// <summary>The words for more tags than "Tags on every post" takes.</summary>
+    public const string TooMany = "Use at most 5 tags.";
+
     /// <summary>
     /// The tag a name gives: its words joined in CamelCase, each word's first letter capital and the
     /// rest as typed ("Dance night" → <c>DanceNight</c>). Empty when the name has no letters or digits
@@ -90,22 +93,48 @@ public static class BlueskyTags
     /// The tags typed into "Tags on every post": split at spaces and commas, each cleaned, none twice
     /// whatever the letter case, at most <see cref="MostEveryPost"/>. Anything beyond is left out.
     /// </summary>
-    public static IReadOnlyList<string> ParseList(string? typed)
+    public static IReadOnlyList<string> ParseList(string? typed) => Split(typed).Take(MostEveryPost).ToList();
+
+    /// <summary>
+    /// What is wrong with what was typed into "Tags on every post": a tag longer than Bluesky takes, or
+    /// more than <see cref="MostEveryPost"/> tags. Null when it is fine.
+    /// </summary>
+    public static string? ProblemWith(string? typed)
     {
         if (string.IsNullOrWhiteSpace(typed))
-            return [];
+            return null;
 
         var tags = new List<string>();
 
-        foreach (var word in typed.Split([' ', ',', '\n', '\r', '\t', ';'], StringSplitOptions.RemoveEmptyEntries))
+        foreach (var word in typed.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var tag = Clean(word);
+
+            if (IsTooLong(tag))
+                return TooLong;
+
+            if (tag.Length > 0 && !tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+                tags.Add(tag);
+        }
+
+        return tags.Count > MostEveryPost ? TooMany : null;
+    }
+
+    private static readonly char[] Separators = [' ', ',', '\n', '\r', '\t', ';'];
+
+    private static List<string> Split(string? typed)
+    {
+        var tags = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(typed))
+            return tags;
+
+        foreach (var word in typed.Split(Separators, StringSplitOptions.RemoveEmptyEntries))
         {
             var tag = Clean(word);
 
             if (tag.Length > 0 && !IsTooLong(tag) && !tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
                 tags.Add(tag);
-
-            if (tags.Count == MostEveryPost)
-                break;
         }
 
         return tags;

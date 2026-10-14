@@ -979,6 +979,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("BlueskyTag")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("bluesky_tag");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1168,6 +1173,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("AnnounceFirstJoinInVRChat")
                         .HasColumnType("boolean")
                         .HasColumnName("announce_first_join_in_vrchat");
+
+                    b.Property<bool>("AnnounceFirstJoinOnBluesky")
+                        .HasColumnType("boolean")
+                        .HasColumnName("announce_first_join_on_bluesky");
 
                     b.Property<bool>("AutoOpen")
                         .HasColumnType("boolean")
@@ -1758,6 +1767,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("error");
+
+                    b.Property<string>("FirstJoinBlueskyPostError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("first_join_bluesky_post_error");
+
+                    b.Property<DateTimeOffset?>("FirstJoinBlueskyPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_join_bluesky_posted_at");
 
                     b.Property<string>("FirstJoinDiscordPostError")
                         .HasMaxLength(1024)
@@ -8951,6 +8969,22 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("BlueskyOAuthSignedIn")
                         .HasColumnType("boolean")
                         .HasColumnName("bluesky_oauth_signed_in");
+
+                    b.Property<DateTimeOffset?>("BlueskyPinCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bluesky_pin_checked_at");
+
+                    b.Property<bool>("BlueskyPinNextEvent")
+                        .HasColumnType("boolean")
+                        .HasColumnName("bluesky_pin_next_event");
+
+                    b.Property<string>("BlueskyPinnedUri")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_pinned_uri");
+
+                    b.Property<string>("BlueskyPostTags")
+                        .HasColumnType("text")
+                        .HasColumnName("bluesky_post_tags");
 
                     b.Property<bool>("BlueskyPostingOn")
                         .HasColumnType("boolean")
