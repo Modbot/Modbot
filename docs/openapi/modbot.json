@@ -525,6 +525,73 @@
         ]
       }
     },
+    "/api/supporters/kofi": {
+      "post": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Take in a Ko-fi payment",
+        "description": "Ko-fi calls this when somebody pays. The message carries the verification token from Ko-fi's webhook page; one that does not match the token saved in Settings is refused (401). A monthly payment with a tier name counts; anything else is answered 200 and ignored. The same payment twice counts once. Answers 404 while Ko-fi is off or no token is saved.",
+        "operationId": "TakeKofiPayment",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { }
+            },
+            "application/json": {
+              "schema": { }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
     "/api/audit/visits": {
       "get": {
         "tags": [
@@ -15364,6 +15431,124 @@
         ]
       }
     },
+    "/api/settings/supporters": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get supporter settings",
+        "description": "Whether Ko-fi is on, whether a verification token is saved (never the token), the thank-you message and the address to give Ko-fi.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetSupporterSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupporterSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update supporter settings",
+        "description": "Switch Ko-fi on or off, save the verification token from Ko-fi's webhook page (kept encrypted, never returned) and set the thank-you message. Ko-fi cannot be switched on without a token. While Ko-fi is on the bot's invite link asks for Manage Roles, so a bot added earlier has to be added again from the new link.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetSupporterSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupporterSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/discord-milestones": {
       "get": {
         "tags": [
@@ -17827,6 +18012,407 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/supporters": {
+      "get": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "List supporters and tiers",
+        "description": "The tiers with the roles each gives, and the supporters with the newest payment first (at most 500). A supporter with no `discordUserId` has not been matched to a Discord account yet.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "ListSupporters",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportersResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/supporters/tiers": {
+      "post": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Add a supporter tier",
+        "description": "Add a tier by the name the site uses for it, with the Discord role and the VRChat group role it gives. A tier is also added by itself the first time a payment names it, with no roles.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "AddSupporterTier",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterTierBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/supporters/tiers/{id}": {
+      "put": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Set the roles a tier gives",
+        "description": "Change the Discord role and the VRChat group role a tier gives. Supporters on the tier get the new roles within a minute, and the roles Modbot gave them before are taken away.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetSupporterTierRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterTierRolesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Delete a supporter tier",
+        "description": "Refused (409) while anyone paid up is on the tier. Supporters whose payments have stopped lose the tier.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "DeleteSupporterTier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportersResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/supporters/{id}/link": {
+      "post": {
+        "tags": [
+          "Supporters"
+        ],
+        "summary": "Match a supporter to a Discord account",
+        "description": "For a supporter Ko-fi did not send a Discord account for: staff find them by the code from their payment and pick their account. Their roles are given within a minute. The account must be a member of the server, and not already matched to another supporter.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "LinkSupporter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupporterLinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -66937,6 +67523,296 @@
           "Other"
         ]
       },
+      "SupporterLinkBody": {
+        "required": [
+          "discordUserId"
+        ],
+        "type": "object",
+        "properties": {
+          "discordUserId": {
+            "type": "string"
+          }
+        }
+      },
+      "SupporterSettingsResponse": {
+        "required": [
+          "kofiOn",
+          "tokenStored",
+          "thanksText",
+          "webhookAddress",
+          "mostThanksLength"
+        ],
+        "type": "object",
+        "properties": {
+          "kofiOn": {
+            "type": "boolean"
+          },
+          "tokenStored": {
+            "type": "boolean"
+          },
+          "thanksText": {
+            "type": "string"
+          },
+          "webhookAddress": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "mostThanksLength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SupporterSettingsUpdate": {
+        "required": [
+          "kofiOn",
+          "verificationToken",
+          "thanksText"
+        ],
+        "type": "object",
+        "properties": {
+          "kofiOn": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "verificationToken": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thanksText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupporterTierBody": {
+        "required": [
+          "name",
+          "discordRoleId",
+          "vrChatRoleId"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupporterTierRolesBody": {
+        "required": [
+          "discordRoleId",
+          "vrChatRoleId"
+        ],
+        "type": "object",
+        "properties": {
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupporterTierView": {
+        "required": [
+          "id",
+          "provider",
+          "name",
+          "discordRoleId",
+          "vrChatRoleId",
+          "supporters"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatRoleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "supporters": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SupporterView": {
+        "required": [
+          "id",
+          "provider",
+          "name",
+          "discordUserId",
+          "discordName",
+          "tierId",
+          "tierName",
+          "state",
+          "lastPaidAt",
+          "paidThrough",
+          "rolesEndAt",
+          "discordRoleGiven",
+          "vrChatRoleGiven",
+          "vrChatLinked",
+          "problem",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tierId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "tierName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "lastPaidAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paidThrough": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rolesEndAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "discordRoleGiven": {
+            "type": "boolean"
+          },
+          "vrChatRoleGiven": {
+            "type": "boolean"
+          },
+          "vrChatLinked": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupportersResponse": {
+        "required": [
+          "kofiOn",
+          "botCanManageRoles",
+          "tiers",
+          "supporters",
+          "groupRoles",
+          "mostTierNameLength"
+        ],
+        "type": "object",
+        "properties": {
+          "kofiOn": {
+            "type": "boolean"
+          },
+          "botCanManageRoles": {
+            "type": "boolean"
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupporterTierView"
+            }
+          },
+          "supporters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupporterView"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRoleView"
+            }
+          },
+          "mostTierNameLength": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "SyncPreviewView": {
         "required": [
           "total",
@@ -70952,6 +71828,10 @@
     {
       "name": "Posts",
       "x-displayName": "Posts"
+    },
+    {
+      "name": "Supporters",
+      "x-displayName": "Supporters"
     },
     {
       "name": "Terms and rules",
