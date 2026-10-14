@@ -77,9 +77,10 @@ export function PostPreviewPanel({
 /**
  * A Bluesky post as Bluesky shows it: the account's name and handle, the exact text with its links
  * and tags coloured (never a mention), and the link card Modbot builds, with its picture when it has
- * one. The counter is the server's count.
+ * one. The counter is the server's count. The calendar form passes `body` to put boxes to type in
+ * where the text is.
  */
-export function BlueskyPost({ post }: { post: BlueskyPostPreview }) {
+export function BlueskyPost({ post, body }: { post: BlueskyPostPreview; body?: ReactNode }) {
   const over = post.graphemes > post.limit || post.bytes > BLUESKY_BYTE_LIMIT
 
   return (
@@ -92,7 +93,8 @@ export function BlueskyPost({ post }: { post: BlueskyPostPreview }) {
             {post.handle && <span className="text-muted-foreground [overflow-wrap:anywhere]">@{post.handle}</span>}
           </div>
         )}
-        {post.text && (
+        {body}
+        {!body && post.text && (
           <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
             {post.parts.map((part, i) =>
               part.kind === 'text' ? (

@@ -25,10 +25,7 @@ import {
 } from '@/lib/calendar'
 import {
   BLUESKY_BEFORE_CHOICES,
-  BLUESKY_DESCRIPTION_LIMIT,
   counted,
-  countedGraphemes,
-  cutGraphemes,
   DEFAULT_BLUESKY_BEFORE,
   DESCRIPTION_LIMIT,
   DESTINATION_LABEL,
@@ -50,8 +47,10 @@ import {
 import { calendarTemplateApi } from '@/lib/calendarTemplateApi'
 import { AUTO_LINKS, autoLinkOf, cleanFillInName, FILL_IN_TEXTS, fillInKey, fillInMarker, fillInsIn } from '@/lib/calendarFillIns'
 import { addMinutes, fieldsFromInput, joinLength, splitLength } from '@/lib/calendarTemplates'
+import { countOf, OWN_TEXT, ownKeysWithText, textShown, type OwnKey } from '@/lib/calendarOwnText'
 import { saveWarnings } from '@/lib/calendarWarnings'
 import { cn } from '@/lib/utils'
+import type { CardEditing, CardField } from './CardText'
 import { EventPreview, usePreviewAnswer } from './EventPreview'
 import { FillInText } from './FillInText'
 import { NotSetUp } from './NotSetUp'
@@ -74,6 +73,9 @@ const SAME_EVENTS_WAIT_MS = 3000
 
 /** How long a card waits for the form to stop changing before it is drawn again. */
 const PREVIEW_WAIT_MS = 400
+
+/** No service has words of its own: a card's text is then the event's. */
+const NO_OWN_TEXT: ReadonlySet<OwnKey> = new Set()
 
 /** What "After a number of times" starts at. */
 const FIRST_TIMES = 4
@@ -184,6 +186,9 @@ export function CalendarEventForm({
   )
   // What the cards draw: the form as it was when a service's tab was opened, or a moment after the last change.
   const [shown, setShown] = useState<CalendarEventInput | null>(null)
+  // The own fields a service's card has been typed in (or started with words): they stay the service's
+  // even while empty, so a box cleared to be retyped does not fill itself with the event's words.
+  const [edited, setEdited] = useState<ReadonlySet<OwnKey>>(() => ownKeysWithText(input))
 
   useEffect(() => {
     calendarApi
@@ -452,6 +457,46 @@ export function CalendarEventForm({
 
   const answer = usePreviewAnswer(event?.id ?? null, shown)
 
+  // A service's title and description on its card, as boxes to type in. They hold the service's own words,
+  // or the event's while it has none, and the first typing makes them the service's own. The card draws
+  // them from the form itself, so typing never waits for the server's drawing.
+  const editingFor = (place: CalendarServiceTab, asked: CalendarEventInput): CardEditing => {
+    const keys = OWN_TEXT[place]
+
+    const field = (key: OwnKey, isTitle: boolean): CardField => {
+      const value = textShown(input, key, edited)
+
+      return {
+        value,
+        onChange: (next) => {
+          setEdited((current) => new Set(current).add(key))
+          set(key, next)
+        },
+        onActive: (insert) => {
+          setPutFillIn({ insert })
+          if (!isTitle) setPutLink({ insert })
+        },
+        count: countOf(key, value, edited.has(key)),
+        asked: textShown(asked, key, NO_OWN_TEXT),
+      }
+    }
+
+    return {
+      title: field(keys.title, true),
+      description: field(keys.description, false),
+      own: edited.has(keys.title) || edited.has(keys.description),
+      useEventText: () => {
+        setEdited((current) => {
+          const next = new Set(current)
+          next.delete(keys.title)
+          next.delete(keys.description)
+          return next
+        })
+        setInput((current) => ({ ...current, [keys.title]: '', [keys.description]: '' }))
+      },
+    }
+  }
+
   const card = (place: CalendarServiceTab) =>
     shown && (
       <EventPreview
@@ -459,6 +504,7 @@ export function CalendarEventForm({
         places={[place]}
         vrchatPicture={vrchatPreview}
         discordPicture={discordPreview}
+        editing={editingFor(place, shown)}
       />
     )
 
@@ -484,15 +530,23 @@ export function CalendarEventForm({
   }, [template, input, spareFillIns])
 
   // A fill-in or a link goes where the caret last was; with no text clicked into yet, on the end of the title.
-  // The field last clicked into may have gone (a site's own text ticked off): then the title.
+  // The field last clicked into may have gone (another tab is open): then the open tab's own title,
+  // which on a service's tab is that service's.
   const putIn = (name: string) => {
+    const keys = active === 'event' ? { title: 'title' as const, description: 'description' as const } : OWN_TEXT[active]
+
+    const append = (key: 'title' | 'description' | OwnKey) => {
+      if (key !== 'title' && key !== 'description') setEdited((current) => new Set(current).add(key))
+      set(key, (key === 'title' || key === 'description' ? input[key] : textShown(input, key, edited)) + fillInMarker(name))
+    }
+
     if (autoLinkOf(name)) {
-      // Links go in descriptions only: the one last clicked into, else the end of the main one.
-      if (!putLink?.insert(name)) set('description', input.description + fillInMarker(name))
+      // Links go in descriptions only: the one last clicked into, else the end of the open tab's.
+      if (!putLink?.insert(name)) append(keys.description)
       return
     }
 
-    if (!putFillIn?.insert(name)) set('title', input.title + fillInMarker(name))
+    if (!putFillIn?.insert(name)) append(keys.title)
   }
 
   const addFillIn = (raw: string) => {
@@ -513,6 +567,47 @@ export function CalendarEventForm({
     setNewFillIn('')
     putIn(shown)
   }
+
+  // The fill-ins of a template and the automatic links, to put at the caret of the text last clicked into:
+  // above the event's own texts, and above a service's card.
+  const insertRows = (
+    <>
+      {template && (
+        <Section title="Fill-ins">
+          <div className="flex flex-wrap items-center gap-2">
+            {fillIns.map((name) => (
+              <Button key={fillInKey(name)} size="sm" variant="outline" onClick={() => addFillIn(name)}>
+                {name}
+              </Button>
+            ))}
+            <Input
+              className="w-44"
+              aria-label="New fill-in"
+              value={newFillIn}
+              onChange={(e) => setNewFillIn(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                addFillIn(newFillIn)
+              }}
+            />
+            <Button size="sm" variant="outline" disabled={cleanFillInName(newFillIn) === ''} onClick={() => addFillIn(newFillIn)}>
+              Add
+            </Button>
+          </div>
+        </Section>
+      )}
+      <Section title="Links">
+        <div className="flex flex-wrap items-center gap-2">
+          {AUTO_LINKS.map((link) => (
+            <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
+              {link}
+            </Button>
+          ))}
+        </div>
+      </Section>
+    </>
+  )
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -600,40 +695,7 @@ export function CalendarEventForm({
               </div>
 
               {template && <Field label="Name" value={templateName} onChange={setTemplateName} />}
-              {template && (
-                <Section title="Fill-ins">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {fillIns.map((name) => (
-                      <Button key={fillInKey(name)} size="sm" variant="outline" onClick={() => addFillIn(name)}>
-                        {name}
-                      </Button>
-                    ))}
-                    <Input
-                      className="w-44"
-                      aria-label="New fill-in"
-                      value={newFillIn}
-                      onChange={(e) => setNewFillIn(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter') return
-                        e.preventDefault()
-                        addFillIn(newFillIn)
-                      }}
-                    />
-                    <Button size="sm" variant="outline" disabled={cleanFillInName(newFillIn) === ''} onClick={() => addFillIn(newFillIn)}>
-                      Add
-                    </Button>
-                  </div>
-                </Section>
-              )}
-              <Section title="Links">
-                <div className="flex flex-wrap items-center gap-2">
-                  {AUTO_LINKS.map((link) => (
-                    <Button key={link} size="sm" variant="outline" onClick={() => putIn(link)}>
-                      {link}
-                    </Button>
-                  ))}
-                </div>
-              </Section>
+              {insertRows}
               <Counted label="Title" count={title}>
                 <FillInText
                   label="Title"
@@ -655,15 +717,6 @@ export function CalendarEventForm({
                   }}
                 />
               </Counted>
-              <OwnText
-                input={input}
-                set={set}
-                onActive={(insert) => setPutFillIn({ insert })}
-                onActiveText={(insert) => {
-                  setPutFillIn({ insert })
-                  setPutLink({ insert })
-                }}
-              />
 
               {categoryChoices.length > 0 && (
                 <Section title="Categories">
@@ -917,6 +970,7 @@ export function CalendarEventForm({
           ) : (
             <div className="flex min-w-0 flex-col gap-4">
               {card(active)}
+              {insertRows}
               {active === 'vrchat' && (
                 <Section>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -1005,88 +1059,6 @@ export function CalendarEventForm({
 }
 
 /** A field with its count beside the label: "12 / 100", red once it is over. */
-/** The sites that may say their own title and description, and the input fields that hold them. */
-const OWN_TEXT_SITES = [
-  { label: 'VRChat', title: 'vrChatTitle', description: 'vrChatDescription' },
-  { label: 'Discord', title: 'discordTitle', description: 'discordDescription' },
-  { label: 'Google', title: 'googleTitle', description: 'googleDescription' },
-  { label: 'Bluesky', title: 'blueskyTitle', description: 'blueskyDescription' },
-] as const
-
-/**
- * A site's own title and description, under the shared ones. Ticked, a site's boxes start as the
- * shared words; unticked, they are cleared and the site says the shared words again.
- */
-function OwnText({
-  input,
-  set,
-  onActive,
-  onActiveText,
-}: {
-  input: CalendarEventInput
-  set: <K extends keyof CalendarEventInput>(key: K, value: CalendarEventInput[K]) => void
-  /** Hands the form the way to put a fill-in into the title last clicked into. */
-  onActive: (insert: (name: string) => boolean) => void
-  /** Hands the form the way to put a fill-in or a link into the description last clicked into. */
-  onActiveText: (insert: (name: string) => boolean) => void
-}) {
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(
-      OWN_TEXT_SITES.map((s) => [s.label, (input[s.title] ?? '').trim() !== '' || (input[s.description] ?? '').trim() !== '']),
-    ),
-  )
-
-  const tick = (site: (typeof OWN_TEXT_SITES)[number], on: boolean) => {
-    setOpen((current) => ({ ...current, [site.label]: on }))
-    set(site.title, on ? ((input[site.title] ?? '') || input.title) : '')
-    const shared = (input[site.description] ?? '') || input.description
-    set(site.description, on ? (site.label === 'Bluesky' ? cutGraphemes(shared, BLUESKY_DESCRIPTION_LIMIT) : shared) : '')
-  }
-
-  return (
-    <fieldset className="flex flex-col gap-3">
-      <legend className="sr-only">Own text</legend>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="text-muted-foreground">Own text</span>
-        {OWN_TEXT_SITES.map((site) => (
-          <Checkbox key={site.label} checked={open[site.label]} onChange={(on) => tick(site, on)}>
-            {site.label}
-          </Checkbox>
-        ))}
-      </div>
-      {OWN_TEXT_SITES.filter((site) => open[site.label]).map((site) => (
-        <div key={site.label} className="flex flex-col gap-3 border-l-2 border-l-border pl-3">
-          <Counted label={`${site.label} title`} count={counted(input[site.title] ?? '', TITLE_LIMIT)}>
-            <FillInText
-              label={`${site.label} title`}
-              links={false}
-              value={input[site.title] ?? ''}
-              onChange={(v) => set(site.title, v)}
-              onActive={onActive}
-            />
-          </Counted>
-          <Counted
-            label={`${site.label} description`}
-            count={
-              site.label === 'Bluesky'
-                ? countedGraphemes(input[site.description] ?? '', BLUESKY_DESCRIPTION_LIMIT)
-                : counted(input[site.description] ?? '', DESCRIPTION_LIMIT)
-            }
-          >
-            <FillInText
-              multiline
-              label={`${site.label} description`}
-              value={input[site.description] ?? ''}
-              onChange={(v) => set(site.description, v)}
-              onActive={onActiveText}
-            />
-          </Counted>
-        </div>
-      ))}
-    </fieldset>
-  )
-}
-
 function Counted({
   label,
   count,

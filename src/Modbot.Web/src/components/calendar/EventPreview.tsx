@@ -11,11 +11,14 @@ import {
   type CalendarGooglePreview,
   type CalendarPreview,
 } from '@/lib/calendar'
+import type { BlueskyPostPreview } from '@/lib/postRules'
 import { DESTINATION_LABEL, type CalendarDestination } from '@/lib/calendarPlaces'
 import { discordPieces, discordTime } from '@/lib/discordText'
 import { googleRepeatWords } from '@/lib/googleCalendar'
+import { postAround } from '@/lib/calendarOwnText'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
+import { Around, CardText, UseEventText, type CardEditing } from './CardText'
 
 const when = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
@@ -92,10 +95,16 @@ export function EventPreview({
   places,
   vrchatPicture = null,
   discordPicture = null,
+  editing = null,
 }: {
   answer: PreviewAnswer
   /** The places to draw, in the chips' order. */
   places: CalendarDestination[]
+  /**
+   * Set, the card's title and description are boxes to type in, drawn from the form as it is now; the
+   * server's answer still draws the rest, and the lines it adds around the words.
+   */
+  editing?: CardEditing | null
   /**
    * VRChat's picture as the form has it: a crop not uploaded yet, or the set picture when the page
    * can see it (calendar design §15.3). VRChat is sent only the file id, so the server cannot draw it.
@@ -113,23 +122,26 @@ export function EventPreview({
   return (
     <div className={cn('flex min-w-0 flex-col gap-4', places.length === 1 && '[&_h3]:sr-only')} style={{ fontSize: 'var(--text-small)' }}>
       {places.includes('discordEvent') && preview.discordEvent && (
-        <DiscordEventCard event={preview.discordEvent} picture={discordPicture} />
+        <DiscordEventCard event={preview.discordEvent} picture={discordPicture} editing={editing} />
       )}
       {places.includes('channelPost') && preview.channelPost && (
-        <ChannelPostCard post={preview.channelPost} picture={discordPicture} />
+        <ChannelPostCard post={preview.channelPost} picture={discordPicture} editing={editing} />
       )}
-      {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} />}
-      {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} />}
-      {places.includes('bluesky') && preview.bluesky && <BlueskyPost post={preview.bluesky} />}
+      {places.includes('vrchat') && <VRChatCard entry={preview.vrChat} picture={vrchatPicture} editing={editing} />}
+      {places.includes('googleCalendar') && preview.google && <GoogleCard entry={preview.google} editing={editing} />}
+      {places.includes('bluesky') && preview.bluesky && (
+        <BlueskyPost post={preview.bluesky} body={editing && <BlueskyBody post={preview.bluesky} editing={editing} />} />
+      )}
     </div>
   )
 }
 
-function Place({ place, children }: { place: CalendarDestination; children: ReactNode }) {
+function Place({ place, editing, children }: { place: CalendarDestination; editing?: CardEditing | null; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5">
       <h3 className="font-label text-muted-foreground">{DESTINATION_LABEL[place]}</h3>
       {children}
+      {editing && <UseEventText editing={editing} />}
     </section>
   )
 }
@@ -158,12 +170,14 @@ export function DiscordText({ text, now }: { text: string; now: Date }) {
 function DiscordEventCard({
   event,
   picture,
+  editing,
 }: {
   event: NonNullable<CalendarPreview['discordEvent']>
   picture: ReactNode
+  editing: CardEditing | null
 }) {
   return (
-    <Place place="discordEvent">
+    <Place place="discordEvent" editing={editing}>
       <div className="flex flex-col overflow-hidden rounded-sm border-(length:--hairline) bg-card">
         {picture ?? (event.coverUrl && (
           <img src={vrchatMedia(event.coverUrl)} alt="" className="aspect-[2.5/1] w-full object-cover" loading="lazy" />
@@ -173,14 +187,28 @@ function DiscordEventCard({
             <CalendarDays className="size-3.5 shrink-0" />
             {span(event.startsAt, event.endsAt)}
           </div>
-          <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-            {event.name}
-          </div>
+          {editing ? (
+            <div className="font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+              <CardText field={editing.title} label="Title" links={false} />
+            </div>
+          ) : (
+            <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+              {event.name}
+            </div>
+          )}
           <div className="flex items-center gap-1.5 [overflow-wrap:anywhere]">
             <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
             {event.location}
           </div>
-          {event.description && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{event.description}</p>}
+          {editing ? (
+            <>
+              <Around drawn={event.description} asked={editing.description.asked} where="before" />
+              <CardText field={editing.description} label="Description" multiline />
+              <Around drawn={event.description} asked={editing.description.asked} where="after" />
+            </>
+          ) : (
+            event.description && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{event.description}</p>
+          )}
         </div>
       </div>
     </Place>
@@ -190,15 +218,17 @@ function DiscordEventCard({
 function ChannelPostCard({
   post,
   picture,
+  editing,
 }: {
   post: NonNullable<CalendarPreview['channelPost']>
   picture: ReactNode
+  editing: CardEditing | null
 }) {
   const now = new Date()
   const colour = `#${post.colour.toString(16).padStart(6, '0')}`
 
   return (
-    <Place place="channelPost">
+    <Place place="channelPost" editing={editing}>
       <div className="flex flex-col gap-2">
         {post.mentionRole && (
           <div>
@@ -210,16 +240,26 @@ function ChannelPostCard({
           style={{ borderLeftColor: colour }}
         >
           {post.groupName && <div className="font-medium [overflow-wrap:anywhere]">{post.groupName}</div>}
-          <div className="font-label [overflow-wrap:anywhere]">
-            {post.titleLink ? (
-              <a href={post.titleLink} target="_blank" rel="noreferrer" className="text-[#00a8fc] hover:underline">
-                {post.title}
-              </a>
-            ) : (
-              post.title
-            )}
-          </div>
-          {post.description && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{post.description}</p>}
+          {editing ? (
+            <div className={cn('font-label', post.titleLink && 'text-[#00a8fc]')}>
+              <CardText field={editing.title} label="Title" links={false} />
+            </div>
+          ) : (
+            <div className="font-label [overflow-wrap:anywhere]">
+              {post.titleLink ? (
+                <a href={post.titleLink} target="_blank" rel="noreferrer" className="text-[#00a8fc] hover:underline">
+                  {post.title}
+                </a>
+              ) : (
+                post.title
+              )}
+            </div>
+          )}
+          {editing ? (
+            <CardText field={editing.description} label="Description" multiline />
+          ) : (
+            post.description && <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{post.description}</p>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {post.fields.map((f) => (
               <div key={f.name} className={f.inline ? undefined : 'sm:col-span-3'}>
@@ -284,14 +324,20 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 const join = (values: string[]) => (values.length > 0 ? values.join(', ') : null)
 
-function VRChatCard({ entry, picture }: { entry: CalendarPreview['vrChat']; picture: ReactNode }) {
+function VRChatCard({ entry, picture, editing }: { entry: CalendarPreview['vrChat']; picture: ReactNode; editing: CardEditing | null }) {
   return (
-    <Place place="vrchat">
+    <Place place="vrchat" editing={editing}>
       <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
         {picture}
-        <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
-          {entry.title}
-        </div>
+        {editing ? (
+          <div className="font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+            <CardText field={editing.title} label="Title" links={false} />
+          </div>
+        ) : (
+          <div className="font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
+            {entry.title}
+          </div>
+        )}
         <Row label="When">{span(entry.startsAt, entry.endsAt)}</Row>
         <Row label="Repeats">
           {entry.repeat &&
@@ -316,20 +362,32 @@ function VRChatCard({ entry, picture }: { entry: CalendarPreview['vrChat']; pict
         <Row label="VRChat image id">{entry.imageId && <span className="font-mono">{entry.imageId}</span>}</Row>
         <Row label="Notify group members">{entry.notify ? 'Yes' : 'No'}</Row>
         <Row label="Featured">{entry.featured ? 'Yes' : 'No'}</Row>
-        {entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>}
+        {editing ? (
+          <div className="pt-1">
+            <CardText field={editing.description} label="Description" multiline />
+          </div>
+        ) : (
+          entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>
+        )}
       </div>
     </Place>
   )
 }
 
 /** The Google event as the Google loop sends it, times in the event's own zone as Google shows them. */
-function GoogleCard({ entry }: { entry: CalendarGooglePreview }) {
+function GoogleCard({ entry, editing }: { entry: CalendarGooglePreview; editing: CardEditing | null }) {
   return (
-    <Place place="googleCalendar">
+    <Place place="googleCalendar" editing={editing}>
       <div className="flex flex-col gap-1.5 rounded-sm border-(length:--hairline) bg-card p-3">
         <div className="flex items-center gap-1.5 font-label [overflow-wrap:anywhere]" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
           {entry.private && <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Private" />}
-          {entry.title}
+          {editing ? (
+            <div className="min-w-0 flex-1">
+              <CardText field={editing.title} label="Title" links={false} />
+            </div>
+          ) : (
+            entry.title
+          )}
         </div>
         <Row label="When">
           {spanIn(entry.startsAt, entry.endsAt, entry.timeZone)} · {entry.timeZone}
@@ -337,8 +395,33 @@ function GoogleCard({ entry }: { entry: CalendarGooglePreview }) {
         <Row label="Repeats">{entry.repeat && googleRepeatWords(entry.repeat)}</Row>
         <Row label="Location">{entry.location}</Row>
         <Row label="Calendar">{entry.calendarName}</Row>
-        {entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>}
+        {editing ? (
+          <div className="flex flex-col gap-1.5 pt-1">
+            <Around drawn={entry.description} asked={editing.description.asked} where="before" />
+            <CardText field={editing.description} label="Description" multiline />
+            <Around drawn={entry.description} asked={editing.description.asked} where="after" />
+          </div>
+        ) : (
+          entry.description && <p className="pt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.description}</p>
+        )}
       </div>
     </Place>
+  )
+}
+
+/**
+ * A Bluesky post's text with the title and the description as boxes to type in, and the time, the
+ * world and the link the server put around them as it drew them.
+ */
+function BlueskyBody({ post, editing }: { post: BlueskyPostPreview; editing: CardEditing }) {
+  const lines = postAround(post.text, editing.title.asked, editing.description.asked)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <CardText field={editing.title} label="Title" links={false} />
+      {lines.before && <p className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{lines.before}</p>}
+      <CardText field={editing.description} label="Description" multiline />
+      {lines.after && <p className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{lines.after}</p>}
+    </div>
   )
 }

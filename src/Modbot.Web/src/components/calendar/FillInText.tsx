@@ -92,6 +92,7 @@ export function FillInText({
   multiline = false,
   links = true,
   onActive,
+  className,
 }: {
   value: string
   onChange: (value: string) => void
@@ -99,6 +100,8 @@ export function FillInText({
   multiline?: boolean
   links?: boolean
   onActive?: (insert: (name: string) => boolean) => void
+  /** Classes laid over the box's own, to sit it inside something else (a service's card). */
+  className?: string
 }) {
   const box = useRef<HTMLDivElement>(null)
   // Where the caret was last, because pressing a button elsewhere takes it away.
@@ -162,6 +165,7 @@ export function FillInText({
         'block w-full min-w-0 rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 text-base outline-none selection:bg-primary selection:text-primary-foreground md:text-(length:--text-base)',
         'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
         multiline ? 'min-h-[calc(var(--control-h)*2.4)] whitespace-pre-wrap [overflow-wrap:anywhere]' : 'h-(--control-h) overflow-hidden whitespace-nowrap',
+        className,
       )}
       onFocus={() => onActive?.(insert)}
       onClick={() => {

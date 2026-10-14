@@ -1302,6 +1302,19 @@ optional fields: a title and a description for each of VRChat, Discord and Googl
   shows its title and description, filled in from the shared words; unticking clears them. The ticked
   state is not stored: it is worked out from whether the fields have text, so a ticked site with both
   fields blank shows unticked after switching from Preview back to Details.
+  *Changed 2026-10-14 (step 2b of the editor redesign): there is no "Own text" row. The title and the
+  description in each service's card are the boxes: unedited they show the event's words and follow
+  them, and typing in one copies the words into that service's own field (title and description are
+  separate, so editing one leaves the other following the event). A "Use event text" button under the
+  card empties both own fields of that service. The Discord event and the Discord post cards share the
+  Discord pair. A box emptied to be retyped stays the service's own (the form remembers which own
+  fields were typed in), so it does not refill with the event's words; the server still reads a blank
+  own field as "none". The boxes draw the typed words themselves, so typing never waits for the
+  preview, which is asked again 400 ms after typing stops and draws the rest of the card; the lines
+  the server adds around the words (Discord's category and join lines, Google's world, Bluesky's time,
+  world and link) are shown muted when the words are found whole in its drawing, else left out until
+  the next one. The fill-ins and links buttons are on each service's tab as well. No data or API
+  change.*
 
 ## 19. Categories made in Modbot (added 2026-10-12)
 
