@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.AI.Alerts;
+using Modbot.AI.Tests.Insights;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;

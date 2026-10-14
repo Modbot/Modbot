@@ -168,4 +168,58 @@ public class AlertPosterTests
         Assert.Empty(gateway.Posts);
         Assert.Equal("Not posted within 6h.", (await ReadAsync(services, id)).DiscordError);
     }
+
+    [Fact]
+    public async Task ASecondInstanceAlert_IsPostedWithTheOpenSecondInstanceButton_AndNoWindow()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateway = new FakeGateway();
+        var id = await AddAsync(services, a =>
+        {
+            a.Watcher = AlertWatchers.InstanceSecond;
+            a.Now = 32;
+            a.Normal = 30;
+            a.Text = null;
+            a.Link = null;
+            a.Model = null;
+            a.Figures = "{\"where\":\"Test world\"}";
+        });
+
+        Assert.Equal(1, (await RunAsync(services, gateway)).Posted);
+
+        var post = Assert.Single(gateway.ActionPosts);
+        var button = Assert.Single(post.Actions);
+        Assert.Equal(SecondInstanceButton.Label, button.Label);
+        Assert.Equal(id, SecondInstanceButton.AlertOf(button.Id));
+
+        var card = Assert.Single(Assert.Single(gateway.Posts).Embeds);
+        Assert.Equal("Open a second instance", card.Title);
+        Assert.Contains(card.Fields, f => f is { Name: "Where", Value: "Test world" });
+        Assert.Contains(card.Fields, f => f is { Name: "Now", Value: "32 people in the instance" });
+        Assert.Contains(card.Fields, f => f is { Name: "Alert at", Value: "30 people in the instance" });
+        Assert.DoesNotContain(card.Fields, f => f.Name == "Window");
+    }
+
+    [Fact]
+    public async Task AnotherAlert_HasNoOpenSecondInstanceButton()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var gateway = new FakeGateway();
+        await AddAsync(services);
+
+        await RunAsync(services, gateway);
+
+        Assert.Empty(gateway.ActionPosts);
+        Assert.Single(gateway.Posts);
+    }
+
+    [Fact]
+    public void TheButtonIdNamesItsAlert_AndOnlyItsOwnIdsAreRead()
+    {
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal(id, SecondInstanceButton.AlertOf(SecondInstanceButton.For(id)));
+        Assert.Null(SecondInstanceButton.AlertOf("modbot:second:not-an-id"));
+        Assert.Null(SecondInstanceButton.AlertOf("modbot:hold:" + id));
+    }
 }
