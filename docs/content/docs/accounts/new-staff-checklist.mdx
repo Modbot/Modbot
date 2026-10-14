@@ -1,6 +1,6 @@
 ---
 title: New staff checklist
-description: Give each new staff member a checklist with a buddy. The new mod fills in written tasks themselves, the buddy signs off the rest and writes a note, and the lines are set per server.
+description: Give each new staff member a checklist with a buddy. The new mod fills in written tasks themselves, the buddy signs off the rest and writes a note, the Council is reminded on day 30, and the lines are set per server.
 ---
 
 The new staff checklist follows one new staff member through their trial. It holds a **buddy**, a
@@ -18,6 +18,9 @@ checklist** card has two boxes, one line each:
 - **Buddy sign-off, one per line:** things the buddy confirms, such as "Has joined a moderation
   shift."
 
+The card also has a **Reminder channel**, the Discord channel for the [reminders](#reminders). Leave it
+empty and no reminder is posted. The bot needs to see the channel, send messages there and embed links.
+
 Press **Save checklist**. Blank lines are dropped. A server can have up to 30 lines of each kind, and
 a line is at most 300 characters. Saving is recorded in the audit log as a settings change.
 
@@ -29,13 +32,41 @@ given, so answers and sign-offs never end up under a different wording.
 Open the new member's popup, go to the **Account** tab and press **Start checklist** (you need
 **Manage users**). Pick a **Buddy** from the accounts that are turned on, which can be anyone but the
 new member. Modbot copies the current lines, stores today as the start date and records it in the
-audit log. An account has at most one checklist. Like the other account actions, starting, changing the buddy
-and removing only work on accounts whose highest role is below yours (an administrator can do it for anyone),
-and on your own account.
+audit log. An account has at most one checklist.
 
-On a started checklist, someone with **Manage users** can change the buddy or **Remove** the
-checklist. Changing the buddy keeps the sign-offs already given. Removing deletes the lines, the
+Like the other account actions, starting, changing the buddy, closing and removing only work on accounts whose
+highest role is below yours (an administrator can do it for anyone). You can never start one on your own account.
+
+On a started checklist, someone with **Manage users** can change the buddy, **Close** the checklist or
+**Remove** it. Changing the buddy keeps the sign-offs already given. Removing deletes the lines, the
 answers, the sign-offs and the note.
+
+## Closing a checklist
+
+**Close** ends the trial once the Council has decided. A closed checklist shows **Closed** with the date, keeps
+its lines, answers, sign-offs and note for reading, and stops sending reminders. It also leaves the buddy's
+list on their **Account** page. Closing again changes nothing. Close needs **Manage users**, like starting one.
+
+## Reminders
+
+When a **Reminder channel** is chosen under **Settings → People and roles → New staff**, Modbot posts two kinds
+of reminder there. It looks every 15 minutes, and a post that Discord refuses is tried again on the next look.
+Reminders due while no channel is chosen go out once one is.
+
+- **Day 30, for the Council's vote.** Thirty days after a checklist started, one post for that person shows how
+  many tasks they have answered and lines the buddy has signed off, how many events they worked, their buddy, the
+  start date and the buddy's note, with a link to their profile. Events worked are the dates of calendar events
+  they were host or staff on since the trial started. It is posted once per checklist, and not at all for one that
+  is closed. At most five of these go out in one look.
+- **Check-in, for any staff member who has gone quiet.** When an account has been inactive for 30 days, a single
+  post lists everyone due, each with their name and the day they were last active. The same quiet stretch is
+  not reminded again: the account has to be active and then go quiet for 30 days again. One post lists at most 40
+  people; any more follow in the next one.
+
+Active means any of these: signing in to Modbot, doing a moderation action (a ban, unban or kick, a join request
+refused, an instance kick or warning, as the account or as its linked VRChat or Discord account), or being host or
+staff on an event that has started. An account that has done none of them counts from the day it was made. Accounts
+that are turned off or deleted are left out.
 
 ## Who does what
 
@@ -65,7 +96,7 @@ and press **Save note**; it is at most 4000 characters. Each sign-off shows who 
 ## What Modbot writes down
 
 The [audit log](/moderation/audit-log) records a checklist being started, the buddy being changed, a
-line being signed off or taken back, and a checklist being removed, each under the new member's
+line being signed off or taken back, a checklist being closed and a checklist being removed, each under the new member's
 account. Written answers and the buddy note are not copied into the log.
 
 Answers, sign-offs and the note are kept with the checklist. They are deleted when the checklist is
