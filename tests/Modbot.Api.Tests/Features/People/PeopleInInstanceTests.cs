@@ -84,6 +84,32 @@ public class PeopleInInstanceTests
     }
 
     [Fact]
+    public async Task AnInstance_StartsWithWhoArrivedFirst_AndCanSortByWhoLeftFirst()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        var (instance, _) = await SeedAsync(host);
+        var cookie = await host.SignedInAsync(Both, Ct);
+
+        async Task<string[]> InOrder(string query)
+            => [.. (await host.GetJsonAsync<PeopleListResponse>($"/api/people?instance={instance}{query}", cookie, Ct))
+                .People.Select(p => p.UserId)];
+
+        // Ada 5, Bea 10, Cy 30.
+        Assert.Equal(["usr_ada", "usr_bea", "usr_cy"], await InOrder(""));
+        Assert.Equal(["usr_ada", "usr_bea", "usr_cy"], await InOrder("&sort=arrived"));
+
+        // Bea left at 50, Ada at 60, Cy was last reported at 60 as well: a tie goes by id.
+        Assert.Equal(["usr_bea", "usr_ada", "usr_cy"], await InOrder("&sort=left"));
+
+        // The page is cut from that order, with the total of everybody.
+        var second = await host.GetJsonAsync<PeopleListResponse>(
+            $"/api/people?instance={instance}&sort=left&pageSize=2&page=2", cookie, Ct);
+        Assert.Equal(3, second.Total);
+        Assert.Equal(["usr_cy"], second.People.Select(p => p.UserId));
+    }
+
+    [Fact]
     public async Task WithoutAnInstance_RowsCarryNoVisit()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);

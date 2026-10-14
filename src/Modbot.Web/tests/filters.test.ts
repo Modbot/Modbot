@@ -5,6 +5,7 @@ import {
   dateRange,
   decodeChip,
   encodeChip,
+  appliedMoment,
   fromLocalInput,
   isFiltered,
   moments,
@@ -359,4 +360,20 @@ test('the time box and the chip agree: a local time goes in and the same instant
 
   assert.equal(toLocalInput('nonsense'), '')
   assert.equal(fromLocalInput(''), null)
+})
+
+test('opening a chart-added moment and pressing Apply does not move it', () => {
+  const instant = '2026-07-15T21:44:37.412Z'
+
+  // Seconds are in the box.
+  assert.match(toLocalInput(instant), /T\d\d:\d\d:37$/)
+
+  // Untouched: the chip's own instant, to the millisecond.
+  assert.equal(appliedMoment(toLocalInput(instant), instant), instant)
+
+  // Changed: what was typed, as the viewer's local time.
+  const typed = toLocalInput('2026-07-15T21:50:05.000Z')
+  assert.equal(appliedMoment(typed, instant), '2026-07-15T21:50:05.000Z')
+
+  assert.equal(appliedMoment('', instant), null)
 })

@@ -7,8 +7,8 @@ import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { EmptyRow } from '@/components/PanelGrid'
 import {
+  appliedMoment,
   atStart,
-  fromLocalInput,
   operatorsFor,
   operatorWords,
   type FilterChip,
@@ -408,7 +408,7 @@ function ValueEditor({
 
   if (property.kind === 'moment') {
     const apply = () => {
-      const instant = fromLocalInput(typed)
+      const instant = appliedMoment(typed, values[0] ?? '')
       if (!instant) return
       onChange({ property: property.id, operator: operators[0], values: [instant] })
       onDone()
@@ -420,6 +420,7 @@ function ValueEditor({
           <Input
             autoFocus
             type="datetime-local"
+            step={1}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             onKeyDown={(e) => {

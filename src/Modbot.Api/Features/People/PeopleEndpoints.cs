@@ -195,7 +195,9 @@ public static class PeopleEndpoints
                 + "and `notHereAt`, repeatable and only with `instance`, keep people who were there "
                 + "at that moment, or were not; every one must hold. Sorted by "
                 + "when Modbot last saw them, most recent first, unless `sort=name`, `sort=known` "
-                + "(longest known first) or `sort=joined` (newest joiner first). "
+                + "(longest known first) or `sort=joined` (newest joiner first). With `instance`, the "
+                + "default is `sort=arrived` (first to arrive first) and `sort=left` puts the first "
+                + "to leave first. "
                 + "Names and pictures come from the profile sync and are null for anybody it has "
                 + "not fetched yet. Each row carries the member list's fields too: roles, when they "
                 + "joined, whether they are representing the group, and their linked Discord "
@@ -476,7 +478,30 @@ public static class PeopleEndpoints
             query = query.Where(x => inInstance.Contains(x.u.UserId));
         }
 
-        query = Trimmed(sort)?.ToLowerInvariant() switch
+        // In an instance the order that matters is the visit's own: who arrived first, who left
+        // first. Those times are read from the stays, not stored on the people, so they are put in
+        // order here and the page is cut from that list. No sort asked for means arrival order.
+        var sortWord = Trimmed(sort)?.ToLowerInvariant();
+        List<string>? pageIds = null;
+        var total = 0;
+
+        if (visits is not null && sortWord is null or "arrived" or "left")
+        {
+            var matching = await query.Select(x => x.u.UserId).ToListAsync(ct);
+
+            var ordered = (sortWord == "left"
+                    ? matching.OrderBy(id => visits[id].Left)
+                    : matching.OrderBy(id => visits[id].Arrived))
+                .ThenBy(id => id, StringComparer.Ordinal)
+                .ToList();
+
+            total = ordered.Count;
+            var onThisPage = ordered.Skip((pageNumber - 1) * size).Take(size).ToList();
+            pageIds = onThisPage;
+            query = query.Where(x => onThisPage.Contains(x.u.UserId));
+        }
+
+        query = sortWord switch
         {
             // Newest joiner first, as the member list opened; people with no join date go last.
             "joined" => query
@@ -493,11 +518,10 @@ public static class PeopleEndpoints
             _ => query.OrderByDescending(x => x.u.LastSeenAt).ThenBy(x => x.u.UserId),
         };
 
-        var total = await query.CountAsync(ct);
+        if (pageIds is null)
+            total = await query.CountAsync(ct);
 
-        var rows = await query
-            .Skip((pageNumber - 1) * size)
-            .Take(size)
+        var rows = await (pageIds is null ? query.Skip((pageNumber - 1) * size).Take(size) : query)
             .Select(x => new
             {
                 x.u,
@@ -508,6 +532,9 @@ public static class PeopleEndpoints
                 Representing = x.m != null && x.m.IsRepresenting,
             })
             .ToListAsync(ct);
+
+        if (pageIds is { } inOrder)
+            rows = [.. rows.OrderBy(r => inOrder.IndexOf(r.u.UserId))];
 
         // One query for the whole page rather than a join per row: the ban list is small and the
         // page is fifty ids. The linked accounts are the member list's two queries, for the same

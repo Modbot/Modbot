@@ -1543,7 +1543,7 @@ export type PeopleQuery = {
   hereAt?: string[]
   /** With `instance`: only people who were not there at any of these moments. */
   notHereAt?: string[]
-  sort?: 'seen' | 'name' | 'known' | 'joined'
+  sort?: 'seen' | 'name' | 'known' | 'joined' | 'arrived' | 'left'
   page?: number
   pageSize?: number
 }

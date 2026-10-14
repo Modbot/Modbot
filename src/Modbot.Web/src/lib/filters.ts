@@ -129,20 +129,29 @@ export function operatorWords(operator: FilterOperator, valueCount: number): str
 }
 
 /**
- * A moment as the value of a `datetime-local` box: the viewer's own clock to the minute, which is
- * what they will read the chip in. Empty for a value that is not an instant.
+ * A moment as the value of a `datetime-local` box: the viewer's own clock to the second, which is
+ * what they will read the chip in. A chart click lands on a second, so the box must show it. Empty for a value that is not an instant.
  */
 export function toLocalInput(iso: string): string {
   const at = new Date(iso)
   if (Number.isNaN(at.getTime())) return ''
   const two = (n: number) => String(n).padStart(2, '0')
-  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())}T${two(at.getHours())}:${two(at.getMinutes())}`
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())}T${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`
 }
 
 /** What a `datetime-local` box holds, back as an ISO instant; null for an empty or unreadable box. */
 export function fromLocalInput(text: string): string | null {
   const at = new Date(text)
   return text && !Number.isNaN(at.getTime()) ? at.toISOString() : null
+}
+
+/**
+ * The instant an opened moment chip should hold when Apply is pressed. A box left as it was keeps
+ * the chip's own instant to the millisecond; a changed box is read as the viewer's local time.
+ */
+export function appliedMoment(typed: string, original: string): string | null {
+  if (original && typed === toLocalInput(original)) return original
+  return fromLocalInput(typed)
 }
 
 // ── The address ─────────────────────────────────────────────────────────────────────────────

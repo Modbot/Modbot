@@ -61,9 +61,17 @@ const SORTS: { value: NonNullable<PeopleQuery['sort']>; label: string }[] = [
   { value: 'known', label: 'First seen longest ago' },
 ]
 
+// An instance's list is about the run: who got there first, who went first, or by name. When
+// Modbot last saw them or when they joined the group says nothing about it.
+const INSTANCE_SORTS: typeof SORTS = [
+  { value: 'arrived', label: 'First to arrive' },
+  { value: 'left', label: 'First to leave' },
+  { value: 'name', label: 'By name' },
+]
+
 export function PeopleBrowser({
   me,
-  chips,
+  chips: given,
   starts,
   onChange,
   at,
@@ -111,15 +119,23 @@ export function PeopleBrowser({
     restart()
   }
 
+  // Here at and Not here at mean something only in an instance's list. A hand-written address on
+  // the People page can carry them, and the list ignores them, so they are not drawn or counted.
+  const chips = useMemo(
+    () => (instance ? given : given.filter((c) => c.property !== 'hereAt' && c.property !== 'notHereAt')),
+    [given, instance],
+  )
+  const sorts = instance ? INSTANCE_SORTS : SORTS
+
   const filter = useMemo(() => peopleQueryFrom(chips), [chips])
   // An instance's list keeps the People columns whatever the Membership chip says: its own columns
   // are about the run, not about the group.
   const view = instance ? null : memberView(chips)
 
   // The member list opened newest joiner first, and still does; everything else, most recently
-  // seen. Moving between the two sets the sort again, since each one's first choice means little
-  // in the other.
-  const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>(view ? 'joined' : 'seen')
+  // seen; an instance's list, whoever arrived first. Moving between the two sets the sort again,
+  // since each one's first choice means little in the other.
+  const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>(instance ? 'arrived' : view ? 'joined' : 'seen')
   const [sortedForMembers, setSortedForMembers] = useState(view !== null)
   if ((view !== null) !== sortedForMembers) {
     setSortedForMembers(view !== null)
@@ -277,10 +293,12 @@ export function PeopleBrowser({
     setSort(next)
     restart()
   }
-  useShortcuts([
+  // Only the page's own: a popup's keys would be listed beside the page's, which is still there
+  // behind it, and page keys wait while a popup is open, so they could never run.
+  useShortcuts(place === 'page' ? [
     { keys: '/', label: 'Search', group: 'Filters', page: true, keyboardOnly: true, run: () => searchBox.current?.select() },
     ...SORTS.map((s) => ({ label: s.label, group: 'Sort' as const, page: true, checked: s.value === sort, run: () => sortBy(s.value) })),
-  ])
+  ] : [])
   const { rowProps } = useListSelection(list?.people.length ?? 0, (i) => {
     const person = list?.people[i]
     if (person) openPerson(person.userId)
@@ -308,7 +326,7 @@ export function PeopleBrowser({
         onChange={(v) => sortBy(v as typeof sort)}
         aria-label="Sort"
       >
-        {SORTS.map((s) => (
+        {sorts.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}
           </option>
@@ -415,8 +433,8 @@ export function PeopleBrowser({
               <>
                 <Th>Person</Th>
                 <Th>Standing</Th>
-                <Th>Arrived</Th>
-                <Th>Left</Th>
+                <Th>Arrived at</Th>
+                <Th>Left at</Th>
                 <Th className="text-right">Visits</Th>
               </>
             ) : (
@@ -645,11 +663,11 @@ function PeopleRows({ people, now, here }: { people: Person[]; now: string; here
             ...(here && person.visit
               ? [
                   <span key="arrived">
-                    arrived <span className="font-mono">{dateTime(person.visit.arrived)}</span>
+                    arrived at <span className="font-mono">{dateTime(person.visit.arrived)}</span>
                     {!person.visit.arrivalSeen && ' (already there)'}
                   </span>,
                   <span key="left">
-                    left <span className="font-mono">{dateTime(person.visit.left)}</span>
+                    left at <span className="font-mono">{dateTime(person.visit.left)}</span>
                     {!person.visit.leaveSeen && ' (not seen leaving)'}
                   </span>,
                 ]
