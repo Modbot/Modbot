@@ -416,6 +416,14 @@ export type DiscordBirthdaySettings = {
   problem: string | null
 }
 
+/** Settings → Discord → Event recaps. */
+export type DiscordEventRecapSettings = {
+  on: boolean
+  channelId: string | null
+  /** What stopped the last recap or its photo thread. */
+  problem: string | null
+}
+
 export type DiscordGateMode = 'off' | 'watch' | 'on'
 
 /** Settings → Discord → Join gate (join gate design §3). */
@@ -5210,6 +5218,11 @@ export const api = {
     message: string
     roleId: string
   }) => put<DiscordBirthdaySettings>('/api/settings/discord-birthdays', body),
+
+  discordEventRecapSettings: () => request<DiscordEventRecapSettings>('/api/settings/discord-event-recaps'),
+
+  setDiscordEventRecapSettings: (body: { on: boolean; channelId: string }) =>
+    put<DiscordEventRecapSettings>('/api/settings/discord-event-recaps', body),
 
   discordGateSettings: () => request<DiscordGateSettings>('/api/settings/discord-gate'),
 

@@ -1068,6 +1068,22 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Ok);
     }
 
+    /// <summary>Set to make starting a thread on a message fail with this.</summary>
+    public string? StartThreadError { get; set; }
+
+    /// <summary>The threads started on a message: the channel, the message and the name.</summary>
+    public List<(string ChannelId, string MessageId, string Name)> ThreadsStarted { get; } = [];
+
+    public Task<DiscordPostOutcome> StartThreadOnMessageAsync(
+        string channelId, string messageId, string name, CancellationToken ct)
+    {
+        if (StartThreadError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        ThreadsStarted.Add((channelId, messageId, name));
+        return Task.FromResult(DiscordPostOutcome.Posted((8000 + ThreadsStarted.Count).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
     public Task RaiseReactionAddedAsync(DiscordReactionSnapshot reaction)
         => ReactionAdded?.Invoke(reaction) ?? Task.CompletedTask;
 

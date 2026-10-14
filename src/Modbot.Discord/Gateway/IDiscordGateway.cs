@@ -1511,6 +1511,13 @@ public interface IDiscordGateway : IAsyncDisposable
     Task<DiscordPostOutcome> AddReactionAsync(string channelId, string messageId, string emoji, CancellationToken ct);
 
     /// <summary>
+    /// Starts a public thread on a message the bot posted, named <paramref name="name"/> (cut to
+    /// Discord's 100 characters), and says what the thread's id is. Nothing is written in it.
+    /// </summary>
+    /// <remarks>Needs Create Public Threads in the channel, and Read Message History to find the message.</remarks>
+    Task<DiscordPostOutcome> StartThreadOnMessageAsync(string channelId, string messageId, string name, CancellationToken ct);
+
+    /// <summary>
     /// Reads one page of a channel's or thread's history: the hundred messages before
     /// <paramref name="beforeId"/>, after <paramref name="afterId"/>, or the newest hundred when both
     /// are null. One request to Discord; the library waits out Discord's rate limits on its own.

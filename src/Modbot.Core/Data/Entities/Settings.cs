@@ -803,6 +803,23 @@ public class Settings
     /// <summary>What went wrong the last time the pass tried, in a sentence. Null when it went well.</summary>
     public string? BirthdayProblem { get; set; }
 
+    // --- Event recaps in Discord ---
+
+    /// <summary>Whether Modbot posts a recap in Discord once an event's instance has closed. Off to start.</summary>
+    public bool EventRecapsOn { get; set; }
+
+    /// <summary>The Discord channel the recaps are posted in. Null means none.</summary>
+    public string? EventRecapChannelId { get; set; }
+
+    /// <summary>
+    /// When the recaps were last turned on. An instance that closed before it gets no recap, so
+    /// turning the switch on never posts for events that ended long ago.
+    /// </summary>
+    public DateTimeOffset? EventRecapsFrom { get; set; }
+
+    /// <summary>What went wrong the last time a recap was posted, in a sentence. Null when it went well.</summary>
+    public string? EventRecapProblem { get; set; }
+
     /// <summary>
     /// The Discord channel a closed ticket's transcript is posted to, as a file. Null means no
     /// transcript is kept: the ticket still closes and the fact log still records it.

@@ -84,6 +84,23 @@ public sealed class CalendarDiscordService : BackgroundService
                     _log.Error(ex, "The reminders' Discord pass failed; it will run again");
                 }
 
+                // The recap of a date whose instance has closed: its own try, so a refused recap
+                // never holds a reminder or an alert back, and the other way round.
+                try
+                {
+                    using var scope = _scopes.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<EventRecapPost>()
+                        .RunOnceAsync(gateway, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _log.Error(ex, "The recaps' Discord pass failed; it will run again");
+                }
+
                 // Alerts for the categories and events members signed up for (/notify, Notify me):
                 // their own rows and their own switch, so a failing reminder pass never holds one back.
                 try

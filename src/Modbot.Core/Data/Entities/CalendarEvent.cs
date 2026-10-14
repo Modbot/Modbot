@@ -633,6 +633,12 @@ public class CalendarOpening
 
     /// <summary>What VRChat said when the group post was refused.</summary>
     public string? FirstJoinVRChatPostError { get; set; }
+
+    /// <summary>
+    /// When the recap of this occurrence was dealt with, posted or left out because nobody was seen:
+    /// written before the post, so it goes out once however many restarts.
+    /// </summary>
+    public DateTimeOffset? RecapPostedAt { get; set; }
 }
 
 /// <summary>The words stored in <see cref="CalendarInvite.State"/> (calendar auto-invite design §3).</summary>

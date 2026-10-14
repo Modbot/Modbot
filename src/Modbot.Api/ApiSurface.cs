@@ -576,6 +576,9 @@ public static class ApiSurface
         app.MapDiscordBirthdaySettings();
         app.MapAgeCheckSettings();
 
+        // The recap posted when an event's instance has closed.
+        app.MapDiscordEventRecapSettings();
+
         // Which of the bot's commands are on (Discord commands design §3.8).
         app.MapDiscordCommandsSettings();
 

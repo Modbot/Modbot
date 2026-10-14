@@ -1986,6 +1986,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.AgeCheckGroupRoleId).HasMaxLength(64);
             entity.Property(e => e.AgeCheckTicketCategoryId).HasMaxLength(32);
 
+            // Event recaps in Discord: off, for the row that exists already.
+            entity.Property(e => e.EventRecapChannelId).HasMaxLength(32);
+            entity.Property(e => e.EventRecapProblem).HasMaxLength(300);
+
             // "We're live" group posts: off, until an operator picks which instances.
             entity.Property(e => e.LivePostScope).HasMaxLength(8).HasDefaultValue(LivePostScopes.Off);
 
