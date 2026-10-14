@@ -248,9 +248,11 @@ function AgeMark({
   }
 
   // A moment's grace, so a pointer can cross the gap between the badge and the card. Never while
-  // a reason is half typed: leaving the badge is not a decision to throw the form away.
+  // a reason is half typed: leaving the badge is not a decision to throw the form away. Nor while
+  // the check's answer is shown: the badge gets narrower, the card moves with it, and the pointer
+  // is outside before anybody has read it.
   const closeSoon = () => {
-    if (editing !== null) return
+    if (editing !== null || busy || lines.length > 0) return
     stopClosing()
     closing.current = window.setTimeout(() => setOpen(false), 150)
   }
