@@ -198,14 +198,17 @@ public static class SupporterSettingsEndpoints
                     settings.PatreonRefreshTokenEncrypted = protector.Protect(keys[3]!);
 
                 // New keys start over: the age of a pasted token is not known, its campaign may be another, and
-                // the catch-up runs at once to show whether they work.
+                // the catch-up runs at once to show whether they work. A stop after a 429 stays unless the
+                // client changed: Patreon counts requests per client, so new tokens alone do not end it.
                 if (keysChanged)
                 {
                     settings.PatreonTokenExpiresAt = null;
                     settings.PatreonCampaignId = null;
                     settings.PatreonCatchUpDueAt = null;
-                    settings.PatreonCatchUpProblem = null;
-                    settings.PatreonStoppedUntil = null;
+                    if (clientIdChanged)
+                        settings.PatreonStoppedUntil = null;
+                    if (settings.PatreonStoppedUntil is null)
+                        settings.PatreonCatchUpProblem = null;
                 }
 
                 settings.KofiRolesOffDays = kofiDaysAfter;

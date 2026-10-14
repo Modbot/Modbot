@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
 import { dateTime } from '@/lib/format'
-import { supporterApi, type SupporterSettings } from '@/lib/supporters'
+import { supporterApi, type SupporterSettings, type SupporterSettingsInput } from '@/lib/supporters'
 import { Fact, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { RolesOffCard } from './RolesOffCard'
@@ -127,7 +127,7 @@ function KeysCard({ settings, onSaved }: { settings: SupporterSettings; onSaved:
     setSaved(null)
     setProblem(null)
 
-    const body: Record<string, string> = {}
+    const body: SupporterSettingsInput = {}
     for (const key of filled) body[key.field] = (values[key.field] ?? '').trim()
 
     supporterApi

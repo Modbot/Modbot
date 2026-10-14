@@ -52,7 +52,7 @@ Patreon's current screens.
 5. Within half a minute Modbot reads your patrons for the first time. **Last catch-up** shows when it
    finished, or **Problem** says why it could not.
 
-The creator's tokens read your own campaign. Modbot uses them for three requests only: the list of your campaigns
+The creator's tokens read your own campaign. Modbot uses them for four requests only: a new access token (below), the list of your campaigns
 (it keeps the first one's id), a campaign's members with their tiers and the apps each connected to Patreon,
 and one member at a time. It never changes anything on Patreon.
 
@@ -62,7 +62,7 @@ is not known. Saving a new key starts over: the campaign is found again and the 
 
 Modbot sends Patreon at most one request a second. If Patreon answers that Modbot is asking too much, Modbot does
 not ask again: it stops for at least 15 minutes (longer if Patreon says so), shows **Patreon is limiting Modbot's
-requests** under **Last catch-up**, and tries again after that. If a key is refused, **Problem** says which kind, and
+requests** under **Problem**, and tries again after that. If a key is refused, **Problem** says which kind, and
 the catch-up tries again the next day, or as soon as you save a new key.
 
 These steps come from Patreon's published API documentation and have not been checked against Patreon's current
@@ -134,4 +134,5 @@ For the catch-up: your campaign's id, when your access token runs out, and when 
 webhook secret and the four client keys are kept encrypted and never shown again.
 The only requests Modbot sends to Patreon carry your own keys and tokens, or a campaign's or a member's id.
 Nothing is sent to Modbot Cloud. A [purge](/moderation/purge) deletes the supporter matched to that
-Discord account, with their payments; no retention window touches it.
+Discord account, with their payments; no retention window touches it. A patron who is still pledging comes back
+at the next daily catch-up (see [Purge](/moderation/purge)).

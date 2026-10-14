@@ -198,7 +198,8 @@ wherever you choose to store them. These pages describe what is kept and how it 
   account (the one the patron connected to Patreon) and, once a day, for every patron of your first campaign, and
   keeps the campaign's id, when your access token runs out and when the last catch-up finished. Those requests go to
   Patreon only and carry your own tokens and Patreon's own ids; the keys are kept encrypted. A [purge](/moderation/purge) deletes the supporter matched to that Discord account; no retention window
-  touches it. Nothing is sent to Modbot Cloud, and Discord sees the direct message and the roles.
+  touches it. A patron who is still pledging comes back at the next daily catch-up. Nothing is sent to Modbot
+  Cloud, and Discord sees the direct message and the roles.
 - [Account links](/discord/account-links): the tab shows only counts. When staff press **Start reminder**, the bot
   sends each Discord member who has not linked one direct message with the link page, one every 30 seconds, and keeps
   for each person their Discord id, whether the message was sent or could not reach them, when, and Discord's reason if
