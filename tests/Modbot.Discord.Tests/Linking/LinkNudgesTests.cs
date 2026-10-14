@@ -250,7 +250,7 @@ public class LinkNudgesTests
             Assert.Null((await check.Settings.AsNoTracking().SingleAsync(s => s.Id == 1, Ct)).DiscordLinkNudgeStartedAt);
 
         // Nothing goes out until staff start it again, and then the member who was turned away is not retried.
-        Assert.Equal(LinkNudgeStep.Off, await TurnAsync(services, gateway));
+        Assert.Equal(LinkNudgeStep.Off, await TurnAsync(services, gateway, gapPassed: false));
 
         await services.ConfigureAsync(s => s.DiscordLinkNudgeStartedAt = services.Clock.UtcNow, Ct);
 

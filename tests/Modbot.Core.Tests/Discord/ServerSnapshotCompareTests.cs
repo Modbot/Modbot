@@ -115,7 +115,8 @@ public class ServerSnapshotCompareTests
         var snapshot = Content([Role("r1", "Mod", ViewChannel)], []);
         var live = Content([Role("r1", "Mod", SendMessages)], []);
 
-        var plan = ServerSnapshotCompare.PlanRole(snapshot, Live(live), "r1");
+        // The bot holds what the role would gain, so it may give it.
+        var plan = ServerSnapshotCompare.PlanRole(snapshot, Live(live, botPermissions: ManageRoles | ViewChannel), "r1");
 
         Assert.Null(plan.Problem);
         Assert.Equal(["Mod gets: View Channel", "Mod loses: Send Messages"], plan.Lines);
@@ -190,7 +191,8 @@ public class ServerSnapshotCompareTests
             roles,
             [Channel("c1", "staff", [new SnapshotOverwrite("r1", 0, 0), new SnapshotOverwrite("r2", 0, ViewChannel)])]);
 
-        var plan = ServerSnapshotCompare.PlanChannel(snapshot, Live(live), "c1");
+        // The bot holds the permission the channel setting would allow, so it may set it.
+        var plan = ServerSnapshotCompare.PlanChannel(snapshot, Live(live, botPermissions: ManageRoles | ViewChannel), "c1");
 
         Assert.Null(plan.Problem);
         var set = Assert.Single(plan.Set);
@@ -250,7 +252,8 @@ public class ServerSnapshotCompareTests
         var plan = ServerSnapshotCompare.PlanChannel(snapshot, Live(live, botPermissions: ManageRoles | SendMessages), "c1");
 
         Assert.Null(plan.Problem);
-        Assert.Equal(["Mod: will allow: Send Messages"], plan.Lines);
+        // The channel has no setting for the role now, so it is set again rather than changed.
+        Assert.Equal(["Mod: permissions set again (allows Send Messages)"], plan.Lines);
     }
 
     [Fact]

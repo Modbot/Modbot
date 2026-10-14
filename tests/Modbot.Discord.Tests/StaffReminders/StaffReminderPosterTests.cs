@@ -150,6 +150,8 @@ public class StaffReminderPosterTests
         await using var services = await TestServices.CreateAsync(_db, Ct);
         var gateway = new FakeGateway();
         await ChooseChannelAsync(services);
+        // The card links to the person's page only when Modbot has a public address.
+        await services.ConfigureAsync(s => s.PublicAddress = "https://modbot.example.com", Ct);
         var person = await AddUserAsync(services, "wanda");
         var buddy = await AddUserAsync(services, "casey");
         var trial = await AddTrialAsync(services, person, buddy, startedDaysAgo: 30);
@@ -257,7 +259,8 @@ public class StaffReminderPosterTests
 
         var card = Assert.Single(Assert.Single(gateway.Posts).Embeds);
         Assert.Equal("Check-in: 1 person", card.Title);
-        Assert.Contains("jessie: last active 1 Dec 2025", card.Description);
+        // Signed in 31 days before the test clock, which stands at 13 Sep 2026.
+        Assert.Contains("jessie: last active 13 Aug 2026", card.Description);
         Assert.DoesNotContain("robin", card.Description);
     }
 

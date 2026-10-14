@@ -377,6 +377,7 @@ public class WholePersonLookupTests
                 DiscordCommands.Note,
                 DiscordCommands.Post,
                 DiscordCommands.Recent,
+                DiscordCommands.Vote,
                 DiscordCommands.Watch,
             ],
             staff);

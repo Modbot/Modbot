@@ -15,7 +15,7 @@ public class EventSummaryPostTests(PostgresFixture db)
 {
     private const string Channel = "444444444444444444";
 
-    // The clock starts on 1 January 2026, so the month before is December 2025.
+    // TurnOnAsync sets the clock to 1 January 2026, so the month before is December 2025.
     private static readonly DateTimeOffset Dec = new(2025, 12, 5, 20, 0, 0, TimeSpan.Zero);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -29,7 +29,7 @@ public class EventSummaryPostTests(PostgresFixture db)
     /// <summary>Turned on, with the clock at 06:00 UTC on 1 January, when the summary may go out.</summary>
     private static Task TurnOnAsync(TestServices services, DateOnly? last = null)
     {
-        services.Clock.Advance(TimeSpan.FromHours(6));
+        services.Clock.UtcNow = new DateTimeOffset(2026, 1, 1, 6, 0, 0, TimeSpan.Zero);
 
         return services.ConfigureAsync(s =>
         {

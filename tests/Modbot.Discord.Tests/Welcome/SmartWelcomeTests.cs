@@ -449,7 +449,8 @@ public class SmartWelcomeTests
         await FinishAsync(services, gateway, Member("2040", [Artist]));
 
         var dm = Assert.Single(gateway.DirectMessages);
-        Assert.Equal(["Step 1", "Link your VRChat"], dm.Links.Select(l => l.Label));
+        // An artist gets "Show your art" and "Read the rules", both with a link, then the link button last.
+        Assert.Equal(["Step 1", "Step 2", "Link your VRChat"], dm.Links.Select(l => l.Label));
         Assert.Equal("https://modbot.example.com/link", dm.Links[^1].Url);
     }
 
