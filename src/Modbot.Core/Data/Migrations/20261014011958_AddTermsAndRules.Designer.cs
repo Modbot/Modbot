@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261014005207_AddTermsAndRules")]
+    [Migration("20261014011958_AddTermsAndRules")]
     partial class AddTermsAndRules
     {
         /// <inheritdoc />
@@ -641,6 +641,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("figures");
 
+                    b.Property<Guid?>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
                     b.Property<string>("Link")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -667,6 +671,15 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<decimal>("Score")
                         .HasColumnType("numeric")
                         .HasColumnName("score");
+
+                    b.Property<string>("SecondLocation")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("second_location");
+
+                    b.Property<DateTimeOffset?>("SecondTriedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("second_tried_at");
 
                     b.Property<string>("Sensitivity")
                         .IsRequired()
@@ -703,6 +716,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_modbot_alert_discord_waiting")
                         .HasFilter("discord_channel_id IS NOT NULL AND discord_posted_at IS NULL AND discord_error IS NULL");
 
+                    b.HasIndex("InstanceId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_modbot_alert_instance")
+                        .HasFilter("instance_id IS NOT NULL");
+
                     b.HasIndex("Watcher", "At")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_modbot_alert_watcher_at");
@@ -728,6 +746,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("QuietHours")
                         .HasColumnType("integer")
                         .HasColumnName("quiet_hours");
+
+                    b.Property<int?>("SecondInstanceAtPeople")
+                        .HasColumnType("integer")
+                        .HasColumnName("second_instance_at_people");
+
+                    b.Property<int?>("SecondInstanceAtPercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("second_instance_at_percent");
 
                     b.Property<bool>("WriteSentence")
                         .HasColumnType("boolean")
@@ -1719,6 +1745,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<Guid?>("OpenedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("opened_by_user_id");
+
+                    b.Property<DateTimeOffset?>("RecapPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recap_posted_at");
 
                     b.Property<bool>("TryAgain")
                         .HasColumnType("boolean")
@@ -8942,6 +8972,24 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("EventAlertsPing")
                         .HasColumnType("boolean")
                         .HasColumnName("event_alerts_ping");
+
+                    b.Property<string>("EventRecapChannelId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("event_recap_channel_id");
+
+                    b.Property<string>("EventRecapProblem")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("event_recap_problem");
+
+                    b.Property<DateTimeOffset?>("EventRecapsFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("event_recaps_from");
+
+                    b.Property<bool>("EventRecapsOn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("event_recaps_on");
 
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
