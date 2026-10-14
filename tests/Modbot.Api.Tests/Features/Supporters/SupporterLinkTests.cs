@@ -26,6 +26,7 @@ public class SupporterLinkTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             await context.Supporters.ExecuteDeleteAsync(Ct);
+            await context.DiscordMembers.Where(m => m.GuildId == Guild).ExecuteDeleteAsync(Ct);
         }
 
         var host = await ApiTestHost.StartAsync(db);

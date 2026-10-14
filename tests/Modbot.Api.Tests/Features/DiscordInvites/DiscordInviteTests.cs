@@ -222,9 +222,10 @@ public class DiscordInviteTests
             .Where(e => e.Type == FactType.SettingsChanged)
             .ToListAsync(Ct);
 
-        var change = Assert.Single(facts, f => ApiTestHost.DataOf(f).TryGetProperty("setting", out var name) && name.GetString() == "discordInviteTrackingOn");
-        Assert.False(ApiTestHost.DataOf(change).GetProperty("before").GetBoolean());
-        Assert.True(ApiTestHost.DataOf(change).GetProperty("after").GetBoolean());
+        var change = Assert.Single(facts, f => ApiTestHost.DataOf(f).TryGetProperty("setting", out var name) && name.GetString() == "discordInviteTracking");
+        var on = ApiTestHost.DataOf(change).GetProperty("changed").GetProperty("on");
+        Assert.False(on.GetProperty("old").GetBoolean());
+        Assert.True(on.GetProperty("new").GetBoolean());
     }
 
     [Fact]

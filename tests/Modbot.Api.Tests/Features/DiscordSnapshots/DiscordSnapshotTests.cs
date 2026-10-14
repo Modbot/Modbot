@@ -83,7 +83,8 @@ public class DiscordSnapshotTests
 
         var content = new ServerSnapshotContent(ServerSnapshotContent.CurrentVersion, "1", "Test", roles, channels);
 
-        return new DiscordStructureOutcome(new ServerStructure(content, true, ManageRoles, 10), null);
+        // The bot holds the permissions the tests give back: Discord lets it give only what it has itself.
+        return new DiscordStructureOutcome(new ServerStructure(content, true, ManageRoles | ViewChannel | SendMessages, 10), null);
     }
 
     private static async Task<(ReadSurfaceTestHost Host, FakeSnapshotActions Discord)> StartAsync(
