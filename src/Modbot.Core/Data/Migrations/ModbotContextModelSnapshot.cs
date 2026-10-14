@@ -1173,6 +1173,20 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("auto_open");
 
+                    b.Property<string>("BlueskyDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("bluesky_description");
+
+                    b.Property<int>("BlueskyPostBeforeMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("bluesky_post_before_minutes");
+
+                    b.Property<string>("BlueskyTitle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("bluesky_title");
+
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("cancelled_at");
@@ -1288,6 +1302,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("PostToChannel")
                         .HasColumnType("boolean")
                         .HasColumnName("post_to_channel");
+
+                    b.Property<bool>("PublishToBluesky")
+                        .HasColumnType("boolean")
+                        .HasColumnName("publish_to_bluesky");
 
                     b.Property<bool>("PublishToDiscord")
                         .HasColumnType("boolean")
