@@ -72,7 +72,8 @@ public class CalendarBlueskyTextTests
         var lines = text.Split('\n');
 
         Assert.Equal("Hangout", lines[0]);
-        Assert.StartsWith("{{time ", lines[1], StringComparison.Ordinal);
+        // Bluesky cannot show a time mark, so the time is written out in the event's own zone.
+        Assert.Equal("Sun 20 Sep, 20:00 BST", lines[1]);
         Assert.Equal("Cozy Cabin", lines[2]);
         Assert.Equal("Come along", lines[3]);
     }
