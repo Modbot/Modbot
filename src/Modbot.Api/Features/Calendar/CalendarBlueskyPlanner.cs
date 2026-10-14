@@ -45,7 +45,8 @@ public sealed record CalendarBlueskyPass(int Made, int Changed, int Deleted);
 /// or the account has not passed Check: no post is made, rewritten or deleted. A rate limit from
 /// Bluesky stops the deletes too, and a delete is never sent again for a limit (CLAUDE.md); one that
 /// failed otherwise waits <see cref="PostRules.NotSentRetryAfter"/>. Only dates that have not started
-/// are looked at: a post for a date under way or past stays as it is.
+/// are looked at: a post for a date under way or past stays as it is, and a date whose post time went
+/// by more than an hour ago, when the pass first looks at it, gets no post.
 /// </para>
 /// <para>
 /// Quick edits fold into one change: an event is looked at once it has gone <see cref="SettleFor"/>
@@ -237,8 +238,12 @@ public sealed class CalendarBlueskyPlanner
         }
 
         // A date with no post yet gets one once it is due, and not before: the pass would otherwise
-        // make a row for every date of a long series.
-        foreach (var want in wants.Values.Where(w => w.Due(run.Now)).OrderBy(w => w.SendAt))
+        // make a row for every date of a long series. A date whose time went by longer ago than a post
+        // may be late (an event made or changed inside its own lead time) gets none: the sender would
+        // refuse it as late, and Marketing would show a failed post nobody asked for.
+        foreach (var want in wants.Values
+            .Where(w => w.Due(run.Now) && run.Now - w.SendAt <= PostRules.LateLimit)
+            .OrderBy(w => w.SendAt))
         {
             var post = new Post { Id = Guid.NewGuid(), CreatedAt = run.Now };
             var destination = new PostDestination { Id = Guid.NewGuid(), PostId = post.Id, Network = PostNetworks.Bluesky };

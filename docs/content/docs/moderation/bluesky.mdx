@@ -120,10 +120,26 @@ Once Check has passed, the **Posting** switch appears. It is off to start. On, p
 **Bluesky** go out at their time; off, they wait and show **Off**. The same switch is in **Settings**,
 **Posts**, as **Bluesky posts**.
 
+## Calendar events
+
+An event on the [**Calendar**](/moderation/calendar#bluesky) can post itself here: tick **Bluesky**
+on the event, pick **Post it** (**1 hour**, **1 day**, **3 days** or **1 week before**), and every
+date of the event gets its own post, sent that long before it starts. These posts appear in
+[**Marketing**](/moderation/marketing) like any other, and follow the same rules: **Posting**,
+**Pause all posting**, the hourly limit and Bluesky's rate limit.
+
+Bluesky cannot edit a post, so when an event changes, Modbot **deletes** the post that already went
+out and **posts again**. A cancelled date, a cancelled or deleted event, or **Bluesky** turned off
+on the event, deletes its post and makes no new one. **While Posting is off, Modbot neither makes nor
+deletes these posts**: a cancelled event's post stays on Bluesky until Posting is on again.
+
+A post shows a picture only with a link card, so the event's cover picture goes only when the post
+has a link, and only when it is 1 MB or smaller.
+
 ## Remove
 
 **Remove** asks first, then forgets the handle, the app password or the sign-in with Bluesky, and
-Modbot's sign-in, and turns **Posting** off. Posts already on Bluesky stay there; delete them from **Marketing** first if you
+Modbot's sign-in, and turns **Posting** off. Posts already on Bluesky stay there, calendar events' posts included; delete them from **Marketing** first if you
 want them gone. Revoke the app password in Bluesky too.
 
 ## Sign-ins
@@ -149,7 +165,8 @@ and never sends the request again before then.
 | The account's lasting id | `plc.directory`, or the account's own website | **Check**, and to find where an older post lives |
 | The account's lasting id and the app password, then Modbot's sign-in | The account's own server | Signing in and renewing |
 | Modbot's address, the handle, and requests signed with Modbot's own key | Bluesky's sign-in server, which the account's own server names | **Sign in with Bluesky**, and renewing that sign-in |
-| A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked |
+| A post's text, its link card (the post's title, the link and a small copy of its picture) | The account's own server, and from there public on Bluesky | Only for posts with **Bluesky** ticked, and for each date of a calendar event with **Bluesky** on |
+| The address of a post Modbot made | The account's own server | When Modbot deletes a post, such as one a changed or cancelled calendar event made |
 
 **Posts on Bluesky are public**, and other services copy them. Deleting one removes it from Bluesky,
 not from copies others already took.

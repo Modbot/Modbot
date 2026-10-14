@@ -12,6 +12,8 @@ Modbot does the rest:
 - lists it in a **calendar feed**, a link people can add to Google Calendar, Outlook or Apple
   Calendar;
 - puts it on your group's own **Google calendar**, once one is [connected](/moderation/google-calendar);
+- posts it on your group's **Bluesky** account, one post for each date, once one is
+  [connected](/moderation/bluesky);
 - **opens the group instance** a few minutes before the start, if you ask it to.
 
 Each of these is a chip at the top of the event form: click it to turn that place on or off. Leave
@@ -345,6 +347,7 @@ The chips at the top of the form say where the event goes. A chip that is on has
 | **Discord channel post** | Posts a [card](#the-channel-post) in a channel. | [Discord channel post](#discord-channel-post) |
 | **Calendar feed** | Lists the event in the [calendar feed](#the-calendar-feed). Always on; it cannot be turned off. | None |
 | **Google Calendar** | Puts the event on your group's [Google calendar](#google-calendar). On for a new event everyone may see, once Google Calendar is set up. | **Visible to**, under [Where](#where) |
+| **Bluesky** | [Posts each date on Bluesky](#bluesky) a set time before it starts. Off for a new event. | [Bluesky](#bluesky-settings-on-the-form) |
 | **Open the instance** | [Opens a group instance](#opening-the-instance) before each start. | [Open the instance](#open-the-instance) |
 
 A place's own settings only show while its chip is on.
@@ -357,6 +360,7 @@ the setting that is missing, in a new tab, so what you typed stays:
 | **VRChat calendar**, **Open the instance** | A **Managed group** and a VRChat account, in **Settings**, **Modbot's VRChat login**. |
 | **Discord event**, **Discord channel post** | A **Server id** and the bot connected, in **Settings**, **Discord**. While the bot is connecting or reconnecting, these say **Not set up** too, because nothing is sent until it is back. |
 | **Google Calendar** | A key and a calendar that **Check** found Modbot may change, and **Sending** on, in **Settings**, **Google Calendar**. See [Google Calendar](/moderation/google-calendar). This chip says **Not set up** whether it is on or off. |
+| **Bluesky** | An account that passed **Check** and **Posting** on, in **Settings**, **Bluesky**. See [Bluesky](/moderation/bluesky). |
 
 **Discord channel post** also says **Not set up** until you pick a channel in its section.
 
@@ -388,6 +392,8 @@ be, and so does [Health](#on-health).
   world's name and page under it. Links typed in Google's own description show as plain words here. A padlock beside the title means only the people the calendar is
   shared with will see it, because **Check** found the calendar is not public, or shows the public
   only free or busy.
+- **Bluesky**: the post for the event's next date, as Bluesky will show it: the account's name, the
+  text, the link card with its picture, and how many of Bluesky's 300 characters it uses.
 
 The preview is made by the same code that sends the event, so it matches what goes out. It does not
 save anything or send anything to VRChat, Discord or Google. It can draw an event that is not finished yet,
@@ -400,7 +406,7 @@ title that is too long.
 |---|---|
 | **Title** | Required. Up to 100 characters. The count beside it, such as **12 / 100**, turns red when it is too long. |
 | **Description** | Optional, except for the VRChat calendar. Up to 1,000 characters, counted the same way. Line breaks are kept. |
-| **Own text** | Optional. Under **Description**, tick **VRChat**, **Discord** or **Google** to give that place its own title and description. Ticking one shows the two fields, filled in from the shared words so you can change them; unticking clears them. A place with nothing of its own uses the shared **Title** and **Description**, as before. |
+| **Own text** | Optional. Under **Description**, tick **VRChat**, **Discord**, **Google** or **Bluesky** to give that place its own title and description. Ticking one shows the two fields, filled in from the shared words so you can change them; unticking clears them. A place with nothing of its own uses the shared **Title** and **Description**, as before. |
 
 Each place shows its own text the way that place reads it:
 
@@ -409,8 +415,10 @@ Each place shows its own text the way that place reads it:
   links. Nothing else typed there is treated as markup, and other kinds of address are left as text.
   The shared description is still plain text.
 - **VRChat**: plain text.
+- **Bluesky**: plain text. Its description is cut to 300 characters, counted the way Bluesky counts
+  (a letter with an accent, or an emoji, is one), and the count beside it turns red when it is over.
 
-Own text counts against the same limits (100 and 1,000 characters). A date that was given its own
+Own text counts against the same limits (100 and 1,000 characters; Bluesky's description 300). A date that was given its own
 title or description (see
 [Changing one date of a repeating event](#changing-one-date-of-a-repeating-event)) shows those words
 on every place, instead of the place's own text. Modbot's own pages, the calendar feed, reminders and invites always
@@ -1223,6 +1231,75 @@ Each event says how it went on Google: **Google Calendar: Sending…**, **Publis
 which opens the event on Google, **Failed** with Google's own words and **Try again**, or
 **Removed**. A changed date Google refused shows under the date, with **Try again**.
 
+## Bluesky
+
+When the **Bluesky** chip is on, Modbot posts the event on the Bluesky account in **Settings**,
+**Bluesky**. Setting that up is on the [Bluesky](/moderation/bluesky) page. This is different from
+the other places: Bluesky gets **one post for each date** of the event, not one entry that repeats.
+
+### When it posts
+
+**Post it** sets how long before a date starts its post goes: **1 hour before**, **1 day before**,
+**3 days before** or **1 week before**. A new event starts on **1 day before**. A one-off event gets
+one post. A repeating event gets one post for every date, each sent that long before its own start.
+Modbot makes a date's post when its time comes, so a long series does not fill
+[**Marketing**](/moderation/marketing) with posts weeks ahead.
+
+The posts are ordinary Marketing posts. They go through the same checks as any Bluesky post: the
+**Posting** switch, **Pause all posting**, Bluesky's hourly limit and its rate limit. A post that
+is more than an hour late is not sent.
+
+An event made or changed after a date's post time has already passed by more than an hour gets no
+post for that date, so an event made tomorrow with **1 day before** is not posted. Pick **1 hour
+before** for that.
+
+### What the post says
+
+The title, the time of the date in the event's own time zone, the world's name when the event has
+one, the description and one link. The link is the event's page on Google Calendar when the event is on
+Google, else the group's page on vrchat.com. A post holds 300 characters in all: Modbot cuts the
+description (with an ellipsis) until the post fits, and never cuts the title, time, world or link.
+**Own text** for **Bluesky** replaces the title and the description in the post, and a date that was
+given its own title or description (see
+[Changing one date of a repeating event](#changing-one-date-of-a-repeating-event)) shows those
+words instead.
+
+Bluesky shows a picture only on a link card, so the event's cover picture goes only when the post
+has a link, and only when the picture is no bigger than 1 MB. Otherwise the post has no picture.
+
+### Bluesky settings on the form
+
+The **Bluesky** section appears while the chip is on, with **Post it**, and the **Own text** tick
+described under [Title and description](#title-and-description).
+
+### Changes, cancelling and deleting
+
+Bluesky cannot edit a post. So when you change what a date's post would say, Modbot waits for about
+30 seconds after your last change, then:
+
+- a post not sent yet is simply rewritten;
+- a post that already went out is **deleted** on Bluesky and **posted again**, as a new post, with
+  the new words. Anyone who saw, liked or replied to the old one loses it.
+
+| In Modbot | On Bluesky |
+|---|---|
+| A date's time changes | The old date's post is deleted; the new date gets its own. |
+| **Cancel event**, or **This date** of a repeating event | The post is deleted, and none is made. Nothing says it was cancelled. |
+| **Delete** | The posts are deleted. |
+| The chip turned off | The posts are deleted. Turned on again, they are made again. |
+| A date has started or passed | Its post stays as it is. |
+
+A post you delete or cancel yourself in **Marketing** is not made again until the event changes.
+
+Modbot deletes at most three posts from Bluesky in one pass. A delete Bluesky refuses is tried again
+after two minutes. While Bluesky is limiting Modbot, nothing is deleted, and a delete is never sent
+again for that.
+
+**While Posting is off, nothing happens.** With **Posting** off in **Settings**, **Bluesky**, or
+**Pause all posting** on, Modbot makes no post and takes none down. That includes a cancelled event:
+its post stays up on Bluesky until Posting is on again, and is then deleted. Delete it from
+**Marketing**, or on Bluesky, if it cannot wait.
+
 ## Event categories
 
 See [Event categories](/moderation/event-categories), which also covers the alerts members sign up for.
@@ -1281,8 +1358,9 @@ You never type these in when you use a template: Modbot fills them when the even
 descriptions only (the main description and each site's own description), not in titles: a title is
 shown as it is in lists, reminders and posts, so the Links row does not put a link in one, and a link
 name typed or pasted into a title stays plain words. A fill-in such as **Host** still works in a title.
-Links show on VRChat, Discord, Google and in the calendar feed. Discord's own text leaves out only
-the **Discord event** link, which would point at itself there.
+Links show on VRChat, Discord, Google, Bluesky and in the calendar feed. Discord's own text leaves
+out only the **Discord event** link, which would point at itself there. Bluesky leaves it out too:
+that link is the current date's, not the date the post is about.
 
 An event is not on Google or Discord until its first publish, so **Google event** and **Discord event**
 are left out of what is sent first; once the address is known the texts are sent again by themselves,
@@ -1429,7 +1507,8 @@ for events that are **Scheduled** or **Open**:
 - **Not set up** lines in the same **Calendar** card name each place an event wants that cannot
   work yet (see [Where it goes](#where-it-goes)): for example **Discord event · Not set up**, linking
   to the setting that is missing. **Google Calendar · Not set up** shows while events are ticked for
-  it and Google Calendar is not set up, or **Sending** is off.
+  it and Google Calendar is not set up, or **Sending** is off. **Bluesky · Not set up** shows while
+  events are ticked for it and Bluesky is not set up, or **Posting** is off.
 - **Google Calendar · limited until …** in the same card means Google asked Modbot to slow down.
   Nothing is sent to Google until then; the events wait and go after.
 - **Possible duplicates in Discord** lines in the same **Calendar** card name each set of
