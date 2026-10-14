@@ -1,0 +1,78 @@
+---
+title: Votes
+description: Ask the server a question in a Discord channel. Members vote with a button, can change their vote, and staff close it when it is done.
+---
+
+A vote is a question the bot posts in one of your channels, with a button for each answer. A member
+presses a button to vote, and presses another one to change their mind. A vote has no time limit: staff
+close it.
+
+Make one with `/vote` in Discord or on the **Votes** page in Modbot. Both do the same thing.
+
+## Make a vote
+
+On the **Votes** page you need the **See posts** permission to look, and **Manage posts** to make and
+close a vote. Press **New vote**.
+
+| Setting | What it does |
+|---|---|
+| **Question** | One line, up to 200 characters. It is the title of the message. |
+| **Channel** | Where the vote is posted. The bot needs to see the channel, send messages and embed links in it. |
+| **Only for role** | Only people holding this role can vote. Left empty, everybody in the server can. |
+| **Options** | One on each line, at least two. Two options may not say the same thing. |
+| **Show counts while open** | See [Counts](#counts). Off to start. |
+| **Anonymous** | See [Anonymous](#anonymous). On to start. |
+
+In Discord, type `/vote` and pick the **channel**. You can also pick the **only_for** role,
+**show_counts** and **show_who_voted**. Then fill in the form: the question, and the options with one on
+each line. `/vote` is for event hosts and needs **Manage posts** and a VRChat account linked to your Modbot
+account. It is off until you switch it on in the **Commands** card ([Setting up the bot](/discord/bot-setup)).
+
+The vote is posted the moment you send it. If Discord refuses the message, nothing is saved.
+
+## Buttons or lists
+
+Up to 25 options become buttons. More than that become drop-down lists of 25 choices each, and a vote
+can hold up to 125 options. A button holds at most 80 characters.
+
+## How people vote
+
+A member presses an option. Only they see the answer: what they voted for, or that it changed. Pressing
+another option changes their vote; pressing the same one again changes nothing. Each person has one
+vote.
+
+If the vote is limited to a role and the member does not hold it, they are told which role they need.
+
+## Counts
+
+With **Show counts while open** on, the message shows the number of votes for each option while the vote
+is open. Modbot rewrites the message a few seconds after people vote, so a busy vote is updated every
+few seconds and not once for every press.
+
+With it off, the message shows no numbers until the vote is closed.
+
+## Anonymous
+
+With **Anonymous** on, nobody sees who picked what, on the Votes page or in Discord.
+
+With it off, the Votes page lists the names under each option. Discord never lists voters: the message
+shows counts only.
+
+Modbot keeps every person's pick either way, and not only the totals. That is how each person gets one
+vote and can change it. Anonymous decides what is shown, not what is kept. A vote is made one way or the
+other and cannot be switched from anonymous afterwards.
+
+## Close a vote
+
+Press **Close vote** on the Votes page, then **Close for good**. The bot rewrites the message with the
+result, each option with its votes and share, and the buttons go away. A closed vote takes no more
+votes and cannot be opened again.
+
+The vote is closed in Modbot even when Discord refuses to rewrite the message. The page then says why,
+and the old message may still show its buttons; pressing them says the vote is closed.
+
+## What Modbot keeps
+
+The question, the options, who made it and when, and each person's pick. Picks are deleted when a
+[purge](/moderation/purge) removes the person. Nothing is sent to Modbot Cloud. See
+[Privacy](/privacy).
