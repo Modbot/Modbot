@@ -6,8 +6,9 @@ import { useShortcuts } from '@/lib/shortcuts'
  *
  * `j` and `↓` move down, `k` and `↑` move up, `Enter` opens the selected row and `Esc` drops the
  * selection. The keys are page keys: they wait while a popup is open, because the list is behind
- * it. A list in a popup (`place`) registers none, so the page's are not listed twice. Nothing is selected until a key is pressed, so a page that was only ever used with the
- * mouse looks exactly as it did.
+ * it. A list in a popup (`place`) registers none, so the page's are not listed twice. Nothing is
+ * selected until a key is pressed, so a page that was only ever used with the mouse looks exactly
+ * as it did.
  *
  * The rows are found by `data-row-index`, which the caller writes on each row, so the selected
  * one can be scrolled into view without the hook holding a ref per row.
