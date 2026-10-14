@@ -119,6 +119,10 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<FindCommand>();
         services.AddKeyedSingleton<MemberCommandLimits>(BirthdayCommand.LimitsKey);
         services.AddScoped<BirthdayCommand>();
+        services.AddKeyedSingleton<MemberCommandLimits>(TermCommand.LimitsKey);
+        services.AddScoped<TermCommand>();
+        services.AddKeyedSingleton<MemberCommandLimits>(RuleCommand.LimitsKey);
+        services.AddScoped<RuleCommand>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();
