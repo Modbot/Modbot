@@ -1,4 +1,5 @@
 using Modbot.Api.Features.Calendar;
+using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
 using Modbot.VRChat.Calendar;
 
@@ -114,5 +115,41 @@ public class CalendarSiteTextRequestTests
             CalendarEndpoints.ApplyAll(Request(description: ""), new CalendarEvent()));
 
         Assert.Empty(CalendarEndpoints.ApplyAll(Request(description: "", vrchatDescription: "Only on VRChat"), new CalendarEvent()));
+    }
+
+    [Theory]
+    [InlineData(60)]
+    [InlineData(1440)]
+    [InlineData(4320)]
+    [InlineData(10080)]
+    public void BlueskyTakesTheFourPostItChoices(int minutes)
+    {
+        var e = new CalendarEvent();
+
+        var problems = CalendarEndpoints.ApplyAll(Request() with { BlueskyPostBeforeMinutes = minutes }, e);
+
+        Assert.DoesNotContain(CalendarBlueskyText.BeforeNotAChoice, problems);
+        Assert.Equal(minutes, e.BlueskyPostBeforeMinutes);
+    }
+
+    [Fact]
+    public void ABlueskyPostItTimeThatIsNotAChoiceIsRefused()
+    {
+        var problems = CalendarEndpoints.ApplyAll(Request() with { BlueskyPostBeforeMinutes = 90 }, new CalendarEvent());
+
+        Assert.Contains(CalendarBlueskyText.BeforeNotAChoice, problems);
+    }
+
+    [Fact]
+    public void ABlueskyDescriptionOverThreeHundredCharactersIsRefused()
+    {
+        var problems = CalendarEndpoints.ApplyAll(
+            Request() with { BlueskyDescription = new string('x', 301) }, new CalendarEvent());
+
+        Assert.Contains(CalendarBlueskyText.DescriptionTooLong, problems);
+
+        Assert.DoesNotContain(
+            CalendarBlueskyText.DescriptionTooLong,
+            CalendarEndpoints.ApplyAll(Request() with { BlueskyDescription = new string('x', 300) }, new CalendarEvent()));
     }
 }
