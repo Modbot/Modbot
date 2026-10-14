@@ -46,7 +46,8 @@ public sealed record CalendarBlueskyPass(int Made, int Changed, int Deleted);
 /// Bluesky stops the deletes too, and a delete is never sent again for a limit (CLAUDE.md); one that
 /// failed otherwise waits <see cref="PostRules.NotSentRetryAfter"/>. Only dates that have not started
 /// are looked at: a post for a date under way or past stays as it is, and a date whose post time went
-/// by more than an hour ago, when the pass first looks at it, gets no post.
+/// by is posted right away, as long as the date has not started: its send time is set to now, so the
+/// sender's late rule does not refuse it.
 /// </para>
 /// <para>
 /// Quick edits fold into one change: an event is looked at once it has gone <see cref="SettleFor"/>
@@ -100,6 +101,17 @@ public sealed class CalendarBlueskyPlanner
         string TimeZone)
     {
         public bool Due(DateTimeOffset now) => SendAt <= now;
+
+        /// <summary>
+        /// The send time the post is given: the date's own, or now when that went by longer ago than a
+        /// post may be late (an event made or changed inside its own lead time), so it goes at once.
+        /// </summary>
+        public DateTimeOffset SendAtAt(DateTimeOffset now) => SendAt >= now - PostRules.LateLimit ? SendAt : now;
+
+        /// <summary>Whether <paramref name="post"/> already has a send time that gives this want.</summary>
+        public bool Fits(Post post, DateTimeOffset now) => SendAt >= now - PostRules.LateLimit
+            ? post.SendAt == SendAt
+            : post.SendAt >= now - PostRules.LateLimit && post.SendAt <= now;
     }
 
     public async Task<CalendarBlueskyPass> RunOnceAsync(CancellationToken ct = default)
@@ -239,10 +251,10 @@ public sealed class CalendarBlueskyPlanner
 
         // A date with no post yet gets one once it is due, and not before: the pass would otherwise
         // make a row for every date of a long series. A date whose time went by longer ago than a post
-        // may be late (an event made or changed inside its own lead time) gets none: the sender would
-        // refuse it as late, and Marketing would show a failed post nobody asked for.
+        // may be late (an event made or changed inside its own lead time) is posted now: it has not
+        // started, so the post is still useful, and Write sets its send time to now.
         foreach (var want in wants.Values
-            .Where(w => w.Due(run.Now) && run.Now - w.SendAt <= PostRules.LateLimit)
+            .Where(w => w.Due(run.Now))
             .OrderBy(w => w.SendAt))
         {
             var post = new Post { Id = Guid.NewGuid(), CreatedAt = run.Now };
@@ -291,7 +303,7 @@ public sealed class CalendarBlueskyPlanner
 
                 if (post.Status != PostStatuses.Scheduled
                     || options.Fingerprint != want.Fingerprint
-                    || post.SendAt != want.SendAt
+                    || !want.Fits(post, run.Now)
                     || destination.State != PostDestinationStates.Waiting)
                 {
                     Write(run, calendarEvent, post, destination, want);
@@ -406,7 +418,7 @@ public sealed class CalendarBlueskyPlanner
         post.PictureId = want.PictureId;
         post.TimeZone = want.TimeZone;
         post.Status = PostStatuses.Scheduled;
-        post.SendAt = want.SendAt;
+        post.SendAt = want.SendAtAt(run.Now);
         post.CancelledAt = null;
         post.UpdatedAt = run.Now;
         post.Version++;
